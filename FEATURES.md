@@ -8,13 +8,6 @@
 - **Deterministic Routing**: Queries routed to appropriate handlers based on intent
 - **Hardware-aware**: Selects optimal model based on CPU, RAM, and GPU
 
-### CLI Commands (v0.0.361)
-- **Core Commands**: status, stats, learning, report, health
-- **Ticket System**: email, ticket, reply (async workflow support)
-- **Maintenance**: reset, uninstall
-- **Report Generation**: text and markdown formats with health checks
-- **Email Notifications**: Configure alerts for ticket updates
-
 ### Team-Scoped Specialists (v0.0.26)
 - **8 Domain Teams**: Desktop, Storage, Network, Performance, Services, Security, Hardware, General
 - **3 Roles per Team**: Translator, Junior Reviewer, Senior Reviewer

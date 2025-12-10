@@ -1,22 +1,19 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.361+)
+## Current Focus (v0.0.363+)
 
-**Theme**: UI Consistency + Code Quality + Reliability + CLI Completeness
+**Theme**: UI Consistency + Code Quality + Reliability
 
-Anna v0.0.361 extends functionality with new CLI commands:
+Anna v0.0.363 focuses on:
 - Centralized UI system for consistent terminal output
 - Zero compiler warnings for cleaner builds (library + tests)
 - Modular code design (all files under 400 lines)
-- Complete CLI with 10 commands for full system management
+- Enhanced user experience across all displays
 
-### Recent Completions (v0.0.346-361)
-- [x] **New CLI commands** - report, health, email, ticket, reply (v0.0.361)
-- [x] **Fixed orphaned modules** - ticket_commands.rs, report_cmd.rs (v0.0.361)
+### Recent Completions (v0.0.346-360)
 - [x] UI consistency in errors.rs - print_step() for recovery suggestions (v0.0.356)
 - [x] UI consistency in handlers.rs - print_ok/warn for uninstall flow (v0.0.356)
 - [x] Zero test warnings - cleaned unused imports/functions (v0.0.357)
-- [x] UI consistency in report_cmd.rs - print_warn() for probe failures (v0.0.358)
 - [x] Documentation updates - FEATURES.md, README.md, ROADMAP.md (v0.0.359-360)
 - [x] learning.rs uses print_step() for list items (v0.0.354)
 - [x] change_commands.rs uses print_ok/err/hint (v0.0.355)
