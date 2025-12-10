@@ -1,12 +1,13 @@
-//! Context-aware greeting insights from system state (v0.0.326).
+//! Context-aware greeting insights from system state (v0.0.335).
 //!
 //! Enriches Anna's greetings with observations about the system state,
 //! making her feel more aware and proactive without being annoying.
 //!
 //! v0.0.245: Initial implementation.
 //! v0.0.326: Added learning progress insights.
+//! v0.0.335: Enhanced with health status and trends.
 
-use crate::probe_learning::ProbeLearningStore;
+use crate::probe_learning::{LearningHealth, ProbeLearningStore, TrendDirection};
 use crate::roster::{person_for, Tier};
 use crate::snapshot::{DeltaItem, SystemSnapshot};
 use crate::teams::Team;
@@ -52,6 +53,7 @@ pub fn generate_insights(
 }
 
 /// v0.0.326: Add learning progress insight
+/// v0.0.335: Enhanced with health status and trends
 fn add_learning_insights(insights: &mut Vec<GreetingInsight>) {
     let store = ProbeLearningStore::load();
     let stats = store.learning_stats();
@@ -61,40 +63,64 @@ fn add_learning_insights(insights: &mut Vec<GreetingInsight>) {
         return; // Too early to mention learning
     }
 
+    let health = store.health_status();
+    let trend = store.quality_trend();
+
+    // v0.0.335: Priority message for declining health
+    if health == LearningHealth::NeedsAttention {
+        let person = person_for(Team::Desktop, Tier::Senior);
+        insights.push(GreetingInsight {
+            staff_name: person.display_name,
+            team: Team::Desktop,
+            message: "learning quality is declining - might need fresh data".to_string(),
+            priority: 35, // Higher than normal learning, but lower than system issues
+            positive: false,
+        });
+        return;
+    }
+
+    // v0.0.335: Celebrate improving trend
+    if let Some(ref t) = trend {
+        if t.trend == TrendDirection::Improving && t.change > 0.5 {
+            let person = person_for(Team::Desktop, Tier::Junior);
+            insights.push(GreetingInsight {
+                staff_name: person.display_name,
+                team: Team::Desktop,
+                message: format!(
+                    "answers improving! {:.1} → {:.1}/5",
+                    t.previous_avg, t.current_avg
+                ),
+                priority: 28,
+                positive: true,
+            });
+            return;
+        }
+    }
+
     // Show different messages based on learning stage
-    let (message, priority) = if stats.total_queries >= 50 && stats.avg_quality >= 4.0 {
-        // Expert level
-        (
+    let (message, priority) = match health {
+        LearningHealth::Excellent => (
             format!(
-                "I've learned {} patterns with {:.1}/5 avg quality",
+                "operating at peak learning ({} patterns, {:.1}/5 quality)",
                 stats.successful_patterns, stats.avg_quality
             ),
-            25, // Low priority - only show if no issues
-        )
-    } else if stats.keywords_learned >= 10 {
-        // Good progress
-        (
+            25,
+        ),
+        LearningHealth::Good => (
             format!(
-                "picked up {} keywords from {} queries",
+                "learning going well - {} keywords from {} queries",
                 stats.keywords_learned, stats.total_queries
             ),
             20,
-        )
-    } else if stats.total_queries >= 10 {
-        // Early learning
-        (
-            format!(
-                "learning from {} queries so far",
-                stats.total_queries
-            ),
+        ),
+        LearningHealth::Developing => (
+            format!("building knowledge from {} queries", stats.total_queries),
             15,
-        )
-    } else {
-        // Very early - just started
-        (
+        ),
+        LearningHealth::Insufficient | LearningHealth::NeedsAttention => (
             "still getting to know your system".to_string(),
             10,
-        )
+        ),
     };
 
     // Use Sofia (Desktop Jr) for learning insights - she's the learner

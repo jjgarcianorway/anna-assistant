@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.335] - 2025-12-10
+
+### Enhanced - Learning Health in Greetings
+
+Anna's greetings now reflect learning health:
+
+- **Declining health warning** (priority 35): "learning quality is declining - might need fresh data"
+- **Improving trend celebration** (priority 28): "answers improving! 3.5 → 4.2/5"
+- **Excellent health**: "operating at peak learning (50 patterns, 4.5/5 quality)"
+- **Good health**: "learning going well - 25 keywords from 40 queries"
+- **Developing**: "building knowledge from 15 queries"
+
+The senior staff member (Erik) delivers warnings about declining quality, while Sofia shares positive learning updates.
+
 ## [0.0.334] - 2025-12-10
 
 ### Added - Health Status in Learning Command
