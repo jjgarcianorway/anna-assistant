@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.359] - 2025-12-10
+
+### Documentation - Updated FEATURES.md and README.md
+
+Updated documentation to reflect v0.0.346-358 UI consistency improvements:
+
+**FEATURES.md:**
+- Extended UI Consistency section to cover v0.0.341-358
+- Added learning.rs and report_cmd.rs to file list
+- Updated Code Quality section to v0.0.357
+
+**README.md:**
+- Version updated to v0.0.358
+
+Documentation now accurately reflects the centralized UI helper system.
+
 ## [0.0.358] - 2025-12-10
 
 ### Improved - UI Consistency in report_cmd.rs

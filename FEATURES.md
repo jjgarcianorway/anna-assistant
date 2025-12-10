@@ -193,19 +193,21 @@
 - **Progress Bar**: `progress_bar(percent, width)` for visual progress
 - **Duration Format**: `format_duration(seconds)` for human-readable time
 
-### UI Consistency Updates (v0.0.341-350)
+### UI Consistency Updates (v0.0.341-358)
 - **greeting/status.rs**: LLM state messages use `print_hint()` and `print_label()`
 - **greeting/personal.rs**: Personalized greetings use centralized helpers
-- **errors.rs**: Error display with recovery suggestions
-- **handlers.rs**: Uninstall/reset plans use `print_step()`
+- **errors.rs**: Error display with recovery suggestions via `print_step()`
+- **handlers.rs**: Uninstall/reset plans use `print_step()`, `print_ok()`, `print_warn()`
 - **progress_display.rs**: Bootstrap progress uses consistent formatting
-- **change_commands.rs**: Change proposals use standardized display
+- **change_commands.rs**: Change proposals use `print_ok()`, `print_err()`, `print_hint()`
 - **ticket_commands.rs**: Ticket views use centralized helpers
 - **stats_display_v2.rs**: Stats display with consistent formatting
+- **learning.rs**: Learning stats use `print_step()` for list items
+- **report_cmd.rs**: Probe failure warnings use `print_warn()`
 
-### Code Quality (v0.0.350)
-- **Zero Warnings**: Clean release build with no compiler warnings
-- **Unused Code Cleanup**: Removed dead fields and imports
+### Code Quality (v0.0.357)
+- **Zero Warnings**: Clean release build with no compiler warnings (library + tests)
+- **Unused Code Cleanup**: Removed dead fields, imports, and functions
 - **Modular Design**: Files kept under 400 lines for maintainability
 
 ## Not Yet Implemented
