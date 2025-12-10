@@ -3,8 +3,11 @@
 //! Provides structured context for the translator LLM to generate
 //! personalized, varied greetings while maintaining consistent content.
 //! v0.0.281: Added telemetry-based health issue population.
+//! v0.0.287: Added maintenance prompts for proactive suggestions.
 
 use crate::health_alerts::{generate_alerts, AlertSeverity};
+use crate::maintenance_actions::{generate_maintenance_actions, MaintenanceAction};
+use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +36,9 @@ pub struct GreetingContext {
     pub health_issues: Vec<String>,
     /// LLM status (ready, starting, error)
     pub llm_status: String,
+    /// v0.0.287: Proactive maintenance prompts
+    #[serde(default)]
+    pub maintenance_prompts: Vec<String>,
 }
 
 impl Default for GreetingContext {
@@ -49,6 +55,7 @@ impl Default for GreetingContext {
             last_session_summary: None,
             health_issues: Vec::new(),
             llm_status: "ready".to_string(),
+            maintenance_prompts: Vec::new(),
         }
     }
 }
@@ -97,6 +104,30 @@ impl GreetingContext {
         } else {
             Some(format!("{} system notices", self.health_issues.len()))
         }
+    }
+
+    /// v0.0.287: Add maintenance prompts from snapshot and telemetry
+    pub fn with_maintenance(
+        mut self,
+        snapshot: &SystemSnapshot,
+        telemetry: Option<&TelemetryStore>,
+    ) -> Self {
+        let actions = generate_maintenance_actions(snapshot, telemetry);
+
+        // Add only critical/urgent actions (urgency <= 2) as prompts
+        for action in actions.iter().filter(|a| a.urgency <= 2).take(2) {
+            self.maintenance_prompts.push(format!(
+                "{}: \"{}\"",
+                action.title, action.anna_query
+            ));
+        }
+
+        self
+    }
+
+    /// Check if there are actionable maintenance items
+    pub fn has_maintenance(&self) -> bool {
+        !self.maintenance_prompts.is_empty()
     }
 }
 
@@ -155,6 +186,15 @@ impl GreetingResponse {
             lines.push("System notices:".to_string());
             for issue in ctx.health_issues.iter().take(3) {
                 lines.push(format!("  - {}", issue));
+            }
+        }
+
+        // v0.0.287: Maintenance prompts
+        if !ctx.maintenance_prompts.is_empty() {
+            lines.push(String::new());
+            lines.push("Quick actions you might want:".to_string());
+            for prompt in ctx.maintenance_prompts.iter().take(2) {
+                lines.push(format!("  - {}", prompt));
             }
         }
 

@@ -29,12 +29,15 @@ use types::calculate_interaction_info;
 pub use types::{bullet, InteractionInfo};
 
 /// Build greeting context from current system state
+/// v0.0.287: Added maintenance prompt support
 fn build_greeting_context(
     username: &str,
     profile: &UserProfile,
     interaction_info: &types::InteractionInfo,
     health_issues: Vec<String>,
     llm_status: &str,
+    snapshot: &snapshot::SystemSnapshot,
+    telemetry: Option<&TelemetryStore>,
 ) -> GreetingContext {
     // Get open tickets count
     let tracker = TicketTracker::for_user();
@@ -43,7 +46,8 @@ fn build_greeting_context(
     // Get last session summary
     let last_session_summary = profile.since_last_time();
 
-    GreetingContext {
+    // Build base context
+    let ctx = GreetingContext {
         username: username.to_string(),
         hours_since_last: interaction_info.hours_since_last,
         days_since_last: interaction_info.days_since_last,
@@ -55,7 +59,11 @@ fn build_greeting_context(
         last_session_summary,
         health_issues,
         llm_status: llm_status.to_string(),
-    }
+        maintenance_prompts: Vec::new(),
+    };
+
+    // v0.0.287: Add maintenance prompts
+    ctx.with_maintenance(snapshot, telemetry)
 }
 
 /// Print the theatre-style REPL greeting
@@ -74,6 +82,9 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let mut current_snapshot = SystemSnapshot::now();
     let failed_services = collect_failed_services(&mut current_snapshot);
 
+    // v0.0.287: Load telemetry once for health alerts and maintenance prompts
+    let telemetry = TelemetryStore::load_if_exists();
+
     // Collect health issues from multiple sources
     let mut health_issues = Vec::new();
 
@@ -83,8 +94,8 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     }
 
     // 2. v0.0.284: Telemetry-based health alerts
-    if let Some(telemetry) = TelemetryStore::load_if_exists() {
-        let alerts = generate_alerts(&telemetry);
+    if let Some(ref telemetry) = telemetry {
+        let alerts = generate_alerts(telemetry);
         for alert in alerts.iter().filter(|a| !a.dismissed) {
             match alert.severity {
                 AlertSeverity::Critical => {
@@ -115,13 +126,15 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
         })
         .unwrap_or("unknown");
 
-    // Build greeting context
+    // Build greeting context (now includes maintenance prompts)
     let ctx = build_greeting_context(
         &username,
         &profile,
         &interaction_info,
         health_issues,
         llm_status,
+        &current_snapshot,
+        telemetry.as_ref(),
     );
 
     // v0.0.142: Clean header without redundant title

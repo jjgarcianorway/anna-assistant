@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.287] - 2025-12-10
+
+### Enhanced - Maintenance Prompts in Greeting
+
+**Greeting Context Integration:**
+- Maintenance prompts now appear in session greeting
+- Critical/urgent maintenance actions (urgency <= 2) shown as "Quick actions"
+- Each prompt includes ready-to-use Anna query
+- Fallback greeting displays maintenance section
+
+**GreetingContext Enhancements:**
+- Added `maintenance_prompts` field to GreetingContext
+- New `with_maintenance()` method populates prompts from snapshot/telemetry
+- New `has_maintenance()` helper method
+- Optimized to load telemetry only once per greeting
+
+**Files changed:**
+- `anna-shared/src/greeting_context.rs` - Added maintenance prompt support
+- `annactl/src/greeting/mod.rs` - Integrated maintenance into greeting flow
+
 ## [0.0.286] - 2025-12-10
 
 ### Added - Proactive Maintenance Actions
