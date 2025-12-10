@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.358] - 2025-12-10
+
+### Improved - UI Consistency in report_cmd.rs
+
+Replaced `eprintln!` with centralized UI helper for probe failure warnings:
+
+**Updated File:**
+- `report_cmd.rs` - Uses `print_warn()` instead of `eprintln!` for probe failures
+
+Consistent warning display during report generation.
+
 ## [0.0.357] - 2025-12-10
 
 ### Improved - Zero Test Warnings

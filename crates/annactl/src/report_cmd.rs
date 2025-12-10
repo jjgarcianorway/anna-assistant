@@ -1,7 +1,8 @@
-//! Report command handler.
+//! Report command handler (v0.0.358).
 //!
 //! Generates a deterministic system health report from probe data.
 //! Runs probes directly (not through daemon) for independence.
+//! v0.0.358: Use print_warn() for probe failures.
 
 use anna_shared::advice::{
     format_recommendations_markdown, format_recommendations_text, generate_recommendations,
@@ -9,6 +10,7 @@ use anna_shared::advice::{
 use anna_shared::parsers::{parse_probe_output, ParsedProbeData};
 use anna_shared::report::{format_markdown, format_text, ReportEvidence, SystemReport};
 use anna_shared::trace::{EvidenceKind, ExecutionTrace, ProbeStats};
+use anna_shared::ui::print_warn;
 use anyhow::{anyhow, Result};
 use std::process::Command;
 
@@ -89,7 +91,7 @@ async fn collect_evidence() -> Result<ReportEvidence> {
                 }
             }
             Err(e) => {
-                eprintln!("Warning: probe '{}' failed: {}", cmd, e);
+                print_warn(&format!("probe '{}' failed: {}", cmd, e));
             }
         }
     }
