@@ -6,6 +6,7 @@
 //! v0.0.237: Enhanced display format with conversational headers.
 //! v0.0.238: Added streaming token support for word-by-word output.
 //! v0.0.253: Enhanced specialist dialogue with role titles and visual polish.
+//! v0.0.278: Enhanced Hollywood-style stage indicators and spinners.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::roster;
@@ -86,6 +87,10 @@ struct StreamingState {
     at_line_start: bool,
     /// v0.0.253: Whether we've shown the internal comms header
     shown_internal_header: bool,
+    /// v0.0.278: Current stage for spinner display
+    current_stage: Option<String>,
+    /// v0.0.278: Whether we're showing a spinner line
+    spinner_active: bool,
 }
 
 impl Default for StreamingState {
@@ -94,6 +99,8 @@ impl Default for StreamingState {
             started_streaming: false,
             at_line_start: true,
             shown_internal_header: false,
+            current_stage: None,
+            spinner_active: false,
         }
     }
 }
@@ -102,15 +109,36 @@ impl Default for StreamingState {
 /// v0.0.237: Enhanced conversational format with better styling
 /// v0.0.238: Added streaming token support
 /// v0.0.253: Enhanced with role titles and internal comms header
+/// v0.0.278: Hollywood-style stage transitions with animated spinners
 fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
     // Check user preference for internal comms
     let profile = UserProfile::load();
     let show_internal = profile.preferences.show_internal_comms;
 
     match &event.event {
+        ProgressEventType::Starting { timeout_secs: _ } => {
+            // v0.0.278: Show stage transition with Hollywood flair
+            let stage_name = match event.stage {
+                anna_shared::progress::RequestStage::Translator => "classifying query",
+                anna_shared::progress::RequestStage::Probes => "gathering system data",
+                anna_shared::progress::RequestStage::Specialist => "consulting specialist",
+                anna_shared::progress::RequestStage::Supervisor => "verifying answer",
+            };
+            // Clear any previous spinner
+            if state.spinner_active {
+                print!("\r{}\r", " ".repeat(60));
+            }
+            state.current_stage = Some(stage_name.to_string());
+            state.spinner_active = true;
+        }
         ProgressEventType::InternalComms { from, message } => {
             if !show_internal {
                 return;
+            }
+            // Clear spinner if active
+            if state.spinner_active {
+                print!("\r{}\r", " ".repeat(60));
+                state.spinner_active = false;
             }
             // If we were streaming, end the line first
             if state.started_streaming && !state.at_line_start {
@@ -119,7 +147,7 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
             }
             // v0.0.253: Show internal comms header on first message
             if !state.shown_internal_header {
-                println!("{}--- internal ---{}", colors::DIM, colors::RESET);
+                println!("{}--- internal comms ---{}", colors::DIM, colors::RESET);
                 state.shown_internal_header = true;
             }
             // v0.0.253: Show internal comms with role titles from roster
@@ -131,22 +159,26 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
             if !state.started_streaming {
                 let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧"];
                 let frame = (*tokens / 5) % spinner.len();
+                let stage_desc = state.current_stage.as_deref().unwrap_or("thinking");
                 print!(
-                    "\r  {}{}{} thinking... {} tokens",
+                    "\r  {}{}{} {}... {} tokens",
                     colors::CYAN,
                     spinner[frame],
                     colors::RESET,
+                    stage_desc,
                     tokens
                 );
+                state.spinner_active = true;
                 let _ = io::stdout().flush();
             }
         }
         ProgressEventType::StreamingToken { token, is_final } => {
             // Clear spinner line if this is first token
             if !state.started_streaming {
-                print!("\r                                        \r");
+                print!("\r{}\r", " ".repeat(60));
                 state.started_streaming = true;
                 state.at_line_start = true;
+                state.spinner_active = false;
             }
             // Print the token (word-by-word output)
             print!("{}", token);
@@ -159,13 +191,11 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
                 state.at_line_start = true;
             }
         }
-        ProgressEventType::Starting { .. } => {
-            // Silently track stage starts
-        }
         ProgressEventType::Complete => {
             // Clear generation line if needed (but not if we were streaming)
-            if !state.started_streaming {
-                print!("\r                                        \r");
+            if state.spinner_active && !state.started_streaming {
+                print!("\r{}\r", " ".repeat(60));
+                state.spinner_active = false;
                 let _ = io::stdout().flush();
             }
         }

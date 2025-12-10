@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.279] - 2025-12-10
+
+### Enhanced - Hollywood-Style Progress Display
+
+**Real-time spinner with stage-aware messages:**
+- Spinner now shows current stage: "classifying query", "gathering system data", "consulting specialist", "verifying answer"
+- Better spinner clearing and state management
+- More polished internal comms header ("--- internal comms ---")
+
+**Improved streaming token handling:**
+- Cleaner line clearing when transitioning from spinner to streaming
+- Stage context preserved for generation progress messages
+
+**Files changed:**
+- `annactl/src/live_request.rs` - Enhanced progress display with Hollywood-style spinners
+
 ## [0.0.278] - 2025-12-10
 
 ### Enhanced - Status Display with Model Hierarchy
