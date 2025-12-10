@@ -1,10 +1,11 @@
-//! Evidence redaction rules (v0.0.290).
+//! Evidence redaction rules (v0.0.324).
 //!
 //! Removes sensitive data patterns from probe outputs before display.
 //! Applied even in debug mode for security.
 //!
 //! v0.0.290: Added LLM reasoning tag stripping (<think>, etc.) to prevent
 //!           internal model dialog from leaking into user-facing answers.
+//! v0.0.324: Added quality self-assessment extraction for learning.
 
 use regex::Regex;
 use std::sync::LazyLock;
@@ -124,7 +125,37 @@ pub fn strip_reasoning_tags(text: &str) -> String {
 /// Use this for LLM responses to ensure both security and clean output
 pub fn clean_llm_response(text: &str) -> String {
     let stripped = strip_reasoning_tags(text);
-    redact(&stripped)
+    // v0.0.324: Strip quality assessment from user-visible output
+    let without_quality = strip_quality_assessment(&stripped);
+    redact(&without_quality)
+}
+
+/// v0.0.324: Extract quality self-assessment from LLM response
+/// Returns (quality_score, cleaned_text) where score is 1-5 or None
+pub fn extract_quality_assessment(text: &str) -> (Option<u8>, String) {
+    // Pattern: [QUALITY: X/5] at end of response
+    static QUALITY_PATTERN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\[QUALITY:\s*([1-5])/5\]").unwrap());
+
+    if let Some(caps) = QUALITY_PATTERN.captures(text) {
+        if let Some(score_match) = caps.get(1) {
+            if let Ok(score) = score_match.as_str().parse::<u8>() {
+                // Remove the quality tag from the response
+                let cleaned = QUALITY_PATTERN.replace_all(text, "").trim().to_string();
+                return (Some(score), cleaned);
+            }
+        }
+    }
+
+    (None, text.to_string())
+}
+
+/// v0.0.324: Strip quality assessment from text (for clean display)
+fn strip_quality_assessment(text: &str) -> String {
+    static QUALITY_PATTERN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\[QUALITY:\s*[1-5]/5\]").unwrap());
+
+    QUALITY_PATTERN.replace_all(text, "").trim().to_string()
 }
 
 /// Redact sensitive patterns from probe output
@@ -256,5 +287,39 @@ Your /home partition is 75% full with 50GB available."#;
         let text = "Your system has 16GB RAM and 500GB SSD.";
         let stripped = strip_reasoning_tags(text);
         assert_eq!(text, stripped);
+    }
+
+    // v0.0.324: Tests for quality self-assessment extraction
+
+    #[test]
+    fn test_extract_quality_score() {
+        let text = "Your disk is 50% full.\n\n[QUALITY: 5/5]";
+        let (score, cleaned) = extract_quality_assessment(text);
+        assert_eq!(score, Some(5));
+        assert_eq!(cleaned, "Your disk is 50% full.");
+    }
+
+    #[test]
+    fn test_extract_quality_score_partial() {
+        let text = "I couldn't find that information.\n[QUALITY: 2/5]";
+        let (score, cleaned) = extract_quality_assessment(text);
+        assert_eq!(score, Some(2));
+        assert!(!cleaned.contains("[QUALITY"));
+    }
+
+    #[test]
+    fn test_no_quality_score() {
+        let text = "Your system has 16GB RAM.";
+        let (score, cleaned) = extract_quality_assessment(text);
+        assert_eq!(score, None);
+        assert_eq!(cleaned, text);
+    }
+
+    #[test]
+    fn test_quality_stripped_from_clean_response() {
+        let text = "Answer here.\n\n[QUALITY: 4/5]";
+        let cleaned = clean_llm_response(text);
+        assert!(!cleaned.contains("[QUALITY"));
+        assert!(cleaned.contains("Answer here"));
     }
 }

@@ -1,7 +1,8 @@
-//! Specialist prompt building for service desk (v0.0.322).
+//! Specialist prompt building for service desk (v0.0.324).
 //!
 //! v0.0.260: Added OS info to context.
 //! v0.0.322: Improved grounding rules to prevent hallucination.
+//! v0.0.324: Added self-assessment for answer quality learning.
 //! COST: Enforces prompt size cap with diagnostic surfacing.
 
 use anna_shared::resource_limits::{ResourceDiagnostic, MAX_PROMPT_CHARS};
@@ -43,6 +44,7 @@ pub fn build_specialist_prompt(
 
 /// Grounding rules suffix (constant size, always included)
 /// v0.0.322: Strengthened to prevent hallucination and off-topic answers
+/// v0.0.324: Added self-assessment for learning
 const GROUNDING_RULES: &str = r#"
 
 === GROUNDING RULES (MANDATORY) ===
@@ -55,6 +57,15 @@ const GROUNDING_RULES: &str = r#"
 
 CRITICAL: Your answer must be RELEVANT to what the user asked.
 If the user asks about X, answer about X, not Y.
+
+SELF-ASSESSMENT (end of response):
+After your answer, on a new line, add: [QUALITY: X/5]
+where X is your honest assessment:
+5 = Complete answer from probe data
+4 = Good answer, minor gaps
+3 = Partial answer, missing some data
+2 = Limited answer, probes didn't provide needed info
+1 = Could not answer properly
 
 === END CONTEXT ==="#;
 

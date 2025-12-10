@@ -168,6 +168,7 @@ pub fn wrap_with_theatre(
 }
 
 /// v0.0.322: Record probe usage and effectiveness for learning
+/// v0.0.324: Enhanced with LLM self-assessment quality scores
 fn record_probe_learning(result: &ServiceDeskResult) {
     // Extract user query from transcript
     let query = extract_query_from_transcript(result);
@@ -197,19 +198,37 @@ fn record_probe_learning(result: &ServiceDeskResult) {
         store.record_usage(category.clone(), &probe_id, failed);
     }
 
-    // Use reliability score as a proxy for answer quality
-    // High reliability (>=80) = helpful, low (<60) = not helpful
-    let helpful = result.reliability_score >= 80;
-    if result.reliability_score >= 80 || result.reliability_score < 60 {
-        // Only record feedback for clear signals
-        let failure_reason = if !helpful {
-            Some("low_reliability_score")
-        } else {
-            None
-        };
+    // v0.0.324: Determine helpfulness using both reliability score AND quality assessment
+    // Quality scores 4-5 = helpful, 1-2 = not helpful
+    // Fall back to reliability score if no quality assessment
+    let (quality_score, _) = crate::redact::extract_quality_assessment(&result.answer);
 
+    let helpful = match quality_score {
+        Some(score) if score >= 4 => true,
+        Some(score) if score <= 2 => false,
+        Some(_) => result.reliability_score >= 70, // 3/5 is borderline
+        None => result.reliability_score >= 80,    // Fall back to reliability
+    };
+
+    // Determine failure reason
+    let failure_reason = if !helpful {
+        match quality_score {
+            Some(score) if score <= 2 => Some("low_llm_quality_self_assessment"),
+            _ => Some("low_reliability_score"),
+        }
+    } else {
+        None
+    };
+
+    // Only record feedback for clear signals
+    let should_record = match quality_score {
+        Some(score) => score >= 4 || score <= 2, // Clear good or bad
+        None => result.reliability_score >= 80 || result.reliability_score < 60,
+    };
+
+    if should_record {
         store.record_feedback(
-            category,
+            category.clone(),
             &probes,
             helpful,
             Some(&query),
@@ -221,10 +240,11 @@ fn record_probe_learning(result: &ServiceDeskResult) {
     let _ = store.save();
 
     debug!(
-        "Recorded probe learning: {} probes, helpful={}, category={:?}",
+        "Recorded probe learning: {} probes, helpful={}, quality={:?}, category={:?}",
         probes.len(),
         helpful,
-        QueryCategory::from_query(&query)
+        quality_score,
+        category
     );
 }
 

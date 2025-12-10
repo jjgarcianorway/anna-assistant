@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.324] - 2025-12-10
+
+### Added - LLM Self-Assessment for Learning
+
+**Anna's specialists now self-assess their answer quality:**
+
+The specialist prompt now asks the LLM to rate its own answer:
+```
+[QUALITY: X/5]
+5 = Complete answer from probe data
+4 = Good answer, minor gaps
+3 = Partial answer, missing some data
+2 = Limited answer, probes didn't provide needed info
+1 = Could not answer properly
+```
+
+**Benefits:**
+- More accurate learning signal than reliability score alone
+- LLM knows when it lacked data to answer properly
+- Quality tag is automatically stripped from user-visible responses
+- Learning system uses quality scores when available:
+  - 4-5/5 = helpful (positive learning)
+  - 1-2/5 = not helpful (negative learning)
+  - 3/5 = borderline, uses reliability score as tiebreaker
+
+**Technical changes:**
+- `prompts.rs`: Added self-assessment instruction to grounding rules
+- `redact.rs`: Added `extract_quality_assessment()` function
+- `result_stage.rs`: Uses quality score for learning feedback
+
 ## [0.0.323] - 2025-12-10
 
 ### Added - Learning Stats Command
