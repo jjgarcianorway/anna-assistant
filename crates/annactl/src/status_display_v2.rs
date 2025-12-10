@@ -271,6 +271,9 @@ pub fn print_status_display_v2(
         &format!("{}OK{}  (journal clean)", colors::OK, colors::RESET),
     );
 
+    // === [statistics] v0.0.274 ===
+    crate::status_statistics::print_statistics_section();
+
     // === [health] ===
     println!();
     println!("{}[health]{}", colors::HEADER, colors::RESET);

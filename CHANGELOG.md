@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.274] - 2025-12-10
+
+### Added - Statistics Section in Status Display
+
+**New `[statistics]` section in `annactl status`:**
+- Shows total cases and success rate with color-coded indicators
+- Displays average response time
+- Lists top 3 departments/teams with case counts and resolution scores
+- Shows top 3 staff performers with success rates
+
+**Example output:**
+```
+[statistics]
+  total_cases           42
+  success_rate          85%
+  avg_response          1234ms
+  top_departments
+    desktop       cases:  15  ok:  13  score:    82
+    network       cases:  12  ok:  10  score:    78
+    storage       cases:   8  ok:   7  score:    85
+  top_staff
+    Sofia         cases:  10  success:   90%
+    Michael       cases:   8  success:   87%
+    Chen          cases:   6  success:   83%
+```
+
+**Files changed:**
+- New: `annactl/src/status_statistics.rs` - Dedicated statistics section module
+- `annactl/src/status_display_v2.rs` - Integrated statistics call
+- `annactl/src/main.rs` - Added module
+
 ## [0.0.273] - 2025-12-10
 
 ### Fixed - Routing Accuracy Improved to 100%
