@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.342] - 2025-12-10
+
+### Improved - Change Commands UI Consistency
+
+Complete UI refactor for config change workflow:
+
+**Change Commands:**
+- Uses `print_section_header()` for step headers
+- Uses `kv()` for file, description, backup, risk, action fields
+- Uses `print_hint()` for step count and backup info
+- Uses `print_label()` for cancellation and result messages
+- Full HR framing for the entire change proposal display
+
+**Before:**
+```
+Proposed Change
+  [1] File: /home/user/.bashrc
+      Enable vim mode
+      Backup: /var/lib/anna/backups/...
+      Risk: Low
+      Action: Ensure line exists...
+```
+
+**After:**
+```
+──────────────────────────────────────────────────────────────────────────────
+Proposed Change
+──────────────────────────────────────────────────────────────────────────────
+
+[step 1]
+  file                  /home/user/.bashrc
+  description           Enable vim mode
+  backup                /var/lib/anna/backups/...
+  risk                  Low
+  action                Ensure line exists...
+
+[confirmation]
+  Apply this change? [y/N]
+```
+
+Config changes now have the same polished look as status/stats commands.
+
 ## [0.0.341] - 2025-12-10
 
 ### Improved - Theatre Render UI Consistency

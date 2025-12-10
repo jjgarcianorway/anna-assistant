@@ -1,14 +1,15 @@
-//! Change management commands for annactl (v0.0.312).
+//! Change management commands for annactl (v0.0.342).
 //!
 //! v0.0.97: Extracted from commands.rs for modularity.
 //! v0.0.292: Added auto-confirm for low-risk operations.
 //! v0.0.312: Added RunCommand support for executing system commands.
+//! v0.0.342: Use centralized UI helpers for consistency.
 
 use anyhow::Result;
 use std::io::{self, Write};
 
 use anna_shared::change::{ChangeOperation, ChangeRisk};
-use anna_shared::ui::{colors, symbols};
+use anna_shared::ui::{colors, kv, print_hint, print_label, print_section_header, symbols, HR};
 use anna_shared::user_profile::UserProfile;
 
 /// Outcome summary for applying proposed changes
@@ -25,7 +26,7 @@ pub async fn handle_proposed_change(
     use anna_shared::change::apply_change;
 
     if plans.is_empty() {
-        println!("{}No changes proposed.{}", colors::WARN, colors::RESET);
+        print_label("change", "No changes proposed", colors::DIM);
         return Ok(ChangeSummary {
             applied: 0,
             noop: 0,
@@ -34,28 +35,34 @@ pub async fn handle_proposed_change(
     }
 
     println!();
-    println!("{}Proposed Change{}", colors::BOLD, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    println!("{}Proposed Change{}", colors::HEADER, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    println!();
+
     for (idx, plan) in plans.iter().enumerate() {
         // v0.0.312: Handle RunCommand differently
         let op = match &plan.operation {
             ChangeOperation::EnsureLine { line } => {
-                println!("  [{}] File: {}", idx + 1, plan.target_path.display());
-                println!("      {}", plan.description);
-                println!("      Backup: {}", plan.backup_path.display());
+                print_section_header(&format!("step {}", idx + 1));
+                kv("file", &plan.target_path.display().to_string());
+                kv("description", &plan.description);
+                kv("backup", &plan.backup_path.display().to_string());
                 format!("Ensure line exists: \"{}\"", line)
             }
             ChangeOperation::AppendLine { line } => {
-                println!("  [{}] File: {}", idx + 1, plan.target_path.display());
-                println!("      {}", plan.description);
-                println!("      Backup: {}", plan.backup_path.display());
+                print_section_header(&format!("step {}", idx + 1));
+                kv("file", &plan.target_path.display().to_string());
+                kv("description", &plan.description);
+                kv("backup", &plan.backup_path.display().to_string());
                 format!("Append line: \"{}\"", line)
             }
             ChangeOperation::RunCommand { command, what_it_does, needs_sudo } => {
-                println!("  [{}] {}Command Execution{}", idx + 1, colors::WARN, colors::RESET);
-                println!("      {}", what_it_does);
-                println!("      Command: {}{}{}", colors::BOLD, command, colors::RESET);
+                print_section_header(&format!("step {} (command)", idx + 1));
+                kv("description", what_it_does);
+                kv("command", &format!("{}{}{}", colors::BOLD, command, colors::RESET));
                 if *needs_sudo {
-                    println!("      {}Requires elevated privileges{}", colors::WARN, colors::RESET);
+                    kv("privileges", &format!("{}elevated{}", colors::WARN, colors::RESET));
                 }
                 "Execute shell command".to_string()
             }
@@ -65,17 +72,13 @@ pub async fn handle_proposed_change(
             ChangeRisk::Medium => colors::WARN,
             ChangeRisk::High => colors::ERR,
         };
-        println!("      Risk: {}{:?}{}", risk_color, plan.risk, colors::RESET);
-        println!("      Action: {}", op);
+        kv("risk", &format!("{}{:?}{}", risk_color, plan.risk, colors::RESET));
+        kv("action", &op);
+        println!();
     }
-    println!();
+
     if plans.len() > 1 {
-        println!(
-            "{}{} steps to apply (idempotent).{}",
-            colors::DIM,
-            plans.len(),
-            colors::RESET
-        );
+        print_hint(&format!("{} steps to apply (idempotent)", plans.len()));
     }
 
     // v0.0.292: Check if we can auto-confirm low-risk changes
@@ -84,21 +87,19 @@ pub async fn handle_proposed_change(
     let auto_confirm = profile.preferences.auto_confirm_low_risk && all_low_risk;
 
     if auto_confirm {
-        println!(
-            "{}Auto-confirming low-risk change (per user settings){}",
-            colors::DIM,
-            colors::RESET
-        );
+        print_hint("Auto-confirming low-risk change (per user settings)");
     } else {
         // Ask for confirmation
-        print!("Apply this change? [y/N] ");
+        print_section_header("confirmation");
+        print!("  Apply this change? [y/N] ");
         io::stdout().flush()?;
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
 
         if !input.trim().eq_ignore_ascii_case("y") {
-            println!("Change cancelled.");
+            println!();
+            print_label("cancelled", "Change aborted by user", colors::DIM);
             return Ok(ChangeSummary {
                 applied: 0,
                 noop: 0,
@@ -112,48 +113,41 @@ pub async fn handle_proposed_change(
     let mut noop_count = 0usize;
     let mut failed = false;
 
+    println!();
+    print_section_header("execution");
+
     for (idx, plan) in plans.iter().enumerate() {
         // v0.0.312: Handle RunCommand via daemon RPC
         if let ChangeOperation::RunCommand { command, .. } = &plan.operation {
-            println!();
-            println!("{}Executing command...{}", colors::DIM, colors::RESET);
+            print_hint("Executing command...");
 
             let exec_result = execute_command_via_daemon(command, "change").await;
             match exec_result {
                 Ok(result) => {
                     if result.success {
                         println!(
-                            "{}{}{}  Command completed successfully in {}ms",
-                            colors::OK,
-                            symbols::OK,
-                            colors::RESET,
-                            result.duration_ms
+                            "  {}{}{} Command completed in {}ms",
+                            colors::OK, symbols::OK, colors::RESET, result.duration_ms
                         );
                         if !result.stdout.is_empty() {
-                            println!("\n{}", result.stdout.trim());
+                            println!("    {}", result.stdout.trim());
                         }
                         applied_count += 1;
                     } else {
                         println!(
-                            "{}{}{}  Command failed (exit code {})",
-                            colors::ERR,
-                            symbols::ERR,
-                            colors::RESET,
-                            result.exit_code
+                            "  {}{}{} Command failed (exit code {})",
+                            colors::ERR, symbols::ERR, colors::RESET, result.exit_code
                         );
                         if !result.stderr.is_empty() {
-                            println!("{}{}{}", colors::ERR, result.stderr.trim(), colors::RESET);
+                            println!("    {}{}{}", colors::ERR, result.stderr.trim(), colors::RESET);
                         }
                         failed = true;
                     }
                 }
                 Err(e) => {
                     println!(
-                        "{}{}{}  Failed to execute: {}",
-                        colors::ERR,
-                        symbols::ERR,
-                        colors::RESET,
-                        e
+                        "  {}{}{} Failed to execute: {}",
+                        colors::ERR, symbols::ERR, colors::RESET, e
                     );
                     failed = true;
                 }
@@ -167,70 +161,45 @@ pub async fn handle_proposed_change(
         if result.applied {
             // Record to history
             if let Ok(Some(id)) = anna_shared::change_history::record_change(plan, &result) {
-                println!();
                 println!(
-                    "{}{}{}  Step {} applied. (ID: {})",
-                    colors::OK,
-                    symbols::OK,
-                    colors::RESET,
-                    idx + 1,
-                    id
+                    "  {}{}{} Step {} applied (ID: {})",
+                    colors::OK, symbols::OK, colors::RESET, idx + 1, id
                 );
             } else {
-                println!();
                 println!(
-                    "{}{}{}  Step {} applied.",
-                    colors::OK,
-                    symbols::OK,
-                    colors::RESET,
-                    idx + 1
+                    "  {}{}{} Step {} applied",
+                    colors::OK, symbols::OK, colors::RESET, idx + 1
                 );
             }
             if let Some(ref backup) = result.backup_path {
-                println!("    Backup: {}", backup.display());
-                println!("    To undo: annactl undo <id>");
+                print_hint(&format!("Backup: {}", backup.display()));
+                print_hint("To undo: annactl undo <id>");
             }
             applied_count += 1;
         } else if result.was_noop {
-            println!();
             println!(
-                "{}{}{}  Step {}: No changes needed - configuration already present.",
-                colors::OK,
-                symbols::OK,
-                colors::RESET,
-                idx + 1
+                "  {}{}{} Step {}: Already configured",
+                colors::OK, symbols::OK, colors::RESET, idx + 1
             );
             noop_count += 1;
         } else if let Some(ref err) = result.error {
-            println!();
             println!(
-                "{}{}{}  Step {} failed: {}",
-                colors::ERR,
-                symbols::ERR,
-                colors::RESET,
-                idx + 1,
-                err
+                "  {}{}{} Step {} failed: {}",
+                colors::ERR, symbols::ERR, colors::RESET, idx + 1, err
             );
             failed = true;
         }
     }
 
+    println!();
     if failed {
-        println!(
-            "{}One or more steps failed.{} See above for details.",
-            colors::ERR,
-            colors::RESET
-        );
+        print_label("result", "One or more steps failed", colors::ERR);
     } else {
-        println!();
-        println!(
-            "{}Change summary:{} applied={}, noop={}",
-            colors::BOLD,
-            colors::RESET,
-            applied_count,
-            noop_count
-        );
+        print_section_header("summary");
+        kv("applied", &format!("{}", applied_count));
+        kv("noop", &format!("{}", noop_count));
     }
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
     Ok(ChangeSummary {
         applied: applied_count,
