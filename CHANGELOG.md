@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.319] - 2025-12-10
+
+### Improved - Natural LLM-Generated Dialogue
+
+**Re-enabled internal communications with LLM generation:**
+- Dialogues between staff are now context-aware and meaningful
+- Each message varies naturally while conveying truthful information
+- Style inspired by README example: natural workplace banter
+
+**How it works:**
+- Anna's dispatch message mentions the actual topic ("disk space question for you")
+- Junior's acknowledgment shows understanding ("Storage thing? Checking now.")
+- Probe status reports actual progress ("All 3 checks passed. Good data.")
+- Completion reports honest confidence ("Done. 85% - looks solid.")
+
+**Technical improvements:**
+- `summarize_query()` detects topic category for focused prompts
+- `clean_dialogue_response()` strips LLM artifacts (quotes, prefixes)
+- `is_valid_dialogue()` validates word count and rejects garbage
+- 3-second timeout prevents blocking the request
+
+**Fallback safety:**
+- If LLM generation fails or times out, static fallbacks are used
+- Invalid responses (too long, garbage chars) automatically fall back
+- Never blocks the main request flow
+
 ## [0.0.318] - 2025-12-10
 
 ### Fixed - Multiple UX Issues
@@ -25,10 +51,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed repeated "Escalating to Sara. 70% isn't enough." messages
 - Now only shows final review state instead of every retry attempt
 
+**Staff routing:**
+- Fixed "system" domain incorrectly routing to Performance team (Kari)
+- System/desktop queries now correctly route to Desktop team (Sofia)
+- Consistent with theatre.rs domain_to_team mapping
+
+**Conversation context:**
+- Wallpaper clarification now uses structured ClarifyRequest
+- When Anna asks "Where do you keep your wallpaper files?", user answers are properly handled
+- No longer ignored as new queries
+
 **New probes:**
 - `display_server` - Detects Xorg vs Wayland via XDG_SESSION_TYPE
 - `cuda_installed` - Checks for CUDA toolkit installation
 - `gpu_drivers` - Shows loaded GPU driver modules
+- `vimrc_content` - Reads vim config (~/.vimrc or ~/.vim/vimrc)
+- `nvim_config` - Reads neovim config (~/.config/nvim/init.lua or init.vim)
+- `bashrc_content` - Reads bash config (first 100 lines)
+- `zshrc_content` - Reads zsh config (first 100 lines)
+
+**Debug mode improvements:**
+- Translator LLM calls now recorded in debug transcript (was only specialist)
+- Debug mode shows `[llm:translator]` with full prompt and response
+- Enables "fly on the wall" visibility for all LLM interactions
+- Better for prompt refinement and troubleshooting
 
 ## [0.0.317] - 2025-12-10
 

@@ -1,17 +1,19 @@
 //! Team routing functions (v0.0.192).
 //! v0.0.266: Added query class override for config queries (ConfigureEditor -> Desktop).
+//! v0.0.318: Fixed system domain to route to Desktop (consistent with theatre.rs).
 
 use anna_shared::teams::Team;
 
 /// Determine team from domain string
 /// v0.0.154: Added Services, Hardware, Logs team routing
+/// v0.0.318: System domain now routes to Desktop (was wrongly going to Performance)
 pub fn team_from_domain(domain: &str) -> Team {
     match domain.to_lowercase().as_str() {
         "storage" => Team::Storage,
         "network" => Team::Network,
         "security" => Team::Security,
         "performance" => Team::Performance,
-        "system" => Team::Performance, // System queries often about performance
+        "system" => Team::Desktop, // v0.0.318: System/desktop queries go to Desktop team (Sofia)
         "services" => Team::Services,
         "hardware" => Team::Hardware,
         "logs" => Team::Logs,

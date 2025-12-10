@@ -189,6 +189,7 @@ async fn handle_llm_request_inner(
     );
 
     // Step 2: v0.0.167 - Route query through recipe check or LLM translator
+    // v0.0.318: Pass debug_mode for LLM call visibility
     let routing_result = route_query(
         &state,
         query,
@@ -198,6 +199,7 @@ async fn handle_llm_request_inner(
         hw_cores,
         hw_ram_gb,
         has_gpu,
+        debug_mode,
         &mut progress,
     )
     .await;

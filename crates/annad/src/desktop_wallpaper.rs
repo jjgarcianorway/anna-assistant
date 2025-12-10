@@ -4,13 +4,16 @@
 //! - Checks probe for current wallpaper from DE settings
 //! - If found, shows the current wallpaper path
 //! - If unknown DE, asks user where they keep their wallpapers
+//! v0.0.318: Uses structured ClarifyRequest for proper conversation context.
 
+use anna_shared::clarify_v2::ClarifyRequest;
 use anna_shared::rpc::{
     ProbeResult, ReliabilitySignals, ServiceDeskResult, SpecialistDomain, TranslatorTicket,
 };
 use anna_shared::trace::{ExecutionTrace, FallbackUsed, ProbeStats, SpecialistOutcome};
 use anna_shared::transcript::Transcript;
 use tracing::info;
+use uuid::Uuid;
 
 use crate::parsers::find_probe;
 use crate::service_desk::get_relevant_hardware_fields;
@@ -25,6 +28,7 @@ pub enum DesktopWallpaperResult {
 
 /// Handle DesktopWallpaper query class.
 /// v0.0.309: Deterministic fast-path for wallpaper queries
+/// v0.0.318: Uses ClarifyRequest for proper follow-up handling
 pub fn handle_desktop_wallpaper(
     request_id: String,
     _query: &str,
@@ -34,17 +38,19 @@ pub fn handle_desktop_wallpaper(
 ) -> DesktopWallpaperResult {
     let probe = find_probe(probe_results, "desktop_wallpaper");
 
-    let (answer, needs_clarification, clarify_question) = if let Some(p) = probe {
+    let (answer, needs_clarification, clarify_request) = if let Some(p) = probe {
         let output = p.stdout.trim();
 
         if output.contains("UNKNOWN_DE") || output.is_empty() || p.exit_code != 0 {
             // Desktop environment not detected or no wallpaper setting found
             info!("v0.0.309: Desktop wallpaper - DE not detected or no setting found");
-            (
-                String::new(),
-                true,
-                Some("I couldn't detect your desktop environment's wallpaper. Where do you keep your wallpaper files? (e.g., ~/Pictures/Wallpapers)".to_string()),
+            // v0.0.318: Create structured ClarifyRequest for proper follow-up
+            let req = ClarifyRequest::new(
+                Uuid::new_v4().to_string(),
+                "I couldn't detect your desktop environment's wallpaper settings. Where do you keep your wallpaper files?"
             )
+            .with_reason("Example: ~/Pictures/Wallpapers or ~/.config/hypr/hyprpaper.conf");
+            (String::new(), true, Some(req))
         } else {
             // Found wallpaper setting - parse it
             let wallpaper_path = parse_wallpaper_output(output);
@@ -58,11 +64,13 @@ pub fn handle_desktop_wallpaper(
     } else {
         // No probe result - ask user
         info!("v0.0.309: Desktop wallpaper - no probe result");
-        (
-            String::new(),
-            true,
-            Some("I couldn't check your wallpaper settings. Where do you keep your wallpaper files? (e.g., ~/Pictures/Wallpapers)".to_string()),
+        // v0.0.318: Create structured ClarifyRequest for proper follow-up
+        let req = ClarifyRequest::new(
+            Uuid::new_v4().to_string(),
+            "I couldn't check your wallpaper settings. Where do you keep your wallpaper files?"
         )
+        .with_reason("Example: ~/Pictures/Wallpapers or ~/.config/hypr/hyprpaper.conf");
+        (String::new(), true, Some(req))
     };
 
     let probe_stats = ProbeStats::from_results(ticket.needs_probes.len(), probe_results);
@@ -85,6 +93,9 @@ pub fn handle_desktop_wallpaper(
         reviewer_outcome: None,
     });
 
+    // v0.0.318: Extract clarification_question from request for backwards compat
+    let clarify_question = clarify_request.as_ref().map(|r| r.question.clone());
+
     let result = ServiceDeskResult {
         request_id,
         case_number: None,
@@ -104,7 +115,7 @@ pub fn handle_desktop_wallpaper(
         },
         needs_clarification,
         clarification_question: clarify_question,
-        clarification_request: None,
+        clarification_request: clarify_request, // v0.0.318: Structured request for REPL
         transcript,
         execution_trace,
         proposed_change: None,

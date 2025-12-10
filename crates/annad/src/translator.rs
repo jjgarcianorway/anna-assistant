@@ -4,14 +4,29 @@
 //! v0.0.74: Now includes AnswerContract for answer shaping.
 //! v0.0.164: Probe registry extracted to separate module.
 //! v0.0.290: Strip reasoning tags from translator responses.
+//! v0.0.318: Added TranslatorResult with debug info for LLM call visibility.
 
 use anna_shared::answer_contract::AnswerContract;
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 use tracing::{info, warn};
 
 use crate::ollama;
 use crate::redact;
+
+/// v0.0.318: Translator result with debug info for LLM call visibility
+#[derive(Debug, Clone)]
+pub struct TranslatorResult {
+    /// The parsed ticket
+    pub ticket: TranslatorTicket,
+    /// The full prompt sent to the LLM
+    pub prompt: String,
+    /// The raw response from the LLM
+    pub response: String,
+    /// Duration of the LLM call in milliseconds
+    pub duration_ms: u64,
+}
 
 // Re-export probe registry for backwards compatibility
 pub use crate::probe_registry::{filter_valid_probes, probe_id_to_command, PROBE_IDS};
@@ -123,6 +138,16 @@ pub async fn translate_with_context(
     input: &TranslatorInput,
     timeout_secs: u64,
 ) -> Result<TranslatorTicket, String> {
+    let result = translate_with_debug(model, input, timeout_secs).await?;
+    Ok(result.ticket)
+}
+
+/// v0.0.318: Translate with full debug info (prompt, response, timing)
+pub async fn translate_with_debug(
+    model: &str,
+    input: &TranslatorInput,
+    timeout_secs: u64,
+) -> Result<TranslatorResult, String> {
     let full_prompt = build_translator_request(input);
 
     info!(
@@ -130,16 +155,23 @@ pub async fn translate_with_context(
         full_prompt.len()
     );
 
+    let start = Instant::now();
     let response = ollama::chat_with_timeout(model, &full_prompt, timeout_secs)
         .await
         .map_err(|e| format!("LLM error: {}", e))?;
+    let duration_ms = start.elapsed().as_millis() as u64;
 
     let mut ticket = parse_translator_response(&response)?;
 
     // v0.0.74: Generate answer contract from original query
     ticket.answer_contract = Some(AnswerContract::from_query(&input.query));
 
-    Ok(ticket)
+    Ok(TranslatorResult {
+        ticket,
+        prompt: full_prompt,
+        response,
+        duration_ms,
+    })
 }
 
 /// Legacy translate function (for compatibility/tests)

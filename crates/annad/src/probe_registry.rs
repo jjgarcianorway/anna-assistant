@@ -22,6 +22,11 @@ pub const PROBE_IDS: &[&str] = &[
     "boot_time",        // systemd-analyze
     "free",             // free -h (alias for memory_info)
     "df",               // df -h (alias for disk_usage)
+    // v0.0.318: Config file probes
+    "vimrc_content",    // cat ~/.vimrc or ~/.vim/vimrc
+    "nvim_config",      // cat ~/.config/nvim/init.lua
+    "bashrc_content",   // cat ~/.bashrc (first 100 lines)
+    "zshrc_content",    // cat ~/.zshrc (first 100 lines)
 ];
 
 /// Map probe ID to actual command
@@ -189,6 +194,19 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
             "lspci -k | grep -A 3 -E 'VGA|3D' 2>/dev/null || \
              lsmod | grep -E 'nvidia|amdgpu|i915|nouveau' 2>/dev/null || \
              echo 'NO_GPU_DRIVERS'"
+        ),
+        // v0.0.318: Config file content probes
+        "vimrc_content" => Some(
+            "cat ~/.vimrc 2>/dev/null || cat ~/.vim/vimrc 2>/dev/null || cat ~/.config/nvim/init.vim 2>/dev/null || echo 'NO_VIMRC_FOUND'"
+        ),
+        "nvim_config" => Some(
+            "cat ~/.config/nvim/init.lua 2>/dev/null || cat ~/.config/nvim/init.vim 2>/dev/null || echo 'NO_NVIM_CONFIG_FOUND'"
+        ),
+        "bashrc_content" => Some(
+            "cat ~/.bashrc 2>/dev/null | head -100 || echo 'NO_BASHRC_FOUND'"
+        ),
+        "zshrc_content" => Some(
+            "cat ~/.zshrc 2>/dev/null | head -100 || echo 'NO_ZSHRC_FOUND'"
         ),
         _ => None,
     }

@@ -30,6 +30,7 @@ pub struct RoutingResult {
 }
 
 /// Route the query through recipe check or LLM translator
+/// v0.0.318: Added debug_mode for LLM call visibility
 pub async fn route_query(
     state: &SharedState,
     query: &str,
@@ -39,6 +40,7 @@ pub async fn route_query(
     hw_cores: u32,
     hw_ram_gb: f64,
     has_gpu: bool,
+    debug_mode: bool,
     progress: &mut ProgressTracker,
 ) -> RoutingResult {
     // Check if we should try recipes first
@@ -137,6 +139,7 @@ pub async fn route_query(
             hw_cores,
             hw_ram_gb,
             has_gpu,
+            debug_mode,
             progress,
         )
         .await;
@@ -219,6 +222,7 @@ pub fn enforce_probe_spine(
 }
 
 /// Triage path for unknown queries - uses LLM translator with confidence threshold
+/// v0.0.318: Added debug_mode for LLM call visibility
 async fn triage_path(
     state: &SharedState,
     query: &str,
@@ -227,6 +231,7 @@ async fn triage_path(
     hw_cores: u32,
     hw_ram_gb: f64,
     has_gpu: bool,
+    debug_mode: bool,
     progress: &mut ProgressTracker,
 ) -> (TranslatorTicket, Option<TriageResult>, bool) {
     progress.start_stage(RequestStage::Translator, config.translator_timeout_secs);
@@ -235,7 +240,7 @@ async fn triage_path(
 
     let (llm_ticket, translator_timed_out) = match timeout(
         Duration::from_secs(config.translator_timeout_secs),
-        translator::translate_with_context(
+        translator::translate_with_debug(
             translator_model,
             &translator_input,
             config.translator_timeout_secs,
@@ -243,9 +248,20 @@ async fn triage_path(
     )
     .await
     {
-        Ok(Ok(t)) => {
+        Ok(Ok(result)) => {
             progress.complete_stage(RequestStage::Translator);
-            (Some(t), false)
+            // v0.0.318: Record translator LLM call in debug mode
+            if debug_mode {
+                progress.add_llm_call(
+                    "translator",
+                    translator_model,
+                    &result.prompt,
+                    &result.response,
+                    result.duration_ms,
+                    None,
+                );
+            }
+            (Some(result.ticket), false)
         }
         Ok(Err(e)) => {
             warn!("Translator error: {}", e);
