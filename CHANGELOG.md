@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.371] - 2025-12-10
+
+### Intelligence - Enhanced probe learning with semantic matching
+
+Anna now learns more effectively from user interactions:
+
+**Domain-specific synonyms:**
+- RAM ↔ memory, HDD/SSD ↔ disk, processor ↔ cpu
+- internet/wifi ↔ network, daemon ↔ service
+- slow/lag ↔ performance, error/fail ↔ problem
+
+**Compound term recognition:**
+- "disk space", "memory usage", "cpu usage" → single concepts
+- "failed service", "system health", "boot time" → preserved together
+- "ip address", "mac address", "load average" → compound keywords
+
+**Semantic probe suggestions:**
+- Query "check my RAM" now matches learned patterns for "memory"
+- Query "show disk usage" matches patterns for "storage" and "disk_usage"
+- Better cross-reference of user queries to learned effective probes
+
+This means Anna learns faster and provides better answers by recognizing
+that different phrasings of the same concept should use the same probes.
+
 ## [0.0.370] - 2025-12-10
 
 ### Documentation - Updated for v0.0.369 changes

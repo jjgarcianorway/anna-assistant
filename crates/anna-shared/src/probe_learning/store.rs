@@ -208,7 +208,10 @@ impl ProbeLearningStore {
     }
 
     /// Get probe suggestions based on query keywords
+    /// v0.0.371: Now uses semantic matching via canonicalization
     pub fn suggest_probes_for_query(&self, query: &str) -> Vec<(String, u32)> {
+        use super::utils::canonicalize;
+
         let keywords = extract_keywords(query);
 
         if keywords.is_empty() {
@@ -217,8 +220,18 @@ impl ProbeLearningStore {
 
         let mut probe_scores: HashMap<String, u32> = HashMap::new();
 
-        for keyword in &keywords {
-            if let Some(stats) = self.keyword_probes.get(keyword) {
+        // Canonicalize query keywords for better matching
+        let canonical_keywords: Vec<String> = keywords.iter()
+            .map(|k| canonicalize(k))
+            .collect();
+
+        for (stored_keyword, stats) in &self.keyword_probes {
+            // Check both exact and canonical matches
+            let stored_canonical = canonicalize(stored_keyword);
+            let matches = keywords.contains(stored_keyword)
+                || canonical_keywords.contains(&stored_canonical);
+
+            if matches {
                 for (probe, count) in &stats.effective_probes {
                     *probe_scores.entry(probe.clone()).or_insert(0) += count;
                 }

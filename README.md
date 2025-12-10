@@ -389,9 +389,10 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.370**
+Current: **v0.0.371**
 
 Recent highlights:
+- **Smarter learning** with domain synonyms and semantic matching
 - **Centralized UI system** with consistent formatting across all displays
 - **Zero compiler warnings** for cleaner, more reliable code
 - **Enhanced greeting system** with personalized tips and status

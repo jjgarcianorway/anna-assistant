@@ -1,12 +1,13 @@
-//! Probe effectiveness learning system (v0.0.332).
+//! Probe effectiveness learning system (v0.0.371).
 //!
 //! Tracks which probes work well for which query types, learning from:
 //! 1. User feedback (helpful/not helpful)
 //! 2. LLM self-assessment (answer quality rating)
 //! 3. Probe failure rates
-//! 4. Query keyword patterns
+//! 4. Query keyword patterns with semantic matching
 //! 5. Learning decay for old patterns
 //! 6. Quality trend tracking (v0.0.331)
+//! 7. Domain-specific synonyms and compound terms (v0.0.371)
 //!
 //! This allows the translator to prefer better-performing probes over time.
 //!
@@ -14,7 +15,7 @@
 //! - `types`: Core data structures (ProbeEffectiveness, QueryCategory, etc.)
 //! - `store`: Persistent storage and main operations
 //! - `decay`: Learning decay for old data
-//! - `utils`: Helper functions (keyword extraction)
+//! - `utils`: Keyword extraction, synonyms, semantic similarity
 
 mod decay;
 mod store;
@@ -28,7 +29,7 @@ pub use types::{
     ProbeEffectiveness, QualityDataPoint, QualityTrend, QueryCategory, SuccessfulPattern,
     TrendDirection,
 };
-pub use utils::extract_keywords;
+pub use utils::{canonicalize, extract_keywords, keyword_similarity};
 
 #[cfg(test)]
 mod tests {
