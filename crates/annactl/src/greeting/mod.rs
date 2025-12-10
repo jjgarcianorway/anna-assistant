@@ -49,6 +49,9 @@ fn build_greeting_context(
     // Get last session summary
     let last_session_summary = profile.since_last_time();
 
+    // v0.0.314: Get time-of-day defaults
+    let default_ctx = GreetingContext::default();
+
     // Build base context
     let ctx = GreetingContext {
         username: username.to_string(),
@@ -65,6 +68,8 @@ fn build_greeting_context(
         maintenance_prompts: Vec::new(),
         interesting_facts: Vec::new(),
         personality: Default::default(),
+        time_of_day: default_ctx.time_of_day,
+        local_hour: default_ctx.local_hour,
     };
 
     // v0.0.287: Add maintenance prompts

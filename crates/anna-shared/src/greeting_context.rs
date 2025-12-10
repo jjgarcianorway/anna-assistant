@@ -1,4 +1,4 @@
-//! Greeting context for LLM-based greeting generation (v0.0.292).
+//! Greeting context for LLM-based greeting generation (v0.0.314).
 //!
 //! Provides structured context for the translator LLM to generate
 //! personalized, varied greetings while maintaining consistent content.
@@ -6,6 +6,7 @@
 //! v0.0.287: Added maintenance prompts for proactive suggestions.
 //! v0.0.289: Added interesting facts about system, patterns, and Anna's growth.
 //! v0.0.292: Added personality traits for tone-aware greetings.
+//! v0.0.314: Added time-of-day awareness for appropriate greetings.
 
 use crate::health_alerts::{generate_alerts, AlertSeverity};
 use crate::interesting_facts::InterestingFacts;
@@ -49,6 +50,12 @@ pub struct GreetingContext {
     /// v0.0.292: Personality settings for tone
     #[serde(default)]
     pub personality: PersonalityContext,
+    /// v0.0.314: Time of day for appropriate greeting ("morning", "afternoon", "evening", "night")
+    #[serde(default)]
+    pub time_of_day: String,
+    /// v0.0.314: Local hour (0-23) for time-aware messages
+    #[serde(default)]
+    pub local_hour: u8,
 }
 
 /// v0.0.292: Personality context for LLM greeting generation
@@ -64,6 +71,9 @@ pub struct PersonalityContext {
 
 impl Default for GreetingContext {
     fn default() -> Self {
+        // v0.0.314: Detect time of day from local time
+        let (time_of_day, local_hour) = detect_time_of_day();
+
         Self {
             username: "user".to_string(),
             hours_since_last: None,
@@ -79,8 +89,27 @@ impl Default for GreetingContext {
             maintenance_prompts: Vec::new(),
             interesting_facts: Vec::new(),
             personality: PersonalityContext::default(),
+            time_of_day,
+            local_hour,
         }
     }
+}
+
+/// v0.0.314: Detect time of day from system clock
+fn detect_time_of_day() -> (String, u8) {
+    use chrono::{Local, Timelike};
+
+    let now = Local::now();
+    let hour = now.hour() as u8;
+
+    let period = match hour {
+        5..=11 => "morning",
+        12..=16 => "afternoon",
+        17..=20 => "evening",
+        _ => "night",
+    };
+
+    (period.to_string(), hour)
 }
 
 impl GreetingContext {
@@ -197,32 +226,41 @@ impl GreetingResponse {
     pub fn fallback(ctx: &GreetingContext) -> Self {
         let mut lines = Vec::new();
 
+        // v0.0.314: Time-aware greeting prefix
+        let time_greeting = match ctx.time_of_day.as_str() {
+            "morning" => "Good morning",
+            "afternoon" => "Good afternoon",
+            "evening" => "Good evening",
+            "night" => "Hi", // Late night, keep it simple
+            _ => "Hello",
+        };
+
         // Basic greeting
         if ctx.is_first_time {
-            lines.push(format!("Hello {},", ctx.username));
+            lines.push(format!("{}, {}!", time_greeting, ctx.username));
             lines.push(String::new());
             lines.push("Welcome! I'm Anna, your local IT department.".to_string());
             lines.push("Just ask me anything about your system.".to_string());
         } else if let Some(days) = ctx.days_since_last {
             if days >= 1 {
-                lines.push(format!("Hello {},", ctx.username));
+                lines.push(format!("{}, {}.", time_greeting, ctx.username));
                 lines.push(String::new());
                 let word = if days == 1 { "day" } else { "days" };
                 lines.push(format!("It's been {} {} since we last spoke.", days, word));
             } else {
-                lines.push(format!("Hello {}, welcome back.", ctx.username));
+                lines.push(format!("{}, {}! Welcome back.", time_greeting, ctx.username));
             }
         } else if let Some(hours) = ctx.hours_since_last {
             if hours > 12 {
-                lines.push(format!("Hello {},", ctx.username));
+                lines.push(format!("{}, {}.", time_greeting, ctx.username));
                 lines.push(format!("It's been about {} hours.", hours));
             } else if hours > 1 {
-                lines.push(format!("Hello {}, welcome back.", ctx.username));
+                lines.push(format!("{}, {}! Welcome back.", time_greeting, ctx.username));
             } else {
                 lines.push(format!("Hello again, {}!", ctx.username));
             }
         } else {
-            lines.push(format!("Hello {}, welcome back.", ctx.username));
+            lines.push(format!("{}, {}! Welcome back.", time_greeting, ctx.username));
         }
 
         // Open tickets

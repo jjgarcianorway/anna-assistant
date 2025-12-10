@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.314] - 2025-12-10
+
+### Added - Time-of-Day Aware Greetings
+
+**Anna now greets users based on time of day:**
+- Morning (5-11): "Good morning, username!"
+- Afternoon (12-16): "Good afternoon, username!"
+- Evening (17-20): "Good evening, username!"
+- Night (21-4): "Hi, username!" (simpler late-night greeting)
+
+**Changes:**
+- Added `time_of_day` and `local_hour` fields to GreetingContext
+- Updated fallback greeting to use time-aware prefix
+- Context is automatically populated from system clock
+
 ## [0.0.313] - 2025-12-10
 
 ### Improved - Dialogue Rhythm Timestamps
