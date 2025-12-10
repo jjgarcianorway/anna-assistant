@@ -381,12 +381,15 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.241**
+Current: **v0.0.351**
 
 Recent highlights:
+- **Centralized UI system** with consistent formatting across all displays
+- **Zero compiler warnings** for cleaner, more reliable code
+- **Enhanced greeting system** with personalized tips and status
+- **Improved error display** with actionable recovery hints
 - Real-time streaming output (watch Anna think!)
 - Idle-time tips and suggestions
-- Natural language email setup
 - Session history ("since last time")
 - Pattern tracking and trend detection
 

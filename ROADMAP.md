@@ -1,33 +1,40 @@
 # Anna Roadmap
 
-## Current Focus (v0.0.103+)
+## Current Focus (v0.0.350+)
 
-**Theme**: Hollywood IT Department Experience + Learning System
+**Theme**: UI Consistency + Code Quality + Reliability
 
-Anna aims to provide a cinematic, old-school terminal experience with ASCII art styling,
-named IT personas, and RPG-style progression. The learning system allows Anna to
-skip the slow LLM path for queries similar to ones she's seen before.
+Anna v0.0.350 focuses on:
+- Centralized UI system for consistent terminal output
+- Zero compiler warnings for cleaner builds
+- Modular code design (all files under 400 lines)
+- Enhanced user experience across all displays
 
-### Active Development
-- [x] Recipe learning system (v0.0.94)
-- [x] Safe change engine with rollback (v0.0.95)
-- [x] Desktop team flow with CLI confirmation (v0.0.96)
-- [x] Change history and undo (v0.0.97)
-- [x] Multi-file change transactions (v0.0.98)
-- [x] Package/service recipes (v0.0.98)
-- [x] Natural language package install (v0.0.99)
-- [x] Natural language service management (v0.0.99)
-- [x] Recipe matcher for fast path (v0.0.100)
-- [x] Shell config recipes (v0.0.100)
-- [x] Git config recipes (v0.0.100)
-- [x] Recipe fast path integration (v0.0.101)
-- [x] Recipe-based direct answers (v0.0.102)
-- [x] Recipe success tracking and feedback (v0.0.103)
-- [x] User feedback improves recipe confidence (v0.0.103)
+### Recent Completions (v0.0.337-350)
+- [x] Centralized UI printing system (v0.0.337-344)
+- [x] print_title(), print_hr(), print_step() helpers (v0.0.344-349)
+- [x] UI consistency across greeting, errors, status displays (v0.0.341-348)
+- [x] Zero compiler warnings in release build (v0.0.350)
+- [x] Unused code cleanup (v0.0.350)
 
 ---
 
 ## Completed
+
+### v0.0.337-350 - Centralized UI System (Phase 28) ✓
+- [x] `anna_shared::ui::printing` module with consistent helpers
+- [x] print_header, print_title, print_footer, print_hr
+- [x] print_section_header, print_label, print_hint, print_step
+- [x] print_ok, print_err, print_warn with symbols
+- [x] kv() and kv_colored() for key-value display
+- [x] colors and symbols constants centralized
+- [x] Updated greeting/status.rs, greeting/personal.rs
+- [x] Updated errors.rs, handlers.rs, progress_display.rs
+- [x] Updated change_commands.rs, ticket_commands.rs
+- [x] Zero compiler warnings in release build
+- [x] Removed unused DecayResult import
+- [x] Removed unused VerificationInput.id field
+- [x] Removed unused VerificationResult.score field
 
 ### v0.0.103 - Recipe Feedback System (Phase 23) ✓
 - [x] `FeedbackRequest` struct - Anna asks user for feedback when uncertain

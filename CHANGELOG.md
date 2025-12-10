@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.351] - 2025-12-10
+
+### Documentation - Updated README, FEATURES, ROADMAP
+
+Updated all documentation to reflect v0.0.350 improvements:
+
+**README.md:**
+- Updated version to v0.0.350
+- Added recent highlights: centralized UI, zero warnings, enhanced greetings
+
+**FEATURES.md:**
+- Added Centralized UI System section (v0.0.337-350)
+- Documented all print helpers and their usage
+- Added UI Consistency Updates section
+- Added Code Quality section
+
+**ROADMAP.md:**
+- Updated Current Focus to v0.0.350+
+- Added v0.0.337-350 Centralized UI System phase
+- Listed all recent completions
+
 ## [0.0.350] - 2025-12-10
 
 ### Fixed - Removed Unused Code and Warnings

@@ -174,10 +174,43 @@
 - **Unlock Detection**: Automatic tracking based on aggregated stats
 - **Notification System**: New achievement notifications
 
+### Centralized UI System (v0.0.337-350)
+- **Print Helpers**: Consistent formatting functions in `anna_shared::ui`
+  - `print_header(name, version)` - Header with version
+  - `print_title(title)` - Title bar (HR + title + HR)
+  - `print_footer()` - Footer with horizontal rule
+  - `print_hr()` - Just a horizontal rule
+  - `print_section_header(section)` - `[section]` with HEADER color
+  - `print_label(label, message, color)` - `[label] message` with color
+  - `print_hint(message)` - Dim hint text
+  - `print_step(message)` - Action step with arrow
+  - `print_ok(message)` - Success with checkmark
+  - `print_err(message)` - Error with X
+  - `print_warn(message)` - Warning indicator
+  - `kv(key, value)` - Key-value with 22-char alignment
+- **Symbol Constants**: `symbols::OK`, `ERR`, `WARN`, `ARROW`, `BULLET`, `SPINNER`
+- **Color Constants**: `colors::HEADER`, `OK`, `ERR`, `WARN`, `DIM`, `CYAN`, `BOLD`, `RESET`
+- **Progress Bar**: `progress_bar(percent, width)` for visual progress
+- **Duration Format**: `format_duration(seconds)` for human-readable time
+
+### UI Consistency Updates (v0.0.341-350)
+- **greeting/status.rs**: LLM state messages use `print_hint()` and `print_label()`
+- **greeting/personal.rs**: Personalized greetings use centralized helpers
+- **errors.rs**: Error display with recovery suggestions
+- **handlers.rs**: Uninstall/reset plans use `print_step()`
+- **progress_display.rs**: Bootstrap progress uses consistent formatting
+- **change_commands.rs**: Change proposals use standardized display
+- **ticket_commands.rs**: Ticket views use centralized helpers
+- **stats_display_v2.rs**: Stats display with consistent formatting
+
+### Code Quality (v0.0.350)
+- **Zero Warnings**: Clean release build with no compiler warnings
+- **Unused Code Cleanup**: Removed dead fields and imports
+- **Modular Design**: Files kept under 400 lines for maintainability
+
 ## Not Yet Implemented
 
 ### Future
-- User confirmation dialog for system changes
 - Multi-file change transactions
 - Package installation recipes
 - Service configuration recipes
