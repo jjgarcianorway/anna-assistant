@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.353] - 2025-12-10
+
+### Fixed - README Examples Match Actual Output
+
+Verified and corrected all README.md examples to match actual implementation:
+
+**Stats Display:**
+- Updated from box-art style to actual `[section]` format
+- Shows real output: service desk, departments, staff roster, learning
+
+**Commands Section:**
+- Added missing commands: `learning`, `reset`
+- Updated descriptions to match `--help` output
+
+**Internal Comms Example:**
+- Updated to show actual format with timestamps `[0.5s]`
+- Shows probe output format matching `live_request.rs`
+
+All examples now accurately reflect what users will see.
+
 ## [0.0.352] - 2025-12-10
 
 ### Improved - UI Consistency in ticket_commands.rs

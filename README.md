@@ -52,20 +52,17 @@ annactl
 When you enable internal communications (`show internal comms`), you get to be a fly on the wall in Anna's virtual IT department:
 
 ```
-lhoqvso: why is my system slow?
+> why is my system slow?
 
-  Marcus (team): I'll check the usual suspects.
-  Anna: Running performance diagnostics...
-
-  [probe] ps aux --sort=-%mem | head -10
-  [probe] top -bn1 | head -20
-  [probe] free -h
-
-  Anna: Found the culprit. Chrome is using 4.2GB. Again.
+--- internal comms ---
+  [0.2s] Marcus (Jr, Performance): I'll check the usual suspects.
+  [0.3s] Anna: Running performance diagnostics...
+  [0.5s] [probe] ps aux --sort=-%mem | head -10
+  [0.8s] [probe] free -h
+  [1.2s] Anna: Found the culprit.
 
 Chrome has 47 tabs open (yes, I counted). That's eating 68% of your RAM.
-Firefox in the background adds another 1.1GB. Slack's electron wrapper
-is also being dramatic with 800MB.
+Firefox in the background adds another 1.1GB.
 
 Consider: closing some tabs, or accepting your fate as a Chrome farmer.
 ```
@@ -188,29 +185,38 @@ $ annactl "enable vim syntax highlighting"
 
 Anna learns from successful interactions and builds a recipe book of your patterns.
 
-### RPG-Style Stats
+### Service Desk Stats
 
-Because everything is better with XP:
+Track your IT department's performance:
 
 ```
 $ annactl stats
 
-╔════════════════════════════════════════════════╗
-║           ANNA SERVICE DESK STATS              ║
-╠════════════════════════════════════════════════╣
-║  Staff: lhoqvso          Title: Senior Tech    ║
-║  Level: 12               XP: 2,847 / 3,000     ║
-║  ████████████████░░░░░░░░  (95%)              ║
-╠════════════════════════════════════════════════╣
-║  ACHIEVEMENTS                                  ║
-║  [1] First Query      <3d> Three Day Streak   ║
-║  (90+) Perfectionist  {*} Night Owl            ║
-╠════════════════════════════════════════════════╣
-║  TEAM LEADERBOARD                              ║
-║  1. Desktop Team    - 847 tickets             ║
-║  2. Storage Team    - 523 tickets             ║
-║  3. Network Team    - 412 tickets             ║
-╚════════════════════════════════════════════════╝
+──────────────────────────────────────────────────────────────────────────────
+Anna Service Desk | Staff Performance Report
+──────────────────────────────────────────────────────────────────────────────
+
+[service desk]
+  total_tickets         47
+  resolved              42
+  escalated             5
+  avg_response          2.3s
+
+[departments]
+  Desktop       tickets:  18   resolved:  17   avg: 1.8s
+  Storage       tickets:  12   resolved:  11   avg: 2.1s
+  Network       tickets:   9   resolved:   8   avg: 3.2s
+
+[staff roster]
+  DESKTOP
+    Marcus (Jr)    tickets:  12   xp:  340   rate: 92%   Specialist
+    Sarah (Sr)     tickets:   6   xp:  180   rate: 83%   Senior Tech
+
+[learning]
+  queries_processed     47
+  keywords_learned      23
+  patterns              8 success / 2 negative
+  health                Good (78% confidence)
 ```
 
 ### Safe Change Engine
@@ -302,14 +308,16 @@ Anna comes with built-in recipes for common tasks:
 
 ## Commands
 
-Anna keeps it simple. Four commands, that's it:
+Anna keeps it simple:
 
 ```bash
-annactl "question"     # Ask anything
-annactl                # Interactive mode (the good stuff)
-annactl status         # System health check
-annactl stats          # Your RPG stats
-annactl uninstall      # Remove Anna (but why would you?)
+annactl "question"     # Ask anything about your system
+annactl                # Interactive mode (REPL)
+annactl status         # Daemon health, versions, LLM status
+annactl stats          # Service desk performance report
+annactl learning       # What Anna has learned (probe effectiveness)
+annactl reset          # Clear learned data and start fresh
+annactl uninstall      # Remove Anna completely
 ```
 
 Everything else? Just ask in natural language.
@@ -381,7 +389,7 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.351**
+Current: **v0.0.353**
 
 Recent highlights:
 - **Centralized UI system** with consistent formatting across all displays
