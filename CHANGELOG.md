@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.285] - 2025-12-10
+
+### Enhanced - Telemetry-Based Health Tips
+
+**Health Tips from Telemetry:**
+- `generate_telemetry_tips()` generates tips from telemetry data
+- Health score tips when score is below 75% or 60%
+- Disk trend tips when usage increasing >5%
+- Memory trend tips when usage increasing >15%
+- CPU trend tips when load increasing >20%
+- Anomaly-based tips with role-appropriate staff
+- Priority-based tip ordering
+
+**Idle Tips Integration:**
+- Live request now includes telemetry health tips
+- Higher priority health tips shown first
+- Tips from trends help users proactively
+
+**Files changed:**
+- `anna-shared/src/health_tips.rs` - Added telemetry tip generation
+- `annactl/src/live_request.rs` - Integrated telemetry tips
+
 ## [0.0.284] - 2025-12-10
 
 ### Enhanced - Greeting Health Alerts & Idle Tips

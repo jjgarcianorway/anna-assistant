@@ -8,8 +8,11 @@
 //! v0.0.253: Enhanced specialist dialogue with role titles and visual polish.
 //! v0.0.278: Enhanced Hollywood-style stage indicators and spinners.
 //! v0.0.284: Added idle tips during wait times.
+//! v0.0.285: Integrated telemetry-based health tips.
 
+use anna_shared::health_tips::generate_telemetry_tips;
 use anna_shared::idle_tips::{get_contextual_tips, TipColors, TipQueue};
+use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::roster;
 use anna_shared::rpc::ServiceDeskResult;
@@ -111,6 +114,13 @@ impl Default for StreamingState {
         let mut tip_queue = TipQueue::new();
         for tip in get_contextual_tips() {
             tip_queue.push(tip);
+        }
+
+        // v0.0.285: Also add health tips from telemetry
+        if let Some(telemetry) = TelemetryStore::load_if_exists() {
+            for tip in generate_telemetry_tips(&telemetry) {
+                tip_queue.push(tip);
+            }
         }
 
         Self {
