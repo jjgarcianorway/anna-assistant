@@ -393,7 +393,7 @@ async fn handle_llm_request_inner(
         };
     }
 
-    // Step 9: v0.0.291 - Run verification stage (extracted module)
+    // Step 9: v0.0.297 - Run verification stage with LLM self-healing
     let verification_input = VerificationInput {
         request_id: &request_id,
         id: &id,
@@ -407,6 +407,7 @@ async fn handle_llm_request_inner(
         ticket_probes_planned,
         probe_cap_warning,
         supervisor_timeout_secs: llm_config.supervisor_timeout_secs,
+        model: &specialist_model,
     };
 
     let (final_answer, _score) =

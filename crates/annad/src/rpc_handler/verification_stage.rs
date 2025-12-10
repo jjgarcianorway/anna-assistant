@@ -1,7 +1,8 @@
-//! Verification and theatre stage (v0.0.291).
+//! Verification and theatre stage (v0.0.297).
 //!
 //! Handles ticket verification loop, comms updates, and theatre recording.
 //! Extracted from llm_request.rs for modularization.
+//! v0.0.297: LLM self-healing integration via ticket_loop.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::reliability::ReliabilityInput;
@@ -35,6 +36,8 @@ pub struct VerificationInput<'a> {
     pub ticket_probes_planned: usize,
     pub probe_cap_warning: bool,
     pub supervisor_timeout_secs: u64,
+    /// v0.0.297: Model for LLM self-healing
+    pub model: &'a str,
 }
 
 /// Build reliability input for verification
@@ -69,7 +72,7 @@ pub fn build_reliability_input(
     }
 }
 
-/// Run the verification loop and update comms
+/// Run the verification loop and update comms (v0.0.297: with LLM self-healing)
 pub async fn run_verification(
     input: &VerificationInput<'_>,
     progress: &mut ProgressTracker,
@@ -81,6 +84,7 @@ pub async fn run_verification(
     let route_class = input.specialist_result.fallback_route_class.as_deref().unwrap_or("unknown");
     let elapsed_ms = progress.elapsed_ms();
 
+    // v0.0.297: Pass model and timeout for LLM self-healing
     let verification_result = run_ticket_loop(
         input.request_id,
         input.query,
@@ -92,7 +96,10 @@ pub async fn run_verification(
         progress.transcript_mut(),
         elapsed_ms,
         Some(TicketServiceConfig::default()),
-    );
+        input.model,
+        input.supervisor_timeout_secs,
+    )
+    .await;
 
     // Update comms based on verification result
     match verification_result.ticket.status {

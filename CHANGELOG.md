@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.297] - 2025-12-10
+
+### Added - LLM Self-Healing for Senior Escalation
+
+**Senior escalation now uses LLM-based answer regeneration:**
+
+When junior verification fails after exhausting all rounds, the senior escalation path now invokes LLM self-healing to fix the answer. This implements the core principle: "Anna must validate answers and retry until exact score."
+
+**Changes:**
+- `ticket_loop.rs` now async - calls `validate_and_heal()` during senior escalation
+- Builds `ParsedEvidence` from probe results for validation context
+- Logs full validation path for debugging
+- Falls back to deterministic senior escalation if LLM healing fails
+
+**Integration Flow:**
+1. Junior verification exhausts all rounds
+2. Senior escalation triggers LLM self-healing via `answer_validator`
+3. `validate_and_heal()` extracts claims, checks grounding, runs invention guard
+4. If issues found, regenerates answer with correction prompt
+5. Re-validates until score >= 80 or max attempts (3)
+6. If LLM healing succeeds, returns verified answer
+7. If LLM healing fails, falls back to deterministic senior loop
+
+**Files Changed:**
+- `annad/src/ticket_loop.rs` - Now async, integrated LLM self-healing
+- `annad/src/rpc_handler/verification_stage.rs` - Added model parameter
+- `annad/src/rpc_handler/llm_request.rs` - Passes model to verification
+- `annad/tests/ticket_flow_tests.rs` - Updated to use async/tokio
+
 ## [0.0.296] - 2025-12-10
 
 ### Added - Answer Validation with Self-Healing

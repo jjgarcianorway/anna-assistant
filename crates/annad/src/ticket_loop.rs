@@ -1,11 +1,14 @@
-//! Ticket verification loop with bounded retries and escalation.
+//! Ticket verification loop with bounded retries and escalation (v0.0.297).
 //!
 //! Wraps the service desk answer with:
 //! - Junior verification (bounded by junior_rounds_max)
 //! - Senior escalation when junior exhausted
+//! - v0.0.297: LLM-based self-healing for failed validations
 //! - Revision application between rounds
 //! - Full transcript visibility
 
+use anna_shared::grounding::ParsedEvidence;
+use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
 use anna_shared::reliability::ReliabilityInput;
 use anna_shared::rpc::{ProbeResult, TranslatorTicket};
 use anna_shared::ticket::{Ticket, TicketStatus};
@@ -13,6 +16,7 @@ use anna_shared::trace::EvidenceKind;
 use anna_shared::transcript::Transcript;
 use tracing::{info, warn};
 
+use crate::answer_validator;
 use crate::ticket_service::{
     self, add_junior_review_event, add_revision_event, add_senior_escalation_event,
     add_status_change_event, add_ticket_created_event, create_ticket_from_translator,
@@ -31,16 +35,16 @@ pub struct TicketLoopResult {
     pub score: u8,
 }
 
-/// Run the ticket verification loop on an answer.
+/// Run the ticket verification loop on an answer (v0.0.297: async with LLM self-healing).
 ///
 /// Flow:
 /// 1. Create ticket from translator output
 /// 2. Run junior verification
 /// 3. If not verified, apply revision and retry (up to junior_rounds_max)
-/// 4. If junior exhausted, escalate to senior
+/// 4. If junior exhausted, escalate to senior with LLM self-healing
 /// 5. Apply senior revision (up to senior_rounds_max)
 /// 6. Return final result with ticket state
-pub fn run_ticket_loop(
+pub async fn run_ticket_loop(
     request_id: &str,
     user_request: &str,
     answer: &str,
@@ -51,6 +55,8 @@ pub fn run_ticket_loop(
     transcript: &mut Transcript,
     elapsed_ms: u64,
     config: Option<TicketServiceConfig>,
+    model: &str,
+    timeout_secs: u64,
 ) -> TicketLoopResult {
     let config = config.unwrap_or_default();
 
@@ -158,7 +164,85 @@ pub fn run_ticket_loop(
         TicketStatus::Escalated,
     );
 
-    // Step 4: Senior escalation loop
+    // v0.0.297: Build ParsedEvidence from probe results for LLM self-healing
+    let parsed_probes: Vec<ParsedProbeData> = probe_results
+        .iter()
+        .map(parse_probe_result)
+        .collect();
+    let evidence = ParsedEvidence::from_probes(&parsed_probes);
+
+    // Step 4: Senior escalation with LLM self-healing (v0.0.297)
+    info!("Attempting LLM-based self-healing for senior escalation");
+
+    let validation_result = answer_validator::validate_and_heal(
+        &current_answer,
+        user_request,
+        &evidence,
+        reliability_input,
+        model,
+        timeout_secs,
+    )
+    .await;
+
+    // Log validation path for debugging
+    for step in &validation_result.validation_path {
+        info!("Validation: {}", step);
+    }
+
+    if validation_result.passed {
+        info!(
+            "LLM self-healing succeeded: score={}, attempts={}",
+            validation_result.score, validation_result.heal_attempts
+        );
+
+        // Create a synthetic escalation event for transcript
+        let escalation = anna_shared::revision::SeniorEscalation::success(
+            anna_shared::revision::RevisionInstruction::default()
+                .with_explanation("LLM self-healing applied")
+        );
+        add_senior_escalation_event(transcript, elapsed_ms, &escalation);
+
+        if validation_result.heal_attempts > 0 {
+            add_revision_event(
+                transcript,
+                elapsed_ms,
+                vec![format!(
+                    "LLM healed answer in {} attempts",
+                    validation_result.heal_attempts
+                )],
+            );
+        }
+
+        ticket.status = TicketStatus::Verified;
+        add_status_change_event(
+            transcript,
+            elapsed_ms,
+            &ticket,
+            TicketStatus::Escalated,
+            TicketStatus::Verified,
+        );
+
+        return TicketLoopResult {
+            answer: validation_result.answer,
+            ticket,
+            verified: true,
+            score: validation_result.score,
+        };
+    }
+
+    // LLM healing failed - fall back to deterministic senior loop
+    warn!(
+        "LLM self-healing failed: score={}, issues={:?}",
+        validation_result.score,
+        validation_result.issues.iter().map(|i| i.to_string()).collect::<Vec<_>>()
+    );
+
+    // Update current answer if healing produced something
+    if validation_result.heal_attempts > 0 {
+        current_answer = validation_result.answer;
+    }
+
+    // Step 4b: Deterministic senior escalation fallback
     while ticket.senior_attempt < ticket.senior_rounds_max {
         ticket.senior_attempt += 1;
 
@@ -263,72 +347,6 @@ fn evidence_kinds_from_route(route_class: &str) -> Vec<EvidenceKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anna_shared::rpc::{QueryIntent, SpecialistDomain};
-
-    fn make_test_ticket() -> TranslatorTicket {
-        TranslatorTicket {
-            intent: QueryIntent::Question,
-            domain: SpecialistDomain::System,
-            entities: vec!["memory".to_string()],
-            needs_probes: vec!["free -h".to_string()],
-            clarification_question: None,
-            answer_contract: None,
-            confidence: 0.9,
-        }
-    }
-
-    fn make_high_reliability_input() -> ReliabilityInput {
-        ReliabilityInput {
-            planned_probes: 1,
-            succeeded_probes: 1,
-            failed_probes: 0,
-            timed_out_probes: 0,
-            translator_confidence: 0.95,
-            translator_used: true,
-            answer_grounded: true,
-            no_invention: true,
-            grounding_ratio: 1.0,
-            total_claims: 1,
-            evidence_required: true,
-            used_deterministic: false,
-            parsed_data_count: 0,
-            prompt_truncated: false,
-            transcript_capped: false,
-            budget_exceeded: false,
-            exceeded_stage: None,
-            stage_budget_ms: 0,
-            stage_elapsed_ms: 0,
-            used_deterministic_fallback: false,
-            fallback_route_class: String::new(),
-            evidence_kinds: vec![],
-            specialist_outcome: None,
-            fallback_used: None,
-        }
-    }
-
-    #[test]
-    fn test_ticket_loop_passes_high_reliability() {
-        let translator_ticket = make_test_ticket();
-        let reliability_input = make_high_reliability_input();
-        let mut transcript = Transcript::new();
-
-        let result = run_ticket_loop(
-            "test-123",
-            "how much memory do I have?",
-            "You have 16GB of RAM with 8GB available.",
-            &translator_ticket,
-            "MemoryUsage",
-            &[],
-            &reliability_input,
-            &mut transcript,
-            100,
-            None,
-        );
-
-        assert!(result.verified);
-        assert_eq!(result.ticket.status, TicketStatus::Verified);
-        assert!(result.score >= 80);
-    }
 
     #[test]
     fn test_evidence_kinds_mapping() {
@@ -347,3 +365,5 @@ mod tests {
         assert!(evidence_kinds_from_route("Unknown").is_empty());
     }
 }
+
+// v0.0.297: Integration tests for async run_ticket_loop moved to tests/ticket_loop_tests.rs
