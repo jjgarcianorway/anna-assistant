@@ -149,6 +149,9 @@ pub mod learning_suggestions;
 // v0.0.286: Proactive maintenance actions
 pub mod maintenance_actions;
 
+// v0.0.288: Learning progress tracking
+pub mod learning_progress;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

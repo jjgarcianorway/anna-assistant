@@ -9,6 +9,7 @@
 
 use anna_shared::achievements::{check_achievements, Achievement};
 use anna_shared::event_log::EventLog;
+use anna_shared::learning_progress::compute_learning_progress;
 use anna_shared::learning_suggestions::{generate_suggestions, SuggestionCategory};
 use anna_shared::maintenance_actions::{generate_maintenance_actions, ActionCategory};
 use anna_shared::snapshot::SystemSnapshot;
@@ -116,16 +117,40 @@ pub fn print_stats_display_v2(stats: &GlobalStats) {
 
     kv("fast_path_hits", &format!("{} ({:.0}%)", stats.fast_path_hits, stats.fast_path_percentage()));
 
-    // === [learning] ===
+    // === [learning] === v0.0.288: Now shows Anna's growth
     println!();
     println!("{}[learning]{}", colors::HEADER, colors::RESET);
 
+    // v0.0.288: Show learning progress (data-driven)
+    let progress = compute_learning_progress();
+
     let total_recipes = recipe_count();
-    if let Some(ref agg) = agg {
-        kv("recipes_learned", &format!("{}", agg.recipes_learned));
-        kv("recipes_used", &format!("{}", agg.recipes_used));
+    kv("recipes_learned", &format!("{}", total_recipes));
+
+    // Self-sufficiency shows how much Anna handles on her own
+    if stats.total_requests > 0 {
+        let self_pct = ((stats.fast_path_hits + stats.recipe_hits) as f32
+            / stats.total_requests as f32
+            * 100.0) as u8;
+        let color = if self_pct >= 50 {
+            colors::OK
+        } else if self_pct >= 20 {
+            colors::WARN
+        } else {
+            colors::DIM
+        };
+        kv("self_sufficiency", &format!("{}{}%{}", color, self_pct, colors::RESET));
     }
-    kv("recipe_library", &format!("{}", total_recipes));
+
+    // Show strong areas (from actual data)
+    if !progress.strong_areas.is_empty() {
+        kv("strong_in", &progress.strong_areas.join(", "));
+    }
+
+    // Show growing areas
+    if !progress.growing_areas.is_empty() && progress.growing_areas.len() <= 3 {
+        kv("learning", &progress.growing_areas.join(", "));
+    }
 
     if stats.knowledge_pack_hits > 0 {
         kv("knowledge_pack_hits", &format!("{}", stats.knowledge_pack_hits));

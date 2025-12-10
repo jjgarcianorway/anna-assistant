@@ -3,7 +3,10 @@
 //! Suggests areas where Anna could improve her knowledge during idle time.
 //! These suggestions help users understand what Anna is learning and
 //! encourage exploration of new capabilities.
+//!
+//! v0.0.288: Removed hardcoded suggestions, now fully data-driven from recipes.
 
+use crate::learning_progress::{compute_learning_progress, LearningProgress};
 use crate::recipe_store::RecipeStore;
 use crate::system_telemetry::TelemetryStore;
 use serde::{Deserialize, Serialize};
@@ -52,11 +55,16 @@ impl std::fmt::Display for SuggestionCategory {
 }
 
 /// Generate learning suggestions based on current state
+/// v0.0.288: Now data-driven, no hardcoded suggestions
 pub fn generate_suggestions(
     recipes: Option<&RecipeStore>,
     telemetry: Option<&TelemetryStore>,
 ) -> Vec<LearningSuggestion> {
     let mut suggestions = Vec::new();
+
+    // v0.0.288: Use learning progress for data-driven suggestions
+    let progress = compute_learning_progress();
+    suggestions.extend(suggestions_from_progress(&progress));
 
     // Analyze recipe coverage
     if let Some(store) = recipes {
@@ -68,14 +76,60 @@ pub fn generate_suggestions(
         suggestions.extend(analyze_health_learning(store));
     }
 
-    // Add general exploration suggestions
-    suggestions.extend(general_exploration_suggestions());
-
     // Sort by priority
     suggestions.sort_by_key(|s| s.priority);
 
     // Limit to top 5
     suggestions.truncate(5);
+
+    suggestions
+}
+
+/// v0.0.288: Generate suggestions from learning progress (data-driven)
+fn suggestions_from_progress(progress: &LearningProgress) -> Vec<LearningSuggestion> {
+    let mut suggestions = Vec::new();
+
+    // If Anna is a beginner, suggest exploration
+    if progress.is_beginner() {
+        suggestions.push(LearningSuggestion {
+            category: SuggestionCategory::NewDomain,
+            title: "Help Anna learn".to_string(),
+            description: format!(
+                "Anna has {} recipes. Ask questions to help her grow!",
+                progress.recipes_total
+            ),
+            example_query: None, // No hardcoded queries
+            priority: 1,
+        });
+    }
+
+    // Suggest improvement for growing areas (from actual data)
+    for area in progress.growing_areas.iter().take(2) {
+        suggestions.push(LearningSuggestion {
+            category: SuggestionCategory::KnowledgeGap,
+            title: format!("Explore {}", area),
+            description: format!(
+                "Anna is still learning about {}. Your questions help!",
+                area
+            ),
+            example_query: None,
+            priority: 2,
+        });
+    }
+
+    // Acknowledge strong areas
+    if !progress.strong_areas.is_empty() && progress.recipes_total >= 20 {
+        suggestions.push(LearningSuggestion {
+            category: SuggestionCategory::DeepDive,
+            title: "Growing expertise".to_string(),
+            description: format!(
+                "Anna is confident with {}. Deep questions welcome!",
+                progress.strong_areas.join(", ")
+            ),
+            example_query: None,
+            priority: 4,
+        });
+    }
 
     suggestions
 }
@@ -115,7 +169,7 @@ fn analyze_recipe_gaps(store: &RecipeStore) -> Vec<LearningSuggestion> {
                     "Only {} recipes for {}. Ask me questions to help me learn!",
                     count, category
                 ),
-                example_query: Some(example_query_for_domain(category)),
+                example_query: example_query_for_domain(category),
                 priority: if count == 0 { 1 } else { 2 },
             });
         }
@@ -144,18 +198,11 @@ fn analyze_recipe_gaps(store: &RecipeStore) -> Vec<LearningSuggestion> {
     suggestions
 }
 
-/// Example query for a domain
-fn example_query_for_domain(domain: &str) -> String {
-    match domain {
-        "storage" => "How much disk space do I have?".to_string(),
-        "memory" => "What's using my RAM?".to_string(),
-        "network" => "Is my network working?".to_string(),
-        "services" => "What services are running?".to_string(),
-        "desktop" => "How do I enable dark mode?".to_string(),
-        "security" => "Check my firewall status".to_string(),
-        "performance" => "Why is my system slow?".to_string(),
-        _ => format!("Tell me about {}", domain),
-    }
+/// Example query for a domain - returns None to avoid hardcoded examples
+/// v0.0.288: Removed hardcoded queries, let users ask naturally
+fn example_query_for_domain(_domain: &str) -> Option<String> {
+    // No hardcoded examples - Anna learns from user queries
+    None
 }
 
 /// Analyze telemetry for health-related learning opportunities
@@ -202,32 +249,8 @@ fn analyze_health_learning(store: &TelemetryStore) -> Vec<LearningSuggestion> {
     suggestions
 }
 
-/// General exploration suggestions
-fn general_exploration_suggestions() -> Vec<LearningSuggestion> {
-    vec![
-        LearningSuggestion {
-            category: SuggestionCategory::NewDomain,
-            title: "Explore editor configs".to_string(),
-            description: "I can configure vim, nano, and other editors. Try asking!".to_string(),
-            example_query: Some("Enable line numbers in vim".to_string()),
-            priority: 3,
-        },
-        LearningSuggestion {
-            category: SuggestionCategory::DeepDive,
-            title: "Service management".to_string(),
-            description: "Ask about managing system services with systemd.".to_string(),
-            example_query: Some("What services are enabled?".to_string()),
-            priority: 4,
-        },
-        LearningSuggestion {
-            category: SuggestionCategory::NewDomain,
-            title: "Docker and containers".to_string(),
-            description: "I can help with Docker container management.".to_string(),
-            example_query: Some("Show running containers".to_string()),
-            priority: 4,
-        },
-    ]
-}
+// v0.0.288: Removed general_exploration_suggestions()
+// All suggestions now come from actual recipe/learning data
 
 /// Format suggestions for display
 pub fn format_suggestions_for_display(suggestions: &[LearningSuggestion]) -> String {
@@ -280,7 +303,8 @@ mod tests {
 
     #[test]
     fn test_example_queries() {
-        assert!(example_query_for_domain("storage").contains("disk"));
-        assert!(example_query_for_domain("memory").contains("RAM"));
+        // v0.0.288: Function now returns None (no hardcoded examples)
+        assert!(example_query_for_domain("storage").is_none());
+        assert!(example_query_for_domain("memory").is_none());
     }
 }

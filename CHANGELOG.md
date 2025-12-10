@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.288] - 2025-12-10
+
+### Enhanced - Data-Driven Learning
+
+**Learning Progress Module:**
+- New `learning_progress.rs` tracks Anna's knowledge growth
+- All metrics derived from actual recipes - no hardcoded data
+- Self-sufficiency metric: % of requests handled from own knowledge
+- Strong/growing areas identified from recipe reliability scores
+- Summary generation for translator to naturalize
+
+**Removed Hardcoded Suggestions:**
+- Removed `general_exploration_suggestions()` function
+- Removed hardcoded example queries for domains
+- All suggestions now come from actual recipe/learning data
+- `example_query_for_domain()` now returns None
+
+**Stats Display Improvements:**
+- Learning section now shows self_sufficiency percentage
+- Strong areas displayed from actual recipe data
+- Growing areas shown (categories needing more learning)
+- Color-coded self-sufficiency (green >=50%, yellow >=20%)
+
+**Key Philosophy:**
+- Anna starts knowing little, learns from specialists
+- Stats should show growth over time
+- No hardcoded content - everything data-driven
+
+**Files changed:**
+- `anna-shared/src/learning_progress.rs` - New module
+- `anna-shared/src/learning_suggestions.rs` - Removed hardcoded suggestions
+- `anna-shared/src/lib.rs` - Added module export
+- `annactl/src/stats_display_v2.rs` - Enhanced learning section
+
 ## [0.0.287] - 2025-12-10
 
 ### Enhanced - Maintenance Prompts in Greeting
