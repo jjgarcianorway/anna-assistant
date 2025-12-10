@@ -15,7 +15,10 @@ mod tests;
 // Re-export for backwards compatibility
 pub use context::{Capabilities, HardwareSummary, RuntimeContext};
 pub use method::{DaemonInfo, RpcMethod};
-pub use params::{ChangeParams, PlanChangeParams, ProbeParams, ProbeType, RequestParams};
+pub use params::{
+    ChangeParams, CommandExecutionResult, ExecuteCommandParams, PlanChangeParams, ProbeParams,
+    ProbeType, RequestParams,
+};
 pub use request_response::{RpcError, RpcRequest, RpcResponse};
 pub use result::{EvidenceBlock, ProbeResult, ReliabilitySignals, ServiceDeskResult};
 pub use routing::{QueryIntent, SpecialistDomain, TranslatorTicket};

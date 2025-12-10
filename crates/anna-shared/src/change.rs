@@ -52,6 +52,15 @@ pub enum ChangeOperation {
     EnsureLine { line: String },
     /// Append a line to the file
     AppendLine { line: String },
+    /// v0.0.312: Run a shell command (requires user approval)
+    RunCommand {
+        /// The command to execute
+        command: String,
+        /// Short description of what it does
+        what_it_does: String,
+        /// Whether this command requires sudo
+        needs_sudo: bool,
+    },
 }
 
 impl ChangePlan {
@@ -202,11 +211,42 @@ pub fn plan_ensure_line_with_pattern(
     })
 }
 
+/// v0.0.312: Plan a command execution
+pub fn plan_run_command(
+    command: &str,
+    what_it_does: &str,
+    risk: ChangeRisk,
+) -> ChangePlan {
+    let needs_sudo = command.trim_start().starts_with("sudo ");
+
+    ChangePlan {
+        description: format!("Run: {}", what_it_does),
+        target_path: PathBuf::from("/dev/null"), // No file target for commands
+        backup_path: PathBuf::from("/dev/null"),
+        operation: ChangeOperation::RunCommand {
+            command: command.to_string(),
+            what_it_does: what_it_does.to_string(),
+            needs_sudo,
+        },
+        risk,
+        target_exists: false,
+        is_noop: false,
+    }
+}
+
 /// Apply a change plan
 pub fn apply_change(plan: &ChangePlan) -> ChangeResult {
     // If no-op, return early
     if plan.is_noop {
         return ChangeResult::noop();
+    }
+
+    // Handle RunCommand separately (no file backup needed)
+    if let ChangeOperation::RunCommand { .. } = &plan.operation {
+        // RunCommand must be executed via apply_command_change, not here
+        return ChangeResult::failed(
+            "RunCommand must be executed via daemon (use execute_command RPC)"
+        );
     }
 
     // Create backup if target exists
@@ -226,6 +266,7 @@ pub fn apply_change(plan: &ChangePlan) -> ChangeResult {
             apply_ensure_line(&plan.target_path, line, plan.target_exists)
         }
         ChangeOperation::AppendLine { line } => append_line(&plan.target_path, line),
+        ChangeOperation::RunCommand { .. } => unreachable!(), // Handled above
     };
 
     match result {

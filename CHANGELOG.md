@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.312] - 2025-12-10
+
+### Added - Command Execution with User Approval
+
+**Anna can now execute system commands when user approves:**
+- Added `RunCommand` operation to change system (alongside file operations)
+- Added `ExecuteCommand` RPC method - commands run via daemon with elevated privileges
+- SystemUpdate handler now returns a proposed command instead of just instructions
+- User sees command, risk level, and description before approving
+- Commands execute via annad (running as root) enabling system-level operations
+- 5-minute timeout for long-running commands (e.g., system updates)
+
+**Changes:**
+- `ChangeOperation::RunCommand` - new variant for shell command execution
+- `ExecuteCommandParams` / `CommandExecutionResult` - RPC types for command execution
+- `AnnadClient::execute_command()` - client method for executing approved commands
+- `handle_execute_command()` - daemon handler that runs commands via `sh -c`
+- Updated `change_commands.rs` to handle RunCommand with proper display and execution
+- SystemUpdate now offers to run `sudo pacman -Syu` (or apt/dnf equivalent) with Medium risk
+
+**Impact:** When user asks "update my system", Anna now offers to run the command
+directly. User sees `[Command Execution] Update system packages using pacman`
+with the exact command and risk level. On approval, the command executes via the
+daemon (which runs with elevated privileges) and output is shown.
+
 ## [0.0.311] - 2025-12-10
 
 ### Added - Fast-Path Handlers for Config Queries

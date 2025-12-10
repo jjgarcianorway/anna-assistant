@@ -1,8 +1,11 @@
 //! Unix socket client for communicating with annad.
 //! v0.0.73: Added get_daemon_info for version truth.
+//! v0.0.312: Added execute_command for user-approved commands.
 
 use anna_shared::progress::ProgressEvent;
-use anna_shared::rpc::{DaemonInfo, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult};
+use anna_shared::rpc::{
+    CommandExecutionResult, DaemonInfo, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult,
+};
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::DaemonStatus;
 use anna_shared::status_snapshot::StatusSnapshot;
@@ -294,6 +297,32 @@ impl AnnadClient {
         let greeting: anna_shared::greeting_context::GreetingResponse =
             serde_json::from_value(result)?;
         Ok(greeting)
+    }
+
+    /// v0.0.312: Execute a user-approved command via daemon (with elevated privileges)
+    pub async fn execute_command(
+        &mut self,
+        command: &str,
+        request_id: &str,
+    ) -> Result<CommandExecutionResult> {
+        let params = serde_json::json!({
+            "command": command,
+            "request_id": request_id
+        });
+        // Use longer timeout for commands (5 minutes)
+        let response = self
+            .call_with_timeout(RpcMethod::ExecuteCommand, Some(params), 300)
+            .await?;
+
+        if let Some(error) = response.error {
+            return Err(anyhow!("ExecuteCommand error: {}", error.message));
+        }
+
+        let result = response
+            .result
+            .ok_or_else(|| anyhow!("No result in response"))?;
+        let exec_result: CommandExecutionResult = serde_json::from_value(result)?;
+        Ok(exec_result)
     }
 }
 

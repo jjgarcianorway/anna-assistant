@@ -1,6 +1,8 @@
 //! SystemUpdate query handler.
 //! v0.0.311: Deterministic fast-path for "update my system" requests.
+//! v0.0.312: Returns RunCommand for user-approved execution.
 
+use anna_shared::change::{plan_run_command, ChangeRisk};
 use anna_shared::rpc::{ProbeResult, ServiceDeskResult, SpecialistDomain, TranslatorTicket};
 use anna_shared::trace::{EvidenceKind, ExecutionTrace, ProbeStats, SpecialistOutcome};
 use anna_shared::transcript::Transcript;
@@ -86,24 +88,36 @@ pub fn handle_system_update(
     // Check if we have update count from probe
     let update_count = count_updates_from_probe(probe_results);
 
-    let answer = match update_count {
-        Some(0) => {
-            "Your system is already up to date! No packages need updating.".to_string()
-        }
+    // v0.0.312: Build answer text and proposed command
+    let (answer, command_plan) = match update_count {
+        Some(0) => (
+            "Your system is already up to date! No packages need updating.".to_string(),
+            None,
+        ),
         Some(count) => {
-            format!(
-                "To update your system ({} packages available), run:\n\n\
-                 ```\n{}\n```\n\n\
-                 This will download and install all available updates using {}.",
-                count, update_cmd, pkg_manager
+            let desc = format!("Update {} packages using {}", count, pkg_manager);
+            (
+                format!(
+                    "I can update your system ({} packages available).\n\n\
+                     Command: `{}`\n\n\
+                     This will download and install all available updates using {}.\n\n\
+                     **Risk: Medium** - System packages will be modified.",
+                    count, update_cmd, pkg_manager
+                ),
+                Some(plan_run_command(update_cmd, &desc, ChangeRisk::Medium)),
             )
         }
         None => {
-            format!(
-                "To update your system, run:\n\n\
-                 ```\n{}\n```\n\n\
-                 This will download and install all available updates using {}.",
-                update_cmd, pkg_manager
+            let desc = format!("Update system packages using {}", pkg_manager);
+            (
+                format!(
+                    "I can update your system.\n\n\
+                     Command: `{}`\n\n\
+                     This will download and install all available updates using {}.\n\n\
+                     **Risk: Medium** - System packages will be modified.",
+                    update_cmd, pkg_manager
+                ),
+                Some(plan_run_command(update_cmd, &desc, ChangeRisk::Medium)),
             )
         }
     };
@@ -122,6 +136,11 @@ pub fn handle_system_update(
         false,
         fallback_ctx,
     );
+
+    // v0.0.312: Add proposed command for user approval
+    if let Some(plan) = command_plan {
+        result.proposed_changes.push(plan);
+    }
 
     result.execution_trace = Some(ExecutionTrace::deterministic_route(
         "system_update",

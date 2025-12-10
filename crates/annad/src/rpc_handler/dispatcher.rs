@@ -28,5 +28,8 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::GenerateGreeting => {
             handlers::handle_generate_greeting(state, id, request.params).await
         }
+        RpcMethod::ExecuteCommand => {
+            handlers::handle_execute_command(id, request.params).await
+        }
     }
 }
