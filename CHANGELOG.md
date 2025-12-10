@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.333] - 2025-12-10
+
+### Changed - Confidence-Gated Learning
+
+**Translator now gates learning recommendations on confidence:**
+
+Before using learned probe recommendations, the translator now checks:
+1. Is learning confidence >= 30%? If not, skip recommendations entirely
+2. Adjust score threshold based on confidence (0.5-0.7)
+3. Log when learning is used vs skipped
+
+This prevents Anna from using potentially unreliable learned patterns when:
+- Not enough data has been collected
+- Quality is declining
+- Keyword coverage is too sparse
+
+**Technical changes:**
+- `get_probe_recommendations()` now calls `should_use_learning()` first
+- Score threshold is dynamic based on confidence factor
+- Added logging for learning usage decisions
+
 ## [0.0.332] - 2025-12-10
 
 ### Added - Learning Confidence & Health

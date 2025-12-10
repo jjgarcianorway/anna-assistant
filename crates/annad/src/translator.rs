@@ -1,4 +1,4 @@
-//! LLM-based translator for query classification (v0.0.327).
+//! LLM-based translator for query classification (v0.0.333).
 //!
 //! Converts user text to structured TranslatorTicket JSON.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
@@ -7,6 +7,7 @@
 //! v0.0.318: Added TranslatorResult with debug info for LLM call visibility.
 //! v0.0.322: Integrated probe learning - recommends probes based on past effectiveness.
 //! v0.0.327: Uses load_with_decay() for automatic learning decay.
+//! v0.0.333: Only uses learning when confidence is sufficient.
 
 use anna_shared::answer_contract::AnswerContract;
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
@@ -126,8 +127,17 @@ pub fn build_translator_request(input: &TranslatorInput) -> String {
 /// v0.0.322: Get probe recommendations from learning store
 /// v0.0.325: Also uses keyword-based suggestions
 /// v0.0.327: Uses load_with_decay() for automatic decay
+/// v0.0.333: Only returns recommendations if learning confidence is sufficient
 fn get_probe_recommendations(query: &str) -> String {
     let store = ProbeLearningStore::load_with_decay();
+
+    // v0.0.333: Check if we should trust the learning data
+    if !store.should_use_learning() {
+        info!("Learning confidence too low ({:.0}%), skipping recommendations",
+              store.confidence_factor() * 100.0);
+        return String::new();
+    }
+
     let category = QueryCategory::from_query(query);
 
     // Get category-based recommendations
@@ -139,9 +149,10 @@ fn get_probe_recommendations(query: &str) -> String {
     // Combine both sources, prioritizing keyword matches
     let mut combined: std::collections::HashMap<String, f32> = std::collections::HashMap::new();
 
-    // Add category recommendations
+    // Add category recommendations (threshold based on confidence)
+    let score_threshold = 0.5 + (store.confidence_factor() * 0.2); // 0.5-0.7 based on confidence
     for (probe_id, score) in &category_recs {
-        if *score > 0.6 {
+        if *score > score_threshold {
             combined.insert(probe_id.clone(), *score);
         }
     }
@@ -166,6 +177,8 @@ fn get_probe_recommendations(query: &str) -> String {
     if good_probes.is_empty() {
         String::new()
     } else {
+        info!("Using learned probes (confidence {:.0}%): {}",
+              store.confidence_factor() * 100.0, good_probes.join(", "));
         good_probes.join(", ")
     }
 }
