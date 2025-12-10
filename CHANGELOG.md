@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.328] - 2025-12-10
+
+### Added - Learning Query Test
+
+**Test what probes Anna would recommend for any query:**
+
+```bash
+annactl learning --test "how's my disk space?"
+```
+
+This shows:
+- **Detected category**: What category Anna classified the query as
+- **Category-based recommendations**: Probes that work well for this category
+- **Keyword-based suggestions**: Probes suggested by matching keywords
+- **Known bad combinations**: Warnings if similar queries had issues before
+
+Example output:
+```
+Query Analysis
+
+  Query: "how's my disk space?"
+  Category: Storage
+
+Category-based Recommendations:
+  disk_usage 85%
+  memory_info 72%
+
+Keyword-based Suggestions:
+  disk_usage (keyword matches: 3)
+  storage_info (keyword matches: 1)
+```
+
+This is useful for debugging Anna's learning and understanding what recommendations are being made.
+
+**Technical changes:**
+- `learning.rs`: Added `show_query_recommendations()` function
+- `main.rs`: Added `--test` / `-t` option to learning command
+
 ## [0.0.327] - 2025-12-10
 
 ### Added - Learning Decay

@@ -2,6 +2,7 @@
 //! v0.0.144: Simplified CLI - only essential commands, everything else via natural language.
 //! v0.0.304: Added user-friendly error presentation module.
 //! v0.0.323: Added learning command to show probe learning stats.
+//! v0.0.328: Added query test option to learning command.
 
 mod change_commands;
 mod client;
@@ -22,7 +23,7 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_learning, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
+use crate::commands::{handle_learning_with_query, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -65,7 +66,11 @@ enum Command {
     /// Show Service Desk staff performance report
     Stats,
     /// Show what Anna has learned (probe effectiveness)
-    Learning,
+    Learning {
+        /// Test recommendations for a query (e.g., "how's my disk?")
+        #[arg(long, short = 't')]
+        test: Option<String>,
+    },
     /// Reset learned data and event history
     Reset,
     /// Remove Anna completely from the system
@@ -79,7 +84,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Some(Command::Status) => handle_status().await,
         Some(Command::Stats) => handle_stats().await,
-        Some(Command::Learning) => handle_learning(),
+        Some(Command::Learning { test }) => handle_learning_with_query(test.as_deref()),
         Some(Command::Reset) => handle_reset().await,
         Some(Command::Uninstall) => handle_uninstall().await,
         None => {

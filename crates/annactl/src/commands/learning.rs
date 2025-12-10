@@ -1,17 +1,85 @@
-//! Learning stats command (v0.0.325).
+//! Learning stats command (v0.0.328).
 //!
 //! Shows what Anna has learned from experience:
 //! - Probe effectiveness per category
 //! - Negative patterns (mistakes to avoid)
 //! - Keyword associations (v0.0.325)
+//! - Query recommendations test (v0.0.328)
 
-use anna_shared::probe_learning::ProbeLearningStore;
+use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::ui::colors;
 use anyhow::Result;
 
 /// Handle learning command - show what Anna has learned
+/// v0.0.328: Optional query parameter to test recommendations
+pub fn handle_learning_with_query(query: Option<&str>) -> Result<()> {
+    // If query provided, show recommendations for it
+    if let Some(q) = query {
+        return show_query_recommendations(q);
+    }
+    handle_learning()
+}
+
+/// v0.0.328: Show what probes Anna would recommend for a query
+fn show_query_recommendations(query: &str) -> Result<()> {
+    let store = ProbeLearningStore::load_with_decay();
+    let category = QueryCategory::from_query(query);
+
+    println!();
+    println!("{}Query Analysis{}", colors::HEADER, colors::RESET);
+    println!();
+    println!("  {}Query:{} \"{}\"", colors::DIM, colors::RESET, query);
+    println!("  {}Category:{} {:?}", colors::DIM, colors::RESET, category);
+    println!();
+
+    // Get category-based recommendations
+    let category_recs = store.get_recommended_probes(&category);
+    if !category_recs.is_empty() {
+        println!("{}Category-based Recommendations:{}", colors::BOLD, colors::RESET);
+        for (probe_id, score) in category_recs.iter().take(5) {
+            let score_color = if *score >= 0.7 { colors::OK }
+                else if *score >= 0.5 { colors::WARN }
+                else { colors::DIM };
+            println!(
+                "  {} {}{:.0}%{}",
+                probe_id, score_color, score * 100.0, colors::RESET
+            );
+        }
+        println!();
+    } else {
+        println!("{}No category-based recommendations yet{}", colors::DIM, colors::RESET);
+        println!();
+    }
+
+    // Get keyword-based suggestions
+    let keyword_suggestions = store.suggest_probes_for_query(query);
+    if !keyword_suggestions.is_empty() {
+        println!("{}Keyword-based Suggestions:{}", colors::BOLD, colors::RESET);
+        for (probe_id, count) in keyword_suggestions.iter().take(5) {
+            println!("  {} (keyword matches: {})", probe_id, count);
+        }
+        println!();
+    } else {
+        println!("{}No keyword-based suggestions yet{}", colors::DIM, colors::RESET);
+        println!();
+    }
+
+    // Check for known bad combinations
+    let probes: Vec<String> = category_recs.iter().map(|(p, _)| p.clone()).collect();
+    if let Some(reason) = store.is_known_bad_combo(query, &probes) {
+        println!(
+            "{}Warning:{} Similar query had issues before: {}",
+            colors::WARN, colors::RESET, reason
+        );
+        println!();
+    }
+
+    Ok(())
+}
+
+/// Handle learning command - show what Anna has learned
 pub fn handle_learning() -> Result<()> {
-    let store = ProbeLearningStore::load();
+    let store = ProbeLearningStore::load_with_decay();
 
     println!();
     println!("{}Anna Learning Stats{}", colors::HEADER, colors::RESET);
