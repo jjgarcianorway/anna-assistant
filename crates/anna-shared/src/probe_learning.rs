@@ -237,6 +237,15 @@ impl ProbeLearningStore {
         PathBuf::from(home).join(".anna").join("probe_learning.json")
     }
 
+    /// v0.0.329: Reset all learning data
+    pub fn reset() -> Result<(), String> {
+        let path = Self::store_path();
+        if path.exists() {
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
+
     /// Record probe usage for a query
     pub fn record_usage(&mut self, category: QueryCategory, probe_id: &str, failed: bool) {
         let category_map = self.effectiveness.entry(category).or_default();

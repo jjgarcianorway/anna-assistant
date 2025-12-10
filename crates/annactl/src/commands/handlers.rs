@@ -1,5 +1,6 @@
-//! Command handlers (v0.0.205).
+//! Command handlers (v0.0.329).
 
+use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::ServiceDeskResult;
 use anna_shared::status::LlmState;
 use anna_shared::ui::{colors, symbols};
@@ -205,7 +206,7 @@ pub async fn handle_uninstall() -> Result<()> {
     Ok(())
 }
 
-/// Handle reset command (v0.0.298)
+/// Handle reset command (v0.0.329)
 pub async fn handle_reset() -> Result<()> {
     let mut client = AnnadClient::connect().await?;
 
@@ -216,6 +217,7 @@ pub async fn handle_reset() -> Result<()> {
     println!("  {} Clear learned recipes", symbols::ARROW);
     println!("  {} Clear knowledge base", symbols::ARROW);
     println!("  {} Clear event log (stats)", symbols::ARROW);
+    println!("  {} Clear probe learning (v0.0.329)", symbols::ARROW);
     println!();
 
     println!("{}Confirm reset?{} [y/N]: ", colors::WARN, colors::RESET);
@@ -230,6 +232,15 @@ pub async fn handle_reset() -> Result<()> {
     }
 
     println!();
+
+    // v0.0.329: Also reset probe learning
+    if let Err(e) = ProbeLearningStore::reset() {
+        eprintln!(
+            "{}Warning:{} Failed to reset probe learning: {}",
+            colors::WARN, colors::RESET, e
+        );
+    }
+
     client.reset().await?;
 
     println!(

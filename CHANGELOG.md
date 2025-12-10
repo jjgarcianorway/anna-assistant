@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.329] - 2025-12-10
+
+### Added - Learning Reset
+
+**The reset command now also clears probe learning data:**
+
+```bash
+annactl reset
+```
+
+Now clears:
+- Learned recipes
+- Knowledge base
+- Event log (stats)
+- **Probe learning (NEW)**: effectiveness scores, keywords, patterns
+
+This gives Anna a completely fresh start, forgetting all learned probe associations and query patterns.
+
+**Technical changes:**
+- `probe_learning.rs`: Added `ProbeLearningStore::reset()` method
+- `handlers.rs`: Updated `handle_reset()` to call probe learning reset
+
 ## [0.0.328] - 2025-12-10
 
 ### Added - Learning Query Test
