@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.289] - 2025-12-10
+
+### Added - Interesting Facts in Greetings
+
+**New `interesting_facts.rs` Module:**
+- Data-driven facts about system, hardware, user patterns, and Anna's growth
+- Facts categorized: Performance, Hardware, UserPattern, Growth, Milestone
+- Priority-based selection (1=most interesting, 5=least)
+- All facts derived from actual data - no hardcoded content
+
+**Fact Sources:**
+- Hardware: uptime, memory usage, network status
+- Performance: telemetry trends (CPU, memory, disk), health score
+- User Patterns: request milestones, streaks, response times, tenure
+- Growth: recipes learned, self-sufficiency, strong areas
+
+**Greeting Integration:**
+- Top facts included in `GreetingContext` for LLM naturalization
+- Fallback greeting shows "By the way: {fact}"
+- Facts enhance personality without being intrusive
+
+**Key Philosophy:**
+- Greetings become more personalized over time
+- LLM translator can naturalize facts into conversational style
+- All data reflects real system/usage patterns
+
+**Files changed:**
+- `anna-shared/src/interesting_facts.rs` - New module
+- `anna-shared/src/greeting_context.rs` - Added interesting_facts field
+- `anna-shared/src/lib.rs` - Added module export
+- `annactl/src/greeting/mod.rs` - Integrated fact generation
+
 ## [0.0.288] - 2025-12-10
 
 ### Enhanced - Data-Driven Learning

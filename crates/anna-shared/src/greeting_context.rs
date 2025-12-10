@@ -4,9 +4,11 @@
 //! personalized, varied greetings while maintaining consistent content.
 //! v0.0.281: Added telemetry-based health issue population.
 //! v0.0.287: Added maintenance prompts for proactive suggestions.
+//! v0.0.289: Added interesting facts about system, patterns, and Anna's growth.
 
 use crate::health_alerts::{generate_alerts, AlertSeverity};
-use crate::maintenance_actions::{generate_maintenance_actions, MaintenanceAction};
+use crate::interesting_facts::InterestingFacts;
+use crate::maintenance_actions::generate_maintenance_actions;
 use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
 use serde::{Deserialize, Serialize};
@@ -39,6 +41,9 @@ pub struct GreetingContext {
     /// v0.0.287: Proactive maintenance prompts
     #[serde(default)]
     pub maintenance_prompts: Vec<String>,
+    /// v0.0.289: Interesting facts about system/patterns/growth
+    #[serde(default)]
+    pub interesting_facts: Vec<String>,
 }
 
 impl Default for GreetingContext {
@@ -56,6 +61,7 @@ impl Default for GreetingContext {
             health_issues: Vec::new(),
             llm_status: "ready".to_string(),
             maintenance_prompts: Vec::new(),
+            interesting_facts: Vec::new(),
         }
     }
 }
@@ -129,6 +135,19 @@ impl GreetingContext {
     pub fn has_maintenance(&self) -> bool {
         !self.maintenance_prompts.is_empty()
     }
+
+    /// v0.0.289: Add interesting facts from system state
+    pub fn with_interesting_facts(mut self, snapshot: &SystemSnapshot) -> Self {
+        let facts = InterestingFacts::from_current_state(snapshot);
+        // Get top 3 most interesting facts for the greeting
+        self.interesting_facts = facts.as_strings(3);
+        self
+    }
+
+    /// Check if there are interesting facts to share
+    pub fn has_interesting_facts(&self) -> bool {
+        !self.interesting_facts.is_empty()
+    }
 }
 
 /// Response from greeting generation
@@ -196,6 +215,14 @@ impl GreetingResponse {
             for prompt in ctx.maintenance_prompts.iter().take(2) {
                 lines.push(format!("  - {}", prompt));
             }
+        }
+
+        // v0.0.289: Interesting facts
+        if !ctx.interesting_facts.is_empty() {
+            lines.push(String::new());
+            // Pick one random fact to keep greeting concise
+            let fact = &ctx.interesting_facts[0];
+            lines.push(format!("By the way: {}", fact));
         }
 
         // Closing

@@ -30,6 +30,7 @@ pub use types::{bullet, InteractionInfo};
 
 /// Build greeting context from current system state
 /// v0.0.287: Added maintenance prompt support
+/// v0.0.289: Added interesting facts
 fn build_greeting_context(
     username: &str,
     profile: &UserProfile,
@@ -60,10 +61,13 @@ fn build_greeting_context(
         health_issues,
         llm_status: llm_status.to_string(),
         maintenance_prompts: Vec::new(),
+        interesting_facts: Vec::new(),
     };
 
     // v0.0.287: Add maintenance prompts
+    // v0.0.289: Add interesting facts
     ctx.with_maintenance(snapshot, telemetry)
+        .with_interesting_facts(snapshot)
 }
 
 /// Print the theatre-style REPL greeting

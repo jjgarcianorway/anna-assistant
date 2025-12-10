@@ -152,6 +152,9 @@ pub mod maintenance_actions;
 // v0.0.288: Learning progress tracking
 pub mod learning_progress;
 
+// v0.0.289: Interesting facts for greetings
+pub mod interesting_facts;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{
