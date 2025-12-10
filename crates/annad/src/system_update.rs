@@ -19,16 +19,18 @@ pub enum SystemUpdateResult {
 }
 
 /// Detect package manager from OS
+/// v0.0.318: Commands use --noconfirm/--yes for non-interactive execution
 fn detect_package_manager() -> (&'static str, &'static str) {
     // Check for common package managers
+    // All commands must be non-interactive (no prompts)
     if std::path::Path::new("/usr/bin/pacman").exists() {
-        ("pacman", "sudo pacman -Syu")
+        ("pacman", "sudo pacman -Syu --noconfirm")
     } else if std::path::Path::new("/usr/bin/apt").exists() {
-        ("apt", "sudo apt update && sudo apt upgrade")
+        ("apt", "sudo apt update && sudo apt upgrade -y")
     } else if std::path::Path::new("/usr/bin/dnf").exists() {
-        ("dnf", "sudo dnf upgrade")
+        ("dnf", "sudo dnf upgrade -y")
     } else if std::path::Path::new("/usr/bin/zypper").exists() {
-        ("zypper", "sudo zypper update")
+        ("zypper", "sudo zypper update -y")
     } else if std::path::Path::new("/usr/bin/emerge").exists() {
         ("portage", "sudo emerge --sync && sudo emerge -uDN @world")
     } else {

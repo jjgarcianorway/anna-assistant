@@ -74,10 +74,20 @@ pub fn verify_binary_version(path: &Path, expected_version: &str, name: &str) ->
 }
 
 /// Install both binaries together (atomic pair update)
+/// v0.0.318: Better error messages when binary is in use
 pub fn install_binary_pair(annactl: &Path, annad: &Path) -> Result<()> {
     // Install annactl first
-    std::fs::copy(annactl, "/usr/local/bin/annactl")
-        .map_err(|e| anyhow!("Failed to install annactl: {}", e))?;
+    std::fs::copy(annactl, "/usr/local/bin/annactl").map_err(|e| {
+        if e.raw_os_error() == Some(26) {
+            // ETXTBSY - Text file busy
+            anyhow!(
+                "Cannot update annactl while it's running. \
+                 Exit the REPL (type 'bye') and run: sudo systemctl restart annad"
+            )
+        } else {
+            anyhow!("Failed to install annactl: {}", e)
+        }
+    })?;
 
     // Install annad to staging location
     std::fs::copy(annad, "/usr/local/bin/annad.new")

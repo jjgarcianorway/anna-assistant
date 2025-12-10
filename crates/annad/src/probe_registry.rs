@@ -169,6 +169,27 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
              cat ~/.config/hypr/hyprpaper.conf 2>/dev/null | grep -E '^wallpaper' || \
              echo 'UNKNOWN_DE'"
         ),
+        // v0.0.318: Display server detection (Xorg vs Wayland)
+        "display_server" => Some(
+            "echo \"XDG_SESSION_TYPE=$XDG_SESSION_TYPE\" && \
+             echo \"WAYLAND_DISPLAY=$WAYLAND_DISPLAY\" && \
+             echo \"DISPLAY=$DISPLAY\" && \
+             loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type 2>/dev/null || \
+             echo 'session_type=unknown'"
+        ),
+        // v0.0.318: CUDA and GPU compute detection
+        "cuda_installed" => Some(
+            "nvcc --version 2>/dev/null || \
+             pacman -Q cuda 2>/dev/null || \
+             ls /opt/cuda/version.txt 2>/dev/null || \
+             echo 'CUDA_NOT_FOUND'"
+        ),
+        // v0.0.318: Driver detection
+        "gpu_drivers" => Some(
+            "lspci -k | grep -A 3 -E 'VGA|3D' 2>/dev/null || \
+             lsmod | grep -E 'nvidia|amdgpu|i915|nouveau' 2>/dev/null || \
+             echo 'NO_GPU_DRIVERS'"
+        ),
         _ => None,
     }
 }

@@ -8,6 +8,7 @@ use super::helpers::{probe_id_from_command, team_from_domain};
 
 /// Build narrative from result
 /// v0.0.107: Uses assigned_staff from result for internal comms
+/// v0.0.318: Deduplicate escalation messages - only show final review
 pub fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<NarrativeSegment> {
     let mut builder = NarrativeBuilder::new();
     if show_internal {
@@ -41,36 +42,50 @@ pub fn build_narrative(result: &ServiceDeskResult, show_internal: bool) -> Vec<N
         builder.add_checking(&check_desc);
     }
 
-    // Check for junior/senior review events
+    // v0.0.318: Find the FINAL review state to avoid duplicate messages
+    // We only show one junior review (the final outcome) and one escalation if it happened
+    let mut final_junior_verified = false;
+    let mut final_junior_score = 0u8;
+    let mut had_junior_review = false;
     let mut had_escalation = false;
+    let mut escalation_successful = false;
+    let mut escalation_reason: Option<String> = None;
 
     for event in &result.transcript.events {
         match &event.kind {
             TranscriptEventKind::JuniorReview {
                 score, verified, ..
             } => {
-                if show_internal {
-                    builder.add_junior_review(team, *verified, *score);
-                }
+                // Keep track of the latest junior review
+                had_junior_review = true;
+                final_junior_verified = *verified;
+                final_junior_score = *score;
             }
             TranscriptEventKind::SeniorEscalation { successful, reason } => {
                 had_escalation = true;
-                if show_internal {
-                    if let Some(r) = reason {
-                        builder.add_escalation(team, r);
-                    }
-                    if *successful {
-                        builder.add_senior_response(team, "I've reviewed it. Here's what I found.");
-                    }
-                }
+                escalation_successful = *successful;
+                escalation_reason = reason.clone();
             }
             TranscriptEventKind::TeamReview { reviewer, .. } => {
-                if show_internal && reviewer == "senior" {
-                    // Senior was involved
+                if reviewer == "senior" {
                     had_escalation = true;
                 }
             }
             _ => {}
+        }
+    }
+
+    // v0.0.318: Now add only the final narrative (not duplicates)
+    if show_internal && had_junior_review {
+        builder.add_junior_review(team, final_junior_verified, final_junior_score);
+    }
+
+    if show_internal && had_escalation {
+        if let Some(ref r) = escalation_reason {
+            builder.add_escalation(team, r);
+        }
+        if escalation_successful {
+            builder.add_senior_response(team, "I've reviewed it. Here's what I found.");
         }
     }
 

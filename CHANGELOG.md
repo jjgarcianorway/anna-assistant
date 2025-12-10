@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.318] - 2025-12-10
+
+### Fixed - Multiple UX Issues
+
+**Command execution:**
+- `pacman -Syu` now uses `--noconfirm` flag for non-interactive execution
+- `apt upgrade` and `dnf upgrade` now use `-y` flag
+- Commands no longer fail waiting for user input they can't receive
+
+**Auto-update error:**
+- When annactl is running (REPL active), auto-update shows friendly message:
+  "Cannot update annactl while it's running. Exit the REPL (type 'bye') and run: sudo systemctl restart annad"
+- No more cryptic "Text file busy (os error 26)" messages
+
+**Duplicate escalation messages:**
+- Fixed repeated "Escalating to Sara. 70% isn't enough." messages
+- Now only shows final review state instead of every retry attempt
+
+**New probes:**
+- `display_server` - Detects Xorg vs Wayland via XDG_SESSION_TYPE
+- `cuda_installed` - Checks for CUDA toolkit installation
+- `gpu_drivers` - Shows loaded GPU driver modules
+
 ## [0.0.317] - 2025-12-10
 
 ### Added - Staff Feedback System
