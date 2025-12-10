@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.355] - 2025-12-10
+
+### Improved - UI Consistency in change_commands.rs
+
+Extended centralized UI helpers to change execution display:
+
+**Updated File:**
+- `change_commands.rs` - Uses `print_ok()`, `print_err()`, `print_hint()` for status
+
+**Changes:**
+- Command execution success/failure uses `print_ok()`/`print_err()`
+- Step applied/noop/failed status uses centralized helpers
+- Removed direct `symbols::OK`/`symbols::ERR` usage
+- Output from commands displayed with `print_hint()`
+
+Consistent status messages in change execution flow.
+
 ## [0.0.354] - 2025-12-10
 
 ### Improved - UI Consistency in learning.rs

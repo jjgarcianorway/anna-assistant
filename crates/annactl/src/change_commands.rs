@@ -1,16 +1,17 @@
-//! Change management commands for annactl (v0.0.344).
+//! Change management commands for annactl (v0.0.355).
 //!
 //! v0.0.97: Extracted from commands.rs for modularity.
 //! v0.0.292: Added auto-confirm for low-risk operations.
 //! v0.0.312: Added RunCommand support for executing system commands.
 //! v0.0.342: Use centralized UI helpers for consistency.
 //! v0.0.344: Use print_title() for header display.
+//! v0.0.355: Use print_ok(), print_err() for status messages.
 
 use anyhow::Result;
 use std::io::{self, Write};
 
 use anna_shared::change::{ChangeOperation, ChangeRisk};
-use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_title, symbols};
+use anna_shared::ui::{colors, kv, print_err, print_footer, print_hint, print_label, print_ok, print_section_header, print_title};
 use anna_shared::user_profile::UserProfile;
 
 /// Outcome summary for applying proposed changes
@@ -124,30 +125,21 @@ pub async fn handle_proposed_change(
             match exec_result {
                 Ok(result) => {
                     if result.success {
-                        println!(
-                            "  {}{}{} Command completed in {}ms",
-                            colors::OK, symbols::OK, colors::RESET, result.duration_ms
-                        );
+                        print_ok(&format!("Command completed in {}ms", result.duration_ms));
                         if !result.stdout.is_empty() {
-                            println!("    {}", result.stdout.trim());
+                            print_hint(result.stdout.trim());
                         }
                         applied_count += 1;
                     } else {
-                        println!(
-                            "  {}{}{} Command failed (exit code {})",
-                            colors::ERR, symbols::ERR, colors::RESET, result.exit_code
-                        );
+                        print_err(&format!("Command failed (exit code {})", result.exit_code));
                         if !result.stderr.is_empty() {
-                            println!("    {}{}{}", colors::ERR, result.stderr.trim(), colors::RESET);
+                            print_hint(result.stderr.trim());
                         }
                         failed = true;
                     }
                 }
                 Err(e) => {
-                    println!(
-                        "  {}{}{} Failed to execute: {}",
-                        colors::ERR, symbols::ERR, colors::RESET, e
-                    );
+                    print_err(&format!("Failed to execute: {}", e));
                     failed = true;
                 }
             }
@@ -160,15 +152,9 @@ pub async fn handle_proposed_change(
         if result.applied {
             // Record to history
             if let Ok(Some(id)) = anna_shared::change_history::record_change(plan, &result) {
-                println!(
-                    "  {}{}{} Step {} applied (ID: {})",
-                    colors::OK, symbols::OK, colors::RESET, idx + 1, id
-                );
+                print_ok(&format!("Step {} applied (ID: {})", idx + 1, id));
             } else {
-                println!(
-                    "  {}{}{} Step {} applied",
-                    colors::OK, symbols::OK, colors::RESET, idx + 1
-                );
+                print_ok(&format!("Step {} applied", idx + 1));
             }
             if let Some(ref backup) = result.backup_path {
                 print_hint(&format!("Backup: {}", backup.display()));
@@ -176,16 +162,10 @@ pub async fn handle_proposed_change(
             }
             applied_count += 1;
         } else if result.was_noop {
-            println!(
-                "  {}{}{} Step {}: Already configured",
-                colors::OK, symbols::OK, colors::RESET, idx + 1
-            );
+            print_ok(&format!("Step {}: Already configured", idx + 1));
             noop_count += 1;
         } else if let Some(ref err) = result.error {
-            println!(
-                "  {}{}{} Step {} failed: {}",
-                colors::ERR, symbols::ERR, colors::RESET, idx + 1, err
-            );
+            print_err(&format!("Step {} failed: {}", idx + 1, err));
             failed = true;
         }
     }
