@@ -22,7 +22,7 @@ mod tests {
         let (subject, body) = format_email(&EmailNotification::TicketCreated(&ticket));
         assert!(subject.contains("CN-0001"));
         assert!(body.contains("How much RAM"));
-        assert!(body.contains("annactl reply"));
+        assert!(body.contains("ask me about ticket"));
     }
 
     #[test]

@@ -78,7 +78,7 @@ pub fn answer_ticket_history(route_class: &str) -> DeterministicResult {
     answer.push_str("1. Ask me a question (immediate) or drop it in ~/.anna/inbox (async)\n");
     answer.push_str("2. I create a support ticket and assign the right team\n");
     answer.push_str("3. You get a verified answer with reliability score\n\n");
-    answer.push_str("To reply to a ticket: `annactl reply CN-XXXX \"your message\"`");
+    answer.push_str("To continue a conversation, just ask me about that ticket.");
 
     DeterministicResult {
         answer,

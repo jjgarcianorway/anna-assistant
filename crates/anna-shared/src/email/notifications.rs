@@ -59,8 +59,8 @@ Status: {}
 
 We're looking into this and will get back to you soon.
 
-To check status: annactl ticket {}
-To reply: annactl reply {} "your message"
+To follow up, just ask me about ticket {}.
+Or simply reply to this email.
 
 --
 Anna Service Desk
@@ -70,7 +70,6 @@ Your local IT department
                 ticket.query,
                 ticket.team,
                 ticket.status,
-                ticket.case_number,
                 ticket.case_number
             );
             (subject, body)
@@ -91,7 +90,7 @@ Regarding your ticket {}:
 
 Our question: {}
 
-To reply: annactl reply {} "your answer"
+To respond, just tell me your answer about ticket {}.
 Or simply reply to this email.
 
 --
@@ -137,12 +136,13 @@ Update on ticket {}:
 
 {}
 
-To reply: annactl reply {} "your message"
+To follow up, just ask me about this ticket.
+Or simply reply to this email.
 
 --
 Anna Service Desk
 "#,
-                ticket.case_number, message, ticket.case_number
+                ticket.case_number, message
             );
             (subject, body)
         }

@@ -13,7 +13,7 @@
 //! - Quick queries: resolved immediately (< 5 seconds)
 //! - Complex queries: become async tickets with PendingUser status
 //! - Email sent when ticket is created, updated, or needs user input
-//! - User replies via email or `annactl reply <case> <message>`
+//! - User replies via email or natural language in annactl
 
 mod message;
 mod status;

@@ -27,7 +27,8 @@ I can answer questions about your system:
 **Commands:**
 - `annactl status` - Daemon status
 - `annactl stats` - Team statistics
-- `annactl email you@example.com` - Get notified
+
+To set your email: just tell me \"my email is you@example.com\"
 
 Ask a question to get started!"#;
 

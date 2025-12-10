@@ -177,5 +177,5 @@ pub fn print_open_tickets() {
         println!("  {} and {} more", bullet(), open_tickets.len() - 3);
     }
     println!();
-    print_hint("To reply: annactl reply CN-XXXX \"message\"");
+    print_hint("Ask me about any ticket to continue the conversation.");
 }

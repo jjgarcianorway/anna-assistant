@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.365] - 2025-12-10
+
+### Fixed - Stale CLI command references
+
+Updated all user-facing text to guide users toward natural language instead of removed CLI commands:
+
+**Files updated:**
+- greeting/personal.rs - Open ticket hint now says "Ask me about any ticket"
+- deterministic/help.rs - Email setup via natural language
+- det_extended/tickets.rs - Ticket follow-up via natural language
+- det/meta.rs - Ticket follow-up via natural language
+- email/notifications.rs - All email templates updated
+- ticket_tracker/mod.rs - Documentation comment updated
+- email/tests.rs - Test updated for new email format
+
+All references to `annactl reply`, `annactl ticket`, `annactl email` now guide users to use natural language or email replies.
+
 ## [0.0.364] - 2025-12-10
 
 ### Documentation - Cleanup after v0.0.363 revert
