@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.364] - 2025-12-10
+
+### Documentation - Cleanup after v0.0.363 revert
+
+Removed references to deleted files from documentation:
+
+**FEATURES.md:**
+- Removed ticket_commands.rs and report_cmd.rs from UI Consistency list
+- Updated Code Quality section to v0.0.363
+
+**ROADMAP.md:**
+- Extended Phase 28 to v0.0.337-363
+- Removed deleted file references
+- Added "Removed dead code files" entry
+
 ## [0.0.363] - 2025-12-10
 
 ### Reverted - Removed CLI commands added in v0.0.361-362

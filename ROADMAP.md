@@ -22,7 +22,7 @@ Anna v0.0.363 focuses on:
 
 ## Completed
 
-### v0.0.337-359 - Centralized UI System (Phase 28) ✓
+### v0.0.337-363 - Centralized UI System (Phase 28) ✓
 - [x] `anna_shared::ui::printing` module with consistent helpers
 - [x] print_header, print_title, print_footer, print_hr
 - [x] print_section_header, print_label, print_hint, print_step
@@ -31,13 +31,13 @@ Anna v0.0.363 focuses on:
 - [x] colors and symbols constants centralized
 - [x] Updated greeting/status.rs, greeting/personal.rs
 - [x] Updated errors.rs, handlers.rs, progress_display.rs
-- [x] Updated change_commands.rs, ticket_commands.rs
-- [x] Updated learning.rs, report_cmd.rs (v0.0.354-358)
+- [x] Updated change_commands.rs, learning.rs
 - [x] Zero compiler warnings in release build + tests (v0.0.357)
 - [x] Removed unused DecayResult import
 - [x] Removed unused VerificationInput.id field
 - [x] Removed unused VerificationResult.score field
 - [x] Removed unused test imports and functions (v0.0.357)
+- [x] Removed dead code files (v0.0.363)
 
 ### v0.0.103 - Recipe Feedback System (Phase 23) ✓
 - [x] `FeedbackRequest` struct - Anna asks user for feedback when uncertain
