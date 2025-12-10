@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.320] - 2025-12-10
+
+### Fixed - Probe Visibility in Internal Comms
+
+**Probes now shown in real-time when internal comms enabled:**
+- `[probe] memory_info` - Shows each probe as it runs
+- Failed probes show exit code: `[probe] nvidia-smi → exit=-1 (100ms)`
+- Slow probes (>1s) shown with timing for visibility
+- Provides "fly on the wall" experience to see exactly what Anna is checking
+
+**Before:**
+```
+[0.0s] Anna: Hey Sofia! Case abc123
+[0.0s] Sofia: Checking the response...
+```
+
+**After:**
+```
+[0.0s] Anna: Hey Sofia! Case abc123
+[0.1s] Sofia: On it. Checking system data.
+[0.2s] [probe] memory_info
+[0.3s] [probe] cpu_info
+[0.5s] Sofia: All 2 probes succeeded. Good data.
+[0.6s] Sofia: Done. 85% confidence.
+```
+
 ## [0.0.319] - 2025-12-10
 
 ### Improved - Natural LLM-Generated Dialogue

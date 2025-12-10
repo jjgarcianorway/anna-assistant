@@ -237,6 +237,59 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
                 let _ = io::stdout().flush();
             }
         }
+        // v0.0.320: Show probes when running
+        ProgressEventType::ProbeRunning { probe_id } => {
+            if show_internal {
+                // Clear spinner if active
+                if state.spinner_active {
+                    print!("\r{}\r", " ".repeat(60));
+                    state.spinner_active = false;
+                }
+                // Show internal comms header if not shown
+                if !state.shown_internal_header {
+                    println!("{}--- internal comms ---{}", colors::DIM, colors::RESET);
+                    state.shown_internal_header = true;
+                }
+                // Show probe as it runs
+                let ts = format!("{:.1}s", event.elapsed_ms as f64 / 1000.0);
+                println!(
+                    "  {}[{}]{} {}[probe]{} {}",
+                    colors::DIM,
+                    ts,
+                    colors::RESET,
+                    colors::CYAN,
+                    colors::RESET,
+                    probe_id
+                );
+                let _ = io::stdout().flush();
+            }
+        }
+        // v0.0.320: Show probe completion with exit code
+        ProgressEventType::ProbeComplete { probe_id, exit_code, timing_ms } => {
+            if show_internal {
+                // Show probe result if it failed or took long
+                if *exit_code != 0 || *timing_ms > 1000 {
+                    let ts = format!("{:.1}s", event.elapsed_ms as f64 / 1000.0);
+                    let status = if *exit_code == 0 {
+                        format!("{}ok{}", colors::OK, colors::RESET)
+                    } else {
+                        format!("{}exit={}{}", colors::ERR, exit_code, colors::RESET)
+                    };
+                    println!(
+                        "  {}[{}]{} {}[probe]{} {} → {} ({}ms)",
+                        colors::DIM,
+                        ts,
+                        colors::RESET,
+                        colors::CYAN,
+                        colors::RESET,
+                        probe_id,
+                        status,
+                        timing_ms
+                    );
+                    let _ = io::stdout().flush();
+                }
+            }
+        }
         _ => {
             // Other events are handled silently
         }
