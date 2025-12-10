@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.284] - 2025-12-10
+
+### Enhanced - Greeting Health Alerts & Idle Tips
+
+**Session Greeting Health Integration:**
+- Integrated telemetry-based health alerts into session greeting
+- Critical alerts shown as `[!]` prefix in greeting
+- Warning alerts shown as `[*]` prefix
+- Low health score (<70%) mentioned proactively
+- Combines failed services + telemetry anomalies
+
+**Idle Tips During Wait Times:**
+- Tips shown after 3+ seconds of waiting for response
+- Max one tip per request to avoid distraction
+- Contextual tips based on user preferences
+- Tips about learning mode, auto-confirm, email setup
+- Category icons and priority-based selection
+
+**Files changed:**
+- `annactl/src/greeting/mod.rs` - Integrated telemetry health alerts
+- `annactl/src/live_request.rs` - Added idle tips during waits
+
 ## [0.0.283] - 2025-12-10
 
 ### Enhanced - Stats Display with Suggestions

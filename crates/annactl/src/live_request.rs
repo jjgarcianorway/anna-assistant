@@ -7,7 +7,9 @@
 //! v0.0.238: Added streaming token support for word-by-word output.
 //! v0.0.253: Enhanced specialist dialogue with role titles and visual polish.
 //! v0.0.278: Enhanced Hollywood-style stage indicators and spinners.
+//! v0.0.284: Added idle tips during wait times.
 
+use anna_shared::idle_tips::{get_contextual_tips, TipColors, TipQueue};
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::roster;
 use anna_shared::rpc::ServiceDeskResult;
@@ -16,6 +18,7 @@ use anna_shared::user_profile::UserProfile;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::io::{self, Write};
+use std::time::Instant;
 use tokio::time::{sleep, Duration};
 
 use crate::client::AnnadClient;
@@ -61,6 +64,9 @@ pub async fn send_request_with_progress(prompt: &str) -> Result<ServiceDeskResul
             }
         }
 
+        // v0.0.284: Maybe show an idle tip if waiting long enough
+        maybe_show_idle_tip(&mut streaming_state);
+
         // Use faster polling when streaming tokens for smoother output
         let poll_delay = if streaming_state.started_streaming {
             50 // 50ms for streaming
@@ -91,16 +97,31 @@ struct StreamingState {
     current_stage: Option<String>,
     /// v0.0.278: Whether we're showing a spinner line
     spinner_active: bool,
+    /// v0.0.284: When request started (for tip timing)
+    start_time: Instant,
+    /// v0.0.284: Tip queue for idle display
+    tip_queue: TipQueue,
+    /// v0.0.284: Whether we've shown a tip this request
+    shown_tip: bool,
 }
 
 impl Default for StreamingState {
     fn default() -> Self {
+        // Load contextual tips
+        let mut tip_queue = TipQueue::new();
+        for tip in get_contextual_tips() {
+            tip_queue.push(tip);
+        }
+
         Self {
             started_streaming: false,
             at_line_start: true,
             shown_internal_header: false,
             current_stage: None,
             spinner_active: false,
+            start_time: Instant::now(),
+            tip_queue,
+            shown_tip: false,
         }
     }
 }
@@ -235,6 +256,46 @@ fn display_internal_comms(from: &str, message: &str) {
                 message
             );
         }
+    }
+}
+
+/// v0.0.284: Maybe show an idle tip if we've been waiting long enough
+/// Shows max one tip per request, after 3+ seconds of waiting
+fn maybe_show_idle_tip(state: &mut StreamingState) {
+    // Only show tips if:
+    // 1. We haven't shown one yet this request
+    // 2. We're not actively streaming
+    // 3. We've been waiting at least 3 seconds
+    // 4. We have tips available
+    if state.shown_tip || state.started_streaming {
+        return;
+    }
+
+    let elapsed = state.start_time.elapsed();
+    if elapsed.as_secs() < 3 {
+        return;
+    }
+
+    if !state.tip_queue.has_tips() {
+        return;
+    }
+
+    // Clear spinner if active
+    if state.spinner_active {
+        print!("\r{}\r", " ".repeat(60));
+        state.spinner_active = false;
+    }
+
+    // Get and display a tip
+    if let Some(tip) = state.tip_queue.pop() {
+        let tip_colors = TipColors {
+            dim: colors::DIM,
+            reset: colors::RESET,
+        };
+        let formatted = anna_shared::idle_tips::format_tip(&tip, &tip_colors);
+        print!("{}", formatted);
+        let _ = io::stdout().flush();
+        state.shown_tip = true;
     }
 }
 

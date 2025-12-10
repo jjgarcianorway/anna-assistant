@@ -5,6 +5,7 @@
 //! v0.0.186: Modularized into domain-focused submodules.
 //! v0.0.238: Added session-based "since last time" summary.
 //! v0.0.275: LLM-generated greetings via translator for varied, natural text.
+//! v0.0.284: Integrated telemetry-based health alerts.
 
 mod personal;
 mod status;
@@ -12,8 +13,10 @@ mod tests;
 mod types;
 
 use anna_shared::greeting_context::GreetingContext;
+use anna_shared::health_alerts::{generate_alerts, AlertSeverity};
 use anna_shared::snapshot::{self, SystemSnapshot};
 use anna_shared::status::DaemonStatus;
+use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::{colors, HR};
 use anna_shared::user_profile::UserProfile;
@@ -71,10 +74,36 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let mut current_snapshot = SystemSnapshot::now();
     let failed_services = collect_failed_services(&mut current_snapshot);
 
-    // Collect health issues
+    // Collect health issues from multiple sources
     let mut health_issues = Vec::new();
+
+    // 1. Failed services from snapshot
     if failed_services > 0 {
         health_issues.push(format!("{} failed services", failed_services));
+    }
+
+    // 2. v0.0.284: Telemetry-based health alerts
+    if let Some(telemetry) = TelemetryStore::load_if_exists() {
+        let alerts = generate_alerts(&telemetry);
+        for alert in alerts.iter().filter(|a| !a.dismissed) {
+            match alert.severity {
+                AlertSeverity::Critical => {
+                    health_issues.push(format!("[!] {}", alert.message));
+                }
+                AlertSeverity::Warning => {
+                    health_issues.push(format!("[*] {}", alert.message));
+                }
+                AlertSeverity::Info => {
+                    // Skip info-level in greeting to avoid clutter
+                }
+            }
+        }
+
+        // Add health score if low
+        let score = telemetry.health_score();
+        if score < 70 {
+            health_issues.push(format!("Health score: {}%", score));
+        }
     }
 
     // Get LLM status string
