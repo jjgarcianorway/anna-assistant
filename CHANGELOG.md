@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.354] - 2025-12-10
+
+### Improved - UI Consistency in learning.rs
+
+Extended centralized UI helpers to learning stats display:
+
+**Updated File:**
+- `commands/learning.rs` - Uses `print_step()` and `print_hint()` for list items
+
+**Changes:**
+- Category recommendations use `print_step()`
+- Keyword suggestions use `print_step()`
+- Learned keywords list uses `print_step()`
+- Negative patterns use `print_step()` and `print_hint()`
+
+Consistent list formatting in learning stats display.
+
 ## [0.0.353] - 2025-12-10
 
 ### Fixed - README Examples Match Actual Output

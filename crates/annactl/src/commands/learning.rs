@@ -1,4 +1,4 @@
-//! Learning stats command (v0.0.344).
+//! Learning stats command (v0.0.354).
 //!
 //! Shows what Anna has learned from experience:
 //! - Probe effectiveness per category
@@ -8,9 +8,10 @@
 //! - Health status and confidence (v0.0.334)
 //! - v0.0.339: Use centralized UI helpers for consistency.
 //! - v0.0.344: Use print_title() and print_footer() for consistency.
+//! - v0.0.354: Use print_step() for arrow-prefixed lines.
 
 use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, QueryCategory, TrendDirection};
-use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_title, symbols};
+use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_step, print_title, symbols};
 use anyhow::Result;
 
 /// Handle learning command - show what Anna has learned
@@ -54,7 +55,7 @@ fn show_query_recommendations(query: &str) -> Result<()> {
             let score_color = if *score >= 0.7 { colors::OK }
                 else if *score >= 0.5 { colors::WARN }
                 else { colors::DIM };
-            println!("  {} {} {}{:.0}%{}", symbols::ARROW, probe_id, score_color, score * 100.0, colors::RESET);
+            print_step(&format!("{} {}{:.0}%{}", probe_id, score_color, score * 100.0, colors::RESET));
         }
     } else {
         print_hint("No category-based recommendations yet");
@@ -66,7 +67,7 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     print_section_header("keyword suggestions");
     if !keyword_suggestions.is_empty() {
         for (probe_id, count) in keyword_suggestions.iter().take(5) {
-            println!("  {} {} (matches: {})", symbols::ARROW, probe_id, count);
+            print_step(&format!("{} (matches: {})", probe_id, count));
         }
     } else {
         print_hint("No keyword-based suggestions yet");
@@ -148,10 +149,7 @@ pub fn handle_learning() -> Result<()> {
                 probes.sort_by(|a, b| b.1.cmp(a.1));
                 probes.iter().take(3).map(|(p, _)| p.as_str()).collect::<Vec<_>>().join(", ")
             };
-            println!(
-                "  {} \"{}\" {} {} (success: {})",
-                symbols::ARROW, keyword, symbols::ARROW, top_probes, stats.success_count
-            );
+            print_step(&format!("\"{}\" {} {} (success: {})", keyword, symbols::ARROW, top_probes, stats.success_count));
         }
         println!();
     }
@@ -169,8 +167,8 @@ pub fn handle_learning() -> Result<()> {
         println!();
 
         for pattern in store.negative_patterns.iter().take(3) {
-            println!("  {} \"{}\"", symbols::ARROW, truncate(&pattern.query, 40));
-            println!("    {}reason:{} {}", colors::DIM, colors::RESET, pattern.failure_reason);
+            print_step(&format!("\"{}\"", truncate(&pattern.query, 40)));
+            print_hint(&format!("reason: {}", pattern.failure_reason));
         }
         println!();
     }
