@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.327] - 2025-12-10
+
+### Added - Learning Decay
+
+**Anna's learning now decays over time to prioritize recent experiences:**
+
+Old learning data automatically decays to ensure recent patterns have more weight:
+
+- **Weekly decay cycle**: Decay is applied at most once per week
+- **Pattern expiration**: Successful patterns expire after 30 days, negative patterns after 14 days
+- **Count reduction**: All learning counts (usage, helpful, keywords) reduced by 20% weekly
+- **Automatic cleanup**: Entries with counts below 1 are automatically removed
+
+This prevents old patterns from dominating Anna's behavior and keeps her learning fresh and relevant to current system state.
+
+**Benefits:**
+- Recent successes/failures have more influence than old ones
+- Prevents stale patterns from degrading performance
+- Automatic cleanup keeps learning store manageable
+- Mistakes are forgotten faster (14 days) than successes (30 days)
+
+**Technical changes:**
+- `probe_learning.rs`: Added `apply_decay()` method and `DecayResult` struct
+- `probe_learning.rs`: Added `load_with_decay()` for auto-decay on load
+- `translator.rs`: Now uses `load_with_decay()` for recommendations
+
 ## [0.0.326] - 2025-12-10
 
 ### Added - Learning Progress in Greetings

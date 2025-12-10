@@ -1,4 +1,4 @@
-//! LLM-based translator for query classification (v0.0.322).
+//! LLM-based translator for query classification (v0.0.327).
 //!
 //! Converts user text to structured TranslatorTicket JSON.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
@@ -6,6 +6,7 @@
 //! v0.0.290: Strip reasoning tags from translator responses.
 //! v0.0.318: Added TranslatorResult with debug info for LLM call visibility.
 //! v0.0.322: Integrated probe learning - recommends probes based on past effectiveness.
+//! v0.0.327: Uses load_with_decay() for automatic learning decay.
 
 use anna_shared::answer_contract::AnswerContract;
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
@@ -124,8 +125,9 @@ pub fn build_translator_request(input: &TranslatorInput) -> String {
 
 /// v0.0.322: Get probe recommendations from learning store
 /// v0.0.325: Also uses keyword-based suggestions
+/// v0.0.327: Uses load_with_decay() for automatic decay
 fn get_probe_recommendations(query: &str) -> String {
-    let store = ProbeLearningStore::load();
+    let store = ProbeLearningStore::load_with_decay();
     let category = QueryCategory::from_query(query);
 
     // Get category-based recommendations

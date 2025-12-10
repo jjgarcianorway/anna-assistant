@@ -1,10 +1,11 @@
-//! Probe effectiveness learning system (v0.0.325).
+//! Probe effectiveness learning system (v0.0.327).
 //!
 //! Tracks which probes work well for which query types, learning from:
 //! 1. User feedback (helpful/not helpful)
 //! 2. LLM self-assessment (answer quality rating)
 //! 3. Probe failure rates
 //! 4. Query keyword patterns (v0.0.325)
+//! 5. Learning decay for old patterns (v0.0.327)
 //!
 //! This allows the translator to prefer better-performing probes over time.
 
@@ -163,6 +164,9 @@ pub struct ProbeLearningStore {
     /// v0.0.325: Successful query patterns (for positive learning)
     #[serde(default)]
     pub successful_patterns: Vec<SuccessfulPattern>,
+    /// v0.0.327: Last decay timestamp (Unix seconds)
+    #[serde(default)]
+    pub last_decay_time: u64,
     /// Version for migration
     pub version: u32,
 }
@@ -415,6 +419,107 @@ impl ProbeLearningStore {
                 .sum::<f32>() / self.successful_patterns.len().max(1) as f32,
         }
     }
+
+    /// v0.0.327: Apply decay to old learning data
+    /// Should be called periodically (e.g., on load or weekly)
+    /// This ensures recent experiences have more weight than old ones
+    pub fn apply_decay(&mut self) -> DecayResult {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        // Only decay if it's been more than a week since last decay
+        const DECAY_INTERVAL_SECS: u64 = 7 * 24 * 60 * 60; // 1 week
+        if now - self.last_decay_time < DECAY_INTERVAL_SECS {
+            return DecayResult::skipped();
+        }
+
+        // Remove old successful patterns (older than 30 days)
+        const PATTERN_MAX_AGE_SECS: u64 = 30 * 24 * 60 * 60; // 30 days
+        let old_pattern_count = self.successful_patterns.len();
+        self.successful_patterns.retain(|p| now - p.timestamp < PATTERN_MAX_AGE_SECS);
+        let mut patterns_removed = old_pattern_count - self.successful_patterns.len();
+
+        // Remove old negative patterns (older than 14 days - we learn from mistakes faster)
+        const NEGATIVE_MAX_AGE_SECS: u64 = 14 * 24 * 60 * 60; // 14 days
+        let old_negative_count = self.negative_patterns.len();
+        self.negative_patterns.retain(|p| now - p.timestamp < NEGATIVE_MAX_AGE_SECS);
+        patterns_removed += old_negative_count - self.negative_patterns.len();
+
+        // Decay keyword counts (reduce by 20%, remove if too low)
+        let old_keyword_count = self.keyword_probes.len();
+        for stats in self.keyword_probes.values_mut() {
+            stats.success_count = (stats.success_count * 80) / 100;
+            for count in stats.effective_probes.values_mut() {
+                *count = (*count * 80) / 100;
+            }
+            // Remove probes with count < 1
+            stats.effective_probes.retain(|_, c| *c >= 1);
+        }
+        // Remove keywords with no data
+        self.keyword_probes.retain(|_, stats| stats.success_count >= 1 && !stats.effective_probes.is_empty());
+        let keywords_decayed = old_keyword_count - self.keyword_probes.len();
+
+        let mut probes_decayed = 0;
+
+        // Decay probe effectiveness (reduce counts by 20%)
+        for category_map in self.effectiveness.values_mut() {
+            for eff in category_map.values_mut() {
+                eff.uses = (eff.uses * 80) / 100;
+                eff.helpful = (eff.helpful * 80) / 100;
+                eff.not_helpful = (eff.not_helpful * 80) / 100;
+                eff.failures = (eff.failures * 80) / 100;
+                eff.compute_score();
+                if eff.uses > 0 {
+                    probes_decayed += 1;
+                }
+            }
+            // Remove probes with no data
+            category_map.retain(|_, eff| eff.uses >= 1);
+        }
+        // Remove empty categories
+        self.effectiveness.retain(|_, m| !m.is_empty());
+
+        self.last_decay_time = now;
+
+        DecayResult {
+            applied: true,
+            patterns_removed,
+            keywords_decayed,
+            probes_decayed,
+        }
+    }
+
+    /// v0.0.327: Apply decay if needed on load
+    pub fn load_with_decay() -> Self {
+        let mut store = Self::load();
+        let result = store.apply_decay();
+        if result.applied {
+            let _ = store.save(); // Save decayed state
+        }
+        store
+    }
+}
+
+/// v0.0.327: Result of applying decay
+#[derive(Debug, Clone)]
+pub struct DecayResult {
+    pub applied: bool,
+    pub patterns_removed: usize,
+    pub keywords_decayed: usize,
+    pub probes_decayed: usize,
+}
+
+impl DecayResult {
+    fn skipped() -> Self {
+        Self {
+            applied: false,
+            patterns_removed: 0,
+            keywords_decayed: 0,
+            probes_decayed: 0,
+        }
+    }
 }
 
 /// v0.0.325: Learning statistics for display
@@ -499,5 +604,45 @@ mod tests {
         let recs = store.get_recommended_probes(&QueryCategory::Graphics);
         assert!(!recs.is_empty());
         assert_eq!(recs[0].0, "gpu_info");
+    }
+
+    #[test]
+    fn test_decay_reduces_counts() {
+        let mut store = ProbeLearningStore::default();
+
+        // Set last decay time to long ago so decay will apply
+        store.last_decay_time = 0;
+
+        // Add some probe data
+        store.record_usage(QueryCategory::Graphics, "gpu_info", false);
+        store.record_usage(QueryCategory::Graphics, "gpu_info", false);
+        store.record_usage(QueryCategory::Graphics, "gpu_info", false);
+        store.record_usage(QueryCategory::Graphics, "gpu_info", false);
+        store.record_usage(QueryCategory::Graphics, "gpu_info", false); // 5 uses
+
+        // Apply decay
+        let result = store.apply_decay();
+        assert!(result.applied);
+
+        // Check that counts were reduced (5 * 0.8 = 4)
+        let eff = store.effectiveness
+            .get(&QueryCategory::Graphics)
+            .and_then(|m| m.get("gpu_info"));
+        assert!(eff.is_some());
+        assert_eq!(eff.unwrap().uses, 4);
+    }
+
+    #[test]
+    fn test_decay_skipped_if_recent() {
+        let mut store = ProbeLearningStore::default();
+
+        // Set last decay time to recent (now)
+        store.last_decay_time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        let result = store.apply_decay();
+        assert!(!result.applied); // Should be skipped
     }
 }
