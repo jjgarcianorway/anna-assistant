@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.315] - 2025-12-10
+
+### Improved - Staff XP Penalties for Performance
+
+**Staff can now lose XP for poor performance:**
+- Unresolved tickets with low reliability (< 40) incur -15 XP penalty
+- Unresolved tickets with medium reliability (40-59) incur -5 XP penalty
+- Unresolved with decent reliability (60+) has no penalty (honest failure)
+- XP floor at 0 - staff can't go negative
+
+**XP Rewards (unchanged):**
+- Base +10 XP for any resolved ticket
+- Bonus +2 XP per reliability point above 60
+- Extra +15 XP for excellent work (reliability 90+)
+
+**Impact:** Staff progression is now more meaningful. Consistently poor work
+causes staff to lose XP and potentially de-level, while good work advances
+them. This incentivizes the system to improve routing decisions.
+
 ## [0.0.314] - 2025-12-10
 
 ### Added - Time-of-Day Aware Greetings

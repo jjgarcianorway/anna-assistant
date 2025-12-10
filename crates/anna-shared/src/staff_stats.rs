@@ -1,6 +1,7 @@
 //! Staff performance statistics for Service Desk Theatre.
 //!
 //! v0.0.107: Tracks per-staff metrics like tickets handled, success rates.
+//! v0.0.315: XP penalties for poor performance, bonus/penalty in record_ticket.
 //!
 //! Storage: /etc/anna/staff_stats.json (system-wide)
 
@@ -70,22 +71,46 @@ impl StaffMetrics {
         self.update_xp(resolved, reliability);
     }
 
-    /// v0.0.301: Update XP based on ticket outcome
+    /// v0.0.315: Update XP based on ticket outcome (with penalties)
     fn update_xp(&mut self, resolved: bool, reliability: u8) {
-        // Base XP: 10 per ticket
-        let mut ticket_xp: u64 = 10;
+        // v0.0.315: XP can increase OR decrease based on performance
+        let xp_change: i64;
 
-        // Bonus for resolved: +20
         if resolved {
-            ticket_xp += 20;
+            // Base XP for resolved: +10
+            let mut bonus: i64 = 10;
+
+            // Bonus for high reliability: +2 per point above 60
+            if reliability > 60 {
+                bonus += (reliability - 60) as i64 * 2;
+            }
+
+            // Extra bonus for excellent work (90+): +15
+            if reliability >= 90 {
+                bonus += 15;
+            }
+
+            xp_change = bonus;
+        } else {
+            // PENALTY for unresolved tickets
+            // Low reliability = bigger penalty (staff should improve)
+            if reliability < 40 {
+                xp_change = -15; // Significant penalty for poor work
+            } else if reliability < 60 {
+                xp_change = -5; // Minor penalty
+            } else {
+                xp_change = 0; // No penalty if reliability was ok but still unresolved
+            }
         }
 
-        // Bonus for reliability above 60: +5 per point
-        if reliability > 60 {
-            ticket_xp += (reliability - 60) as u64 * 2;
+        // Apply XP change (floor at 0)
+        if xp_change >= 0 {
+            self.xp += xp_change as u64;
+        } else {
+            let penalty = (-xp_change) as u64;
+            self.xp = self.xp.saturating_sub(penalty);
         }
 
-        self.xp += ticket_xp;
         self.level = xp_to_level(self.xp);
     }
 
@@ -316,9 +341,9 @@ mod tests {
     #[test]
     fn test_xp_calculation() {
         let mut metrics = StaffMetrics::default();
-        // Base: 10xp + resolved bonus: 20xp + reliability bonus: (85-60)*2 = 50xp
+        // v0.0.315: Base: 10xp + reliability bonus: (85-60)*2 = 50xp = 60 total
         metrics.record_ticket(true, false, 85, 1000);
-        assert_eq!(metrics.xp, 80); // 10 + 20 + 50
+        assert_eq!(metrics.xp, 60); // 10 + 50
         assert_eq!(metrics.level, 1); // < 100 = Novice
     }
 
@@ -329,9 +354,34 @@ mod tests {
         for _ in 0..5 {
             metrics.record_ticket(true, false, 90, 1000);
         }
-        // Each ticket: 10 + 20 + 60 = 90 xp, total = 450 xp
-        assert_eq!(metrics.xp, 450);
+        // v0.0.315: Each ticket: 10 + (90-60)*2 + 15 = 85 xp, total = 425 xp
+        assert_eq!(metrics.xp, 425);
         assert_eq!(metrics.level, 3); // 300-699 = Competent
+    }
+
+    #[test]
+    fn test_xp_penalty() {
+        let mut metrics = StaffMetrics::default();
+        // First earn some XP
+        metrics.record_ticket(true, false, 80, 1000); // +50 xp (10 + 40)
+        assert_eq!(metrics.xp, 50);
+
+        // v0.0.315: Unresolved with low reliability = penalty
+        metrics.record_ticket(false, false, 30, 1000); // -15 xp
+        assert_eq!(metrics.xp, 35);
+
+        // Unresolved with medium reliability = smaller penalty
+        metrics.record_ticket(false, false, 50, 1000); // -5 xp
+        assert_eq!(metrics.xp, 30);
+
+        // Unresolved but decent reliability = no penalty
+        metrics.record_ticket(false, false, 70, 1000); // 0 xp change
+        assert_eq!(metrics.xp, 30);
+
+        // XP can't go below 0
+        let mut fresh = StaffMetrics::default();
+        fresh.record_ticket(false, false, 20, 1000); // -15 but floor at 0
+        assert_eq!(fresh.xp, 0);
     }
 
     #[test]
