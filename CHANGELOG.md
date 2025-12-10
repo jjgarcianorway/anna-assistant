@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.352] - 2025-12-10
+
+### Improved - UI Consistency in ticket_commands.rs
+
+Extended centralized UI helpers to ticket and health commands:
+
+**Updated File:**
+- `ticket_commands.rs` - Uses `print_step()`, `print_ok()`, `print_warn()`, `print_hint()`
+
+**Changes:**
+- Email usage examples use `print_step()`
+- Notification list uses `print_step()`
+- Health check status uses `print_ok()` and `print_warn()`
+- Contact options use `print_step()`
+- Open tickets display uses `print_step()` and `print_hint()`
+- Removed direct `symbols::ARROW` usage
+
+Consistent health check and ticket display across all views.
+
 ## [0.0.351] - 2025-12-10
 
 ### Documentation - Updated README, FEATURES, ROADMAP

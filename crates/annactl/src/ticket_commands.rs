@@ -1,4 +1,4 @@
-//! Ticket command handlers for annactl (v0.0.344).
+//! Ticket command handlers for annactl (v0.0.352).
 //!
 //! Commands for async ticket workflow:
 //! - annactl reply <case> <message> - Reply to an open ticket
@@ -7,10 +7,11 @@
 //! - annactl health - Check Anna's health and dependencies (v0.0.114)
 //! v0.0.340: Use centralized UI helpers for consistency.
 //! v0.0.344: Use print_title() for header display.
+//! v0.0.352: Use print_step(), print_ok(), print_warn() for consistency.
 
 use anna_shared::email::{EmailConfig, EmailHealth};
 use anna_shared::ticket_tracker::{TicketStatus, TicketTracker};
-use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_title, symbols};
+use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_ok, print_section_header, print_step, print_title, print_warn};
 use anyhow::Result;
 use std::io::{self, Write};
 
@@ -73,11 +74,8 @@ pub async fn handle_ticket(case: &str) -> Result<()> {
                         TicketStatus::PendingUser => colors::WARN,
                         _ => colors::DIM,
                     };
-                    println!(
-                        "  {} {} [{}{}{}]",
-                        symbols::ARROW, t.case_number, status_color, t.status, colors::RESET
-                    );
-                    println!("    {}", t.query);
+                    print_step(&format!("{} [{}{}{}]", t.case_number, status_color, t.status, colors::RESET));
+                    print_hint(&t.query);
                 }
             }
             return Ok(());
@@ -154,8 +152,8 @@ pub async fn handle_email(address: &str) -> Result<()> {
         print_label("error", &format!("Invalid email address: {}", address), colors::ERR);
         println!();
         print_section_header("usage");
-        println!("  {} annactl email user@example.com  # Set email", symbols::ARROW);
-        println!("  {} annactl email off               # Disable", symbols::ARROW);
+        print_step("annactl email user@example.com  # Set email");
+        print_step("annactl email off               # Disable");
         return Ok(());
     }
 
@@ -166,9 +164,9 @@ pub async fn handle_email(address: &str) -> Result<()> {
     print_label("email", &format!("Configured: {}", address), colors::OK);
     println!();
     print_section_header("notifications");
-    println!("  {} A ticket is created", symbols::ARROW);
-    println!("  {} IT staff needs clarification", symbols::ARROW);
-    println!("  {} A ticket is resolved", symbols::ARROW);
+    print_step("A ticket is created");
+    print_step("IT staff needs clarification");
+    print_step("A ticket is resolved");
     println!();
     print_hint("To disable: annactl email off");
 
@@ -186,9 +184,9 @@ pub async fn handle_health() -> Result<()> {
 
     print_section_header("email system");
     if email_health.can_send {
-        println!("  {}{}{} Mail command available", colors::OK, symbols::OK, colors::RESET);
+        print_ok("Mail command available");
     } else {
-        println!("  {}{}{} Mail command not found", colors::WARN, symbols::WARN, colors::RESET);
+        print_warn("Mail command not found");
         kv("package_needed", &email_health.package_name);
         println!();
         print!("  Install now? [y/N] ");
@@ -221,9 +219,9 @@ pub async fn handle_health() -> Result<()> {
     // Check user email
     print_section_header("your email");
     if let Some(ref email) = email_health.user_email {
-        println!("  {}{}{} Configured: {}", colors::OK, symbols::OK, colors::RESET, email);
+        print_ok(&format!("Configured: {}", email));
     } else {
-        println!("  {}{}{} Not configured", colors::WARN, symbols::WARN, colors::RESET);
+        print_warn("Not configured");
         print_hint("Run: annactl email your@email.com");
     }
     println!();
@@ -231,26 +229,24 @@ pub async fn handle_health() -> Result<()> {
     // Show inbox status
     print_section_header("async inbox");
     if email_health.inbox_exists {
-        println!("  {}{}{} {}", colors::OK, symbols::OK, colors::RESET, email_health.inbox_path.display());
+        print_ok(&format!("{}", email_health.inbox_path.display()));
         if email_health.inbox_count > 0 {
-            println!(
-                "  {}{}{} {} pending {}",
-                colors::WARN, symbols::WARN, colors::RESET,
+            print_warn(&format!("{} pending {}",
                 email_health.inbox_count,
                 if email_health.inbox_count == 1 { "query" } else { "queries" }
-            );
+            ));
         }
     } else {
-        println!("  {}{}{} Inbox not created yet", colors::WARN, symbols::WARN, colors::RESET);
+        print_warn("Inbox not created yet");
         print_hint("To create: echo \"? your question\" >> ~/.anna/inbox");
     }
     println!();
 
     // Show contact options
     print_section_header("contact anna");
-    println!("  {} annactl \"your question\"     (one-shot)", symbols::ARROW);
-    println!("  {} annactl                      (interactive)", symbols::ARROW);
-    println!("  {} ~/.anna/inbox                (async queries)", symbols::ARROW);
+    print_step("annactl \"your question\"     (one-shot)");
+    print_step("annactl                      (interactive)");
+    print_step("~/.anna/inbox                (async queries)");
     println!();
 
     // Open tickets
@@ -259,11 +255,11 @@ pub async fn handle_health() -> Result<()> {
         if !open.is_empty() {
             print_section_header("open tickets");
             for t in open.iter().take(5) {
-                println!("  {} {} ({})", symbols::ARROW, t.case_number, t.status);
-                println!("    {}", t.query);
+                print_step(&format!("{} ({})", t.case_number, t.status));
+                print_hint(&t.query);
             }
             if open.len() > 5 {
-                println!("  {} and {} more", symbols::ARROW, open.len() - 5);
+                print_step(&format!("and {} more", open.len() - 5));
             }
             println!();
         }
