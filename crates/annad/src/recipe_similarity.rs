@@ -8,6 +8,7 @@
 //! similar but share no common tokens.
 //!
 //! v0.0.293: Added domain guard to prevent cross-domain false matches.
+//! v0.0.294: Stricter domain guard - domain-specific queries only match same-domain recipes.
 
 use anna_shared::recipe::Recipe;
 use anna_shared::recipe_index::RecipeIndex;
@@ -159,16 +160,36 @@ pub async fn check_semantic_similarity(
             continue;
         }
 
-        // v0.0.293: Domain guard - reject matches between different domains
+        // v0.0.293/294: Domain guard - reject matches between different domains
+        // v0.0.294: Stricter - if new query has a domain, recipe MUST have same domain
         let recipe_domain = detect_query_domain(&original_query);
-        if let (Some(nd), Some(rd)) = (new_domain, recipe_domain) {
-            if nd != rd {
+        match (new_domain, recipe_domain) {
+            // Both have domains - must match
+            (Some(nd), Some(rd)) if nd != rd => {
                 warn!(
                     "Domain mismatch, skipping semantic check: {} ({}) vs {} ({})",
                     new_query, nd, original_query, rd
                 );
                 continue;
             }
+            // New query has domain, recipe doesn't - skip (don't match git to general health)
+            (Some(nd), None) => {
+                warn!(
+                    "New query has domain '{}' but recipe has none, skipping: {} vs {}",
+                    nd, new_query, original_query
+                );
+                continue;
+            }
+            // Recipe has domain, new doesn't - skip (don't match general to specific)
+            (None, Some(rd)) => {
+                warn!(
+                    "Recipe has domain '{}' but new query has none, skipping: {} vs {}",
+                    rd, new_query, original_query
+                );
+                continue;
+            }
+            // Both match or both have no domain - proceed with LLM check
+            _ => {}
         }
 
         let prompt = build_similarity_prompt(new_query, &original_query);

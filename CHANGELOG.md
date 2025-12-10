@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.294] - 2025-12-10
+
+### Fixed - Stricter Domain Guard
+
+**Problem:** Semantic similarity still matched domain-specific queries (like git) to recipes without detected domains (like "how is my computer doing").
+
+**Solution:** Now requires domain symmetry:
+- If new query has a domain, recipe must have the SAME domain
+- If recipe has a domain, new query must have the SAME domain
+- Only queries with NO detected domain can match recipes with no domain
+
+This prevents git/network/storage/cpu/memory/package queries from ever matching general health queries.
+
 ## [0.0.293] - 2025-12-10
 
 ### Fixed - Semantic Similarity Domain Guard
