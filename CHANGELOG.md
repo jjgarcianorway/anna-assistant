@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.373] - 2025-12-10
+
+### Intelligence - Dynamic recipe matching thresholds
+
+Recipe matching now uses **dynamic thresholds** based on maturity and reliability:
+
+**Maturity factors:**
+- **Untested (0 uses)**: +25 to threshold (requires 85+ match score)
+- **New (1-2 uses)**: +15 to threshold
+- **Young (3-5 uses)**: +10 to threshold
+- **Maturing (6-10 uses)**: +5 to threshold
+- **Mature (11+ uses)**: Base threshold (60)
+
+**Reliability factors:**
+- **Excellent (90-100)**: No adjustment
+- **Good (80-89)**: +5 to threshold
+- **Okay (70-79)**: +10 to threshold
+- **Low (<70)**: +15 to threshold
+
+**Impact:**
+- New/untested recipes need much higher similarity scores to match
+- Proven recipes can match more easily (faster responses)
+- Low-reliability recipes are less likely to give wrong answers
+
+This prevents users from getting incorrect answers from immature recipes
+while still providing fast responses for proven patterns.
+
 ## [0.0.372] - 2025-12-10
 
 ### Intelligence - Adaptive feedback scoring

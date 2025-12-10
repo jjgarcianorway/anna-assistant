@@ -1,4 +1,4 @@
-//! Recipe matcher for fast-path resolution (v0.0.100).
+//! Recipe matcher for fast-path resolution (v0.0.373).
 //!
 //! The translator uses this to check if a learned recipe can answer a query
 //! WITHOUT calling the LLM specialist. This is the key to Anna's learning:
@@ -10,16 +10,42 @@
 //! - Intent (what the user wants to do)
 //! - Target (what they want to do it to)
 //! - Action verbs (enable, install, configure, etc.)
+//!
+//! v0.0.373: Dynamic thresholds based on recipe maturity and reliability.
 
 use crate::recipe::{recipe_dir, Recipe, RecipeAction, RecipeKind};
 use crate::recipe_index::{tokenize, RecipeIndex};
 use std::collections::BTreeSet;
 
-/// Minimum score threshold for recipe match (out of 100)
-const MATCH_THRESHOLD: u32 = 60;
+/// Base minimum score threshold for recipe match (out of 100)
+/// v0.0.373: Now dynamically adjusted based on recipe maturity
+const BASE_MATCH_THRESHOLD: u32 = 60;
 
 /// Minimum tokens that must match for a valid match
 const MIN_MATCHING_TOKENS: usize = 2;
+
+/// v0.0.373: Calculate dynamic match threshold based on recipe maturity
+/// Immature recipes need higher scores to match (prevents wrong answers)
+/// Mature, high-reliability recipes can match with lower scores
+fn dynamic_threshold(recipe: &Recipe) -> u32 {
+    let maturity_factor = match recipe.success_count {
+        0 => 25,        // Untested: need very high score
+        1..=2 => 15,    // New: need higher score
+        3..=5 => 10,    // Young: slightly elevated
+        6..=10 => 5,    // Maturing: slight boost
+        _ => 0,         // Mature: base threshold
+    };
+
+    let reliability_factor = match recipe.reliability_score {
+        90..=100 => 0,  // Excellent: no penalty
+        80..=89 => 5,   // Good: small boost needed
+        70..=79 => 10,  // Okay: moderate boost
+        _ => 15,        // Low: need much higher match
+    };
+
+    // Higher threshold = harder to match = fewer wrong answers
+    (BASE_MATCH_THRESHOLD + maturity_factor + reliability_factor).min(95)
+}
 
 /// Result of matching a query against learned recipes
 #[derive(Debug, Clone)]
@@ -38,8 +64,10 @@ pub struct MatchResult {
 
 impl MatchResult {
     /// Check if this match is strong enough to use without LLM
+    /// v0.0.373: Uses dynamic threshold based on recipe maturity
     pub fn can_skip_llm(&self) -> bool {
-        self.high_confidence && self.score >= MATCH_THRESHOLD
+        let threshold = dynamic_threshold(&self.recipe);
+        self.high_confidence && self.score >= threshold
     }
 }
 
@@ -47,6 +75,7 @@ impl MatchResult {
 ///
 /// Returns the best matching recipe if score > threshold, else None.
 /// The translator should call this BEFORE escalating to the specialist.
+/// v0.0.373: Uses dynamic thresholds based on recipe maturity/reliability.
 pub fn match_recipe(query: &str, index: &RecipeIndex) -> Option<MatchResult> {
     let query_tokens: BTreeSet<String> = tokenize(query).into_iter().collect();
 
@@ -68,8 +97,11 @@ pub fn match_recipe(query: &str, index: &RecipeIndex) -> Option<MatchResult> {
     let max_possible = (query_tokens.len() * 3) as u32 + 10; // rough estimate
     let score = ((raw_score as f32 / max_possible as f32) * 100.0).min(100.0) as u32;
 
-    // Check if strong enough
-    if score < MATCH_THRESHOLD / 2 {
+    // v0.0.373: Use dynamic threshold based on recipe maturity
+    let threshold = dynamic_threshold(&recipe);
+
+    // Check if strong enough (use half of dynamic threshold for early filtering)
+    if score < threshold / 2 {
         return None;
     }
 
@@ -92,9 +124,9 @@ pub fn match_recipe(query: &str, index: &RecipeIndex) -> Option<MatchResult> {
         return None;
     }
 
-    // Determine high confidence
+    // v0.0.373: Determine high confidence using dynamic threshold
     let high_confidence =
-        score >= MATCH_THRESHOLD && matched_tokens.len() >= 3 && recipe.is_mature();
+        score >= threshold && matched_tokens.len() >= 3 && recipe.is_mature();
 
     // Extract substitutions (e.g., different package name, different editor)
     let substitutions = extract_substitutions(query, &recipe);
@@ -142,8 +174,10 @@ pub fn match_config_recipe(
     }
 
     // Then try similar recipes that could be adapted
+    // v0.0.373: Use dynamic threshold
     for (recipe, score) in matches {
-        if recipe.is_config_edit() && score >= MATCH_THRESHOLD / 2 {
+        let threshold = dynamic_threshold(&recipe);
+        if recipe.is_config_edit() && score >= threshold / 2 {
             // Can adapt this recipe for different target
             let substitutions = vec![("target".to_string(), target.to_string())];
 
@@ -180,12 +214,13 @@ pub fn match_action_recipe(
                 // Check if query pattern contains the same action verb
                 if recipe.signature.query_pattern.contains(action) {
                     let substitutions = extract_action_substitutions(action, target, &recipe);
+                    let threshold = dynamic_threshold(&recipe);
 
                     return Some(MatchResult {
                         recipe,
                         score,
                         matched_tokens: vec![action.to_string()],
-                        high_confidence: score >= MATCH_THRESHOLD,
+                        high_confidence: score >= threshold,
                         substitutions,
                     });
                 }
@@ -348,5 +383,78 @@ mod tests {
         let index = RecipeIndex::new();
         let result = match_recipe("install htop", &index);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_dynamic_threshold_maturity() {
+        use crate::recipe::RecipeSignature;
+        use crate::teams::Team;
+        use crate::ticket::RiskLevel;
+
+        let sig = RecipeSignature {
+            domain: "test".to_string(),
+            intent: "test".to_string(),
+            route_class: "test".to_string(),
+            query_pattern: "test query".to_string(),
+        };
+
+        // Create test recipes with different maturity levels
+        let mut new_recipe = Recipe::new(
+            sig.clone(), Team::General, RiskLevel::ReadOnly,
+            vec![], vec![], "test".to_string(), 85,
+        );
+        new_recipe.success_count = 0;
+
+        let mut young_recipe = Recipe::new(
+            sig.clone(), Team::General, RiskLevel::ReadOnly,
+            vec![], vec![], "test".to_string(), 85,
+        );
+        young_recipe.success_count = 2;
+
+        let mut mature_recipe = Recipe::new(
+            sig.clone(), Team::General, RiskLevel::ReadOnly,
+            vec![], vec![], "test".to_string(), 95,
+        );
+        mature_recipe.success_count = 20;
+
+        // New recipes should require higher match scores
+        let new_threshold = dynamic_threshold(&new_recipe);
+        let young_threshold = dynamic_threshold(&young_recipe);
+        let mature_threshold = dynamic_threshold(&mature_recipe);
+
+        assert!(new_threshold > young_threshold, "new={} should > young={}", new_threshold, young_threshold);
+        assert!(young_threshold > mature_threshold, "young={} should > mature={}", young_threshold, mature_threshold);
+    }
+
+    #[test]
+    fn test_dynamic_threshold_reliability() {
+        use crate::recipe::RecipeSignature;
+        use crate::teams::Team;
+        use crate::ticket::RiskLevel;
+
+        let sig = RecipeSignature {
+            domain: "test".to_string(),
+            intent: "test".to_string(),
+            route_class: "test".to_string(),
+            query_pattern: "test query".to_string(),
+        };
+
+        // Same maturity, different reliability
+        let mut high_reliability = Recipe::new(
+            sig.clone(), Team::General, RiskLevel::ReadOnly,
+            vec![], vec![], "test".to_string(), 95,
+        );
+        high_reliability.success_count = 10;
+
+        let mut low_reliability = Recipe::new(
+            sig.clone(), Team::General, RiskLevel::ReadOnly,
+            vec![], vec![], "test".to_string(), 65,
+        );
+        low_reliability.success_count = 10;
+
+        let high_threshold = dynamic_threshold(&high_reliability);
+        let low_threshold = dynamic_threshold(&low_reliability);
+
+        assert!(low_threshold > high_threshold, "low reliability should need higher match score");
     }
 }
