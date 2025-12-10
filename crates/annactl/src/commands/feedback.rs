@@ -1,7 +1,9 @@
-//! Feedback handling (v0.0.317).
+//! Feedback handling (v0.0.336).
 //! v0.0.304: Uses centralized error presentation.
 //! v0.0.317: Also applies feedback to staff XP.
+//! v0.0.336: Also applies feedback to probe learning.
 
+use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::staff_stats::StaffStats;
 use anna_shared::ticket_tracker::TicketTracker;
 use anna_shared::ui::colors;
@@ -73,7 +75,29 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
         // v0.0.317: Also apply feedback to staff XP
         let helpful = matches!(r, FeedbackRating::Helpful);
         apply_staff_feedback(helpful);
+
+        // v0.0.336: Also apply feedback to probe learning
+        if let Some(ref query) = feedback_req.original_query {
+            apply_learning_feedback(query, helpful);
+        }
     }
+}
+
+/// v0.0.336: Apply feedback to probe learning system
+fn apply_learning_feedback(query: &str, helpful: bool) {
+    let mut store = ProbeLearningStore::load_with_decay();
+    let category = QueryCategory::from_query(query);
+
+    // We don't have specific probes from the feedback context,
+    // but we can record the category-level feedback
+    // This helps the learning system understand which categories need more attention
+    let probes: Vec<String> = vec![]; // Empty probes - just category feedback
+
+    let failure_reason = if helpful { None } else { Some("user_marked_unhelpful") };
+
+    store.record_feedback(category, &probes, helpful, Some(query), failure_reason);
+
+    let _ = store.save();
 }
 
 /// v0.0.317: Apply feedback to the staff member who handled the most recent ticket

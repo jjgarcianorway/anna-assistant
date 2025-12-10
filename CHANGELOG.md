@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.336] - 2025-12-10
+
+### Added - Feedback Recording to Learning
+
+User feedback now flows into Anna's learning system:
+
+- **Helpful feedback**: Boosts quality scores for the query category
+- **Unhelpful feedback**: Records failure patterns with "user_marked_unhelpful" reason
+- **Category tracking**: Feedback is associated with the query's detected category
+
+When you give feedback on Anna's answers (y/n/partial), it now influences:
+1. Recipe confidence (as before)
+2. Staff XP (v0.0.317)
+3. **Probe learning quality** (new in v0.0.336)
+
+This completes the learning feedback loop - Anna learns from every interaction.
+
 ## [0.0.335] - 2025-12-10
 
 ### Enhanced - Learning Health in Greetings
