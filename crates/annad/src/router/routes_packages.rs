@@ -99,6 +99,20 @@ pub fn build_packages_route(class: QueryClass) -> Option<DeterministicRoute> {
             },
         }),
 
+        // v0.0.311: System update action
+        QueryClass::SystemUpdate => Some(DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Request,
+            probes: vec!["package_updates".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: false,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        }),
+
         _ => None,
     }
 }

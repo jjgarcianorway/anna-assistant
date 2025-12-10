@@ -360,6 +360,8 @@ pub fn try_answer(
         QueryClass::NetworkStats => det_extended::answer_network_stats(probe_results, &route_class),
         // v0.0.309: DesktopWallpaper - handled in llm_request.rs
         QueryClass::DesktopWallpaper => None,
+        // v0.0.311: SystemUpdate - handled in llm_request.rs
+        QueryClass::SystemUpdate => None,
         QueryClass::Unknown => None,
     }
 }

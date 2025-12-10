@@ -124,6 +124,7 @@ impl QueryClass {
             "systemd_mounts" => Some(Self::SystemdMounts),
             "loaded_firmware" => Some(Self::LoadedFirmware),
             "network_stats" => Some(Self::NetworkStats),
+            "system_update" => Some(Self::SystemUpdate),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -247,6 +248,7 @@ impl QueryClass {
                 | Self::ConfigureEditor
                 | Self::ConfigureShell
                 | Self::ConfigureGit
+                | Self::SystemUpdate
         )
     }
 

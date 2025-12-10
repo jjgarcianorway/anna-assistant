@@ -131,7 +131,25 @@ pub fn classify_config(q: &str) -> Option<QueryClass> {
         return Some(QueryClass::TicketHistory);
     }
 
-    // v0.0.122: Package updates
+    // v0.0.311: System update request (ACTION to update, not just checking)
+    // Must come BEFORE PackageUpdates to catch "update my system" vs "are there updates"
+    let update_action_verbs = q.contains("please update")
+        || q.contains("update my")
+        || q.contains("run update")
+        || q.contains("do update")
+        || q.contains("perform update")
+        || q.contains("apply update")
+        || q.contains("upgrade my")
+        || q.contains("upgrade system")
+        || q.contains("update the system")
+        || q.contains("update system")
+        || (q.contains("can you") && q.contains("update"));
+
+    if update_action_verbs {
+        return Some(QueryClass::SystemUpdate);
+    }
+
+    // v0.0.122: Package updates (just checking what's available)
     if q.contains("updates available")
         || q.contains("any updates")
         || q.contains("check for updates")

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.311] - 2025-12-10
+
+### Added - Fast-Path Handlers for Config Queries
+
+**SystemUpdate fast-path for "update my system" requests:**
+- Added `SystemUpdate` query class for update action requests
+- Pattern detection: "please update", "update my system", "can you update", etc.
+- Detects package manager (pacman, apt, dnf, zypper, portage)
+- Returns instant answer with the correct update command
+- Counts available updates from probe if available
+- No LLM timeout - responds in <1 second
+
+**ConfigureShell fast-path for shell configuration:**
+- Detects user's shell from $SHELL (bash, zsh, fish)
+- Detects requested feature (colored prompt, git prompt, syntax, history, aliases)
+- Returns recipe-based answer with exact config lines to add
+- Falls back to clarification if shell or feature unclear
+- Built-in recipes for common configurations
+
+**Impact:** "update my system" and "add colored prompt to bash" now respond
+instantly instead of timing out waiting for LLM.
+
 ## [0.0.310] - 2025-12-10
 
 ### Fixed - Daemon Startup Blocking on Model Pulls

@@ -18,7 +18,9 @@ use tracing::{info, warn};
 
 use crate::comms::{team_from_query_class, CommsGenerator};
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
+use crate::configure_shell::{handle_configure_shell, ConfigureShellResult};
 use crate::desktop_wallpaper::{handle_desktop_wallpaper, DesktopWallpaperResult};
+use crate::system_update::{handle_system_update, SystemUpdateResult};
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
 use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
@@ -362,6 +364,46 @@ async fn handle_llm_request_inner(
         );
 
         if let DesktopWallpaperResult::Handled(result) = wallpaper_result {
+            save_progress(&state, &progress).await;
+            return match serde_json::to_value(result) {
+                Ok(v) => RpcResponse::success(id, v),
+                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+            };
+        }
+    }
+
+    // Step 5.7: v0.0.311 SystemUpdate - fast path for "update my system"
+    if det_route.class == router::QueryClass::SystemUpdate {
+        let update_result = handle_system_update(
+            request_id.clone(),
+            query,
+            ticket.clone(),
+            &probe_results,
+            progress.transcript_clone(),
+            classified_domain,
+        );
+
+        if let SystemUpdateResult::Handled(result) = update_result {
+            save_progress(&state, &progress).await;
+            return match serde_json::to_value(result) {
+                Ok(v) => RpcResponse::success(id, v),
+                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+            };
+        }
+    }
+
+    // Step 5.8: v0.0.311 ConfigureShell - fast path for shell config
+    if det_route.class == router::QueryClass::ConfigureShell {
+        let shell_result = handle_configure_shell(
+            request_id.clone(),
+            query,
+            ticket.clone(),
+            &probe_results,
+            progress.transcript_clone(),
+            classified_domain,
+        );
+
+        if let ConfigureShellResult::Handled(result) = shell_result {
             save_progress(&state, &progress).await;
             return match serde_json::to_value(result) {
                 Ok(v) => RpcResponse::success(id, v),
