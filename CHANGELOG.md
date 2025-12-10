@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.338] - 2025-12-10
+
+### Improved - More UI Consistency
+
+Extended UI consistency refactor to more components:
+
+**Progress Display:**
+- `print_progress_event()` now uses `print_label()` for all event types
+- Consistent `[label] message` format for all progress events
+- Internal comms use CYAN color consistently
+
+**Stats Display:**
+- All section headers use `print_section_header()` (HEADER color)
+- Uses centralized `kv()` and `kv_colored()` helpers
+- Consistent HR styling with DIM color
+- Removed duplicate local `kv()` function
+
+**Before:**
+```
+──────────────────────────────────────────────────────────────────────────────
+Anna Service Desk  |  Staff Performance Report
+[service desk]        (mixed colors)
+```
+
+**After:**
+```
+──────────────────────────────────────────────────────────────────────────────
+Anna Service Desk | Staff Performance Report
+[service desk]        (consistent HEADER color)
+```
+
 ## [0.0.337] - 2025-12-10
 
 ### Improved - UI Consistency & Output Formatting

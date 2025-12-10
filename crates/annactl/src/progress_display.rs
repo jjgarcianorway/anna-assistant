@@ -1,9 +1,10 @@
-//! Progress display module for annactl.
+//! Progress display module for annactl (v0.0.338).
 //! v0.0.119: Clean progress messages.
+//! v0.0.338: Use centralized UI printing for consistency.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, symbols, HR};
+use anna_shared::ui::{colors, print_label, print_ok, symbols, HR};
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::Duration;
@@ -73,73 +74,46 @@ pub async fn show_bootstrap_progress() -> Result<()> {
 }
 
 /// Print a progress event (v0.0.144: kept for future streaming UI)
+/// v0.0.338: Use centralized print_label for consistency
 #[allow(dead_code)]
 pub fn print_progress_event(event: &ProgressEvent) {
     let elapsed = format!("{:.1}s", event.elapsed_ms as f64 / 1000.0);
 
     match &event.event {
         ProgressEventType::Starting { timeout_secs } => {
-            println!(
-                "{}[anna->{}]{} starting (timeout {}s) [{}]",
+            print_label(
+                &format!("anna->{}", event.stage),
+                &format!("starting (timeout {}s) [{}]", timeout_secs, elapsed),
                 colors::DIM,
-                event.stage,
-                colors::RESET,
-                timeout_secs,
-                elapsed
             );
         }
         ProgressEventType::Complete => {
-            println!(
-                "{}[anna]{} {} {}complete{} [{}]",
+            print_label(
+                "anna",
+                &format!("{} {}complete{} [{}]", event.stage, colors::OK, colors::RESET, elapsed),
                 colors::DIM,
-                colors::RESET,
-                event.stage,
-                colors::OK,
-                colors::RESET,
-                elapsed
             );
         }
         ProgressEventType::Timeout => {
-            println!(
-                "{}[anna]{} {} {}TIMEOUT{} [{}]",
+            print_label(
+                "anna",
+                &format!("{} {}TIMEOUT{} [{}]", event.stage, colors::ERR, colors::RESET, elapsed),
                 colors::DIM,
-                colors::RESET,
-                event.stage,
-                colors::ERR,
-                colors::RESET,
-                elapsed
             );
         }
         ProgressEventType::Error { message } => {
-            println!(
-                "{}[anna]{} {} {}error:{} {} [{}]",
+            print_label(
+                "anna",
+                &format!("{} {}error:{} {} [{}]", event.stage, colors::ERR, colors::RESET, message, elapsed),
                 colors::DIM,
-                colors::RESET,
-                event.stage,
-                colors::ERR,
-                colors::RESET,
-                message,
-                elapsed
             );
         }
         ProgressEventType::Heartbeat => {
             let detail = event.detail.as_deref().unwrap_or("working");
-            println!(
-                "{}[anna]{} still working: {} [{}]",
-                colors::DIM,
-                colors::RESET,
-                detail,
-                elapsed
-            );
+            print_label("anna", &format!("still working: {} [{}]", detail, elapsed), colors::DIM);
         }
         ProgressEventType::ProbeRunning { probe_id } => {
-            println!(
-                "{}[anna->probe]{} running {} [{}]",
-                colors::DIM,
-                colors::RESET,
-                probe_id,
-                elapsed
-            );
+            print_label("anna->probe", &format!("running {} [{}]", probe_id, elapsed), colors::DIM);
         }
         ProgressEventType::ProbeComplete {
             probe_id,
@@ -151,18 +125,15 @@ pub fn print_progress_event(event: &ProgressEvent) {
             } else {
                 format!("{}exit {}{}", colors::WARN, exit_code, colors::RESET)
             };
-            println!(
-                "{}[anna]{} probe {} {} ({}ms) [{}]",
+            print_label(
+                "anna",
+                &format!("probe {} {} ({}ms) [{}]", probe_id, status, timing_ms, elapsed),
                 colors::DIM,
-                colors::RESET,
-                probe_id,
-                status,
-                timing_ms,
-                elapsed
             );
         }
         // v0.0.145: LLM generation progress
         ProgressEventType::Generation { tokens } => {
+            // Inline print for live update (no newline)
             print!(
                 "\r{}[anna]{} generating... {} tokens [{}]",
                 colors::DIM,
@@ -174,7 +145,7 @@ pub fn print_progress_event(event: &ProgressEvent) {
         }
         // v0.0.145: Internal comms (fly on wall view)
         ProgressEventType::InternalComms { from, message } => {
-            println!("{}[{}]{} {}", colors::CYAN, from, colors::RESET, message);
+            print_label(from, message, colors::CYAN);
         }
         // v0.0.238: Streaming tokens (handled in live_request.rs)
         ProgressEventType::StreamingToken { .. } => {

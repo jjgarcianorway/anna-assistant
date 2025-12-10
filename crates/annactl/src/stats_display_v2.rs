@@ -1,4 +1,4 @@
-//! Stats display v2 - Service Desk Staff Performance Report (v0.0.332).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.338).
 //!
 //! Clean, focused view of the service desk with real staff metrics:
 //! - Service desk summary (total tickets, resolved, escalated)
@@ -11,15 +11,14 @@
 //! v0.0.330: Added probe learning stats section.
 //! v0.0.331: Added quality trend to learning section.
 //! v0.0.332: Added confidence factor and health status.
+//! v0.0.338: Use centralized UI helpers for consistency.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, TrendDirection};
 use anna_shared::roster::{person_by_id, Tier};
 use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
-use anna_shared::ui::colors;
-
-const HR: &str = "──────────────────────────────────────────────────────────────────────────────";
+use anna_shared::ui::{colors, kv, kv_colored, print_section_header, HR};
 
 /// Print the Service Desk staff performance report
 pub fn print_stats_display_v2(_stats: &GlobalStats) {
@@ -31,13 +30,13 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     let agg = event_log.aggregate().ok();
 
     // === HEADER ===
-    println!("{}", HR);
-    println!("Anna Service Desk  |  Staff Performance Report");
-    println!("{}", HR);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    println!("{}Anna Service Desk{} | Staff Performance Report", colors::HEADER, colors::RESET);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 
     // === [service desk] ===
     println!();
-    println!("{}[service desk]{}", colors::HEADER, colors::RESET);
+    print_section_header("service desk");
 
     let total_tickets = staff_stats.total_tickets();
     let resolved = staff_stats.total_resolved();
@@ -47,7 +46,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     let avg_response = agg.as_ref().map(|a| a.avg_duration_ms).unwrap_or(0.0);
 
     kv("total_tickets", &format!("{}", total_tickets));
-    kv("resolved", &format!("{}{}{}", colors::OK, resolved, colors::RESET));
+    kv_colored("resolved", &format!("{}", resolved), colors::OK);
     kv("escalated", &format!("{}", escalated));
     if avg_response > 0.0 {
         kv("avg_response", &format!("{:.1}s", avg_response / 1000.0));
@@ -57,7 +56,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     let by_dept = staff_stats.by_department();
     if !by_dept.is_empty() {
         println!();
-        println!("{}[departments]{}", colors::HEADER, colors::RESET);
+        print_section_header("departments");
 
         // Sort departments by ticket count
         let mut depts: Vec<_> = by_dept.iter().collect();
@@ -88,7 +87,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     // === [staff roster] ===
     if !by_dept.is_empty() {
         println!();
-        println!("{}[staff roster]{}", colors::HEADER, colors::RESET);
+        print_section_header("staff roster");
 
         // Sort departments alphabetically for roster display
         let mut depts: Vec<_> = by_dept.iter().collect();
@@ -160,7 +159,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     if let Some(ref agg) = agg {
         if agg.total_requests > 0 {
             println!();
-            println!("{}[recent activity]{}", colors::HEADER, colors::RESET);
+            print_section_header("recent activity");
 
             // Show summary of recent work
             let resolved_pct = if agg.total_requests > 0 {
@@ -187,7 +186,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     // === [quick stats] === Summary line
     if total_tickets > 0 {
         println!();
-        println!("{}[quick stats]{}", colors::HEADER, colors::RESET);
+        print_section_header("quick stats");
 
         let overall_rate = if total_tickets > 0 {
             (resolved as f32 / total_tickets as f32 * 100.0) as u8
@@ -207,7 +206,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
     // === [learning] === v0.0.330: Probe learning stats
     print_learning_section();
 
-    println!("{}", HR);
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 }
 
 /// v0.0.330: Print probe learning statistics section
@@ -221,7 +220,7 @@ fn print_learning_section() {
     }
 
     println!();
-    println!("{}[learning]{}", colors::HEADER, colors::RESET);
+    print_section_header("learning");
 
     kv("queries_processed", &format!("{}", stats.total_queries));
     kv("keywords_learned", &format!("{}", stats.keywords_learned));
@@ -295,10 +294,6 @@ fn print_learning_section() {
         "health",
         &format!("{}{}{} ({:.0}% confidence)", health_color, health, colors::RESET, confidence * 100.0),
     );
-}
-
-fn kv(key: &str, value: &str) {
-    println!("  {:22}{}", key, value);
 }
 
 fn capitalize(s: &str) -> String {
