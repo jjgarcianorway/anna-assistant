@@ -1,7 +1,9 @@
-//! Types for claim verification against evidence (v0.0.195).
+//! Types for claim verification against evidence (v0.0.296).
+//! v0.0.296: Added summary() and has_kind() for self-healing validation.
 
 use crate::claims::Claim;
 use crate::parsers::{DiskUsage, MemoryInfo, ParsedProbeData, ServiceStatus};
+use crate::trace::EvidenceKind;
 use serde::{Deserialize, Serialize};
 
 /// Grounding verification report.
@@ -84,5 +86,54 @@ impl ParsedEvidence {
         }
 
         evidence
+    }
+
+    /// v0.0.296: Check if evidence contains a specific kind
+    pub fn has_kind(&self, kind: &EvidenceKind) -> bool {
+        match kind {
+            EvidenceKind::Memory => self.memory.is_some(),
+            EvidenceKind::Disk => !self.disks.is_empty(),
+            EvidenceKind::Services => !self.services.is_empty(),
+            // TODO: extend ParsedEvidence to include these
+            _ => false,
+        }
+    }
+
+    /// v0.0.296: Generate a human-readable summary for LLM prompts
+    pub fn summary(&self) -> String {
+        let mut parts = Vec::new();
+
+        if let Some(mem) = &self.memory {
+            let total_gb = mem.total_bytes as f64 / 1_073_741_824.0;
+            let used_gb = mem.used_bytes as f64 / 1_073_741_824.0;
+            let avail_gb = mem.available_bytes as f64 / 1_073_741_824.0;
+            parts.push(format!(
+                "Memory: {:.1}GB total, {:.1}GB used, {:.1}GB available",
+                total_gb, used_gb, avail_gb
+            ));
+        }
+
+        if !self.disks.is_empty() {
+            for disk in &self.disks {
+                let used_gb = disk.used_bytes as f64 / 1_073_741_824.0;
+                let total_gb = disk.size_bytes as f64 / 1_073_741_824.0;
+                parts.push(format!(
+                    "Disk {}: {}% used ({:.1}GB of {:.1}GB)",
+                    disk.mount, disk.percent_used, used_gb, total_gb
+                ));
+            }
+        }
+
+        if !self.services.is_empty() {
+            for svc in &self.services {
+                parts.push(format!("Service {}: {}", svc.name, svc.state));
+            }
+        }
+
+        if parts.is_empty() {
+            "No evidence collected.".to_string()
+        } else {
+            parts.join("\n")
+        }
     }
 }

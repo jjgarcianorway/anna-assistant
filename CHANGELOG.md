@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.296] - 2025-12-10
+
+### Added - Answer Validation with Self-Healing
+
+**Every answer is now validated before reaching the user:**
+
+The new `answer_validator` module implements the core principle: "Any answer must be run against specialists to know if it's the right answer."
+
+**Validation Flow:**
+1. Extract claims from answer
+2. Verify claims against evidence (grounding check)
+3. Run invention guard (detect fabricated facts)
+4. If validation fails, regenerate answer with explicit constraints
+5. Retry up to 3 times until score >= 80
+
+**Self-Healing:**
+When validation fails, the validator:
+- Builds a correction prompt with specific constraints
+- Lists issues: "Do NOT claim X", "Only use evidence", etc.
+- Asks LLM to regenerate with these constraints
+- Re-validates the new answer
+
+**Evidence Summary for LLM:**
+Added `summary()` method to `ParsedEvidence` that formats evidence as human-readable text for LLM prompts:
+```
+Memory: 31.0GB total, 12.5GB used, 18.5GB available
+Disk /: 45% used (234.5GB of 500.0GB)
+```
+
+**Files Changed:**
+- `annad/src/answer_validator.rs` - New validation module
+- `anna-shared/src/grounding/types.rs` - Added `summary()` and `has_kind()`
+
 ## [0.0.295] - 2025-12-10
 
 ### Added - Learning from Negative Feedback

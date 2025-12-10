@@ -23,6 +23,7 @@
 //! v0.0.172: Router modularized into router/ submodules.
 
 pub mod action_handlers;
+pub mod answer_validator;
 pub mod answers;
 pub mod auto_select;
 pub mod benchmark;
