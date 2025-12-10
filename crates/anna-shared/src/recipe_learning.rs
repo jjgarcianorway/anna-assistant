@@ -290,6 +290,7 @@ mod tests {
             assigned_staff: None,
             staff_id: None,
             answer: "Your disk is 50% full.".to_string(),
+            validated: verified, // v0.0.298: Use verified param for validated field
             domain: SpecialistDomain::Storage,
             reliability_score: score,
             reliability_signals: ReliabilitySignals {

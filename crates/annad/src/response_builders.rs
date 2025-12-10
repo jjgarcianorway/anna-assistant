@@ -51,6 +51,7 @@ pub fn create_no_evidence_response(
         assigned_staff: None,
         staff_id: None,
         answer,
+        validated: false, // v0.0.298: No-evidence responses are not validated
         reliability_score: anna_shared::reliability::NO_EVIDENCE_RELIABILITY_CAP,
         reliability_signals: signals,
         reliability_explanation: None,
@@ -111,6 +112,7 @@ pub fn create_timeout_response(
         assigned_staff: None,
         staff_id: None,
         answer,
+        validated: false, // v0.0.298: Timeout responses are not validated
         reliability_score: if has_evidence { 40 } else { 20 },
         reliability_signals: signals,
         reliability_explanation: None,
@@ -196,13 +198,16 @@ pub fn create_no_data_response(
         Some("Best-effort answer from available data".to_string()),
     );
 
+    // v0.0.298: Best-effort responses validated only if high score
+    let score = signals.score();
     ServiceDeskResult {
         request_id,
         case_number: None,
         assigned_staff: None,
         staff_id: None,
         answer,
-        reliability_score: signals.score(),
+        validated: score >= 80, // v0.0.298: Best-effort validated if score >= 80
+        reliability_score: score,
         reliability_signals: signals,
         reliability_explanation: None,
         domain,

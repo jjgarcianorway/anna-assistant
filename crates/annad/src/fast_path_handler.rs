@@ -127,6 +127,7 @@ pub fn build_fast_path_result(
         assigned_staff: None,
         staff_id: None,
         answer,
+        validated: true, // v0.0.298: Fast path answers are deterministic and validated
         reliability_score: reliability,
         reliability_signals: signals,
         reliability_explanation: None,

@@ -204,3 +204,39 @@ pub async fn handle_uninstall() -> Result<()> {
     );
     Ok(())
 }
+
+/// Handle reset command (v0.0.298)
+pub async fn handle_reset() -> Result<()> {
+    let mut client = AnnadClient::connect().await?;
+
+    println!();
+    println!("{}anna reset{}", colors::HEADER, colors::RESET);
+    println!();
+    println!("This will reset Anna's learned data:");
+    println!("  {} Clear learned recipes", symbols::ARROW);
+    println!("  {} Clear knowledge base", symbols::ARROW);
+    println!("  {} Clear event log (stats)", symbols::ARROW);
+    println!();
+
+    println!("{}Confirm reset?{} [y/N]: ", colors::WARN, colors::RESET);
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+
+    if !input.trim().eq_ignore_ascii_case("y") {
+        println!("Reset cancelled.");
+        return Ok(());
+    }
+
+    println!();
+    client.reset().await?;
+
+    println!(
+        "{}{}{}  Reset complete. Anna will start fresh.",
+        colors::OK,
+        symbols::OK,
+        colors::RESET
+    );
+    Ok(())
+}

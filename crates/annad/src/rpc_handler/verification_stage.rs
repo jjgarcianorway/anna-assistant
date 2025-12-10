@@ -1,8 +1,9 @@
-//! Verification and theatre stage (v0.0.297).
+//! Verification and theatre stage (v0.0.298).
 //!
 //! Handles ticket verification loop, comms updates, and theatre recording.
 //! Extracted from llm_request.rs for modularization.
 //! v0.0.297: LLM self-healing integration via ticket_loop.
+//! v0.0.298: Return `validated` status from verification loop.
 
 use anna_shared::progress::RequestStage;
 use anna_shared::reliability::ReliabilityInput;
@@ -72,12 +73,20 @@ pub fn build_reliability_input(
     }
 }
 
+/// Verification loop result (v0.0.298: includes validated status)
+pub struct VerificationResult {
+    pub answer: String,
+    pub score: u8,
+    pub validated: bool,
+}
+
 /// Run the verification loop and update comms (v0.0.297: with LLM self-healing)
+/// v0.0.298: Returns VerificationResult with validated status
 pub async fn run_verification(
     input: &VerificationInput<'_>,
     progress: &mut ProgressTracker,
     comms: &mut CommsGenerator,
-) -> (String, u8) {
+) -> VerificationResult {
     progress.start_stage(RequestStage::Supervisor, input.supervisor_timeout_secs);
 
     let reliability_input = build_reliability_input(input);
@@ -123,14 +132,20 @@ pub async fn run_verification(
     }
     comms.anna_returning_async(progress).await;
 
-    (verification_result.answer, verification_result.score)
+    // v0.0.298: Return full verification result including validated status
+    VerificationResult {
+        answer: verification_result.answer,
+        score: verification_result.score,
+        validated: verification_result.verified,
+    }
 }
 
-/// Build final result with verified answer
+/// Build final result with verified answer (v0.0.298: accepts validated status)
 pub fn build_verified_result(
     input: &VerificationInput<'_>,
     final_answer: String,
     transcript: Transcript,
+    validated: bool,
 ) -> ServiceDeskResult {
     let specialist_result = SpecialistResult {
         answer: final_answer,
@@ -141,7 +156,7 @@ pub fn build_verified_result(
         fallback_route_class: input.specialist_result.fallback_route_class.clone(),
     };
 
-    build_final_result(
+    let mut result = build_final_result(
         input.request_id.to_string(),
         input.query,
         input.ticket.clone(),
@@ -153,10 +168,16 @@ pub fn build_verified_result(
         input.det_route.capability.evidence_required,
         input.ticket_probes_planned,
         input.probe_cap_warning,
-    )
+    );
+
+    // v0.0.298: Set validated from ticket verification loop
+    result.validated = validated;
+
+    result
 }
 
 /// Handle theatre recording and notifications
+/// v0.0.298: Use `validated` field for escalation/notification decisions
 pub fn handle_theatre(
     query: &str,
     domain: SpecialistDomain,
@@ -167,8 +188,8 @@ pub fn handle_theatre(
     let mut theatre = TheatreContext::new(query, domain);
     theatre.start_work();
 
-    // Escalate to senior if reliability is low
-    if result.reliability_score < 60 && !result.needs_clarification {
+    // v0.0.298: Escalate to senior if not validated (not just score < 60)
+    if !result.validated && !result.needs_clarification {
         theatre.escalate();
     }
 
@@ -180,10 +201,10 @@ pub fn handle_theatre(
     // Record staff performance metrics
     theatre.record_staff_stats(result.reliability_score, total_ms);
 
-    // Send email notification for long-running or low-reliability queries
-    if theatre.should_notify(total_ms) || result.reliability_score < 60 {
+    // v0.0.298: Use validated field for notifications
+    if theatre.should_notify(total_ms) || !result.validated {
         theatre.notify_ticket_created();
-        if result.reliability_score >= 60 {
+        if result.validated {
             theatre.notify_ticket_resolved();
         }
     }

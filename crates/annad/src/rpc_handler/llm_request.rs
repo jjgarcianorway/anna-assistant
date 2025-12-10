@@ -410,17 +410,19 @@ async fn handle_llm_request_inner(
         model: &specialist_model,
     };
 
-    let (final_answer, _score) =
+    // v0.0.298: run_verification returns VerificationResult with validated status
+    let verification_result =
         verification_stage::run_verification(&verification_input, &mut progress, &mut comms).await;
     save_progress(&state, &progress).await;
 
-    progress.add_final_answer(&final_answer);
+    progress.add_final_answer(&verification_result.answer);
 
-    // Build final result with verified answer
+    // Build final result with verified answer (v0.0.298: pass validated status)
     let result = verification_stage::build_verified_result(
         &verification_input,
-        final_answer.clone(),
+        verification_result.answer.clone(),
         progress.transcript_clone(),
+        verification_result.validated,
     );
 
     progress.complete_stage(RequestStage::Supervisor);

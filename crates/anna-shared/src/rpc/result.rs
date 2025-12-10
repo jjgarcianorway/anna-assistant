@@ -1,4 +1,5 @@
-//! Service desk result types (v0.0.220).
+//! Service desk result types (v0.0.298).
+//! v0.0.298: Added `validated` field for proper verification tracking.
 
 use serde::{Deserialize, Serialize};
 
@@ -100,6 +101,10 @@ pub struct ServiceDeskResult {
     pub staff_id: Option<String>,
     /// The LLM's answer text
     pub answer: String,
+    /// v0.0.298: Whether the answer passed validation (proper ticket loop verification)
+    /// This is more authoritative than reliability_score >= threshold.
+    #[serde(default)]
+    pub validated: bool,
     /// Reliability score 0-100 (deterministic from signals)
     pub reliability_score: u8,
     /// Reliability scoring signals

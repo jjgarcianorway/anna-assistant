@@ -65,6 +65,7 @@ pub fn create_clarification_response_grounded(
         assigned_staff: None,
         staff_id: None,
         answer: String::new(),
+        validated: false, // v0.0.298: Clarification responses are not validated answers
         reliability_score: score,
         reliability_signals: signals,
         reliability_explanation: None,
@@ -152,6 +153,7 @@ pub fn create_clarification_with_options(
         assigned_staff: None,
         staff_id: None,
         answer: String::new(),
+        validated: false, // v0.0.298: Clarification responses are not validated answers
         reliability_score: score,
         reliability_signals: signals,
         reliability_explanation: None,

@@ -40,10 +40,21 @@ impl Server {
     }
 
     pub async fn run(&self) -> Result<()> {
-        // Ensure directories exist
+        // v0.0.298: Create socket EARLY so annactl can connect while initializing
+        // This fixes the long wait for anna.sock after install
         self.setup_directories().await?;
 
-        // Initialize daemon
+        // Start socket server in background BEFORE initialization
+        // The server will accept connections but return "initializing" status
+        let state_for_socket = self.state.clone();
+        let socket_handle = tokio::spawn(async move {
+            if let Err(e) = Self::run_socket_server_impl(state_for_socket).await {
+                error!("Socket server error: {}", e);
+            }
+        });
+
+        // Now initialize daemon (this can be slow - model selection, pulling)
+        // But clients can already connect and see "initializing" status
         self.initialize().await?;
 
         // v0.0.291: Enhanced background loop lifecycle logging
@@ -76,8 +87,9 @@ impl Server {
         telemetry_collector::start_collector(telemetry_store);
         info!("Telemetry collector started");
 
-        // Start socket server
-        self.run_socket_server().await
+        // Wait for socket server (will run forever or until error)
+        let _ = socket_handle.await;
+        Ok(())
     }
 
     async fn setup_directories(&self) -> Result<()> {
@@ -306,9 +318,10 @@ impl Server {
         Ok(())
     }
 
-    async fn run_socket_server(&self) -> Result<()> {
+    /// v0.0.298: Static method so it can run before initialization completes
+    async fn run_socket_server_impl(state: SharedState) -> Result<()> {
         let listener = UnixListener::bind(SOCKET_PATH)?;
-        info!("Listening on {}", SOCKET_PATH);
+        info!("Socket available at {} (daemon still initializing)", SOCKET_PATH);
 
         // Set socket permissions: world accessible for zero-friction UX
         // The anna group is used for directory permissions, not socket
@@ -317,7 +330,7 @@ impl Server {
         loop {
             match listener.accept().await {
                 Ok((stream, _)) => {
-                    let state = self.state.clone();
+                    let state = state.clone();
                     tokio::spawn(async move {
                         if let Err(e) = handle_connection(state, stream).await {
                             error!("Connection error: {}", e);

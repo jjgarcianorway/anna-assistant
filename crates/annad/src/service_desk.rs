@@ -201,6 +201,7 @@ pub fn build_result_with_flags(
         assigned_staff: None,
         staff_id: None,
         answer,
+        validated: false, // v0.0.298: Set by caller after ticket verification loop
         reliability_score: output.score,
         reliability_signals: signals,
         reliability_explanation,

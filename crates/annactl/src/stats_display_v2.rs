@@ -81,42 +81,61 @@ pub fn print_stats_display_v2(stats: &GlobalStats) {
     println!();
     println!("{}[throughput]{}", colors::HEADER, colors::RESET);
 
-    let total_requests = agg.as_ref().map(|a| a.total_requests).unwrap_or(stats.total_requests);
-    let verified = agg.as_ref().map(|a| a.verified_count).unwrap_or(0);
-    let failed = agg.as_ref().map(|a| a.failed_count).unwrap_or(0);
-    let timeouts = agg.as_ref().map(|a| a.timeout_count).unwrap_or(0);
+    // v0.0.298: Use consistent data source - prefer event log, fallback to daemon stats
+    // This fixes the bug where throughput and quality showed inconsistent numbers
+    let (total_requests, verified, failed, timeouts, avg_reliability_val, escalations, clarifications) =
+        if let Some(ref agg) = agg {
+            (
+                agg.total_requests,
+                agg.verified_count,
+                agg.failed_count,
+                agg.timeout_count,
+                agg.avg_reliability,
+                agg.escalation_count,
+                agg.clarification_count,
+            )
+        } else {
+            // Fallback to daemon stats if event log not available
+            let total = stats.total_requests;
+            let verified_teams: u64 = stats.by_team.iter().map(|t| t.tickets_verified).sum();
+            let failed_teams: u64 = stats.by_team.iter().map(|t| t.tickets_total.saturating_sub(t.tickets_verified)).sum();
+            (
+                total,
+                verified_teams,
+                failed_teams,
+                0u64, // timeouts not tracked in daemon stats
+                stats.overall_avg_score(),
+                0u64, // escalations not tracked in daemon stats
+                0u64, // clarifications not tracked in daemon stats
+            )
+        };
 
     kv("total_cases", &format!("{}", total_requests));
     kv("resolved_ok", &format!("{}{}{}", colors::OK, verified, colors::RESET));
     kv("failed", &format!("{}{}{}", if failed > 0 { colors::ERR } else { colors::DIM }, failed, colors::RESET));
     kv("timeouts", &format!("{}", timeouts));
-
-    if let Some(ref agg) = agg {
-        kv("escalations", &format!("{}", agg.escalation_count));
-        kv("clarifications", &format!("{}", agg.clarification_count));
+    if escalations > 0 || clarifications > 0 {
+        kv("escalations", &format!("{}", escalations));
+        kv("clarifications", &format!("{}", clarifications));
     }
 
     // === [quality] ===
     println!();
     println!("{}[quality]{}", colors::HEADER, colors::RESET);
 
-    // v0.0.290: Calculate success rate from event log for consistency with throughput
-    let success_rate = if let Some(ref agg) = agg {
-        if agg.total_requests > 0 {
-            agg.verified_count as f32 / agg.total_requests as f32
-        } else {
-            0.0
-        }
+    // v0.0.298: Success rate uses same verified/total from above for consistency
+    let success_rate = if total_requests > 0 {
+        verified as f32 / total_requests as f32
     } else {
-        stats.overall_success_rate()
+        0.0
     };
     let success_color = if success_rate >= 0.8 { colors::OK }
         else if success_rate >= 0.5 { colors::WARN }
         else { colors::ERR };
     kv("success_rate", &format!("{}{:.0}%{}", success_color, success_rate * 100.0, colors::RESET));
 
-    // v0.0.290: Use event log avg_reliability if available
-    let avg_reliability = agg.as_ref().map(|a| a.avg_reliability).unwrap_or(stats.overall_avg_score());
+    // v0.0.298: Use the same avg_reliability for consistency
+    let avg_reliability = avg_reliability_val;
     kv("avg_reliability", &format!("{:.0}", avg_reliability));
 
     if let Some(ref agg) = agg {

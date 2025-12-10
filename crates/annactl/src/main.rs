@@ -23,7 +23,7 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_repl, handle_request, handle_stats, handle_status, handle_uninstall};
+use crate::commands::{handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -49,6 +49,8 @@ enum Command {
     Status,
     /// Show RPG-style statistics and achievements
     Stats,
+    /// Reset learned data (recipes, knowledge, event log)
+    Reset,
     /// Uninstall Anna completely
     Uninstall,
 }
@@ -60,6 +62,7 @@ async fn main() -> Result<()> {
     match cli.command {
         Some(Command::Status) => handle_status().await,
         Some(Command::Stats) => handle_stats().await,
+        Some(Command::Reset) => handle_reset().await,
         Some(Command::Uninstall) => handle_uninstall().await,
         None => {
             if cli.request.is_empty() {

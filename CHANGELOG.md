@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.298] - 2025-12-10
+
+### Fixed - Critical Stability and Validator Integration
+
+**Socket creation now happens before daemon initialization:**
+- `annactl` can connect immediately after service starts
+- No more "long wait for anna.sock" after install
+- Socket server runs in background while daemon initializes
+
+**Stats consistency fixed:**
+- `resolved_ok` and `success_rate` now use the same data source
+- Fixed bug where stats showed inconsistent numbers (8 resolved but 0% success rate)
+
+**Validator is now authoritative for answer resolution:**
+- Added `validated: bool` field to `ServiceDeskResult`
+- Answers are marked verified only when validation passes (not just `score >= 60`)
+- Event log now records "verified" vs "failed" based on actual validation status
+- Bad answers that don't answer the user's question are no longer counted as resolved
+
+**Restored missing `annactl reset` command:**
+- `annactl reset` clears learned recipes, knowledge base, and event log
+- Requires y/N confirmation before executing
+
+**Files Changed:**
+- `annad/src/server.rs` - Socket creation moved before initialization
+- `annactl/src/stats_display_v2.rs` - Fixed data source consistency
+- `anna-shared/src/rpc/result.rs` - Added `validated` field
+- `annad/src/rpc_handler/helpers.rs` - Uses `validated` for outcome
+- `annad/src/rpc_handler/verification_stage.rs` - Returns validation status
+- `annactl/src/main.rs` - Added Reset command
+- `annactl/src/commands/handlers.rs` - Added handle_reset function
+- Multiple files updated to populate `validated` field
+
 ## [0.0.297] - 2025-12-10
 
 ### Added - LLM Self-Healing for Senior Escalation

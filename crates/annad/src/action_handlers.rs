@@ -89,6 +89,7 @@ fn make_result(
         assigned_staff: None,
         staff_id: None,
         answer,
+        validated: score >= 80, // v0.0.298: Action handlers validated if score >= 80
         reliability_score: score,
         reliability_signals: ReliabilitySignals::default(),
         reliability_explanation: None,

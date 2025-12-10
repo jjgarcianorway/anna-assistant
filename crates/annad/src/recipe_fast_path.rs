@@ -235,6 +235,8 @@ pub fn build_recipe_result(
         assigned_staff: None,
         staff_id: None,
         answer,
+        // v0.0.298: Recipe answers validated if high reliability_score
+        validated: recipe.reliability_score >= 80,
         reliability_score: recipe.reliability_score,
         reliability_signals: signals,
         reliability_explanation: None,

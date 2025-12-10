@@ -11,5 +11,5 @@ mod repl;
 // Re-export all handlers
 #[allow(unused_imports)]
 pub use config::{show_config_status, try_handle_config, ConfigResult};
-pub use handlers::{handle_request, handle_stats, handle_status, handle_uninstall};
+pub use handlers::{handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
 pub use repl::handle_repl;

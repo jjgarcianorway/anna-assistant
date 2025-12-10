@@ -1,4 +1,5 @@
-//! RPC handler helpers (v0.0.200).
+//! RPC handler helpers (v0.0.298).
+//! v0.0.298: Use `validated` field for outcome determination.
 
 use anna_shared::event_log::{EventLog, EventRecord};
 
@@ -12,6 +13,7 @@ pub async fn save_progress(state: &SharedState, progress: &ProgressTracker) {
 }
 
 /// v0.0.169: Record event to event log for gamification stats persistence
+/// v0.0.298: Use `validated` field instead of reliability_score >= 60
 pub fn record_event_log(
     request_id: &str,
     result: &anna_shared::rpc::ServiceDeskResult,
@@ -20,10 +22,11 @@ pub fn record_event_log(
 ) {
     let event_log = EventLog::new(EventLog::default_path(), 10000);
 
-    // Determine outcome based on result state
+    // v0.0.298: Determine outcome based on `validated` field (set by ticket verification loop)
+    // This is more authoritative than simple reliability_score thresholds
     let outcome = if result.needs_clarification {
         "clarification"
-    } else if result.reliability_score >= 60 {
+    } else if result.validated {
         "verified"
     } else if result.reliability_score > 0 {
         "failed"

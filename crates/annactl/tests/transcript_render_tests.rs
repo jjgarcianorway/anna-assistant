@@ -277,6 +277,7 @@ fn make_result(
         assigned_staff: None,
         staff_id: None,
         answer: answer.to_string(),
+        validated: !needs_clarification, // v0.0.298: Validated if not clarification
         reliability_score: 80,
         reliability_signals: ReliabilitySignals::default(),
         reliability_explanation: None,

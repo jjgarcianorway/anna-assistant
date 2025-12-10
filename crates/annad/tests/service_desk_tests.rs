@@ -209,6 +209,7 @@ fn test_service_desk_result_structure() {
         assigned_staff: None,
         staff_id: None,
         answer: "Test answer".to_string(),
+        validated: true, // v0.0.298
         reliability_score: signals.score(),
         reliability_signals: signals,
         reliability_explanation: None,
@@ -256,6 +257,7 @@ fn test_clarification_response_format() {
         assigned_staff: None,
         staff_id: None,
         answer: String::new(),
+        validated: false, // v0.0.298: Clarification responses are not validated
         reliability_score: signals.score(),
         reliability_signals: signals,
         reliability_explanation: None,
@@ -366,6 +368,7 @@ fn test_response_has_all_required_fields() {
         assigned_staff: None,
         staff_id: None,
         answer: "The top memory process is...".to_string(),
+        validated: true, // v0.0.298
         reliability_score: signals.score(),
         reliability_signals: signals,
         reliability_explanation: None,
@@ -431,6 +434,7 @@ fn test_timeout_response_format() {
         assigned_staff: None,
         staff_id: None,
         answer: String::new(),
+        validated: false, // v0.0.298: Timeout responses are not validated
         reliability_score: signals.score().min(20), // Max 20 for timeout
         reliability_signals: signals,
         reliability_explanation: None,
@@ -499,6 +503,7 @@ fn test_timeout_at_different_stages() {
             assigned_staff: None,
             staff_id: None,
             answer: String::new(),
+            validated: false, // v0.0.298
             reliability_score: signals.score().min(20),
             reliability_signals: signals,
             reliability_explanation: None,
@@ -556,6 +561,7 @@ fn test_evidence_includes_partial_probes_on_timeout() {
         assigned_staff: None,
         staff_id: None,
         answer: String::new(),
+        validated: false, // v0.0.298
         reliability_score: signals.score().min(20),
         reliability_signals: signals,
         reliability_explanation: None,
