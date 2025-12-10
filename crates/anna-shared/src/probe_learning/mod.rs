@@ -1,4 +1,4 @@
-//! Probe effectiveness learning system (v0.0.331).
+//! Probe effectiveness learning system (v0.0.332).
 //!
 //! Tracks which probes work well for which query types, learning from:
 //! 1. User feedback (helpful/not helpful)
@@ -24,8 +24,9 @@ mod utils;
 // Re-export public API
 pub use store::ProbeLearningStore;
 pub use types::{
-    DecayResult, KeywordProbeStats, LearningStats, NegativePattern, ProbeEffectiveness,
-    QualityDataPoint, QualityTrend, QueryCategory, SuccessfulPattern, TrendDirection,
+    DecayResult, KeywordProbeStats, LearningHealth, LearningStats, NegativePattern,
+    ProbeEffectiveness, QualityDataPoint, QualityTrend, QueryCategory, SuccessfulPattern,
+    TrendDirection,
 };
 pub use utils::extract_keywords;
 

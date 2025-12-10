@@ -1,4 +1,4 @@
-//! Stats display v2 - Service Desk Staff Performance Report (v0.0.331).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.332).
 //!
 //! Clean, focused view of the service desk with real staff metrics:
 //! - Service desk summary (total tickets, resolved, escalated)
@@ -10,9 +10,10 @@
 //! v0.0.316: Improved formatting to match service desk vision.
 //! v0.0.330: Added probe learning stats section.
 //! v0.0.331: Added quality trend to learning section.
+//! v0.0.332: Added confidence factor and health status.
 
 use anna_shared::event_log::EventLog;
-use anna_shared::probe_learning::{ProbeLearningStore, TrendDirection};
+use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, TrendDirection};
 use anna_shared::roster::{person_by_id, Tier};
 use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
@@ -279,6 +280,21 @@ fn print_learning_section() {
             ),
         );
     }
+
+    // v0.0.332: Health status and confidence
+    let health = store.health_status();
+    let health_color = match health {
+        LearningHealth::Excellent => colors::OK,
+        LearningHealth::Good => colors::OK,
+        LearningHealth::Developing => colors::WARN,
+        LearningHealth::NeedsAttention => colors::ERR,
+        LearningHealth::Insufficient => colors::DIM,
+    };
+    let confidence = store.confidence_factor();
+    kv(
+        "health",
+        &format!("{}{}{} ({:.0}% confidence)", health_color, health, colors::RESET, confidence * 100.0),
+    );
 }
 
 fn kv(key: &str, value: &str) {

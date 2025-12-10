@@ -253,3 +253,30 @@ impl std::fmt::Display for TrendDirection {
         }
     }
 }
+
+/// v0.0.332: Learning health status
+#[derive(Debug, Clone, PartialEq)]
+pub enum LearningHealth {
+    /// High confidence, good quality
+    Excellent,
+    /// Adequate data and quality
+    Good,
+    /// Usable but not ideal
+    Developing,
+    /// Quality declining, needs review
+    NeedsAttention,
+    /// Not enough data
+    Insufficient,
+}
+
+impl std::fmt::Display for LearningHealth {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LearningHealth::Excellent => write!(f, "excellent"),
+            LearningHealth::Good => write!(f, "good"),
+            LearningHealth::Developing => write!(f, "developing"),
+            LearningHealth::NeedsAttention => write!(f, "needs attention"),
+            LearningHealth::Insufficient => write!(f, "insufficient"),
+        }
+    }
+}

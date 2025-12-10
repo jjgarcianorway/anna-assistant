@@ -7,7 +7,11 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use super::types::*;
+use super::types::{
+    DecayResult, KeywordProbeStats, LearningHealth, LearningStats, NegativePattern,
+    ProbeEffectiveness, QualityDataPoint, QualityTrend, QueryCategory, SuccessfulPattern,
+    TrendDirection,
+};
 use super::utils::extract_keywords;
 
 /// Probe learning store - persists probe effectiveness data
@@ -338,6 +342,68 @@ impl ProbeLearningStore {
             let _ = store.save();
         }
         store
+    }
+
+    /// v0.0.332: Get confidence factor based on learning health
+    /// Returns 0.0-1.0 where 1.0 means full confidence in learned patterns
+    /// Factors in: data volume, quality trend, pattern diversity
+    pub fn confidence_factor(&self) -> f32 {
+        let stats = self.learning_stats();
+
+        // Base confidence from data volume (caps at 50 queries)
+        let volume_confidence = (stats.total_queries as f32 / 50.0).min(1.0);
+
+        // Quality factor (avg quality / 5.0)
+        let quality_factor = stats.avg_quality / 5.0;
+
+        // Trend factor: boost if improving, reduce if declining
+        let trend_factor = match self.quality_trend() {
+            Some(trend) => match trend.trend {
+                TrendDirection::Improving => 1.1,  // 10% boost
+                TrendDirection::Stable => 1.0,
+                TrendDirection::Declining => 0.8, // 20% reduction
+            },
+            None => 0.9, // Slight reduction if no trend data
+        };
+
+        // Diversity factor: more keywords = more coverage
+        let diversity_factor = (stats.keywords_learned as f32 / 30.0).min(1.0);
+
+        // Combine factors
+        let raw_confidence = volume_confidence * 0.4
+            + quality_factor * 0.3
+            + diversity_factor * 0.3;
+
+        // Apply trend factor
+        (raw_confidence * trend_factor).clamp(0.0, 1.0)
+    }
+
+    /// v0.0.332: Should we trust learned recommendations?
+    /// Returns true if confidence is above threshold
+    pub fn should_use_learning(&self) -> bool {
+        self.confidence_factor() >= 0.3
+    }
+
+    /// v0.0.332: Get learning health status
+    pub fn health_status(&self) -> LearningHealth {
+        let confidence = self.confidence_factor();
+        let trend = self.quality_trend();
+
+        if confidence >= 0.7 {
+            LearningHealth::Excellent
+        } else if confidence >= 0.5 {
+            // Check if declining
+            if let Some(t) = &trend {
+                if t.trend == TrendDirection::Declining {
+                    return LearningHealth::NeedsAttention;
+                }
+            }
+            LearningHealth::Good
+        } else if confidence >= 0.3 {
+            LearningHealth::Developing
+        } else {
+            LearningHealth::Insufficient
+        }
     }
 }
 

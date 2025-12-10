@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.332] - 2025-12-10
+
+### Added - Learning Confidence & Health
+
+**Confidence-based learning:**
+
+Anna now calculates a confidence factor (0-100%) based on:
+- Data volume (more queries = more confidence)
+- Answer quality (higher quality = more confidence)
+- Quality trend (improving boosts, declining reduces)
+- Keyword diversity (broader coverage = more confidence)
+
+**Health status in stats:**
+
+```
+[learning]
+  ...
+  health                excellent (78% confidence)
+```
+
+Health levels:
+- **Excellent**: High confidence, good quality
+- **Good**: Adequate data and quality
+- **Developing**: Usable but needs more data
+- **Needs attention**: Quality declining
+- **Insufficient**: Not enough data
+
+**Technical changes:**
+- Added `confidence_factor()` method (0.0-1.0 score)
+- Added `should_use_learning()` (true if confidence >= 30%)
+- Added `health_status()` method
+- Added `LearningHealth` enum
+- Stats display shows health with confidence %
+
 ## [0.0.331] - 2025-12-10
 
 ### Added - Quality Trends & Module Refactoring
