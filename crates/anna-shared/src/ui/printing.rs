@@ -28,10 +28,15 @@ pub fn print_title(title: &str) {
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
 }
 
-/// Print a footer with horizontal rule
+/// Print a footer with horizontal rule and newline
 pub fn print_footer() {
     println!("{}{}{}", colors::DIM, HR, colors::RESET);
     println!();
+}
+
+/// Print just a horizontal rule (no newline after)
+pub fn print_hr() {
+    println!("{}{}{}", colors::DIM, HR, colors::RESET);
 }
 
 /// Print a section header like [section] with HEADER color (orange)

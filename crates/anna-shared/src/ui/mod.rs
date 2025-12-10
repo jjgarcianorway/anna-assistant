@@ -18,7 +18,7 @@ mod tests;
 // Re-export commonly used items for backwards compatibility
 pub use formatting::{format_bytes, format_duration, progress_bar};
 pub use printing::{
-    kv, kv_colored, print_err, print_footer, print_header, print_hint, print_kv,
+    kv, kv_colored, print_err, print_footer, print_header, print_hint, print_hr, print_kv,
     print_kv_status, print_label, print_ok, print_section, print_section_header, print_title,
     print_warn, HR, KEY_WIDTH,
 };

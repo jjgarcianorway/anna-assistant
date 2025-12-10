@@ -1,4 +1,4 @@
-//! Status display v2 - Rich formatted dashboard (v0.0.339).
+//! Status display v2 - Rich formatted dashboard (v0.0.345).
 //!
 //! Matches the user's vision of a sectioned, terminal-friendly display:
 //! - Header with status indicator
@@ -14,7 +14,7 @@ use anna_shared::rpc::DaemonInfo;
 use anna_shared::status::{DaemonStatus, LlmState};
 use anna_shared::status_snapshot::StatusSnapshot;
 use anna_shared::ticket_tracker::{TicketStatus, TicketTracker};
-use anna_shared::ui::{colors, kv, print_section_header, HR};
+use anna_shared::ui::{colors, kv, print_footer, print_hr, print_section_header};
 use anna_shared::version::{VersionInfo, VERSION};
 use chrono::{DateTime, Local, TimeZone, Utc};
 
@@ -48,7 +48,7 @@ pub fn print_status_display_v2(
         .unwrap_or(if status.debug_mode { "ON" } else { "OFF" });
 
     // === HEADER ===
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_hr();
     println!(
         "{}Anna Service Desk{} (local) | status: {}{}{}  | debug_mode: {}",
         colors::HEADER,
@@ -58,7 +58,7 @@ pub fn print_status_display_v2(
         colors::RESET,
         debug_mode
     );
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_hr();
 
     // === [core] ===
     println!();
@@ -321,7 +321,7 @@ pub fn print_status_display_v2(
         &format!("{}OK{}", colors::OK, colors::RESET),
     );
 
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_footer();
 }
 
 fn format_uptime(seconds: u64) -> String {

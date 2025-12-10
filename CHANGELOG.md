@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.345] - 2025-12-10
+
+### Improved - print_hr() Helper Function
+
+Added `print_hr()` helper for printing horizontal rules without trailing newline:
+
+**New Helper (ui/printing.rs):**
+- `print_hr()` - Prints just the HR line (no newline after)
+- `print_footer()` now documented as "HR + newline"
+
+**Updated Files:**
+- `status_display_v2.rs` - Status header uses `print_hr()`
+- `progress_display.rs` - Bootstrap progress uses `print_hr()`
+- `greeting/mod.rs` - Greeting separator uses `print_hr()`
+
+No more need to import `HR` constant directly - use helper functions instead.
+
 ## [0.0.344] - 2025-12-10
 
 ### Improved - Centralized print_title() Helper

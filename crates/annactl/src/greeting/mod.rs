@@ -1,4 +1,4 @@
-//! Theatre-style REPL greeting for Service Desk experience (v0.0.292).
+//! Theatre-style REPL greeting for Service Desk experience (v0.0.345).
 //!
 //! v0.0.119: Clean, concise greetings.
 //! v0.0.142: More conversational, personalized greetings.
@@ -19,7 +19,7 @@ use anna_shared::snapshot::{self, SystemSnapshot};
 use anna_shared::status::DaemonStatus;
 use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::ticket_tracker::TicketTracker;
-use anna_shared::ui::{colors, HR};
+use anna_shared::ui::print_hr;
 use anna_shared::user_profile::UserProfile;
 
 use status::{collect_failed_services, print_system_readiness};
@@ -154,7 +154,7 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 
     // v0.0.142: Clean header without redundant title
     println!();
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_hr();
 
     // v0.0.275: Try LLM-generated greeting, fall back to deterministic
     let greeting_text = try_llm_greeting(&ctx);

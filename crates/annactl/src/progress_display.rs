@@ -1,10 +1,11 @@
-//! Progress display module for annactl (v0.0.338).
+//! Progress display module for annactl (v0.0.345).
 //! v0.0.119: Clean progress messages.
 //! v0.0.338: Use centralized UI printing for consistency.
+//! v0.0.345: Use print_hr() for horizontal rules.
 
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_label, symbols, HR};
+use anna_shared::ui::{colors, print_hr, print_label, symbols};
 use anyhow::Result;
 use std::io::{self, Write};
 use std::time::Duration;
@@ -15,7 +16,7 @@ use crate::client::AnnadClient;
 pub async fn show_bootstrap_progress() -> Result<()> {
     println!();
     println!("{}anna (bootstrap){}", colors::HEADER, colors::RESET);
-    println!("{}{}{}", colors::DIM, HR, colors::RESET);
+    print_hr();
     println!("{}Setting up...{}", colors::DIM, colors::RESET);
     println!();
 
@@ -41,7 +42,7 @@ pub async fn show_bootstrap_progress() -> Result<()> {
                     colors::RESET
                 );
                 println!();
-                println!("{}{}{}", colors::DIM, HR, colors::RESET);
+                print_hr();
                 println!();
                 return Ok(());
             }
