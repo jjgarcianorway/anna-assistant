@@ -1,10 +1,12 @@
-//! Stats display v2 - Service Desk Staff Performance Report (v0.0.301).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.316).
 //!
 //! Clean, focused view of the service desk with real staff metrics:
 //! - Service desk summary (total tickets, resolved, escalated)
 //! - Department breakdown
 //! - Staff roster with names, XP, levels
-//! - Recent activity
+//! - Quick summary
+//!
+//! v0.0.316: Improved formatting to match service desk vision.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::roster::{person_by_id, Tier};
@@ -132,10 +134,12 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
                 let is_senior = tier_label == "Sr";
                 let level_name = level_title(metrics.level, is_senior);
 
+                // v0.0.316: Better aligned columns
+                // Name (Tier) padded to 14 chars, then fixed-width columns
+                let name_col = format!("{} ({})", name, tier_label);
                 println!(
-                    "    {} ({})        tickets: {:>3}   xp: {:>4}   rate: {}{:>3.0}%{}   level: {}",
-                    name,
-                    tier_label,
+                    "    {:<14} tickets: {:>3}   xp: {:>4}   rate: {}{:>3.0}%{}   {}",
+                    name_col,
                     metrics.tickets_handled,
                     metrics.xp,
                     rate_color,

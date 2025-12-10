@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.316] - 2025-12-10
+
+### Improved - Stats Display Formatting
+
+**Better aligned staff roster in `annactl stats`:**
+- Staff names and tiers now aligned in fixed-width columns
+- Cleaner visual presentation of tickets, XP, rate, and level
+- Example: `Sofia (Jr)      tickets:   7   xp:  120   rate:  86%   Apprentice`
+
 ## [0.0.315] - 2025-12-10
 
 ### Improved - Staff XP Penalties for Performance
