@@ -1,14 +1,17 @@
-//! Stats display v2 - Service Desk Staff Performance Report (v0.0.316).
+//! Stats display v2 - Service Desk Staff Performance Report (v0.0.330).
 //!
 //! Clean, focused view of the service desk with real staff metrics:
 //! - Service desk summary (total tickets, resolved, escalated)
 //! - Department breakdown
 //! - Staff roster with names, XP, levels
 //! - Quick summary
+//! - Learning stats (v0.0.330)
 //!
 //! v0.0.316: Improved formatting to match service desk vision.
+//! v0.0.330: Added probe learning stats section.
 
 use anna_shared::event_log::EventLog;
+use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::roster::{person_by_id, Tier};
 use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
@@ -199,7 +202,66 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
         );
     }
 
+    // === [learning] === v0.0.330: Probe learning stats
+    print_learning_section();
+
     println!("{}", HR);
+}
+
+/// v0.0.330: Print probe learning statistics section
+fn print_learning_section() {
+    let store = ProbeLearningStore::load();
+    let stats = store.learning_stats();
+
+    // Only show if there's something to show
+    if stats.total_queries == 0 && stats.keywords_learned == 0 {
+        return;
+    }
+
+    println!();
+    println!("{}[learning]{}", colors::HEADER, colors::RESET);
+
+    kv("queries_processed", &format!("{}", stats.total_queries));
+    kv("keywords_learned", &format!("{}", stats.keywords_learned));
+
+    if stats.successful_patterns > 0 || stats.negative_patterns > 0 {
+        kv(
+            "patterns",
+            &format!(
+                "{}{} success{} / {}{} negative{}",
+                colors::OK,
+                stats.successful_patterns,
+                colors::RESET,
+                colors::DIM,
+                stats.negative_patterns,
+                colors::RESET
+            ),
+        );
+    }
+
+    if stats.avg_quality > 0.0 {
+        let quality_color = if stats.avg_quality >= 4.0 {
+            colors::OK
+        } else if stats.avg_quality >= 3.0 {
+            colors::WARN
+        } else {
+            colors::DIM
+        };
+        kv(
+            "avg_quality",
+            &format!("{}{:.1}/5{}", quality_color, stats.avg_quality, colors::RESET),
+        );
+    }
+
+    // Learning stage indicator
+    let stage = if stats.total_queries >= 50 && stats.keywords_learned >= 20 {
+        format!("{}Expert{}", colors::OK, colors::RESET)
+    } else if stats.total_queries >= 10 {
+        format!("{}Growing{}", colors::WARN, colors::RESET)
+    } else {
+        format!("{}Learning{}", colors::DIM, colors::RESET)
+    };
+    kv("stage", &stage);
 }
 
 fn kv(key: &str, value: &str) {

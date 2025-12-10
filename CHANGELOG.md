@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.330] - 2025-12-10
+
+### Added - Learning Stats in Stats Display
+
+**`annactl stats` now shows probe learning metrics:**
+
+```
+[learning]
+  queries_processed     42
+  keywords_learned      28
+  patterns              15 success / 3 negative
+  avg_quality           4.2/5
+  stage                 Growing
+```
+
+The learning section shows:
+- **queries_processed**: Total queries Anna has learned from
+- **keywords_learned**: Number of keywords mapped to successful probes
+- **patterns**: Success vs negative patterns recorded
+- **avg_quality**: Average LLM self-assessment quality score
+- **stage**: Learning/Growing/Expert based on experience
+
+Only appears when there's learning data to display.
+
+**Technical changes:**
+- `stats_display_v2.rs`: Added `[learning]` section with `print_learning_section()`
+- Uses `ProbeLearningStore::learning_stats()` for metrics
+
 ## [0.0.329] - 2025-12-10
 
 ### Added - Learning Reset
