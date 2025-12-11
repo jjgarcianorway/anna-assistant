@@ -1,12 +1,12 @@
-//! LLM-powered dialogue generation for natural specialist chatter (v0.0.319).
+//! LLM-powered dialogue generation for natural specialist chatter (v0.0.378).
 //!
 //! v0.0.255: Added personality quirks for unique character voices.
 //! v0.0.265: Disabled - small models produced nonsense.
 //! v0.0.319: Re-enabled with better prompts for context-aware dialogue.
-//!           Dialogues explain the truth but look different each time.
-//!           Style inspired by README: natural, conversational, shows thinking.
+//! v0.0.378: Actually integrated personality quirks into prompts.
+//!           Each staff member now has unique voice based on personality.rs.
 
-use anna_shared::roster::PersonProfile;
+use anna_shared::roster::{personality_for, PersonProfile};
 use crate::ollama;
 use tracing::{debug, warn};
 
@@ -72,28 +72,31 @@ Your line (no quotes):"#,
 }
 
 /// Generate junior's acknowledgment - shows they understand the task
+/// v0.0.378: Now uses personality quirks for unique voice
 pub async fn gen_junior_ack(
     model: &str,
     junior: &PersonProfile,
     query: &str,
 ) -> Option<String> {
     let query_summary = summarize_query(query);
+    let personality = personality_for(&junior.person_id);
+    let example_greeting = personality.greetings.first().unwrap_or(&"On it!");
 
     let prompt = format!(
-        r#"You are {}, an IT tech acknowledging a ticket about: {}
+        r#"You are {}, an IT tech with personality: "{}"
 
-Write ONE casual line (max 10 words) showing you understand and will handle it.
+Acknowledging a ticket about: {}
 
-Style: Like a quick reply to a coworker. Natural, not robotic.
+Write ONE casual line (max 10 words) in YOUR style.
 
-Examples of good responses:
-- "I'll check the usual suspects."
-- "On it. Let me pull some numbers."
-- "Storage thing? Checking now."
-- "Gotcha. Running diagnostics."
+Your typical phrases: {:?}
+Your quirk: {}
+
+Example in your style: "{}"
 
 Your line (no quotes):"#,
-        junior.display_name, query_summary
+        junior.display_name, personality.quirk, query_summary,
+        personality.greetings, personality.quirk, example_greeting
     );
 
     generate_dialogue(model, &prompt, 2, 14).await
@@ -187,37 +190,34 @@ Your line (no quotes):"#,
 }
 
 /// Generate junior's done message - reports confidence
+/// v0.0.378: Now uses personality success/uncertain phrases
 pub async fn gen_junior_done(
     model: &str,
     junior: &PersonProfile,
     confidence: u8,
 ) -> Option<String> {
-    let quality_word = if confidence >= 90 {
-        "solid"
-    } else if confidence >= 70 {
-        "good"
-    } else if confidence >= 50 {
-        "okay"
+    let personality = personality_for(&junior.person_id);
+    let (quality_word, example_phrase) = if confidence >= 70 {
+        ("solid", personality.success.first().unwrap_or(&"Done!"))
     } else {
-        "uncertain"
+        ("uncertain", personality.uncertain.first().unwrap_or(&"Not sure..."))
     };
 
     let prompt = format!(
-        r#"You are {}. Answer is ready, {}% confidence ({} quality).
+        r#"You are {}, personality: "{}"
 
-Write ONE casual completion line (max 10 words) including the percentage.
+Answer ready: {}% confidence ({}).
 
-Style: Quick handoff. Honest about confidence level.
+Write ONE casual line (max 10 words) with the percentage in YOUR style.
 
-Examples of good responses:
-- "Done. {}% - looks solid."
-- "Finished. {}%, should be good."
-- "Ready. Only {}% though."
-- "That's {}% on my end."
+Your success phrases: {:?}
+Your uncertain phrases: {:?}
+
+Example in your style: "{} {}%"
 
 Your line (no quotes):"#,
-        junior.display_name, confidence, quality_word,
-        confidence, confidence, confidence, confidence
+        junior.display_name, personality.quirk, confidence, quality_word,
+        personality.success, personality.uncertain, example_phrase, confidence
     );
 
     generate_dialogue(model, &prompt, 2, 14).await

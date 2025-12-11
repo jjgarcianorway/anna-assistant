@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.378] - 2025-12-11
+
+### UX - Personality quirks now integrated into dialogues
+
+Staff members now speak with their unique personality quirks in internal communications:
+
+**How it works:**
+- Dialogue prompts now use `personality_for(person_id)` to get character voice
+- Junior acknowledgments include the staff member's typical phrases and quirk
+- Done messages use success/uncertain phrases based on confidence level
+- Each staff member has distinct voice: Sofia references vim, Michael mentions TCP/IP, etc.
+
+**Example dialogues with personality:**
+- Sofia (Desktop Jr): "Just :wq'd my last task! Checking config now."
+- Michael (Network Jr): "Let me check the packets! Running 3 probes."
+- Kari (Perf Jr): "*glances at htop* Memory numbers coming in."
+
+**Characters integrated:**
+- Michael (Network Jr) - loves TCP/IP trivia
+- Ana (Network Sr) - speaks in networking metaphors
+- Sofia (Desktop Jr) - everything reminds her of vim
+- Erik (Desktop Sr) - grumpy about Wayland
+- Nora (Hardware Jr) - makes beep boop sounds
+- Jon (Hardware Sr) - calls hardware "the metal"
+- Lars (Storage Jr) - always worried about disk space
+- Ines (Storage Sr) - will recommend ZFS for everything
+- Kari (Perf Jr) - always has htop running
+- Mateo (Perf Sr) - speaks in percentages
+
+This makes the IT department feel more alive and human!
+
 ## [0.0.377] - 2025-12-11
 
 ### Intelligence - Learned success hints in specialist prompts
