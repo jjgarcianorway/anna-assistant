@@ -75,24 +75,21 @@ pub fn verify_binary_version(path: &Path, expected_version: &str, name: &str) ->
 
 /// Install both binaries together (atomic pair update)
 /// v0.0.318: Better error messages when binary is in use
+/// v0.0.387: Use staging + atomic rename to update even while binaries are running
 pub fn install_binary_pair(annactl: &Path, annad: &Path) -> Result<()> {
-    // Install annactl first
-    std::fs::copy(annactl, "/usr/local/bin/annactl").map_err(|e| {
-        if e.raw_os_error() == Some(26) {
-            // ETXTBSY - Text file busy
-            anyhow!(
-                "Cannot update annactl while it's running. \
-                 Exit the REPL (type 'bye') and run: sudo systemctl restart annad"
-            )
-        } else {
-            anyhow!("Failed to install annactl: {}", e)
-        }
-    })?;
+    // Stage both binaries first (copy to .new files)
+    std::fs::copy(annactl, "/usr/local/bin/annactl.new")
+        .map_err(|e| anyhow!("Failed to stage annactl: {}", e))?;
 
-    // Install annad to staging location
     std::fs::copy(annad, "/usr/local/bin/annad.new")
         .map_err(|e| anyhow!("Failed to stage annad: {}", e))?;
 
+    // Atomic rename for annactl - works even if binary is running
+    // rename() is atomic and works on busy executables (unlike copy)
+    std::fs::rename("/usr/local/bin/annactl.new", "/usr/local/bin/annactl")
+        .map_err(|e| anyhow!("Failed to install annactl: {}", e))?;
+
+    // annad.new stays staged - will be renamed during restart
     Ok(())
 }
 

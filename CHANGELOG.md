@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.387] - 2025-12-11
+
+### Auto-update fix - Update while annactl is running
+
+Fixed auto-update failing with "Cannot update annactl while it's running" error.
+
+**Root cause:**
+- `std::fs::copy()` fails with `ETXTBSY` when target executable is running
+- This blocked all auto-updates whenever user had annactl open
+
+**Solution:**
+- Stage both binaries to `.new` files first
+- Use `std::fs::rename()` for atomic replacement
+- `rename()` works on busy executables (replaces inode, running process keeps old)
+
+**Files:**
+- `update_ops.rs`: Changed `install_binary_pair()` to use staging + atomic rename
+
 ## [0.0.386] - 2025-12-11
 
 ### Stability - Socket health monitoring and auto-recovery
