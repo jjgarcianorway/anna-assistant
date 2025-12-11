@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.417] - 2025-12-11
+
+### Fixed - Strict Reliability (Direct Answers Only, No Tutorials)
+
+**Problem Solved:** Despite v0.0.415/416 improvements, Anna still had failure modes:
+- "Failed to parse specialist response. Parse error: Timeout"
+- Nonsense answers: "unknown is installed", "2 is installed"
+- Generic tutorials instead of direct answers
+- "I can't answer yet" despite having evidence
+- Stats showing 100% success when answers were wrong
+
+**Solution:** Deterministic intent handlers + tightened prompts + validation.
+
+**New Modules (anna-shared):**
+
+**`intent_handlers.rs`:**
+- `HandlerResult`: Success, MissingProbe, NeedsSpecialist variants
+- Deterministic handlers for 10+ common intents:
+  - `handle_check_free_ram()`: Parses /proc/meminfo, returns actual MB
+  - `handle_check_swap_presence()`: Yes/no with actual size
+  - `handle_check_disk_usage()`: Per-filesystem usage from df
+  - `handle_check_failed_services()`: Lists actual failed units
+  - `handle_check_boot_time()`: Parses uptime for boot timestamp
+  - `handle_check_uptime()`: Days, hours, minutes format
+  - `handle_check_package_count()`: Actual package count
+  - `handle_check_installed_package()`: Yes/no with version
+- Each handler defines required probes and exact transformations
+- Zero LLM dependency for supported intents
+- Falls back to specialist only when handler says `NeedsSpecialist`
+
+**Updated `strict_prompts.rs`:**
+- Much tighter BASE_PROMPT with ABSOLUTE RULES
+- Rule 1: Output ONLY valid JSON
+- Rule 2: summary MUST DIRECTLY ANSWER with DATA from probes
+- Rule 3: NEVER give generic tutorials or "how-to" guides
+- Rule 4: NEVER invent data not present in probes
+- Rule 5: NEVER use placeholder names like "unknown", "2", "package"
+- Rule 6: If probe data is present, USE IT
+- Rule 7: Keep summary to ONE sentence with ACTUAL ANSWER
+- Added ANSWER_RULES with good/bad examples
+- Added NEGATIVE_EXAMPLES showing forbidden tutorial patterns
+- Reduced truncation limits (probes: 1500, docs: 400)
+
+**Updated `strict_contract.rs`:**
+- Tutorial pattern detection: "to check", "you can check", "run the command",
+  "use the following", "here's how to", "step 1:", "first, run", etc.
+- Evasion pattern detection: "i cannot determine", "i can't answer yet",
+  "run annactl status", "collect evidence", "need more data", etc.
+- Contradictory confidence/status validation
+- `contains_tutorial_pattern()`: Catches generic how-to responses
+- `contains_evasion_pattern()`: Catches false "I can't answer" claims
+
+**Design Principles:**
+- Intent handlers are first line of defense (deterministic, fast)
+- LLM is fallback, not primary (for unsupported/complex intents)
+- Validation catches LLM failures before they reach user
+- Honest stats: only count actual successes
+
 ## [0.0.416] - 2025-12-11
 
 ### Added - Knowledge Engine and Self-Learning Recipes

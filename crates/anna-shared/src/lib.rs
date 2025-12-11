@@ -7,6 +7,7 @@
 //! v0.0.414: Doc-first reasoning with citations and honesty tracking.
 //! v0.0.415: Strict specialist contract - fast, honest, grounded answers.
 //! v0.0.416: Knowledge engine and self-learning recipes.
+//! v0.0.417: Strict reliability - direct answers only, no tutorials.
 
 pub mod advice;
 pub mod answer_contract;
@@ -131,6 +132,7 @@ pub mod learned_recipes; // v0.0.416: Self-learning recipe schema
 pub mod recipe_learner; // v0.0.416: Recipe learning engine
 pub mod recipe_fast_path; // v0.0.416: Recipe execution before specialists
 pub mod recipe_stats; // v0.0.416: Recipe usage stats
+pub mod intent_handlers; // v0.0.417: Deterministic intent handlers
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
