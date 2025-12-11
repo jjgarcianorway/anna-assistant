@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.393] - 2025-12-11
+
+### Fix - Translator requires 3B+ models for reliable JSON
+
+**Root cause of failures:**
+- 2B models (qwen3-vl:2b) produce malformed JSON
+- Translator outputs: `expected ',' or '}' at line 1 column 597`
+- Defaults to: domain=system, confidence=0.0, probes=0
+- Result: queries timeout with no probes
+
+**Fix:**
+- Removed all models < 3B from Translator role in catalog
+- qwen3-vl:4b, qwen2.5:3b-instruct, qwen2.5:7b-instruct can now be translators
+- Auto-selection will choose smallest 3B+ model
+
+**New flow:**
+- Translator must output valid JSON with domain + probes
+- 3B models are minimum for reliable structured output
+- Falls back to qwen2.5:3b-instruct if Qwen3-VL not available
+
 ## [0.0.392] - 2025-12-11
 
 ### Architecture - Removed redundant semantic similarity
