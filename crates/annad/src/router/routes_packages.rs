@@ -34,16 +34,17 @@ pub fn build_packages_route(class: QueryClass) -> Option<DeterministicRoute> {
             },
         }),
 
+        // v0.0.388: Use installed_packages probe for actual package listing
         QueryClass::InstalledPackagesOverview => Some(DeterministicRoute {
             class,
             domain: SpecialistDomain::Packages,
             intent: QueryIntent::Question,
-            probes: vec!["pacman_count".to_string()],
+            probes: vec!["installed_packages".to_string(), "package_count".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: false,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Packages],
-                spine_probes: vec![ProbeId::PacmanCount],
+                spine_probes: vec![],
             },
         }),
 

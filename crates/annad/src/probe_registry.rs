@@ -74,7 +74,14 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         // v0.0.77: System probes
         "uname" => Some("uname -a"),
         // v0.0.122: New system probes
-        "package_updates" => Some("checkupdates 2>/dev/null || pacman -Qu 2>/dev/null"),
+        // v0.0.388: Enhanced with multi-distro support
+        "package_updates" => Some(
+            "checkupdates 2>/dev/null | head -30 || \
+             pacman -Qu 2>/dev/null | head -30 || \
+             apt list --upgradable 2>/dev/null | head -30 || \
+             dnf check-update 2>/dev/null | head -30 || \
+             echo 'NO_UPDATES_AVAILABLE'"
+        ),
         "timedatectl" => Some("timedatectl"),
         "uptime" => Some("uptime -p"),
         // v0.0.123: New system probes
@@ -235,6 +242,21 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         ),
         "chromium_gpu_flags" => Some(
             "cat ~/.config/chromium-flags.conf 2>/dev/null || cat ~/.config/chrome-flags.conf 2>/dev/null || echo 'NO_CHROMIUM_FLAGS'"
+        ),
+        // v0.0.388: Package management probes (distro-aware)
+        "installed_packages" => Some(
+            "pacman -Q 2>/dev/null | head -50 || \
+             dpkg -l 2>/dev/null | grep '^ii' | head -50 || \
+             rpm -qa 2>/dev/null | head -50 || \
+             apk info 2>/dev/null | head -50 || \
+             echo 'PACKAGE_LIST_NOT_AVAILABLE'"
+        ),
+        "package_count" => Some(
+            "pacman -Qq 2>/dev/null | wc -l || \
+             dpkg -l 2>/dev/null | grep -c '^ii' || \
+             rpm -qa 2>/dev/null | wc -l || \
+             apk info 2>/dev/null | wc -l || \
+             echo '0'"
         ),
         _ => None,
     }

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.388] - 2025-12-11
+
+### Intelligence - Package management probes
+
+Added distro-aware probes for package queries like "list installed packages":
+
+**New probes:**
+- `installed_packages` - Lists first 50 installed packages (pacman/apt/dnf/apk)
+- `package_count` - Shows total package count
+- `package_updates` - Lists available updates
+
+**Fix:**
+- Packages domain now has proper probes (was empty, causing "no evidence" errors)
+- "list installed packages" query now works correctly
+
+**Files:**
+- `probe_registry.rs`: Added package probes with multi-distro fallbacks
+- `ticket_packet/domain.rs`: Added probes to Packages domain
+
 ## [0.0.387] - 2025-12-11
 
 ### Auto-update fix - Update while annactl is running
