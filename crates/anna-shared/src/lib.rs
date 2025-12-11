@@ -9,6 +9,7 @@
 //! v0.0.416: Knowledge engine and self-learning recipes.
 //! v0.0.417: Strict reliability - direct answers only, no tutorials.
 //! v0.0.418: Full recipe learning system - learn from tickets, execute without LLM.
+//! v0.0.420: Recipe V2 - Clean learning engine with global/user recipes.
 
 pub mod advice;
 pub mod answer_contract;
@@ -142,6 +143,7 @@ pub mod recipe_matcher_v2; // v0.0.418: Runtime recipe matching
 pub mod recipe_runtime; // v0.0.418: Recipe execution engine
 pub mod recipe_telemetry; // v0.0.418: Recipe usage telemetry
 pub mod seed_recipes; // v0.0.418: Initial seed recipes
+pub mod recipe_v2; // v0.0.420: Clean learning engine with global/user recipes
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;

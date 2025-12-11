@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.420] - 2025-12-11
+
+### Added - Recipe V2: Clean Learning Engine
+
+**Goal:** Self-improving recipe system with minimal hardcoding - learn from successful tickets,
+store reusable patterns, match queries before calling specialists.
+
+**New Recipe Model (`recipe_v2/`):**
+- `RecipeV2`: Main recipe type with id, version, title, domain, triggers, facts, steps, citations, stats
+- `RecipeDomain`: Desktop, Network, Storage, Services, Performance, Security, Generic
+- `TriggerPattern`: Intent + keywords with Jaccard similarity matching
+- `FactRequirement`: Key/operator/value conditions (Eq, Ne, In, NotIn, Exists)
+- `RecipeStepV2`: ProbeOnly, SafeChange, RiskyChange, ExplanationOnly steps
+- `RecipeStepAction`: Command execution, file operations, backup, explain templates
+- `RecipeStats`: Usage tracking with maturity multiplier (0.7 untested → 1.0 mature)
+
+**Global vs User Recipes:**
+- Global recipes: `/etc/anna/recipes/` (shipped with Anna)
+- User recipes: `~/.anna/recipes_v2/` (learned from tickets)
+- User recipes override global with same ID
+
+**Matching Engine (`recipe_v2/matcher.rs`):**
+- Intent matching: exact match (1.0) or prefix match (0.7)
+- Keyword overlap: Jaccard similarity coefficient
+- Fact requirement checking with missing fact tracking
+- Combined score: `(intent * 0.6 + keyword * 0.4) * maturity * fact_penalty`
+- AUTO_APPLY_THRESHOLD: 0.75 (skip specialist), LEARNING_THRESHOLD: 0.90
+
+**Learning from Tickets (`recipe_v2/learner.rs`):**
+- `TicketObservation`: Captures intent, keywords, probes, answer, confidence
+- Learning conditions: resolved, confidence >= 0.9, verified successful
+- Minimum 2 observations before learning new recipe
+- Conservative: only from high-confidence verified tickets
+
+**Dispatcher Integration (`recipe_v2/dispatcher.rs`):**
+- `RecipeDispatcher`: Integrates recipes into request flow
+- `should_skip_specialist()`: Returns recipe if high-confidence match
+- `record_success()`: Records ticket observations for learning
+- `record_execution()`: Tracks recipe execution success/failure
+- Auto-disable recipes with low success rate
+
+**8 Seed Recipes:**
+- `vim.syntax.enable`: Enable Vim syntax highlighting
+- `system.boot.check`: Analyze boot time with systemd-analyze
+- `memory.show_free`: Show memory usage with free -h
+- `network.show_interfaces`: List network interfaces
+- `disk.usage.show`: Show disk usage
+- `swap.check`: Check swap status
+- `services.failed.check`: List failed systemd services
+- `uptime.show`: Show system uptime and load average
+
 ## [0.0.419] - 2025-12-11
 
 ### Added - Knowledge Engine with Citations
