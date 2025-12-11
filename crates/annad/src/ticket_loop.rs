@@ -1,35 +1,26 @@
-//! Ticket verification loop with bounded retries and escalation (v0.0.376).
+//! Ticket verification loop with bounded retries and escalation (v0.0.401).
 //!
 //! Wraps the service desk answer with:
 //! - Junior verification (bounded by junior_rounds_max)
 //! - Senior escalation when junior exhausted
 //! - v0.0.297: LLM-based self-healing for failed validations
 //! - v0.0.376: Domain-specific validation thresholds
+//! - v0.0.401: Specialist learning capture (learn from escalations)
 //! - Revision application between rounds
 //! - Full transcript visibility
 
 use anna_shared::grounding::ParsedEvidence;
 use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
 use anna_shared::reliability::ReliabilityInput;
-use anna_shared::rpc::{ProbeResult, SpecialistDomain, TranslatorTicket};
+use anna_shared::rpc::{ProbeResult, TranslatorTicket};
+use anna_shared::specialist_learning::SolutionType;
 use anna_shared::ticket::{Ticket, TicketStatus};
 use anna_shared::trace::EvidenceKind;
 use anna_shared::transcript::Transcript;
 use tracing::{info, warn};
 
-/// Parse domain string to SpecialistDomain enum
-fn parse_domain(s: &str) -> SpecialistDomain {
-    match s.to_lowercase().as_str() {
-        "system" => SpecialistDomain::System,
-        "network" => SpecialistDomain::Network,
-        "storage" => SpecialistDomain::Storage,
-        "security" => SpecialistDomain::Security,
-        "packages" => SpecialistDomain::Packages,
-        _ => SpecialistDomain::System,
-    }
-}
-
 use crate::answer_validator;
+use crate::learning_capture::{capture_lesson, parse_domain};
 use crate::ticket_service::{
     self, add_junior_review_event, add_revision_event, add_senior_escalation_event,
     add_status_change_event, add_ticket_created_event, create_ticket_from_translator,
@@ -237,6 +228,23 @@ pub async fn run_ticket_loop(
             TicketStatus::Verified,
         );
 
+        // v0.0.401: Capture learning from LLM self-healing success
+        if validation_result.heal_attempts > 0 {
+            capture_lesson(
+                user_request,
+                &ticket.domain,
+                &validation_result.answer,
+                probe_results,
+                SolutionType::LlmSelfHealing {
+                    correction_type: format!(
+                        "Healed in {} attempts",
+                        validation_result.heal_attempts
+                    ),
+                },
+                validation_result.score,
+            );
+        }
+
         return TicketLoopResult {
             answer: validation_result.answer,
             ticket,
@@ -313,6 +321,18 @@ pub async fn run_ticket_loop(
                     TicketStatus::Verified,
                 );
 
+                // v0.0.401: Capture learning from senior escalation success
+                capture_lesson(
+                    user_request,
+                    &ticket.domain,
+                    &current_answer,
+                    probe_results,
+                    SolutionType::SeniorGuidance {
+                        instruction_summary: escalation.instruction.summary(),
+                    },
+                    final_verification.score,
+                );
+
                 return TicketLoopResult {
                     answer: current_answer,
                     ticket,
@@ -371,20 +391,9 @@ mod tests {
 
     #[test]
     fn test_evidence_kinds_mapping() {
-        assert_eq!(
-            evidence_kinds_from_route("MemoryUsage"),
-            vec![EvidenceKind::Memory]
-        );
-        assert_eq!(
-            evidence_kinds_from_route("DiskUsage"),
-            vec![EvidenceKind::Disk]
-        );
-        assert_eq!(
-            evidence_kinds_from_route("service_status"),
-            vec![EvidenceKind::Services]
-        );
+        assert_eq!(evidence_kinds_from_route("MemoryUsage"), vec![EvidenceKind::Memory]);
+        assert_eq!(evidence_kinds_from_route("DiskUsage"), vec![EvidenceKind::Disk]);
+        assert_eq!(evidence_kinds_from_route("service_status"), vec![EvidenceKind::Services]);
         assert!(evidence_kinds_from_route("Unknown").is_empty());
     }
 }
-
-// v0.0.297: Integration tests for async run_ticket_loop moved to tests/ticket_loop_tests.rs

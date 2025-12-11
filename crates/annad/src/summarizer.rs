@@ -1,12 +1,13 @@
 //! Probe output summarizer.
 //!
-//! Compacts probe outputs to <= 15 lines for specialist consumption.
-//! Ensures LLM doesn't receive overwhelming raw data.
+//! Compacts probe outputs for specialist consumption.
+//! v0.0.401: Increased from 15 to 100 lines to avoid truncating useful output.
 
 use anna_shared::rpc::ProbeResult;
 
 /// Maximum lines per summarized probe output
-pub const MAX_SUMMARY_LINES: usize = 15;
+/// v0.0.401: Increased from 15 to 100 to show complete output
+pub const MAX_SUMMARY_LINES: usize = 100;
 
 /// Summarized probe output
 #[derive(Debug, Clone)]

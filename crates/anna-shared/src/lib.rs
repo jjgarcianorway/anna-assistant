@@ -160,6 +160,13 @@ pub mod interesting_facts;
 // v0.0.322: Probe effectiveness learning
 pub mod probe_learning;
 
+// v0.0.401: Specialist knowledge capture
+pub mod specialist_learning;
+pub mod specialist_patterns; // v0.0.401: Generic pattern matching
+pub mod specialist_recipes; // v0.0.401: Recipes from specialist lessons
+pub mod learning_stats; // v0.0.401: Learning progress statistics
+pub mod clarification_learning; // v0.0.401: Learning from user clarifications
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

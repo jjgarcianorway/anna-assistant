@@ -1,14 +1,13 @@
-//! Message generation functions (v0.0.262).
-//!
-//! Team-specific message variants for dispatch, probing, reviewing, etc.
-//! v0.0.254: Added async LLM-powered dialogue with static fallback.
-//! v0.0.262: Added relationship-aware escalation dialogue.
+//! Message generation functions (v0.0.401).
+//! Team-specific message variants with async LLM dialogue (v0.0.254),
+//! relationship-aware escalation (v0.0.262), learning hints (v0.0.401).
 
 use anna_shared::dialogue::junior_acknowledgment;
 use anna_shared::progress::RequestStage;
 use anna_shared::roster::{escalation_phrase, senior_response_phrase};
 use anna_shared::teams::Team;
 
+use crate::learning_capture::get_learning_hint;
 use crate::progress_tracker::ProgressTracker;
 
 use super::dialogue_gen;
@@ -275,9 +274,15 @@ impl CommsGenerator {
     // These try LLM generation first, falling back to static messages on failure.
 
     /// v0.0.254: Anna dispatches with LLM-generated or static fallback
+    /// v0.0.401: Now includes subtle learning hints when applicable
     pub async fn dispatch_async(&self, progress: &mut ProgressTracker) {
         let junior = self.junior();
         let short_id = &self.case_id[..8.min(self.case_id.len())];
+
+        // v0.0.401: Check for learning hints from previous similar cases
+        if let Some(hint) = get_learning_hint(&self.query) {
+            progress.add_internal_comms(RequestStage::Translator, "Anna", &hint);
+        }
 
         // Try LLM generation if model is configured
         if let Some(ref model) = self.dialogue_model {

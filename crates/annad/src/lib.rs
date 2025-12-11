@@ -49,6 +49,8 @@ pub mod hardware;
 pub mod health;
 pub mod health_brief_builder;
 pub mod inbox;
+pub mod learning_capture; // v0.0.401: Specialist learning capture
+pub mod feedback_handler; // v0.0.401: User feedback handler
 pub mod ollama;
 pub mod ollama_streaming;
 pub mod parsers;

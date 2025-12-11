@@ -7,7 +7,8 @@ use std::time::Instant;
 use tracing::{info, warn};
 
 /// Maximum lines to include in stdout/stderr
-const MAX_OUTPUT_LINES: usize = 50;
+/// v0.0.401: Increased from 50 to 500 to avoid truncating useful output
+const MAX_OUTPUT_LINES: usize = 500;
 
 /// Run a probe and return the result as a string
 pub fn run_probe(probe_type: &ProbeType) -> Result<String> {
@@ -22,6 +23,7 @@ pub fn run_probe(probe_type: &ProbeType) -> Result<String> {
 }
 
 /// Get top processes by memory usage
+/// v0.0.401: Show top 25 instead of 10 for more complete picture
 fn probe_top_memory() -> Result<String> {
     let output = Command::new("ps").args(["aux", "--sort=-%mem"]).output()?;
 
@@ -30,12 +32,13 @@ fn probe_top_memory() -> Result<String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Take header + top 10 processes
-    let lines: Vec<&str> = stdout.lines().take(11).collect();
+    // Take header + top 25 processes (was 10)
+    let lines: Vec<&str> = stdout.lines().take(26).collect();
     Ok(lines.join("\n"))
 }
 
 /// Get top processes by CPU usage
+/// v0.0.401: Show top 25 instead of 10 for more complete picture
 fn probe_top_cpu() -> Result<String> {
     let output = Command::new("ps").args(["aux", "--sort=-%cpu"]).output()?;
 
@@ -44,8 +47,8 @@ fn probe_top_cpu() -> Result<String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    // Take header + top 10 processes
-    let lines: Vec<&str> = stdout.lines().take(11).collect();
+    // Take header + top 25 processes (was 10)
+    let lines: Vec<&str> = stdout.lines().take(26).collect();
     Ok(lines.join("\n"))
 }
 
@@ -76,13 +79,16 @@ fn probe_network_interfaces() -> Result<String> {
 }
 
 /// Truncate output to first N lines
+/// v0.0.401: Show exact count of omitted lines, not just "truncated"
 fn truncate_lines(text: &str, max_lines: usize) -> String {
-    let lines: Vec<&str> = text.lines().take(max_lines).collect();
-    let truncated = lines.len() < text.lines().count();
-    let mut result = lines.join("\n");
-    if truncated {
-        result.push_str("\n... (truncated)");
+    let total_lines = text.lines().count();
+    if total_lines <= max_lines {
+        return text.to_string();
     }
+
+    let lines: Vec<&str> = text.lines().take(max_lines).collect();
+    let mut result = lines.join("\n");
+    result.push_str(&format!("\n\n[Full output: {} total lines, showing first {}]", total_lines, max_lines));
     result
 }
 

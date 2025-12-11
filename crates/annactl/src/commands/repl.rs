@@ -4,6 +4,7 @@
 //! v0.0.240: Added idle-time tips during user inactivity.
 //! v0.0.343: Use centralized UI helpers for consistency.
 
+use anna_shared::clarification_learning::{record_clarification_learning, ClarificationLearningStore};
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::config_parser::is_config_request;
 use anna_shared::idle_tips::{format_tip, get_contextual_tips, TipColors, TipQueue};
@@ -134,6 +135,8 @@ pub async fn handle_repl() -> Result<()> {
 
             if let Some(val) = value {
                 print_label("selected", &val, colors::OK);
+                // v0.0.401: Learn from clarification response
+                record_clarification_learning(&pending.request, &val);
                 pending_clarification = None;
             } else {
                 print_warn("Invalid selection. Try again or type 'cancel'");
@@ -210,12 +213,23 @@ pub async fn handle_repl() -> Result<()> {
 
                         // Handle clarification request
                         if let Some(req) = &result.clarification_request {
-                            println!();
-                            println!("{}", req.format_menu());
-                            pending_clarification = Some(PendingClarification {
-                                request: req.clone(),
-                                started_at: Instant::now(),
-                            });
+                            // v0.0.401: Check if we can auto-answer from learned preferences
+                            let learning_store = ClarificationLearningStore::load();
+                            if let Some(auto_answer) = learning_store.can_auto_answer(req) {
+                                print_hint(&format!(
+                                    "Using learned preference: {}",
+                                    auto_answer
+                                ));
+                                // Reinforce the learning
+                                record_clarification_learning(req, auto_answer);
+                            } else {
+                                println!();
+                                println!("{}", req.format_menu());
+                                pending_clarification = Some(PendingClarification {
+                                    request: req.clone(),
+                                    started_at: Instant::now(),
+                                });
+                            }
                         }
 
                         println!();

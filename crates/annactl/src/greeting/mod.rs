@@ -70,14 +70,19 @@ fn build_greeting_context(
         personality: Default::default(),
         time_of_day: default_ctx.time_of_day,
         local_hour: default_ctx.local_hour,
+        learning_hint: None,
+        memory_hint: None,
     };
 
     // v0.0.287: Add maintenance prompts
     // v0.0.289: Add interesting facts
     // v0.0.292: Add personality traits
+    // v0.0.401: Add learning stats and context memory
     ctx.with_maintenance(snapshot, telemetry)
         .with_interesting_facts(snapshot)
         .with_personality(profile)
+        .with_learning_stats()
+        .with_context_memory()
 }
 
 /// Print the theatre-style REPL greeting

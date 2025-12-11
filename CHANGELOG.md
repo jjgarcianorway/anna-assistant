@@ -7,6 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.401] - 2025-12-11
+
+### Added - Specialist Learning System
+
+Anna now learns from specialist interactions to become smarter over time!
+
+**New Module: `specialist_learning.rs`**
+- Captures knowledge when Anna receives help from specialists (Senior escalation, LLM self-healing)
+- Adaptive learning threshold: high-confidence (80+) learns immediately, lower needs 2+ successes
+- Pattern detection for generic recipes (ConfigCheck, ServiceAction, PackageQuery, etc.)
+- Keyword-indexed lesson storage in `~/.anna/specialist_lessons.json`
+
+**Learning Capture Integration:**
+- Added `learning_capture.rs` module in annad for lesson recording
+- Hooks in `ticket_loop.rs` capture lessons after:
+  - Successful LLM self-healing (validation healed the answer)
+  - Successful Senior escalation (deterministic revision worked)
+
+**Subtle Learning Hints:**
+- Dialogue now includes subtle hints like "Based on similar cases..." or "I've seen this pattern before..."
+- Hints appear when Anna has high-confidence learned patterns matching the query
+- Silent improvement when appropriate (just faster/better responses)
+
+**Pattern Categories Detected:**
+- `ConfigCheck`: "check X config", "show X configuration"
+- `ConfigEdit`: "enable X in Y", "set X for Y"
+- `ServiceAction`: "restart X service", "start/stop X"
+- `PackageQuery`: "is X installed", "install X"
+- `DiskAnalysis`: "what's using space", "disk usage"
+- `ProcessQuery`: "what's using CPU/memory"
+
+**Probe Learning Enhancement:**
+- Added `boost_specialist_probes()` to give extra weight to probes used successfully by specialists
+- Probes that work in specialist-guided answers get +3 helpfulness boost
+
+**Fact Extraction from Specialist Answers:**
+- New `extract_facts_from_answer()` function using regex patterns
+- Automatically extracts: installed packages, desktop environment, package manager, init system, GPU presence, running services
+- Added `FactSource::SpecialistAnswer` variant for tracking fact origin
+
+**Generic Pattern Matching:**
+- New `specialist_patterns.rs` module for reusable patterns
+- `extract_generic_pattern()`: Creates templates from specific queries (e.g., "check hyprland config" → "check {target} config")
+- `match_generic_pattern()`: Matches new queries against learned patterns
+- `apply_pattern()`: Instantiates patterns for new targets
+
+**Recipe Creation from Specialist Lessons:**
+- New `specialist_recipes.rs` module for recipe generation
+- `try_learn_from_specialist()`: Creates recipes from high-confidence lessons
+- Recipes inherit probe sequences and answer templates from successful specialist interactions
+
+**Learning-Aware Routing:**
+- `routing_stage.rs` now enriches tickets with learned probes
+- `enrich_with_learned_probes()`: Adds probes from matching patterns/lessons
+- Generic patterns apply probes with target substitution
+
+**User Feedback RPC Endpoint:**
+- New `SubmitFeedback` RPC method for client feedback
+- `FeedbackParams`: request_id, query, helpful (bool), comment
+- `record_user_feedback()`: Boosts/decreases lesson confidence based on feedback
+- Helpful feedback: +5 confidence, +1 success count
+- Not helpful: -10 confidence
+
+**Files Changed:**
+- `anna-shared/src/specialist_learning.rs` (NEW - 400 lines)
+- `anna-shared/src/specialist_patterns.rs` (NEW - 115 lines)
+- `anna-shared/src/specialist_recipes.rs` (NEW - 190 lines)
+- `anna-shared/src/probe_learning/store.rs` (added `boost_specialist_probes()`)
+- `anna-shared/src/facts_types.rs` (added `SpecialistAnswer` variant)
+- `anna-shared/src/rpc/method.rs` (added `SubmitFeedback`)
+- `anna-shared/src/rpc/params.rs` (added `FeedbackParams`, `FeedbackResult`)
+- `anna-shared/src/lib.rs` (added modules)
+- `annad/src/learning_capture.rs` (NEW - 292 lines)
+- `annad/src/feedback_handler.rs` (NEW - 37 lines)
+- `annad/src/routing_stage.rs` (added `enrich_with_learned_probes()`)
+- `annad/src/rpc_handler/dispatcher.rs` (added SubmitFeedback handler)
+- `annad/src/lib.rs` (added modules)
+- `annad/src/ticket_loop.rs` (hook learning capture)
+- `annad/src/comms/messages.rs` (add learning hints)
+
+## [0.0.400] - 2025-12-11
+
+### CRITICAL FIX - Deadlock in routing_stage.rs
+
+**ROOT CAUSE OF 33-SECOND TIMEOUT:**
+Queries were hanging for 33+ seconds after translator completed, then timing out.
+The root cause was a deadlock caused by holding a read lock across an await point.
+
+**The Bug:**
+```rust
+{
+    let recipe_index = &state.read().await.recipe_index;  // READ LOCK HELD
+    // ... recipe checks ...
+    let (ticket, triage, timeout) = triage_path(...).await;  // AWAIT WHILE HOLDING LOCK!
+}
+```
+
+When `triage_path` tried to take a write lock (for latency recording), it deadlocked
+because the read lock was still held from the outer scope.
+
+**The Fix:**
+Restructured code to release the read lock before calling triage_path:
+```rust
+let recipe_result = {
+    let recipe_index = &state.read().await.recipe_index;
+    recipe_fast_path::check_recipe_fast_path(query, recipe_index)
+}; // Read lock released here
+
+// Now safe to call triage_path which needs write lock
+let (ticket, triage, timeout) = triage_path(...).await;
+```
+
+**Impact:**
+- Queries now complete properly after translator finishes
+- Probes execute and specialist generates answers
+- No more mysterious 33-second hangs
+
 ## [0.0.399] - 2025-12-11
 
 ### Fix - Fast probe for largest directories

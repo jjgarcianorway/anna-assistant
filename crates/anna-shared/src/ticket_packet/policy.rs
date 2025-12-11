@@ -22,7 +22,8 @@ impl Default for PacketPolicy {
     fn default() -> Self {
         Self {
             team: Team::General,
-            max_summary_lines: 12,
+            // v0.0.401: Increased from 12 to 100 to avoid truncating useful output
+            max_summary_lines: 100,
             allowed_facts: vec![],
             required_probes: vec![],
             max_probes: 4,
@@ -32,60 +33,61 @@ impl Default for PacketPolicy {
 
 impl PacketPolicy {
     /// Create policy for a team
+    /// v0.0.401: Increased max_summary_lines from 10-12 to 100 to avoid truncation
     pub fn for_team(team: Team) -> Self {
         match team {
             Team::Desktop => Self {
                 team,
-                max_summary_lines: 10,
+                max_summary_lines: 100,
                 allowed_facts: vec![FactKey::PreferredEditor],
                 required_probes: vec!["failed_services"],
                 max_probes: 3,
             },
             Team::Storage => Self {
                 team,
-                max_summary_lines: 12,
+                max_summary_lines: 100,
                 allowed_facts: vec![],
                 required_probes: vec!["disk_usage", "block_devices"],
                 max_probes: 4,
             },
             Team::Network => Self {
                 team,
-                max_summary_lines: 12,
+                max_summary_lines: 100,
                 allowed_facts: vec![FactKey::NetworkPrimaryInterface],
                 required_probes: vec!["network_addrs"],
                 max_probes: 4,
             },
             Team::Performance => Self {
                 team,
-                max_summary_lines: 15,
+                max_summary_lines: 100,
                 allowed_facts: vec![],
                 required_probes: vec!["memory_info", "cpu_info", "top_cpu"],
                 max_probes: 5,
             },
             Team::Services => Self {
                 team,
-                max_summary_lines: 12,
+                max_summary_lines: 100,
                 allowed_facts: vec![],
                 required_probes: vec!["failed_services"],
                 max_probes: 3,
             },
             Team::Security => Self {
                 team,
-                max_summary_lines: 10,
+                max_summary_lines: 100,
                 allowed_facts: vec![],
                 required_probes: vec!["failed_services", "listening_ports"],
                 max_probes: 4,
             },
             Team::Hardware => Self {
                 team,
-                max_summary_lines: 12,
+                max_summary_lines: 100,
                 allowed_facts: vec![],
                 required_probes: vec!["cpu_info", "memory_info"],
                 max_probes: 3,
             },
             Team::Logs => Self {
                 team,
-                max_summary_lines: 15,
+                max_summary_lines: 100,
                 allowed_facts: vec![],
                 required_probes: vec!["journal_errors"],
                 max_probes: 4,

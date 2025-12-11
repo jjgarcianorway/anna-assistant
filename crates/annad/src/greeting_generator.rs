@@ -61,6 +61,16 @@ fn build_greeting_prompt(ctx: &GreetingContext) -> String {
         facts.push(format!("LLM status: {}", ctx.llm_status));
     }
 
+    // v0.0.401: Learning progress
+    if let Some(ref hint) = ctx.learning_hint {
+        facts.push(format!("Anna's learning: {}", hint));
+    }
+
+    // v0.0.401: Context memory
+    if let Some(ref hint) = ctx.memory_hint {
+        facts.push(format!("User continuity: {}", hint));
+    }
+
     // v0.0.292: Personality-specific tone rules
     let personality_rules = build_personality_rules(ctx);
 
@@ -80,6 +90,8 @@ CONTENT RULES:
 - If open tickets: Mention them briefly
 - If health issues: Note them with concern
 - If they have a streak: Acknowledge it positively
+- If Anna has learned patterns: Mention it briefly with pride (e.g., "I've learned from our chats")
+- If user continuity hint: Work it in naturally (e.g., "You've been asking about X - want me to keep an eye on it?")
 - End with an invitation to ask questions (varied phrasing each time)
 - Keep it concise (3-6 lines)
 - NO markdown, NO bullet points, plain text only

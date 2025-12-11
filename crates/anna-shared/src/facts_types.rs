@@ -1,22 +1,20 @@
-//! Facts types: FactSource, FactValue (v0.0.41).
-//!
+//! Facts types: FactSource, FactValue (v0.0.401).
 //! Extracted from facts.rs to keep modules under 400 lines.
 
 use serde::{Deserialize, Serialize};
 
-/// Source of a fact (v0.0.41)
+/// Source of a fact (v0.0.401: added SpecialistAnswer)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum FactSource {
     /// Observed from running a probe
-    ObservedProbe {
-        probe_id: String,
-        output_hash: String,
-    },
+    ObservedProbe { probe_id: String, output_hash: String },
     /// Confirmed by user interaction
     UserConfirmed { transcript_id: String },
     /// Derived from other facts
     Derived { from: Vec<String> },
+    /// v0.0.401: Extracted from specialist answer
+    SpecialistAnswer,
     /// Legacy string source (backwards compat)
     Legacy { source: String },
 }

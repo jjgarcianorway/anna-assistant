@@ -32,6 +32,8 @@ pub enum RpcMethod {
     GenerateGreeting,
     /// v0.0.312: Execute a user-approved command (runs as daemon with elevated privileges)
     ExecuteCommand,
+    /// v0.0.401: Submit feedback for a completed request (helpful/not helpful)
+    SubmitFeedback,
 }
 
 /// v0.0.73: Response from GetDaemonInfo RPC call

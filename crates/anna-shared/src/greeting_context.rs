@@ -8,8 +8,10 @@
 //! v0.0.292: Added personality traits for tone-aware greetings.
 //! v0.0.314: Added time-of-day awareness for appropriate greetings.
 
+use crate::context_memory::ContextMemory;
 use crate::health_alerts::{generate_alerts, AlertSeverity};
 use crate::interesting_facts::InterestingFacts;
+use crate::learning_stats::LearningStats;
 use crate::maintenance_actions::generate_maintenance_actions;
 use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
@@ -56,6 +58,12 @@ pub struct GreetingContext {
     /// v0.0.314: Local hour (0-23) for time-aware messages
     #[serde(default)]
     pub local_hour: u8,
+    /// v0.0.401: Learning progress hint (e.g., "I've learned 5 patterns")
+    #[serde(default)]
+    pub learning_hint: Option<String>,
+    /// v0.0.401: Context memory hint (e.g., "You've been asking about disk usage a lot")
+    #[serde(default)]
+    pub memory_hint: Option<String>,
 }
 
 /// v0.0.292: Personality context for LLM greeting generation
@@ -91,6 +99,8 @@ impl Default for GreetingContext {
             personality: PersonalityContext::default(),
             time_of_day,
             local_hour,
+            learning_hint: None,
+            memory_hint: None,
         }
     }
 }
@@ -210,6 +220,40 @@ impl GreetingContext {
     pub fn has_personality(&self) -> bool {
         !self.personality.formality.is_empty()
     }
+
+    /// v0.0.401: Add learning progress hint from stats
+    pub fn with_learning_stats(mut self) -> Self {
+        let stats = LearningStats::collect();
+        self.learning_hint = stats.brief_hint();
+        self
+    }
+
+    /// v0.0.401: Add context memory hints
+    pub fn with_context_memory(mut self) -> Self {
+        let memory = ContextMemory::load();
+        self.memory_hint = memory.continuity_greeting();
+        // Also extract top topic if we have frequent patterns
+        if self.top_topic.is_none() {
+            if let Some(topic) = memory.frequent_topics().first() {
+                self.top_topic = Some(topic.topic.clone());
+            }
+        }
+        // Extract preferred editor if known
+        if self.preferred_editor.is_none() {
+            self.preferred_editor = memory.preferred_editor.clone();
+        }
+        self
+    }
+
+    /// v0.0.401: Check if learning hints are available
+    pub fn has_learning(&self) -> bool {
+        self.learning_hint.is_some()
+    }
+
+    /// v0.0.401: Check if memory hints are available
+    pub fn has_memory(&self) -> bool {
+        self.memory_hint.is_some()
+    }
 }
 
 /// Response from greeting generation
@@ -294,6 +338,18 @@ impl GreetingResponse {
             // Pick one random fact to keep greeting concise
             let fact = &ctx.interesting_facts[0];
             lines.push(format!("By the way: {}", fact));
+        }
+
+        // v0.0.401: Learning progress hint
+        if let Some(ref hint) = ctx.learning_hint {
+            lines.push(String::new());
+            lines.push(hint.clone());
+        }
+
+        // v0.0.401: Context memory hint
+        if let Some(ref hint) = ctx.memory_hint {
+            lines.push(String::new());
+            lines.push(hint.clone());
         }
 
         // Closing

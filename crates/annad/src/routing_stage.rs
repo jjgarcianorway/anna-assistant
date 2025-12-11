@@ -8,6 +8,8 @@ use anna_shared::probe_spine::{
 };
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::TranslatorTicket;
+use anna_shared::specialist_learning::SpecialistLearningStore;
+use anna_shared::specialist_patterns::match_generic_pattern;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{info, warn};
@@ -45,74 +47,72 @@ pub async fn route_query(
 ) -> RoutingResult {
     // v0.0.391: ALWAYS use LLM translator - no more pattern matching override
     // Recipe check first for fast-path on known queries
-    {
-        // Check recipe index BEFORE calling LLM translator
+    // v0.0.400: FIX DEADLOCK - release read lock before calling triage_path
+    let recipe_result = {
         let recipe_index = &state.read().await.recipe_index;
-        let recipe_result = recipe_fast_path::check_recipe_fast_path(query, recipe_index);
+        recipe_fast_path::check_recipe_fast_path(query, recipe_index)
+    }; // Read lock released here
 
-        // If recipe can answer directly, return with recipe result
-        if recipe_fast_path::can_answer_directly(&recipe_result) {
-            let recipe = recipe_result.recipe.as_ref().unwrap();
-            info!(
-                "Recipe direct answer: id={}, score={}",
-                recipe.id, recipe_result.score
-            );
-            // Return early with recipe for caller to handle
-            return RoutingResult {
-                ticket: recipe_result
-                    .ticket
-                    .clone()
-                    .unwrap_or_else(|| router::apply_deterministic_routing(query, None)),
-                triage_result: None,
-                translator_timed_out: false,
-                recipe_result: Some(recipe_result),
-            };
-        }
-
-        if recipe_result.skip_llm {
-            // Recipe matched but no direct answer - skip LLM, continue with probes
-            info!(
-                "Recipe fast path hit: score={}, tokens={:?}",
-                recipe_result.score, recipe_result.matched_tokens
-            );
-            let ticket = recipe_result
+    // If recipe can answer directly, return with recipe result
+    if recipe_fast_path::can_answer_directly(&recipe_result) {
+        let recipe = recipe_result.recipe.as_ref().unwrap();
+        info!(
+            "Recipe direct answer: id={}, score={}",
+            recipe.id, recipe_result.score
+        );
+        // Return early with recipe for caller to handle
+        return RoutingResult {
+            ticket: recipe_result
                 .ticket
                 .clone()
-                .unwrap_or_else(|| router::apply_deterministic_routing(query, None));
-            return RoutingResult {
-                ticket,
-                triage_result: None,
-                translator_timed_out: false,
-                recipe_result: None,
-            };
-        }
-
-        // v0.0.392: REMOVED semantic similarity - it was redundant with translator
-        // The translator IS the brain that understands user intent
-        // Semantic similarity was another LLM call doing the same job worse
-
-        // No exact recipe match - let the TRANSLATOR understand the user
-        let (ticket, triage, timeout) = triage_path(
-            state,
-            query,
-            llm_config,
-            translator_model,
-            hw_cores,
-            hw_ram_gb,
-            has_gpu,
-            debug_mode,
-            progress,
-        )
-        .await;
-        RoutingResult {
-            ticket,
-            triage_result: triage,
-            translator_timed_out: timeout,
-            recipe_result: None,
-        }
+                .unwrap_or_else(|| router::apply_deterministic_routing(query, None)),
+            triage_result: None,
+            translator_timed_out: false,
+            recipe_result: Some(recipe_result),
+        };
     }
-    // v0.0.391: Removed else block that bypassed translator for "known" classes
-    // All queries now go through LLM translator for proper semantic understanding
+
+    if recipe_result.skip_llm {
+        // Recipe matched but no direct answer - skip LLM, continue with probes
+        info!(
+            "Recipe fast path hit: score={}, tokens={:?}",
+            recipe_result.score, recipe_result.matched_tokens
+        );
+        let ticket = recipe_result
+            .ticket
+            .clone()
+            .unwrap_or_else(|| router::apply_deterministic_routing(query, None));
+        return RoutingResult {
+            ticket,
+            triage_result: None,
+            translator_timed_out: false,
+            recipe_result: None,
+        };
+    }
+
+    // v0.0.392: REMOVED semantic similarity - it was redundant with translator
+    // The translator IS the brain that understands user intent
+    // Semantic similarity was another LLM call doing the same job worse
+
+    // No exact recipe match - let the TRANSLATOR understand the user
+    let (ticket, triage, timeout) = triage_path(
+        state,
+        query,
+        llm_config,
+        translator_model,
+        hw_cores,
+        hw_ram_gb,
+        has_gpu,
+        debug_mode,
+        progress,
+    )
+    .await;
+    RoutingResult {
+        ticket,
+        triage_result: triage,
+        translator_timed_out: timeout,
+        recipe_result: None,
+    }
 }
 
 /// Enforce probe spine constraints on ticket probes
@@ -245,9 +245,60 @@ async fn triage_path(
     // Apply triage rules
     let triage_result = triage::apply_triage_rules(ticket.clone());
 
+    // v0.0.401: Enrich ticket with learned probes from specialist lessons
+    let mut enriched_ticket = triage_result.ticket.clone();
+    enrich_with_learned_probes(&mut enriched_ticket, query);
+
     (
-        triage_result.ticket.clone(),
+        enriched_ticket,
         Some(triage_result),
         translator_timed_out,
     )
+}
+
+/// v0.0.401: Enrich ticket with probes from specialist lessons
+/// Checks if we have learned patterns that match this query, and adds their effective probes
+fn enrich_with_learned_probes(ticket: &mut TranslatorTicket, query: &str) {
+    let store = SpecialistLearningStore::load();
+
+    // Check for generic pattern match first (e.g., "check X config" pattern)
+    if let Some((pattern, target)) = match_generic_pattern(&store, query) {
+        let learned_probes: Vec<String> = pattern.probe_templates
+            .iter()
+            .map(|t| t.replace("{target}", &target))
+            .collect();
+
+        if !learned_probes.is_empty() {
+            // Add learned probes that aren't already in the ticket
+            let mut added = 0;
+            for probe in learned_probes {
+                if !ticket.needs_probes.contains(&probe) {
+                    ticket.needs_probes.push(probe);
+                    added += 1;
+                }
+            }
+            if added > 0 {
+                info!("v0.0.401: Added {} learned probes from pattern for '{}'", added, target);
+            }
+            return;
+        }
+    }
+
+    // Fall back to keyword-based lesson matching
+    let lessons = store.find_lessons(query);
+    if !lessons.is_empty() {
+        let best = &lessons[0];
+        if best.confidence >= 70 && best.success_count >= 2 {
+            let mut added = 0;
+            for probe in &best.effective_probes {
+                if !ticket.needs_probes.contains(probe) {
+                    ticket.needs_probes.push(probe.clone());
+                    added += 1;
+                }
+            }
+            if added > 0 {
+                info!("v0.0.401: Added {} learned probes from lesson", added);
+            }
+        }
+    }
 }

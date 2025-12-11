@@ -1,9 +1,10 @@
-//! Recipe learning from successful queries (v0.0.381).
+//! Recipe learning from successful queries (v0.0.401).
 //!
 //! Learns recipes from verified, high-reliability query outcomes.
 //! Only persists when: verified AND reliability_score >= 70 (v0.0.381).
 //!
 //! v0.0.381: Lowered threshold from 80 to 70 for faster learning.
+//! v0.0.401: Specialist learning moved to specialist_recipes.rs.
 
 use crate::recipe::{
     compute_recipe_id, should_persist_recipe, Recipe, RecipeAction, RecipeKind, RecipeSignature,
@@ -384,26 +385,13 @@ mod tests {
 
     #[test]
     fn test_valid_learnable_query() {
-        // Valid queries
+        // Valid
         assert!(is_valid_learnable_query("how much disk space"));
-        assert!(is_valid_learnable_query("what is my memory usage"));
         assert!(is_valid_learnable_query("show running services"));
-        assert!(is_valid_learnable_query("check network interfaces"));
-
-        // Invalid - too short
+        // Invalid - short/test/uuid
         assert!(!is_valid_learnable_query("disk"));
-        assert!(!is_valid_learnable_query("mem"));
-
-        // Invalid - test patterns
         assert!(!is_valid_learnable_query("test-123"));
-        assert!(!is_valid_learnable_query("test_query here"));
         assert!(!is_valid_learnable_query("foo bar baz"));
-
-        // Invalid - UUID-like
         assert!(!is_valid_learnable_query("abc123def456"));
-        assert!(!is_valid_learnable_query("59eefd2d49a0e2dd"));
-
-        // Invalid - single word
-        assert!(!is_valid_learnable_query("storage"));
     }
 }

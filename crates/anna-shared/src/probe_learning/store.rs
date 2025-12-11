@@ -1,6 +1,6 @@
-//! Probe learning store (v0.0.331).
-//!
+//! Probe learning store (v0.0.401).
 //! Persistent storage and core operations for probe learning.
+//! v0.0.401: Added specialist recommendation boosting.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -276,45 +276,22 @@ impl ProbeLearningStore {
     /// v0.0.331: Get quality trend (comparing recent vs previous period)
     pub fn quality_trend(&self) -> Option<QualityTrend> {
         let now = now_secs();
-        let week_secs = 7 * 24 * 60 * 60;
-
-        // Get patterns from last 7 days
-        let recent: Vec<_> = self.successful_patterns.iter()
-            .filter(|p| now - p.timestamp < week_secs)
-            .collect();
-
-        // Get patterns from 7-14 days ago
+        let week = 7 * 24 * 60 * 60;
+        let recent: Vec<_> = self.successful_patterns.iter().filter(|p| now - p.timestamp < week).collect();
         let previous: Vec<_> = self.successful_patterns.iter()
-            .filter(|p| {
-                let age = now - p.timestamp;
-                age >= week_secs && age < 2 * week_secs
-            })
-            .collect();
+            .filter(|p| { let age = now - p.timestamp; age >= week && age < 2 * week }).collect();
 
-        if recent.is_empty() && previous.is_empty() {
-            return None;
-        }
+        if recent.is_empty() && previous.is_empty() { return None; }
 
-        let current_avg = if recent.is_empty() {
-            0.0
-        } else {
-            recent.iter().map(|p| p.quality as f32).sum::<f32>() / recent.len() as f32
-        };
-
-        let previous_avg = if previous.is_empty() {
-            current_avg // No change if no previous data
-        } else {
-            previous.iter().map(|p| p.quality as f32).sum::<f32>() / previous.len() as f32
-        };
+        let current_avg = if recent.is_empty() { 0.0 }
+            else { recent.iter().map(|p| p.quality as f32).sum::<f32>() / recent.len() as f32 };
+        let previous_avg = if previous.is_empty() { current_avg }
+            else { previous.iter().map(|p| p.quality as f32).sum::<f32>() / previous.len() as f32 };
 
         let change = current_avg - previous_avg;
-        let trend = if change > 0.3 {
-            TrendDirection::Improving
-        } else if change < -0.3 {
-            TrendDirection::Declining
-        } else {
-            TrendDirection::Stable
-        };
+        let trend = if change > 0.3 { TrendDirection::Improving }
+            else if change < -0.3 { TrendDirection::Declining }
+            else { TrendDirection::Stable };
 
         Some(QualityTrend {
             current_avg,
@@ -327,37 +304,19 @@ impl ProbeLearningStore {
     /// v0.0.331: Update quality history (called after recording success)
     fn update_quality_history(&mut self) {
         let now = now_secs();
-        let day_secs = 24 * 60 * 60;
+        let day = 24 * 60 * 60;
+        let needs_new = self.quality_history.last().map(|l| now - l.timestamp >= day).unwrap_or(true);
+        if !needs_new { return; }
 
-        // Check if we need a new data point (daily granularity)
-        let needs_new_point = self.quality_history.last()
-            .map(|last| now - last.timestamp >= day_secs)
-            .unwrap_or(true);
+        let today_start = now - (now % day);
+        let today: Vec<_> = self.successful_patterns.iter().filter(|p| p.timestamp >= today_start).collect();
+        if today.is_empty() { return; }
 
-        if needs_new_point {
-            // Calculate today's average
-            let today_start = now - (now % day_secs);
-            let today_patterns: Vec<_> = self.successful_patterns.iter()
-                .filter(|p| p.timestamp >= today_start)
-                .collect();
-
-            if !today_patterns.is_empty() {
-                let avg = today_patterns.iter()
-                    .map(|p| p.quality as f32)
-                    .sum::<f32>() / today_patterns.len() as f32;
-
-                self.quality_history.push(QualityDataPoint {
-                    timestamp: today_start,
-                    avg_quality: avg,
-                    query_count: today_patterns.len() as u32,
-                });
-
-                // Keep only last 30 days
-                if self.quality_history.len() > 30 {
-                    self.quality_history.remove(0);
-                }
-            }
-        }
+        let avg = today.iter().map(|p| p.quality as f32).sum::<f32>() / today.len() as f32;
+        self.quality_history.push(QualityDataPoint {
+            timestamp: today_start, avg_quality: avg, query_count: today.len() as u32,
+        });
+        if self.quality_history.len() > 30 { self.quality_history.remove(0); }
     }
 
     /// Apply decay if needed on load
@@ -370,38 +329,19 @@ impl ProbeLearningStore {
         store
     }
 
-    /// v0.0.332: Get confidence factor based on learning health
-    /// Returns 0.0-1.0 where 1.0 means full confidence in learned patterns
-    /// Factors in: data volume, quality trend, pattern diversity
+    /// v0.0.332: Get confidence factor (0.0-1.0) based on learning health
     pub fn confidence_factor(&self) -> f32 {
         let stats = self.learning_stats();
-
-        // Base confidence from data volume (caps at 50 queries)
-        let volume_confidence = (stats.total_queries as f32 / 50.0).min(1.0);
-
-        // Quality factor (avg quality / 5.0)
-        let quality_factor = stats.avg_quality / 5.0;
-
-        // Trend factor: boost if improving, reduce if declining
-        let trend_factor = match self.quality_trend() {
-            Some(trend) => match trend.trend {
-                TrendDirection::Improving => 1.1,  // 10% boost
-                TrendDirection::Stable => 1.0,
-                TrendDirection::Declining => 0.8, // 20% reduction
+        let volume = (stats.total_queries as f32 / 50.0).min(1.0);
+        let quality = stats.avg_quality / 5.0;
+        let diversity = (stats.keywords_learned as f32 / 30.0).min(1.0);
+        let trend = match self.quality_trend() {
+            Some(t) => match t.trend {
+                TrendDirection::Improving => 1.1, TrendDirection::Stable => 1.0, TrendDirection::Declining => 0.8,
             },
-            None => 0.9, // Slight reduction if no trend data
+            None => 0.9,
         };
-
-        // Diversity factor: more keywords = more coverage
-        let diversity_factor = (stats.keywords_learned as f32 / 30.0).min(1.0);
-
-        // Combine factors
-        let raw_confidence = volume_confidence * 0.4
-            + quality_factor * 0.3
-            + diversity_factor * 0.3;
-
-        // Apply trend factor
-        (raw_confidence * trend_factor).clamp(0.0, 1.0)
+        ((volume * 0.4 + quality * 0.3 + diversity * 0.3) * trend).clamp(0.0, 1.0)
     }
 
     /// v0.0.332: Should we trust learned recommendations?
@@ -414,21 +354,25 @@ impl ProbeLearningStore {
     pub fn health_status(&self) -> LearningHealth {
         let confidence = self.confidence_factor();
         let trend = self.quality_trend();
-
-        if confidence >= 0.7 {
-            LearningHealth::Excellent
-        } else if confidence >= 0.5 {
-            // Check if declining
+        if confidence >= 0.7 { LearningHealth::Excellent }
+        else if confidence >= 0.5 {
             if let Some(t) = &trend {
-                if t.trend == TrendDirection::Declining {
-                    return LearningHealth::NeedsAttention;
-                }
+                if t.trend == TrendDirection::Declining { return LearningHealth::NeedsAttention; }
             }
             LearningHealth::Good
-        } else if confidence >= 0.3 {
-            LearningHealth::Developing
-        } else {
-            LearningHealth::Insufficient
+        } else if confidence >= 0.3 { LearningHealth::Developing }
+        else { LearningHealth::Insufficient }
+    }
+
+    /// v0.0.401: Boost probes recommended by specialist (high confidence)
+    /// Called when a specialist interaction successfully used these probes
+    pub fn boost_specialist_probes(&mut self, category: QueryCategory, probes: &[String], boost: u32) {
+        let cat_map = self.effectiveness.entry(category).or_default();
+        for probe_id in probes {
+            let eff = cat_map.entry(probe_id.clone()).or_default();
+            eff.uses += boost;
+            eff.helpful += boost;
+            eff.compute_score();
         }
     }
 }

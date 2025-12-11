@@ -327,10 +327,10 @@ pub fn answer_top_processes(snapshot: &SystemSnapshot, is_fresh: bool) -> FastPa
 
     let mut answer = String::new();
 
-    // Show top CPU processes
+    // Show top CPU processes (v0.0.401: show 15 instead of 5)
     if !snapshot.top_cpu_processes.is_empty() {
         answer.push_str("**Top CPU Consumers:**\n");
-        for (i, proc) in snapshot.top_cpu_processes.iter().take(5).enumerate() {
+        for (i, proc) in snapshot.top_cpu_processes.iter().take(15).enumerate() {
             answer.push_str(&format!(
                 "  {}. {} (PID {}) - {:.1}% CPU, {:.1}% MEM [{}]\n",
                 i + 1,
@@ -343,13 +343,13 @@ pub fn answer_top_processes(snapshot: &SystemSnapshot, is_fresh: bool) -> FastPa
         }
     }
 
-    // Show top memory processes
+    // Show top memory processes (v0.0.401: show 15 instead of 5)
     if !snapshot.top_mem_processes.is_empty() {
         if !answer.is_empty() {
             answer.push('\n');
         }
         answer.push_str("**Top Memory Consumers:**\n");
-        for (i, proc) in snapshot.top_mem_processes.iter().take(5).enumerate() {
+        for (i, proc) in snapshot.top_mem_processes.iter().take(15).enumerate() {
             answer.push_str(&format!(
                 "  {}. {} (PID {}) - {:.1}% MEM, {:.1}% CPU [{}]\n",
                 i + 1,

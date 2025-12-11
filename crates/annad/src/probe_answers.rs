@@ -88,15 +88,16 @@ pub fn answer_gpu_info(hardware: &HardwareSummary) -> Option<DeterministicResult
 }
 
 /// Answer top memory processes from ps aux probe
+/// v0.0.401: Show top 20 instead of 10 for more complete picture
 pub fn answer_top_memory(probes: &[ProbeResult]) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ps aux --sort=-%mem")?;
-    let processes = parse_ps_aux(&probe.stdout, 10);
+    let processes = parse_ps_aux(&probe.stdout, 20);
 
     if processes.is_empty() {
         return None;
     }
 
-    let mut answer = String::from("**Top 10 processes by memory usage:**\n\n");
+    let mut answer = String::from("**Top processes by memory usage:**\n\n");
     answer.push_str("| PID | COMMAND | %MEM | RSS | USER |\n");
     answer.push_str("|-----|---------|------|-----|------|\n");
 
@@ -121,15 +122,16 @@ pub fn answer_top_memory(probes: &[ProbeResult]) -> Option<DeterministicResult> 
 }
 
 /// Answer top CPU processes
+/// v0.0.401: Show top 20 instead of 10 for more complete picture
 pub fn answer_top_cpu(probes: &[ProbeResult]) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ps aux --sort=-%cpu")?;
-    let processes = parse_ps_aux(&probe.stdout, 10);
+    let processes = parse_ps_aux(&probe.stdout, 20);
 
     if processes.is_empty() {
         return None;
     }
 
-    let mut answer = String::from("**Top 10 processes by CPU usage:**\n\n");
+    let mut answer = String::from("**Top processes by CPU usage:**\n\n");
     answer.push_str("| PID | COMMAND | %CPU | USER |\n");
     answer.push_str("|-----|---------|------|------|\n");
 
@@ -267,19 +269,20 @@ pub fn answer_network_interfaces(probes: &[ProbeResult]) -> Option<Deterministic
 }
 
 /// Answer system slow diagnostic
+/// v0.0.401: Show top 10 instead of 3 for more useful diagnostics
 pub fn answer_system_slow(probes: &[ProbeResult]) -> Option<DeterministicResult> {
     let mut sections = Vec::new();
     let mut total_parsed = 0;
 
     // CPU section
     if let Some(probe) = find_probe(probes, "ps aux --sort=-%cpu") {
-        let processes = parse_ps_aux(&probe.stdout, 3);
+        let processes = parse_ps_aux(&probe.stdout, 10);
         if !processes.is_empty() {
             let mut s = String::from("**Top CPU consumers:**\n");
             for proc in &processes {
                 s.push_str(&format!(
                     "- {} ({}% CPU)\n",
-                    truncate(&proc.command, 30),
+                    truncate(&proc.command, 50),
                     proc.cpu_percent
                 ));
             }
@@ -290,13 +293,13 @@ pub fn answer_system_slow(probes: &[ProbeResult]) -> Option<DeterministicResult>
 
     // Memory section
     if let Some(probe) = find_probe(probes, "ps aux --sort=-%mem") {
-        let processes = parse_ps_aux(&probe.stdout, 3);
+        let processes = parse_ps_aux(&probe.stdout, 10);
         if !processes.is_empty() {
             let mut s = String::from("**Top memory consumers:**\n");
             for proc in &processes {
                 s.push_str(&format!(
                     "- {} ({}% RAM)\n",
-                    truncate(&proc.command, 30),
+                    truncate(&proc.command, 50),
                     proc.mem_percent
                 ));
             }
@@ -348,11 +351,12 @@ fn classify_interface_type(name: &str) -> &'static str {
 }
 
 /// Shorten string for table columns (internal formatting only, not user messages)
+/// v0.0.401: Added note that this is for tables, not truncating user content
 fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        // Use ~ to indicate shortened (not ... which implies cut-off content)
-        format!("{}~", &s[..max_len - 1])
+        // Truncate but show it's shortened - for table formatting only
+        format!("{}...", &s[..max_len.saturating_sub(3)])
     }
 }

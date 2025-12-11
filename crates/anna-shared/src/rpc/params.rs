@@ -63,3 +63,25 @@ pub struct CommandExecutionResult {
     /// Execution time in milliseconds
     pub duration_ms: u64,
 }
+
+/// v0.0.401: Parameters for SubmitFeedback RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedbackParams {
+    /// The request_id from the ServiceDeskResult
+    pub request_id: String,
+    /// The original query
+    pub query: String,
+    /// Was the answer helpful?
+    pub helpful: bool,
+    /// Optional comment from user
+    pub comment: Option<String>,
+}
+
+/// v0.0.401: Result of feedback submission
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FeedbackResult {
+    /// Whether feedback was recorded
+    pub recorded: bool,
+    /// Optional message about learning
+    pub learning_message: Option<String>,
+}

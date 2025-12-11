@@ -2,6 +2,7 @@
 
 use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse};
 
+use crate::feedback_handler;
 use crate::handlers;
 use crate::state::SharedState;
 
@@ -30,6 +31,9 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         }
         RpcMethod::ExecuteCommand => {
             handlers::handle_execute_command(id, request.params).await
+        }
+        RpcMethod::SubmitFeedback => {
+            feedback_handler::handle_submit_feedback(id, request.params).await
         }
     }
 }
