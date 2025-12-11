@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.428] - 2025-12-11
+
+### Added - Specialist Protocol V4 (No-Bullshit Policy)
+
+**Goal:** Fix specialist protocol, timeouts, and answer quality with strict enforcement
+of "no invented facts" and "no generic tutorials when user asked for current state."
+
+**Specialist Protocol Module (`specialist_protocol/`):**
+
+**Strict Response Schema (`schema.rs`):**
+- `StrictResponse`: Complete JSON schema for all specialist responses
+- `ResponseStatus`: Success (evidence-backed), Partial (incomplete), Failure (honest)
+- `ResponseDetails`: key_facts, diagnosis, recommendations
+- `ProposedAction`: Actions with risk levels (Low/Medium/High)
+- `Evidence`: probes_used, arch_wiki_pages, man_pages with citations
+- `ResponseMeta`: handled_by, ticket_id, version
+- `is_learnable()`: Only high-confidence, evidenced responses can become recipes
+
+**No-Bullshit Validator (`validator.rs`):**
+- `validate_response()`: Comprehensive validation of specialist responses
+- `ValidationError` types: InventedData, GenericHowTo, MissingEvidence, ForbiddenPattern, VagueLanguage
+- Forbidden patterns: "unknown is installed", "2 is installed", placeholders
+- Vague language detection: "might be", "possibly", "perhaps", "I think"
+- Generic how-to blocking for state queries (check_, is_, are_, show_, list_)
+- Evidence requirement enforcement for high-confidence claims
+- Automatic status/confidence adjustment for violations
+
+**Graceful Fallback Handler (`fallback.rs`):**
+- `FallbackContext`: What we know when specialist fails
+- `FallbackReason`: Timeout, ParseError, ValidationFailed, LlmError, NoSpecialist, RetryExhausted
+- `generate_fallback()`: Extracts useful facts from probe outputs
+- Memory fact extraction from `free`/`/proc/meminfo` output
+- Disk fact extraction from `df` output
+- Systemd fact extraction from `systemctl` output
+- Never shows "Failed to parse specialist response" to users
+- User-friendly vs debug error messages
+
+**Ticket Outcome Tracking (`outcome.rs`):**
+- `TicketOutcome`: Success, UsefulPartial, HonestUnknown, Failed, InternalError
+- `determine_outcome()`: Maps response to user-facing outcome
+- `is_useful_partial()`: Checks if partial has meaningful content
+- `is_honest_unknown()`: Detects honest "I don't know" responses
+- `HonestTicketStats`: Tracks real success rates, not inflated metrics
+  - `success_rate()`: Only full successes count
+  - `resolution_rate()`: Success + UsefulPartial + HonestUnknown
+  - `validate()`: Prevents impossible rates (100% success with failures)
+
+**JSON Parser with Fallback (`parser.rs`):**
+- `parse_specialist_json()`: Parse with validation and fallback
+- `ParseOutcome`: Success, ValidationFailed, NoJson, InvalidJson, SchemaMismatch, Timeout
+- `extract_json()`: 4 strategies - clean, markdown, brace-matching, lenient
+- JSON fix attempts: trailing commas, missing quotes, partial responses
+- Parse stats tracking for debugging
+
+**Translator Guardrails (`guardrails.rs`):**
+- `IntentType`: CheckState, HowTo, Explain, Diagnose, Action, Unknown
+- `ResponseType`: DirectAnswer, Tutorial, Diagnostic, Explanation, StateAnswer
+- `classify_intent()`: Categorizes user questions
+- `classify_response()`: Identifies response type
+- `GuardrailContext`: Tracks question, intent, and probe outputs
+- `check_guardrails()`: Validates response matches intent
+- `process_with_guardrails()`: Full pipeline with parsing and validation
+
+**Acceptance Criteria Tests (`tests.rs`):**
+- RAM question gets direct answer with evidence
+- Failed services question gets yes/no, not tutorial
+- Timeout gives partial/failure, never "Failed to parse"
+- Nonsense patterns blocked ("unknown is installed", "2 is installed")
+- Stats are honest (40% success ≠ 100% success)
+- Intent classification accuracy for state vs how-to queries
+- Vague language blocked in success responses
+- Full pipeline integration tests
+
 ## [0.0.427] - 2025-12-11
 
 ### Added - Self-Learning Recipe Engine V1
