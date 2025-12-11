@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.398] - 2025-12-11
+
+### Fix - Translator timeout increased for 3B+ models
+
+**Problem:**
+- 3B models are slower than 0.5B but produce reliable JSON
+- 5s timeout was too short for 3B model first inference
+- Translator was timing out before producing output
+
+**Fix:**
+- Increased default translator timeout from 5s → 10s
+- Gives 3B+ models enough time to load and respond
+- Reliability over speed - a slower correct answer beats fast garbage
+
 ## [0.0.397] - 2025-12-11
 
 ### CRITICAL FIX - Translator fallbacks must use 3B+ models

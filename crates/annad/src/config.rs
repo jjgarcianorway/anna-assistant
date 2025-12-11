@@ -95,7 +95,8 @@ fn default_supervisor_model() -> String {
 }
 
 fn default_translator_timeout() -> u64 {
-    5 // v0.0.140: increased from 2 - allow time for model load + inference
+    // v0.0.398: Increased to 10s for 3B+ models (slower but reliable)
+    10
 }
 
 fn default_specialist_timeout() -> u64 {
@@ -378,8 +379,8 @@ mod tests {
         assert_eq!(config.llm.senior_model, "qwen2.5:7b-instruct");
         // Legacy specialist maps to junior
         assert_eq!(config.llm.specialist_model, "qwen2.5:3b-instruct");
-        // v0.0.140: increased timeout for reliability
-        assert_eq!(config.llm.translator_timeout_secs, 5);
+        // v0.0.398: 10s timeout for 3B+ models
+        assert_eq!(config.llm.translator_timeout_secs, 10);
     }
 
     #[test]
