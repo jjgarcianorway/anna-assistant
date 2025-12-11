@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.395] - 2025-12-11
+
+### Fix - Add largest_dirs/largest_home to PROBE_IDS
+
+**Problem:**
+- Translator prompt references `largest_dirs` and `largest_home` probes
+- But they weren't in `PROBE_IDS` list that translator sees
+- LLM couldn't select these probes because they weren't advertised
+
+**Fix:**
+- Added `largest_dirs` and `largest_home` to `PROBE_IDS` constant
+- Now translator can properly select storage analysis probes
+- "what folders are taking space" should now get correct probes
+
 ## [0.0.394] - 2025-12-11
 
 ### Fix - Model selector size matching

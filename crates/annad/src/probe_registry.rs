@@ -33,6 +33,9 @@ pub const PROBE_IDS: &[&str] = &[
     "vdpau_status",     // vdpauinfo
     "vulkan_status",    // vulkaninfo --summary
     "glxinfo_renderer", // glxinfo | grep renderer
+    // v0.0.395: Storage analysis probes (largest folders)
+    "largest_dirs",  // du -h --max-depth=1 / | sort -rh | head -15
+    "largest_home",  // du -h --max-depth=2 $HOME | sort -rh | head -15
 ];
 
 /// Map probe ID to actual command
