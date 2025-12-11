@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.421] - 2025-12-11
+
+### Added - Specialist V2: Stable Schema-Driven Responses
+
+**Goal:** Eliminate "Failed to parse specialist response" errors and guarantee tight,
+schema-obedient answers from specialists.
+
+**New Specialist Schema (`specialist_v2/`):**
+- `SpecialistResponseV2`: Single canonical schema for all specialist output
+- `SpecialistStatus`: Ok, InsufficientEvidence, Error (no ambiguity)
+- `DirectAnswer`: Short text + optional metrics for factual questions
+- `KeyFinding`: Label/value pairs with severity and evidence sources
+- `RecommendedAction`: Actions with risk levels and confirmation flags
+- `AnswerType`: Fact, YesNo, WhatIs, Diagnostic, HowTo, General
+
+**Specialist Prompts (`specialist_v2/prompt.rs`):**
+- Schema-driven prompts that enforce JSON-only output
+- Question type specific rules (fact, yes_no, diagnostic)
+- Domain-specific rules (performance, network, storage, services)
+- Forbidden patterns: no invented data, no generic tutorials
+- Compact prompts for retry attempts (under 1KB)
+
+**SpecialistCall Wrapper (`specialist_v2/call.rs`):**
+- Unified call execution with timeout tracking
+- JSON extraction from wrapped responses
+- Validation before use
+- Call logging for debugging
+
+**Fallback Engine (`specialist_v2/fallback.rs`):**
+- Deterministic fallbacks when LLM fails or times out
+- Memory fallback: parse `free` output, format bytes
+- Services fallback: count failed systemd services
+- Disk fallback: parse `df` output, flag critical partitions
+- Network fallback: list interfaces with state
+- Swap fallback: detect swap status
+- Uptime/boot fallback: extract timing info
+- Generic fallback for unknown intents
+
+**Response Renderer (`specialist_v2/renderer.rs`):**
+- Clean user-friendly output from structured data
+- Never exposes "Failed to parse specialist response"
+- Text and markdown formats
+- Status indicators (Success, Partial, Failed)
+- Friendly error messages with probe data summary
+
+**Key Improvements:**
+- No more raw JSON or parse errors shown to users
+- Confidence clamping to [0.0, 1.0]
+- Answer length validation (<500 chars for direct answers)
+- Forbidden pattern detection (hallucination guards)
+- 5-second timeout with graceful fallback
+
 ## [0.0.420] - 2025-12-11
 
 ### Added - Recipe V2: Clean Learning Engine
