@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.392] - 2025-12-11
+
+### Fix - Semantic similarity too aggressive within same domain
+
+Fixed recipes incorrectly matching different questions in the same domain.
+
+**Problem:**
+- "what folders are taking up space" was matching recipe for "disk space"
+- LLM returned 100% similarity score when they need DIFFERENT commands (du vs df)
+
+**Fix:**
+- Rewrote semantic similarity prompt to be MUCH stricter
+- Added explicit examples: "disk space" vs "which folders" = NOT similar
+- Emphasized: same domain ≠ same question
+
 ## [0.0.391] - 2025-12-11
 
 ### Architecture - LLM Translator is now PRIMARY

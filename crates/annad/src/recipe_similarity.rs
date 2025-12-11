@@ -46,6 +46,7 @@ impl SimilarityResult {
 }
 
 /// Build prompt to check semantic similarity between two queries
+/// v0.0.391: Made MUCH stricter to prevent false positives within same domain
 fn build_similarity_prompt(new_query: &str, recipe_query: &str) -> String {
     format!(
         r#"Are these two Linux queries asking for EXACTLY the same thing?
@@ -55,20 +56,26 @@ Query B: "{}"
 
 Reply with ONLY a JSON object: {{"similar": true/false, "score": 0-100, "reason": "brief explanation"}}
 
-STRICT RULES (be very conservative):
-- "similar" = true ONLY if both queries would have the EXACT SAME answer
-- "score" = confidence 0-100 (100 = identical question)
-- If queries are about DIFFERENT topics (e.g., wallpaper vs disk), score must be 0
-- If Query B looks like test data (e.g., "test-123"), score must be 0
-- Different domains = NOT similar (network vs storage vs desktop)
-- Only match if intent + subject are BOTH the same
-- When in doubt, return similar=false and low score
+CRITICAL - BE EXTREMELY STRICT:
+- "similar" = true ONLY if the EXACT SAME command would answer both
+- score 100 = ONLY for identical or very trivially rephrased questions
+- score 0 = different questions, even if in same domain
 
-Examples of NOT similar:
-- "how is my wallpaper loaded" vs "disk usage" → different topics
-- "install nano" vs "memory usage" → different topics
-- "network speed" vs "disk space" → different domains
+SAME DOMAIN ≠ SAME QUESTION:
+- "how much disk space" vs "which folders use space" → NOT similar (df vs du)
+- "memory usage" vs "memory info" → NOT similar (different detail level)
+- "CPU usage" vs "CPU temperature" → NOT similar (different metrics)
+- "list packages" vs "check if X installed" → NOT similar
 
+SIMILAR examples (score 90+):
+- "disk space" vs "how much storage" → similar (both want df)
+- "free RAM" vs "available memory" → similar (both want free -h)
+
+NOT similar (score < 50):
+- "disk usage" vs "which folders" → NOT similar (df vs du)
+- "overall space" vs "biggest directories" → NOT similar
+
+When in doubt, return similar=false and LOW score.
 Output raw JSON only."#,
         new_query, recipe_query
     )
