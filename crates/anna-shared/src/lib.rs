@@ -15,6 +15,7 @@
 //! v0.0.423: Recipe V3 - Safe learning/execution engine with preconditions and risk levels.
 //! v0.0.424: Knowledge V4 - Complete local knowledge engine with citations.
 //! v0.0.425: Specialist V3 - Strict JSON contract, robust parser, no parse errors.
+//! v0.0.426: Strict ticket lifecycle, honest metrics, reality-based stats.
 
 pub mod advice;
 pub mod answer_contract;
@@ -154,6 +155,8 @@ pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
 pub mod recipe_v3; // v0.0.423: Safe learning/execution engine with risk levels
 pub mod knowledge_v4; // v0.0.424: Complete local knowledge engine with citations
 pub mod specialist_v3; // v0.0.425: Strict JSON contract, robust parser, no parse errors
+pub mod ticket_lifecycle; // v0.0.426: Strict ticket lifecycle state machine
+pub mod honest_metrics; // v0.0.426: Reality-based stats (no fake 100%)
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;

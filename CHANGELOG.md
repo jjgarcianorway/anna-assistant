@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.426] - 2025-12-11
+
+### Added - Strict Ticket Lifecycle and Honest Metrics
+
+**Goal:** Fix ticket lifecycle, reliability accounting, and stats so they match reality.
+No more "100% success" when there are failures.
+
+**Ticket Lifecycle (`ticket_lifecycle.rs`):**
+- `TicketLifecycleState`: New → InProgress → Answered → UserSatisfied | Failed | Cancelled
+- Strict state machine with validated transitions
+- `TicketResolution`: ResolvedSuccess, ResolvedPartial, ResolvedHonestUnknown, ResolvedUnsupported, Failed, Cancelled
+- `InternalError`: ParseError, Timeout, ProbeFailure, InternalCrash
+- `TicketRecord`: Complete ticket with lifecycle tracking and specialist chain
+- Integration with SpecialistResponse status (Success/Partial/NoData/Unsupported/Error)
+
+**Resolution Semantics:**
+- "Resolved" = UserSatisfied state AND specialist status is Success/Partial/NoData/Unsupported
+- "Failed" = Failed state OR parsing exhausted OR critical internal error
+- "Honest Unknown" = NoData/Unsupported delivered to user (not counted as failure)
+
+**Reliability Metrics (`ticket_lifecycle.rs`):**
+- `ReliabilityMetrics::compute()`: Honest stats from ticket records
+- `resolved_success`: Full success with grounded answer
+- `resolved_partial`: Partial answer with limitations
+- `honest_unknown`: "I don't know" delivered honestly
+- `failed`: Hard internal failures
+- `success_rate`: resolved_success / total_tickets
+- `reliability_rate`: success / (success + failed + parse_errors + internal_errors)
+
+**Per-Specialist Metrics:**
+- `SpecialistMetrics`: tickets_handled, tickets_lead, success_count, failed_count
+- `compute_specialist_metrics()`: Compute from ticket records
+- XP based on actual outcomes: +10 success, +6 partial, +3 honest_unknown, 0 failed
+- Titles require minimum success rate: Senior (XP≥2000, rate≥85%), Proficient (XP≥500, rate≥70%)
+
+**Honest Display (`honest_metrics.rs`):**
+- `HonestStats`: Complete stats for annactl
+- `format()`: User-facing stats display with [service desk], [reliability], [staff roster]
+- `validate()`: Sanity check that stats don't claim impossible success rates
+- `format_internal_error()`: User-friendly error message with optional debug mode
+
+**Error Handling:**
+- Normal mode: "Anna hit an internal error..." (no raw JSON or stack traces)
+- Debug mode: Separate [debug] section with ticket_id, error_kind, error_message, attempts
+- Failed tickets counted as failures, not resolved
+
+**Migration:**
+- Legacy tickets marked with `is_legacy: true`
+- Excluded from strict success_rate calculations
+- Only new tickets trusted for reliability metrics
+
 ## [0.0.425] - 2025-12-11
 
 ### Added - Specialist V3: Strict JSON Contract
