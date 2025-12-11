@@ -181,22 +181,30 @@ pub fn extract_facts(
     request: &ClarifyRequest,
     answer: &str,
     facts_store: &mut FactsStore,
-) -> Option<FactKey> {
+) -> Option<String> {
     let q = request.question.to_lowercase();
 
     // Editor preference questions
     if q.contains("editor") || q.contains("text editor") {
         if is_known_editor(answer) {
-            let _ = facts_store.set(FactKey::PreferredEditor, answer.to_string(), 90);
-            return Some(FactKey::PreferredEditor);
+            facts_store.set_verified(
+                FactKey::PreferredEditor,
+                answer.to_string(),
+                "clarification".to_string(),
+            );
+            return Some("preferred_editor".to_string());
         }
     }
 
     // Shell preference questions
     if q.contains("shell") || q.contains("terminal") {
         if is_known_shell(answer) {
-            let _ = facts_store.set(FactKey::PreferredShell, answer.to_string(), 90);
-            return Some(FactKey::PreferredShell);
+            facts_store.set_verified(
+                FactKey::PreferredShell,
+                answer.to_string(),
+                "clarification".to_string(),
+            );
+            return Some("preferred_shell".to_string());
         }
     }
 
@@ -270,7 +278,7 @@ pub fn record_clarification_learning(
     update_context_memory(request, answer, &mut memory);
 
     // Record the lesson
-    store.learn_from_response(request, answer, fact_key.map(|k| k.as_str()));
+    store.learn_from_response(request, answer, fact_key.as_deref());
 
     // Save all stores
     let _ = store.save();
