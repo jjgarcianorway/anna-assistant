@@ -1,12 +1,14 @@
-//! Specialist prompt building for service desk (v0.0.324).
+//! Specialist prompt building for service desk (v0.0.375).
 //!
 //! v0.0.260: Added OS info to context.
 //! v0.0.322: Improved grounding rules to prevent hallucination.
 //! v0.0.324: Added self-assessment for answer quality learning.
+//! v0.0.375: Added user preferences context for personalized responses.
 //! COST: Enforces prompt size cap with diagnostic surfacing.
 
 use anna_shared::resource_limits::{ResourceDiagnostic, MAX_PROMPT_CHARS};
 use anna_shared::rpc::{ProbeResult, RuntimeContext, SpecialistDomain};
+use anna_shared::user_profile::ResponsePreferences;
 
 /// Result of building a prompt (includes truncation diagnostic if capped)
 #[derive(Debug)]
@@ -54,6 +56,7 @@ const GROUNDING_RULES: &str = r#"
 4. NEVER suggest commands unless the user explicitly asked how to do something.
 5. Be concise and direct. Don't over-explain.
 6. If probe results are empty or missing, acknowledge this honestly.
+7. Respect User Preferences - match the technical depth and verbosity they prefer.
 
 CRITICAL: Your answer must be RELEVANT to what the user asked.
 If the user asks about X, answer about X, not Y.
@@ -137,6 +140,14 @@ Hardware (from system probe):
     } else {
         prompt.push_str("\n  - GPU: none");
     }
+
+    // v0.0.375: Add user preferences for personalized responses
+    let prefs = ResponsePreferences::load();
+    prompt.push_str(&format!(
+        "\n\nUser Preferences:\n  - Technical depth: {}\n  - Verbosity: {}",
+        prefs.technical_depth_desc(),
+        prefs.verbosity_desc()
+    ));
 
     // Calculate budget for probe results
     // Budget = MAX_PROMPT_CHARS - base_prompt - grounding_rules - margin

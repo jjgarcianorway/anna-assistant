@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.375] - 2025-12-11
+
+### Intelligence - Negative learning & personalized responses
+
+**Bad probe combo filtering (v0.0.374):**
+Anna now remembers when specific probe combinations fail for similar queries
+and automatically avoids them:
+
+- Uses `is_known_bad_combo()` to check negative patterns before probe selection
+- Filters out problematic probes while keeping at least one fallback
+- Logs when filtering occurs so learning is visible
+
+**Personalized specialist responses (v0.0.375):**
+Specialists now adapt to user preferences:
+
+- Loads user's `technical_depth` setting (simple/balanced/expert)
+- Loads user's `verbosity` setting (minimal/normal/detailed)
+- Passes preferences to specialist prompt context
+- Grounding rules updated to respect these preferences
+
+**Impact:**
+- Fewer repeated failures from known-bad probe combinations
+- Answers match user's preferred technical level
+- Expert users get precise terminology; beginners get explanations
+
 ## [0.0.373] - 2025-12-10
 
 ### Intelligence - Dynamic recipe matching thresholds

@@ -1,4 +1,4 @@
-//! LLM-based translator for query classification (v0.0.333).
+//! LLM-based translator for query classification (v0.0.374).
 //!
 //! Converts user text to structured TranslatorTicket JSON.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
@@ -8,6 +8,7 @@
 //! v0.0.322: Integrated probe learning - recommends probes based on past effectiveness.
 //! v0.0.327: Uses load_with_decay() for automatic learning decay.
 //! v0.0.333: Only uses learning when confidence is sufficient.
+//! v0.0.374: Filter out probe combinations known to fail for similar queries.
 
 use anna_shared::answer_contract::AnswerContract;
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
@@ -235,7 +236,7 @@ pub async fn translate_with_debug(
         .map_err(|e| format!("LLM error: {}", e))?;
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    let mut ticket = parse_translator_response(&response)?;
+    let mut ticket = parse_translator_response(&response, &input.query)?;
 
     // v0.0.74: Generate answer contract from original query
     ticket.answer_contract = Some(AnswerContract::from_query(&input.query));
@@ -261,11 +262,34 @@ pub async fn translate(model: &str, query: &str) -> Result<TranslatorTicket, Str
         .await
         .map_err(|e| format!("LLM error: {}", e))?;
 
-    parse_translator_response(&response)
+    parse_translator_response(&response, query)
+}
+
+/// v0.0.374: Filter probes that are known to fail for similar queries
+fn filter_bad_combos(query: &str, probes: Vec<String>) -> Vec<String> {
+    let store = ProbeLearningStore::load();
+    if let Some(reason) = store.is_known_bad_combo(query, &probes) {
+        // Log why we're filtering
+        info!("Learning: avoiding probes due to past failure: {}", reason);
+        // Remove probes that match the bad pattern
+        let filtered: Vec<String> = probes
+            .into_iter()
+            .filter(|p| store.is_known_bad_combo(query, &[p.clone()]).is_none())
+            .collect();
+        if filtered.is_empty() {
+            // Don't return empty - keep at least one probe
+            vec!["memory_info".to_string()] // Safe default
+        } else {
+            filtered
+        }
+    } else {
+        probes
+    }
 }
 
 /// Parse translator LLM response into ticket (tolerant of missing/invalid fields)
-fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String> {
+/// v0.0.374: Added query parameter for bad combo filtering
+fn parse_translator_response(response: &str, query: &str) -> Result<TranslatorTicket, String> {
     // v0.0.290: Strip reasoning tags before parsing
     let cleaned = redact::strip_reasoning_tags(response);
 
@@ -291,7 +315,9 @@ fn parse_translator_response(response: &str) -> Result<TranslatorTicket, String>
     let domain_str = output.domain.as_deref().unwrap_or("system");
     let confidence = output.confidence.unwrap_or(0.0).clamp(0.0, 1.0);
     let entities = output.entities.unwrap_or_default();
-    let needs_probes = filter_valid_probes(output.needs_probes.unwrap_or_default());
+    // v0.0.374: Filter valid probes, then filter out known bad combos
+    let valid_probes = filter_valid_probes(output.needs_probes.unwrap_or_default());
+    let needs_probes = filter_bad_combos(query, valid_probes);
 
     let ticket = TranslatorTicket {
         intent: parse_intent(intent_str),
@@ -388,7 +414,7 @@ mod tests {
     fn test_tolerant_json_parsing_missing_fields() {
         // Missing confidence -> 0.0
         let response = r#"{"intent":"question","domain":"system"}"#;
-        let ticket = parse_translator_response(response).unwrap();
+        let ticket = parse_translator_response(response, "test query").unwrap();
         assert_eq!(ticket.confidence, 0.0);
         assert_eq!(ticket.domain, SpecialistDomain::System);
     }
@@ -397,7 +423,7 @@ mod tests {
     fn test_tolerant_json_parsing_null_arrays() {
         // null arrays -> empty Vec
         let response = r#"{"intent":"question","entities":null,"needs_probes":null}"#;
-        let ticket = parse_translator_response(response).unwrap();
+        let ticket = parse_translator_response(response, "test query").unwrap();
         assert!(ticket.entities.is_empty());
         assert!(ticket.needs_probes.is_empty());
     }
@@ -406,7 +432,7 @@ mod tests {
     fn test_tolerant_json_parsing_invalid_values() {
         // Invalid domain -> default to System
         let response = r#"{"intent":"question","domain":"invalid_domain"}"#;
-        let ticket = parse_translator_response(response).unwrap();
+        let ticket = parse_translator_response(response, "test query").unwrap();
         assert_eq!(ticket.domain, SpecialistDomain::System);
     }
 }
