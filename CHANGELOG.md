@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.422] - 2025-12-11
+
+### Added - Knowledge V2: Research-First Layer
+
+**Goal:** Wire Anna's brain to Arch Wiki, man pages, and help output instead of LLM intuition.
+Research-first, not opinion-first.
+
+**Knowledge Snippet Model (`knowledge_v2/snippet.rs`):**
+- `KnowledgeSnippet`: Normalized snippet with id, source, title, section, relevance
+- `KnowledgeSource`: ManPage, Help, ArchWiki, PacmanDoc, LocalDoc, OtherOfficial
+- Structured fields: summary (2-4 sentences), key_points (3-7 bullets), raw_excerpt
+- Citations: `man:systemctl(1)`, `archwiki:Systemd`, `help:pacman`
+- Constructors: `from_man()`, `from_help()`, `from_wiki()`, `from_local_doc()`, `from_pacman()`
+
+**Knowledge Sources (`knowledge_v2/sources.rs`):**
+- `fetch_man_page()`: Runs `man -P cat`, extracts NAME/SYNOPSIS/DESCRIPTION sections
+- `fetch_help_output()`: Tries --help then -h, validates output looks like help
+- `fetch_arch_wiki()`: Checks local cache first (local-first design)
+- `fetch_local_doc()`: Searches /usr/share/doc, /usr/share/help for READMEs
+- `fetch_pacman_info()`: Gets package info from `pacman -Qi`
+- Safe command validation, dangerous command blocklist
+
+**Research Policy (`knowledge_v2/policy.rs`):**
+- `ResearchPolicy`: needs_knowledge, topics, priority (ProbesOnly/ProbesFirst/KnowledgeFirst)
+- Status-only questions: probes only (free RAM, failed services)
+- Existence checks: usually probes only
+- How-to/error questions: always fetch knowledge
+- Complex config: knowledge mandatory
+- Domain-specific topics: systemd, NetworkManager, pacman, etc.
+
+**Wiki Cache (`knowledge_v2/cache.rs`):**
+- `WikiCache`: File-based cache at /var/lib/anna/wiki/ or ~/.anna/wiki/
+- `WikiCacheEntry`: topic, content, fetched_at, content_hash
+- TTL: 7 days, automatic cleanup of expired entries
+- Cache statistics: total entries, expired, size
+
+**Knowledge Fetcher (`knowledge_v2/fetcher.rs`):**
+- `KnowledgeFetcher`: Orchestrates multi-source knowledge gathering
+- `FetchResult`: snippets, topics_searched, sources_checked, has_knowledge
+- Priority order: man pages → help → Arch Wiki → local docs → pacman
+- Keyword extraction from questions (stop words filtered)
+- Relevance boosting based on keyword matches
+- Summary extraction (first N sentences)
+- Key points extraction (lines containing keywords)
+
+**Constants:**
+- MAX_SNIPPETS_PER_TICKET: 5
+- MAX_EXCERPT_LENGTH: 2000 chars
+- MAX_SUMMARY_LENGTH: 400 chars
+- MAX_KEY_POINTS: 7
+- CACHE_TTL_SECS: 7 days
+- FETCH_TIMEOUT_MS: 3000ms
+
 ## [0.0.421] - 2025-12-11
 
 ### Added - Specialist V2: Stable Schema-Driven Responses

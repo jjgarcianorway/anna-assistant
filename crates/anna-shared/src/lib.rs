@@ -11,6 +11,7 @@
 //! v0.0.418: Full recipe learning system - learn from tickets, execute without LLM.
 //! v0.0.420: Recipe V2 - Clean learning engine with global/user recipes.
 //! v0.0.421: Specialist V2 - Stable, schema-driven responses, no parse errors.
+//! v0.0.422: Knowledge V2 - Research-first layer (Arch Wiki, man pages, help).
 
 pub mod advice;
 pub mod answer_contract;
@@ -146,6 +147,7 @@ pub mod recipe_telemetry; // v0.0.418: Recipe usage telemetry
 pub mod seed_recipes; // v0.0.418: Initial seed recipes
 pub mod recipe_v2; // v0.0.420: Clean learning engine with global/user recipes
 pub mod specialist_v2; // v0.0.421: Stable, schema-driven specialist responses
+pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
