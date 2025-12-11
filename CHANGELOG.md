@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.377] - 2025-12-11
+
+### Intelligence - Learned success hints in specialist prompts
+
+Specialists now receive context from past successful answers:
+
+**How it works:**
+- Loads recent high-quality patterns (quality >= 4) for the current domain
+- Extracts up to 6 keywords from the 3 most recent successes
+- Adds "Keywords that worked well" section to specialist prompt
+
+**New function:**
+- `ProbeLearningStore::recent_success_hints(category)` - returns keywords from past successes
+
+**Example prompt context:**
+```
+Learned Context (from past successes):
+  Keywords that worked well: memory, usage, process, ram
+```
+
+**Impact:**
+- Specialists are primed with vocabulary that led to good answers
+- Improves consistency in terminology across similar queries
+- Zero overhead when no successful patterns exist yet
+
 ## [0.0.376] - 2025-12-11
 
 ### Intelligence - Domain-specific answer validation

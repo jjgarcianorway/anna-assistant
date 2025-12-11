@@ -245,6 +245,20 @@ impl ProbeLearningStore {
         suggestions
     }
 
+    /// v0.0.377: Get recent high-quality keywords for a category (for specialist hints)
+    pub fn recent_success_hints(&self, category: &QueryCategory) -> Vec<String> {
+        self.successful_patterns
+            .iter()
+            .rev() // Most recent first
+            .filter(|p| &p.category == category && p.quality >= 4)
+            .take(3)
+            .flat_map(|p| p.keywords.clone())
+            .collect::<Vec<_>>()
+            .into_iter()
+            .take(6) // Max 6 keywords
+            .collect()
+    }
+
     /// Get learning stats for display
     pub fn learning_stats(&self) -> LearningStats {
         LearningStats {

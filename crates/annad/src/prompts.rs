@@ -1,11 +1,13 @@
-//! Specialist prompt building for service desk (v0.0.375).
+//! Specialist prompt building for service desk (v0.0.377).
 //!
 //! v0.0.260: Added OS info to context.
 //! v0.0.322: Improved grounding rules to prevent hallucination.
 //! v0.0.324: Added self-assessment for answer quality learning.
 //! v0.0.375: Added user preferences context for personalized responses.
+//! v0.0.377: Added learned success hints from past high-quality answers.
 //! COST: Enforces prompt size cap with diagnostic surfacing.
 
+use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::resource_limits::{ResourceDiagnostic, MAX_PROMPT_CHARS};
 use anna_shared::rpc::{ProbeResult, RuntimeContext, SpecialistDomain};
 use anna_shared::user_profile::ResponsePreferences;
@@ -148,6 +150,24 @@ Hardware (from system probe):
         prefs.technical_depth_desc(),
         prefs.verbosity_desc()
     ));
+
+    // v0.0.377: Add learned success hints from past high-quality answers
+    let store = ProbeLearningStore::load();
+    let domain_str = match domain {
+        SpecialistDomain::System => "system",
+        SpecialistDomain::Network => "network",
+        SpecialistDomain::Storage => "storage",
+        SpecialistDomain::Security => "security",
+        SpecialistDomain::Packages => "packages",
+    };
+    let category = QueryCategory::from_domain(domain_str);
+    let hints = store.recent_success_hints(&category);
+    if !hints.is_empty() {
+        prompt.push_str(&format!(
+            "\n\nLearned Context (from past successes):\n  Keywords that worked well: {}",
+            hints.join(", ")
+        ));
+    }
 
     // Calculate budget for probe results
     // Budget = MAX_PROMPT_CHARS - base_prompt - grounding_rules - margin
