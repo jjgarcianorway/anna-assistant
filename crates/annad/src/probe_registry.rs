@@ -1,6 +1,7 @@
 //! Probe ID registry - maps probe IDs to actual commands.
 //!
 //! Extracted from translator.rs (v0.0.164) for modularization.
+//! v0.0.405: Domain→probes mapping moved to probe_domain.rs.
 
 /// Probe IDs for translator to select from
 pub const PROBE_IDS: &[&str] = &[
@@ -271,6 +272,29 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
              rpm -qa 2>/dev/null | wc -l || \
              apk info 2>/dev/null | wc -l || \
              echo '0'"
+        ),
+        // v0.0.405: New domain-specific probes
+        "boot_blame" => Some("systemd-analyze blame | head -15"),
+        "audio_server" => Some(
+            "systemctl --user status pipewire pipewire-pulse 2>/dev/null || \
+             systemctl --user status pulseaudio 2>/dev/null || \
+             pactl info 2>/dev/null | head -10 || \
+             echo 'NO_AUDIO_SERVER'"
+        ),
+        "gpu_info" => Some(
+            "lspci | grep -E 'VGA|3D' && \
+             (glxinfo 2>/dev/null | grep -E 'OpenGL renderer|vendor' || echo 'NO_GLX') && \
+             (nvidia-smi -L 2>/dev/null || echo 'NO_NVIDIA')"
+        ),
+        "display_info" => Some(
+            "xrandr 2>/dev/null || wlr-randr 2>/dev/null || \
+             hyprctl monitors 2>/dev/null || \
+             echo 'DISPLAY_INFO_NOT_AVAILABLE'"
+        ),
+        "desktop_session" => Some(
+            "echo \"XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP\" && \
+             echo \"XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP\" && \
+             echo \"DESKTOP_SESSION=$DESKTOP_SESSION\""
         ),
         _ => None,
     }

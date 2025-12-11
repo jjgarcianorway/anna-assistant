@@ -24,6 +24,10 @@ pub enum KnowledgeSource {
     Usage,
     /// Built-in static knowledge (v0.0.39, never expires)
     BuiltIn,
+    /// Man page content (v0.0.406)
+    ManPage,
+    /// Command --help output (v0.0.406)
+    HelpOutput,
 }
 
 impl std::fmt::Display for KnowledgeSource {
@@ -37,6 +41,8 @@ impl std::fmt::Display for KnowledgeSource {
             Self::Journal => write!(f, "journal"),
             Self::Usage => write!(f, "usage"),
             Self::BuiltIn => write!(f, "built_in"),
+            Self::ManPage => write!(f, "man_page"),
+            Self::HelpOutput => write!(f, "help_output"),
         }
     }
 }

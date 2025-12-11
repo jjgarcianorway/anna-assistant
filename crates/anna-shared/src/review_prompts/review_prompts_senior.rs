@@ -28,6 +28,13 @@ Review the escalated case and provide final determination.
 - You may override junior if evidence supports the answer
 - Reject only if answer fundamentally contradicts evidence
 - Provide clear rationale for decisions
+
+## NEGATIVE EXAMPLES - DO NOT ACCEPT THESE:
+X BAD: Answer contains "unknown is installed" or "unknown" as a package name
+X BAD: Answer claims facts without matching evidence
+X BAD: Empty evidence array with high confidence
+X BAD: corrected_answer contains invented information not in evidence
+X BAD: Text outside the JSON object (only output { ... })
 "#;
 
 pub const STORAGE_SENIOR_PROMPT: &str = r#"## Role

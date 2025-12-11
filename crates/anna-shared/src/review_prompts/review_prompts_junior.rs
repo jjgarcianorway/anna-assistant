@@ -27,6 +27,13 @@ Review the answer against the provided evidence. Output structured JSON.
 - Propose minimal correction, do not speculate
 - Accept if score >= 80 and no contradictions
 - Escalate if invention detected
+
+## NEGATIVE EXAMPLES - ALWAYS FLAG THESE:
+X BAD: "unknown is installed" - escalate immediately
+X BAD: Package names that are numbers (like "2 is installed")
+X BAD: Claims not supported by any evidence atom
+X BAD: corrected_answer with invented content not in evidence
+X BAD: Text outside the JSON object
 "#;
 
 pub const STORAGE_JUNIOR_PROMPT: &str = r#"## Role

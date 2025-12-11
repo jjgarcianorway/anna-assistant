@@ -146,13 +146,19 @@ impl TheatreContext {
 }
 
 /// Map SpecialistDomain to Team
+/// v0.0.405: Expanded for all domains
 fn domain_to_team(domain: SpecialistDomain) -> Team {
     match domain {
-        SpecialistDomain::System => Team::Desktop,
+        SpecialistDomain::System => Team::Performance,
+        SpecialistDomain::Boot => Team::Services,
+        SpecialistDomain::Services => Team::Services,
         SpecialistDomain::Network => Team::Network,
         SpecialistDomain::Storage => Team::Storage,
-        SpecialistDomain::Security => Team::Security,
         SpecialistDomain::Packages => Team::Services,
+        SpecialistDomain::Audio => Team::Hardware,
+        SpecialistDomain::Display => Team::Hardware,
+        SpecialistDomain::Desktop => Team::Desktop,
+        SpecialistDomain::Security => Team::Security,
     }
 }
 
@@ -175,9 +181,9 @@ mod tests {
     #[test]
     fn test_theatre_context_creation() {
         let ctx = TheatreContext::new("how much RAM?", SpecialistDomain::System);
-        // v0.0.251: Now uses domain prefix (DSK for Desktop/System)
+        // v0.0.405: System → Performance team, but DSK ticket domain prefix
         assert!(ctx.case_number.starts_with("DSK-"));
-        assert_eq!(ctx.team, Team::Desktop);
+        assert_eq!(ctx.team, Team::Performance);
         assert!(!ctx.staff_name().is_empty());
     }
 
@@ -192,10 +198,16 @@ mod tests {
 
     #[test]
     fn test_domain_to_team_mapping() {
-        assert_eq!(domain_to_team(SpecialistDomain::System), Team::Desktop);
+        // v0.0.405: Updated mappings for all domains
+        assert_eq!(domain_to_team(SpecialistDomain::System), Team::Performance);
+        assert_eq!(domain_to_team(SpecialistDomain::Boot), Team::Services);
+        assert_eq!(domain_to_team(SpecialistDomain::Services), Team::Services);
         assert_eq!(domain_to_team(SpecialistDomain::Network), Team::Network);
         assert_eq!(domain_to_team(SpecialistDomain::Storage), Team::Storage);
-        assert_eq!(domain_to_team(SpecialistDomain::Security), Team::Security);
         assert_eq!(domain_to_team(SpecialistDomain::Packages), Team::Services);
+        assert_eq!(domain_to_team(SpecialistDomain::Audio), Team::Hardware);
+        assert_eq!(domain_to_team(SpecialistDomain::Display), Team::Hardware);
+        assert_eq!(domain_to_team(SpecialistDomain::Desktop), Team::Desktop);
+        assert_eq!(domain_to_team(SpecialistDomain::Security), Team::Security);
     }
 }

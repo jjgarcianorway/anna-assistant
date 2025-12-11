@@ -22,8 +22,7 @@ use tracing::info;
 
 use crate::scoring;
 
-// Re-export prompt building for backwards compatibility
-pub use crate::prompts::{build_specialist_prompt, PromptResult};
+// v0.0.406: Removed prompts re-export - JSON specialists use specialist_prompt.rs instead
 
 // Re-export response builders from dedicated module (v0.0.155)
 pub use crate::response_builders::{

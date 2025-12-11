@@ -59,6 +59,7 @@ pub mod permissions;
 pub mod probe_answers;
 pub mod probe_direct; // v0.0.403: Direct probe answers (bypass dumb LLM)
 pub mod probe_registry;
+pub mod probe_domain; // v0.0.405: Domain→probes mapping
 pub mod response_renderer; // v0.0.404: Personality rendering layer
 pub mod specialist_prompt; // v0.0.404: JSON-only specialist prompts
 pub mod probe_runner;
@@ -70,6 +71,7 @@ pub mod query_classify;
 pub mod rag_answerer;
 pub mod recipe_builtins;
 pub mod recipe_fast_path;
+pub mod file_recipe_path; // v0.0.406: TOML-based authored recipes
 pub mod recipe_similarity;
 pub mod redact;
 pub mod response_builders;
@@ -86,6 +88,7 @@ pub mod service_desk;
 pub mod specialist_handler;
 pub mod specialist_json; // v0.0.404: JSON-only specialist handler
 pub mod specialist_stage;
+pub mod evidence_integration; // v0.0.410: Evidence pipeline integration
 pub mod state;
 pub mod snapshot_loop;
 pub mod state_types;
@@ -93,6 +96,8 @@ pub mod summarizer;
 pub mod system_verifiers;
 pub mod theatre;
 pub mod ticket_loop;
+pub mod ticket_persistence; // v0.0.411: Ticket persistence for stats
+pub mod recipe_engine_v2; // v0.0.412: Self-learning recipe system
 pub mod ticket_service;
 pub mod timeout_handler;
 pub mod translator;

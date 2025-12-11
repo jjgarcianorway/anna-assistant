@@ -106,10 +106,18 @@ pub fn create_ticket_from_translator(
     evidence_kinds: Vec<EvidenceKind>,
 ) -> Ticket {
     // Determine risk level based on intent
+    // v0.0.405: Expanded for all intents
     let risk_level = match ticket.intent {
         anna_shared::rpc::QueryIntent::Question => RiskLevel::ReadOnly,
         anna_shared::rpc::QueryIntent::Investigate => RiskLevel::ReadOnly,
         anna_shared::rpc::QueryIntent::Request => RiskLevel::LowRiskChange,
+        // New intents (v0.0.405)
+        anna_shared::rpc::QueryIntent::QueryMetric => RiskLevel::ReadOnly,
+        anna_shared::rpc::QueryIntent::Diagnose => RiskLevel::ReadOnly,
+        anna_shared::rpc::QueryIntent::List => RiskLevel::ReadOnly,
+        anna_shared::rpc::QueryIntent::CheckStatus => RiskLevel::ReadOnly,
+        anna_shared::rpc::QueryIntent::Explain => RiskLevel::ReadOnly,
+        anna_shared::rpc::QueryIntent::Configure => RiskLevel::LowRiskChange,
     };
 
     // Determine team from domain, intent, and route class (v0.0.25)

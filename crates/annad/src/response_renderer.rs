@@ -1,10 +1,11 @@
-//! Response renderer (v0.0.404).
+//! Response renderer (v0.0.405).
 //!
 //! This module takes the structured JSON from specialists and renders it
 //! into user-facing output with personality. The LLM NEVER generates the
 //! personality text - it only provides the data.
 //!
 //! Key principle: personality is a rendering layer, not LLM output.
+//! v0.0.405: Expanded staff for all domains per clean architecture roadmap.
 
 use anna_shared::specialist_contract::{
     Evidence, Mood, ResponseStatus, Severity, SpecialistResponse, StaffView,
@@ -17,27 +18,30 @@ pub struct StaffMember {
     pub title: &'static str,
 }
 
-/// The staff registry
+/// The staff registry - one specialist per domain
+/// v0.0.406: Aligned with roster (anna_shared::roster) names for consistency
+/// Domain → Team mapping: system→Performance, boot/services/packages→Services,
+/// network→Network, storage→Storage, audio/display→Hardware, desktop→Desktop, security→Security
 pub const STAFF: &[(&str, StaffMember)] = &[
-    (
-        "desktop",
-        StaffMember {
-            name: "Sofia",
-            title: "Desktop Administrator",
-        },
-    ),
-    (
-        "storage",
-        StaffMember {
-            name: "Lars",
-            title: "Storage Engineer",
-        },
-    ),
     (
         "system",
         StaffMember {
-            name: "Tomas",
-            title: "Support Analyst",
+            name: "Kari",
+            title: "Performance Analyst",
+        },
+    ),
+    (
+        "boot",
+        StaffMember {
+            name: "Hugo",
+            title: "Services Administrator",
+        },
+    ),
+    (
+        "services",
+        StaffMember {
+            name: "Hugo",
+            title: "Services Administrator",
         },
     ),
     (
@@ -48,17 +52,45 @@ pub const STAFF: &[(&str, StaffMember)] = &[
         },
     ),
     (
-        "security",
+        "storage",
         StaffMember {
-            name: "Elena",
-            title: "Security Analyst",
+            name: "Lars",
+            title: "Storage Engineer",
         },
     ),
     (
         "packages",
         StaffMember {
-            name: "Marcus",
-            title: "Package Manager",
+            name: "Hugo",
+            title: "Services Administrator",
+        },
+    ),
+    (
+        "audio",
+        StaffMember {
+            name: "Nora",
+            title: "Hardware Technician",
+        },
+    ),
+    (
+        "display",
+        StaffMember {
+            name: "Nora",
+            title: "Hardware Technician",
+        },
+    ),
+    (
+        "desktop",
+        StaffMember {
+            name: "Sofia",
+            title: "Desktop Administrator",
+        },
+    ),
+    (
+        "security",
+        StaffMember {
+            name: "Priya",
+            title: "Security Analyst",
         },
     ),
 ];
@@ -307,7 +339,8 @@ mod tests {
 
         assert!(rendered.answer.contains("No, there is no active swap"));
         assert_eq!(rendered.reliability, 95);
-        assert!(rendered.internal_comms.contains("Tomas"));
+        // v0.0.406: System domain now maps to Kari (Performance team)
+        assert!(rendered.internal_comms.contains("Kari"));
         assert!(rendered.internal_comms.contains("No swap configured"));
     }
 
@@ -346,7 +379,8 @@ mod tests {
         let rendered = RenderedResponse {
             answer: "Test answer.".to_string(),
             evidence_lines: vec!["- probe1: snippet1".to_string()],
-            internal_comms: "Tomas (Support Analyst): Looks good.".to_string(),
+            // v0.0.406: Using Kari from Performance team
+            internal_comms: "Kari (Performance Analyst): Looks good.".to_string(),
             reliability: 90,
             status_message: "System Status | Verified | 90%".to_string(),
         };

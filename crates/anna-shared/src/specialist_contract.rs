@@ -1,4 +1,4 @@
-//! Specialist JSON contract (v0.0.404).
+//! Specialist JSON contract (v0.0.408).
 //!
 //! This defines the STRICT schema that all specialists must output.
 //! Specialists ONLY output JSON - no prose, no roleplay, no excuses.
@@ -7,8 +7,12 @@
 //! Key principles:
 //! - answer.short MUST directly answer the user's question
 //! - evidence[] MUST back up every claim
+//! - evidence_references[] MUST list IDs of knowledge items used
+//! - can_answer MUST be false if insufficient evidence
 //! - discovery.new_probes/recipes is how Anna learns new capabilities
 //! - Specialists NEVER speak to the user, only return structured data
+//!
+//! v0.0.408: Added can_answer, evidence_references, knowledge_used, NoEvidence status
 
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +54,19 @@ pub struct SpecialistResponse {
     /// If status is needs_more_data, which probes are missing
     #[serde(default)]
     pub missing_probes: Vec<String>,
+    /// v0.0.408: Explicit "I cannot answer this" flag
+    #[serde(default = "default_can_answer")]
+    pub can_answer: bool,
+    /// v0.0.408: IDs of knowledge items referenced by the answer
+    #[serde(default)]
+    pub evidence_references: Vec<String>,
+    /// v0.0.408: Short titles of knowledge items used (for display)
+    #[serde(default)]
+    pub knowledge_used: Vec<String>,
+}
+
+fn default_can_answer() -> bool {
+    true
 }
 
 /// Response status
@@ -60,6 +77,8 @@ pub enum ResponseStatus {
     NeedsMoreData,
     CannotAnswer,
     Error,
+    /// v0.0.408: Probes ran but no relevant documentation found
+    NoEvidence,
 }
 
 /// The actual answer
@@ -210,6 +229,56 @@ pub enum RiskLevel {
 }
 
 impl SpecialistResponse {
+    /// v0.0.409: Validate response for forbidden patterns and invalid data
+    pub fn validate(&self) -> Vec<String> {
+        let mut errors = vec![];
+
+        // Check for forbidden patterns in answer
+        let forbidden = [
+            "unknown is installed",
+            "unknown is not installed",
+            "**unknown**",
+            "2 is installed",  // Common parse bug
+            "1 is installed",
+        ];
+
+        let answer_lower = self.answer.short.to_lowercase();
+        let detail_lower = self.answer.detail.as_ref().map(|d| d.to_lowercase()).unwrap_or_default();
+
+        for f in forbidden {
+            if answer_lower.contains(f) || detail_lower.contains(f) {
+                errors.push(format!("Answer contains forbidden pattern: '{}'", f));
+            }
+        }
+
+        // Check confidence vs evidence consistency
+        if self.status == ResponseStatus::Ok {
+            if self.confidence > 0.8 && self.evidence.is_empty() {
+                errors.push("High confidence (>0.8) but no evidence provided".to_string());
+            }
+            if self.can_answer && self.answer.short.is_empty() {
+                errors.push("can_answer=true but answer.short is empty".to_string());
+            }
+        }
+
+        // Check for can_answer consistency
+        if !self.can_answer && self.status == ResponseStatus::Ok && self.confidence > 0.7 {
+            errors.push("can_answer=false but status=ok with high confidence".to_string());
+        }
+
+        // Check confidence range
+        if self.confidence < 0.0 || self.confidence > 1.0 {
+            errors.push(format!("Confidence {} out of range [0.0, 1.0]", self.confidence));
+        }
+
+        errors
+    }
+
+    /// v0.0.409: Check if this is a valid, meaningful response
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_empty()
+    }
+
     /// Create a fallback response when JSON parsing fails
     pub fn parse_error(ticket_id: &str, error: &str) -> Self {
         Self {
@@ -232,6 +301,9 @@ impl SpecialistResponse {
             next_steps: None,
             discovery: None,
             missing_probes: vec![],
+            can_answer: false,
+            evidence_references: vec![],
+            knowledge_used: vec![],
         }
     }
 
@@ -261,6 +333,80 @@ impl SpecialistResponse {
             next_steps: None,
             discovery: None,
             missing_probes: vec![],
+            can_answer: true,
+            evidence_references: vec![evidence_probe.to_string()],
+            knowledge_used: vec![evidence_probe.to_string()],
+        }
+    }
+
+    /// v0.0.408: Create a "cannot answer" response with suggestions
+    pub fn no_evidence(ticket_id: &str, reason: &str, suggestions: Vec<String>) -> Self {
+        Self {
+            ticket_id: ticket_id.to_string(),
+            status: ResponseStatus::NoEvidence,
+            answer: Answer {
+                short: "I cannot safely answer this from local data.".to_string(),
+                detail: Some(reason.to_string()),
+                domain_summary: None,
+            },
+            evidence: vec![],
+            confidence: 0.0,
+            staff_view: Some(StaffView {
+                assignee_role: "System".to_string(),
+                severity: Severity::Info,
+                mood: Mood::Uncertain,
+                short_note: Some("No evidence found".to_string()),
+                complexity: 1,
+            }),
+            next_steps: Some(NextSteps {
+                user_actions: suggestions
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, s)| UserAction {
+                        id: format!("suggest_{}", i),
+                        description: s,
+                        recipe_id: None,
+                    })
+                    .collect(),
+                internal_actions: vec![],
+            }),
+            discovery: None,
+            missing_probes: vec![],
+            can_answer: false,
+            evidence_references: vec![],
+            knowledge_used: vec![],
+        }
+    }
+
+    /// v0.0.410: Create response from instant answer (knowledge index hit)
+    pub fn instant_answer(ticket_id: &str, answer: &str) -> Self {
+        Self {
+            ticket_id: ticket_id.to_string(),
+            status: ResponseStatus::Ok,
+            answer: Answer {
+                short: answer.to_string(),
+                detail: None,
+                domain_summary: None,
+            },
+            evidence: vec![Evidence {
+                probe: "knowledge_index".to_string(),
+                snippet: "Learned from previous successful answer".to_string(),
+                interpretation: "This pattern was previously verified and stored.".to_string(),
+            }],
+            confidence: 0.85,
+            staff_view: Some(StaffView {
+                assignee_role: "Knowledge Index".to_string(),
+                severity: Severity::Info,
+                mood: Mood::Confident,
+                short_note: Some("Instant answer from learned pattern".to_string()),
+                complexity: 1,
+            }),
+            next_steps: None,
+            discovery: None,
+            missing_probes: vec![],
+            can_answer: true,
+            evidence_references: vec!["knowledge_index".to_string()],
+            knowledge_used: vec!["learned_pattern".to_string()],
         }
     }
 }
@@ -347,5 +493,86 @@ mod tests {
         let discovery = response.discovery.unwrap();
         assert_eq!(discovery.new_probes.len(), 1);
         assert_eq!(discovery.new_probes[0].id, "zram_devices");
+    }
+
+    #[test]
+    fn test_validate_forbidden_patterns() {
+        let response = SpecialistResponse {
+            ticket_id: "DSK-0104".to_string(),
+            status: ResponseStatus::Ok,
+            answer: Answer {
+                short: "unknown is installed on your system".to_string(),
+                detail: None,
+                domain_summary: None,
+            },
+            evidence: vec![],
+            confidence: 0.9,
+            staff_view: None,
+            next_steps: None,
+            discovery: None,
+            missing_probes: vec![],
+            can_answer: true,
+            evidence_references: vec![],
+            knowledge_used: vec![],
+        };
+
+        let errors = response.validate();
+        assert!(!errors.is_empty());
+        assert!(errors.iter().any(|e| e.contains("forbidden pattern")));
+    }
+
+    #[test]
+    fn test_validate_high_confidence_no_evidence() {
+        let response = SpecialistResponse {
+            ticket_id: "DSK-0105".to_string(),
+            status: ResponseStatus::Ok,
+            answer: Answer {
+                short: "vim is installed".to_string(),
+                detail: None,
+                domain_summary: None,
+            },
+            evidence: vec![],  // No evidence!
+            confidence: 0.95,  // High confidence!
+            staff_view: None,
+            next_steps: None,
+            discovery: None,
+            missing_probes: vec![],
+            can_answer: true,
+            evidence_references: vec![],
+            knowledge_used: vec![],
+        };
+
+        let errors = response.validate();
+        assert!(errors.iter().any(|e| e.contains("no evidence")));
+    }
+
+    #[test]
+    fn test_validate_valid_response() {
+        let response = SpecialistResponse {
+            ticket_id: "DSK-0106".to_string(),
+            status: ResponseStatus::Ok,
+            answer: Answer {
+                short: "vim is installed at /usr/bin/vim".to_string(),
+                detail: None,
+                domain_summary: None,
+            },
+            evidence: vec![Evidence {
+                probe: "command_v".to_string(),
+                snippet: "/usr/bin/vim".to_string(),
+                interpretation: "vim binary found".to_string(),
+            }],
+            confidence: 0.9,
+            staff_view: None,
+            next_steps: None,
+            discovery: None,
+            missing_probes: vec![],
+            can_answer: true,
+            evidence_references: vec!["command_v".to_string()],
+            knowledge_used: vec![],
+        };
+
+        let errors = response.validate();
+        assert!(errors.is_empty());
+        assert!(response.is_valid());
     }
 }

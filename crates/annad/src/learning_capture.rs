@@ -18,13 +18,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 
 /// Parse domain string to SpecialistDomain enum
+/// v0.0.406: Updated to handle all 10 domains
 pub fn parse_domain(s: &str) -> SpecialistDomain {
     match s.to_lowercase().as_str() {
         "system" => SpecialistDomain::System,
+        "boot" => SpecialistDomain::Boot,
+        "services" | "service" => SpecialistDomain::Services,
         "network" => SpecialistDomain::Network,
         "storage" => SpecialistDomain::Storage,
-        "security" => SpecialistDomain::Security,
         "packages" => SpecialistDomain::Packages,
+        "audio" | "sound" => SpecialistDomain::Audio,
+        "display" | "graphics" | "gpu" => SpecialistDomain::Display,
+        "desktop" | "de" | "wm" => SpecialistDomain::Desktop,
+        "security" => SpecialistDomain::Security,
         _ => SpecialistDomain::System,
     }
 }
@@ -271,6 +277,12 @@ mod tests {
     fn test_parse_domain() {
         assert_eq!(parse_domain("system"), SpecialistDomain::System);
         assert_eq!(parse_domain("Network"), SpecialistDomain::Network);
+        assert_eq!(parse_domain("boot"), SpecialistDomain::Boot);
+        assert_eq!(parse_domain("services"), SpecialistDomain::Services);
+        assert_eq!(parse_domain("audio"), SpecialistDomain::Audio);
+        assert_eq!(parse_domain("sound"), SpecialistDomain::Audio);
+        assert_eq!(parse_domain("display"), SpecialistDomain::Display);
+        assert_eq!(parse_domain("desktop"), SpecialistDomain::Desktop);
         assert_eq!(parse_domain("unknown"), SpecialistDomain::System);
     }
 

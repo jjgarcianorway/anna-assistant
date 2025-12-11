@@ -2,6 +2,8 @@
 //! Checks recipe index BEFORE LLM translator. High-confidence matches skip LLM entirely.
 //! v0.0.163: Built-in recipe matchers extracted to separate module.
 //! v0.0.264: Added config hint support for specialist context.
+//! v0.0.406: TOML-based FileRecipe check moved to file_recipe_path.rs.
+//! v0.0.412: Check learned recipes FIRST (RecipeStoreV2) before hardcoded.
 
 use anna_shared::recipe::{Recipe, RecipeKind};
 use anna_shared::recipe_index::RecipeIndex;
@@ -12,6 +14,7 @@ use anna_shared::rpc::{
 };
 use anna_shared::trace::{ExecutionTrace, ProbeStats};
 use anna_shared::transcript::Transcript;
+use crate::recipe_engine_v2;
 use tracing::info;
 
 // Re-export built-in recipe matchers
@@ -38,6 +41,8 @@ pub struct RecipeFastPathResult {
     pub matched_tokens: Vec<String>,
     /// Whether we can skip the LLM
     pub skip_llm: bool,
+    /// v0.0.412: Learned recipe ID (for RecipeStoreV2 recipes)
+    pub learned_recipe_id: Option<String>,
 }
 
 impl RecipeFastPathResult {
@@ -49,6 +54,7 @@ impl RecipeFastPathResult {
             score: 0,
             matched_tokens: vec![],
             skip_llm: false,
+            learned_recipe_id: None,
         }
     }
 
@@ -67,13 +73,35 @@ impl RecipeFastPathResult {
             score: result.score,
             matched_tokens: result.matched_tokens,
             skip_llm,
+            learned_recipe_id: None,
         }
     }
 }
 
 /// Check recipe index for a matching recipe
 pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPathResult {
-    // First, try the general recipe matcher
+    // v0.0.412: Check LEARNED recipes FIRST (self-learning system)
+    let learned = recipe_engine_v2::check_learned_recipes(query, None);
+    if learned.matched && learned.can_execute {
+        info!(
+            "Learned recipe match: {} (score={:.2}, type={:?})",
+            learned.recipe_name.as_deref().unwrap_or("?"),
+            learned.score,
+            learned.match_type
+        );
+        // Create a minimal RecipeFastPathResult for learned recipes
+        return RecipeFastPathResult {
+            matched: true,
+            ticket: None, // Will be executed via execute_learned_recipe
+            recipe: None, // Learned recipes use Recipe from RecipeStoreV2
+            score: (learned.score * 100.0) as u32,
+            matched_tokens: vec![learned.recipe_name.clone().unwrap_or_default()],
+            skip_llm: true,
+            learned_recipe_id: learned.recipe_id,
+        };
+    }
+
+    // Then try the general recipe matcher
     if let Some(result) = match_recipe(query, index) {
         info!(
             "Recipe match found: score={}, tokens={:?}, skip_llm={}",
@@ -84,7 +112,7 @@ pub fn check_recipe_fast_path(query: &str, index: &RecipeIndex) -> RecipeFastPat
         return RecipeFastPathResult::from_recipe(result);
     }
 
-    // Second, check built-in shell recipes
+    // Third, check built-in shell recipes
     if let Some(result) = check_shell_recipes(query) {
         info!(
             "Shell recipe match found: {}",
@@ -260,12 +288,31 @@ pub fn build_recipe_result(
 
 /// Check if a recipe result can provide a direct answer (has answer_template)
 pub fn can_answer_directly(result: &RecipeFastPathResult) -> bool {
+    // v0.0.412: Learned recipes can always answer directly
+    if result.learned_recipe_id.is_some() {
+        return result.skip_llm;
+    }
     result.skip_llm
         && result
             .recipe
             .as_ref()
             .map(|r| !r.answer_template.is_empty())
             .unwrap_or(false)
+}
+
+/// v0.0.412: Execute a learned recipe and return result
+pub fn execute_learned_recipe(
+    result: &RecipeFastPathResult,
+    query: &str,
+    request_id: &str,
+) -> Option<ServiceDeskResult> {
+    let recipe_id = result.learned_recipe_id.as_ref()?;
+    recipe_engine_v2::execute_learned_recipe(recipe_id, query, request_id)
+}
+
+/// v0.0.412: Check if this is a learned recipe match
+pub fn is_learned_recipe(result: &RecipeFastPathResult) -> bool {
+    result.learned_recipe_id.is_some()
 }
 
 /// v0.0.264: Get config hint for specialist context if this is a config query.

@@ -81,6 +81,16 @@ impl KnowledgeStore {
         Self::load_from_path(&Self::default_path())
     }
 
+    /// Load store from disk or create new if not exists (v0.0.406)
+    pub fn load_or_default() -> Self {
+        let path = Self::default_path();
+        if path.exists() {
+            Self::load_from_path(&path)
+        } else {
+            Self::at_path(path)
+        }
+    }
+
     /// Load store from specific path
     pub fn load_from_path(path: &PathBuf) -> Self {
         let mut store = Self::at_path(path.clone());

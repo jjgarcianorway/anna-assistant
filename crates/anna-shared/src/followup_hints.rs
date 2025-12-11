@@ -42,6 +42,22 @@ pub fn generate_followup_hints(
         SpecialistDomain::Packages => {
             hints.extend(package_followups(&query_lower));
         }
+        // v0.0.405: New domains - basic hints for now
+        SpecialistDomain::Boot => {
+            hints.extend(boot_followups(&query_lower));
+        }
+        SpecialistDomain::Services => {
+            hints.extend(services_followups(&query_lower));
+        }
+        SpecialistDomain::Audio => {
+            hints.extend(audio_followups(&query_lower));
+        }
+        SpecialistDomain::Display => {
+            hints.extend(display_followups(&query_lower));
+        }
+        SpecialistDomain::Desktop => {
+            hints.extend(desktop_followups(&query_lower));
+        }
     }
 
     // Sort by relevance and take top 2
@@ -210,6 +226,118 @@ fn package_followups(query: &str) -> Vec<FollowupHint> {
             hint: "Try checking for broken packages".to_string(),
             command: None, // Distro-specific
             relevance: 85,
+        });
+    }
+
+    hints
+}
+
+// v0.0.405: New domain followup functions
+
+fn boot_followups(query: &str) -> Vec<FollowupHint> {
+    let mut hints = Vec::new();
+
+    if query.contains("slow") || query.contains("time") || query.contains("long") {
+        hints.push(FollowupHint {
+            hint: "See what's slowing down boot".to_string(),
+            command: Some("systemd-analyze blame | head -10".to_string()),
+            relevance: 90,
+        });
+    }
+
+    if query.contains("fail") || query.contains("error") {
+        hints.push(FollowupHint {
+            hint: "Check for boot errors".to_string(),
+            command: Some("journalctl -b -p err".to_string()),
+            relevance: 85,
+        });
+    }
+
+    hints
+}
+
+fn services_followups(query: &str) -> Vec<FollowupHint> {
+    let mut hints = Vec::new();
+
+    if query.contains("fail") || query.contains("error") {
+        hints.push(FollowupHint {
+            hint: "View logs for failed services".to_string(),
+            command: Some("journalctl -xe --no-pager | tail -30".to_string()),
+            relevance: 85,
+        });
+    }
+
+    if query.contains("start") || query.contains("enable") {
+        hints.push(FollowupHint {
+            hint: "Enable service to start on boot".to_string(),
+            command: None, // Service-specific
+            relevance: 75,
+        });
+    }
+
+    hints
+}
+
+fn audio_followups(query: &str) -> Vec<FollowupHint> {
+    let mut hints = Vec::new();
+
+    if query.contains("no sound") || query.contains("mute") || query.contains("silent") {
+        hints.push(FollowupHint {
+            hint: "Check if output is muted".to_string(),
+            command: Some("wpctl status || pactl list sinks".to_string()),
+            relevance: 90,
+        });
+    }
+
+    if query.contains("device") || query.contains("speaker") || query.contains("headphone") {
+        hints.push(FollowupHint {
+            hint: "List all audio devices".to_string(),
+            command: Some("pactl list sinks short".to_string()),
+            relevance: 80,
+        });
+    }
+
+    hints
+}
+
+fn display_followups(query: &str) -> Vec<FollowupHint> {
+    let mut hints = Vec::new();
+
+    if query.contains("resolution") || query.contains("screen") || query.contains("monitor") {
+        hints.push(FollowupHint {
+            hint: "List available resolutions".to_string(),
+            command: Some("xrandr 2>/dev/null || wlr-randr".to_string()),
+            relevance: 85,
+        });
+    }
+
+    if query.contains("driver") || query.contains("gpu") || query.contains("graphics") {
+        hints.push(FollowupHint {
+            hint: "Check GPU driver in use".to_string(),
+            command: Some("glxinfo | grep -i 'renderer\\|vendor'".to_string()),
+            relevance: 85,
+        });
+    }
+
+    hints
+}
+
+fn desktop_followups(query: &str) -> Vec<FollowupHint> {
+    let mut hints = Vec::new();
+
+    if query.contains("config") || query.contains("setting") {
+        hints.push(FollowupHint {
+            hint: "Reload config without restart".to_string(),
+            command: None, // DE-specific
+            relevance: 75,
+        });
+    }
+
+    if query.contains("hyprland") || query.contains("hypr") {
+        hints.push(FollowupHint {
+            hint: "Check Hyprland config syntax".to_string(),
+            command: Some("hyprctl reload".to_string()),
+            relevance: 80,
         });
     }
 

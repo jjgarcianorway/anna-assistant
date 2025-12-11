@@ -366,9 +366,10 @@ fn classify_graphics_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
         || q.contains("driver")
         || q.contains("acceleration")
     {
-        let mut probes = vec!["gpu_drivers".to_string(), "display_server".to_string()];
+        let mut probes = vec!["gpu_info".to_string(), "display_server".to_string()];
 
         if q.contains("driver") || q.contains("nvidia") || q.contains("amd") {
+            probes.push("gpu_drivers".to_string());
             probes.push("kernel_modules".to_string());
         }
         if q.contains("vulkan") {
@@ -381,20 +382,13 @@ fn classify_graphics_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
             probes.push("vaapi_status".to_string());
             probes.push("vdpau_status".to_string());
         }
-        if q.contains("cuda") {
-            probes.push("cuda_installed".to_string());
-        }
-        if q.contains("xorg") || q.contains("tearing") || q.contains("screen") {
-            probes.push("xorg_log".to_string());
-        }
-        if q.contains("temperature") || q.contains("temp") {
-            probes.push("sensors_temp".to_string());
-            probes.push("gpu_memory".to_string());
+        if q.contains("monitor") || q.contains("resolution") {
+            probes.push("display_info".to_string());
         }
 
         return Some(TranslatorTicket {
             intent: classify_intent(q),
-            domain: SpecialistDomain::System, // Graphics is a system concern
+            domain: SpecialistDomain::Display, // v0.0.405: Use Display domain
             entities: vec![],
             needs_probes: probes,
             clarification_question: None,
@@ -420,12 +414,12 @@ fn classify_audio_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
     {
         return Some(TranslatorTicket {
             intent: classify_intent(q),
-            domain: SpecialistDomain::System,
+            domain: SpecialistDomain::Audio, // v0.0.405: Use Audio domain
             entities: vec![],
             needs_probes: vec![
                 "audio_devices".to_string(),
+                "audio_server".to_string(),
                 "pactl_cards".to_string(),
-                "lspci_audio".to_string(),
             ],
             clarification_question: None,
             confidence: 0.85,
@@ -474,11 +468,10 @@ fn classify_boot_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
         || q.contains("slow boot")
         || q.contains("takes long")
     {
-        let mut probes = vec!["uptime".to_string(), "boot_time".to_string()];
+        let mut probes = vec!["boot_time".to_string(), "boot_blame".to_string()];
 
         if q.contains("slow") || q.contains("long") || q.contains("analyze") {
-            // Boot time analysis probes would go here
-            probes.push("running_services".to_string());
+            probes.push("failed_services".to_string());
         }
         if q.contains("grub") || q.contains("loader") {
             probes.push("boot_loader".to_string());
@@ -487,13 +480,13 @@ fn classify_boot_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
             probes.push("installed_kernels".to_string());
             probes.push("kernel_cmdline".to_string());
         }
-        if q.contains("last") {
-            probes.push("last_boot".to_string());
+        if q.contains("error") {
+            probes.push("journal_errors".to_string());
         }
 
         return Some(TranslatorTicket {
             intent: classify_intent(q),
-            domain: SpecialistDomain::System,
+            domain: SpecialistDomain::Boot, // v0.0.405: Use Boot domain
             entities: vec![],
             needs_probes: probes,
             clarification_question: None,
@@ -530,7 +523,7 @@ fn classify_service_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
 
         return Some(TranslatorTicket {
             intent: classify_intent(q),
-            domain: SpecialistDomain::System,
+            domain: SpecialistDomain::Services, // v0.0.405: Use Services domain
             entities: vec![],
             needs_probes: probes,
             clarification_question: None,
@@ -807,6 +800,7 @@ fn classify_user_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
 // Helper functions
 // ============================================================================
 
+/// v0.0.405: Use new intent types (normalized from legacy)
 fn classify_intent(q: &str) -> QueryIntent {
     if q.contains("install")
         || q.contains("start")
@@ -817,7 +811,7 @@ fn classify_intent(q: &str) -> QueryIntent {
         || q.contains("disable")
         || q.contains("update")
     {
-        QueryIntent::Request
+        QueryIntent::Configure // Was Request, now Configure
     } else if q.contains("why")
         || q.contains("debug")
         || q.contains("fix")
@@ -827,9 +821,20 @@ fn classify_intent(q: &str) -> QueryIntent {
         || q.contains("not working")
         || q.contains("broken")
     {
-        QueryIntent::Investigate
+        QueryIntent::Diagnose // Was Investigate, now Diagnose
+    } else if q.contains("list")
+        || q.contains("show all")
+        || q.contains("what's installed")
+    {
+        QueryIntent::List
+    } else if q.contains("is running")
+        || q.contains("is active")
+        || q.contains("is enabled")
+        || q.contains("status")
+    {
+        QueryIntent::CheckStatus
     } else {
-        QueryIntent::Question
+        QueryIntent::QueryMetric // Was Question, now QueryMetric
     }
 }
 
@@ -853,8 +858,8 @@ mod tests {
     #[test]
     fn test_graphics_classification() {
         let ticket = translate_fallback("screen tearing issues");
-        assert_eq!(ticket.domain, SpecialistDomain::System);
-        assert!(ticket.needs_probes.contains(&"gpu_drivers".to_string()));
+        assert_eq!(ticket.domain, SpecialistDomain::Display); // v0.0.405: Now Display
+        assert!(ticket.needs_probes.contains(&"gpu_info".to_string()));
     }
 
     #[test]
@@ -882,6 +887,7 @@ mod tests {
     #[test]
     fn test_audio_classification() {
         let ticket = translate_fallback("no sound from speakers");
+        assert_eq!(ticket.domain, SpecialistDomain::Audio); // v0.0.405: Now Audio
         assert!(ticket.needs_probes.contains(&"audio_devices".to_string()));
     }
 
@@ -895,6 +901,14 @@ mod tests {
     #[test]
     fn test_boot_classification() {
         let ticket = translate_fallback("my system boots slowly");
+        assert_eq!(ticket.domain, SpecialistDomain::Boot); // v0.0.405: Now Boot
         assert!(ticket.needs_probes.contains(&"boot_time".to_string()));
+    }
+
+    #[test]
+    fn test_services_classification() {
+        let ticket = translate_fallback("are any services failing?");
+        assert_eq!(ticket.domain, SpecialistDomain::Services); // v0.0.405: Now Services
+        assert!(ticket.needs_probes.contains(&"failed_services".to_string()));
     }
 }

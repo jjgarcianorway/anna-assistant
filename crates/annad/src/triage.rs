@@ -88,6 +88,7 @@ pub fn apply_triage_rules(ticket: TranslatorTicket) -> TriageResult {
 }
 
 /// Generate a fallback clarification question based on domain heuristics
+/// v0.0.405: Expanded for all domains
 pub fn generate_fallback_clarification(ticket: &TranslatorTicket) -> String {
     match ticket.domain {
         SpecialistDomain::Network => {
@@ -104,6 +105,21 @@ pub fn generate_fallback_clarification(ticket: &TranslatorTicket) -> String {
         }
         SpecialistDomain::System => {
             "Could you provide more details? Are you asking about CPU, memory, processes, or something else?".to_string()
+        }
+        SpecialistDomain::Boot => {
+            "What boot-related information do you need? For example: boot time, startup services, or boot errors?".to_string()
+        }
+        SpecialistDomain::Services => {
+            "What service information do you need? For example: running services, failed services, or systemd units?".to_string()
+        }
+        SpecialistDomain::Audio => {
+            "What audio issue are you experiencing? For example: no sound, wrong device, or volume problems?".to_string()
+        }
+        SpecialistDomain::Display => {
+            "What display information do you need? For example: resolution, monitors, or GPU details?".to_string()
+        }
+        SpecialistDomain::Desktop => {
+            "What desktop environment help do you need? For example: window manager config, keybindings, or session info?".to_string()
         }
     }
 }

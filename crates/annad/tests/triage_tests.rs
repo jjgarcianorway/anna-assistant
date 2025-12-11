@@ -59,6 +59,11 @@ mod triage {
             SpecialistDomain::Packages => {
                 "What package operation do you need help with?".to_string()
             }
+            SpecialistDomain::Boot => "What boot-related information do you need?".to_string(),
+            SpecialistDomain::Services => "What service information do you need?".to_string(),
+            SpecialistDomain::Audio => "What audio issue are you experiencing?".to_string(),
+            SpecialistDomain::Display => "What display information do you need?".to_string(),
+            SpecialistDomain::Desktop => "What desktop environment help do you need?".to_string(),
             SpecialistDomain::System => "Could you provide more details?".to_string(),
         }
     }

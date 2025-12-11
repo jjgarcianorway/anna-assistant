@@ -2,6 +2,8 @@
 //! v0.0.73: Single source of truth for version via version module.
 //! v0.0.74: Model selector with Qwen3-VL preference.
 //! v0.0.75: UX realism, stats/RPG backend, recipes learned, citations.
+//! v0.0.408: Research-first knowledge system with evidence-based answers.
+//! v0.0.410: Evidence pipeline - real knowledge engine (probes, docs, wiki).
 
 pub mod advice;
 pub mod answer_contract;
@@ -25,6 +27,7 @@ pub mod facts_types;
 pub mod fastpath;
 pub mod git_recipes;
 pub mod grounding;
+pub mod doc_brain; // v0.0.406: Unified doc search (man pages, wiki, help)
 pub mod guard;
 pub mod health_brief;
 pub mod health_delta;
@@ -45,6 +48,7 @@ pub mod probe_spine;
 pub mod progress;
 pub mod recipe;
 pub mod recipe_feedback;
+pub mod recipe_file; // v0.0.406: TOML-based authored recipes
 pub mod recipe_index;
 pub mod recipe_learning;
 pub mod recipe_matcher;
@@ -78,6 +82,30 @@ pub mod status_snapshot;
 pub mod teams;
 pub mod telemetry;
 pub mod ticket;
+pub mod ticket_log; // v0.0.406: Structured ticket logs for learning
+pub mod ticket_state; // v0.0.407: Explicit ticket lifecycle and states
+pub mod ticket_stats; // v0.0.407: Truthful ticket statistics
+pub mod llm_parse; // v0.0.407: Strict LLM JSON parsing with error handling
+pub mod comms_render; // v0.0.407: Internal comms rendering from ticket state
+pub mod error_output; // v0.0.407: User-friendly error messages
+pub mod knowledge_item; // v0.0.408: Knowledge item abstraction
+pub mod doc_search; // v0.0.408: Local documentation search
+pub mod solver_prompts; // v0.0.408: Evidence-focused solver prompts
+pub mod recipe_candidate; // v0.0.408: Recipe candidate storage for learning
+pub mod specialist_response; // v0.0.409: Unified specialist response schema
+pub mod evidence_engine; // v0.0.410: Evidence engine core types
+pub mod probe_registry; // v0.0.410: Composable probe definitions
+pub mod doc_fetcher; // v0.0.410: Enhanced doc fetchers
+pub mod evidence_gatherer; // v0.0.410: Evidence orchestration
+pub mod knowledge_index; // v0.0.410: Compiled knowledge store
+pub mod evidence_pipeline; // v0.0.410: Full evidence integration
+pub mod recipe_engine; // v0.0.412: Self-learning recipe system
+pub mod recipe_store_v2; // v0.0.412: Persistent recipe storage
+pub mod doc_snippet; // v0.0.412: Documentation source integration
+pub mod recipe_executor; // v0.0.412: Recipe execution engine
+pub mod recipe_exec_helpers; // v0.0.412: Execution helper functions
+pub mod recipe_templates; // v0.0.412: Generic parameterized recipes
+pub mod recipe_converter; // v0.0.412: Ticket-to-recipe conversion
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;

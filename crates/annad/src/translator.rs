@@ -79,109 +79,86 @@ impl TranslatorInput {
 }
 
 /// Build the translator system prompt - comprehensive domain and probe mapping
-/// v0.0.402: Complete rewrite with exhaustive probe mappings
+/// v0.0.405: Complete rewrite with all 10 domains and strict JSON output
 fn build_translator_prompt() -> String {
-    format!(
-        r#"You are Anna's query classifier. Classify the query and select appropriate probes.
+    r#"You are Anna's query classifier. Output ONLY valid JSON.
 
-OUTPUT FORMAT (JSON only, no markdown):
-{{"intent":"question|request|investigate","domain":"system|network|storage|security|packages","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.0-1.0}}
+OUTPUT FORMAT:
+{"intent":"query_metric|diagnose|configure|list|check_status|explain","domain":"system|boot|services|network|storage|packages|audio|display|desktop|security","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.0-1.0}
 
-DOMAIN CLASSIFICATION:
-- storage: disk space, folders, partitions, mount, drive, SSD, NVMe, filesystem, "taking space"
-- network: IP, DNS, wifi, ethernet, ports, connections, ping, internet, gateway, routing
-- packages: install, update, pacman, apt, pip, package, upgrade
-- security: firewall, ssh, login, permissions, users, iptables, selinux
-- system: EVERYTHING ELSE including: CPU, RAM, memory, processes, GPU, audio, bluetooth, boot, services, logs, sensors, temperature, hardware, webcam, display, graphics
+DOMAIN CLASSIFICATION (pick ONE):
+- system: CPU, RAM, memory, processes, load, temperature, sensors, general health
+- boot: startup time, boot errors, systemd-analyze, slow boot
+- services: systemd units, running/failed services, daemons, timers
+- network: IP, DNS, wifi, ethernet, ports, connections, ping, gateway
+- storage: disk space, partitions, mounts, drives, filesystems, "taking space"
+- packages: install, update, pacman, apt, dnf, pip, package count
+- audio: sound, speakers, headphones, PulseAudio, PipeWire, volume
+- display: monitors, resolution, GPU, graphics drivers, xrandr, Wayland
+- desktop: window manager, DE config, Hyprland, GNOME, KDE, sessions
+- security: firewall, ssh, logins, permissions, iptables, users
 
-CRITICAL PROBE MAPPINGS (follow exactly):
+PROBE MAPPINGS BY DOMAIN:
 
-STORAGE queries:
-- "disk space", "how much space" → ["disk_usage"]
-- "what's taking space", "largest folders" → ["disk_usage","largest_dirs","largest_home"]
-- "partitions", "mounts", "drives" → ["disk_usage","block_devices","findmnt"]
-- "SSD", "NVMe", "HDD" → ["block_devices"]
-
-SYSTEM queries:
+SYSTEM domain:
 - "memory", "RAM", "swap" → ["memory_info"]
-- "memory + processes" → ["memory_info","top_memory"]
 - "CPU info", "cores" → ["cpu_info"]
 - "CPU usage", "load" → ["cpu_info","load_average","top_cpu"]
 - "temperature", "sensors" → ["sensors_temp"]
+- "processes" → ["top_cpu","top_memory"]
+- "health check" → ["memory_info","disk_usage","failed_services","load_average"]
+
+BOOT domain:
+- "boot time", "startup" → ["boot_time","boot_blame"]
+- "slow boot" → ["boot_time","boot_blame","failed_services"]
+- "boot errors" → ["journal_errors","boot_time"]
+
+SERVICES domain:
 - "services", "systemd" → ["running_services","failed_services"]
 - "failed services" → ["failed_services"]
-- "boot", "uptime" → ["uptime","boot_time"]
-- "slow boot" → ["boot_time","running_services"]
-- "processes", "running" → ["top_cpu","top_memory"]
+- "timers" → ["systemd_timers"]
 
-GRAPHICS/DISPLAY queries (domain=system):
-- "GPU", "graphics card" → ["gpu_drivers","pci_devices"]
-- "screen tearing", "display issues" → ["gpu_drivers","display_server","xorg_log"]
-- "nvidia", "amd", "driver" → ["gpu_drivers","kernel_modules"]
-- "wayland", "xorg", "x11" → ["display_server"]
-- "vulkan", "opengl" → ["vulkan_status","glxinfo_renderer"]
-- "video acceleration" → ["vaapi_status","vdpau_status"]
+STORAGE domain:
+- "disk space" → ["disk_usage"]
+- "what's taking space" → ["disk_usage","largest_dirs","largest_home"]
+- "partitions", "drives" → ["disk_usage","block_devices","findmnt"]
 
-AUDIO queries (domain=system):
-- "audio", "sound", "speakers" → ["audio_devices","pactl_cards"]
-- "no sound" → ["audio_devices","pactl_cards","lspci_audio"]
-
-BLUETOOTH queries (domain=system):
-- "bluetooth", "pair" → ["bluetooth_devices","running_services"]
-
-HARDWARE queries (domain=system):
-- "webcam", "camera" → ["lsusb"]
-- "USB devices" → ["lsusb"]
-- "hardware" → ["pci_devices","lsusb"]
-- "battery" → ["battery"]
-- "printer" → ["printer_status"]
-
-NETWORK queries:
+NETWORK domain:
 - "IP address" → ["network_addrs"]
 - "DNS" → ["dns_servers"]
-- "wifi", "wireless" → ["network_addrs","wireless_networks"]
-- "ports", "listening" → ["listening_ports"]
-- "internet", "connected" → ["network_addrs","ping_check"]
-- "routes", "gateway" → ["network_routes","default_gateway"]
+- "wifi" → ["network_addrs","wireless_networks"]
+- "ports" → ["listening_ports"]
+- "internet check" → ["network_addrs","ping_check"]
 
-LOGS queries (domain=system):
-- "errors", "error log" → ["journal_errors"]
-- "warnings" → ["journal_warnings"]
-- "dmesg", "kernel log" → ["dmesg_errors"]
-- "logs" → ["journal_errors","journal_warnings"]
-
-PACKAGE queries:
+PACKAGES domain:
 - "updates available" → ["package_updates"]
 - "installed packages" → ["installed_packages","package_count"]
-- "how many packages" → ["package_count"]
 
-SECURITY queries:
+AUDIO domain:
+- "sound", "speakers" → ["audio_devices","audio_server"]
+- "no sound" → ["audio_devices","audio_server","pactl_cards"]
+
+DISPLAY domain:
+- "GPU", "graphics" → ["gpu_info","gpu_drivers"]
+- "monitors", "resolution" → ["display_info"]
+- "wayland", "xorg" → ["display_server"]
+- "nvidia", "amd driver" → ["gpu_drivers","kernel_modules"]
+
+DESKTOP domain:
+- "desktop environment" → ["desktop_session","installed_desktops"]
+- "hyprland", "gnome", "kde" → ["desktop_session"]
+- "window manager config" → ["desktop_session"]
+
+SECURITY domain:
 - "firewall" → ["firewall_status","iptables_rules"]
 - "ssh", "logins" → ["ssh_connections","last_logins","failed_logins"]
-- "who logged in" → ["who","last_logins","loginctl_sessions"]
-
-CONFIG queries (domain=system):
-- "vim config" → ["vimrc_content"]
-- "nvim config" → ["nvim_config"]
-- "bashrc" → ["bashrc_content"]
-- "zshrc" → ["zshrc_content"]
-
-DOCKER queries (domain=system):
-- "docker", "containers" → ["docker_containers","docker_images"]
-
-HEALTH/STATUS queries (domain=system):
-- "how is my computer", "any errors", "health" → ["memory_info","disk_usage","failed_services","load_average"]
-
-Available probes: {}
 
 RULES:
-1. Select 1-4 probes that DIRECTLY answer the query
-2. Use domain=system for hardware, graphics, audio, bluetooth, sensors
-3. NEVER select unrelated probes (e.g., don't use network_addrs for webcam)
-4. clarification_question should be null unless truly ambiguous
-5. Output ONLY the JSON, no explanation"#,
-        PROBE_IDS.join(", ")
-    )
+1. Output ONLY valid JSON, no explanation
+2. Select 1-4 probes that DIRECTLY answer the query
+3. Match domain to query topic (not everything is "system")
+4. clarification_question should be null unless truly ambiguous"#
+        .to_string()
 }
 
 /// Build minimal translator request (< 2KB)
@@ -264,23 +241,39 @@ fn get_probe_recommendations(query: &str) -> String {
 }
 
 /// Parse intent string to enum
+/// v0.0.405: Extended for all intents, normalizes legacy values
 fn parse_intent(s: &str) -> QueryIntent {
-    match s.to_lowercase().as_str() {
+    let intent = match s.to_lowercase().as_str() {
+        // New intents (v0.0.405)
+        "query_metric" | "querymetric" => QueryIntent::QueryMetric,
+        "diagnose" => QueryIntent::Diagnose,
+        "configure" => QueryIntent::Configure,
+        "list" => QueryIntent::List,
+        "check_status" | "checkstatus" | "status" => QueryIntent::CheckStatus,
+        "explain" => QueryIntent::Explain,
+        // Legacy intents (normalized)
         "question" => QueryIntent::Question,
         "request" => QueryIntent::Request,
         "investigate" => QueryIntent::Investigate,
-        _ => QueryIntent::Question, // default
-    }
+        _ => QueryIntent::QueryMetric, // default to most common
+    };
+    intent.normalize() // Normalize legacy to new
 }
 
 /// Parse domain string to enum
+/// v0.0.405: Extended for all 10 domains
 fn parse_domain(s: &str) -> SpecialistDomain {
     match s.to_lowercase().as_str() {
         "system" => SpecialistDomain::System,
-        "network" => SpecialistDomain::Network,
-        "storage" => SpecialistDomain::Storage,
-        "security" => SpecialistDomain::Security,
-        "packages" => SpecialistDomain::Packages,
+        "boot" => SpecialistDomain::Boot,
+        "services" | "service" => SpecialistDomain::Services,
+        "network" | "net" => SpecialistDomain::Network,
+        "storage" | "disk" => SpecialistDomain::Storage,
+        "packages" | "package" | "pkg" => SpecialistDomain::Packages,
+        "audio" | "sound" => SpecialistDomain::Audio,
+        "display" | "graphics" | "gpu" => SpecialistDomain::Display,
+        "desktop" | "de" | "wm" => SpecialistDomain::Desktop,
+        "security" | "sec" => SpecialistDomain::Security,
         _ => SpecialistDomain::System, // default
     }
 }

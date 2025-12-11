@@ -1,8 +1,9 @@
-//! JSON-only specialist prompts (v0.0.404).
+//! JSON-only specialist prompts (v0.0.405).
 //!
 //! This module generates the system prompts for specialists.
 //! Key principle: specialists ONLY output JSON, never prose.
 //! The personality layer is handled entirely by the renderer.
+//! v0.0.405: Expanded domains per clean architecture roadmap.
 
 use anna_shared::rpc::SpecialistDomain;
 
@@ -10,10 +11,15 @@ use anna_shared::rpc::SpecialistDomain;
 pub fn build_specialist_prompt(domain: SpecialistDomain) -> String {
     let domain_specific = match domain {
         SpecialistDomain::System => SYSTEM_SPECIALIST_HINTS,
+        SpecialistDomain::Boot => BOOT_SPECIALIST_HINTS,
+        SpecialistDomain::Services => SERVICES_SPECIALIST_HINTS,
         SpecialistDomain::Network => NETWORK_SPECIALIST_HINTS,
         SpecialistDomain::Storage => STORAGE_SPECIALIST_HINTS,
-        SpecialistDomain::Security => SECURITY_SPECIALIST_HINTS,
         SpecialistDomain::Packages => PACKAGES_SPECIALIST_HINTS,
+        SpecialistDomain::Audio => AUDIO_SPECIALIST_HINTS,
+        SpecialistDomain::Display => DISPLAY_SPECIALIST_HINTS,
+        SpecialistDomain::Desktop => DESKTOP_SPECIALIST_HINTS,
+        SpecialistDomain::Security => SECURITY_SPECIALIST_HINTS,
     };
 
     format!(
@@ -97,7 +103,80 @@ const PACKAGES_SPECIALIST_HINTS: &str = r#"Domain: Packages
 You handle:
 - Package installation status
 - Updates available
-- Package manager queries"#;
+- Package manager queries
+
+For Arch Linux:
+- pacman -Q <pkg> shows if installed
+- pacman -Ss <pkg> searches available
+- checkupdates shows available updates"#;
+
+const BOOT_SPECIALIST_HINTS: &str = r#"Domain: Boot
+
+You handle:
+- Boot time analysis
+- Slow boot diagnosis
+- systemd startup sequence
+- Failed units at boot
+
+Key probes:
+- systemd-analyze: total boot time
+- systemd-analyze blame: per-service timing
+- systemd-analyze critical-chain: critical path"#;
+
+const SERVICES_SPECIALIST_HINTS: &str = r#"Domain: Services
+
+You handle:
+- Service status (running/stopped/failed)
+- Enabling/disabling services
+- Service logs and errors
+- systemd units
+
+Key probes:
+- systemctl status <service>
+- systemctl --failed: list failed units
+- journalctl -u <service>: service logs"#;
+
+const AUDIO_SPECIALIST_HINTS: &str = r#"Domain: Audio
+
+You handle:
+- Audio devices (speakers, microphones)
+- PipeWire/PulseAudio status
+- Volume levels
+- Audio problems (no sound, crackling)
+
+Key probes:
+- pactl info: audio server status
+- pactl list sinks: output devices
+- pactl list sources: input devices
+- wpctl status: PipeWire status"#;
+
+const DISPLAY_SPECIALIST_HINTS: &str = r#"Domain: Display
+
+You handle:
+- GPU information
+- Display resolution
+- Screen tearing
+- Graphics drivers
+- Multi-monitor setup
+
+Key probes:
+- lspci | grep -i vga: GPU hardware
+- glxinfo | grep renderer: active driver
+- xrandr or wlr-randr: displays"#;
+
+const DESKTOP_SPECIALIST_HINTS: &str = r#"Domain: Desktop
+
+You handle:
+- Desktop environment/window manager
+- Themes, wallpapers, appearance
+- Compositor settings
+- Application launchers
+- Config file editing (vim, hyprland, etc.)
+
+For Hyprland:
+- Config at ~/.config/hypr/hyprland.conf
+- hyprctl monitors: display info
+- hyprctl clients: window list"#;
 
 const SCHEMA_SPEC: &str = r#"Input format (JSON):
 
@@ -109,8 +188,33 @@ const SCHEMA_SPEC: &str = r#"Input format (JSON):
   "probes": {
     "<probe_name>": "<raw_output>",
     "...": "..."
+  },
+  "docs": [
+    {
+      "source": "man_page" | "arch_wiki" | "help_output" | "local_doc",
+      "title": "Document title",
+      "snippet": "Relevant excerpt from documentation"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "recipe-id",
+      "title": "Recipe title",
+      "confidence": 85,
+      "actions": ["Step 1", "Step 2"]
+    }
+  ],
+  "metadata": {
+    "probes_run": ["probe1", "probe2"],
+    "docs_searched": ["arch_wiki", "man"],
+    "gather_time_ms": 150
   }
 }
+
+DOCUMENTATION PRIORITY: When available, use docs[] to inform your answer.
+- Arch Wiki snippets are authoritative for Arch Linux.
+- Man page excerpts explain command behavior.
+- Always cite which doc informed your answer if relevant.
 
 Output format (JSON ONLY - no text outside this object):
 
@@ -202,6 +306,33 @@ RULES:
    - No trailing commas.
    - No text outside the JSON object.
    - The ONLY output should be { ... }
+
+NEGATIVE EXAMPLES - DO NOT DO THIS:
+
+❌ BAD: "unknown is installed"
+   - NEVER say "unknown" when you cannot determine a name
+   - If you cannot extract a package/tool name, set status="cannot_answer"
+
+❌ BAD: "2 is installed" or any number as a package name
+   - Package names are strings like "vim", "nano", not numbers
+
+❌ BAD: Generic summaries ignoring the question
+   - Question: "do I have swap?" → Bad: "Your system is running fine"
+   - Question: "do I have swap?" → Good: "You have 8GB of swap configured"
+
+❌ BAD: Claiming things without probe evidence
+   - If no probe shows nano installed, do NOT say "nano is installed"
+
+❌ BAD: Empty evidence array when status="ok"
+   - If you answer, you MUST cite the probe that supports it
+
+❌ BAD: confidence > 0.8 with empty evidence
+   - High confidence requires strong evidence
+
+❌ BAD: Text before or after the JSON object
+   - Bad: "Here is my analysis: { ... }"
+   - Bad: "{ ... } Hope this helps!"
+   - Good: { ... }
 
 Now read the input and output ONLY a single JSON object."#;
 

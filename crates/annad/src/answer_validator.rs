@@ -32,6 +32,7 @@ const MAX_HEAL_ATTEMPTS: u8 = 3;
 const BASE_ACCEPTABLE_SCORE: u8 = 80;
 
 /// v0.0.376: Get domain-specific validation threshold
+/// v0.0.405: Expanded for all domains
 fn domain_threshold(domain: Option<SpecialistDomain>) -> u8 {
     match domain {
         Some(SpecialistDomain::Security) => 90, // Security: high stakes
@@ -39,6 +40,11 @@ fn domain_threshold(domain: Option<SpecialistDomain>) -> u8 {
         Some(SpecialistDomain::Storage) => 80,  // Storage: standard
         Some(SpecialistDomain::Network) => 75,  // Network: often partial
         Some(SpecialistDomain::Packages) => 75, // Packages: versions vary
+        Some(SpecialistDomain::Boot) => 80,     // Boot: standard
+        Some(SpecialistDomain::Services) => 80, // Services: standard
+        Some(SpecialistDomain::Audio) => 75,    // Audio: hardware varies
+        Some(SpecialistDomain::Display) => 75,  // Display: hardware varies
+        Some(SpecialistDomain::Desktop) => 75,  // Desktop: DE-specific
         None => BASE_ACCEPTABLE_SCORE,          // Fallback to base
     }
 }

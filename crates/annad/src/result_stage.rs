@@ -4,6 +4,7 @@
 //! v0.0.322: Integrated probe learning to track effectiveness.
 //! v0.0.382: Aligned learning thresholds with recipe persistence (70).
 //! v0.0.384: Added follow-up hints to enrich answers.
+//! v0.0.411: Integrated ticket persistence for truthful stats.
 
 use anna_shared::followup_hints::{format_hints, generate_followup_hints};
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
@@ -162,6 +163,10 @@ pub fn wrap_with_theatre(
             debug!("Failed to save ticket to history: {}", e);
         }
     }
+
+    // v0.0.411: Persist TicketLog for truthful stats
+    // This ensures every request creates exactly one ticket log entry
+    crate::ticket_persistence::persist_from_result(&result);
 
     // Try to learn recipe from result
     let learn_result = anna_shared::recipe_learning::try_learn_from_result(&result);

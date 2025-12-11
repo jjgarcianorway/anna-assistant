@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.412] - 2025-12-11
+
+### Added - Self-Learning Recipe Engine
+
+**Major Feature:** Anna now learns from successful queries and converts them into reusable recipes.
+Instead of hardcoding solutions, Anna creates parameterized recipes that work across similar patterns.
+
+**New Modules (anna-shared):**
+
+**`recipe_engine.rs`:**
+- `Recipe` struct: Full recipe with steps, parameters, evidence requirements
+- `RecipeKind`: probe_only, configure, inspect, diagnose, report
+- `RecipeStep`: Composable steps with dependencies (run_probe, run_command, render_answer)
+- `RecipeParameter`: Variables like `{{service_name}}`, `{{mount_path}}`
+- `EvidenceRequirement`: Probes required before answering
+
+**`recipe_store_v2.rs`:**
+- Persistent storage for learned recipes (~/.anna/recipes_v2.json)
+- Tag-based and trigger-pattern indexing for fast matching
+- Best-match scoring with configurable threshold (0.7)
+- Automatic deprecation when success_rate < 0.6 after 10+ uses
+- Garbage collection for stale deprecated recipes
+
+**`recipe_executor.rs`:**
+- Safe execution with confirmation callbacks for risky operations
+- Parameter substitution (`{{variable}}` → actual values)
+- Topological sort for step dependencies
+- Audit logging for all recipe executions
+
+**`recipe_templates.rs`:**
+- 6 generic parameterized recipes out of the box:
+  - Check Systemd Service Status (uses `{{service_name}}`)
+  - Check Disk Usage (uses `{{mount_path}}`)
+  - Check Memory Usage
+  - Check Package Installation (uses `{{package_name}}`)
+  - Check Failed Systemd Units
+  - Check Network Interfaces
+
+**`recipe_converter.rs`:**
+- `SpecialistRecipeCandidate`: JSON schema for specialists to propose recipes
+- `try_convert_ticket()`: Converts successful tickets to recipes
+- Safety validation: Only safe commands allowed (whitelist)
+- Probe validation: Only known probes allowed
+
+**`doc_snippet.rs`:**
+- Integration with documentation sources
+- DocSourceKind: arch_wiki, man_page, help_flag, info, local_file
+- DocCache for caching fetched documentation
+- ManPageProvider and HelpProvider implementations
+
+**New Module (annad):**
+
+**`recipe_engine_v2.rs`:**
+- Integration with existing fast path
+- Learned recipes checked BEFORE hardcoded recipes
+- `check_learned_recipes()`: Finds best matching recipe
+- `execute_learned_recipe()`: Runs recipe and builds ServiceDeskResult
+- Parameter extraction from natural language queries
+- Automatic GC on startup
+
+**Enhanced `recipe_fast_path.rs`:**
+- Now checks RecipeStoreV2 (learned recipes) FIRST
+- Falls back to hardcoded recipes only if no learned match
+- `learned_recipe_id` field tracks which recipe matched
+
+**Enhanced `annactl learning`:**
+- Shows learned recipe statistics
+- Recipe count by domain
+- Most used recipes with success rates
+
+**How It Works:**
+1. User asks: "why is nginx failing?"
+2. Anna checks learned recipes first → finds "Check Systemd Service Status"
+3. Extracts parameter: service_name = "nginx"
+4. Executes recipe steps: systemctl status, journalctl logs
+5. Renders answer from template
+6. Updates success/failure counts
+7. No LLM call needed!
+
+**Key Design Decisions:**
+- Generic over specific: One recipe for all services, not one per service
+- Evidence-based: Every recipe declares required probes
+- Safe by default: Commands validated against whitelist
+- Self-improving: Success rate tracking, automatic deprecation
+- Documentation-sourced: Links to Arch Wiki, man pages
+
 ## [0.0.404] - 2025-12-11
 
 ### Added - JSON-Only Specialists + Personality Renderer

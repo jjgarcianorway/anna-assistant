@@ -11,6 +11,8 @@ thiserror.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 regex.workspace = true
+tracing.workspace = true
+toml = "0.8"
 dirs = "5.0"
 
 [build-dependencies]

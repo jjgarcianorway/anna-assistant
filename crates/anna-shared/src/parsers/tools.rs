@@ -1,4 +1,4 @@
-//! Tool and package existence parsing (v0.0.173).
+//! Tool and package existence parsing (v0.0.173, v0.0.409 robustness fixes).
 
 use crate::rpc::ProbeResult;
 
@@ -6,12 +6,14 @@ use super::atoms::{ParseError, ParseErrorReason};
 use super::evidence::{PackageInstalled, ToolExists, ToolExistsMethod};
 use super::parsed_data::ParsedProbeData;
 
-/// Try to parse a tool existence probe (v0.45.7, v0.0.57 hardening).
+/// Try to parse a tool existence probe (v0.45.7, v0.0.57 hardening, v0.0.409 robustness).
 /// Handles `command -v`, `which`, and `type` commands.
 /// Returns Some if this is a tool check probe, None otherwise.
 ///
 /// v0.0.57: exit_code=127 ("command not found") is an ERROR, not valid evidence.
 /// Only exit_code=0 (found) and exit_code=1 (not found) are valid evidence.
+///
+/// v0.0.409: Never return "unknown" as a tool name. Return error instead.
 pub fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<ParsedProbeData> {
     // Pattern: "command -v <name>" or "sh -lc 'command -v <name>'"
     if cmd_lower.contains("command -v") {
@@ -24,7 +26,17 @@ pub fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<Par
             )));
         }
 
-        let name = extract_tool_name_from_command_v(&probe.command);
+        // v0.0.409: Return error if we can't extract the tool name
+        let name = match extract_tool_name_from_command_v(&probe.command) {
+            Some(n) => n,
+            None => {
+                return Some(ParsedProbeData::Error(ParseError::new(
+                    &probe.command,
+                    ParseErrorReason::MissingSection("could not extract tool name from command".to_string()),
+                    &probe.stderr,
+                )));
+            }
+        };
         let exists = probe.exit_code == 0;
         let path = if exists && !probe.stdout.trim().is_empty() {
             Some(probe.stdout.trim().to_string())
@@ -50,12 +62,17 @@ pub fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<Par
             )));
         }
 
-        let name = probe
-            .command
-            .split_whitespace()
-            .nth(1)
-            .unwrap_or("unknown")
-            .to_string();
+        // v0.0.409: Return error if we can't extract the tool name
+        let name = match probe.command.split_whitespace().nth(1) {
+            Some(n) if !n.is_empty() && n != "2>/dev/null" => n.to_string(),
+            _ => {
+                return Some(ParsedProbeData::Error(ParseError::new(
+                    &probe.command,
+                    ParseErrorReason::MissingSection("could not extract tool name from which command".to_string()),
+                    &probe.stderr,
+                )));
+            }
+        };
         let exists = probe.exit_code == 0;
         let path = if exists && !probe.stdout.trim().is_empty() {
             Some(probe.stdout.trim().to_string())
@@ -73,8 +90,9 @@ pub fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<Par
     None
 }
 
-/// Try to parse a package installation probe (v0.45.7).
+/// Try to parse a package installation probe (v0.45.7, v0.0.409 robustness).
 /// Handles `pacman -Q` commands.
+/// v0.0.409: Never returns "unknown" as a package name. Returns error instead.
 pub fn try_parse_package_installed(
     probe: &ProbeResult,
     cmd_lower: &str,
@@ -82,7 +100,19 @@ pub fn try_parse_package_installed(
     // Pattern: "pacman -Q <name>" or "pacman -Q <name> 2>/dev/null"
     // Note: cmd_lower is already lowercase, so we check for lowercase -q
     if cmd_lower.contains("pacman -q") {
-        let name = extract_package_name_from_pacman(&probe.command);
+        // v0.0.409: Return error if we can't extract the package name
+        let name = match extract_package_name_from_pacman(&probe.command) {
+            Some(n) => n,
+            None => {
+                return Some(ParsedProbeData::Error(ParseError::new(
+                    &probe.command,
+                    ParseErrorReason::MissingSection(
+                        "could not extract package name from pacman command".to_string(),
+                    ),
+                    &probe.stderr,
+                )));
+            }
+        };
         let installed = probe.exit_code == 0;
         let version = if installed {
             // pacman -Q outputs: "<name> <version>"
@@ -105,7 +135,8 @@ pub fn try_parse_package_installed(
 }
 
 /// Extract tool name from "command -v <name>" or "sh -lc 'command -v <name>'"
-pub fn extract_tool_name_from_command_v(cmd: &str) -> String {
+/// v0.0.409: Returns None instead of "unknown" fallback
+pub fn extract_tool_name_from_command_v(cmd: &str) -> Option<String> {
     // Handle: sh -lc 'command -v nano'
     if let Some(pos) = cmd.find("command -v") {
         let rest = &cmd[pos + "command -v".len()..];
@@ -116,14 +147,15 @@ pub fn extract_tool_name_from_command_v(cmd: &str) -> String {
             .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
             .collect();
         if !name.is_empty() {
-            return name;
+            return Some(name);
         }
     }
-    "unknown".to_string()
+    None
 }
 
 /// Extract package name from "pacman -Q <name>" command
-pub fn extract_package_name_from_pacman(cmd: &str) -> String {
+/// v0.0.409: Returns None instead of "unknown" fallback
+pub fn extract_package_name_from_pacman(cmd: &str) -> Option<String> {
     // Find -Q or -Qi and take the next word
     let cmd_lower = cmd.to_lowercase();
     for pattern in ["-q ", "-qi "] {
@@ -136,9 +168,9 @@ pub fn extract_package_name_from_pacman(cmd: &str) -> String {
                 .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
                 .collect();
             if !name.is_empty() {
-                return name;
+                return Some(name);
             }
         }
     }
-    "unknown".to_string()
+    None
 }

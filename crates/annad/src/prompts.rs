@@ -84,6 +84,7 @@ fn build_prompt_with_budget(
     context: &RuntimeContext,
     probe_results: &[ProbeResult],
 ) -> (String, usize) {
+    // v0.0.405: Expanded for all domains
     let specialist_intro = match domain {
         SpecialistDomain::System => {
             "You are the System Specialist, expert in CPU, memory, processes, and services."
@@ -99,6 +100,21 @@ fn build_prompt_with_budget(
         }
         SpecialistDomain::Packages => {
             "You are the Package Specialist, expert in package managers and software installation."
+        }
+        SpecialistDomain::Boot => {
+            "You are the Boot Specialist, expert in startup, systemd boot analysis, and initialization."
+        }
+        SpecialistDomain::Services => {
+            "You are the Services Specialist, expert in systemd units, daemons, and service management."
+        }
+        SpecialistDomain::Audio => {
+            "You are the Audio Specialist, expert in PulseAudio, PipeWire, ALSA, and sound devices."
+        }
+        SpecialistDomain::Display => {
+            "You are the Display Specialist, expert in monitors, resolution, GPUs, and graphics drivers."
+        }
+        SpecialistDomain::Desktop => {
+            "You are the Desktop Specialist, expert in window managers, desktop environments, and sessions."
         }
     };
 
@@ -157,13 +173,9 @@ Hardware (from system probe):
 
     // v0.0.377: Add learned success hints from past high-quality answers
     let store = ProbeLearningStore::load();
-    let domain_str = match domain {
-        SpecialistDomain::System => "system",
-        SpecialistDomain::Network => "network",
-        SpecialistDomain::Storage => "storage",
-        SpecialistDomain::Security => "security",
-        SpecialistDomain::Packages => "packages",
-    };
+    // v0.0.405: Use Display trait for domain->string conversion
+    let domain_str = domain.to_string();
+    let domain_str = domain_str.as_str();
     let category = QueryCategory::from_domain(domain_str);
     let hints = store.recent_success_hints(&category);
     if !hints.is_empty() {

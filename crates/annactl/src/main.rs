@@ -3,6 +3,7 @@
 //! v0.0.304: Added user-friendly error presentation module.
 //! v0.0.323: Added learning command to show probe learning stats.
 //! v0.0.328: Added query test option to learning command.
+//! v0.0.406: Added suggest-recipes command for recipe candidate analysis.
 
 mod change_commands;
 mod client;
@@ -23,7 +24,7 @@ mod transcript_render;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_learning_with_query, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
+use crate::commands::{handle_learning_with_query, handle_suggest_recipes, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -71,6 +72,12 @@ enum Command {
         #[arg(long, short = 't')]
         test: Option<String>,
     },
+    /// Analyze ticket logs and suggest recipes (v0.0.406)
+    SuggestRecipes {
+        /// Number of recent tickets to analyze (default: 100)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+    },
     /// Reset learned data and event history
     Reset,
     /// Remove Anna completely from the system
@@ -85,6 +92,7 @@ async fn main() -> Result<()> {
         Some(Command::Status) => handle_status().await,
         Some(Command::Stats) => handle_stats().await,
         Some(Command::Learning { test }) => handle_learning_with_query(test.as_deref()),
+        Some(Command::SuggestRecipes { limit }) => handle_suggest_recipes(limit),
         Some(Command::Reset) => handle_reset().await,
         Some(Command::Uninstall) => handle_uninstall().await,
         None => {
