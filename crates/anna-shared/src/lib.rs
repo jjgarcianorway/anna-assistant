@@ -14,6 +14,7 @@
 //! v0.0.422: Knowledge V2 - Research-first layer (Arch Wiki, man pages, help).
 //! v0.0.423: Recipe V3 - Safe learning/execution engine with preconditions and risk levels.
 //! v0.0.424: Knowledge V4 - Complete local knowledge engine with citations.
+//! v0.0.425: Specialist V3 - Strict JSON contract, robust parser, no parse errors.
 
 pub mod advice;
 pub mod answer_contract;
@@ -152,6 +153,7 @@ pub mod specialist_v2; // v0.0.421: Stable, schema-driven specialist responses
 pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
 pub mod recipe_v3; // v0.0.423: Safe learning/execution engine with risk levels
 pub mod knowledge_v4; // v0.0.424: Complete local knowledge engine with citations
+pub mod specialist_v3; // v0.0.425: Strict JSON contract, robust parser, no parse errors
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;

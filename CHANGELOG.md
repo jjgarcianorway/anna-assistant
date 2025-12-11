@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.425] - 2025-12-11
+
+### Added - Specialist V3: Strict JSON Contract
+
+**Goal:** Fix "Failed to parse specialist response" errors with a strict JSON schema,
+robust parser with retry logic, and user-friendly error synthesis.
+
+**Schema (`specialist_v3/schema.rs`):**
+- `SpecialistResponse`: Single canonical schema for ALL specialist responses
+- `ResponseStatus`: Success, Partial, NoData, Unsupported, Error with strict semantics
+- `Finding`: Structured finding with key/value and evidence_refs
+- `Recommendation`: User recommendations with risk_level
+- `Action`: Shell commands with run_as (user/root) and risk_level
+- `KnowledgeCitation`: Citation with id, source, topic, relevance
+- `ProbeUsed`: Probe tracking with status (ok/empty/failed/timeout)
+- `ErrorInfo`: User-friendly errors with kind and optional details
+- `Severity`: Info, Warning, Critical with emoji display
+- Builder pattern: `with_finding()`, `with_analysis()`, `with_action()`, etc.
+- Validation: `validate()` checks required fields and ranges
+
+**Parser (`specialist_v3/parser.rs`):**
+- `parse_specialist_response()`: First parse attempt with JSON extraction
+- `parse_with_retry()`: Retry logic with MAX_PARSE_RETRIES (1)
+- `extract_json()`: Extract JSON from markdown code blocks or raw text
+- `try_salvage_response()`: Recover partial data from malformed JSON
+- `RepairRequest`: Structured repair prompt for LLM retry
+- `generate_repair_message()`: Context-aware error messages for LLM
+- Safe error synthesis when parsing completely fails
+
+**Prompt Contract (`specialist_v3/prompt.rs`):**
+- `SPECIALIST_SYSTEM_PROMPT`: Strict JSON-only output rules
+- `build_specialist_prompt()`: Build prompt with probe data and knowledge
+- `DomainPrompt`: Domain-specific focus (desktop/server/network/security)
+- `example_success_response()`, `example_no_data_response()`: Templates
+- `confidence_guidelines()`: Scoring rubric for confidence values
+- `severity_for_finding()`: Auto-severity based on thresholds
+- `risk_for_command()`: Command risk classification (rm -rf = High)
+
+**Error Synthesis (`specialist_v3/synthesize.rs`):**
+- `synthesize_timeout_response()`: User-friendly timeout message
+- `synthesize_no_evidence_response()`: Handle empty probe data
+- `synthesize_unsupported_response()`: Domain routing suggestions
+- `synthesize_from_probes()`: Extract basic findings from raw probes
+- `synthesize_internal_error()`: Safe internal error handling
+- `merge_responses()`: Combine multiple specialist responses
+- `format_for_user()`: Convert response to readable text
+
+**Constants:**
+- `MAX_PARSE_RETRIES`: 1 (retry once before giving up)
+- `DEFAULT_CONFIDENCE`: 0.5
+- `MIN_USEFUL_CONFIDENCE`: 0.3
+- `HIGH_CONFIDENCE`: 0.85
+
 ## [0.0.424] - 2025-12-11
 
 ### Added - Knowledge V4: Complete Local Knowledge Engine
