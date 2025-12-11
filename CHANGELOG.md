@@ -7,6 +7,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.415] - 2025-12-11
+
+### Fixed - Strict Specialist Contract (Fast, Honest, Grounded)
+
+**Problem Solved:** Anna was giving slow responses (10-20s), parse errors, timeouts,
+and nonsensical answers like "unknown is installed" or "2 is installed". Stats showed
+100% success when answers were clearly wrong.
+
+**Solution:** Strict JSON contract with validation, time budgets, and honest stats.
+
+**New Modules (anna-shared):**
+
+**`strict_contract.rs`:**
+- `StrictSpecialistResponse`: Single source of truth for specialist JSON
+- `StrictStatus`: ok, partial, failed (no ambiguity)
+- `EvidenceItem`: Probe-based evidence requirement
+- `Citation`: Documentation citations
+- `TimeBudgets`: Configurable time limits (translator: 1.5s, specialist: 4s, probes: 5s)
+- `parse_specialist_output()`: Robust JSON extraction with lenient fallback
+- `ParseResult`: NoJson, InvalidJson, ValidationFailed, Timeout variants
+- Validation catches: empty summaries, forbidden patterns, high confidence without evidence
+
+**`strict_prompts.rs`:**
+- Complete specialist prompts with explicit JSON schema
+- Domain-specific hints for all 10 domains
+- Positive examples (correct JSON)
+- Negative examples (forbidden patterns: "unknown is installed", etc.)
+
+**`translator_contract.rs`:**
+- `TranslatorOutput`: Strict schema for routing
+- `TranslatorIntent`: query_metric, diagnose, configure, list, check_status, explain
+- `TranslatorDomain`: 10 domains with string normalization
+- `TRANSLATOR_PROMPT`: Complete prompt with probe mappings
+
+**`answer_shaper.rs`:**
+- `shape_answer()`: Convert specialist response to user-friendly output
+- `ShapedAnswer`: text, evidence_line, is_resolved, confidence
+- Concise style for simple queries (1-2 lines)
+- Diagnostic style for complex queries (bullets, actions)
+- Honest failures instead of fake success
+
+**`honest_stats.rs`:**
+- `TicketOutcome`: Resolved, Partial, Failed (no fantasy 100%)
+- `HonestStats`: Tracks real success/failure rates
+- `DomainStats`, `IntentStats`: Per-category breakdown
+- `FailureRecord`: Recent failures for debugging
+- `is_resolved()`: status=ok + confidence>=0.8 + non-empty summary + valid
+
+**`regression_tests.rs`:**
+- `TestCase`: Shape validation for queries
+- `regression_suite()`: 10+ test cases covering all domains
+- Validates: non-empty summary, required metrics, forbidden patterns, evidence
+- Does NOT hardcode expected answers - validates shape only
+
+**Key Design Decisions:**
+
+1. **JSON Only**: Specialists output JSON, no prose. Schema is enforced.
+2. **Evidence Required**: status=ok with confidence>=0.8 requires evidence array
+3. **Forbidden Patterns**: "unknown is installed", "2 is installed" trigger validation failure
+4. **Time Budgets**: Translator 1.5s, Specialist 4s, Probes 5s total
+5. **Honest Stats**: "resolved" requires ok status + high confidence + valid response
+6. **Shape Tests**: Regression tests validate answer structure, not exact wording
+
+**Breaking Changes:**
+- Stats now reflect reality (expect lower success rates initially)
+- Responses may be "partial" or "failed" instead of fake "ok"
+- Time budgets may cause more explicit timeouts
+
 ## [0.0.414] - 2025-12-11
 
 ### Added - Doc-First Knowledge Engine (Citations & Honesty)

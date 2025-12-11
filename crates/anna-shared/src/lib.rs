@@ -5,6 +5,7 @@
 //! v0.0.408: Research-first knowledge system with evidence-based answers.
 //! v0.0.410: Evidence pipeline - real knowledge engine (probes, docs, wiki).
 //! v0.0.414: Doc-first reasoning with citations and honesty tracking.
+//! v0.0.415: Strict specialist contract - fast, honest, grounded answers.
 
 pub mod advice;
 pub mod answer_contract;
@@ -117,6 +118,12 @@ pub mod knowledge_executor; // v0.0.414: Knowledge query executor
 pub mod intent_policy; // v0.0.414: Intent-based routing (no hardcoded NL)
 pub mod doc_first_workflow; // v0.0.414: Doc-first specialist reasoning
 pub mod knowledge_learning; // v0.0.414: Self-learning from docs and tickets
+pub mod strict_contract; // v0.0.415: Strict specialist JSON contract
+pub mod strict_prompts; // v0.0.415: Strict specialist prompts
+pub mod translator_contract; // v0.0.415: Strict translator schema
+pub mod answer_shaper; // v0.0.415: Shape answers for users
+pub mod honest_stats; // v0.0.415: Honest stats tracking
+pub mod regression_tests; // v0.0.415: Shape validation tests
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
