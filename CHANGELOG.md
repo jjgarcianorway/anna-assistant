@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.391] - 2025-12-11
+
+### Architecture - LLM Translator is now PRIMARY
+
+**BREAKING CHANGE**: Removed pattern-based classification override.
+
+The LLM translator now handles ALL query classification semantically.
+No more brittle pattern matching like `q.contains("storage")`.
+
+**What changed:**
+- `routing_stage.rs`: Removed the `else` block that bypassed translator for "known" classes
+- ALL queries now go through LLM translator first
+- Recipes/learning still work as fast-path optimization
+- Pattern matching code still exists but is no longer the primary path
+
+**Translator improvements:**
+- Added clear examples for storage, system, and package queries
+- Added rule: "do I have" + hardware term = hardware query (not tool check)
+- Better probe suggestions in prompt
+
+**Why this matters:**
+- "how much free storage do I have" now works regardless of phrasing
+- Users can ask questions naturally without hitting pattern edge cases
+- Anna learns from usage instead of relying on hardcoded patterns
+
 ## [0.0.390] - 2025-12-11
 
 ### Major Quality Fixes - Classification, Evidence, and Dialogue

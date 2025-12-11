@@ -29,12 +29,13 @@ pub struct RoutingResult {
     pub recipe_result: Option<RecipeFastPathResult>,
 }
 
-/// Route the query through recipe check or LLM translator
+/// Route the query through LLM translator (primary) with recipe/learning support
 /// v0.0.318: Added debug_mode for LLM call visibility
+/// v0.0.391: REFACTORED - LLM translator is now PRIMARY, not pattern matching
 pub async fn route_query(
     state: &SharedState,
     query: &str,
-    det_route: &DeterministicRoute,
+    _det_route: &DeterministicRoute, // v0.0.391: Ignored - translator is primary now
     llm_config: &LlmConfig,
     translator_model: &str,
     hw_cores: u32,
@@ -43,12 +44,9 @@ pub async fn route_query(
     debug_mode: bool,
     progress: &mut ProgressTracker,
 ) -> RoutingResult {
-    // Check if we should try recipes first
-    let should_check_recipes = det_route.class == router::QueryClass::Unknown
-        || det_route.class == router::QueryClass::ConfigureShell
-        || det_route.class == router::QueryClass::ConfigureGit;
-
-    if should_check_recipes {
+    // v0.0.391: ALWAYS use LLM translator - no more pattern matching override
+    // Recipe check first for fast-path on known queries
+    {
         // Check recipe index BEFORE calling LLM translator
         let recipe_index = &state.read().await.recipe_index;
         let recipe_result = recipe_fast_path::check_recipe_fast_path(query, recipe_index);
@@ -149,16 +147,9 @@ pub async fn route_query(
             translator_timed_out: timeout,
             recipe_result: None,
         }
-    } else {
-        // Known class -> deterministic ticket
-        let ticket = router::apply_deterministic_routing(query, None);
-        RoutingResult {
-            ticket,
-            triage_result: None,
-            translator_timed_out: false,
-            recipe_result: None,
-        }
     }
+    // v0.0.391: Removed else block that bypassed translator for "known" classes
+    // All queries now go through LLM translator for proper semantic understanding
 }
 
 /// Enforce probe spine constraints on ticket probes

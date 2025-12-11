@@ -79,6 +79,7 @@ impl TranslatorInput {
 }
 
 /// Build the translator system prompt - strict enum constraints
+/// v0.0.391: Improved with more examples for common query types
 fn build_translator_prompt() -> String {
     format!(
         r#"Classify query. Output ONLY valid JSON matching this exact schema:
@@ -92,13 +93,27 @@ STRICT RULES:
 - Set clarification_question if query is ambiguous
 - Select 1-3 probes maximum
 
-IMPORTANT - Handle greetings and health queries:
-- IGNORE greetings (hello, hi, hey, good morning, emoticons like :) ;))
-- Focus on the actual question AFTER any greeting
-- "How is my computer?" = system health query = domain:system, probes:[memory_info,disk_usage,cpu_info]
-- "Any errors/problems?" = system health = domain:system, probes:[failed_services,system_logs,memory_info]
-- "Is everything ok?" = system health = domain:system, probes:[memory_info,disk_usage,failed_services]
-- These are NOT network queries even if phrased conversationally
+QUERY EXAMPLES (learn the patterns):
+Storage queries (domain: storage):
+- "how much free storage/space/disk" → probes:[df]
+- "what folders are taking space" → probes:[largest_dirs,largest_home]
+- "disk usage", "filesystem" → probes:[df]
+
+System queries (domain: system):
+- "how much RAM/memory" → probes:[memory_info]
+- "CPU info/cores" → probes:[cpu_info]
+- "system health/status" → probes:[memory_info,disk_usage,failed_services]
+- "any errors/problems" → probes:[failed_services,system_logs]
+
+Package queries (domain: packages):
+- "list installed packages" → probes:[installed_packages]
+- "do I have X installed" → probes:[command_v]
+- "package updates" → probes:[package_updates]
+
+IMPORTANT:
+- IGNORE greetings (hello, hi, hey). Focus on the actual question.
+- "do I have" + hardware term (storage/memory/disk) = hardware query, NOT tool check
+- "do I have" + software name (vim/steam/python) = tool check
 
 Output raw JSON only. No markdown. No explanation."#,
         PROBE_IDS.join(", ")
