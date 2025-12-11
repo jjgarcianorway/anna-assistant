@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.430] - 2025-12-11
+
+### Added - Background Workers, Idle-time Learning, Alerts, and Long-running Tickets
+
+**Goal:** Enable Anna to handle long-running tasks in the background, learn during idle time,
+alert users to important events, and manage user-defined monitors and reminders.
+
+**Background Worker Module (`background_worker/`):**
+
+**Job System (`job.rs`):**
+- `JobKind`: LongTicketAnalysis, DocIndexRefresh, ModelBenchmark, PeriodicProbe, UserReminder, MonitorCheck, RecipeConsolidation, SendNotification
+- `JobPriority`: Low (idle-time only), Normal (scheduled), High (urgent)
+- `JobStatus`: Pending, Running, Completed, Failed, Cancelled
+- `BackgroundJob`: Full job data model with scheduling, retries, metadata
+- `JobResult`: Execution result with follow-up jobs and notifications
+- Factory methods: `long_ticket()`, `doc_refresh()`, `model_benchmark()`, `reminder()`, `monitor_check()`
+
+**Scheduler (`scheduler.rs`):**
+- `JobScheduler`: In-memory queue with persistent storage
+- `SchedulerConfig`: CPU threshold, max concurrent jobs, daily limits
+- Priority-based scheduling (high first, then by scheduled time)
+- Idle-time detection for low-priority jobs
+- `get_due_jobs()`: Get jobs ready to run with CPU load awareness
+- Job lifecycle: `mark_running()`, `mark_completed()`, `mark_failed()`
+- Daily counter reset and old job cleanup
+
+**Executor (`executor.rs`):**
+- `JobExecutor` trait for custom execution handlers
+- `DefaultExecutor`: Dispatch to specialized handlers
+- Handler traits: `LongTicketHandler`, `DocRefreshHandler`, `BenchmarkHandler`, `ProbeHandler`, `ReminderHandler`, `MonitorHandler`, `RecipeHandler`
+- `CpuMonitor`: Read `/proc/loadavg` for idle detection
+
+**Notifications (`notifications.rs`):**
+- `NotificationConfig`: Email, desktop, wall, quiet hours, rate limits
+- `NotificationDispatcher`: Multi-channel notification sending
+- Channels: Email (sendmail/msmtp), Desktop (notify-send), Wall (terminal broadcast)
+- `AlertPriority`: Low, Normal, High, Critical
+- Rate limiting per channel (default 5 min cooldown)
+- Quiet hours support (e.g., "22:00-08:00")
+- `NotificationStatus`: Status display for `annactl status`
+
+**Monitors & Reminders (`monitors.rs`):**
+- `Monitor`: User-defined condition checks with alerts
+- `MonitorCheck`: DiskSpace, ProcessRunning, FileAge, Command, SystemLoad, MemoryUsage
+- `ThresholdCondition`: GreaterThan, LessThan, Equals, IsTrue, IsFalse
+- 24-hour alert cooldown to prevent spam
+- `Reminder`: Scheduled notifications (Once, Daily, Weekly, Monthly)
+- `MonitorStorage`: Persistent monitor configuration
+
+**Idle Learning (`idle_learning.rs`):**
+- `IdleLearningConfig`: Enable/disable, CPU threshold, daily limits
+- `IdleLearningManager`: Orchestrate idle-time learning jobs
+- Automatic job selection: Recipe consolidation (24h), Doc refresh (12h), Benchmark (7d)
+- System idle detection with minimum idle time requirement
+- `IdleLearningStatus`: Status display for `annactl status`
+- `RecipeConsolidator`, `DocIndexRefresher`: Placeholder implementations
+
+**Storage (`storage.rs`):**
+- `JobStorage`: JSON persistence for job queue
+- `PendingMessageStorage`: Queue messages for next `annactl` open
+- `PendingMessage`: User notification with priority and source tracking
+- Factory methods: `from_long_ticket()`, `from_monitor()`
+
+**Acceptance Tests (`tests.rs`):**
+- Long-running ticket workflow test
+- Monitor alert workflow test
+- Idle learning workflow test
+- Job priority ordering test
+- Job retry mechanism test
+- Notification rate limiting test
+- Scheduler status summary test
+- Pending message queue test
+- Reminder scheduling test
+
+**Design Principles:**
+- Only run low-priority jobs when CPU is idle (< 30% load)
+- All jobs are durable (persisted to disk)
+- No notifications without explicit user consent
+- Rate-limited alerts (24h cooldown)
+- Maximum 10 idle jobs per day
+
 ## [0.0.429] - 2025-12-11
 
 ### Added - Documentation Brain (Local Knowledge Graph)

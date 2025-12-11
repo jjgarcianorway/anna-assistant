@@ -19,8 +19,10 @@
 //! v0.0.427: Self-learning recipe engine with evidence-based matching.
 //! v0.0.428: Strict specialist protocol, no-bullshit policy, honest stats.
 //! v0.0.429: Documentation brain - Arch Wiki, man pages, help as local knowledge graph.
+//! v0.0.430: Background workers, idle-time learning, alerts, and long-running tickets.
 
 pub mod advice;
+pub mod background_worker; // v0.0.430: Background job system
 pub mod answer_contract;
 pub mod brief;
 pub mod budget;
