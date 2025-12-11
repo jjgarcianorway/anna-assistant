@@ -1,20 +1,33 @@
-//! Ticket verification loop with bounded retries and escalation (v0.0.297).
+//! Ticket verification loop with bounded retries and escalation (v0.0.376).
 //!
 //! Wraps the service desk answer with:
 //! - Junior verification (bounded by junior_rounds_max)
 //! - Senior escalation when junior exhausted
 //! - v0.0.297: LLM-based self-healing for failed validations
+//! - v0.0.376: Domain-specific validation thresholds
 //! - Revision application between rounds
 //! - Full transcript visibility
 
 use anna_shared::grounding::ParsedEvidence;
 use anna_shared::parsers::{parse_probe_result, ParsedProbeData};
 use anna_shared::reliability::ReliabilityInput;
-use anna_shared::rpc::{ProbeResult, TranslatorTicket};
+use anna_shared::rpc::{ProbeResult, SpecialistDomain, TranslatorTicket};
 use anna_shared::ticket::{Ticket, TicketStatus};
 use anna_shared::trace::EvidenceKind;
 use anna_shared::transcript::Transcript;
 use tracing::{info, warn};
+
+/// Parse domain string to SpecialistDomain enum
+fn parse_domain(s: &str) -> SpecialistDomain {
+    match s.to_lowercase().as_str() {
+        "system" => SpecialistDomain::System,
+        "network" => SpecialistDomain::Network,
+        "storage" => SpecialistDomain::Storage,
+        "security" => SpecialistDomain::Security,
+        "packages" => SpecialistDomain::Packages,
+        _ => SpecialistDomain::System,
+    }
+}
 
 use crate::answer_validator;
 use crate::ticket_service::{
@@ -172,15 +185,17 @@ pub async fn run_ticket_loop(
     let evidence = ParsedEvidence::from_probes(&parsed_probes);
 
     // Step 4: Senior escalation with LLM self-healing (v0.0.297)
+    // v0.0.376: Use domain-specific validation thresholds
     info!("Attempting LLM-based self-healing for senior escalation");
 
-    let validation_result = answer_validator::validate_and_heal(
+    let validation_result = answer_validator::validate_and_heal_with_domain(
         &current_answer,
         user_request,
         &evidence,
         reliability_input,
         model,
         timeout_secs,
+        Some(parse_domain(&ticket.domain)),
     )
     .await;
 

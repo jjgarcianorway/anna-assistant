@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.376] - 2025-12-11
+
+### Intelligence - Domain-specific answer validation
+
+Answer validation now uses **domain-specific thresholds**:
+
+| Domain | Threshold | Reasoning |
+|--------|-----------|-----------|
+| Security | 90 | High stakes, must be accurate |
+| System | 80 | Standard reliability |
+| Storage | 80 | Standard reliability |
+| Network | 75 | Often partial visibility |
+| Packages | 75 | Version info can vary |
+
+**Impact:**
+- Security answers require highest confidence (90%)
+- Network/Package answers tolerate more ambiguity (75%)
+- Validation path logs now show threshold: "attempt 0: score=82, threshold=90"
+- New `validate_and_heal_with_domain()` function for domain-aware validation
+
+This prevents overly strict rejection of valid Network answers while
+ensuring Security answers are held to the highest standard.
+
 ## [0.0.375] - 2025-12-11
 
 ### Intelligence - Negative learning & personalized responses

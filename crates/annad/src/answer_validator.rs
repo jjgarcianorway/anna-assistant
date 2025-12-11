@@ -1,10 +1,17 @@
-//! Answer validation with LLM-based self-healing (v0.0.296).
+//! Answer validation with LLM-based self-healing (v0.0.376).
 //!
 //! Every answer goes through validation before reaching the user:
 //! 1. Extract claims from answer
 //! 2. Verify claims against evidence
 //! 3. If validation fails, regenerate with explicit constraints
 //! 4. Retry until score >= threshold or max attempts
+//!
+//! v0.0.376: Domain-specific validation thresholds
+//! - Security: 90 (high stakes, must be accurate)
+//! - System: 80 (standard reliability)
+//! - Network: 75 (often partial visibility)
+//! - Storage: 80 (standard reliability)
+//! - Packages: 75 (version info can vary)
 //!
 //! This implements the principle: "Any answer gathered must always be run
 //! against the specialists to know if it's the right answer or not."
@@ -13,6 +20,7 @@ use anna_shared::claims::extract_claims;
 use anna_shared::grounding::{compute_grounding, ParsedEvidence};
 use anna_shared::guard::{run_guard, VerifyResult};
 use anna_shared::reliability::{compute_reliability, ReliabilityInput};
+use anna_shared::rpc::SpecialistDomain;
 use tracing::{debug, info, warn};
 
 use crate::ollama;
@@ -20,8 +28,20 @@ use crate::ollama;
 /// Maximum self-healing attempts before giving up
 const MAX_HEAL_ATTEMPTS: u8 = 3;
 
-/// Minimum acceptable reliability score
-const MIN_ACCEPTABLE_SCORE: u8 = 80;
+/// Base minimum acceptable reliability score (used when domain unknown)
+const BASE_ACCEPTABLE_SCORE: u8 = 80;
+
+/// v0.0.376: Get domain-specific validation threshold
+fn domain_threshold(domain: Option<SpecialistDomain>) -> u8 {
+    match domain {
+        Some(SpecialistDomain::Security) => 90, // Security: high stakes
+        Some(SpecialistDomain::System) => 80,   // System: standard
+        Some(SpecialistDomain::Storage) => 80,  // Storage: standard
+        Some(SpecialistDomain::Network) => 75,  // Network: often partial
+        Some(SpecialistDomain::Packages) => 75, // Packages: versions vary
+        None => BASE_ACCEPTABLE_SCORE,          // Fallback to base
+    }
+}
 
 /// Result of answer validation
 #[derive(Debug, Clone)]
@@ -70,6 +90,7 @@ impl std::fmt::Display for ValidationIssue {
 /// Validate an answer against evidence and attempt self-healing if needed.
 ///
 /// This is the core validation function that every answer should go through.
+/// v0.0.376: Added optional domain for domain-specific validation thresholds.
 pub async fn validate_and_heal(
     answer: &str,
     query: &str,
@@ -78,24 +99,42 @@ pub async fn validate_and_heal(
     model: &str,
     timeout_secs: u64,
 ) -> ValidationResult {
+    // Use base threshold when domain not provided
+    validate_and_heal_with_domain(answer, query, evidence, reliability_input, model, timeout_secs, None).await
+}
+
+/// v0.0.376: Validate with domain-specific thresholds
+pub async fn validate_and_heal_with_domain(
+    answer: &str,
+    query: &str,
+    evidence: &ParsedEvidence,
+    reliability_input: &ReliabilityInput,
+    model: &str,
+    timeout_secs: u64,
+    domain: Option<SpecialistDomain>,
+) -> ValidationResult {
+    let threshold = domain_threshold(domain);
     let mut current_answer = answer.to_string();
     let mut heal_attempts = 0;
     let mut validation_path = Vec::new();
+
+    info!("Validation threshold for {:?}: {}", domain, threshold);
 
     loop {
         // Step 1: Validate current answer
         let (score, issues) = validate_answer(&current_answer, evidence, reliability_input);
 
         validation_path.push(format!(
-            "attempt {}: score={}, issues={}",
+            "attempt {}: score={}, issues={}, threshold={}",
             heal_attempts,
             score,
-            issues.len()
+            issues.len(),
+            threshold
         ));
 
-        // Step 2: Check if we pass
-        if score >= MIN_ACCEPTABLE_SCORE && issues.is_empty() {
-            info!("Answer validated: score={}", score);
+        // Step 2: Check if we pass (v0.0.376: use domain-specific threshold)
+        if score >= threshold && issues.is_empty() {
+            info!("Answer validated: score={} (threshold={})", score, threshold);
             return ValidationResult {
                 answer: current_answer,
                 score,
@@ -109,8 +148,8 @@ pub async fn validate_and_heal(
         // Step 3: Check if we've exhausted attempts
         if heal_attempts >= MAX_HEAL_ATTEMPTS {
             warn!(
-                "Validation failed after {} attempts: score={}",
-                heal_attempts, score
+                "Validation failed after {} attempts: score={} (threshold={})",
+                heal_attempts, score, threshold
             );
             return ValidationResult {
                 answer: current_answer,
@@ -322,5 +361,19 @@ mod tests {
         let response = "<think>Let me think...</think>The answer is 42.";
         let cleaned = clean_llm_response(response);
         assert_eq!(cleaned, "The answer is 42.");
+    }
+
+    #[test]
+    fn test_domain_threshold() {
+        // Security has highest threshold
+        assert_eq!(domain_threshold(Some(SpecialistDomain::Security)), 90);
+        // System/Storage are standard
+        assert_eq!(domain_threshold(Some(SpecialistDomain::System)), 80);
+        assert_eq!(domain_threshold(Some(SpecialistDomain::Storage)), 80);
+        // Network/Packages allow more flexibility
+        assert_eq!(domain_threshold(Some(SpecialistDomain::Network)), 75);
+        assert_eq!(domain_threshold(Some(SpecialistDomain::Packages)), 75);
+        // None falls back to base
+        assert_eq!(domain_threshold(None), BASE_ACCEPTABLE_SCORE);
     }
 }
