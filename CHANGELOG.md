@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.396] - 2025-12-11
+
+### Improve - Translator prompt for domain classification
+
+**Problem:**
+- qwen3-vl:4b was returning domain=system for storage queries
+- "what folders are taking space" was misclassified
+
+**Fix:**
+- Restructured translator prompt with explicit DOMAIN RULES at the top
+- Added keyword-to-domain mapping: folders/directories → storage
+- Added explicit PROBE MAPPING section with exact examples
+- Log now shows actual probe names, not just count
+
+**Prompt structure:**
+1. DOMAIN RULES - keywords that trigger each domain
+2. JSON schema
+3. PROBE MAPPING - exact query → domain + probes mapping
+4. Available probe IDs
+5. Rules (max 3 probes, raw JSON only)
+
 ## [0.0.395] - 2025-12-11
 
 ### Fix - Add largest_dirs/largest_home to PROBE_IDS

@@ -80,42 +80,34 @@ impl TranslatorInput {
 
 /// Build the translator system prompt - strict enum constraints
 /// v0.0.391: Improved with more examples for common query types
+/// v0.0.396: Stronger domain classification rules
 fn build_translator_prompt() -> String {
     format!(
-        r#"Classify query. Output ONLY valid JSON matching this exact schema:
+        r#"Classify query into domain and probes. Output ONLY valid JSON.
+
+DOMAIN RULES (use EXACTLY these):
+- STORAGE: disk, space, folders, directories, storage, du, df, filesystem, mount
+- SYSTEM: CPU, RAM, memory, cores, processes, services, errors, logs, boot
+- NETWORK: IP, DNS, ports, connections, interfaces, routing
+- PACKAGES: install, package, updates, apt, pacman, pip
+- SECURITY: firewall, permissions, users, groups, ssh
+
+JSON schema:
 {{"intent":"question|request|investigate","domain":"system|network|storage|security|packages","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.0-1.0}}
 
-STRICT RULES:
-- intent MUST be exactly one of: question, request, investigate
-- domain MUST be exactly one of: system, network, storage, security, packages
-- needs_probes MUST only contain IDs from: {}
-- confidence MUST be a decimal 0.0-1.0
-- Set clarification_question if query is ambiguous
+PROBE MAPPING (use EXACTLY these probe IDs):
+- folders/directories taking space → domain=storage, probes=["largest_dirs","largest_home"]
+- disk space/usage → domain=storage, probes=["df"]
+- RAM/memory → domain=system, probes=["memory_info"]
+- CPU info → domain=system, probes=["cpu_info"]
+- system health → domain=system, probes=["memory_info","disk_usage","failed_services"]
+- installed packages → domain=packages, probes=["installed_packages"]
+
+Available probe IDs: {}
+
+RULES:
 - Select 1-3 probes maximum
-
-QUERY EXAMPLES (learn the patterns):
-Storage queries (domain: storage):
-- "how much free storage/space/disk" → probes:[df]
-- "what folders are taking space" → probes:[largest_dirs,largest_home]
-- "disk usage", "filesystem" → probes:[df]
-
-System queries (domain: system):
-- "how much RAM/memory" → probes:[memory_info]
-- "CPU info/cores" → probes:[cpu_info]
-- "system health/status" → probes:[memory_info,disk_usage,failed_services]
-- "any errors/problems" → probes:[failed_services,system_logs]
-
-Package queries (domain: packages):
-- "list installed packages" → probes:[installed_packages]
-- "do I have X installed" → probes:[command_v]
-- "package updates" → probes:[package_updates]
-
-IMPORTANT:
-- IGNORE greetings (hello, hi, hey). Focus on the actual question.
-- "do I have" + hardware term (storage/memory/disk) = hardware query, NOT tool check
-- "do I have" + software name (vim/steam/python) = tool check
-
-Output raw JSON only. No markdown. No explanation."#,
+- Output raw JSON only, no markdown, no explanation"#,
         PROBE_IDS.join(", ")
     )
 }
@@ -344,12 +336,13 @@ fn parse_translator_response(response: &str, query: &str) -> Result<TranslatorTi
         answer_contract: None, // v0.0.74: Set by caller with query context
     };
 
+    // v0.0.396: Log actual probe names for debugging
     info!(
-        "Translator: intent={}, domain={}, confidence={:.2}, probes={}",
+        "Translator: intent={}, domain={}, confidence={:.2}, probes=[{}]",
         ticket.intent,
         ticket.domain,
         ticket.confidence,
-        ticket.needs_probes.len()
+        ticket.needs_probes.join(",")
     );
 
     Ok(ticket)
