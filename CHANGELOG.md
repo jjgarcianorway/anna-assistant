@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.403] - 2025-12-11
+
+### Fixed - Direct Probe Answers (Bypass Dumb LLM)
+
+The LLM specialist (qwen2.5:3b) was saying "I don't have that data" even when probe data clearly contained the answer. This version fixes that by trying deterministic answers FIRST before calling the LLM.
+
+**New `probe_direct.rs` Module:**
+- Generates answers directly from probe results without LLM
+- Handles 10 common query patterns:
+  - Service status (bluetooth, docker, nginx, etc.)
+  - Swap status (/proc/swaps, free)
+  - Disk usage (df -h)
+  - Memory usage (free)
+  - Network interfaces (ip addr)
+  - Bluetooth status (systemctl, bluetoothctl)
+  - GPU info (lspci)
+  - Webcam detection (v4l2)
+  - CPU info (lscpu)
+  - Audio devices (pactl)
+
+**Specialist Handler Changes:**
+- `try_specialist_llm()` now tries direct probe answer FIRST
+- Only falls back to LLM if direct answer not possible
+- Logs when LLM is bypassed: "v0.0.403: Direct probe answer bypassed LLM"
+- Result shows `[direct probe answer]` in trace
+
+**Why This Matters:**
+- User asks "is bluetooth running?"
+- Probe runs: `systemctl status bluetooth.service`
+- Probe output shows: `Active: active (running)`
+- OLD: LLM says "I don't have that data" (WRONG)
+- NEW: Direct answer says "bluetooth.service is active and running" (CORRECT)
+
 ## [0.0.402] - 2025-12-11
 
 ### Fixed - Complete Translation & Routing Overhaul

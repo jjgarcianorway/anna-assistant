@@ -1,7 +1,8 @@
-//! Specialist LLM handler with fallback logic (v0.0.290).
+//! Specialist LLM handler with fallback logic (v0.0.403).
 //! v0.0.143: Added streaming LLM support.
 //! v0.0.241: Added real-time streaming token output to client.
 //! v0.0.290: Use clean_llm_response to strip reasoning tags.
+//! v0.0.403: CRITICAL - Try deterministic first BEFORE LLM to avoid dumb model answers.
 //!
 //! Extracted from rpc_handler to keep file sizes manageable.
 
@@ -21,6 +22,7 @@ use crate::redact;
 use crate::service_desk;
 use crate::state::SharedState;
 use crate::summarizer;
+use crate::probe_direct;
 
 /// Specialist LLM result with resource tracking
 pub struct SpecialistResult {
@@ -35,6 +37,7 @@ pub struct SpecialistResult {
 }
 
 /// Try specialist LLM with summarized probe output
+/// v0.0.403: Now tries DIRECT probe answer FIRST, before LLM
 pub async fn try_specialist_llm(
     state: &SharedState,
     query: &str,
@@ -48,6 +51,43 @@ pub async fn try_specialist_llm(
 ) -> SpecialistResult {
     progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
     let stage_start = std::time::Instant::now();
+
+    // v0.0.403: CRITICAL - Try direct probe answer FIRST before LLM
+    // The LLM is too dumb and says "I don't have that data" even when data is present
+    if let Some(direct_result) = probe_direct::try_direct_answer(query, probe_results) {
+        info!(
+            "v0.0.403: Direct probe answer bypassed LLM (confidence={})",
+            direct_result.confidence
+        );
+        progress.complete_stage(RequestStage::Specialist);
+        progress.add_specialist_message("[direct probe answer]");
+
+        // Record latency
+        {
+            state
+                .write()
+                .await
+                .latency
+                .specialist
+                .add(stage_start.elapsed().as_millis() as u64);
+        }
+
+        let det = DeterministicResult {
+            answer: direct_result.answer.clone(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: "probe_direct".to_string(),
+        };
+
+        return SpecialistResult {
+            answer: direct_result.answer,
+            used_deterministic: true,
+            det_result: Some(det),
+            prompt_truncated: false,
+            outcome: SpecialistOutcome::Ok,
+            fallback_route_class: Some("probe_direct".to_string()),
+        };
+    }
 
     // Use summarized probe context (not raw output)
     let probe_context = summarizer::build_probe_context(probe_results);

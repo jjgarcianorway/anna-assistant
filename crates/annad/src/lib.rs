@@ -56,6 +56,7 @@ pub mod ollama_streaming;
 pub mod parsers;
 pub mod permissions;
 pub mod probe_answers;
+pub mod probe_direct; // v0.0.403: Direct probe answers (bypass dumb LLM)
 pub mod probe_registry;
 pub mod probe_runner;
 pub mod probe_stage;
