@@ -241,10 +241,11 @@ async fn handle_llm_request_inner(
     // v0.0.148: Create comms generator for fly-on-wall experience
     // v0.0.254: Enhanced with LLM-powered dialogue
     // v0.0.266: Use query class for team routing (ConfigureEditor -> Desktop team)
+    // v0.0.390: DISABLED LLM dialogue - small models produce nonsense. Using static messages.
     let team = team_from_query_class(&det_route.class.to_string(), &classified_domain.to_string());
     let mut comms = CommsGenerator::new(team, &request_id)
-        .with_query(query)
-        .with_model(&translator_model);
+        .with_query(query);
+        // .with_model(&translator_model) - v0.0.390: disabled, small models generate garbage
 
     // v0.0.254: Anna dispatches to team and junior acknowledges (async for LLM dialogue)
     comms.dispatch_async(&mut progress).await;

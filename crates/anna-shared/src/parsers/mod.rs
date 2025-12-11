@@ -183,6 +183,13 @@ pub fn parse_probe_output(command: &str, stdout: &str) -> ParsedProbeData {
         || cmd_lower.starts_with("uname")
         || cmd_lower.starts_with("cat /")
         || cmd_lower.starts_with("sensors")
+        // v0.0.390: Package listing commands are valid evidence
+        || cmd_lower.starts_with("pacman -q")
+        || cmd_lower.starts_with("dpkg -l")
+        || cmd_lower.starts_with("rpm -qa")
+        || cmd_lower.starts_with("apk info")
+        // v0.0.390: Directory size commands for largest folders
+        || cmd_lower.starts_with("du ")
     {
         // v0.0.308: Treat common probes as valid raw evidence
         // These don't need structured parsing - the raw text is valid evidence

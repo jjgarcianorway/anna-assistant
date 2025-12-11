@@ -125,6 +125,20 @@ pub fn build_storage_route(class: QueryClass) -> Option<DeterministicRoute> {
             },
         }),
 
+        // v0.0.390: Largest folders - "top folders taking space"
+        QueryClass::LargestFolders => Some(DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Storage,
+            intent: QueryIntent::Question,
+            probes: vec!["largest_dirs".to_string(), "largest_home".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: false,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::Disk],
+                spine_probes: vec![],
+            },
+        }),
+
         _ => None,
     }
 }

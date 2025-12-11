@@ -22,6 +22,7 @@ impl QueryClass {
             "memory_usage" => Some(Self::MemoryUsage),
             "memory_free" => Some(Self::MemoryFree),
             "disk_usage" => Some(Self::DiskUsage),
+            "largest_folders" => Some(Self::LargestFolders),
             "service_status" => Some(Self::ServiceStatus),
             "system_health_summary" => Some(Self::SystemHealthSummary),
             "boot_time_status" => Some(Self::BootTimeStatus),

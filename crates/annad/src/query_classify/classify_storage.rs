@@ -7,6 +7,25 @@ use crate::router::QueryClass;
 /// Classify storage queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_storage(q: &str) -> Option<QueryClass> {
+    // v0.0.390: Largest folders/directories queries
+    // "top 10 folders taking storage", "what's using my disk space"
+    if (q.contains("folder") || q.contains("director"))
+        && (q.contains("largest")
+            || q.contains("biggest")
+            || q.contains("top")
+            || q.contains("taking")
+            || q.contains("using"))
+    {
+        return Some(QueryClass::LargestFolders);
+    }
+    // Also catch "what is taking space", "what's using storage"
+    if (q.contains("what") || q.contains("which"))
+        && (q.contains("taking") || q.contains("using"))
+        && (q.contains("space") || q.contains("storage") || q.contains("disk"))
+    {
+        return Some(QueryClass::LargestFolders);
+    }
+
     // v0.0.124: Mounted filesystems
     if q.contains("mounted")
         || q.contains("mount points")

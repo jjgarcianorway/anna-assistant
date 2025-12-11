@@ -24,6 +24,7 @@ pub enum QueryClass {
     MemoryUsage,
     MemoryFree,
     DiskUsage,
+    LargestFolders, // v0.0.390: "top folders", "what's taking space"
     ServiceStatus,
     SystemHealthSummary,
     BootTimeStatus,
@@ -152,6 +153,7 @@ impl std::fmt::Display for QueryClass {
             Self::MemoryUsage => "memory_usage",
             Self::MemoryFree => "memory_free",
             Self::DiskUsage => "disk_usage",
+            Self::LargestFolders => "largest_folders",
             Self::ServiceStatus => "service_status",
             Self::SystemHealthSummary => "system_health_summary",
             Self::BootTimeStatus => "boot_time_status",

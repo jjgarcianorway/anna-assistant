@@ -362,6 +362,8 @@ pub fn try_answer(
         QueryClass::DesktopWallpaper => None,
         // v0.0.311: SystemUpdate - handled in llm_request.rs
         QueryClass::SystemUpdate => None,
+        // v0.0.390: LargestFolders - needs LLM to format du output
+        QueryClass::LargestFolders => None,
         QueryClass::Unknown => None,
     }
 }

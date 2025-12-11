@@ -8,12 +8,15 @@ use crate::router::QueryClass;
 /// Returns Some if matched, None otherwise.
 pub fn classify_hardware(q: &str) -> Option<QueryClass> {
     // v0.45.4: InstalledToolCheck - "do I have nano", "is vim installed"
-    // Exclude hardware queries (cpu, ram, memory, gpu, disk)
+    // Exclude hardware queries (cpu, ram, memory, gpu, disk, storage, space)
+    // v0.0.390: Added storage/space to prevent "how much free storage do i have" misclassification
     let is_hardware_query = q.contains("cpu")
         || q.contains("ram")
         || q.contains("memory")
         || q.contains("gpu")
         || q.contains("disk")
+        || q.contains("storage")
+        || q.contains("space")
         || q.contains("core");
     let is_tool_check_query = q.contains("do i have")
         || q.contains("do you have")

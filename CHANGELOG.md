@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.390] - 2025-12-11
+
+### Major Quality Fixes - Classification, Evidence, and Dialogue
+
+Multiple critical fixes for answer quality and routing.
+
+**Fix 1: "how much free storage" returning "tool_exists" error**
+- Root cause: "how much free storage **do i have**" matched InstalledToolCheck pattern
+- The `is_hardware_query` check excluded hardware terms but not `storage`/`space`
+- Fixed by adding `storage` and `space` to hardware query detection
+- Files: `query_classify/classify_hardware.rs`
+
+**Fix 2: "list installed packages" not routing correctly**
+- Pattern `q.contains("list packages")` doesn't match "list installed packages"
+- Added `(list && packages)` and `installed packages` patterns
+- Added pacman/dpkg/rpm/apk commands to valid evidence parsers
+- Files: `query_classify/classify_config.rs`, `parsers/mod.rs`
+
+**Fix 3: "top folders taking storage" showing df instead of du**
+- Added new `LargestFolders` query class
+- Added `largest_dirs` and `largest_home` probes using `du`
+- Added classification patterns for folder/directory size queries
+- Files: `query_class.rs`, `routes_storage.rs`, `classify_storage.rs`, `probe_registry.rs`
+
+**Fix 4: Disabled garbage LLM dialogue**
+- Small models (qwen3-vl:2b) were generating nonsense internal comms
+- Examples: "Vim-style, I just need to tidy up my project" for storage questions
+- Disabled `.with_model()` - now uses static team-specific messages
+- Files: `rpc_handler/llm_request.rs`
+
+**New probes:**
+- `largest_dirs`: `du -h --max-depth=1 / | sort -rh | head -15`
+- `largest_home`: `du -h --max-depth=2 $HOME | sort -rh | head -15`
+
 ## [0.0.389] - 2025-12-11
 
 ### Fix - Package listing route uses new probes

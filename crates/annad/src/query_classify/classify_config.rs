@@ -16,13 +16,15 @@ pub fn classify_config(q: &str) -> Option<QueryClass> {
     }
 
     // Installed packages overview
+    // v0.0.390: Added (list && packages) to match "list installed packages"
     if q.contains("how many packages")
         || q.contains("packages installed")
         || q.contains("what's installed")
         || q.contains("what is installed")
-        || q.contains("list packages")
+        || (q.contains("list") && q.contains("packages"))
         || q.contains("installed software")
         || (q.contains("packages") && q.contains("count"))
+        || q.contains("installed packages")
     {
         return Some(QueryClass::InstalledPackagesOverview);
     }
