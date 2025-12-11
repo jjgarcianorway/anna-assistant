@@ -20,9 +20,11 @@
 //! v0.0.428: Strict specialist protocol, no-bullshit policy, honest stats.
 //! v0.0.429: Documentation brain - Arch Wiki, man pages, help as local knowledge graph.
 //! v0.0.430: Background workers, idle-time learning, alerts, and long-running tickets.
+//! v0.0.431: Hollywood UX - Unified transcript and terminal renderer.
 
 pub mod advice;
 pub mod background_worker; // v0.0.430: Background job system
+pub mod hollywood_ux; // v0.0.431: Unified transcript and Hollywood terminal renderer
 pub mod answer_contract;
 pub mod brief;
 pub mod budget;

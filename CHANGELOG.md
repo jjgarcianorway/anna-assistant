@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.431] - 2025-12-11
+
+### Added - Hollywood UX: Unified Transcript and Terminal Renderer
+
+**Goal:** Give Anna a rock-solid, cinematic terminal UX with one transcript model and one renderer,
+so the user always feels like they are watching a capable IT department at work.
+
+**Hollywood UX Module (`hollywood_ux/`):**
+
+**Types (`types.rs`):**
+- `HollywoodTranscript`: Extended transcript with metadata (confidence, handler, department, evidence)
+- `TranscriptOutcome`: Success, Partial, Failed, ParseError, Cancelled
+- `ProbeResult`: Probe status with timing and optional raw output
+- `InternalComm`: Staff communication entries
+- `RenderOptions`: Configurable rendering (mode, width, sections)
+
+**Storage (`storage.rs`):**
+- `TranscriptStorage`: Persistent JSON storage with rotation
+- `TranscriptSummary`: Minimal info for listing
+- `StorageStats`: Storage statistics and health
+- Auto-rotation at 1000 transcripts, 1MB max size per file
+
+**Styles (`styles.rs`):**
+- Box-drawing characters (ASCII-safe for 80-column terminals)
+- Consistent section labels: `[you]`, `[anna]`, `[probes]`, `--- internal comms ---`
+- Formatting utilities: `header_block()`, `evidence_footer()`, `status_footer()`
+- Text wrapping, truncation, indentation helpers
+- Spinner frames and working status display
+
+**Renderer (`renderer.rs`):**
+- `HollywoodRenderer`: Main renderer with cinematic and debug modes
+- Structured output: header -> internal comms -> probes -> answer -> evidence -> footer
+- `render_cinematic()`: Clean user-facing output
+- `render_debug()`: Full diagnostic output with raw probes and processing info
+- `format_simple_answer()`: Quick formatting for direct answers
+- `format_error_response()`: Gentle error presentation
+
+**Streaming (`streaming.rs`):**
+- `StreamingRenderer`: Live terminal updates with incremental rendering
+- `SpinnerState`: Animated spinner with configurable frames (100ms interval)
+- `start_spinner()`, `stop_spinner()`, `tick()`: Spinner control
+- `render_incremental()`: Append new segments without re-rendering
+- `render_final()`: Complete output with evidence and footer
+- Intelligent completion detection (Answer/Error segments)
+
+**Acceptance Tests (`tests.rs`):**
+- Simple RAM query test (clean answer, evidence, confidence)
+- Complex boot query test (internal comms, probes, suggestions)
+- Parse error handling test (gentle message, evidence preserved)
+- Mode consistency test (cinematic vs debug)
+- Storage round-trip test
+- Header/evidence/status formatting tests
+- Streaming state management tests
+
+**Design Principles:**
+- Cinematic mode: Hollywood IT department feel, minimal noise
+- Debug mode: Full diagnostics for developers, clearly separated
+- 80-column terminal compatible
+- No emojis, minimal unicode
+- Consistent visual language across all commands
+- Parse errors shown gently, never claim false success
+
 ## [0.0.430] - 2025-12-11
 
 ### Added - Background Workers, Idle-time Learning, Alerts, and Long-running Tickets
