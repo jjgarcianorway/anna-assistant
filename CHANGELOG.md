@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.397] - 2025-12-11
+
+### CRITICAL FIX - Translator fallbacks must use 3B+ models
+
+**ROOT CAUSE OF FAILURES:**
+Translator was selecting `qwen2.5:0.5b-instruct` despite our catalog changes!
+The 3B+ requirement was in the catalog, but fallback defaults were still 0.5B.
+
+**Files fixed:**
+- `config.rs` - `default_translator_model()` → 3b-instruct
+- `config.rs` - `default_supervisor_model()` → 3b-instruct
+- `config_registry.rs` - `default_registry_translator()` → 3b-instruct
+- `auto_select.rs` - fallback when selection fails → 3b-instruct
+
+**Why this matters:**
+- 0.5B models produce garbage JSON for query classification
+- Bad classification → wrong probes → wrong answers → no learning
+- The entire learning system depends on good translator output
+
 ## [0.0.396] - 2025-12-11
 
 ### Improve - Translator prompt for domain classification

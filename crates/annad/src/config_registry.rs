@@ -30,7 +30,8 @@ pub struct ModelRegistryConfig {
 }
 
 fn default_registry_translator() -> String {
-    "qwen2.5:0.5b-instruct".to_string()
+    // v0.0.397: Translator needs 3B+ for reliable JSON output
+    "qwen2.5:3b-instruct".to_string()
 }
 
 fn default_registry_specialist() -> String {
@@ -101,7 +102,8 @@ mod tests {
     #[test]
     fn test_model_registry_default() {
         let registry = ModelRegistryConfig::default();
-        assert_eq!(registry.translator, "qwen2.5:0.5b-instruct");
+        // v0.0.397: Translator now requires 3B+ for reliable JSON
+        assert_eq!(registry.translator, "qwen2.5:3b-instruct");
         assert_eq!(registry.specialist_default, "qwen2.5:7b-instruct");
         assert_eq!(registry.preferred_family, "qwen2.5");
         assert!(registry.specialist_overrides.is_empty());
@@ -157,7 +159,8 @@ mod tests {
             .insert("network".to_string(), "custom:4b".to_string());
 
         let models = registry.all_models();
-        assert!(models.contains(&"qwen2.5:0.5b-instruct".to_string()));
+        // v0.0.397: Translator now uses 3b-instruct
+        assert!(models.contains(&"qwen2.5:3b-instruct".to_string()));
         assert!(models.contains(&"qwen2.5:7b-instruct".to_string()));
         assert!(models.contains(&"custom:4b".to_string()));
     }

@@ -69,8 +69,9 @@ pub struct LlmConfig {
 }
 
 fn default_translator_model() -> String {
-    // v0.0.32: Use smallest fast model for translator to avoid timeouts
-    "qwen2.5:0.5b-instruct".to_string()
+    // v0.0.397: Translator needs 3B+ for reliable JSON output
+    // 0.5B models produce garbage JSON causing routing failures
+    "qwen2.5:3b-instruct".to_string()
 }
 
 fn default_junior_model() -> String {
@@ -89,8 +90,8 @@ fn default_specialist_model() -> String {
 }
 
 fn default_supervisor_model() -> String {
-    // v0.0.32: Use same small model as translator for speed
-    "qwen2.5:0.5b-instruct".to_string()
+    // v0.0.397: Supervisor needs 3B+ like translator for reliable JSON
+    "qwen2.5:3b-instruct".to_string()
 }
 
 fn default_translator_timeout() -> u64 {
@@ -370,8 +371,8 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        // v0.0.32: fast translator with 0.5b model
-        assert_eq!(config.llm.translator_model, "qwen2.5:0.5b-instruct");
+        // v0.0.397: Translator needs 3B+ for reliable JSON output
+        assert_eq!(config.llm.translator_model, "qwen2.5:3b-instruct");
         // v0.0.277: tiered model hierarchy
         assert_eq!(config.llm.junior_model, "qwen2.5:3b-instruct");
         assert_eq!(config.llm.senior_model, "qwen2.5:7b-instruct");
@@ -384,9 +385,9 @@ mod tests {
     #[test]
     fn test_required_models_dedup() {
         let config = Config::default();
-        // v0.0.277: translator/supervisor (same), junior, senior
+        // v0.0.397: translator/supervisor/junior all 3b now, senior 7b
         let models = config.required_models();
-        assert_eq!(models.len(), 3); // translator/supervisor (0.5b), junior (3b), senior (7b)
+        assert_eq!(models.len(), 2); // translator/supervisor/junior (3b), senior (7b)
     }
 
     #[test]

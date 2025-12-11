@@ -221,10 +221,11 @@ pub async fn quick_select_models(available_ram_gb: f32) -> Result<(String, Strin
         .cloned()
         .collect();
 
+    // v0.0.397: Translator fallback must be 3B+ for reliable JSON
     let translator =
         select_model(ModelRole::Translator, &suitable, &config, &empty_benchmarks)
             .map(|s| s.model)
-            .unwrap_or_else(|| "qwen2.5:0.5b-instruct".to_string());
+            .unwrap_or_else(|| "qwen2.5:3b-instruct".to_string());
 
     let specialist =
         select_model(ModelRole::Specialist, &suitable, &config, &empty_benchmarks)
