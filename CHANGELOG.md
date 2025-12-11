@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.424] - 2025-12-11
+
+### Added - Knowledge V4: Complete Local Knowledge Engine
+
+**Goal:** Give Anna a real, local, citation-based knowledge brain that prefers Arch-style sources
+(man pages, help text, docs) and stops inventing "knowledge" that the system itself could provide.
+
+**Configuration (`knowledge_v4/config.rs`):**
+- `KnowledgeConfig`: allow_web_lookup, man_paths, doc_paths, wiki_path
+- max_snippet_chars (1500), max_results_per_query (5), command_timeout_ms
+- `effective_man_paths()`, `effective_doc_paths()`: only existing paths
+- `wiki_available()`: check if offline wiki snapshot exists
+
+**Query Types (`knowledge_v4/query.rs`):**
+- `KnowledgeSource`: ManPage, CommandHelp, LocalDocs, ArchWiki
+- `KnowledgeQuery`: ticket_id, domain, topic, entities, preferred_sources
+- Source priority by domain: system_priority(), tool_priority(), config_priority()
+- `command_entities()`, `path_entities()`: extract typed entities
+- `QueryBuilder`: fluent API for ticket integration
+
+**Snippets (`knowledge_v4/snippet.rs`):**
+- `KnowledgeSnippet`: source, title, excerpt, citation_id, path, command, relevance
+- Constructors: `from_man()`, `from_help()`, `from_doc()`, `from_wiki()`
+- `KnowledgeResult`: snippets, sources_queried, sources_with_results, duration_ms
+- `format_for_specialist()`: structured context for LLM prompts
+- `format_citations()`: user-facing source list
+
+**Citations (`knowledge_v4/citation.rs`):**
+- `Citation`: structured citation with id, source, display, location
+- `Citation::man()`, `::man_section()`, `::help()`, `::doc()`, `::wiki()`
+- `format_citation()`: "man:vim" → "man vim"
+- `parse_citation()`: extract source and name
+- `format_sources()`: multi-citation display
+
+**Man Page Adapter (`knowledge_v4/adapters/man.rs`):**
+- `ManAdapter::query()`: fetch man page, extract NAME/SYNOPSIS/DESCRIPTION
+- `extract_topic_excerpt()`: context around topic keyword
+- `extract_default_excerpt()`: structured section extraction
+- Safety: `is_safe_command()`, section header detection
+- Returns snippets with `man:<command>` citations
+
+**Help Adapter (`knowledge_v4/adapters/help.rs`):**
+- `HelpAdapter::query()`: try --help then -h
+- Extracts usage line and options section
+- Handles stderr output (some commands output help there)
+- Dangerous command blocklist (rm, dd, mkfs, etc.)
+- Returns snippets with `help:<command>` citations
+
+**Doc Adapter (`knowledge_v4/adapters/doc.rs`):**
+- `DocAdapter::query()`: search /usr/share/doc, /usr/local/share/doc
+- `find_candidates()`: match directories by entity/topic
+- `extract_from_dir()`: find README, INSTALL, etc.
+- Text file detection, binary file filtering
+- Returns snippets with `doc:<name>` citations
+
+**Wiki Adapter (`knowledge_v4/adapters/wiki.rs`):**
+- `WikiIndex`: offline Arch Wiki snapshot index
+- `WikiAdapter::query()`: search local wiki files
+- `build_index()`: scan wiki directory
+- `strip_markup()`: HTML/wiki markup removal
+- No network calls - works only with pre-synced local copy
+- Returns snippets with `wiki:<topic>` citations
+
+**Knowledge Engine (`knowledge_v4/engine.rs`):**
+- `KnowledgeEngine`: orchestrates all adapters
+- `query()`: try sources in priority order
+- `query_man()`, `query_help()`, `query_docs()`, `query_wiki()`
+- `query_command()`, `query_topic()`: quick queries
+- `EngineQueryBuilder`: ticket integration helper
+
+**Key Features:**
+- Local-first: no network calls by default
+- Citation-based: every snippet traceable to source
+- Graceful degradation: missing sources skipped, not errors
+- Specialist-friendly: `format_for_specialist()` for LLM context
+- Configurable: paths, limits, logging
+
 ## [0.0.423] - 2025-12-11
 
 ### Added - Recipe V3: Safe Learning and Execution Engine
