@@ -7,6 +7,106 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.427] - 2025-12-11
+
+### Added - Self-Learning Recipe Engine V1
+
+**Goal:** Implement a self-learning recipe system that learns from successful specialist responses
+and can answer common questions without calling the LLM.
+
+**Learning Engine Module (`learning_engine/`):**
+
+**Recipe Schema (`recipe.rs`):**
+- `LearnedRecipe`: Full recipe with pattern, probes, answer templates, safety, origin, stats
+- `RecipePattern`: intent + keywords + required_signals + optional_signals
+- `RecipeInputs`: Parameter definitions with optional support
+- `RecipeProbe`: Probe definitions with tool, params, timeout, optional flag
+- `RecipeLogic`: Sequential/Template logic with answer kind (Diagnostic/Fix/Explanation/Status)
+- `AnswerTemplate`: Short and detailed templates with `{{variable}}` substitution
+- `RecipeSafety`: RiskLevel (Low/Medium/High), needs_backup, requires_sudo, warning
+- `RecipeOrigin`: created_from_ticket, created_by, created_at, sources, is_seed
+- `RecipeUsageStats`: uses, successes, failures, last_used_at, success_rate()
+
+**Evidence Cache (`evidence.rs`):**
+- `EvidenceEntry`: Probe output, man page, help output, ticket summary
+- `EvidenceCache`: Rolling cache with domain/intent indexing
+- Automatic pruning of entries older than 30 days
+- `search()`: Find evidence by domain or intent
+
+**Recipe Storage (`storage.rs`):**
+- `RecipeLibrary`: In-memory recipe store with domain/intent indexes
+- Load/save from JSON files
+- `record_success()/record_failure()`: Track recipe outcomes
+- `enable()/disable()`: Recipe lifecycle management
+- `seeds()/learned()/recent(days)`: Filtered recipe access
+
+**Learning Eligibility (`eligibility.rs`):**
+- `check_eligibility()`: Determines if a ticket is learnable
+- `SkipReason`: ErrorStatus, LowConfidence, VagueAnswer, NoEvidence, TooSpecific, etc.
+- `extract_intent()`: Pattern-based intent extraction (how much ram → check_free_ram)
+- `extract_params()`: Extract service_name, package_name, device, file_path from questions
+- Vague answer detection ("might be", "possibly", "not sure", etc.)
+- User-specific content detection (/home/user/, /tmp/, UUIDs, etc.)
+
+**Recipe Matcher (`matcher.rs`):**
+- `find_matches()`: Find recipes matching a query
+- `RecipeMatch`: score, breakdown, params, missing_signals
+- `MatchBreakdown`: Weighted scoring components
+  - intent_score (40%): Exact match = 1.0, partial = 0.7, word overlap
+  - keyword_score (30%): Jaccard similarity between keywords
+  - signal_score (20%): Availability of required probes
+  - domain_bonus (10%): Matching domain
+  - maturity_bonus (5%): Reliable recipes with ≥3 successful uses
+  - health_penalty (-15%): Recipes with <50% success rate
+- `is_strong()`: Score ≥0.85 = auto-execute without LLM
+- `is_usable()`: Score ≥0.70 = can be considered
+
+**Recipe Generator (`generator.rs`):**
+- `generate_from_ticket()`: Create recipe from successful ticket
+- Extracts pattern from question (intent, keywords, signals)
+- Captures probes used in response
+- Generates answer templates with variable substitution
+- Infers domain from specialist department and question content
+- Builds safety profile from response actions
+
+**Recipe Executor (`executor.rs`):**
+- `execute_recipe()`: Run recipe probes and fill answer templates
+- `ProbeExecutor` trait for testable probe execution
+- `ShellProbeExecutor`: Default implementation using shell commands
+- Probe command mapping (probe.free → "free -h", probe.df → "df -h", etc.)
+- Variable extraction from probe output (free → total_mem, used_mem, available_mem)
+- `can_execute()`: Check if recipe requirements are met
+
+**Learning Stats (`stats.rs`):**
+- `LearningStats`: recipes_total, recipe_hit_rate, evidence_entries, top_recipes
+- `ResolutionCounter`: by_recipe, by_llm, failed
+- `LearningProgress`: tickets_since_last_learned, skipped_tickets
+- Display implementation for annactl stats output
+
+**Seed Recipes (`seeds.rs`):**
+- `seed-check-free-ram`: Memory status from `free -h`
+- `seed-check-disk-space`: Disk usage from `df -h`
+- `seed-check-service-status`: Systemd service status
+- `seed-check-uptime`: System uptime
+- `seed-check-memory-usage`: Detailed memory stats
+
+**Key Constants:**
+- `MIN_LEARN_CONFIDENCE`: 0.8 (80% confidence required to learn)
+- `MIN_PARTIAL_CONFIDENCE`: 0.7 (70% for partial responses)
+- `MIN_RECIPE_MATCH_SCORE`: 0.70 (70% score to use recipe)
+- `AUTO_EXECUTE_SCORE`: 0.85 (85% score to skip LLM)
+- `MIN_RELIABLE_USES`: 3 (uses before recipe is reliable)
+- `MAX_EVIDENCE_CACHE`: 500 entries
+- `EVIDENCE_CACHE_DAYS`: 30 days rolling window
+
+**Tests:**
+- 47 unit tests covering all components
+- Recipe creation and pattern matching
+- Eligibility checking with various skip reasons
+- Storage operations with indexing
+- Evidence cache with pruning
+- Executor with mock probes
+
 ## [0.0.426] - 2025-12-11
 
 ### Added - Strict Ticket Lifecycle and Honest Metrics
