@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.416] - 2025-12-11
+
+### Added - Knowledge Engine and Self-Learning Recipes
+
+**Goal:** Anna learns like a real IT department. Minimal hardcoding, maximum learning from
+experience. Uses man pages, --help, Arch Wiki, and local docs as "the Bible".
+
+**New Modules (anna-shared):**
+
+**`knowledge_engine.rs`:**
+- `KnowledgeEngine`: Fetches structured knowledge from local sources
+- `KnowledgeRequest`: Query with topic, context, and source preferences
+- `KnowledgeEngineHit`: Structured result with doc_id, kind, title, snippet
+- Sources: ManPage, CliHelp, LocalDoc, ArchWiki
+- Safe command whitelist (no arbitrary execution)
+- 1-week caching in `/var/lib/anna/knowledge_cache`
+- Commands: `man <cmd>`, `<cmd> --help`, local `/usr/share/doc` search
+
+**`canonical_intents.rs`:**
+- `CanonicalIntent`: 30+ intents like CheckFreeRam, CheckDiskUsage, CheckFailedServices
+- NO HARDCODED NATURAL LANGUAGE - only concepts
+- `required_probes()`: Probes needed for each intent
+- `knowledge_topics()`: Knowledge domains for doc search
+- `translator_to_canonical()`: Map translator output to canonical intent
+- Intent-based routing replaces phrase-based matching
+
+**`learned_recipes.rs`:**
+- `LearnedRecipe`: Deterministic, replayable solution pattern
+- `RecipeComputeStep`: Extract, Compare, Count, IsEmpty, ParseNumber
+- `AnswerTemplate`: Summary with {placeholders}, evidence list
+- `execute_recipe()`: Run recipe with probe outputs
+- Intent-based matching (not phrase-based)
+- Self-learning from successful tickets
+
+**`recipe_learner.rs`:**
+- `TicketObservation`: Captures ticket data for learning
+- `LearningCandidates`: Groups observations by intent
+- `RecipeLearner`: Creates recipes from repeated successes
+- Minimum 2 observations with 80% success rate to create recipe
+- Intent-specific recipe generators (disk_usage, memory, swap, services, boot)
+- Auto-deprecates recipes with <50% success after 10 uses
+
+**`recipe_fast_path.rs`:**
+- `FastPathExecutor`: Tries recipes before specialist LLM calls
+- `FastPathResult`: Answered, NoRecipe, RecipeFailed
+- `should_try_fast_path()`: Checks eligibility (confidence >= 0.6, no clarification)
+- Knowledge enrichment: Optionally fetches docs to explain answers
+- Enables LLM-free answers for common queries
+
+**`recipe_stats.rs`:**
+- `RecipeStats`: Tracks tickets by recipe vs specialist
+- `IntentStats`: Per-intent coverage and success rates
+- `recipe_coverage()`: What % answered without LLM
+- `intents_needing_recipes()`: Identifies learning opportunities
+- `summary()`: Human-readable stats line
+
+**Design Principles:**
+- Intents and topics are stable API surfaces
+- Recipes evolve as the system gains experience
+- Specialists are "teachers" for new/complex intents
+- Frequently occurring intents get replaced by recipes over time
+
 ## [0.0.415] - 2025-12-11
 
 ### Fixed - Strict Specialist Contract (Fast, Honest, Grounded)

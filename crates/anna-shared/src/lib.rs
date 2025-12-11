@@ -6,6 +6,7 @@
 //! v0.0.410: Evidence pipeline - real knowledge engine (probes, docs, wiki).
 //! v0.0.414: Doc-first reasoning with citations and honesty tracking.
 //! v0.0.415: Strict specialist contract - fast, honest, grounded answers.
+//! v0.0.416: Knowledge engine and self-learning recipes.
 
 pub mod advice;
 pub mod answer_contract;
@@ -124,6 +125,12 @@ pub mod translator_contract; // v0.0.415: Strict translator schema
 pub mod answer_shaper; // v0.0.415: Shape answers for users
 pub mod honest_stats; // v0.0.415: Honest stats tracking
 pub mod regression_tests; // v0.0.415: Shape validation tests
+pub mod knowledge_engine; // v0.0.416: Knowledge engine (man, help, wiki)
+pub mod canonical_intents; // v0.0.416: Canonical intents and topics
+pub mod learned_recipes; // v0.0.416: Self-learning recipe schema
+pub mod recipe_learner; // v0.0.416: Recipe learning engine
+pub mod recipe_fast_path; // v0.0.416: Recipe execution before specialists
+pub mod recipe_stats; // v0.0.416: Recipe usage stats
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
