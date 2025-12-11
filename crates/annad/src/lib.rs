@@ -98,6 +98,7 @@ pub mod theatre;
 pub mod ticket_loop;
 pub mod ticket_persistence; // v0.0.411: Ticket persistence for stats
 pub mod recipe_engine_v2; // v0.0.412: Self-learning recipe system
+pub mod internal_comms; // v0.0.413: Event-driven IT department chatter
 pub mod ticket_service;
 pub mod timeout_handler;
 pub mod translator;

@@ -509,8 +509,9 @@ impl LiveTicket {
 
     /// Check if ticket was successful (outcome is success)
     pub fn is_success(&self) -> bool {
+        // Only consider it a success if the outcome is explicitly Success
+        // (Partial and CannotAnswerSafely are "resolved" but not "success")
         self.outcome.map(|o| o.is_success()).unwrap_or(false)
-            || self.state == TicketState::Success
     }
 
     /// v0.0.411: Check if outcome is an error

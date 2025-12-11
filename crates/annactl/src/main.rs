@@ -4,6 +4,7 @@
 //! v0.0.323: Added learning command to show probe learning stats.
 //! v0.0.328: Added query test option to learning command.
 //! v0.0.406: Added suggest-recipes command for recipe candidate analysis.
+//! v0.0.413: Hollywood IT department view with cinematic/debug modes.
 
 mod change_commands;
 mod client;
@@ -11,6 +12,7 @@ mod commands;
 mod display;
 mod errors;
 mod greeting;
+mod live_renderer;
 mod live_request;
 mod output;
 mod progress_display;
@@ -21,6 +23,8 @@ mod status_display_v2;
 mod theatre_render;
 mod transcript_render;
 
+use anna_shared::transcript_segment::TranscriptMode;
+use anna_shared::ui_config::UiConfig;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
@@ -58,6 +62,18 @@ struct Cli {
     /// Natural language request (e.g., \"what's my disk usage?\")
     #[arg(trailing_var_arg = true)]
     request: Vec<String>,
+
+    /// Use cinematic mode (Hollywood IT department view)
+    #[arg(long, global = true)]
+    cinematic: bool,
+
+    /// Use debug mode (raw JSON, full errors)
+    #[arg(long, global = true)]
+    debug: bool,
+
+    /// Hide internal comms (IT department chatter)
+    #[arg(long, global = true)]
+    no_internal_comms: bool,
 }
 
 #[derive(Subcommand)]
@@ -88,6 +104,20 @@ enum Command {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Build UI config from CLI flags
+    let mode = if cli.debug {
+        Some(TranscriptMode::Debug)
+    } else if cli.cinematic {
+        Some(TranscriptMode::Cinematic)
+    } else {
+        None
+    };
+
+    let ui_config = UiConfig::load().with_cli_overrides(mode, cli.no_internal_comms);
+
+    // Store config in thread-local for handlers to access
+    set_ui_config(ui_config);
+
     match cli.command {
         Some(Command::Status) => handle_status().await,
         Some(Command::Stats) => handle_stats().await,
@@ -106,4 +136,19 @@ async fn main() -> Result<()> {
             }
         }
     }
+}
+
+// Thread-local UI config
+thread_local! {
+    static UI_CONFIG: std::cell::RefCell<UiConfig> = std::cell::RefCell::new(UiConfig::default());
+}
+
+/// Set UI config
+pub fn set_ui_config(config: UiConfig) {
+    UI_CONFIG.with(|c| *c.borrow_mut() = config);
+}
+
+/// Get UI config
+pub fn get_ui_config() -> UiConfig {
+    UI_CONFIG.with(|c| c.borrow().clone())
 }

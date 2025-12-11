@@ -208,6 +208,7 @@ pub fn record_success(
 
     // Also update recipe candidates
     let mut recipe_store = RecipeCandidateStore::load();
+    let keyword_count = keywords.len();
     let candidate = RecipeCandidate::new(ticket_id, domain, intent, keywords)
         .with_probes(used_probes.to_vec())
         .with_evidence(evidence_ids.to_vec());
@@ -215,7 +216,7 @@ pub fn record_success(
     recipe_store.add_or_confirm(candidate);
     let _ = recipe_store.save();
 
-    info!("Learned from successful answer: {} ({} keywords)", ticket_id, keywords.len());
+    info!("Learned from successful answer: {} ({} keywords)", ticket_id, keyword_count);
 }
 
 /// Extract facts from evidence bundle

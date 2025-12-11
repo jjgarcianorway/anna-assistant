@@ -99,9 +99,9 @@ pub fn render_comms(ticket: &LiveTicket, elapsed_secs: f64) -> Vec<CommsMessage>
         }
 
         TicketState::Answered => {
-            let confidence_str = if ticket.confidence >= 80 {
+            let confidence_str = if ticket.confidence >= 80.0 {
                 format!("high confidence ({:.0}%)", ticket.confidence)
-            } else if ticket.confidence >= 60 {
+            } else if ticket.confidence >= 60.0 {
                 format!("moderate confidence ({:.0}%)", ticket.confidence)
             } else {
                 format!("low confidence ({:.0}%)", ticket.confidence)
@@ -237,7 +237,7 @@ pub fn one_line_summary(ticket: &LiveTicket) -> String {
     };
 
     let handler = handler_description(ticket.handler.as_ref());
-    let duration = ticket.duration_ms() as f64 / 1000.0;
+    let duration = ticket.get_duration_ms() as f64 / 1000.0;
 
     format!(
         "[{}] {} - {} ({:.1}s)",
@@ -257,7 +257,7 @@ mod tests {
             tier: SolverTier::Junior,
             model: "qwen2.5".to_string(),
         });
-        ticket.mark_answered("Your disk is 75% full", 85);
+        ticket.mark_answered("Your disk is 75% full", 85.0);
         ticket.mark_success();
 
         let messages = render_comms(&ticket, 1.5);

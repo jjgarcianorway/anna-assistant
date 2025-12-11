@@ -4,6 +4,7 @@
 //! v0.0.75: UX realism, stats/RPG backend, recipes learned, citations.
 //! v0.0.408: Research-first knowledge system with evidence-based answers.
 //! v0.0.410: Evidence pipeline - real knowledge engine (probes, docs, wiki).
+//! v0.0.414: Doc-first reasoning with citations and honesty tracking.
 
 pub mod advice;
 pub mod answer_contract;
@@ -106,6 +107,16 @@ pub mod recipe_executor; // v0.0.412: Recipe execution engine
 pub mod recipe_exec_helpers; // v0.0.412: Execution helper functions
 pub mod recipe_templates; // v0.0.412: Generic parameterized recipes
 pub mod recipe_converter; // v0.0.412: Ticket-to-recipe conversion
+pub mod transcript_segment; // v0.0.413: Transcript segment data model
+pub mod transcript_render; // v0.0.413: Cinematic/debug transcript renderer
+pub mod ui_config; // v0.0.413: UI configuration (mode, spinner, etc.)
+pub mod repl_greeting; // v0.0.413: Stats-based REPL greeting
+pub mod knowledge_query; // v0.0.414: Doc-first knowledge query interface
+pub mod knowledge_config; // v0.0.414: Knowledge source configuration
+pub mod knowledge_executor; // v0.0.414: Knowledge query executor
+pub mod intent_policy; // v0.0.414: Intent-based routing (no hardcoded NL)
+pub mod doc_first_workflow; // v0.0.414: Doc-first specialist reasoning
+pub mod knowledge_learning; // v0.0.414: Self-learning from docs and tickets
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;

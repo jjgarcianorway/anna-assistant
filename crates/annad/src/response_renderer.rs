@@ -218,6 +218,9 @@ fn build_internal_comms(
         (ResponseStatus::CannotAnswer, _, _) => {
             format!("Can't answer this one. {}", note)
         }
+        (ResponseStatus::NoEvidence, _, _) => {
+            format!("No evidence collected yet. {}", note)
+        }
         (ResponseStatus::Ok, Severity::Critical, _) => {
             format!("This is critical: {}", note)
         }
@@ -268,6 +271,7 @@ fn build_status_message(status: &ResponseStatus, reliability: u8) -> String {
             "System Status | Cannot answer this question with available data.".to_string()
         }
         ResponseStatus::Error => "System Status | An error occurred processing this request.".to_string(),
+        ResponseStatus::NoEvidence => "System Status | No evidence was collected for this query.".to_string(),
     }
 }
 
@@ -333,6 +337,9 @@ mod tests {
             next_steps: None,
             discovery: None,
             missing_probes: vec![],
+            can_answer: true,
+            evidence_references: vec![],
+            knowledge_used: vec![],
         };
 
         let rendered = render_response(&response, "system");
@@ -366,6 +373,9 @@ mod tests {
             next_steps: None,
             discovery: None,
             missing_probes: vec!["zram_devices".to_string()],
+            can_answer: false,
+            evidence_references: vec![],
+            knowledge_used: vec![],
         };
 
         let rendered = render_response(&response, "system");

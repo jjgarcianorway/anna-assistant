@@ -7,6 +7,153 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.414] - 2025-12-11
+
+### Added - Doc-First Knowledge Engine (Citations & Honesty)
+
+**Core Philosophy:** Anna now follows a doc-first reasoning pattern. Instead of hardcoded
+natural language cases, she queries real documentation (man pages, Arch Wiki, --help)
+and grounds all answers in evidence with citations.
+
+**New Modules (anna-shared):**
+
+**`knowledge_query.rs`:**
+- `KnowledgeSourceKind`: ManPage, CliHelp, ArchWikiPage, ArchWikiSection, LocalDocFile, ProbeOutput, ConfigFile, LogExcerpt, BuiltIn, LearnedRecipe
+- `KnowledgeQuery`: Domain-based query with preferred sources and related commands
+- `KnowledgeHit`: Search result with doc_id, title, excerpt, relevance, and origin for citation
+- `KnowledgeResult`: Collection of hits with search metadata
+
+**`knowledge_config.rs`:**
+- `KnowledgeConfig`: Configuration for wiki paths, caching, and learning settings
+- Wiki cache path: `/var/lib/anna/arch_wiki` or `~/.anna/wiki-cache`
+- Configurable preferred sources, cache duration, and learning thresholds
+- `WikiStats`: Cache statistics (page count, size, availability)
+
+**`knowledge_executor.rs`:**
+- `query_knowledge()`: Main entry point for doc-first reasoning
+- Multi-source search: built-in pack → man pages → help output → Arch Wiki → learned recipes
+- Relevance-based ranking and deduplication
+- `build_query_from_context()`: Creates queries from ticket context
+
+**`intent_policy.rs`:**
+- `IntentCategory`: 30+ standardized intents (DiagnoseBootTime, InspectDiskUsage, etc.)
+- Intent-based routing instead of hardcoded question matching
+- `recommended_probes()`: Per-intent probe recommendations
+- `knowledge_domains()`: Per-intent knowledge source mapping
+- Policy enforcement: `validate_recipe_policy()` catches hardcoded natural language patterns
+- `PolicyViolation`: RecipeKeyedByQuestion, HardcodedQuestionMapping, TooNarrowRecipe
+
+**`doc_first_workflow.rs`:**
+- `DocFirstContext`: Ticket context for doc-first reasoning
+- `SpecialistEvidence`: Combined probe and doc evidence
+- `CitedAnswer`: Answer with confidence, citations, and grounding status
+- `HonestyRules`: Configurable requirements (require_probe, require_doc, max_ungrounded_claims)
+- `gather_evidence()`: Orchestrates probe execution and knowledge query
+
+**`knowledge_learning.rs`:**
+- `SolvedTicketRecord`: Learning from high-confidence tickets
+- `DocReference`: Track which docs were consulted and cited
+- `ProposedRecipe`: Auto-generated recipes from ticket patterns
+- `KnowledgeLearningStore`: Persistent store for learning data
+- `effective_probes_for_intent()`: Learn which probes work best per intent
+- `analyze_and_propose()`: Idle-time learning job that clusters tickets and proposes recipes
+
+**Design Principles:**
+- NO hardcoded natural language cases (enforced by policy)
+- All answers must cite their evidence sources
+- Generic intent routing, not specific question matching
+- Recipes learned from evidence patterns, not invented
+- Senior LLM review for learned recipe safety
+
+## [0.0.413] - 2025-12-11
+
+### Added - Hollywood IT Department View (Transcript Renderer & REPL UX)
+
+**Major UX Overhaul:** Anna now feels like a tiny IT department in your terminal with
+cinematic rendering, real-time streaming, and characterful internal communications.
+
+**New Modules (anna-shared):**
+
+**`transcript_segment.rs`:**
+- `TranscriptSegment`: Core data model for all output
+- `SegmentKind`: user_input, system_info, ticket_header, internal_comms, probe_run, specialist_message, answer, error, tip, stats_snippet, debug_json, progress
+- `TranscriptMode`: cinematic (default) vs debug
+- `Actor`: Staff members with names and roles (Anna, Sofia, Michael, Lars, etc.)
+- `Transcript`: Full request transcript with ordered segments
+
+**`transcript_render.rs`:**
+- Cinematic mode: Hollywood IT department view, minimal noise
+- Debug mode: Same view + raw JSON, full errors
+- `RenderConfig`: Customizable rendering (show_internal_comms, show_tips, show_probes)
+- `format_answer_with_evidence()`: Standard answer format with evidence footer
+- `format_error_with_context()`: Clear, honest error messages
+
+**`ui_config.rs`:**
+- `UiConfig`: Persistent UI settings from config files
+- `SpinnerStyle`: simple (|/-\), dots (...), none
+- Settings: mode, show_internal_comms, show_tips, show_probes, show_timestamps
+- Config files: `~/.anna/config.toml`, `/etc/anna/config.toml`
+
+**`repl_greeting.rs`:**
+- Stats-based personalized greeting using real ticket data
+- `ReplGreeting`: tickets_handled, top_topics, system_status, active_staff
+- `SessionContext`: REPL session memory (last questions, last domain)
+- First-time vs returning user experience
+
+**New Module (annad):**
+
+**`internal_comms.rs`:**
+- Event-driven IT department chatter - NO fake messages
+- Every line reflects actual processing state
+- `TranscriptEvent`: TicketOpened, SpecialistAssigned, ProbeStarted, etc.
+- Staff registry: Sofia (Desktop), Michael (Network), Lars (Storage), etc.
+
+**New Module (annactl):**
+
+**`live_renderer.rs`:**
+- Real-time streaming renderer with spinner
+- Progressive segment display as they arrive
+- Probe grouping for compact display
+- Internal comms section with timestamps
+
+**`greeting.rs`:**
+- Theatre-style REPL greeting with daemon status
+
+**CLI Flags (annactl):**
+- `--cinematic`: Force Hollywood IT department view
+- `--debug`: Show raw JSON and full errors
+- `--no-internal-comms`: Hide IT department chatter
+
+**Example Cinematic Output:**
+
+```
+[you] why is my boot time so slow?
+
+--- internal comms ---
+  [0.1s] Anna: Opening ticket DSK-0101 - boot time investigation.
+  [0.2s] Tomas (System Analyst): On it. Checking services and startup time.
+
+[probes]
+  systemd-analyze
+  systemctl list-unit-files
+
+[anna]
+Startup took 25.6 seconds:
+  - Firmware: 5.8s
+  - Bootloader: 8.3s
+  - Userspace: 6.4s
+
+The main slowdown is in the bootloader stage.
+
+Evidence: systemd-analyze, systemctl
+```
+
+**Design Principles:**
+- No blank screen: Spinner and progressive updates
+- Honest errors: Clear messages about what failed
+- Real events only: Internal comms driven by actual processing
+- Evidence grounded: Every answer cites its sources
+
 ## [0.0.412] - 2025-12-11
 
 ### Added - Self-Learning Recipe Engine

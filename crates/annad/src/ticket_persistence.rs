@@ -61,19 +61,8 @@ pub fn persist_from_result(result: &ServiceDeskResult) {
         .clone()
         .unwrap_or_else(|| "unknown".to_string());
 
-    // Build probe results from evidence block
-    let probe_results: Vec<ProbeResult> = result
-        .evidence
-        .probes_executed
-        .iter()
-        .map(|p| ProbeResult {
-            command: p.command.clone(),
-            stdout: p.stdout.clone(),
-            stderr: p.stderr.clone().unwrap_or_default(),
-            exit_code: p.exit_code,
-            timing_ms: p.duration_ms.unwrap_or(0),
-        })
-        .collect();
+    // Use probe results directly from evidence block
+    let probe_results: Vec<ProbeResult> = result.evidence.probes_executed.clone();
 
     // Get duration from transcript (estimate from last event)
     let duration_ms = result
@@ -87,13 +76,7 @@ pub fn persist_from_result(result: &ServiceDeskResult) {
     let specialist_outcome = result
         .execution_trace
         .as_ref()
-        .map(|trace| {
-            if trace.specialist_timed_out {
-                SpecialistOutcome::Timeout
-            } else {
-                SpecialistOutcome::Ok
-            }
-        })
+        .map(|trace| trace.specialist_outcome.clone())
         .unwrap_or(SpecialistOutcome::Ok);
 
     let mut log = TicketLog::new(
@@ -173,7 +156,7 @@ pub fn create_ticket_log(
 
     // Track escalation if applicable
     if let Some(trace) = &result.execution_trace {
-        if trace.fallback_used.is_some() {
+        if !matches!(trace.fallback_used, anna_shared::trace::FallbackUsed::None) {
             log.escalated = true;
             log.escalation_path = Some("specialist→fallback".to_string());
         }
@@ -341,12 +324,24 @@ mod tests {
     fn mock_result(reliability: u8) -> ServiceDeskResult {
         ServiceDeskResult {
             request_id: "test-001".to_string(),
-            answer: "Test answer".to_string(),
-            reliability_score: reliability,
-            evidence: Default::default(),
-            transcript: Transcript::new("test"),
             case_number: Some("DSK-0001".to_string()),
-            assigned_staff: None, staff_id: None, execution_trace: None,
+            assigned_staff: None,
+            staff_id: None,
+            answer: "Test answer".to_string(),
+            validated: reliability >= 80,
+            reliability_score: reliability,
+            reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
+            reliability_explanation: None,
+            domain: SpecialistDomain::System,
+            evidence: Default::default(),
+            needs_clarification: false,
+            clarification_question: None,
+            clarification_request: None,
+            transcript: Transcript::new(),
+            execution_trace: None,
+            proposed_change: None,
+            proposed_changes: vec![],
+            feedback_request: None,
         }
     }
 

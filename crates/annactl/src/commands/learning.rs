@@ -238,23 +238,14 @@ fn show_recipe_stats() {
         return;
     }
 
-    kv("total recipes", &format!("{}", stats.total));
-    kv("active", &format!("{}", stats.active));
-    if stats.deprecated > 0 {
+    kv("total recipes", &format!("{}", stats.total_recipes));
+    kv("active", &format!("{}", stats.active_recipes));
+    if stats.deprecated_recipes > 0 {
         kv("deprecated", &format!("{}{}{}",
-            colors::WARN, stats.deprecated, colors::RESET));
+            colors::WARN, stats.deprecated_recipes, colors::RESET));
     }
-
-    // Show by domain
-    if !stats.by_domain.is_empty() {
-        println!();
-        print_hint("by domain:");
-        let mut sorted: Vec<_> = stats.by_domain.iter().collect();
-        sorted.sort_by(|a, b| b.1.cmp(a.1));
-        for (domain, count) in sorted.iter().take(5) {
-            print_step(&format!("{}: {}", domain, count));
-        }
-    }
+    kv("total uses", &format!("{}", stats.total_uses));
+    kv("success rate", &format!("{:.1}%", stats.overall_success_rate * 100.0));
 
     // Show top recipes by use count
     let mut recipes: Vec<_> = store.recipes.values().collect();

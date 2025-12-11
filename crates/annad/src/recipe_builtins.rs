@@ -97,6 +97,7 @@ pub fn check_shell_recipes(query: &str) -> Option<RecipeFastPathResult> {
             feature.display_name().to_string(),
         ],
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }
 
@@ -182,6 +183,7 @@ pub fn check_git_recipes(query: &str) -> Option<RecipeFastPathResult> {
         score: 90,
         matched_tokens: vec!["git".to_string(), feature.display_name().to_string()],
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }
 
@@ -238,6 +240,7 @@ pub fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
             ssh_recipe.feature.display_name().to_string(),
         ],
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }
 
@@ -297,6 +300,7 @@ pub fn check_systemd_recipes(query: &str) -> Option<RecipeFastPathResult> {
             systemd_recipe.feature.display_name().to_string(),
         ],
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }
 
@@ -353,6 +357,7 @@ pub fn check_cron_recipes(query: &str) -> Option<RecipeFastPathResult> {
             cron_recipe.feature.display_name().to_string(),
         ],
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }
 
@@ -412,5 +417,6 @@ pub fn check_docker_recipes(query: &str) -> Option<RecipeFastPathResult> {
             docker_recipe.feature.display_name().to_string(),
         ],
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }

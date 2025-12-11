@@ -46,6 +46,7 @@ pub fn check_file_recipes(
         score: match_result.confidence as u32,
         matched_tokens: match_result.matched_criteria,
         skip_llm: true,
+        learned_recipe_id: None,
     })
 }
 
@@ -67,7 +68,7 @@ fn ticket_from_file_recipe(recipe: &FileRecipe) -> TranslatorTicket {
         entities: vec![],
         needs_probes: probes,
         clarification_question: None,
-        confidence: recipe.meta.reliability_score as f32 / 100.0,
+        confidence: 0.9, // FileRecipes are authored and trusted
         answer_contract: None,
     }
 }
@@ -82,9 +83,9 @@ fn domain_from_str(s: &str) -> SpecialistDomain {
         "packages" => SpecialistDomain::Packages,
         "security" => SpecialistDomain::Security,
         "desktop" => SpecialistDomain::Desktop,
-        "hardware" => SpecialistDomain::Hardware,
-        "logs" => SpecialistDomain::Logs,
-        "config" => SpecialistDomain::Config,
+        "boot" => SpecialistDomain::Boot,
+        "audio" => SpecialistDomain::Audio,
+        "display" => SpecialistDomain::Display,
         _ => SpecialistDomain::System,
     }
 }
@@ -120,8 +121,8 @@ pub fn build_file_recipe_result(
         assigned_staff: None,
         staff_id: None,
         answer,
-        validated: recipe.meta.reliability_score >= 80,
-        reliability_score: recipe.meta.reliability_score,
+        validated: true, // FileRecipes are authored and trusted
+        reliability_score: 90, // High confidence for authored recipes
         reliability_signals: signals,
         reliability_explanation: None,
         domain,

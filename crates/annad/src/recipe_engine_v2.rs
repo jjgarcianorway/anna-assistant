@@ -293,7 +293,7 @@ fn build_learned_recipe_result(
         needs_clarification: false,
         clarification_question: None,
         clarification_request: None,
-        transcript: Transcript::new(request_id.as_str()),
+        transcript: Transcript::new(),
         execution_trace: Some(trace),
         proposed_change: None,
         proposed_changes: Vec::new(),

@@ -221,7 +221,7 @@ fn is_safe_command(cmd: &str) -> bool {
         "systemctl status", "systemctl is-", "systemctl list-",
         "journalctl ", "lsblk", "lscpu", "lspci", "lsusb",
         "ip addr", "ip link", "ip route", "ss -", "netstat ",
-        "pacman -Q", "pacman -Si", "which ", "whereis ",
+        "pacman -q", "pacman -si", "which ", "whereis ",
         "echo ", "printf ", "test ", "stat ", "file ", "wc ",
         "grep ", "awk ", "sed ", "sort ", "uniq ", "cut ",
         "du ", "find ", "locate ", "uname ", "hostname ",
