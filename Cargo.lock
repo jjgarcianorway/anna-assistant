@@ -24,6 +24,7 @@ dependencies = [
 name = "anna-shared"
 version = "0.0.417"
 dependencies = [
+ "anyhow",
  "chrono",
  "dirs",
  "once_cell",

@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.418] - 2025-12-11
+
+### Added - Full Recipe Learning System
+
+**Goal:** Anna learns from successful tickets and reuses knowledge without calling LLM.
+Recipes are declarative JSON objects that describe intent, matcher, preconditions, plan steps,
+success criteria, and citations.
+
+**New Modules (anna-shared):**
+
+**`recipe_schema.rs`:**
+- `Recipe`: Full recipe data model with id, version, domain, intent, pattern, matcher, plan
+- `RecipePattern`: User goal and extracted slots
+- `RecipeMatcher`: Required/optional/negative keywords, min_confidence, exact_intent
+- `Precondition`: ToolExists, FileExists, DirExists, ProbeContains, ProbeMatches, ServiceExists
+- `PlanStep`: Explain, BackupFile, AppendLine, PrependLine, ReplaceLine, EnsureLine, RemoveLines,
+  VerifyCommand, RunCommand, EnableService, DisableService, RestartService, CreateDir, WriteFile, SetEnvVar
+- `ConfirmationPolicy`: Require, MutatingOnly, Never
+- `SuccessCriteria`: must_succeed steps, rollback_on_failure, post_verification
+- `RecipeMetrics`: times_used, times_failed, recent_success_rate, auto-disable on high failure rate
+
+**`recipe_storage.rs`:**
+- File-based storage in `~/.anna/recipes/{domain}/{id}.json`
+- In-memory index for fast lookup by domain, intent, or ID
+- `RecipeStorage`: load(), save(), get(), get_by_domain(), get_by_intent(), update_metrics()
+- Automatic indexing on save
+
+**`recipe_eligibility.rs`:**
+- `check_eligibility()`: Determines if ticket can produce a recipe
+- Requirements: status=ok, confidence>=90, concrete actions, learnable intent
+- `RecipeType`: ConfigChange, RepeatableDiagnostic, SimpleFix, ServiceAction, PackageAction
+- Conservative: better to learn too little than create bad recipes
+
+**`recipe_extractor.rs`:**
+- `extract_recipe()`: Creates recipe from successful ticket
+- Extracts: pattern, matcher, preconditions, plan steps, citations
+- Generates unique recipe ID from domain, keywords, type
+- Builds matcher from user query keywords with negative keyword detection
+
+**`recipe_matcher_v2.rs`:**
+- `RecipeMatcher`: Scores recipes against queries
+- `MatchQuery`: query_text, intent, domain, slots
+- Scoring: required keywords (0.6), optional (0.15), intent (0.15), slots (0.1)
+- Penalties for new recipes and low success rate
+- `quick_match()`, `match_recipe()` helper functions
+
+**`recipe_runtime.rs`:**
+- `check_preconditions()`: Verifies all preconditions before execution
+- `needs_confirmation()`: Checks if user confirmation required
+- `generate_confirmation_prompt()`: Human-readable plan description
+- `prepare_execution()`: Creates ExecutionPlan for transaction engine
+- Path expansion: $HOME, ~, {param} placeholders
+
+**`recipe_telemetry.rs`:**
+- `RecipeTelemetry`: Tracks resolution events and learning events
+- `ResolutionSource`: Recipe, Specialist, IntentHandler, FastPath, Failed
+- `TelemetryStats`: Total resolutions, by_recipe, by_specialist, self_reliance_rate
+- `summary()`: Human-readable stats for annactl
+
+**`seed_recipes.rs`:**
+- 6 seed recipes to bootstrap the system:
+  - `vim_enable_syntax`: Enable syntax highlighting in Vim
+  - `check_disk_usage_root`: Check disk usage on root partition
+  - `check_free_ram`: Check free RAM
+  - `check_swap_status`: Check swap status
+  - `check_failed_services`: Check failed systemd services
+  - `enable_sshd_service`: Enable SSH daemon
+
+**Design Principles:**
+- Recipes are small, declarative JSON objects
+- Can be executed without LLM
+- Can be inspected and debugged easily
+- Grounded in documentation (citations)
+- Auto-disable on high failure rate
+- Transaction engine handles actual execution
+
 ## [0.0.417] - 2025-12-11
 
 ### Fixed - Strict Reliability (Direct Answers Only, No Tutorials)

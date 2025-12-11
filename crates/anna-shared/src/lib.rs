@@ -8,6 +8,7 @@
 //! v0.0.415: Strict specialist contract - fast, honest, grounded answers.
 //! v0.0.416: Knowledge engine and self-learning recipes.
 //! v0.0.417: Strict reliability - direct answers only, no tutorials.
+//! v0.0.418: Full recipe learning system - learn from tickets, execute without LLM.
 
 pub mod advice;
 pub mod answer_contract;
@@ -133,6 +134,14 @@ pub mod recipe_learner; // v0.0.416: Recipe learning engine
 pub mod recipe_fast_path; // v0.0.416: Recipe execution before specialists
 pub mod recipe_stats; // v0.0.416: Recipe usage stats
 pub mod intent_handlers; // v0.0.417: Deterministic intent handlers
+pub mod recipe_schema; // v0.0.418: Recipe data model
+pub mod recipe_storage; // v0.0.418: Recipe file storage and indexing
+pub mod recipe_eligibility; // v0.0.418: Recipe learning eligibility checker
+pub mod recipe_extractor; // v0.0.418: Extract recipes from tickets
+pub mod recipe_matcher_v2; // v0.0.418: Runtime recipe matching
+pub mod recipe_runtime; // v0.0.418: Recipe execution engine
+pub mod recipe_telemetry; // v0.0.418: Recipe usage telemetry
+pub mod seed_recipes; // v0.0.418: Initial seed recipes
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
