@@ -46,9 +46,13 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "cpu_info" | "lscpu" => Some("lscpu"),
         "memory_info" | "free" => Some("free -h"),
         "disk_usage" | "df" => Some("df -h"),
-        // v0.0.390: Largest directories probe for "top folders" queries
-        "largest_dirs" => Some("du -h --max-depth=1 / 2>/dev/null | sort -rh | head -15"),
-        "largest_home" => Some("du -h --max-depth=2 $HOME 2>/dev/null | sort -rh | head -15"),
+        // v0.0.399: Fast largest directories - limit scope to avoid slow scans
+        // Only check top-level dirs in common locations, skip slow network mounts
+        "largest_dirs" => Some(
+            "timeout 3 du -sh /home /var /usr /opt /tmp 2>/dev/null | sort -rh | head -10 || \
+             echo 'Scan timed out - try checking specific directories'"
+        ),
+        "largest_home" => Some("timeout 3 du -sh $HOME/* 2>/dev/null | sort -rh | head -10"),
         "block_devices" => Some("lsblk"),
         "network_addrs" => Some("ip addr show"),
         "network_routes" => Some("ip route"),

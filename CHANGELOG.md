@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.399] - 2025-12-11
+
+### Fix - Fast probe for largest directories
+
+**Problem:**
+- `largest_dirs` probe ran `du -h --max-depth=1 /` which scans ENTIRE root filesystem
+- On systems with lots of data, this takes 30+ seconds → global timeout
+- Translator was working perfectly, but probe was hanging!
+
+**Fix:**
+- Limit scan to common locations: /home /var /usr /opt /tmp
+- Add `timeout 3` to prevent hanging
+- Use `du -sh` (summarize) instead of deep scan
+- Fallback message if scan times out
+
 ## [0.0.398] - 2025-12-11
 
 ### Fix - Translator timeout increased for 3B+ models
