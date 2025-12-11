@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.389] - 2025-12-11
+
+### Fix - Package listing route uses new probes
+
+Fixed InstalledPackagesOverview route to use new `installed_packages` probe.
+
 ## [0.0.388] - 2025-12-11
 
 ### Intelligence - Package management probes
