@@ -249,8 +249,10 @@ fn classify_cpu_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
 }
 
 fn classify_process_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
-    if q.contains("process")
-        || q.contains("running")
+    // v0.0.403: Be more specific - "running" alone should not trigger process query
+    // as it could be "is X running" for any service
+    let is_process_query = q.contains("process")
+        || q.contains("processes")
         || q.contains("ps ")
         || q.contains("top ")
         || q.contains("htop")
@@ -259,7 +261,10 @@ fn classify_process_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
         || q.contains("what's eating")
         || q.contains("resource hog")
         || q.contains("hogging")
-    {
+        // "running" only counts if it's in a process-related context
+        || (q.contains("running") && (q.contains("what") || q.contains("which") || q.contains("show") || q.contains("list")));
+
+    if is_process_query {
         let mut probes = vec![];
 
         if q.contains("cpu") || q.contains("eating") {
@@ -432,14 +437,25 @@ fn classify_audio_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
 
 fn classify_bluetooth_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
     if q.contains("bluetooth") || q.contains("bt ") || q.contains("pair") {
+        // v0.0.403: Distinguish between service status vs device queries
+        let probes = if q.contains("running") || q.contains("active") || q.contains("status")
+            || q.contains("service") || q.contains("start") || q.contains("stop")
+        {
+            // Service status query - use systemctl probe
+            vec!["bluetooth_service".to_string()]
+        } else {
+            // General bluetooth query - check both service and devices
+            vec![
+                "bluetooth_service".to_string(),
+                "bluetooth_devices".to_string(),
+            ]
+        };
+
         return Some(TranslatorTicket {
             intent: classify_intent(q),
             domain: SpecialistDomain::System,
             entities: vec![],
-            needs_probes: vec![
-                "bluetooth_devices".to_string(),
-                "running_services".to_string(),
-            ],
+            needs_probes: probes,
             clarification_question: None,
             confidence: 0.85,
             answer_contract: Some(AnswerContract::from_query(orig)),
@@ -849,8 +865,18 @@ mod tests {
 
     #[test]
     fn test_bluetooth_classification() {
+        // General bluetooth query - should include both service and devices
         let ticket = translate_fallback("bluetooth not working");
+        assert!(ticket.needs_probes.contains(&"bluetooth_service".to_string()));
         assert!(ticket.needs_probes.contains(&"bluetooth_devices".to_string()));
+    }
+
+    #[test]
+    fn test_bluetooth_service_status() {
+        // Service status query - should only include service probe
+        let ticket = translate_fallback("is bluetooth running");
+        assert!(ticket.needs_probes.contains(&"bluetooth_service".to_string()));
+        assert!(!ticket.needs_probes.contains(&"bluetooth_devices".to_string()));
     }
 
     #[test]

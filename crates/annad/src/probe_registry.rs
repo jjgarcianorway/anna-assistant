@@ -36,6 +36,8 @@ pub const PROBE_IDS: &[&str] = &[
     // v0.0.395: Storage analysis probes (largest folders)
     "largest_dirs",  // du -h --max-depth=1 / | sort -rh | head -15
     "largest_home",  // du -h --max-depth=2 $HOME | sort -rh | head -15
+    // v0.0.403: Service status probes
+    "bluetooth_service", // systemctl status bluetooth.service
 ];
 
 /// Map probe ID to actual command
@@ -165,6 +167,8 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "gpu_memory" => Some("nvidia-smi --query-gpu=memory.total,memory.used,memory.free --format=csv 2>/dev/null || echo 'nvidia-smi not available'"),
         "xorg_log" => Some("tail -50 /var/log/Xorg.0.log 2>/dev/null | grep -iE 'error|warn|EE|WW' | head -20 || echo 'Xorg log not found'"),
         // v0.0.135: Peripheral and audio probes
+        // v0.0.403: Added bluetooth_service for service status checks
+        "bluetooth_service" => Some("systemctl status bluetooth.service 2>&1 | head -20"),
         "bluetooth_devices" => Some("bluetoothctl devices 2>/dev/null || echo 'Bluetooth not available'"),
         "wireless_networks" => Some("nmcli device wifi list 2>/dev/null | head -20 || iwlist scan 2>/dev/null | grep -E 'ESSID|Quality' | head -20 || echo 'WiFi scanning not available'"),
         "printer_status" => Some("lpstat -p -d 2>/dev/null || echo 'No printers configured'"),
