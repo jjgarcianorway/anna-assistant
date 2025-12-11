@@ -32,6 +32,7 @@ pub struct TriageResult {
 }
 
 /// Apply triage rules to a translator ticket from LLM
+/// v0.0.402: REWRITE - Only request clarification when truly necessary
 pub fn apply_triage_rules(ticket: TranslatorTicket) -> TriageResult {
     let mut result = TriageResult {
         ticket: ticket.clone(),
@@ -40,22 +41,33 @@ pub fn apply_triage_rules(ticket: TranslatorTicket) -> TriageResult {
         clarification_question: None,
     };
 
-    // Rule 1: Cap probes at MAX_TRIAGE_PROBES
-    if result.ticket.needs_probes.len() > MAX_TRIAGE_PROBES {
-        warn!(
+    // Rule 1: Cap probes at MAX_TRIAGE_PROBES (but allow 4 for complex queries)
+    let max_probes = if ticket.confidence >= 0.8 {
+        4 // High confidence queries can have more probes
+    } else {
+        MAX_TRIAGE_PROBES
+    };
+
+    if result.ticket.needs_probes.len() > max_probes {
+        info!(
             "Triage: capping probes from {} to {}",
             result.ticket.needs_probes.len(),
-            MAX_TRIAGE_PROBES
+            max_probes
         );
-        result.ticket.needs_probes.truncate(MAX_TRIAGE_PROBES);
+        result.ticket.needs_probes.truncate(max_probes);
         result.probe_cap_applied = true;
     }
 
-    // Rule 2: Low confidence requires clarification
-    if result.ticket.confidence < MIN_CONFIDENCE_THRESHOLD {
+    // v0.0.402: ONLY request clarification when we have NO probes and LOW confidence
+    // If we have probes, run them first - the data will help answer the question
+    // This eliminates most unnecessary clarification questions
+    let has_probes = !result.ticket.needs_probes.is_empty();
+    let very_low_confidence = result.ticket.confidence < 0.4;
+
+    if !has_probes && very_low_confidence {
         info!(
-            "Triage: low confidence ({:.2} < {:.2}), requesting clarification",
-            result.ticket.confidence, MIN_CONFIDENCE_THRESHOLD
+            "Triage: no probes and very low confidence ({:.2}), requesting clarification",
+            result.ticket.confidence
         );
         result.needs_immediate_clarification = true;
         result.clarification_question = result
@@ -65,8 +77,8 @@ pub fn apply_triage_rules(ticket: TranslatorTicket) -> TriageResult {
             .or_else(|| Some(generate_fallback_clarification(&result.ticket)));
     }
 
-    // Rule 3: If LLM provided clarification question, use it
-    if result.ticket.clarification_question.is_some() && result.ticket.needs_probes.is_empty() {
+    // Rule 3: If LLM explicitly requested clarification AND no probes, honor it
+    if result.ticket.clarification_question.is_some() && !has_probes {
         result.needs_immediate_clarification = true;
         result.clarification_question = result.ticket.clarification_question.clone();
     }
@@ -112,8 +124,10 @@ pub fn generate_heuristic_clarification(query: &str) -> String {
         return "Is the issue related to CPU usage, memory usage, disk I/O, or general system responsiveness?".to_string();
     }
 
+    // v0.0.402: Don't ask about package manager - we can detect it from distro
+    // This eliminates the annoying "which package manager" question
     if q.contains("install") || q.contains("package") || q.contains("update") {
-        return "Which package manager are you using (apt, pacman, dnf)? And what package are you trying to work with?".to_string();
+        return "What specific package are you trying to install or update?".to_string();
     }
 
     if q.contains("error") || q.contains("fail") || q.contains("broken") {
@@ -125,31 +139,10 @@ pub fn generate_heuristic_clarification(query: &str) -> String {
 }
 
 /// Create a default ticket for completely failed translator
+/// v0.0.402: Now uses comprehensive fallback translator with proper probes
 pub fn create_fallback_ticket(query: &str) -> TranslatorTicket {
-    let q = query.to_lowercase();
-
-    // Try to guess domain from keywords
-    let domain = if q.contains("network") || q.contains("ip") || q.contains("port") {
-        SpecialistDomain::Network
-    } else if q.contains("disk") || q.contains("storage") || q.contains("mount") {
-        SpecialistDomain::Storage
-    } else if q.contains("security") || q.contains("firewall") || q.contains("permission") {
-        SpecialistDomain::Security
-    } else if q.contains("package") || q.contains("install") || q.contains("apt") {
-        SpecialistDomain::Packages
-    } else {
-        SpecialistDomain::System
-    };
-
-    TranslatorTicket {
-        intent: QueryIntent::Question,
-        domain,
-        entities: vec![],
-        needs_probes: vec![],
-        clarification_question: Some(generate_heuristic_clarification(query)),
-        confidence: 0.0,
-        answer_contract: Some(AnswerContract::from_query(query)), // v0.0.74
-    }
+    // Use the comprehensive keyword-based translator
+    crate::translator_fallback::translate_fallback(query)
 }
 
 #[cfg(test)]
@@ -158,6 +151,7 @@ mod tests {
 
     #[test]
     fn test_probe_cap() {
+        // v0.0.402: High confidence tickets allow 4 probes, test with low confidence
         let ticket = TranslatorTicket {
             intent: QueryIntent::Question,
             domain: SpecialistDomain::System,
@@ -170,7 +164,7 @@ mod tests {
                 "listening_ports".into(),
             ],
             clarification_question: None,
-            confidence: 0.9,
+            confidence: 0.5, // Low confidence -> cap at 3
             answer_contract: None,
         };
 
@@ -181,19 +175,37 @@ mod tests {
 
     #[test]
     fn test_low_confidence_triggers_clarification() {
+        // v0.0.402: Clarification only triggers when NO probes AND very low confidence (<0.4)
         let ticket = TranslatorTicket {
             intent: QueryIntent::Question,
             domain: SpecialistDomain::System,
             entities: vec![],
-            needs_probes: vec!["top_cpu".into()],
+            needs_probes: vec![], // Empty probes
             clarification_question: None,
-            confidence: 0.5,
+            confidence: 0.2, // Very low confidence (<0.4)
             answer_contract: None,
         };
 
         let result = apply_triage_rules(ticket);
         assert!(result.needs_immediate_clarification);
         assert!(result.clarification_question.is_some());
+    }
+
+    #[test]
+    fn test_has_probes_skips_clarification() {
+        // v0.0.402: If we have probes, don't ask for clarification even with low confidence
+        let ticket = TranslatorTicket {
+            intent: QueryIntent::Question,
+            domain: SpecialistDomain::System,
+            entities: vec![],
+            needs_probes: vec!["top_cpu".into()], // Has probes
+            clarification_question: None,
+            confidence: 0.3, // Low confidence but has probes
+            answer_contract: None,
+        };
+
+        let result = apply_triage_rules(ticket);
+        assert!(!result.needs_immediate_clarification); // Should NOT trigger clarification
     }
 
     #[test]

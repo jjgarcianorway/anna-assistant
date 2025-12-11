@@ -175,8 +175,9 @@ pub fn enforce_probe_spine(
     }
 }
 
-/// Triage path for unknown queries - uses LLM translator with confidence threshold
-/// v0.0.318: Added debug_mode for LLM call visibility
+/// Triage path for unknown queries - v0.0.402 REWRITE
+/// Now tries deterministic fallback FIRST, only uses LLM for low-confidence cases.
+/// This makes common queries fast and reliable while keeping LLM for ambiguous cases.
 async fn triage_path(
     state: &SharedState,
     query: &str,
@@ -188,9 +189,47 @@ async fn triage_path(
     debug_mode: bool,
     progress: &mut ProgressTracker,
 ) -> (TranslatorTicket, Option<TriageResult>, bool) {
+    let stage_start = Instant::now();
+
+    // v0.0.402: TRY DETERMINISTIC FALLBACK FIRST
+    // This is fast and accurate for common queries with clear keywords
+    let fallback_ticket = triage::create_fallback_ticket(query);
+
+    // If fallback has high confidence (good keyword match), skip LLM entirely
+    // This makes common queries like "disk space", "memory usage", "webcam" instant
+    if fallback_ticket.confidence >= 0.75 && !fallback_ticket.needs_probes.is_empty() {
+        info!(
+            "v0.0.402: Using deterministic route (confidence={:.2}, probes={})",
+            fallback_ticket.confidence,
+            fallback_ticket.needs_probes.len()
+        );
+        progress.start_stage(RequestStage::Translator, 0);
+        progress.complete_stage(RequestStage::Translator);
+
+        // Record minimal latency
+        {
+            state
+                .write()
+                .await
+                .latency
+                .translator
+                .add(stage_start.elapsed().as_millis() as u64);
+        }
+
+        let triage_result = triage::apply_triage_rules(fallback_ticket.clone());
+        let mut enriched_ticket = triage_result.ticket.clone();
+        enrich_with_learned_probes(&mut enriched_ticket, query);
+
+        return (enriched_ticket, Some(triage_result), false);
+    }
+
+    // Fallback has low confidence - use LLM translator
+    info!(
+        "v0.0.402: Fallback confidence low ({:.2}), using LLM translator",
+        fallback_ticket.confidence
+    );
     progress.start_stage(RequestStage::Translator, config.translator_timeout_secs);
     let translator_input = TranslatorInput::new(query, hw_cores, hw_ram_gb, has_gpu);
-    let stage_start = Instant::now();
 
     let (llm_ticket, translator_timed_out) = match timeout(
         Duration::from_secs(config.translator_timeout_secs),
@@ -239,8 +278,8 @@ async fn triage_path(
             .add(stage_start.elapsed().as_millis() as u64);
     }
 
-    // If translator failed completely, use fallback
-    let ticket = llm_ticket.unwrap_or_else(|| triage::create_fallback_ticket(query));
+    // If LLM failed, use the fallback ticket we already computed
+    let ticket = llm_ticket.unwrap_or(fallback_ticket);
 
     // Apply triage rules
     let triage_result = triage::apply_triage_rules(ticket.clone());

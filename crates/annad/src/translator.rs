@@ -78,36 +78,108 @@ impl TranslatorInput {
     }
 }
 
-/// Build the translator system prompt - strict enum constraints
-/// v0.0.391: Improved with more examples for common query types
-/// v0.0.396: Stronger domain classification rules
+/// Build the translator system prompt - comprehensive domain and probe mapping
+/// v0.0.402: Complete rewrite with exhaustive probe mappings
 fn build_translator_prompt() -> String {
     format!(
-        r#"Classify query into domain and probes. Output ONLY valid JSON.
+        r#"You are Anna's query classifier. Classify the query and select appropriate probes.
 
-DOMAIN RULES (use EXACTLY these):
-- STORAGE: disk, space, folders, directories, storage, du, df, filesystem, mount
-- SYSTEM: CPU, RAM, memory, cores, processes, services, errors, logs, boot
-- NETWORK: IP, DNS, ports, connections, interfaces, routing
-- PACKAGES: install, package, updates, apt, pacman, pip
-- SECURITY: firewall, permissions, users, groups, ssh
-
-JSON schema:
+OUTPUT FORMAT (JSON only, no markdown):
 {{"intent":"question|request|investigate","domain":"system|network|storage|security|packages","entities":[],"needs_probes":[],"clarification_question":null,"confidence":0.0-1.0}}
 
-PROBE MAPPING (use EXACTLY these probe IDs):
-- folders/directories taking space → domain=storage, probes=["largest_dirs","largest_home"]
-- disk space/usage → domain=storage, probes=["df"]
-- RAM/memory → domain=system, probes=["memory_info"]
-- CPU info → domain=system, probes=["cpu_info"]
-- system health → domain=system, probes=["memory_info","disk_usage","failed_services"]
-- installed packages → domain=packages, probes=["installed_packages"]
+DOMAIN CLASSIFICATION:
+- storage: disk space, folders, partitions, mount, drive, SSD, NVMe, filesystem, "taking space"
+- network: IP, DNS, wifi, ethernet, ports, connections, ping, internet, gateway, routing
+- packages: install, update, pacman, apt, pip, package, upgrade
+- security: firewall, ssh, login, permissions, users, iptables, selinux
+- system: EVERYTHING ELSE including: CPU, RAM, memory, processes, GPU, audio, bluetooth, boot, services, logs, sensors, temperature, hardware, webcam, display, graphics
 
-Available probe IDs: {}
+CRITICAL PROBE MAPPINGS (follow exactly):
+
+STORAGE queries:
+- "disk space", "how much space" → ["disk_usage"]
+- "what's taking space", "largest folders" → ["disk_usage","largest_dirs","largest_home"]
+- "partitions", "mounts", "drives" → ["disk_usage","block_devices","findmnt"]
+- "SSD", "NVMe", "HDD" → ["block_devices"]
+
+SYSTEM queries:
+- "memory", "RAM", "swap" → ["memory_info"]
+- "memory + processes" → ["memory_info","top_memory"]
+- "CPU info", "cores" → ["cpu_info"]
+- "CPU usage", "load" → ["cpu_info","load_average","top_cpu"]
+- "temperature", "sensors" → ["sensors_temp"]
+- "services", "systemd" → ["running_services","failed_services"]
+- "failed services" → ["failed_services"]
+- "boot", "uptime" → ["uptime","boot_time"]
+- "slow boot" → ["boot_time","running_services"]
+- "processes", "running" → ["top_cpu","top_memory"]
+
+GRAPHICS/DISPLAY queries (domain=system):
+- "GPU", "graphics card" → ["gpu_drivers","pci_devices"]
+- "screen tearing", "display issues" → ["gpu_drivers","display_server","xorg_log"]
+- "nvidia", "amd", "driver" → ["gpu_drivers","kernel_modules"]
+- "wayland", "xorg", "x11" → ["display_server"]
+- "vulkan", "opengl" → ["vulkan_status","glxinfo_renderer"]
+- "video acceleration" → ["vaapi_status","vdpau_status"]
+
+AUDIO queries (domain=system):
+- "audio", "sound", "speakers" → ["audio_devices","pactl_cards"]
+- "no sound" → ["audio_devices","pactl_cards","lspci_audio"]
+
+BLUETOOTH queries (domain=system):
+- "bluetooth", "pair" → ["bluetooth_devices","running_services"]
+
+HARDWARE queries (domain=system):
+- "webcam", "camera" → ["lsusb"]
+- "USB devices" → ["lsusb"]
+- "hardware" → ["pci_devices","lsusb"]
+- "battery" → ["battery"]
+- "printer" → ["printer_status"]
+
+NETWORK queries:
+- "IP address" → ["network_addrs"]
+- "DNS" → ["dns_servers"]
+- "wifi", "wireless" → ["network_addrs","wireless_networks"]
+- "ports", "listening" → ["listening_ports"]
+- "internet", "connected" → ["network_addrs","ping_check"]
+- "routes", "gateway" → ["network_routes","default_gateway"]
+
+LOGS queries (domain=system):
+- "errors", "error log" → ["journal_errors"]
+- "warnings" → ["journal_warnings"]
+- "dmesg", "kernel log" → ["dmesg_errors"]
+- "logs" → ["journal_errors","journal_warnings"]
+
+PACKAGE queries:
+- "updates available" → ["package_updates"]
+- "installed packages" → ["installed_packages","package_count"]
+- "how many packages" → ["package_count"]
+
+SECURITY queries:
+- "firewall" → ["firewall_status","iptables_rules"]
+- "ssh", "logins" → ["ssh_connections","last_logins","failed_logins"]
+- "who logged in" → ["who","last_logins","loginctl_sessions"]
+
+CONFIG queries (domain=system):
+- "vim config" → ["vimrc_content"]
+- "nvim config" → ["nvim_config"]
+- "bashrc" → ["bashrc_content"]
+- "zshrc" → ["zshrc_content"]
+
+DOCKER queries (domain=system):
+- "docker", "containers" → ["docker_containers","docker_images"]
+
+HEALTH/STATUS queries (domain=system):
+- "how is my computer", "any errors", "health" → ["memory_info","disk_usage","failed_services","load_average"]
+
+Available probes: {}
 
 RULES:
-- Select 1-3 probes maximum
-- Output raw JSON only, no markdown, no explanation"#,
+1. Select 1-4 probes that DIRECTLY answer the query
+2. Use domain=system for hardware, graphics, audio, bluetooth, sensors
+3. NEVER select unrelated probes (e.g., don't use network_addrs for webcam)
+4. clarification_question should be null unless truly ambiguous
+5. Output ONLY the JSON, no explanation"#,
         PROBE_IDS.join(", ")
     )
 }
@@ -414,8 +486,9 @@ mod tests {
     fn test_translator_payload_size() {
         let input = TranslatorInput::new("what processes are using the most memory", 8, 16.0, true);
         let payload = build_translator_request(&input);
-        assert!(payload.len() < MAX_TRANSLATOR_PAYLOAD_SIZE);
-        assert!(payload.len() < 2048); // Should be well under 2KB
+        // v0.0.402: Expanded prompt with comprehensive probe mappings is ~4KB
+        assert!(payload.len() < MAX_TRANSLATOR_PAYLOAD_SIZE); // 8KB max
+        assert!(payload.len() < 6000); // Should be under 6KB
     }
 
     #[test]

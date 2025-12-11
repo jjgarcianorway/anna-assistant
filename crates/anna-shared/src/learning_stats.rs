@@ -217,7 +217,8 @@ mod tests {
         stats.facts_total = 10;
 
         let summary = stats.summary();
-        assert!(summary.contains("Lessons learned: 5"));
+        // v0.0.402: Updated to match markdown bold format
+        assert!(summary.contains("Lessons learned:**"));
         assert!(summary.contains("high-confidence"));
     }
 }

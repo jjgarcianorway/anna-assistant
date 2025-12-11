@@ -93,10 +93,11 @@ fn test_recommended_probes() {
 }
 
 // v0.0.36: PacketPolicy tests
+// v0.0.402: Updated max_summary_lines from 10 to 100 to avoid truncation
 #[test]
 fn test_policy_for_desktop() {
     let policy = PacketPolicy::for_team(Team::Desktop);
-    assert_eq!(policy.max_summary_lines, 10);
+    assert_eq!(policy.max_summary_lines, 100);
     assert!(policy.allowed_facts.contains(&FactKey::PreferredEditor));
 }
 

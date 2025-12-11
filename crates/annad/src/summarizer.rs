@@ -119,7 +119,8 @@ mod tests {
 
     #[test]
     fn test_long_probe_truncated() {
-        let probe = make_probe(50);
+        // v0.0.402: MAX_SUMMARY_LINES is now 100, test with 150 lines
+        let probe = make_probe(150);
         let summary = summarize_probe(&probe);
         assert!(summary.was_truncated);
         assert!(summary.summary.contains("more lines"));

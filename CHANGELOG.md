@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.402] - 2025-12-11
+
+### Fixed - Complete Translation & Routing Overhaul
+
+Major rewrite to fix fundamental issues with query classification and routing.
+
+**Comprehensive Keyword-Based Translator:**
+- New `translator_fallback.rs` with 850+ lines of keyword matching
+- Covers 18 query categories: health, storage, memory, CPU, processes, network, graphics, audio, bluetooth, boot, services, packages, hardware, security, logs, config, docker, user
+- High-confidence (≥0.75) matches skip LLM entirely for instant responses
+- Fallback triggers correct probes for common queries like:
+  - "screen tearing" → graphics domain with `gpu_drivers`, `display_server`, `xorg_log`
+  - "webcam" → hardware domain with `lsusb`
+  - "bluetooth" → system domain with `bluetooth_devices`
+  - "slow boot" → system domain with `boot_time`, `running_services`
+
+**Smart Routing - Fallback First:**
+- `routing_stage.rs` now tries deterministic fallback BEFORE LLM
+- Common queries answered in milliseconds instead of 5-8 seconds
+- LLM only used for truly ambiguous queries (confidence < 0.75)
+
+**Improved LLM Translator Prompt:**
+- Comprehensive probe mappings with 80+ examples
+- Clear domain rules: system includes GPU, audio, bluetooth, sensors
+- Explicit rule: "NEVER select unrelated probes"
+
+**Smarter Clarification Rules:**
+- Only ask clarification when NO probes AND very low confidence (<0.4)
+- If we have probes, run them first - data helps answer the question
+- Removed annoying "which package manager" question (we detect from distro)
+- Probes with data > asking user questions
+
+**Test Fixes:**
+- Updated tests for new MAX_SUMMARY_LINES (100)
+- Updated tests for new clarification logic
+- Updated tests for expanded translator prompt size
+
 ## [0.0.401] - 2025-12-11
 
 ### Added - Specialist Learning System
