@@ -91,6 +91,7 @@ pub fn select_model(
 }
 
 /// Check if a catalog model name matches an available model
+/// v0.0.393: Fixed to require size match (4b != 2b) for accurate selection
 pub fn model_matches(catalog_name: &str, available_name: &str) -> bool {
     let normalize = |s: &str| s.to_lowercase().replace(['-', '_'], "");
     let c = normalize(catalog_name);
@@ -102,15 +103,49 @@ pub fn model_matches(catalog_name: &str, available_name: &str) -> bool {
     }
 
     // Prefix match (qwen3vl:4b matches qwen3-vl:4b-q4_k_m)
+    // This handles quantization suffixes like -q4_k_m
     if a.starts_with(&c) {
         return true;
     }
 
-    // Check if base model matches (without quantization suffix)
-    let a_base = a.split(':').next().unwrap_or(&a);
-    let c_base = c.split(':').next().unwrap_or(&c);
+    // v0.0.393: IMPORTANT - must match size too!
+    // Extract base and size from "qwen3vl:4binstruct" -> ("qwen3vl", "4b")
+    fn extract_size(s: &str) -> Option<String> {
+        let rest = s.split(':').nth(1)?;
+        // Extract size - first part with digits + 'b' like "4b", "7b", "3b"
+        let size: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == 'b').collect();
+        if size.ends_with('b') && size.len() > 1 {
+            Some(size)
+        } else {
+            None
+        }
+    }
 
-    a_base == c_base || a_base.starts_with(c_base)
+    fn extract_base(s: &str) -> String {
+        s.split(':').next().unwrap_or(s).to_string()
+    }
+
+    let c_base = extract_base(&c);
+    let a_base = extract_base(&a);
+    let c_size = extract_size(&c);
+    let a_size = extract_size(&a);
+
+    // Base must match
+    if c_base != a_base && !a_base.starts_with(&c_base) {
+        return false;
+    }
+
+    // If catalog specifies size, available must have same size
+    if let Some(ref cs) = c_size {
+        if let Some(ref avs) = a_size {
+            return cs == avs;
+        }
+        // Available doesn't specify size - no match for sized catalog entry
+        return false;
+    }
+
+    // Catalog doesn't specify size - any size matches
+    true
 }
 
 /// Detect model family from model name

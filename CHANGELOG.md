@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.394] - 2025-12-11
+
+### Fix - Model selector size matching
+
+**Problem:**
+- Model selector matched "qwen3-vl:4b" catalog to "qwen3-vl:2b" available
+- This bypassed the 3B+ translator requirement from v0.0.393
+- Root cause: `model_matches()` ignored size (4b vs 2b)
+
+**Fix:**
+- Updated `model_matches()` to require size match
+- "qwen3-vl:4b" only matches "qwen3-vl:4b*" (with quantization suffix)
+- "qwen3-vl:4b" does NOT match "qwen3-vl:2b" anymore
+- Small models (2B, 1B) now correctly excluded from Translator role
+
+**Tests updated:**
+- `test_select_translator_requires_3b_plus` - verifies 4b selected over 2b/1b
+- `test_small_models_not_valid_translators` - verifies None when only 2b/1b available
+
 ## [0.0.393] - 2025-12-11
 
 ### Fix - Translator requires 3B+ models for reliable JSON

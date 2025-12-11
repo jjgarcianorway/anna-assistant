@@ -1,4 +1,5 @@
 //! Model selector tests (v0.0.223).
+//! v0.0.393: Updated tests for 3B+ translator requirement.
 
 #[cfg(test)]
 mod tests {
@@ -53,7 +54,9 @@ mod tests {
     }
 
     #[test]
-    fn test_select_translator_prefers_small() {
+    fn test_select_translator_requires_3b_plus() {
+        // v0.0.393: Translator requires 3B+ for reliable JSON output
+        // Small models (2b, 1b) produce malformed JSON causing routing failures
         let available = vec![
             "qwen3-vl:4b".to_string(),
             "qwen3-vl:2b".to_string(),
@@ -65,7 +68,22 @@ mod tests {
         let selection = select_model(ModelRole::Translator, &available, &config, &benchmarks);
         assert!(selection.is_some());
         let sel = selection.unwrap();
-        // Should select 2b (smallest with priority 1 for translator)
-        assert!(sel.model.contains("2b"));
+        // Should select 4b (smallest valid translator - 3B+ required)
+        assert!(sel.model.contains("4b"));
+    }
+
+    #[test]
+    fn test_small_models_not_valid_translators() {
+        // v0.0.393: Models < 3B should NOT be selected as translators
+        let available = vec![
+            "qwen3-vl:2b".to_string(),
+            "qwen3-vl:1b".to_string(),
+        ];
+        let config = ModelSelectorConfig::default();
+        let benchmarks = HashMap::new();
+
+        let selection = select_model(ModelRole::Translator, &available, &config, &benchmarks);
+        // No valid translators available - should return None
+        assert!(selection.is_none());
     }
 }
