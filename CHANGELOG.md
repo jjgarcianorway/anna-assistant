@@ -7,6 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.429] - 2025-12-11
+
+### Added - Documentation Brain (Local Knowledge Graph)
+
+**Goal:** Give Anna a real documentation brain - local, offline, Arch-centric knowledge from
+man pages, Arch Wiki, and tool help output. Minimal hardcoded knowledge, maximal learning from docs.
+
+**Documentation Engine Module (`doc_engine/`):**
+
+**Core Types (`types.rs`):**
+- `DocSourceKind`: ArchWiki, ManPage, ToolHelp, LocalDoc (with priority ordering)
+- `DocSnippet`: Indexed documentation with id, source, name, section, summary, content, keywords
+- `DocQuery`: Search interface with preferred sources, limits, filters
+- `DocResult`: Query results with snippets, cache status, timing
+- `DocReference`: Recipe doc citations with source, name, section, reason
+
+**Documentation Index (`index.rs`):**
+- `DocIndex`: In-memory + on-disk index with keyword, source, and name indexes
+- Full-text search with relevance scoring (name match, keyword match, content match)
+- Persistence to JSON format
+- Stale entry detection for cache refresh
+
+**Man Page Parser (`man_parser.rs`):**
+- `parse_man_page()`: Parse man pages into indexed snippets by section
+- Section splitting (NAME, DESCRIPTION, OPTIONS, EXAMPLES, etc.)
+- `search_man_pages()`: Search via `man -k` (apropos)
+- Safe command validation (no shell injection)
+- Essential man pages list (systemctl, pacman, df, mount, etc.)
+
+**Tool Help Extractor (`help_extractor.rs`):**
+- `extract_help()`: Run `--help`/`-h` and extract useful content
+- Safe command whitelist (100+ safe commands)
+- Summary extraction from help output
+- Help output cleanup and normalization
+
+**Arch Wiki Reader (`wiki_reader.rs`):**
+- `read_wiki_page()`: Read from local wiki cache
+- HTML and plain text format support
+- Section splitting (## headers, == mediawiki ==)
+- Essential wiki pages list (systemd, pacman, boot, filesystems, etc.)
+
+**Unified Query API (`query.rs`):**
+- `DocEngine`: Main interface for all doc queries
+- `query()`: Search in-memory index
+- `query_or_fetch()`: Search + fetch on miss
+- `man_page()`, `wiki_page()`, `help_output()`: Quick accessors
+- `refresh_index()`: Rebuild index from all sources
+- `refresh_stale()`: Update only stale entries
+- Index and engine statistics tracking
+
+**Recipe Integration (`recipe_integration.rs`):**
+- `add_doc_references()`: Add citations to recipe origin
+- `query_for_recipe()`: Get docs relevant to a recipe
+- `docs_for_probe_command()`: Get docs for probe commands
+- `suggest_doc_refs()`: Domain-based doc suggestions
+- `format_citations_for_answer()`: Format for display
+
+**Translator Policy (`translator_policy.rs`):**
+- `DocNeedLevel`: None, Optional, Recommended, Required
+- `analyze_doc_need()`: Determine if question needs docs
+- Pattern matching for explanation, fix, error, status queries
+- Topic extraction from questions
+- `DocUsageGuidelines`: Rules for specialists
+
+**Design Principles:**
+- Probes first, docs second (docs interpret, not invent)
+- Local-first (no silent external calls)
+- Citation required (every claim traces to source)
+- Minimal usage (summarize, don't dump)
+- Never pretend (no made-up wiki references)
+
+**Acceptance Tests (`tests.rs`):**
+- Source priority ordering
+- Snippet ID stability
+- Query builders
+- Index operations
+- Result merging
+- Citation formatting
+- Essential lists populated
+- Man parser safety
+- Translator policy detection
+
 ## [0.0.428] - 2025-12-11
 
 ### Added - Specialist Protocol V4 (No-Bullshit Policy)

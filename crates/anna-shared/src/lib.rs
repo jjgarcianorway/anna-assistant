@@ -18,6 +18,7 @@
 //! v0.0.426: Strict ticket lifecycle, honest metrics, reality-based stats.
 //! v0.0.427: Self-learning recipe engine with evidence-based matching.
 //! v0.0.428: Strict specialist protocol, no-bullshit policy, honest stats.
+//! v0.0.429: Documentation brain - Arch Wiki, man pages, help as local knowledge graph.
 
 pub mod advice;
 pub mod answer_contract;
@@ -161,6 +162,7 @@ pub mod ticket_lifecycle; // v0.0.426: Strict ticket lifecycle state machine
 pub mod honest_metrics; // v0.0.426: Reality-based stats (no fake 100%)
 pub mod learning_engine; // v0.0.427: Self-learning recipe engine with evidence-based matching
 pub mod specialist_protocol; // v0.0.428: Strict specialist protocol, no-bullshit policy, honest stats
+pub mod doc_engine; // v0.0.429: Documentation brain - local knowledge graph
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
