@@ -9,18 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.392] - 2025-12-11
 
-### Fix - Semantic similarity too aggressive within same domain
+### Architecture - Removed redundant semantic similarity
 
-Fixed recipes incorrectly matching different questions in the same domain.
+**REMOVED** the semantic similarity LLM check - it was redundant with the translator!
 
 **Problem:**
-- "what folders are taking up space" was matching recipe for "disk space"
-- LLM returned 100% similarity score when they need DIFFERENT commands (du vs df)
+- Semantic similarity was another LLM call doing the same job as translator
+- It was matching wrong recipes ("what folders" → "disk space" recipe at 100%)
+- The TRANSLATOR is supposed to understand user intent - that's its job!
 
-**Fix:**
-- Rewrote semantic similarity prompt to be MUCH stricter
-- Added explicit examples: "disk space" vs "which folders" = NOT similar
-- Emphasized: same domain ≠ same question
+**New flow (simplified):**
+1. Check for exact/near-exact recipe match (token-based, fast, no LLM)
+2. If no match → Translator understands the query and routes properly
+
+**What was removed:**
+- `recipe_similarity::check_semantic_similarity()` call in routing_stage
+- The extra LLM call that was doing translator's job poorly
+
+The translator IS the brain. Let it do its job.
 
 ## [0.0.391] - 2025-12-11
 
