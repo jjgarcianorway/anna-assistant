@@ -1,4 +1,4 @@
-//! Specialist JSON contract (v0.0.408).
+//! Specialist JSON contract (v0.0.419).
 //!
 //! This defines the STRICT schema that all specialists must output.
 //! Specialists ONLY output JSON - no prose, no roleplay, no excuses.
@@ -8,11 +8,12 @@
 //! - answer.short MUST directly answer the user's question
 //! - evidence[] MUST back up every claim
 //! - evidence_references[] MUST list IDs of knowledge items used
+//! - citations[] MUST provide provenance for all knowledge used
 //! - can_answer MUST be false if insufficient evidence
 //! - discovery.new_probes/recipes is how Anna learns new capabilities
 //! - Specialists NEVER speak to the user, only return structured data
 //!
-//! v0.0.408: Added can_answer, evidence_references, knowledge_used, NoEvidence status
+//! v0.0.419: Added KnowledgeCitation for provenance tracking
 
 use serde::{Deserialize, Serialize};
 
@@ -63,6 +64,9 @@ pub struct SpecialistResponse {
     /// v0.0.408: Short titles of knowledge items used (for display)
     #[serde(default)]
     pub knowledge_used: Vec<String>,
+    /// v0.0.419: Citations with full provenance from knowledge sources
+    #[serde(default)]
+    pub citations: Vec<KnowledgeCitation>,
 }
 
 fn default_can_answer() -> bool {
@@ -103,6 +107,77 @@ pub struct Evidence {
     pub snippet: String,
     /// What this snippet means for the answer
     pub interpretation: String,
+}
+
+/// Citation from a knowledge source (v0.0.419)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeCitation {
+    /// Citation ID for provenance (e.g., "man:systemctl:line42-50")
+    pub citation_id: String,
+    /// Kind of source (man, help, wiki, doc)
+    pub kind: CitationKind,
+    /// Human-readable title
+    pub title: String,
+    /// Relevant excerpt that was used
+    pub excerpt: String,
+    /// Relevance score (0-100)
+    #[serde(default)]
+    pub relevance: u8,
+}
+
+impl KnowledgeCitation {
+    /// Create a new citation
+    pub fn new(citation_id: &str, kind: CitationKind, title: &str, excerpt: &str) -> Self {
+        Self {
+            citation_id: citation_id.to_string(),
+            kind,
+            title: title.to_string(),
+            excerpt: excerpt.to_string(),
+            relevance: 80,
+        }
+    }
+
+    /// Format as inline reference (e.g., "[man systemctl(1)]")
+    pub fn inline_ref(&self) -> String {
+        match self.kind {
+            CitationKind::ManPage => format!("[man {}]", self.title),
+            CitationKind::CliHelp => format!("[{} --help]", self.title),
+            CitationKind::ArchWiki => format!("[wiki:{}]", self.title),
+            CitationKind::LocalDoc => format!("[doc:{}]", self.title),
+            CitationKind::Internal => format!("[{}]", self.title),
+        }
+    }
+
+    /// Format for citation footer
+    pub fn footer_display(&self) -> String {
+        let kind_str = match self.kind {
+            CitationKind::ManPage => "man page",
+            CitationKind::CliHelp => "command help",
+            CitationKind::ArchWiki => "Arch Wiki",
+            CitationKind::LocalDoc => "local doc",
+            CitationKind::Internal => "internal",
+        };
+        format!("{} ({}): \"{}\"", self.title, kind_str, truncate_str(&self.excerpt, 100))
+    }
+}
+
+/// Kind of citation source
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CitationKind {
+    ManPage,
+    CliHelp,
+    ArchWiki,
+    LocalDoc,
+    Internal,
+}
+
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max.saturating_sub(3)])
+    }
 }
 
 /// Internal staff view (for personality rendering)
@@ -304,6 +379,7 @@ impl SpecialistResponse {
             can_answer: false,
             evidence_references: vec![],
             knowledge_used: vec![],
+            citations: vec![],
         }
     }
 
@@ -336,6 +412,7 @@ impl SpecialistResponse {
             can_answer: true,
             evidence_references: vec![evidence_probe.to_string()],
             knowledge_used: vec![evidence_probe.to_string()],
+            citations: vec![],
         }
     }
 
@@ -375,6 +452,7 @@ impl SpecialistResponse {
             can_answer: false,
             evidence_references: vec![],
             knowledge_used: vec![],
+            citations: vec![],
         }
     }
 
@@ -407,7 +485,19 @@ impl SpecialistResponse {
             can_answer: true,
             evidence_references: vec!["knowledge_index".to_string()],
             knowledge_used: vec!["learned_pattern".to_string()],
+            citations: vec![],
         }
+    }
+
+    /// v0.0.419: Create response with citations
+    pub fn with_citations(mut self, citations: Vec<KnowledgeCitation>) -> Self {
+        self.citations = citations;
+        self
+    }
+
+    /// v0.0.419: Add a single citation
+    pub fn add_citation(&mut self, citation: KnowledgeCitation) {
+        self.citations.push(citation);
     }
 }
 
@@ -514,6 +604,7 @@ mod tests {
             can_answer: true,
             evidence_references: vec![],
             knowledge_used: vec![],
+            citations: vec![],
         };
 
         let errors = response.validate();
@@ -540,6 +631,7 @@ mod tests {
             can_answer: true,
             evidence_references: vec![],
             knowledge_used: vec![],
+            citations: vec![],
         };
 
         let errors = response.validate();
@@ -569,6 +661,7 @@ mod tests {
             can_answer: true,
             evidence_references: vec!["command_v".to_string()],
             knowledge_used: vec![],
+            citations: vec![],
         };
 
         let errors = response.validate();

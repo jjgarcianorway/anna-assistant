@@ -1,11 +1,13 @@
-//! Recipe struct and implementation (v0.0.295).
+//! Recipe struct and implementation (v0.0.419).
 //! v0.0.295: Added negative_match_patterns for learning from "not helpful" feedback.
+//! v0.0.419: Added citation_ids for provenance tracking.
 
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
+use crate::specialist_contract::KnowledgeCitation;
 use crate::teams::Team;
 use crate::ticket::RiskLevel;
 use crate::trace::EvidenceKind;
@@ -62,6 +64,9 @@ pub struct Recipe {
     /// These patterns are excluded from future semantic matching
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub negative_match_patterns: Vec<String>,
+    /// v0.0.419: Citations from knowledge sources that back this recipe
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub citations: Vec<KnowledgeCitation>,
 }
 
 /// Compute deterministic recipe ID from signature and team
@@ -113,6 +118,7 @@ impl Recipe {
             preconditions: Vec::new(),
             clarify_prereqs: Vec::new(),
             negative_match_patterns: Vec::new(),
+            citations: Vec::new(),
         }
     }
 
@@ -159,6 +165,7 @@ impl Recipe {
             preconditions: Vec::new(),
             clarify_prereqs: Vec::new(),
             negative_match_patterns: Vec::new(),
+            citations: Vec::new(),
         }
     }
 
@@ -200,6 +207,7 @@ impl Recipe {
             preconditions: Vec::new(),
             clarify_prereqs: Vec::new(),
             negative_match_patterns: Vec::new(),
+            citations: Vec::new(),
         }
     }
 
@@ -231,6 +239,19 @@ impl Recipe {
     pub fn with_clarify_prereqs(mut self, prereqs: Vec<ClarifyPrereq>) -> Self {
         self.clarify_prereqs = prereqs;
         self
+    }
+
+    /// v0.0.419: Set citations from knowledge sources
+    pub fn with_citations(mut self, citations: Vec<KnowledgeCitation>) -> Self {
+        self.citations = citations;
+        self
+    }
+
+    /// v0.0.419: Add a citation
+    pub fn add_citation(&mut self, citation: KnowledgeCitation) {
+        if !self.citations.iter().any(|c| c.citation_id == citation.citation_id) {
+            self.citations.push(citation);
+        }
     }
 
     /// Check if recipe requires clarification before execution (v0.45.5)

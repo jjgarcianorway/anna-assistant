@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.419] - 2025-12-11
+
+### Added - Knowledge Engine with Citations
+
+**Goal:** Anna uses Arch Wiki, man pages, command help, and local docs as first-class evidence
+with full provenance tracking (citation IDs) that propagate through specialist responses,
+tickets, and recipes.
+
+**Knowledge Engine Enhancements (`knowledge_engine.rs`):**
+- Added `citation_id` and `line_range` fields to `KnowledgeEngineHit`
+- `citation_id` format: `{source}:{name}:line{start}-{end}` (e.g., `man:systemctl:line42-50`)
+- Added `citation_ref()` and `citation_display()` methods for formatted output
+- Updated man page, help, wiki, and local doc fetchers to include line numbers
+
+**Citation Types (`specialist_contract.rs`):**
+- New `KnowledgeCitation` struct with `citation_id`, `kind`, `title`, `excerpt`, `relevance`
+- New `CitationKind` enum: `ManPage`, `CliHelp`, `ArchWiki`, `LocalDoc`, `Internal`
+- `inline_ref()`: Format as `[man systemctl(1)]` for inline use
+- `footer_display()`: Format for citations section in responses
+- Added `citations: Vec<KnowledgeCitation>` field to `SpecialistResponse`
+- Builder methods: `with_citations()`, `add_citation()`
+
+**Ticket Citation Support (`ticket/ticket_struct.rs`):**
+- Added `citations: Vec<KnowledgeCitation>` field to `Ticket`
+- `add_citation()`: Add single citation (deduplicates by ID)
+- `add_citations()`: Add multiple citations
+
+**Recipe Citation Support (`recipe/core.rs`):**
+- Added `citations: Vec<KnowledgeCitation>` field to `Recipe`
+- `with_citations()`, `add_citation()` builder methods
+- Citations propagate from tickets to recipes when learning
+
+**Response Renderer (`response_renderer.rs`):**
+- Added `citation_lines` field to `RenderedResponse`
+- `build_citation_lines()`: Formats citations for display
+- `format_for_display()`: Shows "Sources:" section when citations present
+
+**Example Output:**
+```
+[anna]
+To restart a service, use: systemctl restart <service>
+
+Sources:
+  - systemctl(1) (man page): "systemctl restart SERVICE..."
+```
+
 ## [0.0.418] - 2025-12-11
 
 ### Added - Full Recipe Learning System

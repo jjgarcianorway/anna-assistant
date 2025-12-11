@@ -1,4 +1,4 @@
-//! Response renderer (v0.0.405).
+//! Response renderer (v0.0.419).
 //!
 //! This module takes the structured JSON from specialists and renders it
 //! into user-facing output with personality. The LLM NEVER generates the
@@ -8,7 +8,7 @@
 //! v0.0.405: Expanded staff for all domains per clean architecture roadmap.
 
 use anna_shared::specialist_contract::{
-    Evidence, Mood, ResponseStatus, Severity, SpecialistResponse, StaffView,
+    Evidence, KnowledgeCitation, Mood, ResponseStatus, Severity, SpecialistResponse, StaffView,
 };
 
 /// Staff member definition
@@ -120,6 +120,8 @@ pub struct RenderedResponse {
     pub reliability: u8,
     /// Status message
     pub status_message: String,
+    /// v0.0.419: Citation lines for sources footer
+    pub citation_lines: Vec<String>,
 }
 
 /// Render a specialist response into user-facing output
@@ -141,12 +143,16 @@ pub fn render_response(response: &SpecialistResponse, domain: &str) -> RenderedR
     // Status message
     let status_message = build_status_message(&response.status, reliability);
 
+    // v0.0.419: Build citation lines
+    let citation_lines = build_citation_lines(&response.citations);
+
     RenderedResponse {
         answer,
         evidence_lines,
         internal_comms,
         reliability,
         status_message,
+        citation_lines,
     }
 }
 
@@ -172,6 +178,14 @@ fn build_evidence_lines(evidence: &[Evidence]) -> Vec<String> {
             let snippet = truncate_snippet(&e.snippet, 60);
             format!("- {}: {}", e.probe, snippet)
         })
+        .collect()
+}
+
+/// v0.0.419: Build citation lines for sources footer
+fn build_citation_lines(citations: &[KnowledgeCitation]) -> Vec<String> {
+    citations
+        .iter()
+        .map(|c| format!("- {}", c.footer_display()))
         .collect()
 }
 
@@ -297,6 +311,15 @@ pub fn format_for_display(rendered: &RenderedResponse, ticket_id: &str) -> Strin
         }
     }
 
+    // v0.0.419: Citations/Sources
+    if !rendered.citation_lines.is_empty() {
+        output.push('\n');
+        output.push_str("Sources:\n");
+        for line in &rendered.citation_lines {
+            output.push_str(&format!("  {}\n", line));
+        }
+    }
+
     // Footer
     output.push('\n');
     output.push_str(&format!("  ticket: {}\n", ticket_id));
@@ -340,6 +363,7 @@ mod tests {
             can_answer: true,
             evidence_references: vec![],
             knowledge_used: vec![],
+            citations: vec![],
         };
 
         let rendered = render_response(&response, "system");
@@ -376,6 +400,7 @@ mod tests {
             can_answer: false,
             evidence_references: vec![],
             knowledge_used: vec![],
+            citations: vec![],
         };
 
         let rendered = render_response(&response, "system");
@@ -393,6 +418,7 @@ mod tests {
             internal_comms: "Kari (Performance Analyst): Looks good.".to_string(),
             reliability: 90,
             status_message: "System Status | Verified | 90%".to_string(),
+            citation_lines: vec![],
         };
 
         let output = format_for_display(&rendered, "DSK-0101");
@@ -401,5 +427,26 @@ mod tests {
         assert!(output.contains("[anna]"));
         assert!(output.contains("Test answer"));
         assert!(output.contains("ticket: DSK-0101"));
+    }
+
+    #[test]
+    fn test_format_with_citations() {
+        use anna_shared::specialist_contract::CitationKind;
+
+        let rendered = RenderedResponse {
+            answer: "systemctl restarts services.".to_string(),
+            evidence_lines: vec![],
+            internal_comms: "Hugo: All clear.".to_string(),
+            reliability: 85,
+            status_message: "System Status | 85%".to_string(),
+            citation_lines: vec![
+                "- systemctl(1) (man page): \"systemctl restart SERVICE...\"".to_string(),
+            ],
+        };
+
+        let output = format_for_display(&rendered, "DSK-0201");
+
+        assert!(output.contains("Sources:"));
+        assert!(output.contains("systemctl(1)"));
     }
 }

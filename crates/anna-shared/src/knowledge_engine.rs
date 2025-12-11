@@ -54,6 +54,37 @@ pub struct KnowledgeEngineHit {
     pub source: String,
     /// Relevance score (0-100)
     pub relevance: u8,
+    /// Citation ID for provenance tracking (e.g., "man:systemctl:line42-50")
+    #[serde(default)]
+    pub citation_id: String,
+    /// Line range in source document (if applicable)
+    #[serde(default)]
+    pub line_range: Option<(usize, usize)>,
+}
+
+impl KnowledgeEngineHit {
+    /// Generate a citation reference for display
+    pub fn citation_ref(&self) -> String {
+        match self.kind {
+            KnowledgeKind::ManPage => format!("[man {}]", self.title),
+            KnowledgeKind::CliHelp => format!("[{} --help]", self.title.trim_end_matches(" --help")),
+            KnowledgeKind::LocalDoc => format!("[doc:{}]", self.title),
+            KnowledgeKind::ArchWiki => format!("[wiki:{}]", self.title.trim_start_matches("Arch Wiki: ")),
+            KnowledgeKind::BuiltIn => format!("[{}]", self.title),
+        }
+    }
+
+    /// Format for display in citations footer
+    pub fn citation_display(&self) -> String {
+        let source_type = match self.kind {
+            KnowledgeKind::ManPage => "man page",
+            KnowledgeKind::CliHelp => "command help",
+            KnowledgeKind::LocalDoc => "local doc",
+            KnowledgeKind::ArchWiki => "Arch Wiki",
+            KnowledgeKind::BuiltIn => "built-in",
+        };
+        format!("{} ({}): \"{}\"", self.title, source_type, truncate(&self.snippet, 100))
+    }
 }
 
 /// Knowledge query request
@@ -221,7 +252,12 @@ impl KnowledgeEngine {
         }
 
         let content = String::from_utf8_lossy(&output.stdout);
-        let snippet = self.extract_snippet(&content, None);
+        let (snippet, line_range) = self.extract_snippet_with_lines(&content, None);
+        let citation_id = if let Some((start, end)) = line_range {
+            format!("man:{}:line{}-{}", cmd, start, end)
+        } else {
+            format!("man:{}", cmd)
+        };
 
         let hit = KnowledgeEngineHit {
             doc_id: format!("man:{}", cmd),
@@ -231,6 +267,8 @@ impl KnowledgeEngine {
             snippet,
             source: "local".to_string(),
             relevance: 80,
+            citation_id,
+            line_range,
         };
 
         // Cache it
@@ -268,7 +306,12 @@ impl KnowledgeEngine {
             return Err(format!("{} --help: no output", cmd));
         }
 
-        let snippet = self.extract_snippet(&content, None);
+        let (snippet, line_range) = self.extract_snippet_with_lines(&content, None);
+        let citation_id = if let Some((start, end)) = line_range {
+            format!("help:{}:line{}-{}", cmd, start, end)
+        } else {
+            format!("help:{}", cmd)
+        };
 
         let hit = KnowledgeEngineHit {
             doc_id: format!("help:{}", cmd),
@@ -278,6 +321,8 @@ impl KnowledgeEngine {
             snippet,
             source: "local".to_string(),
             relevance: 70,
+            citation_id,
+            line_range,
         };
 
         self.cache_hit(&hit);
@@ -318,10 +363,16 @@ impl KnowledgeEngine {
         let content = std::fs::read_to_string(&doc_file)
             .map_err(|e| format!("Read {}: {}", doc_file.display(), e))?;
 
-        let snippet = self.extract_snippet(&content, Some(topic));
+        let (snippet, line_range) = self.extract_snippet_with_lines(&content, Some(topic));
         let title = path.file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "doc".to_string());
+
+        let citation_id = if let Some((start, end)) = line_range {
+            format!("doc:{}:line{}-{}", title, start, end)
+        } else {
+            format!("doc:{}", title)
+        };
 
         Ok(KnowledgeEngineHit {
             doc_id: format!("doc:{}", title),
@@ -331,6 +382,8 @@ impl KnowledgeEngine {
             snippet,
             source: "local".to_string(),
             relevance: 60,
+            citation_id,
+            line_range,
         })
     }
 
@@ -351,15 +404,23 @@ impl KnowledgeEngine {
                 let name = entry.file_name().to_string_lossy().to_lowercase();
                 if search_terms.iter().any(|t| name.contains(&t.to_lowercase())) {
                     if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                        let snippet = self.extract_wiki_snippet(&content, topic);
+                        let (snippet, line_range) = self.extract_wiki_snippet_with_lines(&content, topic);
+                        let article = name.trim_end_matches(".html");
+                        let citation_id = if let Some((start, end)) = line_range {
+                            format!("wiki:{}:line{}-{}", article, start, end)
+                        } else {
+                            format!("wiki:{}", article)
+                        };
                         hits.push(KnowledgeEngineHit {
-                            doc_id: format!("wiki:{}", name.trim_end_matches(".html")),
+                            doc_id: format!("wiki:{}", article),
                             kind: KnowledgeKind::ArchWiki,
-                            title: format!("Arch Wiki: {}", name.trim_end_matches(".html")),
+                            title: format!("Arch Wiki: {}", article),
                             command: format!("wiki:{}", name),
                             snippet,
                             source: "offline".to_string(),
                             relevance: 75,
+                            citation_id,
+                            line_range,
                         });
                     }
                 }
@@ -371,6 +432,11 @@ impl KnowledgeEngine {
 
     /// Extract relevant snippet from content
     fn extract_snippet(&self, content: &str, keyword: Option<&str>) -> String {
+        self.extract_snippet_with_lines(content, keyword).0
+    }
+
+    /// Extract relevant snippet from content with line numbers
+    fn extract_snippet_with_lines(&self, content: &str, keyword: Option<&str>) -> (String, Option<(usize, usize)>) {
         let lines: Vec<&str> = content.lines().collect();
 
         // If keyword provided, try to find relevant section
@@ -378,26 +444,33 @@ impl KnowledgeEngine {
             let kw_lower = kw.to_lowercase();
             for (i, line) in lines.iter().enumerate() {
                 if line.to_lowercase().contains(&kw_lower) {
-                    // Return context around match
+                    // Return context around match (line numbers are 1-indexed)
                     let start = i.saturating_sub(2);
                     let end = (i + 5).min(lines.len());
                     let snippet: String = lines[start..end].join("\n");
-                    return truncate(&snippet, self.max_snippet_len);
+                    return (truncate(&snippet, self.max_snippet_len), Some((start + 1, end)));
                 }
             }
         }
 
         // Otherwise, return beginning (skip empty lines)
         let meaningful: Vec<&str> = lines
-            .into_iter()
+            .iter()
             .filter(|l| !l.trim().is_empty())
             .take(10)
+            .cloned()
             .collect();
-        truncate(&meaningful.join("\n"), self.max_snippet_len)
+        let end_line = meaningful.len().min(10);
+        (truncate(&meaningful.join("\n"), self.max_snippet_len), Some((1, end_line)))
     }
 
     /// Extract snippet from HTML wiki content
     fn extract_wiki_snippet(&self, html: &str, topic: &str) -> String {
+        self.extract_wiki_snippet_with_lines(html, topic).0
+    }
+
+    /// Extract snippet from HTML wiki content with line numbers
+    fn extract_wiki_snippet_with_lines(&self, html: &str, topic: &str) -> (String, Option<(usize, usize)>) {
         // Basic HTML stripping (proper parsing would need html crate)
         let text = html
             .replace("<p>", "\n")
@@ -413,7 +486,7 @@ impl KnowledgeEngine {
             text
         };
 
-        self.extract_snippet(&text, Some(topic))
+        self.extract_snippet_with_lines(&text, Some(topic))
     }
 
     /// Score relevance of a hit

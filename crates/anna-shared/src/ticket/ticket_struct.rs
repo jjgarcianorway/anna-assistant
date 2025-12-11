@@ -1,8 +1,9 @@
-//! Ticket struct definition (v0.0.215).
+//! Ticket struct definition (v0.0.419).
 
 use serde::{Deserialize, Serialize};
 
 use crate::review::ReviewArtifact;
+use crate::specialist_contract::KnowledgeCitation;
 use crate::teams::Team;
 use crate::trace::EvidenceKind;
 
@@ -77,6 +78,11 @@ pub struct Ticket {
     /// Facts learned from verified clarifications (key strings)
     #[serde(default)]
     pub facts_learned: Vec<String>,
+
+    // === v0.0.419: Citation support ===
+    /// Citations from knowledge sources used to answer this ticket
+    #[serde(default)]
+    pub citations: Vec<KnowledgeCitation>,
 }
 
 impl Ticket {
@@ -117,6 +123,22 @@ impl Ticket {
             clarification_rounds: 0,
             clarification_rounds_max: default_clarification_max(),
             facts_learned: Vec::new(),
+            citations: Vec::new(),
+        }
+    }
+
+    /// Add a citation to this ticket
+    pub fn add_citation(&mut self, citation: KnowledgeCitation) {
+        // Avoid duplicates by citation_id
+        if !self.citations.iter().any(|c| c.citation_id == citation.citation_id) {
+            self.citations.push(citation);
+        }
+    }
+
+    /// Add multiple citations
+    pub fn add_citations(&mut self, citations: Vec<KnowledgeCitation>) {
+        for citation in citations {
+            self.add_citation(citation);
         }
     }
 
@@ -188,6 +210,7 @@ impl Default for Ticket {
             clarification_rounds: 0,
             clarification_rounds_max: default_clarification_max(),
             facts_learned: Vec::new(),
+            citations: Vec::new(),
         }
     }
 }

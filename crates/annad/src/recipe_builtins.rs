@@ -79,6 +79,7 @@ pub fn check_shell_recipes(query: &str) -> Option<RecipeFastPathResult> {
         preconditions: vec![],
         clarify_prereqs: vec![],
         negative_match_patterns: vec![],
+        citations: vec![],
     };
 
     info!(
@@ -172,6 +173,7 @@ pub fn check_git_recipes(query: &str) -> Option<RecipeFastPathResult> {
         preconditions: vec![],
         clarify_prereqs: vec![],
         negative_match_patterns: vec![],
+        citations: vec![],
     };
 
     info!("Git recipe match: {}", feature.display_name());
@@ -226,6 +228,7 @@ pub fn check_ssh_recipes(query: &str) -> Option<RecipeFastPathResult> {
         preconditions: vec![],
         clarify_prereqs: vec![],
         negative_match_patterns: vec![],
+        citations: vec![],
     };
 
     info!("SSH recipe match: {}", ssh_recipe.feature.display_name());
@@ -283,6 +286,7 @@ pub fn check_systemd_recipes(query: &str) -> Option<RecipeFastPathResult> {
         preconditions: vec![],
         clarify_prereqs: vec![],
         negative_match_patterns: vec![],
+        citations: vec![],
     };
 
     info!(
@@ -343,6 +347,7 @@ pub fn check_cron_recipes(query: &str) -> Option<RecipeFastPathResult> {
         preconditions: vec![],
         clarify_prereqs: vec![],
         negative_match_patterns: vec![],
+        citations: vec![],
     };
 
     info!("Cron recipe match: {}", cron_recipe.feature.display_name());
@@ -400,6 +405,7 @@ pub fn check_docker_recipes(query: &str) -> Option<RecipeFastPathResult> {
         preconditions: vec![],
         clarify_prereqs: vec![],
         negative_match_patterns: vec![],
+        citations: vec![],
     };
 
     info!(
