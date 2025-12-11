@@ -1,7 +1,9 @@
-//! Recipe learning from successful queries (v0.0.94).
+//! Recipe learning from successful queries (v0.0.381).
 //!
 //! Learns recipes from verified, high-reliability query outcomes.
-//! Only persists when: verified AND reliability_score >= 80.
+//! Only persists when: verified AND reliability_score >= 70 (v0.0.381).
+//!
+//! v0.0.381: Lowered threshold from 80 to 70 for faster learning.
 
 use crate::recipe::{
     compute_recipe_id, should_persist_recipe, Recipe, RecipeAction, RecipeKind, RecipeSignature,
@@ -43,9 +45,10 @@ impl LearnResult {
 ///
 /// Only learns if:
 /// - answer_grounded is true (verified)
-/// - reliability_score >= 80
+/// - reliability_score >= 70 (v0.0.381: lowered from 80)
 /// - There's a meaningful pattern to learn
 /// v0.0.290: Added query validation to prevent garbage recipes
+/// v0.0.381: Lowered threshold from 80 to 70
 pub fn try_learn_from_result(result: &ServiceDeskResult) -> LearnResult {
     // Check persistence gate
     let verified = result.reliability_signals.answer_grounded;

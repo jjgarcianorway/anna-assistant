@@ -12,7 +12,7 @@ use std::sync::Arc;
 use anna_shared::ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 use anna_shared::rpc::RpcRequest;
 use anna_shared::system_telemetry::TelemetryStore;
-use anna_shared::{SOCKET_PATH, STATE_DIR};
+use anna_shared::{socket_path, state_dir};
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
@@ -94,26 +94,29 @@ impl Server {
     }
 
     async fn setup_directories(&self) -> Result<()> {
+        let state_path = state_dir();
+        let socket_file = socket_path();
+
         // Create state directory
-        fs::create_dir_all(STATE_DIR)?;
+        fs::create_dir_all(&state_path)?;
 
         // Create run directory for socket
         // v0.0.291: Safe path handling - avoid panic on malformed paths
-        let socket_dir = Path::new(SOCKET_PATH)
+        let socket_dir = Path::new(&socket_file)
             .parent()
-            .ok_or_else(|| anyhow::anyhow!("Invalid socket path: {}", SOCKET_PATH))?;
+            .ok_or_else(|| anyhow::anyhow!("Invalid socket path: {}", socket_file))?;
         fs::create_dir_all(socket_dir)?;
 
         // Remove stale socket
-        if Path::new(SOCKET_PATH).exists() {
-            fs::remove_file(SOCKET_PATH)?;
+        if Path::new(&socket_file).exists() {
+            fs::remove_file(&socket_file)?;
         }
 
         // Record in ledger
         let mut state = self.state.write().await;
         state.ledger.add(LedgerEntry::new(
             LedgerEntryKind::DirectoryCreated,
-            STATE_DIR.to_string(),
+            state_path,
             true,
         ));
 
@@ -384,26 +387,93 @@ impl Server {
     }
 
     /// v0.0.298: Static method so it can run before initialization completes
+    /// v0.0.386: Added socket health monitoring loop for resilience
     async fn run_socket_server_impl(state: SharedState) -> Result<()> {
-        let listener = UnixListener::bind(SOCKET_PATH)?;
-        info!("Socket available at {} (daemon still initializing)", SOCKET_PATH);
+        let socket_file = socket_path();
 
-        // Set socket permissions: world accessible for zero-friction UX
-        // The anna group is used for directory permissions, not socket
-        fs::set_permissions(SOCKET_PATH, fs::Permissions::from_mode(0o666))?;
+        // Initial socket setup
+        Self::setup_socket(&socket_file)?;
 
+        // v0.0.386: Run socket server with automatic recovery on socket loss
         loop {
-            match listener.accept().await {
-                Ok((stream, _)) => {
-                    let state = state.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = handle_connection(state, stream).await {
-                            error!("Connection error: {}", e);
-                        }
-                    });
+            match Self::run_socket_accept_loop(&socket_file, state.clone()).await {
+                Ok(()) => {
+                    // Normal shutdown (shouldn't happen)
+                    break;
                 }
                 Err(e) => {
-                    error!("Accept error: {}", e);
+                    error!("Socket server error: {}, attempting recovery...", e);
+                    // Small delay before retry
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    // Try to recreate socket
+                    if let Err(setup_err) = Self::setup_socket(&socket_file) {
+                        error!("Failed to recreate socket: {}", setup_err);
+                        // Wait longer before next retry
+                        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// v0.0.386: Setup socket file with proper permissions
+    fn setup_socket(socket_file: &str) -> Result<()> {
+        // Remove stale socket if exists
+        let socket_path = Path::new(socket_file);
+        if socket_path.exists() {
+            fs::remove_file(socket_path)?;
+        }
+        Ok(())
+    }
+
+    /// v0.0.386: Accept loop with socket health monitoring
+    async fn run_socket_accept_loop(socket_file: &str, state: SharedState) -> Result<()> {
+        let listener = UnixListener::bind(socket_file)?;
+        info!("Socket available at {} (daemon still initializing)", socket_file);
+
+        // Set socket permissions: world accessible for zero-friction UX
+        fs::set_permissions(socket_file, fs::Permissions::from_mode(0o666))?;
+
+        // v0.0.386: Spawn health monitor that checks socket file exists
+        let socket_file_clone = socket_file.to_string();
+        let (health_tx, mut health_rx) = tokio::sync::mpsc::channel::<()>(1);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                if !Path::new(&socket_file_clone).exists() {
+                    warn!("Socket file disappeared! Triggering recovery...");
+                    let _ = health_tx.send(()).await;
+                    return;
+                }
+            }
+        });
+
+        loop {
+            tokio::select! {
+                accept_result = listener.accept() => {
+                    match accept_result {
+                        Ok((stream, _)) => {
+                            let state = state.clone();
+                            tokio::spawn(async move {
+                                if let Err(e) = handle_connection(state, stream).await {
+                                    error!("Connection error: {}", e);
+                                }
+                            });
+                        }
+                        Err(e) => {
+                            error!("Accept error: {}", e);
+                            // Check if socket file still exists
+                            if !Path::new(socket_file).exists() {
+                                return Err(anyhow::anyhow!("Socket file deleted"));
+                            }
+                        }
+                    }
+                }
+                _ = health_rx.recv() => {
+                    // Health monitor detected socket loss
+                    return Err(anyhow::anyhow!("Socket file disappeared"));
                 }
             }
         }

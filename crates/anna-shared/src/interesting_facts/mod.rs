@@ -1,4 +1,4 @@
-//! Interesting facts for greeting personalization (v0.0.291).
+//! Interesting facts for greeting personalization (v0.0.379).
 //!
 //! Generates data-driven facts about system, hardware, user patterns,
 //! and performance for the LLM translator to naturalize into greetings.
@@ -6,6 +6,7 @@
 //! Key principle: All facts derived from actual data, no hardcoded content.
 //!
 //! v0.0.291: Refactored into modules for maintainability.
+//! v0.0.379: Added boot time comparison facts.
 
 mod generators;
 mod types;
@@ -14,10 +15,11 @@ use crate::event_log::{AggregatedEvents, EventLog};
 use crate::learning_progress::{compute_learning_progress, LearningProgress};
 use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
+use crate::telemetry::TelemetrySnapshot;
 use serde::{Deserialize, Serialize};
 
 // Re-export types
-pub use generators::{growth_facts, hardware_facts, performance_facts, user_pattern_facts};
+pub use generators::{boot_time_facts, growth_facts, hardware_facts, performance_facts, user_pattern_facts};
 pub use types::{FactCategory, InterestingFact};
 
 /// Collection of interesting facts
@@ -28,11 +30,13 @@ pub struct InterestingFacts {
 
 impl InterestingFacts {
     /// Generate facts from all available data sources
+    /// v0.0.379: Added boot_telemetry parameter for boot time comparison
     pub fn generate(
         snapshot: Option<&SystemSnapshot>,
         telemetry: Option<&TelemetryStore>,
         events: Option<&AggregatedEvents>,
         progress: Option<&LearningProgress>,
+        boot_telemetry: Option<&TelemetrySnapshot>,
     ) -> Self {
         let mut facts = Vec::new();
 
@@ -56,6 +60,11 @@ impl InterestingFacts {
             facts.extend(generators::growth_facts(prog));
         }
 
+        // v0.0.379: Boot time comparison facts
+        if let Some(boot_tel) = boot_telemetry {
+            facts.extend(generators::boot_time_facts(boot_tel));
+        }
+
         // Sort by priority
         facts.sort_by_key(|f| f.priority);
 
@@ -68,12 +77,14 @@ impl InterestingFacts {
         let events = event_log.aggregate().ok();
         let telemetry = TelemetryStore::load_if_exists();
         let progress = compute_learning_progress();
+        let boot_telemetry = TelemetrySnapshot::collect();
 
         Self::generate(
             Some(snapshot),
             telemetry.as_ref(),
             events.as_ref(),
             Some(&progress),
+            Some(&boot_telemetry),
         )
     }
 
@@ -98,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_empty_facts() {
-        let facts = InterestingFacts::generate(None, None, None, None);
+        let facts = InterestingFacts::generate(None, None, None, None, None);
         assert!(facts.facts.is_empty());
     }
 
@@ -150,11 +161,40 @@ mod tests {
         snapshot.memory_total_bytes = 16 * 1024 * 1024 * 1024;
         snapshot.memory_used_bytes = 4 * 1024 * 1024 * 1024;
 
-        let facts = InterestingFacts::generate(Some(&snapshot), None, None, None);
+        let facts = InterestingFacts::generate(Some(&snapshot), None, None, None, None);
 
         // Check facts are sorted by priority (ascending)
         for window in facts.facts.windows(2) {
             assert!(window[0].priority <= window[1].priority);
         }
+    }
+
+    #[test]
+    fn test_boot_time_faster() {
+        let mut boot_tel = TelemetrySnapshot::new();
+        boot_tel.boot_delta_ms = Some(-3500); // 3.5s faster
+
+        let facts = boot_time_facts(&boot_tel);
+        assert!(!facts.is_empty());
+        assert!(facts.iter().any(|f| f.fact.contains("faster")));
+    }
+
+    #[test]
+    fn test_boot_time_slower() {
+        let mut boot_tel = TelemetrySnapshot::new();
+        boot_tel.boot_delta_ms = Some(5500); // 5.5s slower
+
+        let facts = boot_time_facts(&boot_tel);
+        assert!(!facts.is_empty());
+        assert!(facts.iter().any(|f| f.fact.contains("increased")));
+    }
+
+    #[test]
+    fn test_boot_time_tiny_change_ignored() {
+        let mut boot_tel = TelemetrySnapshot::new();
+        boot_tel.boot_delta_ms = Some(200); // Only 0.2s - should be ignored
+
+        let facts = boot_time_facts(&boot_tel);
+        assert!(facts.is_empty());
     }
 }

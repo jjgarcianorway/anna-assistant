@@ -1,11 +1,14 @@
-//! Fact generators (v0.0.291).
+//! Fact generators (v0.0.379).
 //!
 //! Functions that generate facts from various data sources.
+//!
+//! v0.0.379: Added boot time comparison facts.
 
 use crate::event_log::AggregatedEvents;
 use crate::learning_progress::LearningProgress;
 use crate::snapshot::SystemSnapshot;
 use crate::system_telemetry::TelemetryStore;
+use crate::telemetry::TelemetrySnapshot;
 
 use super::types::{FactCategory, InterestingFact};
 
@@ -338,6 +341,52 @@ pub fn growth_facts(progress: &LearningProgress) -> Vec<InterestingFact> {
             fact: format!("Knowledge spans {} different areas", category_count),
             priority: 3,
         });
+    }
+
+    facts
+}
+
+/// Generate boot time comparison facts from telemetry
+/// v0.0.379: Compare current vs previous boot time
+pub fn boot_time_facts(telemetry: &TelemetrySnapshot) -> Vec<InterestingFact> {
+    let mut facts = Vec::new();
+
+    if let Some(delta_ms) = telemetry.boot_delta_ms {
+        let delta_secs = delta_ms.abs() as f64 / 1000.0;
+
+        // Only report meaningful changes (>0.5s)
+        if delta_secs >= 0.5 {
+            let fact = if delta_ms < 0 {
+                // Faster boot (negative delta = improvement)
+                if delta_secs >= 5.0 {
+                    format!(
+                        "Boot time improved by {:.1}s - nice optimization!",
+                        delta_secs
+                    )
+                } else {
+                    format!("Boot time {:.1}s faster than last session", delta_secs)
+                }
+            } else {
+                // Slower boot (positive delta = regression)
+                if delta_secs >= 5.0 {
+                    format!(
+                        "Boot time increased by {:.1}s since last session",
+                        delta_secs
+                    )
+                } else {
+                    format!("Boot {:.1}s slower than before", delta_secs)
+                }
+            };
+
+            // High priority for significant changes
+            let priority = if delta_secs >= 3.0 { 2 } else { 4 };
+
+            facts.push(InterestingFact {
+                category: FactCategory::Performance,
+                fact,
+                priority,
+            });
+        }
     }
 
     facts

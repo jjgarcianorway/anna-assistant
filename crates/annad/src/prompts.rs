@@ -1,12 +1,16 @@
-//! Specialist prompt building for service desk (v0.0.377).
+//! Specialist prompt building for service desk (v0.0.383).
 //!
 //! v0.0.260: Added OS info to context.
 //! v0.0.322: Improved grounding rules to prevent hallucination.
 //! v0.0.324: Added self-assessment for answer quality learning.
 //! v0.0.375: Added user preferences context for personalized responses.
 //! v0.0.377: Added learned success hints from past high-quality answers.
+//! v0.0.380: Added context memory for cross-session continuity.
+//! v0.0.383: Added distro-aware package manager context.
 //! COST: Enforces prompt size cap with diagnostic surfacing.
 
+use anna_shared::context_memory::ContextMemory;
+use anna_shared::distro_utils::DistroContext;
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::resource_limits::{ResourceDiagnostic, MAX_PROMPT_CHARS};
 use anna_shared::rpc::{ProbeResult, RuntimeContext, SpecialistDomain};
@@ -169,6 +173,31 @@ Hardware (from system probe):
         ));
     }
 
+    // v0.0.380: Add context memory for cross-session continuity
+    let memory = ContextMemory::load();
+    let memory_hints = build_context_memory_hints(&memory, domain_str);
+    if !memory_hints.is_empty() {
+        prompt.push_str(&format!("\n\nUser Context:\n{}", memory_hints));
+    }
+
+    // v0.0.383: Add distro-aware package manager context
+    let distro_name = if context.hardware.distro.is_empty() {
+        &context.hardware.os_name
+    } else {
+        &context.hardware.distro
+    };
+    let distro_ctx = DistroContext::from_distro(distro_name);
+    if distro_ctx.is_known() {
+        let pm = distro_ctx.pm();
+        prompt.push_str(&format!(
+            "\n\nPackage Manager ({}):\n  - Install: {}\n  - Search: {}\n  - Update: {}",
+            pm.name(),
+            pm.install_command("<pkg>"),
+            pm.search_command("<query>"),
+            pm.upgrade_command()
+        ));
+    }
+
     // Calculate budget for probe results
     // Budget = MAX_PROMPT_CHARS - base_prompt - grounding_rules - margin
     let base_len = prompt.len();
@@ -239,4 +268,67 @@ Hardware (from system probe):
     prompt.push_str(GROUNDING_RULES);
 
     (prompt, truncated_chars)
+}
+
+/// v0.0.380: Build context memory hints for specialist prompt
+fn build_context_memory_hints(memory: &ContextMemory, domain: &str) -> String {
+    let mut hints = Vec::new();
+
+    // Check if user frequently asks about this domain
+    if let Some(pattern) = memory.patterns.get(domain) {
+        if pattern.is_frequent() {
+            hints.push(format!(
+                "  - User asks about {} frequently ({} times)",
+                domain, pattern.count
+            ));
+        }
+        if pattern.is_recent() && pattern.count > 1 {
+            hints.push(format!(
+                "  - User asked about {} recently - may want more detail",
+                domain
+            ));
+        }
+    }
+
+    // Add editor preference if relevant
+    if let Some(ref editor) = memory.preferred_editor {
+        if domain == "system" || domain == "packages" {
+            hints.push(format!("  - User's preferred editor: {}", editor));
+        }
+    }
+
+    // Add mastered commands context (so we don't over-explain)
+    if !memory.mastered_commands.is_empty() {
+        let relevant: Vec<_> = memory.mastered_commands.iter()
+            .filter(|cmd| is_domain_relevant_command(cmd, domain))
+            .take(3)
+            .collect();
+        if !relevant.is_empty() {
+            hints.push(format!(
+                "  - User knows: {} (no need to explain basics)",
+                relevant.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+            ));
+        }
+    }
+
+    // Add learned preferences
+    for pref in memory.preferences.iter().take(2) {
+        if pref.confidence >= 0.6 {
+            hints.push(format!("  - {}", pref.preference));
+        }
+    }
+
+    hints.join("\n")
+}
+
+/// Check if a command is relevant to a domain
+fn is_domain_relevant_command(cmd: &str, domain: &str) -> bool {
+    match domain {
+        "storage" => ["df", "du", "mount", "lsblk", "fdisk"].iter().any(|c| cmd.contains(c)),
+        "network" => ["ip", "ping", "netstat", "ss", "curl"].iter().any(|c| cmd.contains(c)),
+        "system" => ["ps", "top", "htop", "systemctl", "journalctl"].iter().any(|c| cmd.contains(c)),
+        "security" => ["chmod", "chown", "sudo", "firewall"].iter().any(|c| cmd.contains(c)),
+        "packages" => ["pacman", "apt", "dnf", "yum", "pip"].iter().any(|c| cmd.contains(c)),
+        _ => false,
+    }
 }

@@ -1,10 +1,12 @@
-//! Verification and theatre stage (v0.0.298).
+//! Verification and theatre stage (v0.0.380).
 //!
 //! Handles ticket verification loop, comms updates, and theatre recording.
 //! Extracted from llm_request.rs for modularization.
 //! v0.0.297: LLM self-healing integration via ticket_loop.
 //! v0.0.298: Return `validated` status from verification loop.
+//! v0.0.380: Record interactions to context memory for cross-session learning.
 
+use anna_shared::context_memory::ContextMemory;
 use anna_shared::progress::RequestStage;
 use anna_shared::reliability::ReliabilityInput;
 use anna_shared::rpc::{ServiceDeskResult, SpecialistDomain};
@@ -208,5 +210,35 @@ pub fn handle_theatre(
     // Record event to event log
     record_event_log(id, result, &theatre, total_ms);
 
+    // v0.0.380: Record interaction to context memory for cross-session learning
+    record_context_memory(query, &result.domain.to_string(), result.validated);
+
     theatre
+}
+
+/// v0.0.380: Record interaction to context memory
+fn record_context_memory(query: &str, domain: &str, validated: bool) {
+    let mut memory = ContextMemory::load();
+
+    // Record the domain interaction
+    memory.record_interaction(domain, Some(query));
+
+    // If user asked and got a validated answer, they might have "learned" something
+    // This helps us not over-explain next time
+    if validated {
+        // Extract potential commands from the query
+        let query_lower = query.to_lowercase();
+        let commands_mentioned = ["systemctl", "journalctl", "df", "du", "mount",
+            "ip", "ping", "netstat", "ps", "top", "htop", "grep", "find", "chmod", "chown",
+            "pacman", "apt", "dnf", "docker", "git"];
+
+        for cmd in commands_mentioned {
+            if query_lower.contains(cmd) {
+                memory.mark_mastered(cmd);
+            }
+        }
+    }
+
+    // Save (silently fail if error)
+    let _ = memory.save();
 }

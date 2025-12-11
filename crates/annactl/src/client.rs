@@ -9,7 +9,7 @@ use anna_shared::rpc::{
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::DaemonStatus;
 use anna_shared::status_snapshot::StatusSnapshot;
-use anna_shared::SOCKET_PATH;
+use anna_shared::socket_path;
 use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::time::Duration;
@@ -35,19 +35,20 @@ pub struct AnnadClient {
 impl AnnadClient {
     /// Connect to annad
     pub async fn connect() -> Result<Self> {
-        let socket_path = Path::new(SOCKET_PATH);
+        let socket_file = socket_path();
+        let socket_path_obj = Path::new(&socket_file);
 
-        if !socket_path.exists() {
+        if !socket_path_obj.exists() {
             return Err(anyhow!(
                 "Anna daemon not running.\n\
                  The socket at {} does not exist.\n\n\
                  To fix this, re-run the installer:\n\
                  curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash",
-                SOCKET_PATH
+                socket_file
             ));
         }
 
-        let stream = UnixStream::connect(socket_path).await.map_err(|e| {
+        let stream = UnixStream::connect(socket_path_obj).await.map_err(|e| {
             anyhow!(
                 "Cannot connect to Anna daemon: {}\n\n\
                  The daemon may have crashed. To fix this:\n\

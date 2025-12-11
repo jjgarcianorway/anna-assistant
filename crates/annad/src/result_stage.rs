@@ -2,7 +2,10 @@
 //!
 //! Extracted from rpc_handler.rs (v0.0.165) for modularization.
 //! v0.0.322: Integrated probe learning to track effectiveness.
+//! v0.0.382: Aligned learning thresholds with recipe persistence (70).
+//! v0.0.384: Added follow-up hints to enrich answers.
 
+use anna_shared::followup_hints::{format_hints, generate_followup_hints};
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::rpc::{
     ProbeResult, RpcResponse, ServiceDeskResult, SpecialistDomain, TranslatorTicket,
@@ -133,6 +136,13 @@ pub fn build_final_result(
         result.evidence.last_error = Some("probe_cap_applied".to_string());
     }
 
+    // v0.0.384: Add follow-up hints to enrich the answer
+    let hints = generate_followup_hints(query, classified_domain, &result.answer);
+    if !hints.is_empty() {
+        let hints_text = format_hints(&hints);
+        result.answer.push_str(&hints_text);
+    }
+
     result
 }
 
@@ -202,13 +212,14 @@ fn record_probe_learning(result: &ServiceDeskResult) {
     // v0.0.324: Determine helpfulness using both reliability score AND quality assessment
     // Quality scores 4-5 = helpful, 1-2 = not helpful
     // Fall back to reliability score if no quality assessment
+    // v0.0.382: Aligned thresholds with recipe learning (70)
     let (quality_score, _) = crate::redact::extract_quality_assessment(&result.answer);
 
     let helpful = match quality_score {
         Some(score) if score >= 4 => true,
         Some(score) if score <= 2 => false,
-        Some(_) => result.reliability_score >= 70, // 3/5 is borderline
-        None => result.reliability_score >= 80,    // Fall back to reliability
+        Some(_) => result.reliability_score >= 65, // 3/5 is borderline - lower threshold
+        None => result.reliability_score >= 70,    // Fall back to reliability (v0.0.382: was 80)
     };
 
     // Determine failure reason
@@ -222,9 +233,10 @@ fn record_probe_learning(result: &ServiceDeskResult) {
     };
 
     // Only record feedback for clear signals
+    // v0.0.382: Widened recording band to capture more learning data
     let should_record = match quality_score {
-        Some(score) => score >= 4 || score <= 2, // Clear good or bad
-        None => result.reliability_score >= 80 || result.reliability_score < 60,
+        Some(score) => score >= 3 || score <= 2, // Record quality 3+ as good, 2- as bad
+        None => result.reliability_score >= 70 || result.reliability_score < 55,
     };
 
     if should_record {
@@ -237,10 +249,11 @@ fn record_probe_learning(result: &ServiceDeskResult) {
         );
 
         // v0.0.325: Record successful patterns for keyword learning
+        // v0.0.382: Adjusted quality scoring for new thresholds
         if helpful {
             let quality = quality_score.unwrap_or(
-                if result.reliability_score >= 90 { 5 }
-                else if result.reliability_score >= 80 { 4 }
+                if result.reliability_score >= 85 { 5 }
+                else if result.reliability_score >= 75 { 4 }
                 else { 3 }
             );
             store.record_success(&query, &probes, quality, category.clone());

@@ -91,9 +91,10 @@ fn test_recipe_maturity() {
 
 #[test]
 fn test_should_persist_recipe() {
-    assert!(should_persist_recipe(true, 80));
+    // v0.0.381: Threshold lowered from 80 to 70
+    assert!(should_persist_recipe(true, 70));
     assert!(should_persist_recipe(true, 100));
-    assert!(!should_persist_recipe(true, 79));
+    assert!(!should_persist_recipe(true, 69)); // Below threshold
     assert!(!should_persist_recipe(false, 100));
     assert!(!should_persist_recipe(false, 50));
 }

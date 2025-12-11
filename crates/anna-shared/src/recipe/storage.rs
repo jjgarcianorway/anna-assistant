@@ -1,4 +1,6 @@
-//! Recipe storage functions (v0.0.177).
+//! Recipe storage functions (v0.0.381).
+//!
+//! v0.0.381: Lowered recipe persistence threshold from 80 to 70 for faster learning.
 
 use std::path::PathBuf;
 
@@ -16,17 +18,22 @@ pub fn recipe_filename(recipe_id: &str) -> PathBuf {
     recipe_dir().join(format!("{}.json", recipe_id))
 }
 
-/// Check if a recipe should be persisted (v0.45.x stabilization gate).
-/// Only persist when: Verified status AND reliability >= 80.
+/// Check if a recipe should be persisted (v0.0.381: lowered threshold).
+/// Only persist when: Verified status AND reliability >= 70.
 ///
 /// This is the ONLY gate for recipe persistence - all callers MUST use this function.
 /// Rationale: Never learn from unverified outcomes; only from proven successes.
+///
+/// v0.0.381: Lowered from 80 to 70 to improve learning rate.
+/// - 80 was too strict: many legitimate answers scored 70-79 due to minor penalties
+/// - Dynamic recipe maturity thresholds (v0.0.373) provide additional safety
+/// - New recipes need higher match scores to be used, preventing low-quality answers
 pub fn should_persist_recipe(verified: bool, score: u8) -> bool {
-    verified && score >= 80
+    verified && score >= RECIPE_PERSIST_THRESHOLD
 }
 
-/// Threshold for recipe persistence
-pub const RECIPE_PERSIST_THRESHOLD: u8 = 80;
+/// Threshold for recipe persistence (v0.0.381: lowered from 80 to 70)
+pub const RECIPE_PERSIST_THRESHOLD: u8 = 70;
 
 /// Clear all recipes (for reset) (v0.0.28)
 pub fn clear_all_recipes() -> std::io::Result<()> {

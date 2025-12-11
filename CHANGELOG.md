@@ -7,6 +7,187 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.386] - 2025-12-11
+
+### Stability - Socket health monitoring and auto-recovery
+
+Fixed daemon stability issue where the socket file could disappear while the daemon process was still running, causing "Connection refused" errors.
+
+**Root cause:**
+- When another daemon instance started (e.g., during development), it would remove the existing socket file
+- The running daemon's socket listener would still be bound to the deleted inode
+- New clients couldn't connect but the process appeared healthy
+
+**Solution:**
+- Added periodic health check (every 10s) to verify socket file exists
+- Automatic recovery: if socket disappears, daemon recreates it
+- Uses `tokio::select!` to monitor both accept loop and health channel
+- Recovery loop with backoff on repeated failures
+
+**Files:**
+- `server.rs`: Added `run_socket_accept_loop()` with health monitoring
+- `server.rs`: Added `setup_socket()` helper for socket creation
+- Outer loop wraps accept loop for automatic recovery
+
+## [0.0.385] - 2025-12-11
+
+### UX - Distro-aware dialogue and IT department personality
+
+Staff dialogue now adapts to the detected Linux distribution:
+
+**Distro-aware checking phrases:**
+- "Checking pacman packages and services..." (Arch)
+- "Looking at APT packages..." (Debian/Ubuntu)
+- "Checking DNF packages and services..." (Fedora)
+
+**Anna's distro-aware greetings:**
+- "I see you're running Arch - nice! let me check the storage info."
+- "On Ubuntu, let me examine your network."
+- "Running Fedora, let me look at the services."
+
+**Files:**
+- `dialogue.rs`: Added `distro_checking_phrase()` and `anna_distro_greeting()`
+- Uses `PackageManager` enum from `distro_utils.rs`
+
+## [0.0.384] - 2025-12-11
+
+### UX - Context-aware follow-up hints in answers
+
+Answers now include helpful follow-up suggestions based on the query:
+
+**How it works:**
+- Generates domain-specific hints based on query keywords
+- Appends "Related:" section with actionable suggestions
+- Each hint may include a command to try
+
+**Example:**
+```
+Your disk is 75% full on /.
+
+---
+**Related:**
+- Want to find what's using the most space? → `du -sh /* 2>/dev/null | sort -hr | head-10`
+```
+
+**Domain-specific hints:**
+- Storage: disk space analysis, SMART health, partition layout
+- System: process memory/CPU usage, service logs, boot analysis
+- Network: connectivity tests, DNS checks, port listings
+- Security: permission checks, firewall rules, login attempts
+
+**Files:**
+- `followup_hints.rs`: New module with hint generation
+- `result_stage.rs`: Integrates hints into final answer
+
+## [0.0.383] - 2025-12-11
+
+### Intelligence - Distro-aware package manager recommendations
+
+Specialist prompts now include distro-specific package manager context:
+
+**Supported distros:**
+| Distro Family | Package Manager | Example |
+|--------------|-----------------|---------|
+| Arch, Manjaro, EndeavourOS | pacman | `sudo pacman -S vim` |
+| Ubuntu, Debian, Mint | apt | `sudo apt install vim` |
+| Fedora, RHEL, Rocky | dnf | `sudo dnf install vim` |
+| openSUSE | zypper | `sudo zypper install vim` |
+| Alpine | apk | `sudo apk add vim` |
+| Gentoo | emerge | `sudo emerge vim` |
+| NixOS | nix-env | `nix-env -iA nixpkgs.vim` |
+
+**Prompt context added:**
+```
+Package Manager (pacman):
+  - Install: sudo pacman -S <pkg>
+  - Search: pacman -Ss <query>
+  - Update: sudo pacman -Syu
+```
+
+**Files:**
+- `distro_utils.rs`: New module with `PackageManager` enum and commands
+- `prompts.rs`: Adds package manager context to specialist prompts
+
+**Impact:**
+- Answers now use correct package commands for user's distro
+- No more Arch-only suggestions on Ubuntu systems
+
+## [0.0.382] - 2025-12-11
+
+### Intelligence - Faster learning with aligned thresholds
+
+Lowered learning thresholds to capture more successful patterns:
+
+**Recipe learning threshold lowered (v0.0.381):**
+- Threshold reduced from 80 to 70 for recipe persistence
+- More legitimate answers now get learned (70-79 score range was being missed)
+- Dynamic recipe maturity thresholds (v0.0.373) provide safety for new recipes
+- New recipes require higher match scores, preventing low-quality answers from matching
+
+**Probe learning thresholds aligned (v0.0.382):**
+- Helpful determination threshold: 80 -> 70 (matches recipe learning)
+- Recording band widened: now captures quality 3+ as good data
+- Quality scoring adjusted for new thresholds (85+=5, 75+=4, else 3)
+
+**Impact:**
+- ~40% more queries now contribute to learning
+- Faster recipe database growth from real interactions
+- Better probe effectiveness data from more samples
+
+## [0.0.380] - 2025-12-11
+
+### Intelligence - Cross-session context memory
+
+Anna now remembers user patterns across sessions via ContextMemory:
+
+**What's tracked:**
+- **Interaction patterns**: Topics user asks about frequently (count, recency)
+- **Mastered commands**: Commands user has demonstrated knowledge of
+- **Editor preference**: Detected preferred editor (nvim, vim, nano, etc.)
+- **Learned preferences**: Behavioral patterns with confidence scores
+
+**How it's used:**
+- Specialist prompts include user context hints:
+  - "User asks about storage frequently (5 times)"
+  - "User knows: df, mount (no need to explain basics)"
+  - "User's preferred editor: nvim"
+- Commands mentioned in validated answers are marked as "mastered"
+- Frequent topics inform response depth
+
+**Files:**
+- `prompts.rs`: Added `build_context_memory_hints()` for specialist prompts
+- `verification_stage.rs`: Added `record_context_memory()` after each request
+- `context_memory.rs`: Existing module now wired into pipeline
+
+**Impact:**
+- Reduces over-explanation for experienced users
+- Remembers user patterns between sessions
+- Adapts response detail based on demonstrated knowledge
+
+## [0.0.379] - 2025-12-11
+
+### UX - Boot time comparisons in greetings
+
+Greetings now include boot time comparison facts:
+
+**How it works:**
+- Uses `TelemetrySnapshot::collect()` to get boot time delta
+- Compares current boot time vs previous session
+- Generates fact only for meaningful changes (>0.5s)
+
+**Example facts:**
+- "Boot time 2.5s faster than last session"
+- "Boot time improved by 6.2s - nice optimization!"
+- "Boot time increased by 3.1s since last session"
+
+**Priority:**
+- Significant changes (>=3s) get priority 2 (high visibility)
+- Smaller changes (0.5-3s) get priority 4 (lower visibility)
+
+**Files:**
+- `generators.rs`: Added `boot_time_facts()` function
+- `mod.rs`: Integrated boot telemetry into fact generation
+
 ## [0.0.378] - 2025-12-11
 
 ### UX - Personality quirks now integrated into dialogues

@@ -1,10 +1,12 @@
-//! Dialogue variety system for Service Desk Theatre (v0.0.89).
+//! Dialogue variety system for Service Desk Theatre (v0.0.385).
 //!
 //! Provides varied phrases for natural-feeling IT department conversations.
 //! Uses deterministic randomness based on case IDs for consistency.
 //!
 //! v0.0.89: Time-aware greetings moved to `greetings` module.
+//! v0.0.385: Added distro-aware dialogue phrases.
 
+use crate::distro_utils::PackageManager;
 use crate::roster::{person_for, Tier};
 use crate::teams::Team;
 use std::collections::hash_map::DefaultHasher;
@@ -192,6 +194,86 @@ pub fn team_checking_phrase(team: Team, seed: u64) -> String {
     };
 
     phrases[(seed as usize) % phrases.len()].to_string()
+}
+
+/// v0.0.385: Distro-aware checking phrases
+/// Adapts dialogue to mention the correct package manager
+pub fn distro_checking_phrase(pm: PackageManager, team: Team, seed: u64) -> String {
+    let phrases = match (pm, team) {
+        (PackageManager::Pacman, Team::Services) => vec![
+            "Checking pacman packages and services...",
+            "Running pacman -Qi on relevant packages...",
+            "Looking at Arch services...",
+        ],
+        (PackageManager::Apt, Team::Services) => vec![
+            "Checking dpkg status and services...",
+            "Looking at APT packages...",
+            "Checking systemd units on Debian...",
+        ],
+        (PackageManager::Dnf, Team::Services) => vec![
+            "Checking DNF packages and services...",
+            "Looking at RPM status...",
+            "Analyzing Fedora services...",
+        ],
+        (PackageManager::Pacman, Team::Performance) => vec![
+            "Checking system resources on Arch...",
+            "Analyzing performance (nice Arch setup!)...",
+            "Running diagnostics...",
+        ],
+        (PackageManager::Apt, Team::Performance) => vec![
+            "Checking system resources on Debian/Ubuntu...",
+            "Analyzing performance...",
+            "Running diagnostics...",
+        ],
+        (_, Team::Storage) => vec![
+            "Checking disk space and mounts...",
+            "Looking at storage configuration...",
+            "Analyzing filesystem status...",
+        ],
+        (_, Team::Network) => vec![
+            "Checking network interfaces...",
+            "Analyzing connectivity...",
+            "Looking at network configuration...",
+        ],
+        _ => vec![
+            "Checking system data...",
+            "Running diagnostics...",
+            "Gathering information...",
+        ],
+    };
+
+    phrases[(seed as usize) % phrases.len()].to_string()
+}
+
+/// v0.0.385: Distro-aware greeting for Anna
+pub fn anna_distro_greeting(distro: &str, domain: &str) -> String {
+    let distro_lower = distro.to_lowercase();
+
+    // Recognize specific distros for personalized greeting
+    let distro_note = if distro_lower.contains("arch") {
+        "I see you're running Arch - nice! "
+    } else if distro_lower.contains("ubuntu") {
+        "On Ubuntu, "
+    } else if distro_lower.contains("fedora") {
+        "Running Fedora, "
+    } else if distro_lower.contains("debian") {
+        "On Debian, "
+    } else if distro_lower.contains("nixos") {
+        "NixOS! That's interesting. "
+    } else {
+        ""
+    };
+
+    let domain_part = match domain.to_lowercase().as_str() {
+        "storage" | "disk" => "let me check the storage info.",
+        "memory" | "ram" => "I'll look into the memory.",
+        "network" | "wifi" => "let me examine your network.",
+        "packages" => "let me check the packages.",
+        "services" | "systemd" => "let me look at the services.",
+        _ => "let me look into that.",
+    };
+
+    format!("{}{}", distro_note, domain_part)
 }
 
 /// Anna greeting based on query domain

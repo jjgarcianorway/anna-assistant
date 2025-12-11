@@ -70,6 +70,8 @@ pub mod idle_tips; // v0.0.240
 pub mod health_tips; // v0.0.244
 pub mod greeting_insights; // v0.0.245
 pub mod context_memory; // v0.0.246
+pub mod distro_utils; // v0.0.383: Distro-aware package recommendations
+pub mod followup_hints; // v0.0.384: Context-aware follow-up suggestions
 pub mod stats;
 pub mod status;
 pub mod status_snapshot;
@@ -171,11 +173,21 @@ pub use status::{
 // v0.0.73: Re-export version constants for backward compatibility
 pub use version::{VersionInfo, BUILD_DATE, GIT_SHA, PROTOCOL_VERSION, VERSION};
 
-/// Socket path for annad
+/// Socket path for annad (use socket_path() for env override support)
 pub const SOCKET_PATH: &str = "/run/anna/anna.sock";
 
-/// State directory for Anna
+/// State directory for Anna (use state_dir() for env override support)
 pub const STATE_DIR: &str = "/var/lib/anna";
+
+/// Get socket path with env override support (ANNA_SOCKET)
+pub fn socket_path() -> String {
+    std::env::var("ANNA_SOCKET").unwrap_or_else(|_| SOCKET_PATH.to_string())
+}
+
+/// Get state directory with env override support (ANNA_STATE_DIR)
+pub fn state_dir() -> String {
+    std::env::var("ANNA_STATE_DIR").unwrap_or_else(|_| STATE_DIR.to_string())
+}
 
 /// Ledger file path
 pub const LEDGER_PATH: &str = "/var/lib/anna/ledger.json";

@@ -105,18 +105,18 @@ fn test_enforce_spine_probes_no_change_when_probes_exist() {
 fn test_recipe_persist_requires_verified() {
     use anna_shared::recipe::should_persist_recipe;
 
-    // Must be verified AND score >= 80
+    // Must be verified AND score >= 70 (v0.0.381: threshold lowered from 80)
     assert!(
         !should_persist_recipe(false, 90),
         "Unverified should not persist"
     );
     assert!(
-        !should_persist_recipe(true, 70),
+        !should_persist_recipe(true, 60),
         "Low score should not persist"
     );
     assert!(
-        should_persist_recipe(true, 80),
-        "Verified + 80 should persist"
+        should_persist_recipe(true, 70),
+        "Verified + 70 should persist"
     );
     assert!(
         should_persist_recipe(true, 100),
@@ -128,17 +128,18 @@ fn test_recipe_persist_requires_verified() {
 fn test_recipe_threshold_constant() {
     use anna_shared::recipe::RECIPE_PERSIST_THRESHOLD;
 
-    assert_eq!(RECIPE_PERSIST_THRESHOLD, 80, "Threshold should be 80");
+    // v0.0.381: Threshold lowered from 80 to 70 for faster learning
+    assert_eq!(RECIPE_PERSIST_THRESHOLD, 70, "Threshold should be 70");
 }
 
 #[test]
 fn test_recipe_persist_boundary() {
     use anna_shared::recipe::should_persist_recipe;
 
-    // Boundary tests
-    assert!(!should_persist_recipe(true, 79), "79 should not persist");
-    assert!(should_persist_recipe(true, 80), "80 should persist");
-    assert!(should_persist_recipe(true, 81), "81 should persist");
+    // Boundary tests (v0.0.381: threshold is 70)
+    assert!(!should_persist_recipe(true, 69), "69 should not persist");
+    assert!(should_persist_recipe(true, 70), "70 should persist");
+    assert!(should_persist_recipe(true, 71), "71 should persist");
 }
 
 // === Reliability Signals Tests ===
