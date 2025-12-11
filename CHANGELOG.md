@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.423] - 2025-12-11
+
+### Added - Recipe V3: Safe Learning and Execution Engine
+
+**Goal:** Build a robust recipe system where good solutions become reusable, parametric recipes.
+Minimal/zero LLM usage for recurring questions. Safe execution with risk levels and confirmation.
+
+**Core Types (`recipe_v3/types.rs`):**
+- `RecipeV3`: Complete recipe with id, version, title, description, origin, author
+- `RecipeOrigin`: BuiltIn, LearnedFromTicket, UserAuthored
+- `RecipeAuthor`: System, Specialist(name), User(name)
+- `RecipeDomain`: General, Service, Package, Network, Disk, Memory, etc.
+- `RecipeRiskLevel`: None, Low, Medium, High (with `requires_confirmation()`)
+- `ConfirmationPolicy`: Never, Once, PerStep, Always
+- `RecipeMatcher`: domain, intents, keywords, entity_patterns, similarity_key
+- `RecipeStats`: times_matched, executed, succeeded, failed, skipped, avg_execution_ms
+
+**Conditions (`recipe_v3/condition.rs`):**
+- `RecipeCondition` enum: ProbeTrue, CommandExists, PackageInstalled, FileExists
+- FileNotExists, ConfigContains, ConfigNotContains, ServiceState, Custom
+- `evaluate()`: Runs condition and returns `ConditionResult`
+- Variable substitution: `${var}` and `$var` syntax
+- Safe command execution with proper error handling
+
+**Steps (`recipe_v3/step.rs`):**
+- `RecipeStep` enum: Explain, ShowCommand, RunCommand, RunProbe
+- AppendToFile, ReplaceInFile, CreateFile, CallSubRecipe, Conditional
+- `risk_level()`: Automatic inference from command patterns
+- `execute()`: Full step execution with variable capture
+- Backup support for file modifications
+- Conditional steps with if/then/else logic
+
+**Matching Engine (`recipe_v3/matcher.rs`):**
+- `MatchQuery`: Parsed from question with domain, intent, keywords, entities
+- `RecipeMatcher`: Scoring engine with configurable thresholds
+- `MatchResult`: recipe, score, breakdown, preconditions_met, extracted_vars
+- Scoring breakdown: domain (15%), intent (35%), keyword Jaccard (30%), entity (20%)
+- Maturity bonus (+10% for proven recipes) and health penalty (-20% for failing)
+- Entity extraction: services, packages, paths from queries
+
+**Store (`recipe_v3/store.rs`):**
+- `RecipeStore`: File-based persistence with JSON serialization
+- Directories: /var/lib/anna/recipes_v3/global/ and /user/
+- Indexes by domain and tags for fast lookup
+- CRUD operations: save, get, delete, search
+- Stats recording: `record_execution()`, `record_skip()`
+
+**Executor (`recipe_v3/executor.rs`):**
+- `RecipeExecutor`: Safe recipe execution with dry-run support
+- Precondition evaluation before execution
+- Step-by-step execution with confirmation callbacks
+- `ExecutionResult`: success, steps_executed, duration_ms, variables, errors
+- `create_execution_plan()`: Preview without executing
+- Store integration: `execute_and_record()`
+
+**Builder (`recipe_v3/builder.rs`):**
+- `RecipeBuilder`: Fluent API for recipe construction
+- Validation: must have id, title, intent, steps
+- Auto-upgrade risk level based on step commands
+- `TicketData`: Structured ticket info for extraction
+- `extract_recipe_from_ticket()`: Convert successful tickets to recipes
+- `seed_recipes()`: Built-in recipes for restart-service, check-status, install-package, etc.
+
+**Constants:**
+- MIN_MATCH_SCORE: 0.50
+- AUTO_EXECUTE_THRESHOLD: 0.85
+- SUGGEST_THRESHOLD: 0.65
+- MAX_RECIPE_STEPS: 10
+- MIN_MATURE_USES: 5
+- MIN_SUCCESS_RATE: 0.80
+
 ## [0.0.422] - 2025-12-11
 
 ### Added - Knowledge V2: Research-First Layer

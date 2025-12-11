@@ -12,6 +12,7 @@
 //! v0.0.420: Recipe V2 - Clean learning engine with global/user recipes.
 //! v0.0.421: Specialist V2 - Stable, schema-driven responses, no parse errors.
 //! v0.0.422: Knowledge V2 - Research-first layer (Arch Wiki, man pages, help).
+//! v0.0.423: Recipe V3 - Safe learning/execution engine with preconditions and risk levels.
 
 pub mod advice;
 pub mod answer_contract;
@@ -148,6 +149,7 @@ pub mod seed_recipes; // v0.0.418: Initial seed recipes
 pub mod recipe_v2; // v0.0.420: Clean learning engine with global/user recipes
 pub mod specialist_v2; // v0.0.421: Stable, schema-driven specialist responses
 pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
+pub mod recipe_v3; // v0.0.423: Safe learning/execution engine with risk levels
 pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
