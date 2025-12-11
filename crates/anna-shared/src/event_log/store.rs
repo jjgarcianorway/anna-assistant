@@ -1,4 +1,5 @@
 //! Event log file store (v0.0.190).
+//! v0.0.404: Added clear() for reset functionality.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
@@ -121,4 +122,18 @@ impl EventLog {
         let records = self.read_all()?;
         Ok(AggregatedEvents::from_records(&records))
     }
+
+    /// Clear all events (v0.0.404: for reset functionality)
+    pub fn clear(&self) -> std::io::Result<()> {
+        if self.path.exists() {
+            fs::remove_file(&self.path)?;
+        }
+        Ok(())
+    }
+}
+
+/// Clear the default event log (v0.0.404: convenience function for reset)
+pub fn clear_event_log() -> std::io::Result<()> {
+    let log = EventLog::new(EventLog::default_path(), 1000);
+    log.clear()
 }

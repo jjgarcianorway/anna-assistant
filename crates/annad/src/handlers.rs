@@ -1,5 +1,7 @@
 //! Utility RPC handlers for status, probes, reset, uninstall, autofix, and stats.
+//! v0.0.404: Reset now clears event log for consistent stats.
 
+use anna_shared::event_log::clear_event_log;
 use anna_shared::helpers::clear_helpers_store;
 use anna_shared::inventory::clear_inventory;
 use anna_shared::ledger::LedgerEntryKind;
@@ -145,12 +147,20 @@ pub async fn handle_reset(state: SharedState, id: String) -> RpcResponse {
         info!("Staff stats cleared");
     }
 
+    // 8. Clear event log (v0.0.404: fixes stats inconsistency after reset)
+    if let Err(e) = clear_event_log() {
+        warn!("Failed to clear event log: {}", e);
+        // Not fatal, continue with reset
+    } else {
+        info!("Event log cleared");
+    }
+
     info!("Reset completed - all learned data cleared");
     RpcResponse::success(
         id,
         serde_json::json!({
             "status": "reset_complete",
-            "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory", "staff_stats"]
+            "cleared": ["ledger", "recipes", "helpers", "snapshots", "pending", "inventory", "staff_stats", "event_log"]
         }),
     )
 }

@@ -11,5 +11,5 @@ mod types;
 
 // Re-export main types and functions
 pub use aggregation::{level_title, xp_to_level, AggregatedEvents};
-pub use store::EventLog;
+pub use store::{clear_event_log, EventLog};
 pub use types::EventRecord;
