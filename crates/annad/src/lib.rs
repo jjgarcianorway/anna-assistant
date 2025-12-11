@@ -21,6 +21,7 @@
 //! v0.0.167: Routing stage extracted to separate module.
 //! v0.0.171: Deterministic answer functions modularized into det/ submodules.
 //! v0.0.172: Router modularized into router/ submodules.
+//! v0.0.404: JSON-only specialists + personality renderer.
 
 pub mod action_handlers;
 pub mod answer_validator;
@@ -58,6 +59,8 @@ pub mod permissions;
 pub mod probe_answers;
 pub mod probe_direct; // v0.0.403: Direct probe answers (bypass dumb LLM)
 pub mod probe_registry;
+pub mod response_renderer; // v0.0.404: Personality rendering layer
+pub mod specialist_prompt; // v0.0.404: JSON-only specialist prompts
 pub mod probe_runner;
 pub mod probe_stage;
 pub mod probes;
@@ -81,6 +84,7 @@ pub mod scoring;
 pub mod server;
 pub mod service_desk;
 pub mod specialist_handler;
+pub mod specialist_json; // v0.0.404: JSON-only specialist handler
 pub mod specialist_stage;
 pub mod state;
 pub mod snapshot_loop;

@@ -167,6 +167,9 @@ pub mod specialist_recipes; // v0.0.401: Recipes from specialist lessons
 pub mod learning_stats; // v0.0.401: Learning progress statistics
 pub mod clarification_learning; // v0.0.401: Learning from user clarifications
 
+// v0.0.404: JSON-only specialist contract
+pub mod specialist_contract;
+
 pub use error::AnnaError;
 pub use ledger::{Ledger, LedgerEntry, LedgerEntryKind};
 pub use rpc::{

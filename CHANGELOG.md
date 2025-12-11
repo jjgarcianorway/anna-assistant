@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.404] - 2025-12-11
+
+### Added - JSON-Only Specialists + Personality Renderer
+
+**Major Architecture Change:** Specialists now output strict JSON instead of prose.
+- LLM has too much freedom → outputs garbage, hallucinations, wrong formats
+- NEW: Specialist outputs ONLY structured JSON following strict contract
+- Personality (Sofia, Tomas, Lars, etc.) is added by renderer from templates
+- This is the "ISO-9001-of-the-soul" approach: constrain LLM, render personality
+
+**New Modules:**
+
+**`specialist_contract.rs` (anna-shared):**
+- Strict JSON schema for specialist input/output
+- `SpecialistResponse` with required fields: status, answer, evidence, confidence
+- `Evidence` struct: every claim must have probe + snippet + interpretation
+- `StaffView` for internal mood/severity (used by renderer)
+- `Discovery` with `new_probes` and `new_recipes` for learning hooks
+
+**`specialist_prompt.rs` (annad):**
+- JSON-only prompts for specialists
+- Domain-specific hints (System, Network, Storage, Security, Packages)
+- Prime directives: "ONLY return structured JSON", "No prose", "No dialogue"
+- Schema specification in prompt for LLM to follow
+
+**`response_renderer.rs` (annad):**
+- Personality rendering layer - templates, not LLM generation
+- Staff registry: Sofia (Desktop), Lars (Storage), Tomas (System), Michael (Network), Elena (Security), Marcus (Packages)
+- Template-based messages based on status + severity + mood
+- `render_response()` converts JSON to `RenderedResponse` with personality
+- `format_for_display()` creates the final output with internal comms
+
+**`specialist_json.rs` (annad):**
+- JSON specialist handler that uses the new architecture
+- `call_json_specialist()` builds JSON prompt, calls LLM, parses response
+- `extract_json_object()` handles LLM adding prose around JSON
+- Fallback to error response on parse failure
+
+**Configuration:**
+- `use_json_specialist` flag in `LlmConfig` (default: ON)
+- Can disable with `ANNA_JSON_SPECIALIST=0` environment variable
+- Allows gradual rollout and A/B testing
+
+**Why This Matters:**
+- User asks "do I have swap?"
+- OLD: LLM might say "I don't have that data" or make up numbers
+- NEW: LLM outputs `{"status":"ok","answer":{"short":"No swap configured"},"evidence":[...]}`
+- Renderer adds: "Tomas (Support Analyst): No swap configured."
+- Result is reliable, grounded, and has personality WITHOUT LLM generating prose
+
 ## [0.0.403] - 2025-12-11
 
 ### Fixed - Direct Probe Answers (Bypass Dumb LLM)

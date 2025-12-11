@@ -1,8 +1,9 @@
-//! Specialist LLM handler with fallback logic (v0.0.403).
+//! Specialist LLM handler with fallback logic (v0.0.404).
 //! v0.0.143: Added streaming LLM support.
 //! v0.0.241: Added real-time streaming token output to client.
 //! v0.0.290: Use clean_llm_response to strip reasoning tags.
 //! v0.0.403: CRITICAL - Try deterministic first BEFORE LLM to avoid dumb model answers.
+//! v0.0.404: JSON-only specialist option - LLM outputs JSON, personality added by renderer.
 //!
 //! Extracted from rpc_handler to keep file sizes manageable.
 
@@ -20,6 +21,7 @@ use crate::ollama;
 use crate::progress_tracker::ProgressTracker;
 use crate::redact;
 use crate::service_desk;
+use crate::specialist_json;
 use crate::state::SharedState;
 use crate::summarizer;
 use crate::probe_direct;
@@ -87,6 +89,20 @@ pub async fn try_specialist_llm(
             outcome: SpecialistOutcome::Ok,
             fallback_route_class: Some("probe_direct".to_string()),
         };
+    }
+
+    // v0.0.404: JSON-only specialist path
+    if config.use_json_specialist {
+        return try_json_specialist(
+            state,
+            query,
+            probe_results,
+            ticket,
+            config,
+            model,
+            progress,
+        )
+        .await;
     }
 
     // Use summarized probe context (not raw output)
@@ -253,4 +269,87 @@ pub fn try_deterministic_fallback(
 
     warn!("No fallback could produce answer from available evidence");
     (String::new(), true, None)
+}
+
+/// v0.0.404: JSON-only specialist path
+/// Uses strict JSON contract - LLM outputs JSON, personality added by renderer
+async fn try_json_specialist(
+    state: &SharedState,
+    query: &str,
+    probe_results: &[ProbeResult],
+    ticket: &TranslatorTicket,
+    config: &LlmConfig,
+    model: &str,
+    progress: &mut ProgressTracker,
+) -> SpecialistResult {
+    let stage_start = std::time::Instant::now();
+    progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
+
+    // Generate ticket ID for JSON specialist (use timestamp for uniqueness)
+    let ticket_id = format!(
+        "DSK-{:04}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() % 10000
+    );
+
+    info!(
+        "v0.0.404: JSON specialist for domain={:?}, ticket={}",
+        ticket.domain, ticket_id
+    );
+
+    // Call JSON specialist
+    let result = specialist_json::call_json_specialist(
+        ticket.domain,
+        &ticket_id,
+        query,
+        probe_results,
+        model,
+        config.specialist_timeout_secs,
+    )
+    .await;
+
+    // Record latency
+    {
+        state
+            .write()
+            .await
+            .latency
+            .specialist
+            .add(stage_start.elapsed().as_millis() as u64);
+    }
+
+    progress.complete_stage(RequestStage::Specialist);
+
+    // Get rendered answer
+    let answer = specialist_json::get_answer_text(&result);
+
+    // Log outcome
+    let outcome = if result.response.is_some() {
+        let resp = result.response.as_ref().unwrap();
+        info!(
+            "JSON specialist: status={:?}, confidence={:.0}%, reliability={}%",
+            resp.status,
+            resp.confidence * 100.0,
+            result.rendered.reliability
+        );
+        progress.add_specialist_message(&format!(
+            "[json specialist: {}]",
+            result.rendered.internal_comms
+        ));
+        SpecialistOutcome::Ok
+    } else {
+        progress.add_specialist_message("[json specialist: parse failed]");
+        SpecialistOutcome::Error
+    };
+
+    SpecialistResult {
+        answer,
+        used_deterministic: false,
+        det_result: None,
+        prompt_truncated: false,
+        outcome,
+        fallback_route_class: Some("json_specialist".to_string()),
+    }
 }

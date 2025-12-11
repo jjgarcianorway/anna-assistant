@@ -1,0 +1,266 @@
+//! JSON-only specialist handler (v0.0.404).
+//!
+//! This module implements the new architecture where:
+//! - Specialists ONLY output JSON (no prose, no personality)
+//! - JSON is parsed into SpecialistResponse struct
+//! - Personality is added by the renderer layer
+//!
+//! Key benefits:
+//! - Deterministic parsing (JSON is parseable)
+//! - LLM can't hallucinate prose or wrong formats
+//! - Personality is template-based, not LLM-generated
+//! - Learning hooks in discovery field
+
+use anna_shared::rpc::{ProbeResult, SpecialistDomain};
+use anna_shared::specialist_contract::SpecialistResponse;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio::time::{timeout, Duration};
+use tracing::{error, info, warn};
+
+use crate::ollama;
+use crate::response_renderer::{render_response, format_for_display, RenderedResponse};
+use crate::specialist_prompt::{build_specialist_prompt, build_specialist_input};
+
+/// Result of JSON specialist processing
+#[derive(Debug, Clone)]
+pub struct JsonSpecialistResult {
+    /// The parsed specialist response (if successful)
+    pub response: Option<SpecialistResponse>,
+    /// Rendered output with personality
+    pub rendered: RenderedResponse,
+    /// Whether LLM was called or deterministic path used
+    pub used_llm: bool,
+    /// Raw LLM output (for debugging)
+    pub raw_output: Option<String>,
+}
+
+/// Call specialist with JSON-only contract
+pub async fn call_json_specialist(
+    domain: SpecialistDomain,
+    ticket_id: &str,
+    question: &str,
+    probe_results: &[ProbeResult],
+    model: &str,
+    timeout_secs: u64,
+) -> JsonSpecialistResult {
+    // Build the JSON-only system prompt
+    let system_prompt = build_specialist_prompt(domain);
+
+    // Build probe map from results
+    let probes: HashMap<String, String> = probe_results
+        .iter()
+        .filter(|p| p.exit_code == 0)
+        .map(|p| (p.command.clone(), p.stdout.clone()))
+        .collect();
+
+    // Build the user message with ticket data
+    let user_message = build_specialist_input(
+        ticket_id,
+        domain_to_string(domain),
+        "question",
+        question,
+        &probes,
+    );
+
+    // Full prompt for LLM
+    let full_prompt = format!("{}\n\n{}", system_prompt, user_message);
+
+    info!(
+        "Calling JSON specialist for domain={:?}, ticket={}, probes={}",
+        domain,
+        ticket_id,
+        probes.len()
+    );
+
+    // Call LLM with streaming
+    let token_count = Arc::new(AtomicUsize::new(0));
+    let token_count_clone = Arc::clone(&token_count);
+
+    let result = timeout(
+        Duration::from_secs(timeout_secs),
+        ollama::chat_streaming_with_retry(
+            model,
+            &full_prompt,
+            timeout_secs,
+            move |_token| {
+                token_count_clone.fetch_add(1, Ordering::Relaxed);
+            },
+        ),
+    )
+    .await;
+
+    match result {
+        Ok(Ok(raw_output)) => {
+            let tokens = token_count.load(Ordering::Relaxed);
+            info!("JSON specialist generated {} tokens", tokens);
+
+            // Parse JSON from output
+            match parse_specialist_json(&raw_output, ticket_id) {
+                Ok(response) => {
+                    info!(
+                        "Parsed specialist response: status={:?}, confidence={}",
+                        response.status, response.confidence
+                    );
+
+                    // Render with personality
+                    let rendered = render_response(&response, domain_to_string(domain));
+
+                    JsonSpecialistResult {
+                        response: Some(response),
+                        rendered,
+                        used_llm: true,
+                        raw_output: Some(raw_output),
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to parse specialist JSON: {}", e);
+
+                    // Create error response
+                    let error_response = SpecialistResponse::parse_error(ticket_id, &e);
+                    let rendered = render_response(&error_response, domain_to_string(domain));
+
+                    JsonSpecialistResult {
+                        response: Some(error_response),
+                        rendered,
+                        used_llm: true,
+                        raw_output: Some(raw_output),
+                    }
+                }
+            }
+        }
+        Ok(Err(e)) => {
+            error!("JSON specialist LLM error: {}", e);
+            let error_response = SpecialistResponse::parse_error(ticket_id, &e.to_string());
+            let rendered = render_response(&error_response, domain_to_string(domain));
+
+            JsonSpecialistResult {
+                response: Some(error_response),
+                rendered,
+                used_llm: true,
+                raw_output: None,
+            }
+        }
+        Err(_) => {
+            warn!("JSON specialist timeout after {}s", timeout_secs);
+            let error_response = SpecialistResponse::parse_error(ticket_id, "Timeout");
+            let rendered = render_response(&error_response, domain_to_string(domain));
+
+            JsonSpecialistResult {
+                response: Some(error_response),
+                rendered,
+                used_llm: true,
+                raw_output: None,
+            }
+        }
+    }
+}
+
+/// Parse JSON from LLM output, handling common issues
+fn parse_specialist_json(raw: &str, _ticket_id: &str) -> Result<SpecialistResponse, String> {
+    // Try to find JSON object in the output
+    let json_str = extract_json_object(raw)?;
+
+    // Parse JSON
+    serde_json::from_str(&json_str).map_err(|e| format!("JSON parse error: {}", e))
+}
+
+/// Extract JSON object from LLM output
+/// Handles cases where LLM adds prose before/after JSON
+fn extract_json_object(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+
+    // If it starts with {, try to find matching }
+    if trimmed.starts_with('{') {
+        // Find the last } which should close the object
+        if let Some(end) = trimmed.rfind('}') {
+            return Ok(trimmed[..=end].to_string());
+        }
+    }
+
+    // Try to find JSON block in markdown
+    if let Some(start) = raw.find("```json") {
+        let after_marker = &raw[start + 7..];
+        if let Some(end) = after_marker.find("```") {
+            return Ok(after_marker[..end].trim().to_string());
+        }
+    }
+
+    // Try to find bare code block
+    if let Some(start) = raw.find("```") {
+        let after_marker = &raw[start + 3..];
+        if let Some(end) = after_marker.find("```") {
+            let content = after_marker[..end].trim();
+            if content.starts_with('{') {
+                return Ok(content.to_string());
+            }
+        }
+    }
+
+    // Look for { anywhere in the output
+    if let Some(start) = raw.find('{') {
+        if let Some(end) = raw.rfind('}') {
+            if end > start {
+                return Ok(raw[start..=end].to_string());
+            }
+        }
+    }
+
+    Err("No JSON object found in output".to_string())
+}
+
+/// Convert domain enum to string
+fn domain_to_string(domain: SpecialistDomain) -> &'static str {
+    match domain {
+        SpecialistDomain::System => "system",
+        SpecialistDomain::Network => "network",
+        SpecialistDomain::Storage => "storage",
+        SpecialistDomain::Security => "security",
+        SpecialistDomain::Packages => "packages",
+    }
+}
+
+/// Get the final answer text from a JSON specialist result
+pub fn get_answer_text(result: &JsonSpecialistResult) -> String {
+    result.rendered.answer.clone()
+}
+
+/// Get the formatted display output
+pub fn get_display_output(result: &JsonSpecialistResult, ticket_id: &str) -> String {
+    format_for_display(&result.rendered, ticket_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_json_object() {
+        // Clean JSON
+        let json = r#"{"ticket_id": "DSK-0101", "status": "ok"}"#;
+        assert!(extract_json_object(json).is_ok());
+
+        // JSON with surrounding prose
+        let with_prose = r#"Here is the response:
+{"ticket_id": "DSK-0101", "status": "ok"}
+Done."#;
+        let extracted = extract_json_object(with_prose).unwrap();
+        assert!(extracted.contains("ticket_id"));
+
+        // JSON in markdown block
+        let markdown = r#"```json
+{"ticket_id": "DSK-0101", "status": "ok"}
+```"#;
+        assert!(extract_json_object(markdown).is_ok());
+    }
+
+    #[test]
+    fn test_parse_specialist_json() {
+        let json = r#"{"ticket_id": "DSK-0101", "status": "ok", "answer": {"short": "Test"}, "evidence": [], "confidence": 0.9}"#;
+        let result = parse_specialist_json(json, "DSK-0101");
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.answer.short, "Test");
+    }
+}

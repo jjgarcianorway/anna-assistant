@@ -66,6 +66,16 @@ pub struct LlmConfig {
     /// Total probe stage timeout
     #[serde(default = "default_probes_total_timeout")]
     pub probes_total_timeout_secs: u64,
+
+    /// Use JSON-only specialist (v0.0.404)
+    /// When enabled, specialists output strict JSON which is rendered with templates
+    #[serde(default = "default_use_json_specialist")]
+    pub use_json_specialist: bool,
+}
+
+fn default_use_json_specialist() -> bool {
+    // v0.0.404: Default ON - JSON specialists are more reliable
+    std::env::var("ANNA_JSON_SPECIALIST").map(|v| v != "0").unwrap_or(true)
 }
 
 fn default_translator_model() -> String {
@@ -133,6 +143,7 @@ impl Default for LlmConfig {
             supervisor_timeout_secs: default_supervisor_timeout(),
             probe_timeout_secs: default_probe_timeout(),
             probes_total_timeout_secs: default_probes_total_timeout(),
+            use_json_specialist: default_use_json_specialist(),
         }
     }
 }
