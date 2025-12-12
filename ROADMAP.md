@@ -431,6 +431,13 @@ Anna v0.0.369 focuses on:
 - [x] format_debug_settings() displays settings
 - [x] parse_debug_level() parses level strings
 
+### Phase 50 - Risk Level Configuration via Natural Language ✓ (v0.0.474)
+- [x] risk_config.rs for NL risk tolerance settings
+- [x] RiskTolerance struct with auto-confirm, warnings, protection
+- [x] RiskConfigChange enum for config changes
+- [x] Presets: cautious, balanced, confident, expert
+- [x] detect_risk_config() parses natural language
+- [x] should_auto_confirm() checks risk against tolerance
+
 ### Future
-- Phase 50: Risk Level Configuration via NL
 - Phase 51: Session Summary Display

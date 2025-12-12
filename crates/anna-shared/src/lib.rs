@@ -169,6 +169,7 @@ pub mod reliability_metrics; // v0.0.444: Canonical outcomes, real reliability s
 pub mod repl_greeting; // v0.0.413: Stats-based REPL greeting
 pub mod report;
 pub mod resource_limits;
+pub mod risk_config; // v0.0.474: Risk level configuration via natural language
 pub mod review;
 pub mod review_gate;
 pub mod review_prompts;

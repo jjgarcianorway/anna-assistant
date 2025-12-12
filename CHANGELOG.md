@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.474] - 2025-12-12
+
+### Added - Risk Level Configuration via Natural Language (Phase 50)
+
+**Risk Config Module:**
+- `risk_config.rs` for natural language risk tolerance settings
+- `RiskTolerance` struct with auto-confirm level, warnings, protection
+- `RiskConfigChange` enum for configuration changes
+
+**Presets:**
+- `cautious` - confirm all changes, show all warnings
+- `balanced` - auto-confirm safe (read-only) operations
+- `confident` - auto-confirm low and medium risk operations
+- `expert` - minimal confirmations, hide warnings
+
+**Functions:**
+- `detect_risk_config()` parses natural language to config changes
+- `apply_risk_change()` applies changes to RiskTolerance
+- `format_risk_settings()` displays current risk settings
+- `is_show_risk_settings()` detects "show risk settings"
+- `should_auto_confirm()` checks if risk level should auto-confirm
+
+**Supported Commands:**
+- Presets: "be cautious", "expert mode", "balanced risk"
+- Auto-confirm: "auto-confirm low risk", "confirm everything"
+- Warnings: "show warnings", "hide warnings"
+- Protection: "protect destructive", "allow destructive"
+
 ## [0.0.473] - 2025-12-12
 
 ### Added - Debug Configuration via Natural Language (Phase 49)
