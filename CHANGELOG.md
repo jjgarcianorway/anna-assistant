@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.477] - 2025-12-12
+
+### Added - Learning Mode Explanations Enhancement (Phase 53)
+
+**Module Refactor:**
+- Split learning_explanations.rs into module directory
+- `mod.rs` - core types (Explanation, FlagExplanation, LearningContext)
+- `commands.rs` - command explanations database
+
+**New Command Explanations (15+):**
+- Process: ps, top/htop
+- File: grep, find, chmod, chown
+- Disk: du, mount
+- Network: ss/netstat, ping, curl/wget
+- Archive: tar
+- Tools: git, docker
+
+**Enhanced Functions:**
+- `list_explained_commands()` returns all supported commands
+- `get_explanation()` without learning mode check
+- Improved display format (cleaner, no emojis)
+
+**Total Explained Commands: 29+**
+
 ## [0.0.476] - 2025-12-12
 
 ### Added - Unified Settings Display (Phase 52)
