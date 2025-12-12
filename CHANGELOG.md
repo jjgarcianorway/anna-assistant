@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.438] - 2025-12-12
+
+### Added - Fast Pipeline: Hard Budgets, No Streaming, Reliability Stats
+
+**Goal:** Eliminate "Failed to parse specialist response. Parse error: Timeout" forever.
+Make response time predictable and fast. Never lie about progress.
+
+**Hard Time Budgets (`budget.rs`):**
+- `Phase`: TranslatorIntent, ProbeCollection, JuniorSpecialist, SeniorSpecialist, Renderer
+- Budget constants: translator=700ms, probes=2500ms, junior=1500ms, senior=3500ms, renderer=200ms
+- `TOTAL_BUDGET_MS`: 6500ms max for one-shot queries
+- `BudgetTracker`: Tracks phase timing, triggers timeout/fallback
+- `BudgetResult`: Proceed, Exceeded, TotalExhausted
+
+**Specialist Output Contract v2 (`specialist_v2.rs`):**
+- `MAX_SPECIALIST_TOKENS`: 220 (hard limit)
+- `MAX_SUMMARY_CHARS`: 160, `MAX_NOTES_CHARS`: 200
+- `Verdict`: Answered, NeedMoreData, Escalate, CannotAnswer
+- `AnswerPayload`: fields (HashMap), summary (max 160 chars)
+- `SpecialistParser`: JSON extraction with fallback, truncation on overflow
+- Rule: Output exceeds limit → verdict=cannot_answer, never break parsing
+
+**No Streaming for Parsed Calls (`no_stream.rs`):**
+- `CallPolicy`: NoStream, StreamAllowed
+- `CallType`: TranslatorIntent, JuniorSpecialist, SeniorSpecialist, Renderer
+- Rule: Streaming ONLY for Renderer (user-facing), never for internal JSON
+- `ModelCallConfig`: Preconfigured timeout + max_tokens per call type
+
+**Retry Strategy (`retry.rs`):**
+- `FailureType`: Timeout, ParseError, EmptyResponse, InvalidJson, NetworkError, RateLimit
+- `RetryStrategy`: NoRetry, RetrySame, RetrySmaller, FallbackProbeOnly
+- Default: 1 retry with smaller/faster model, then probe-only fallback
+- `RetryTracker`: Tracks attempts, determines next strategy
+
+**Probe-only Fallback (`probe_fallback.rs`):**
+- `ProbeData`: probe_id, display_name, value, unit, is_key_metric
+- `ProbeOnlyResult`: Key metrics and all probes with generated summary
+- `FallbackAnswer`: Lower confidence (0.6), warning message
+- Rule: Never say "I don't know" if we have probe data—present it clearly
+
+**Parallel Probe Engine (`parallel_probes.rs`):**
+- `MAX_CONCURRENT_PROBES`: 4, `CACHE_TTL_SECONDS`: 3, `PROBE_TIMEOUT_MS`: 500
+- `ProbeCache`: LRU-style cache with TTL, hit/miss tracking
+- `ProbeBatch`: Batch execution with concurrency limit
+- `PreparedBatch`: Separates cached results from probes needing execution
+
+**Progress Rendering (`progress.rs`):**
+- `PhaseStatus`: Pending, Running, Completed, TimedOut, Failed, Skipped
+- `PhaseProgress`: Tracks per-phase timing and status
+- `PipelineProgress`: Overall pipeline state
+- `ProgressRenderer`: Compact/full modes, honest status indicators
+- Rule: Never lie about what's happening—show actual phase, not "Analyzing..."
+
+**Reliability Stats (`reliability_stats.rs`):**
+- `ReliabilityOutcome`: SpecialistSuccess, SpecialistTimeout, ParserFailure, FallbackToProbes, TotalFailure
+- `ReliabilityStats`: success_rate, timeout_rate, parser_failure_rate, fallback_rate, avg_response_time
+- `WindowedStats`: Current/previous window comparison, degradation detection
+- Rule: Reality-based stats—no fake 100% success rates
+
+**Acceptance Criteria:**
+- "Failed to parse specialist response. Parse error: Timeout" never happens
+- 95% of fact/status queries answer in <3 seconds
+- Diagnostics complete in <6.5 seconds
+- Progress never lies about current phase
+
 ## [0.0.437] - 2025-12-12
 
 ### Added - Question Contract: Fix Understanding and Answer Minimality
