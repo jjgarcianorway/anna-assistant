@@ -84,6 +84,7 @@ pub mod evidence_gatherer; // v0.0.410: Evidence orchestration
 pub mod evidence_pipeline; // v0.0.410: Full evidence integration
 pub mod facts;
 pub mod facts_types;
+pub mod facts_maintenance; // v0.0.471: Facts lifecycle maintenance
 pub mod fast_pipeline; // v0.0.438: Fast Pipeline - hard budgets, no streaming, reliability stats
 pub mod fastpath;
 pub mod followup_hints; // v0.0.384: Context-aware follow-up suggestions

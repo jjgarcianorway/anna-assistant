@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.471] - 2025-12-12
+
+### Added - Facts Lifecycle Management (Phase 47)
+
+**Facts Maintenance Module:**
+- `facts_maintenance.rs` for scheduled facts cleanup
+- `MaintenanceResult` tracks transitions and pruning
+- `FactsHealth` provides statistics and health check
+
+**Maintenance Functions:**
+- `run_maintenance()` applies lifecycle transitions and optional pruning
+- `get_health()` returns statistics by category
+- `get_reverification_candidates()` lists facts needing re-verification
+- `needs_maintenance()` checks if maintenance is needed
+
+**Statistics & Display:**
+- Facts categorized by type (system, network, packages, etc.)
+- Age tracking (oldest, average)
+- Health ratio (< 30% stale = healthy)
+- Human-readable age formatting
+
 ## [0.0.470] - 2025-12-12
 
 ### Added - Notification Configuration via Natural Language (Phase 46)

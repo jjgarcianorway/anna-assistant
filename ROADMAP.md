@@ -407,5 +407,13 @@ Anna v0.0.369 focuses on:
 - [x] Quiet hours configuration
 - [x] format_notification_settings() for display
 
+### Phase 47 - Facts Lifecycle Management ✓ (v0.0.471)
+- [x] facts_maintenance.rs for scheduled cleanup
+- [x] MaintenanceResult tracks transitions
+- [x] FactsHealth with statistics by category
+- [x] run_maintenance() for lifecycle transitions
+- [x] get_health() for facts statistics
+- [x] Health ratio check (< 30% stale = healthy)
+
 ### Future
 - All ROADMAP.md Future items complete!
