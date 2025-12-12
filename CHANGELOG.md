@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.432] - 2025-12-12
+
+### Added - Knowledge Pipeline: Priority-Ordered Knowledge Fetching and Learning
+
+**Goal:** Build a minimal but powerful knowledge and learning pipeline where Anna always prefers
+authoritative local sources first, LLMs help interpret and synthesize (not memorize facts),
+and successful research becomes reusable parametric recipes.
+
+**Knowledge Pipeline Module (`knowledge_pipeline/`):**
+
+**Sources (`sources.rs`):**
+- `SourcePriority`: Strict trust hierarchy (Probe > LocalDoc > CachedWiki > Remote)
+- `KnowledgeSource`: Type-safe sources (Probe, ManPage, HelpOutput, DocFile, ArchWiki, RemoteUrl)
+- `SourceResult`: Content with relevance score and timestamp
+- `Citation`: Traceable evidence with optional excerpts and line numbers
+- Trust scores: Probe=1.0, LocalDoc=0.95, CachedWiki=0.8, Remote=0.6
+
+**Fetcher (`fetcher.rs`):**
+- `KnowledgeFetcher`: Priority-ordered lookup with early termination on confident results
+- `FetchConfig`: Remote disabled by default, configurable max lookups
+- `FetchResult`: Merged results with citations and confidence
+- `suggest_sources()`: Auto-suggest relevant sources for topics
+- Built-in probe fetching for /proc/meminfo, cpuinfo, uptime, loadavg
+
+**Research (`research.rs`):**
+- `ResearchPattern`: When specialists are unsure, research first
+- `ResearchRequest`: Builder pattern for research queries
+- `ResearchOutcome`: Found, Partial, NotFound, NeedsClarification
+- `can_answer_locally()`: Quick check for local source availability
+
+**Wiki Sync (`wiki_sync.rs`):**
+- `WikiSyncer`: Offline Arch Wiki article cache
+- `WikiSyncConfig`: Rate limiting, max age (7 days), article list
+- 30+ default articles (Systemd, Pacman, GRUB, NetworkManager, etc.)
+- `sync_outdated()`: Update stale articles
+- `search()`: Full-text search across cached articles
+
+**Clarification (`clarification.rs`):**
+- `ClarificationProtocol`: Request/response workflow for specialists
+- `ClarificationRequest`: Choice, Value, Confirmation, Context, Scope types
+- `ClarificationResponse`: Value with optional notes
+- Skip-with-default for non-blocking clarifications
+
+**Learning (`learning.rs`):**
+- `LearningLoop`: Track successful research patterns as recipes
+- `RecipeStats`: Uses, success rate, avg time, satisfaction scores
+- `LearnedPattern`: Query patterns, sources, expected citations
+- Pattern deprecation when success rate falls below threshold (70%)
+- Word-based pattern matching with stop-word filtering
+
+**Acceptance Tests (`tests.rs`):**
+- Priority ordering verification
+- Remote disabled by default
+- Research pattern workflow
+- Clarification protocol flow
+- Learning loop with pattern reinforcement
+- Recipe stats tracking
+- Pattern deprecation on failure
+- Source verification requirements
+- No hardcoded answers rule enforcement
+- Full pipeline integration test
+
+### Fixed
+- Hollywood UX test isolation (parallel test interference)
+
 ## [0.0.431] - 2025-12-11
 
 ### Added - Hollywood UX: Unified Transcript and Terminal Renderer

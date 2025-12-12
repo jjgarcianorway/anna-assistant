@@ -284,9 +284,13 @@ impl std::error::Error for StorageError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static TEST_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     fn test_path() -> String {
-        format!("/tmp/anna_transcript_test_{}", std::process::id())
+        let count = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+        format!("/tmp/anna_transcript_test_{}_{}", std::process::id(), count)
     }
 
     fn cleanup(path: &str) {
@@ -296,6 +300,7 @@ mod tests {
     #[test]
     fn test_save_and_load() {
         let path = test_path();
+        cleanup(&path); // Ensure clean start
         let storage = TranscriptStorage::new(&path);
 
         let mut t = HollywoodTranscript::new("REQ-001", "how much ram?");
