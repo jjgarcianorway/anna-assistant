@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.459] - 2025-12-12
+
+### Added - Kubernetes Recipes (Phase 38)
+
+**Kubernetes Pod & Deployment Management per ROADMAP.md Future:**
+- Complete K8s recipe system for common kubectl operations
+- Query matching for natural language to kubectl commands
+- Longest-keyword matching for accurate feature detection
+
+**K8sFeature Enum (19 features):**
+- ListPods, DescribePod, PodLogs, ExecPod
+- ListDeployments, ScaleDeployment, RestartDeployment
+- ApplyManifest, DeleteResource
+- ListServices, PortForward
+- GetEvents, DebugPod
+- ClusterHealth, ListNodes, ResourceUsage
+- ListNamespaces, CreateNamespace, GetConfig
+
+**Builtin Recipes:**
+- Each feature has kubectl commands, answer templates, and notes
+- Manifest examples for Deployment and Namespace creation
+- Debugging guide for common issues (ImagePullBackOff, CrashLoopBackOff)
+
+**New Module:**
+- `anna_shared::kubernetes_recipes` - K8s recipe system
+- `K8sFeature` enum with display names and keywords
+- `K8sRecipe` builder pattern for recipes
+- `detect_feature()` and `match_query()` for query routing
+
 ## [0.0.458] - 2025-12-12
 
 ### Added - Idle Time Learning (Phase 37)

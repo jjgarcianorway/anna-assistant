@@ -343,8 +343,14 @@ Anna v0.0.369 focuses on:
 - [x] Resumable tasks if interrupted
 - [x] Email notification when idle task completes
 
+### Phase 38 - Kubernetes Recipes ✓ (v0.0.459)
+- [x] K8sFeature enum (19 features for pods, deployments, services, etc.)
+- [x] K8sRecipe with answer templates and commands
+- [x] Query matcher with longest-keyword matching
+- [x] Builtin recipes for all common kubectl operations
+- [x] Debugging recipes for CrashLoopBackOff, ImagePullBackOff
+
 ### Future
-- [ ] Kubernetes pod/deployment recipes
 - [ ] Nginx/Apache configuration recipes
 - [ ] Database backup/restore recipes
 - [ ] Network troubleshooting recipes
