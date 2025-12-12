@@ -1,4 +1,5 @@
 //! REPL Greeting - Stats-based personalized greetings (v0.0.413).
+//! v0.0.463: Enhanced with error announcements per VISION.md Phase 29.
 //!
 //! Generates a greeting for the REPL that uses real ticket stats
 //! to create a personalized "IT department" welcome.
@@ -26,6 +27,19 @@ pub struct ReplGreeting {
     pub departments: Vec<String>,
     /// Is this the user's first time?
     pub first_time: bool,
+    /// System errors to announce (v0.0.463)
+    pub errors: Vec<SystemError>,
+}
+
+/// System error type for greeting announcements (v0.0.463)
+#[derive(Debug, Clone)]
+pub struct SystemError {
+    /// Error category (daemon, ollama, models, etc.)
+    pub category: String,
+    /// Error message
+    pub message: String,
+    /// Suggested fix
+    pub fix_hint: Option<String>,
 }
 
 /// System health status
@@ -131,6 +145,7 @@ impl ReplGreeting {
             active_staff: departments.len(),
             departments,
             first_time: false,
+            errors: Vec::new(),
         }
     }
 
@@ -150,7 +165,27 @@ impl ReplGreeting {
             .map(String::from)
             .collect(),
             first_time: true,
+            errors: Vec::new(),
         }
+    }
+
+    /// Add an error to the greeting
+    pub fn add_error(&mut self, category: &str, message: &str, fix_hint: Option<&str>) {
+        self.errors.push(SystemError {
+            category: category.to_string(),
+            message: message.to_string(),
+            fix_hint: fix_hint.map(String::from),
+        });
+        // Update status if we have errors
+        if self.system_status == SystemStatus::Ok {
+            self.system_status = SystemStatus::Warn;
+            self.status_summary = "Issues detected".to_string();
+        }
+    }
+
+    /// Check if there are any errors
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
     }
 
     /// Render the greeting for display
@@ -197,6 +232,28 @@ impl ReplGreeting {
             self.active_staff,
             self.departments.len()
         ));
+
+        // Error announcements (v0.0.463)
+        if !self.errors.is_empty() {
+            output.push_str(&format!("\n{}Issues detected:{}\n", colors::WARN, colors::RESET));
+            for error in &self.errors {
+                output.push_str(&format!(
+                    "  {}[{}]{} {}\n",
+                    colors::ERR,
+                    error.category,
+                    colors::RESET,
+                    error.message
+                ));
+                if let Some(ref hint) = error.fix_hint {
+                    output.push_str(&format!(
+                        "    {}Fix: {}{}\n",
+                        colors::DIM,
+                        hint,
+                        colors::RESET
+                    ));
+                }
+            }
+        }
 
         // Prompt
         output.push_str(&format!(
@@ -324,5 +381,23 @@ mod tests {
         assert_eq!(ctx.questions.len(), 1);
         assert_eq!(ctx.last_domain, Some("storage".to_string()));
         assert!(ctx.context_hint().unwrap().contains("storage"));
+    }
+
+    #[test]
+    fn test_error_announcements() {
+        let mut greeting = ReplGreeting::first_time("test_user");
+        assert!(!greeting.has_errors());
+        assert_eq!(greeting.system_status, SystemStatus::Ok);
+
+        greeting.add_error("daemon", "Not running", Some("Run: systemctl start annad"));
+        assert!(greeting.has_errors());
+        assert_eq!(greeting.errors.len(), 1);
+        assert_eq!(greeting.system_status, SystemStatus::Warn);
+
+        let rendered = greeting.render();
+        assert!(rendered.contains("Issues detected"));
+        assert!(rendered.contains("[daemon]"));
+        assert!(rendered.contains("Not running"));
+        assert!(rendered.contains("Fix:"));
     }
 }

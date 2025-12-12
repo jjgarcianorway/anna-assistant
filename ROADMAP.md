@@ -273,15 +273,15 @@ Anna v0.0.369 focuses on:
 
 ## Planned
 
-### Phase 29 - Enhanced Status Display (VISION alignment)
-- [ ] Show installed vs available GitHub version with asset verification
-- [ ] Display update check pace, last check, next scheduled check
-- [ ] Show all user groups and folder permissions
-- [ ] Show Ollama status separately from daemon status
-- [ ] List helpers with "installed by Anna" vs "installed by user" labels
-- [ ] Display which specialist uses which LLM
-- [ ] Show all config settings in status (not just debug mode)
-- [ ] REPL greeting announces errors, one-time question if only issue
+### Phase 29 - Enhanced Status Display ✓ (v0.0.463)
+- [x] Show installed vs available GitHub version with asset verification
+- [x] Display update check pace, last check, next scheduled check
+- [x] Show all user groups and folder permissions (FolderPermission struct)
+- [x] Show Ollama status separately from daemon status
+- [x] List helpers with "installed by Anna" vs "installed by user" labels
+- [x] Display which specialist uses which LLM
+- [x] Show all config settings in status (not just debug mode)
+- [x] REPL greeting announces errors (SystemError struct, add_error(), render())
 
 ### Phase 30 - Enhanced Stats Display (RPG System)
 - [ ] Non-linear XP progression (0-100 RPG style)

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.463] - 2025-12-12
+
+### Added - Enhanced Status Display (Phase 29)
+
+**Per VISION.md Status Dashboard Requirements:**
+- Folder permission info in StatusSnapshot
+- Error announcements in REPL greeting
+- System error detection and display
+
+**FolderPermission struct:**
+- path, exists, readable, writable
+- owner and mode (Unix permissions)
+- Builder pattern for construction
+- check_anna_folders() for key paths
+
+**SystemError struct for greeting:**
+- category, message, fix_hint
+- Auto-updates status to WARN when errors exist
+- Renders with color-coded categories
+
+**Enhanced REPL Greeting:**
+- add_error() method for error announcements
+- has_errors() check
+- Renders errors with hints in greeting output
+
 ## [0.0.462] - 2025-12-12
 
 ### Added - Network Troubleshooting Recipes (Phase 41)
