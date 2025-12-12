@@ -28,7 +28,7 @@ use anna_shared::ui_config::UiConfig;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_learning_with_query, handle_suggest_recipes, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
+use crate::commands::{handle_debug, handle_learning_with_query, handle_suggest_recipes, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall, DebugCommand};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -94,6 +94,11 @@ enum Command {
         #[arg(long, short = 'n')]
         limit: Option<usize>,
     },
+    /// Debug diagnostics (v0.0.444)
+    Debug {
+        #[command(subcommand)]
+        cmd: DebugCommand,
+    },
     /// Reset learned data and event history
     Reset,
     /// Remove Anna completely from the system
@@ -123,6 +128,7 @@ async fn main() -> Result<()> {
         Some(Command::Stats) => handle_stats().await,
         Some(Command::Learning { test }) => handle_learning_with_query(test.as_deref()),
         Some(Command::SuggestRecipes { limit }) => handle_suggest_recipes(limit),
+        Some(Command::Debug { cmd }) => handle_debug(cmd).await,
         Some(Command::Reset) => handle_reset().await,
         Some(Command::Uninstall) => handle_uninstall().await,
         None => {

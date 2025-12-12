@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.447] - 2025-12-12
+
+### Added - Hard Reliability Gate: Stop Bad Answers Before They Reach Users
+
+**Goal:** Anna NEVER answers without evidence. Every claim must pass strict validation.
+
+**6 Gate Checks (ALL must pass):**
+1. **PROBE COVERAGE** - Every claim backed by probe evidence (probe_failed or probe_empty → fail)
+2. **QUESTION MATCH** - Answer directly matches user's question (contract validation)
+3. **DOMAIN CONSISTENCY** - Domain matches probes and answer (probe domains vs answer domain)
+4. **NO HALLUCINATED ENTITIES** - Every noun in answer exists in probe output
+5. **PARSE SUCCESS** - LLM output parsed deterministically (no guess work)
+6. **CONFIDENCE THRESHOLD** - Score >= 0.85 (raised from 0.5)
+
+**New GateOutcome Variants:**
+- `FailedQuestionMismatch`: Answer shape doesn't match question shape
+- `FailedDomainMismatch`: Answer domain inconsistent with probe domains
+- `FailedHallucination`: Entities in answer not found in evidence
+- `FailedProbeCoverage`: Probes failed or returned empty
+
+**Enhanced GateInput Fields:**
+- `question`: Original user question for matching
+- `domain`: Expected answer domain
+- `probe_domains`: Domains from executed probes
+- `probe_failed`: Whether any probe execution failed
+- `probe_empty`: Whether all probes returned empty
+- `answer_entities`: Nouns/entities in generated answer
+- `evidence_entities`: Entities found in probe evidence
+
+**Hard Failure Behavior:**
+- If ANY check fails → abort answer → produce controlled failure response
+- No padding with generic advice when probes fail
+- No fake success metrics
+
+**Acceptance Criteria:**
+- `confidence < 0.85` → "I cannot provide a reliable answer"
+- Probe failure → honest failure, not generic padding
+- Entity not in evidence → hallucination detected → fail
+- All 6 checks must pass before any answer is shown
+
+## [0.0.446] - 2025-12-12
+
+### Added - Debug Mode That Actually Helps: Full Trace, Clean, Filterable
+
+**Goal:** Surface every decision, redact secrets, filter by level.
+
+**4-Level Debug System:**
+- Level 0 (Off): Normal user output only
+- Level 1 (Summary): Domain, intent, probes, outcome, reliability, failures
+- Level 2 (Trace): Above + probe details, LLM tokens, gate report
+- Level 3 (Full): Above + raw prompts/responses, raw probe output
+
+**TraceBlock Canonical Structure:**
+- `request_id`, `timestamp`, `route_type`, `domain`, `intent`
+- `probes`: Array of probe executions with command, exit_code, duration
+- `llm`: Model name, input_tokens, output_tokens, duration, parse_success
+- `gate_result`: passed, checks run, failure reasons
+- `timing`: total_ms, translate_ms, probe_ms, specialist_ms, gate_ms
+
+**Enhanced Redaction (`redact.rs`):**
+- Mandatory secret removal: API keys, tokens, passwords, SSH keys
+- Email redaction: user@domain.com → [EMAIL]
+- Private IP redaction: 192.168.x.x → [PRIVATE_IP]
+- Environment variables: API_KEY=xxx → API_KEY=[REDACTED]
+- Configurable limits: max_probe_lines, max_llm_output_chars
+
+**New Commands:**
+- `annactl debug trace`: Show canonical TraceBlock from last request
+- `annactl debug trace --level summary|trace|full`: Filter output level
+- `annactl debug config`: Show current debug configuration
+
 ## [0.0.443] - 2025-12-12
 
 ### Added - Source Layer: Citations, Trace Observability, Clean Inventories

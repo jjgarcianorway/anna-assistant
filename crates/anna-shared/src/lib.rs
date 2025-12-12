@@ -33,7 +33,13 @@
 //! v0.0.441: ERA Pipeline - Universal Evidence → Reasoning → Answer architecture.
 //! v0.0.442: Ticket Integrity - Honest stats, clarification-first, package/system separation.
 //! v0.0.443: Source Layer - Citations, trace observability, clean inventories, honest stats/UI.
+//! v0.0.444: Reliability Metrics - Canonical outcomes, honest stats, accurate inventories.
+//! v0.0.444: Debug Mode - 3-level debug output, sanitization, reason codes, routing transparency.
+//! v0.0.445: Hard Reliability Gate - No answer without evidence, no fake success.
 
+pub mod reliability_gate; // v0.0.445: Hard reliability gate, claim/evidence model, deterministic-first
+pub mod reliability_metrics; // v0.0.444: Canonical outcomes, real reliability stats
+pub mod debug_mode; // v0.0.444: Debug levels, sanitization, reason codes
 pub mod advice;
 pub mod anna_proto; // v0.0.436: Unbreakable typed model communication protocol
 pub mod question_contract; // v0.0.437: Question Contract - typed intent and answer shape enforcement
