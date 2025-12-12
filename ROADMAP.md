@@ -338,10 +338,10 @@ Anna v0.0.369 focuses on:
 - [x] Learning mode explains why commands are run
 - [x] Learning mode explains how commands work
 
-### Phase 37 - Idle Time Learning
-- [ ] Senior specialists think strategically during idle time
-- [ ] Resumable tasks if interrupted
-- [ ] Email notification when idle task completes
+### Phase 37 - Idle Time Learning ✓ (v0.0.458)
+- [x] Senior specialists think strategically during idle time
+- [x] Resumable tasks if interrupted
+- [x] Email notification when idle task completes
 
 ### Future
 - [ ] Kubernetes pod/deployment recipes

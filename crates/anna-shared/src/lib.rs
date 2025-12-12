@@ -171,6 +171,7 @@ pub mod robustness; // v0.0.433: Timeouts, failure handling, and truthful stats
 pub mod roster;
 pub mod rpc;
 pub mod seed_recipes; // v0.0.418: Initial seed recipes
+pub mod senior_strategic; // v0.0.458: Senior idle-time strategic thinking
 pub mod service_recipes;
 pub mod shell_recipes;
 pub mod snapshot;

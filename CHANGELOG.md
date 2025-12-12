@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.458] - 2025-12-12
+
+### Added - Idle Time Learning (Phase 37)
+
+**Senior Strategic Thinking per VISION.md:**
+- Senior specialists analyze past tickets during idle time
+- Pattern detection across teams
+- Recurring issue identification
+- Priority-based insights (Low/Medium/High/Critical)
+
+**Strategic Insights:**
+- Recurring Pattern detection
+- Performance Trend analysis
+- Security Concern identification
+- Maintenance Suggestions
+- Configuration Opportunities
+- Capacity Planning
+
+**Resumable Sessions:**
+- Analysis can be interrupted and resumed
+- Checkpoint system for progress tracking
+- Partial insights preserved
+
+**Email Reports:**
+- Weekly strategic analysis report
+- Grouped by priority
+- Actionable recommendations
+
+**New Module:**
+- `anna_shared::senior_strategic` - Idle-time strategic analysis
+- `StrategicSession` - Analysis session tracking
+- `PatternDetector` - Pattern recognition
+- `StrategicInsight` - Generated insights
+
 ## [0.0.457] - 2025-12-12
 
 ### Added - Knowledge & Citations (Phase 36)
