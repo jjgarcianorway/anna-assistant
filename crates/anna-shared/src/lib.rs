@@ -25,8 +25,10 @@
 //! v0.0.433: Robustness layer - Timeouts, failure handling, and truthful stats.
 //! v0.0.434: Hardware-aware model selection, local model management, and helper installation.
 //! v0.0.435: Evidence-first knowledge engine - citations, probe primitives, recipes with promotion.
+//! v0.0.436: Anna Protocol v1 - Unbreakable typed JSON communication, no more parse errors.
 
 pub mod advice;
+pub mod anna_proto; // v0.0.436: Unbreakable typed model communication protocol
 pub mod evidence_first; // v0.0.435: Evidence-first knowledge engine
 pub mod hardware_aware; // v0.0.434: Hardware-aware model selection and helper management
 pub mod background_worker; // v0.0.430: Background job system

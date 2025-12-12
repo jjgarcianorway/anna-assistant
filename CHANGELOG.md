@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.436] - 2025-12-12
+
+### Added - Anna Protocol v1: Unbreakable Typed Communication
+
+**Goal:** Fix "Parse error: Timeout" failures and make LLM I/O unbreakable. Every model call
+returns valid typed payload or clean failure. Stats only count success when valid envelope exists.
+
+**Protocol Framing (`framing.rs`):**
+- `PROTO_START`: `<<<ANNA_PROTO_V1>>>` - Frame start marker
+- `PROTO_END`: `<<<END_ANNA_PROTO_V1>>>` - Frame end marker
+- `extract_framed_content()`: Extract JSON from framed output
+- `FrameResult`: Found, NoFrame, IncompleteFrame, MultipleFrames
+- `FrameValidation`: Validates marker balance
+
+**Two-Stage Decoder (`decoder.rs`):**
+- `ProtoDecoder`: Fast path (framed extraction) + recovery path (JSON scanning)
+- `DecodeResult`: Success(ModelResultEnvelope) | Failed(DecodeError)
+- `DecodeError`: ModelTimeout, NoFrame, IncompleteFrame, JsonParseError, etc.
+- JSON repair: `remove_trailing_commas()`, `extract_json_object()`
+- Key distinction: `is_timeout()` vs `is_parse_error()` - model failures ≠ parse errors
+
+**Strong Typing (`envelope.rs`):**
+- `ModelResultEnvelope`: ok, role, ticket_id, confidence, summary, claims, evidence_used, errors
+- `ModelRole`: Translator, Junior, Senior (with default timeouts)
+- `Claim`: Text + evidence IDs supporting it
+- `Action`: Probe, AskUser, ProposeChange, InstallHelper with risk levels
+- `EvidenceRef`: id, kind (Probe/Man/Help/Wiki), title
+- `EnvelopeValidation`: Validates envelope integrity
+
+**Streaming Safety (`streaming.rs`):**
+- `StreamBuffer`: Buffers model output instead of streaming raw tokens
+- `StreamState`: Waiting, Receiving, FrameStarted, FrameComplete, NoFrame, TimedOut, Error
+- `ProgressFrame`: Optional progress updates (thinking, progress percentage)
+- `StreamDisplay`: Formats progress with spinner, bytes, elapsed time
+
+**Evidence Fallback (`fallback.rs`):**
+- `GatheredEvidence`: Evidence collected before model failure
+- `FallbackResponse`: Renders evidence when model fails, suggests next probes
+- `MAX_FALLBACK_CONFIDENCE = 0.5`: Fallback can never claim high confidence
+- Deterministic probe suggestions based on what's missing
+
+**Stats Integrity (`stats.rs`):**
+- `TicketOutcome`: Resolved, Escalated, InternalFailure, Cancelled, InProgress
+- `PeriodStats`: total_tickets, resolved, escalated, internal_failures, avg_response_ms
+- `outcome_from_decode()`: Maps decode result to outcome
+- No more fake 100% success - only resolved when ModelResultEnvelope.ok=true
+
+**Model Prompts (`prompts.rs`):**
+- `PROTOCOL_INSTRUCTION`: Mandatory output format instructions for all models
+- `ENVELOPE_SCHEMA`: JSON schema every model must follow
+- `junior_prompt()`, `senior_prompt()`, `translator_prompt()`: Role-specific prompts
+- `prompt_has_protocol()`: Validates prompt includes protocol instructions
+
+**Acceptance Tests (`tests.rs`):**
+- 15 integration tests covering full pipeline
+- Valid framed response, preamble extraction, trailing comma repair
+- Recovery without frame markers, timeout vs parse error distinction
+- Stats integrity, evidence fallback, stream buffer detection
+- Full pipeline success and failure scenarios
+
 ## [0.0.435] - 2025-12-12
 
 ### Added - Evidence-First Knowledge Engine
