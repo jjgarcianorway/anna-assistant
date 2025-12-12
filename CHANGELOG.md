@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.455] - 2025-12-12
+
+### Added - Long-Running Task Handling (Phase 34)
+
+**Long Task Detection per VISION.md:**
+- Configurable threshold (default 2 minutes)
+- Tracks elapsed time automatically
+- Detects when tasks exceed threshold
+
+**User Options for Long Tasks:**
+- [1] Keep waiting (continue in foreground)
+- [2] Move to background (with email notification)
+- [3] Cancel task
+
+**Email Integration:**
+- Stores email for reuse across sessions
+- Sends notification when background task completes
+- Integrates with existing email module
+
+**New Module:**
+- `anna_shared::long_task` - Long-running task tracker
+- `LongTaskTracker` - Tracks task duration and status
+- `LongTaskConfig` - Configuration options
+- `LongTaskChoice` - User choice parsing
+
 ## [0.0.454] - 2025-12-12
 
 ### Added - Dynamic Team Availability (Phase 33)

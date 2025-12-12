@@ -318,12 +318,13 @@ Anna v0.0.369 focuses on:
 - [x] Hide teams for missing hardware (no Sound team if no audio)
 - [x] Show available team count in status
 
-### Phase 34 - Long-Running Task Handling
-- [ ] Detect tasks taking > X minutes
-- [ ] Ask for email (store for reuse)
-- [ ] Investigate during idle time
-- [ ] Email with chain of thoughts and conclusion
-- [ ] Second email if internet research needed
+### Phase 34 - Long-Running Task Handling ✓ (v0.0.455)
+- [x] Detect tasks taking > X minutes
+- [x] Ask for email (store for reuse)
+- [x] Move to background with notification
+- [ ] Investigate during idle time (deferred to Phase 37)
+- [ ] Email with chain of thoughts and conclusion (deferred to Phase 37)
+- [ ] Second email if internet research needed (deferred to Phase 37)
 
 ### Phase 35 - User Notifications
 - [ ] Email notifications for long tasks
