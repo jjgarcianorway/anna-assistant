@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.478] - 2025-12-12
+
+### Added - XP/Level Display Enhancement (Phase 54)
+
+**XP Display Module:**
+- `xp_display.rs` for RPG-style progression
+- `AnnaXP` struct with level, XP, progress, title
+- Non-linear XP thresholds (0→1500 over 10 levels)
+
+**Funny Level Titles:**
+1. Intern - "Just started, still figuring out the coffee machine"
+2. Help Desk Trainee - "Can now restart a service without panicking"
+3. Junior Technician - "Knows the difference between RAM and storage"
+4. IT Support Specialist - "Has memorized most man page flags"
+5. Senior Technician - "Colleagues actually ask for help now"
+6. Systems Administrator - "Speaks fluent systemd and cron"
+7. Infrastructure Wizard - "Can debug in production without breaking sweat"
+8. Senior Architect - "Has seen things... many, many logs"
+9. IT Director - "Makes the decisions that matter"
+10. Chief Technology Guru - "Achieved IT enlightenment"
+
+**Functions:**
+- `AnnaXP::from_stats()` / `from_events()` - Calculate XP
+- `format_xp_display()` - Full XP display with progress bar
+- `format_xp_compact()` - One-line for greetings
+- `is_xp_query()` - Detect "what is my level" queries
+
 ## [0.0.477] - 2025-12-12
 
 ### Added - Learning Mode Explanations Enhancement (Phase 53)

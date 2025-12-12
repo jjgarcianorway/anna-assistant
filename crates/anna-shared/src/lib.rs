@@ -223,6 +223,7 @@ pub mod preference_config; // v0.0.467: Natural language preference configuratio
 pub mod verify;
 pub mod webserver_recipes; // v0.0.460: Nginx/Apache configuration recipes
 pub mod wiki_cache; // v0.0.472: Arch Wiki local caching
+pub mod xp_display; // v0.0.478: XP/Level RPG-style progression display
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
