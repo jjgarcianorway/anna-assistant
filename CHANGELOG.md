@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.451] - 2025-12-12
+
+### Added - Fly-on-the-Wall Dialog (Phase 31)
+
+**Goal:** Internal IT team communication rendered in natural language per VISION.md.
+
+**Enhanced Internal Communication Format:**
+- Separator: `--- Internal communication ---` (shown once)
+- Anna speaking: `Anna to Sofia:` format
+- Team member speaking: `Sofia (Desktop Specialist) to Anna:` format
+- Matches VISION.md example dialog style
+
+**NarrativeSegment Enhancements:**
+- Added `metadata` field for routing info (e.g., "to" recipient)
+- New `anna_to(recipient, text)` constructor for fly-on-the-wall messages
+- New `with_to(recipient)` builder method
+
+**Theatre Render Updates:**
+- `render_theatre()` now resets internal header for each render
+- Internal communications show recipient in "From to Recipient:" format
+- Single header shown once at start of internal comms block
+
 ## [0.0.450] - 2025-12-12
 
 ### Added - Enhanced Stats Display with RPG System (Phase 30)

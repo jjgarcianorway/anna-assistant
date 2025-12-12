@@ -1,10 +1,11 @@
 //! NarrativeBuilder for constructing narrative from pipeline events (v0.0.226).
+//! v0.0.451: Enhanced for fly-on-the-wall view per VISION.md.
 
 use crate::dialogue::{
     anna_after_review, anna_dispatch_greeting, junior_approval, junior_escalation_request,
     seed_from_str, senior_response,
 };
-use crate::roster::Tier;
+use crate::roster::{person_for, Tier};
 use crate::teams::Team;
 
 use super::types::NarrativeSegment;
@@ -60,6 +61,7 @@ impl NarrativeBuilder {
     }
 
     /// Add Anna dispatching to a team (v0.0.87: varied dialogue)
+    /// v0.0.451: Use anna_to for fly-on-the-wall format
     pub fn add_dispatch(&mut self, team: Team, case_id: &str) {
         self.current_team = Some(team);
         // Update seed based on case_id for this conversation
@@ -67,8 +69,10 @@ impl NarrativeBuilder {
 
         if self.show_internal {
             let greeting = anna_dispatch_greeting(team, case_id);
+            // v0.0.451: Get recipient name for fly-on-the-wall view
+            let recipient = person_for(team, Tier::Junior);
             self.segments
-                .push(NarrativeSegment::anna_internal(greeting));
+                .push(NarrativeSegment::anna_to(&recipient.display_name, greeting));
         }
     }
 

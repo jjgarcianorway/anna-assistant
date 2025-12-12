@@ -2,6 +2,7 @@
 //!
 //! v0.0.252: Evidence bullets displayed with concise answers
 //! v0.0.341: Use centralized symbols for evidence bullets
+//! v0.0.451: Enhanced fly-on-the-wall view per VISION.md
 
 use anna_shared::change::ChangePlan;
 use anna_shared::rpc::ServiceDeskResult;
@@ -15,8 +16,12 @@ use super::footer::print_footer;
 use super::narrative::build_narrative;
 
 /// Render result in theatre mode (cinematic IT department experience)
+/// v0.0.451: Enhanced fly-on-the-wall view per VISION.md
 pub fn render_theatre(result: &ServiceDeskResult, show_internal: bool) {
     let output_mode = OutputMode::detect();
+
+    // v0.0.451: Reset internal header flag for this render
+    reset_internal_header();
 
     println!();
 
@@ -53,7 +58,11 @@ fn print_user_query(result: &ServiceDeskResult) {
     }
 }
 
+/// v0.0.451: Track if we've shown the internal comms header
+static mut INTERNAL_HEADER_SHOWN: bool = false;
+
 /// Print a narrative segment
+/// v0.0.451: Enhanced fly-on-the-wall view per VISION.md
 fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
     // v0.0.168: Get username for personalized display
     let username = std::env::var("USER").unwrap_or_else(|_| "you".to_string());
@@ -61,9 +70,22 @@ fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
     match &segment.speaker {
         Speaker::Anna => {
             if segment.internal {
-                // Internal comms shown in dim
-                println!("{}--- Internal ---{}", colors::DIM, colors::RESET);
-                println!("{}Anna:{} {}", colors::OK, colors::RESET, segment.text);
+                // v0.0.451: Fly-on-the-wall format per VISION.md
+                show_internal_header();
+                // Determine recipient from context (default to appropriate team)
+                let recipient = segment
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("to"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("Team");
+                println!(
+                    "{}Anna to {}:{} {}",
+                    colors::OK,
+                    recipient,
+                    colors::RESET,
+                    segment.text
+                );
             }
             // External Anna dialogue shown with answer
         }
@@ -78,18 +100,55 @@ fn print_segment(segment: &NarrativeSegment, _output_mode: OutputMode) {
             );
         }
         Speaker::TeamMember { name, role, .. } => {
-            println!(
-                "{}{} ({}):{} {}",
-                colors::WARN,
-                name,
-                role,
-                colors::RESET,
-                segment.text
-            );
+            // v0.0.451: Fly-on-the-wall format "Name (Role) to Anna: message"
+            if segment.internal {
+                show_internal_header();
+                println!(
+                    "{}{} ({}) to Anna:{} {}",
+                    colors::WARN,
+                    name,
+                    role,
+                    colors::RESET,
+                    segment.text
+                );
+            } else {
+                println!(
+                    "{}{} ({}):{} {}",
+                    colors::WARN,
+                    name,
+                    role,
+                    colors::RESET,
+                    segment.text
+                );
+            }
         }
         Speaker::Narrator => {
             println!("{}{}...{}", colors::DIM, segment.text, colors::RESET);
         }
+    }
+}
+
+/// v0.0.451: Show the internal communication header once per render
+fn show_internal_header() {
+    // Safety: this is single-threaded CLI rendering
+    unsafe {
+        if !INTERNAL_HEADER_SHOWN {
+            println!();
+            println!(
+                "{}--- Internal communication ---{}",
+                colors::DIM,
+                colors::RESET
+            );
+            println!();
+            INTERNAL_HEADER_SHOWN = true;
+        }
+    }
+}
+
+/// v0.0.451: Reset the internal header flag for next render
+pub fn reset_internal_header() {
+    unsafe {
+        INTERNAL_HEADER_SHOWN = false;
     }
 }
 

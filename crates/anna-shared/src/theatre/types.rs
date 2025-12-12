@@ -1,9 +1,13 @@
 //! Theatre types - Speaker and NarrativeSegment (v0.0.226).
+//! v0.0.451: Added metadata for fly-on-the-wall rendering per VISION.md.
+
+use std::collections::HashMap;
 
 use crate::roster::{person_for, Tier};
 use crate::teams::Team;
 
 /// A segment of narrative dialogue for streaming display.
+/// v0.0.451: Added metadata field for "to" recipient in fly-on-the-wall view.
 #[derive(Debug, Clone)]
 pub struct NarrativeSegment {
     /// Who is speaking (Anna, Michael, Sofia, etc.)
@@ -14,6 +18,8 @@ pub struct NarrativeSegment {
     pub delay_ms: u32,
     /// Is this an internal IT communication? (shown differently)
     pub internal: bool,
+    /// v0.0.451: Additional metadata (e.g., "to" for recipient)
+    pub metadata: Option<HashMap<String, String>>,
 }
 
 /// Who is speaking in the narrative
@@ -73,6 +79,7 @@ impl NarrativeSegment {
             text: text.into(),
             delay_ms: 0,
             internal: false,
+            metadata: None,
         }
     }
 
@@ -83,6 +90,20 @@ impl NarrativeSegment {
             text: text.into(),
             delay_ms: 100,
             internal: true,
+            metadata: None,
+        }
+    }
+
+    /// v0.0.451: Create Anna speaking to a specific recipient (fly-on-the-wall)
+    pub fn anna_to(recipient: &str, text: impl Into<String>) -> Self {
+        let mut metadata = HashMap::new();
+        metadata.insert("to".to_string(), recipient.to_string());
+        Self {
+            speaker: Speaker::Anna,
+            text: text.into(),
+            delay_ms: 100,
+            internal: true,
+            metadata: Some(metadata),
         }
     }
 
@@ -93,6 +114,7 @@ impl NarrativeSegment {
             text: text.into(),
             delay_ms: 150,
             internal: true,
+            metadata: None,
         }
     }
 
@@ -103,6 +125,7 @@ impl NarrativeSegment {
             text: text.into(),
             delay_ms: 0,
             internal: false,
+            metadata: None,
         }
     }
 
@@ -113,12 +136,20 @@ impl NarrativeSegment {
             text: text.into(),
             delay_ms: 50,
             internal: false,
+            metadata: None,
         }
     }
 
     /// Set custom delay
     pub fn with_delay(mut self, ms: u32) -> Self {
         self.delay_ms = ms;
+        self
+    }
+
+    /// v0.0.451: Set recipient for fly-on-the-wall rendering
+    pub fn with_to(mut self, recipient: &str) -> Self {
+        let metadata = self.metadata.get_or_insert_with(HashMap::new);
+        metadata.insert("to".to_string(), recipient.to_string());
         self
     }
 }
