@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.475] - 2025-12-12
+
+### Added - Session Summary Display (Phase 51)
+
+**Session Display Module:**
+- `session_display.rs` for formatted session information
+- `SessionStats` struct with duration, queries, topics, etc.
+- `SessionQueryType` enum for query classification
+
+**Display Functions:**
+- `format_current_session()` displays current session stats
+- `format_session_history()` shows recent session list
+- `format_brief_summary()` provides one-line summary
+- `format_duration()` human-readable time formatting
+- `format_time_ago()` relative time display
+
+**Query Detection:**
+- `is_session_query()` detects session-related queries
+- `get_session_query_type()` classifies query type
+- `get_since_last_time()` provides greeting summary
+
+**Supported Queries:**
+- "session summary" / "session stats"
+- "what did we do this session"
+- "session history" / "past sessions"
+- "current session"
+
 ## [0.0.474] - 2025-12-12
 
 ### Added - Risk Level Configuration via Natural Language (Phase 50)

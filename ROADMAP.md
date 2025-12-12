@@ -439,5 +439,13 @@ Anna v0.0.369 focuses on:
 - [x] detect_risk_config() parses natural language
 - [x] should_auto_confirm() checks risk against tolerance
 
+### Phase 51 - Session Summary Display ✓ (v0.0.475)
+- [x] session_display.rs for session info display
+- [x] SessionStats for current session statistics
+- [x] format_current_session() displays stats
+- [x] format_session_history() shows past sessions
+- [x] is_session_query() detects session queries
+- [x] get_since_last_time() for greeting integration
+
 ### Future
-- Phase 51: Session Summary Display
+- All natural language configuration modules complete!

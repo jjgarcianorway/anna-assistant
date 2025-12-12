@@ -180,6 +180,7 @@ pub mod rpc;
 pub mod seed_recipes; // v0.0.418: Initial seed recipes
 pub mod senior_strategic; // v0.0.458: Senior idle-time strategic thinking
 pub mod service_recipes;
+pub mod session_display; // v0.0.475: Session summary display
 pub mod shell_recipes;
 pub mod snapshot;
 pub mod solver_prompts; // v0.0.408: Evidence-focused solver prompts
