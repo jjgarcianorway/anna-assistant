@@ -357,6 +357,12 @@ Anna v0.0.369 focuses on:
 - [x] SSL/TLS with Let's Encrypt/Certbot
 - [x] Reverse proxy, load balancing, performance optimization
 
+### Phase 40 - Database Recipes ✓ (v0.0.461)
+- [x] DatabaseFeature enum (15 features for backup, restore, management)
+- [x] DatabaseRecipe with multi-DB support
+- [x] PostgreSQL, MySQL/MariaDB, SQLite, MongoDB, Redis
+- [x] User/permission management recipes
+- [x] Import/export data recipes
+
 ### Future
-- [ ] Database backup/restore recipes
 - [ ] Network troubleshooting recipes

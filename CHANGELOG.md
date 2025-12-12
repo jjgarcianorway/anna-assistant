@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.461] - 2025-12-12
+
+### Added - Database Recipes (Phase 40)
+
+**Database Backup/Restore per ROADMAP.md Future:**
+- Complete recipe system for database operations
+- Support for PostgreSQL, MySQL/MariaDB, SQLite, MongoDB, Redis
+- Query matching for natural language to database commands
+
+**DatabaseFeature Enum (15 features):**
+- BackupDatabase, RestoreDatabase, DumpDatabase
+- ImportData, ExportData
+- CheckStatus, RepairDatabase, OptimizeTables
+- CreateDatabase, CreateUser, GrantPermissions
+- ShowDatabases, ShowTables, ExecuteQuery, TestConnection
+
+**Builtin Recipes:**
+- pg_dump/pg_restore for PostgreSQL
+- mysqldump/mysql for MySQL/MariaDB
+- sqlite3 .dump for SQLite
+- mongodump/mongorestore for MongoDB
+- VACUUM, OPTIMIZE TABLE, mysqlcheck commands
+- User/permission management across databases
+
+**New Module:**
+- `anna_shared::database_recipes` - Database recipe system
+- `DatabaseFeature` enum with display names and keywords
+- `DatabaseRecipe` builder pattern with multi-DB support
+- `detect_feature()` and `match_query()` for query routing
+
 ## [0.0.460] - 2025-12-12
 
 ### Added - Web Server Recipes (Phase 39)
