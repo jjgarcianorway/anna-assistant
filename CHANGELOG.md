@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.440] - 2025-12-12
+
+### Added - Specialist Contract v1: Eliminate Parse Errors Forever
+
+**Goal:** Eliminate "Failed to parse specialist response" errors with strict JSON contract,
+retries with repair prompts, and fallback summarizer from evidence only.
+
+**Specialist Response Contract v1 (`schema.rs`):**
+- `SpecialistResponseV1`: Strict JSON-only output schema
+- `SrcDepartment`: Performance, Storage, Services, Network, Security, Hardware, Desktop
+- `SrcAssessment`: summary (max 140 chars), confidence (0.0-1.0), risk level
+- `SrcAction`: probe, explain, or change with command, why, expected, rollback
+- `SrcCitation`: source type (man, arch_wiki, help, local_doc), reference, snippet
+- Hard limits: MAX_SUMMARY_CHARS=140, MAX_ACTIONS=5, MAX_CITATIONS=5
+
+**JSON Validator (`validator.rs`):**
+- `SrcValidator`: Validates raw response before acceptance
+- `ValidationError`: Empty, InvalidJson, SchemaInvalid, CaseIdMismatch, ContainsMarkdown, TooLong
+- `ValidationResult`: Valid(response) or Invalid(error, raw_response)
+- `extract_json()`: Extracts JSON from mixed content (prose + JSON)
+- `check_markdown()`: Detects forbidden markdown patterns
+- `BatchValidator`: Tracks success/failure rates across multiple validations
+
+**Retry Strategy (`retry.rs`):**
+- `SPECIALIST_TIMEOUT_MS`: 8000ms per call
+- `MAX_RETRIES`: 2 maximum attempts
+- `BACKOFF_1_MS`: 250ms, `BACKOFF_2_MS`: 500ms
+- `REPAIR_PROMPT_1`: "You violated SRC v1. Output ONLY valid JSON matching schema. No prose."
+- `REPAIR_PROMPT_2`: "Last chance. Output ONLY JSON. If uncertain, reduce scope and lower confidence."
+- `RetryState`: Tracks attempts, backoffs, and exhaustion
+- `RetryDecision`: Retry(backoff, repair_prompt) or GiveUp(reason)
+
+**Fallback Summarizer (`fallback.rs`):**
+- `FallbackSummarizer`: Produces minimal answer from probe evidence only
+- `FallbackResponse`: case_id, answer, confidence, missing_evidence, next_probe
+- `ProbeEvidence`: probe_id, output, success flag
+- `FallbackReason`: Timeout, InvalidResponse, RetriesExhausted, Unavailable
+- Template extractors: memory, boot_time, disk_usage, failed_services, load_average, gpu_info
+- Rule: If specialist fails, never show garbled JSON to user
+
+**Ticket States and Stats (`ticket_state.rs`):**
+- `TicketState`: Open, Resolved, FailedProbe, FailedSpecialist, NeedClarification, Escalated
+- `ResolutionCriteria`: evidence_complete, valid_answer, confidence >= threshold
+- `TicketStateMachine`: State transitions with history tracking
+- `TicketStats`: Accurate counts by state, success_rate = resolved / total
+- Rule: RESOLVED only if required evidence + valid answer + confidence >= 0.5
+
+**UX Messages (`ux.rs`):**
+- `UxMessage`: status, detail, next_steps, severity
+- `UxSeverity`: Success, Warning, Error, Info
+- `fallback_message()`: "Specialist response invalid (timeout). Falling back to evidence-only answer."
+- `success_message()`: Confidence-appropriate success messages
+- `state_message()`: Clean messages for each ticket state
+- `ProgressIndicator`: Step-by-step progress tracking
+- Rule: Never show parse errors, garbled JSON, or technical failures to user
+
 ## [0.0.439] - 2025-12-12
 
 ### Added - Deterministic Routing: Fix "Sofia handles everything" Bug
