@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.450] - 2025-12-12
+
+### Added - Enhanced Stats Display with RPG System (Phase 30)
+
+**Goal:** `annactl stats` shows engaging RPG-style progression per VISION.md.
+
+**New RPG XP System (0-100 scale):**
+- Non-linear XP calculation using logistic curve
+- XP factors: requests, success rate, reliability, recipes learned, Anna solo solves, streaks
+- 10 levels with funny IT titles:
+  1. Trainee
+  2. Cable Untangler
+  3. Permission Gremlin
+  4. Log Whisperer
+  5. Daemon Wrangler
+  6. Kernel Whisperer
+  7. Stack Overflow Survivor
+  8. Senior Packet Inspector
+  9. Principal Engineer
+  10. Linus's Chosen One
+
+**New [rpg] Section in Stats:**
+- XP bar (0-100 with visual progress bar)
+- Level and title display
+- Installation date
+- Anna solo count (times resolved without specialists)
+- Recipes learned
+- Most consulted team
+- Response times (fastest/longest)
+- Streaks (current/best)
+- Average interactions per ticket
+
+**New AggregatedEvents Fields:**
+- anna_solo_count: times resolved without specialist escalation
+- most_consulted_team: team with most requests
+- longest_reply_chars/shortest_reply_chars: response length tracking
+
 ## [0.0.449] - 2025-12-12
 
 ### Added - Enhanced Status Display (Phase 29)

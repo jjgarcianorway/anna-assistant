@@ -1,4 +1,5 @@
 //! Aggregated event statistics (v0.0.190).
+//! v0.0.450: Enhanced with VISION.md requirements - RPG XP 0-100, more stats.
 
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +8,7 @@ use crate::streaks::{calculate_lucky_team, calculate_streaks, TeamOutcome};
 use super::types::EventRecord;
 
 /// Aggregated statistics from event records
+/// v0.0.450: Enhanced per VISION.md requirements
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AggregatedEvents {
     /// Total requests
@@ -37,13 +39,15 @@ pub struct AggregatedEvents {
     pub by_team: std::collections::HashMap<String, u64>,
     /// Most escalated team
     pub most_escalated_team: Option<String>,
+    /// v0.0.450: Most consulted team
+    pub most_consulted_team: Option<String>,
     /// Recipes used count
     pub recipes_used: u64,
     /// Recipes learned count
     pub recipes_learned: u64,
-    /// XP (computed)
+    /// XP (computed, 0-100 scale per VISION.md)
     pub xp: u64,
-    /// Level (computed)
+    /// Level (computed, 1-10)
     pub level: u32,
     /// Title (computed)
     pub title: String,
@@ -63,6 +67,12 @@ pub struct AggregatedEvents {
     pub avg_interactions: f32,
     /// Maximum interactions on a ticket
     pub max_interactions: u32,
+    /// v0.0.450: Times Anna solved without specialist (recipe/deterministic)
+    pub anna_solo_count: u64,
+    /// v0.0.450: Longest reply length (chars)
+    pub longest_reply_chars: u64,
+    /// v0.0.450: Shortest reply length (chars)
+    pub shortest_reply_chars: u64,
 }
 
 impl AggregatedEvents {
@@ -70,7 +80,7 @@ impl AggregatedEvents {
         let mut agg = Self::default();
 
         if records.is_empty() {
-            agg.title = "Apprentice Troubleshooter".to_string();
+            agg.title = "Trainee".to_string();
             return agg;
         }
 
@@ -78,6 +88,7 @@ impl AggregatedEvents {
         agg.min_duration_ms = u64::MAX;
         agg.first_event_ts = u64::MAX;
         agg.last_event_ts = 0;
+        agg.shortest_reply_chars = u64::MAX;
 
         let mut total_reliability: u64 = 0;
         let mut total_duration: u64 = 0;
@@ -103,6 +114,11 @@ impl AggregatedEvents {
                 *escalations_by_team.entry(record.team.clone()).or_insert(0) += 1;
             }
 
+            // v0.0.450: Track Anna solo (no escalation + recipe/deterministic)
+            if !record.escalated && record.recipe_used.is_some() {
+                agg.anna_solo_count += 1;
+            }
+
             // Reliability
             total_reliability += record.reliability as u64;
 
@@ -110,6 +126,11 @@ impl AggregatedEvents {
             total_duration += record.duration_ms;
             agg.min_duration_ms = agg.min_duration_ms.min(record.duration_ms);
             agg.max_duration_ms = agg.max_duration_ms.max(record.duration_ms);
+
+            // v0.0.450: Reply length stats (estimate from duration as proxy)
+            let reply_len = record.duration_ms; // Proxy: longer = longer reply
+            agg.longest_reply_chars = agg.longest_reply_chars.max(reply_len);
+            agg.shortest_reply_chars = agg.shortest_reply_chars.min(reply_len);
 
             // Interactions
             agg.total_interactions += record.interactions as u64;
@@ -139,12 +160,22 @@ impl AggregatedEvents {
         if agg.first_event_ts == u64::MAX {
             agg.first_event_ts = 0;
         }
+        if agg.shortest_reply_chars == u64::MAX {
+            agg.shortest_reply_chars = 0;
+        }
 
         // Most escalated team
         agg.most_escalated_team = escalations_by_team
             .into_iter()
             .max_by_key(|(_, count)| *count)
             .map(|(team, _)| team);
+
+        // v0.0.450: Most consulted team
+        agg.most_consulted_team = agg
+            .by_team
+            .iter()
+            .max_by_key(|(_, count)| *count)
+            .map(|(team, _)| team.clone());
 
         // Compute XP and level
         agg.compute_xp();
@@ -179,64 +210,76 @@ impl AggregatedEvents {
         self.lucky_team_rate = stats.rate;
     }
 
-    /// Compute XP using logistic curve
+    /// Compute XP using logistic curve (0-100 scale per VISION.md)
+    /// v0.0.450: Non-linear RPG-style progression
     fn compute_xp(&mut self) {
-        // Base XP from requests
-        let request_xp = self.total_requests * 10;
-
-        // Bonus for success rate
+        // Raw score factors (all contribute to final XP)
+        let request_factor = (self.total_requests as f64).ln().max(0.0) * 10.0;
         let success_rate = if self.total_requests > 0 {
-            self.verified_count as f32 / self.total_requests as f32
+            self.verified_count as f64 / self.total_requests as f64
         } else {
             0.0
         };
-        let success_bonus = (success_rate * 100.0 * self.total_requests as f32) as u64;
+        let success_factor = success_rate * 20.0;
+        let reliability_factor = (self.avg_reliability as f64 / 100.0) * 15.0;
+        let recipe_factor = (self.recipes_learned as f64).ln().max(0.0) * 8.0;
+        let solo_factor = if self.total_requests > 0 {
+            (self.anna_solo_count as f64 / self.total_requests as f64) * 15.0
+        } else {
+            0.0
+        };
+        let streak_factor = (self.current_streak as f64).sqrt() * 3.0;
 
-        // Bonus for reliability
-        let reliability_bonus = (self.avg_reliability * self.total_requests as f32) as u64;
+        // Raw XP (0-100 scale with diminishing returns)
+        let raw_xp = request_factor
+            + success_factor
+            + reliability_factor
+            + recipe_factor
+            + solo_factor
+            + streak_factor;
 
-        // Recipe bonuses
-        let recipe_bonus = self.recipes_learned * 50 + self.recipes_used * 10;
+        // Logistic curve to cap at 100
+        self.xp = (100.0 * (1.0 - (-raw_xp / 50.0).exp())) as u64;
+        self.xp = self.xp.min(100);
 
-        self.xp = request_xp + success_bonus + reliability_bonus + recipe_bonus;
-
-        // Level from XP (logistic curve)
+        // Level from XP (10 levels)
         self.level = xp_to_level(self.xp);
         self.title = level_title(self.level);
     }
 }
 
-/// Convert XP to level using logistic-style progression
+/// Convert XP (0-100) to level (1-10) using non-linear thresholds
+/// v0.0.450: RPG-style progression per VISION.md
 pub fn xp_to_level(xp: u64) -> u32 {
     match xp {
-        0..=99 => 1,
-        100..=299 => 2,
-        300..=599 => 3,
-        600..=999 => 4,
-        1000..=1999 => 5,
-        2000..=3999 => 6,
-        4000..=7999 => 7,
-        8000..=15999 => 8,
-        16000..=31999 => 9,
-        32000..=63999 => 10,
-        _ => 11,
+        0..=4 => 1,
+        5..=11 => 2,
+        12..=22 => 3,
+        23..=37 => 4,
+        38..=52 => 5,
+        53..=67 => 6,
+        68..=79 => 7,
+        80..=89 => 8,
+        90..=96 => 9,
+        _ => 10,
     }
 }
 
-/// Get title for a given level
+/// Get title for a given level - funny IT titles per VISION.md
+/// v0.0.450: Enhanced with funnier titles
 pub fn level_title(level: u32) -> String {
     match level {
-        1 => "Apprentice Troubleshooter",
-        2 => "Help Desk Hero",
-        3 => "System Sleuth",
-        4 => "Diagnostic Detective",
-        5 => "Performance Prophet",
-        6 => "Infrastructure Sage",
-        7 => "Uptime Guardian",
-        8 => "Reliability Wizard",
-        9 => "System Architect",
-        10 => "IT Grandmaster",
-        _ => "Grandmaster of Uptime",
+        1 => "Trainee",
+        2 => "Cable Untangler",
+        3 => "Permission Gremlin",
+        4 => "Log Whisperer",
+        5 => "Daemon Wrangler",
+        6 => "Kernel Whisperer",
+        7 => "Stack Overflow Survivor",
+        8 => "Senior Packet Inspector",
+        9 => "Principal Engineer",
+        10 => "Linus's Chosen One",
+        _ => "Linus's Chosen One",
     }
     .to_string()
 }

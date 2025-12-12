@@ -1,4 +1,5 @@
 //! Tests for event_log module (v0.0.190).
+//! v0.0.450: Updated for new XP system (0-100 scale).
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +23,8 @@ mod tests {
         let agg = AggregatedEvents::from_records(&[]);
         assert_eq!(agg.total_requests, 0);
         assert_eq!(agg.level, 0); // Will be 1 after compute
-        assert_eq!(agg.title, "Apprentice Troubleshooter");
+        // v0.0.450: New title for empty state
+        assert_eq!(agg.title, "Trainee");
     }
 
     #[test]
@@ -43,15 +45,20 @@ mod tests {
         assert_eq!(agg.total_requests, 3);
         assert_eq!(agg.verified_count, 2);
         assert_eq!(agg.failed_count, 1);
-        assert!(agg.xp > 0);
+        // v0.0.450: XP is now 0-100 scale
+        assert!(agg.xp <= 100);
         assert!(agg.level >= 1);
+        assert!(agg.level <= 10);
     }
 
     #[test]
     fn test_xp_to_level_progression() {
+        // v0.0.450: New XP scale (0-100)
         assert_eq!(xp_to_level(0), 1);
-        assert_eq!(xp_to_level(100), 2);
-        assert_eq!(xp_to_level(1000), 5);
-        assert_eq!(xp_to_level(100000), 11);
+        assert_eq!(xp_to_level(10), 2);
+        assert_eq!(xp_to_level(25), 4);
+        assert_eq!(xp_to_level(50), 5);
+        assert_eq!(xp_to_level(75), 7);
+        assert_eq!(xp_to_level(100), 10);
     }
 }
