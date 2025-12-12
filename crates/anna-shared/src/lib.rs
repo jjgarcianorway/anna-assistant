@@ -22,11 +22,13 @@
 //! v0.0.430: Background workers, idle-time learning, alerts, and long-running tickets.
 //! v0.0.431: Hollywood UX - Unified transcript and terminal renderer.
 //! v0.0.432: Knowledge pipeline - Priority-ordered knowledge fetching and learning.
+//! v0.0.433: Robustness layer - Timeouts, failure handling, and truthful stats.
 
 pub mod advice;
 pub mod background_worker; // v0.0.430: Background job system
 pub mod hollywood_ux; // v0.0.431: Unified transcript and Hollywood terminal renderer
 pub mod knowledge_pipeline; // v0.0.432: Priority-ordered knowledge fetching and learning
+pub mod robustness; // v0.0.433: Timeouts, failure handling, and truthful stats
 pub mod answer_contract;
 pub mod brief;
 pub mod budget;

@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.433] - 2025-12-12
+
+### Added - Robustness Layer: Timeouts, Failure Handling, and Truthful Stats
+
+**Goal:** Redesign core execution, error handling and stats so the system is honest about failures,
+enforces time budgets, and only awards XP for actual successful resolutions.
+
+**Robustness Module (`robustness/`):**
+
+**Contract (`contract.rs`):**
+- `TicketOutcome`: Strict outcome enum (Success, Partial, ClarificationRequired, Unsupported, InternalError, Timeout, ParseError)
+- `SpecialistResult`: Complete response structure with outcome, summary, diagnosis, steps, evidence, confidence
+- `ProposedStep`: Commands with risk level (Safe, NeedsReview, Dangerous)
+- `EvidenceRef`: Traceable evidence references with source and ID
+- `TicketMetrics`: Processing time, probe count, retry usage tracking
+
+**Timeouts (`timeouts.rs`):**
+- `TimeoutEnforcer`: Stage-by-stage timeout tracking with soft/hard budgets
+- `TimeBudget`: Soft cap (warn) and hard cap (abort) per stage
+- `TimeoutConfig`: Global budget of 25s, translator 1s, junior 4s/8s, senior 10s/20s
+- `TimeoutStage`: Translator, JuniorRouting, JuniorLlm, SeniorRouting, SeniorLlm, Probes, Knowledge, Parse, Global
+- Single retry on parse failure (MAX_PARSE_RETRIES = 1)
+- `TimingSummary`: Complete breakdown of time spent in each stage
+
+**JSON Enforcement (`json_enforce.rs`):**
+- `JsonEnforcer`: Extract and validate JSON from LLM responses
+- `ParseResult`: Success with SpecialistResult or Failure with error message
+- `SchemaHint`: Prompt template showing required JSON structure
+- Handles JSON embedded in prose, markdown code blocks, truncated output
+- `stricter_version()`: More forceful schema hint after parse failure
+
+**Outcome Messages (`outcome_messages.rs`):**
+- `OutcomeRenderer`: Maps TicketOutcome to user-facing messages
+- `OutcomeMessage`: Body text, resolved flag, failure flag, optional context
+- Different tones: Success is friendly, Timeout is apologetic, ParseError shows debug info
+- Debug mode reveals internal error details
+- `UserMessage`: Final formatted message with timing and performance info
+
+**Stats Engine (`stats_engine.rs`):**
+- `TruthfulStats`: Tracks actual outcomes (successes, failures, partial, clarifications, timeouts)
+- `StatsEngine`: Aggregates stats with XP calculation
+- `TicketStats`: Per-ticket statistics for recording
+- XP only for Success (base 10) and Partial (base 5), never for failures
+- Speed bonus: <2s +5 XP, <5s +2 XP
+- Complexity bonus: 3+ probes +3 XP, 2 probes +1 XP
+- `success_rate()`: Honest percentage (successes / decided), not 100%
+- `format_summary()`: Shows real stats including failures
+- `DepartmentStats` and `StaffStats`: Breakdown by team and specialist
+
+**Lifecycle (`lifecycle.rs`):**
+- `TicketState`: Opened, InProgress, AwaitingClarification, ResolvedSuccess, ResolvedPartial, ResolvedFailure
+- `TicketLifecycle`: State machine with validated transitions
+- `TicketTransition`: Audit trail with timestamps and reasons
+- Terminal states cannot transition further
+- Follow-up ticket support for multi-turn conversations
+- `provide_clarification()`: Resume from AwaitingClarification
+
+**Fallback (`fallback.rs`):**
+- `FallbackGenerator`: Generate answers from probe evidence when LLM fails
+- `ProbeEvidence`: Raw output with parsed values and success status
+- `FallbackAnswer`: Summary, raw data, confidence (lower than LLM), sources
+- Built-in extractors: memory (proc_meminfo), disk (df), boot time (systemd-analyze), failed services
+- Outcome is Partial, not Success, with error context preserved
+
+**Performance (`performance.rs`):**
+- `PerformanceTracker`: Track stages, probes, specialists with timings
+- `StreamingUpdate`: Real-time events (ProbesStarted, ProbeCompleted, SpecialistStarted, Timeout, Complete)
+- `TimingBreakdown`: Debug display of time spent in each component
+- `ProbeStatus`: Ok, Failed, Timeout, Skipped
+- `format_updates()`: REPL-friendly progress messages
+
+**Acceptance Tests (`tests.rs`):**
+- 15 comprehensive scenarios testing the entire robustness layer
+- Test 1: RAM query success with LLM
+- Test 2: RAM query with LLM parse failure and fallback
+- Test 3: Boot query timeout counts as failure
+- Test 4: Mixed session stats reflect reality
+- Test 5: Parse error debug info visibility
+- Test 6: JSON parsing robustness (valid, prose-wrapped, invalid)
+- Test 7: Clarification flow not counted as resolved
+- Test 8: Timeout enforcer behavior
+- Test 9: Retry behavior on parse error
+- Test 10: Streaming updates format correctly
+- Test 11: Fallback handles no evidence
+- Test 12: Lifecycle state transitions
+- Test 13: Outcome renderer message types
+- Test 14: Schema hint for prompts
+- Test 15: Performance breakdown timing
+- Test 16: XP calculation respects failures
+
 ## [0.0.432] - 2025-12-12
 
 ### Added - Knowledge Pipeline: Priority-Ordered Knowledge Fetching and Learning
