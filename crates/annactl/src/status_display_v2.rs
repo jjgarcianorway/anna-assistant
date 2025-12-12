@@ -403,6 +403,67 @@ pub fn print_status_display_v2(
         );
     }
 
+    // === [teams] === v0.0.454: Dynamic team availability per VISION.md
+    if let Some(snap) = snapshot {
+        if snap.teams.available_count > 0 {
+            println!();
+            print_section_header("teams");
+            kv(
+                "available",
+                &format!(
+                    "{}{}{} teams",
+                    colors::OK,
+                    snap.teams.available_count,
+                    colors::RESET
+                ),
+            );
+            if snap.teams.hidden_count > 0 {
+                kv(
+                    "hidden",
+                    &format!(
+                        "{}{}{} (missing hardware)",
+                        colors::DIM,
+                        snap.teams.hidden_count,
+                        colors::RESET
+                    ),
+                );
+                for hidden in &snap.teams.hidden {
+                    println!(
+                        "    {}{}{}: {}",
+                        colors::DIM,
+                        hidden.name,
+                        colors::RESET,
+                        hidden.reason
+                    );
+                }
+            }
+            // Show hardware detection summary
+            let hw = &snap.teams.hardware;
+            let mut hw_parts = vec![];
+            if hw.has_audio {
+                hw_parts.push("audio");
+            }
+            if hw.has_network {
+                hw_parts.push("network");
+            }
+            if hw.has_wifi {
+                hw_parts.push("wifi");
+            }
+            if hw.has_battery {
+                hw_parts.push("battery");
+            }
+            if hw.has_bluetooth {
+                hw_parts.push("bluetooth");
+            }
+            if hw.has_gpu {
+                hw_parts.push("gpu");
+            }
+            if !hw_parts.is_empty() {
+                kv("detected_hw", &hw_parts.join(", "));
+            }
+        }
+    }
+
     // === [health] ===
     println!();
     print_section_header("health");

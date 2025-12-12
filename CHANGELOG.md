@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.454] - 2025-12-12
+
+### Added - Dynamic Team Availability (Phase 33)
+
+**Hardware Detection per VISION.md:**
+- Detects audio hardware (ALSA, PulseAudio, PipeWire)
+- Detects network interfaces (ethernet, WiFi)
+- Detects GPU (DRM, lspci)
+- Detects battery (laptops)
+- Detects Bluetooth adapters
+- Detects hardware sensors (lm-sensors, hwmon)
+
+**Team Availability System:**
+- Teams automatically hidden when hardware is missing
+- Network team hidden if no network interfaces
+- Desktop team hidden if no display detected
+- Shows available team count in status
+
+**New [teams] Section in Status:**
+```
+[teams]
+  available     9 teams
+  hidden        1 (missing hardware)
+    network: no network interface detected
+  detected_hw   audio, wifi, battery, gpu
+```
+
+**New Modules:**
+- `anna_shared::team_availability` - Hardware detection and team mapping
+- `status_snapshot::teams_info` - Team availability in status snapshots
+
 ## [0.0.453] - 2025-12-12
 
 ### Added - Smart Helper Management (Phase 32)

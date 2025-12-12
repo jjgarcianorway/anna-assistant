@@ -227,6 +227,9 @@ pub mod theatre;
 // v0.0.86: Streak calculations for stats/RPG
 pub mod streaks;
 
+// v0.0.454: Dynamic team availability based on hardware
+pub mod team_availability;
+
 // v0.0.87: Dialogue variety for theatre
 pub mod dialogue;
 

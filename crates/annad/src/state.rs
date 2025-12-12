@@ -409,6 +409,9 @@ impl DaemonStateInner {
             update_check_interval_secs: self.config.daemon.update_interval,
         };
 
+        // Teams info - v0.0.454: Dynamic team availability per VISION.md
+        let teams = anna_shared::status_snapshot::TeamsInfo::detect();
+
         StatusSnapshot {
             captured_at_ts,
             versions,
@@ -418,6 +421,7 @@ impl DaemonStateInner {
             helpers,
             models,
             config,
+            teams,
             truthfulness_score: self.truthfulness_score,
         }
     }

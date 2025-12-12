@@ -313,10 +313,10 @@ Anna v0.0.369 focuses on:
 - [ ] Skip useless helpers (no ethtool without ethernet)
 - [ ] Display helper last_used timestamp
 
-### Phase 33 - Dynamic Team Availability
-- [ ] Detect hardware capabilities (sound, network, etc.)
-- [ ] Hide teams for missing hardware (no Sound team if no audio)
-- [ ] Show available team count in status
+### Phase 33 - Dynamic Team Availability ✓ (v0.0.454)
+- [x] Detect hardware capabilities (sound, network, etc.)
+- [x] Hide teams for missing hardware (no Sound team if no audio)
+- [x] Show available team count in status
 
 ### Phase 34 - Long-Running Task Handling
 - [ ] Detect tasks taking > X minutes

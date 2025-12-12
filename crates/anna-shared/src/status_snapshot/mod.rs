@@ -5,6 +5,7 @@
 //!
 //! v0.0.29: Initial implementation.
 //! v0.0.211: Modularized into domain-focused submodules.
+//! v0.0.454: Added teams_info for dynamic team availability.
 
 mod config;
 mod daemon;
@@ -12,6 +13,7 @@ mod helpers_info;
 mod models;
 mod permissions;
 mod snapshot;
+mod teams_info;
 mod tests;
 mod update;
 mod version;
@@ -23,5 +25,6 @@ pub use helpers_info::{HelperPackageLite, HelpersInfo};
 pub use models::{ModelDownloadStatus, ModelsInfo, RoleModelBinding};
 pub use permissions::PermissionsInfo;
 pub use snapshot::StatusSnapshot;
+pub use teams_info::{HiddenTeam, TeamsInfo};
 pub use update::{UpdateInfo, UpdateResult};
 pub use version::VersionInfo;

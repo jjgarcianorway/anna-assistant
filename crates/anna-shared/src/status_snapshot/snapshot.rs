@@ -1,4 +1,5 @@
 //! StatusSnapshot struct and methods (v0.0.211).
+//! v0.0.454: Added teams field for dynamic team availability.
 
 use serde::{Deserialize, Serialize};
 
@@ -7,6 +8,7 @@ use super::daemon::DaemonInfo;
 use super::helpers_info::HelpersInfo;
 use super::models::ModelsInfo;
 use super::permissions::PermissionsInfo;
+use super::teams_info::TeamsInfo;
 use super::update::{UpdateInfo, UpdateResult};
 use super::version::VersionInfo;
 
@@ -29,6 +31,9 @@ pub struct StatusSnapshot {
     pub models: ModelsInfo,
     /// Configuration
     pub config: ConfigInfo,
+    /// Team availability based on hardware (v0.0.454)
+    #[serde(default)]
+    pub teams: TeamsInfo,
     /// Overall truthfulness score of the system (0.0 - 1.0)
     pub truthfulness_score: f64,
 }
@@ -44,6 +49,7 @@ impl Default for StatusSnapshot {
             helpers: HelpersInfo::default(),
             models: ModelsInfo::default(),
             config: ConfigInfo::default(),
+            teams: TeamsInfo::default(),
             truthfulness_score: 1.0, // Default to 1.0
         }
     }
