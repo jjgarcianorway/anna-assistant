@@ -1,13 +1,15 @@
 //! Render formatting utilities (v0.0.203).
+//! v0.0.452: Case ID format updated to CN-XXXX-DDMMYYYY per VISION.md.
 
 use chrono::{Duration, Utc};
 
 use super::types::RiskLevel;
 
 /// Case ID generator for consistent formatting
+/// v0.0.452: Format is now CN-XXXX-DDMMYYYY per VISION.md
 pub fn generate_case_id(seq: u32) -> String {
     let now = Utc::now();
-    format!("CN-{}-{:04}", now.format("%Y%m%d"), seq)
+    format!("CN-{:04}-{}", seq, now.format("%d%m%Y"))
 }
 
 /// Format time delta in human terms

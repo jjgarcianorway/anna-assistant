@@ -70,23 +70,36 @@ pub fn junior_acknowledgment(_team: Team, seed: u64) -> String {
 }
 
 /// Junior's approval phrases (when answer looks good)
+/// v0.0.452: Added reliability assessment per VISION.md
 pub fn junior_approval(score: u8, seed: u64) -> String {
     let phrases = if score >= 90 {
         vec![
-            format!("Looks solid, confidence {}%. Good to go.", score),
-            format!("All checks pass. {}% confidence. Approved.", score),
-            format!("Data matches up. {}% - sending it back.", score),
+            format!(
+                "Looks solid, confidence {}%. This answer is reliable and risk-free.",
+                score
+            ),
+            format!(
+                "All checks pass. {}% confidence. Approved. High reliability.",
+                score
+            ),
+            format!(
+                "Data matches up. {}% - safe to send back. Reliable answer.",
+                score
+            ),
         ]
     } else if score >= 80 {
         vec![
-            format!("Looks good, confidence {}%.", score),
-            format!("I've reviewed the data. {}% confident.", score),
-            format!("Checks out. {}% confidence.", score),
+            format!("Looks good, confidence {}%. Reliable.", score),
+            format!("I've reviewed the data. {}% confident. Good reliability.", score),
+            format!("Checks out. {}% confidence. Should be safe.", score),
         ]
     } else {
         vec![
-            format!("It's acceptable. {}% confidence.", score),
-            format!("Marginal but okay. {}%.", score),
+            format!(
+                "It's acceptable. {}% confidence. Moderate reliability.",
+                score
+            ),
+            format!("Marginal but okay. {}%. Use with caution.", score),
         ]
     };
 
@@ -120,19 +133,20 @@ pub fn junior_escalation_request(team: Team, score: u8, seed: u64) -> String {
 }
 
 /// Senior's response phrases
+/// v0.0.452: Added reliability assessment per VISION.md
 pub fn senior_response(approved: bool, seed: u64) -> String {
     let phrases = if approved {
         vec![
-            "I've reviewed it. Looks correct.",
-            "Confirmed. The analysis is sound.",
-            "Good catch escalating, but it checks out.",
-            "Verified. You can send this back.",
+            "I've reviewed it. Looks correct. This answer is reliable and risk-free.",
+            "Confirmed. The analysis is sound. High confidence on this one.",
+            "Good catch escalating, but it checks out. Safe to proceed.",
+            "Verified. You can send this back. This is a reliable answer.",
         ]
     } else {
         vec![
-            "Let me handle this one.",
+            "Let me handle this one. Need more investigation.",
             "I see the issue. Give me a moment.",
-            "Good call escalating. This needs work.",
+            "Good call escalating. This needs more work before we can be confident.",
         ]
     };
 

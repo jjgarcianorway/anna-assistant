@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.452] - 2025-12-12
+
+### Added - Case Numbers & Reliability Assessments (Phase 31 continued)
+
+**Case Number Format per VISION.md:**
+- Changed from `CN-YYYYMMDD-XXXX` to `CN-XXXX-DDMMYYYY`
+- Example: `CN-0003-05122025` matches vision document
+
+**Reliability Assessments in Specialist Responses:**
+- Junior approval now includes reliability language:
+  - 90%+: "This answer is reliable and risk-free"
+  - 80%+: "Reliable" / "Good reliability"
+  - <80%: "Moderate reliability" / "Use with caution"
+- Senior responses include reliability indicators:
+  - "This answer is reliable and risk-free"
+  - "High confidence on this one"
+  - "Safe to proceed"
+
 ## [0.0.451] - 2025-12-12
 
 ### Added - Fly-on-the-Wall Dialog (Phase 31)
