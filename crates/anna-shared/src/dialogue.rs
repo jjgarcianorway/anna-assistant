@@ -352,4 +352,45 @@ mod tests {
         assert!(anna_domain_greeting("network").contains("network"));
         assert!(anna_domain_greeting("unknown").contains("look into"));
     }
+
+    #[test]
+    fn test_recipe_storage_confirmation() {
+        let msg = anna_recipe_storage_confirmation(85, 12345);
+        assert!(msg.contains("85%") || msg.contains("reliable") || msg.contains("store"));
+    }
+}
+
+/// v0.0.465: Anna's confirmation when storing a new recipe (high-reliability answer)
+/// Used when reliability >= 80 to confirm the pattern is being learned
+pub fn anna_recipe_storage_confirmation(reliability: u8, seed: u64) -> String {
+    let phrases = if reliability >= 90 {
+        vec![
+            format!("That's a reliable answer ({}%). I'm storing this pattern for next time.", reliability),
+            format!("{}% confidence - definitely worth remembering. Adding to my knowledge.", reliability),
+            format!("High reliability ({}%). I'll remember this solution for similar questions.", reliability),
+        ]
+    } else {
+        vec![
+            format!("Good answer ({}%). Making a note of this approach.", reliability),
+            format!("{}% reliable. I'll add this to my recipes for future reference.", reliability),
+            format!("Solid response ({}%). Storing this pattern.", reliability),
+        ]
+    };
+    phrases[(seed as usize) % phrases.len()].clone()
+}
+
+/// v0.0.465: Anna's announcement when using a stored recipe
+pub fn anna_recipe_used_announcement(recipe_name: &str, seed: u64) -> String {
+    let phrases = [
+        format!("I've seen this before. Using my {} recipe.", recipe_name),
+        format!("Recognized this pattern - applying {} solution.", recipe_name),
+        format!("This matches my {} recipe. Let me handle it.", recipe_name),
+    ];
+    phrases[(seed as usize) % phrases.len()].clone()
+}
+
+/// v0.0.465: Format case number with date (CN-XXXX-DDMMYYYY format per VISION.md)
+pub fn format_case_with_date(seq: u32) -> String {
+    let now = chrono::Local::now();
+    format!("CN-{:04}-{}", seq, now.format("%d%m%Y"))
 }

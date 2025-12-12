@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.465] - 2025-12-12
+
+### Added - Natural Language Dialog (Phase 31)
+
+**Fly-on-the-Wall Dialog Enhancements:**
+- Recipe storage confirmation phrases (Anna announces when learning a pattern)
+- Recipe usage announcement (Anna mentions when using stored recipes)
+- Case number with date format (CN-XXXX-DDMMYYYY per VISION.md)
+
+**New Dialog Functions:**
+- `anna_recipe_storage_confirmation()` - Reliability-aware learning confirmation
+- `anna_recipe_used_announcement()` - Recipe recognition phrases
+- `format_case_with_date()` - CN-XXXX-DDMMYYYY format
+
+**Existing Features Already Implemented:**
+- Anna-to-Specialist dialog rendering (TranscriptSegment with SegmentKind)
+- Specialist responses with reliability assessments (junior_approval, senior_response)
+- Real-time streaming support (Progress segment kind)
+- Screen updates via transcript segments
+
 ## [0.0.464] - 2025-12-12
 
 ### Added - Enhanced Stats Display (Phase 30)

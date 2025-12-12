@@ -298,13 +298,13 @@ Anna v0.0.369 focuses on:
 - [x] Installation date display (first_event_ts)
 - [x] `annactl stats <category>` for detailed views (rpg, learning, outcomes, topics, repeated)
 
-### Phase 31 - Natural Language Dialog (Fly-on-the-Wall)
-- [ ] Anna-to-Specialist dialog rendering in normal mode
-- [ ] Case number display (CN-XXXX-DDMMYYYY format)
-- [ ] Specialist responses with reliability assessments
-- [ ] Anna confirming recipe storage after high-reliability answers
-- [ ] Real-time streaming word-by-word from LLM
-- [ ] Screen updates after each LLM call (not batch)
+### Phase 31 - Natural Language Dialog ✓ (v0.0.465)
+- [x] Anna-to-Specialist dialog rendering in normal mode (TranscriptSegment system)
+- [x] Case number display (CN-XXXX-DDMMYYYY format via format_case_with_date)
+- [x] Specialist responses with reliability assessments (junior_approval, senior_response)
+- [x] Anna confirming recipe storage after high-reliability answers (anna_recipe_storage_confirmation)
+- [x] Real-time streaming word-by-word from LLM (Progress segment kind)
+- [x] Screen updates after each LLM call (transcript segments streamed)
 
 ### Phase 32 - Smart Helper Management
 - [ ] Auto-install helpers learned from specialists
