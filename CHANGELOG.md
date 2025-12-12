@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.442] - 2025-12-12
+
+### Fixed - Ticket Integrity: Honest Stats, Clarification-First, Package/System Separation
+
+**Goal:** Make Anna brutally honest about what she knows, what she doesn't know, and what actually succeeded.
+
+**Key Problems Fixed:**
+1. Stats showing 100% success when "Failed to parse specialist response" errors occurred
+2. Clarification running AFTER probes instead of BEFORE for config-like questions
+3. "do I have swap?" returning "swap package is not installed" instead of checking /proc/swaps
+
+**Ticket Outcome Integrity (`outcome.rs`):**
+- `TicketOutcome`: Pending, Answered, ParseError, ProbeError, ClarificationPending, Cancelled, InternalError
+- `AnsweredConditions`: ALL must be true: specialist_responded, json_valid, schema_valid, answer_rendered, no_internal_errors
+- `HonestTicketStats`: ONLY counts `Answered` as success, shows failed_parse separately
+- `is_parse_error()`: Detects "Failed to parse specialist response" patterns
+- Rule: "Failed to parse" → ParseError state, NOT Answered
+
+**Clarification Before Probes (`clarification.rs`):**
+- `ClarificationRequiredIntent`: EditorSyntaxStatus, DesktopWallpapersLocation, EditorConfigOverview, etc.
+- `check_clarification_needed()`: Returns NeedClarification if facts missing, ProceedToProbes if ready
+- `KnownFacts`: Store user-provided facts with confidence
+- Flow: check facts → clarify if missing → ONLY THEN run probes
+- Rule: No probes for config questions until we know WHICH config
+
+**Package vs System Separation (`package_system.rs`):**
+- `SystemIntent`: SwapConfigured, SwapSize, TrimEnabled, FirewallEnabled
+- `PackageIntent`: CheckInstalled, Install, SearchByName
+- `SwapStatus`: Parse /proc/swaps, report has_swap, total_swap_gib, kind (file/partition/zram)
+- `PackageStatus`: Parse pacman output cleanly, no "2 is installed" garbage
+- `is_vague_package_name()`: "games", "apps", "tools" → not literal packages
+- Rule: "do I have swap?" → System(SwapConfigured), NOT Package
+
+**Acceptance Tests (`tests.rs`):**
+- `test_editor_syntax_asks_which_editor`: Must ask BEFORE probes
+- `test_swap_question_is_system_not_package`: "do I have swap?" → System intent
+- `test_package_nano_not_installed`: Clean output, no garbage
+- `test_parse_error_outcome`: ParseError must NOT count as success
+- `test_stats_show_parse_errors`: Stats must show failed_parse count
+- `test_games_is_ambiguous`: "games" not treated as literal package
+
+**Expected Stats Output:**
+```
+[service desk]
+  total_tickets         9
+  answered              4 (44%)
+  failed_parse          3
+  probe_failures        2
+  clarification_pending 0
+  cancelled             0
+  internal_errors       0
+```
+
 ## [0.0.441] - 2025-12-12
 
 ### Added - ERA Pipeline: Universal Evidence → Reasoning → Answer Architecture
