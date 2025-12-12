@@ -250,43 +250,61 @@ pub fn print_status_display_v2(
         }
     }
 
-    // === [helpers] ===
+    // === [helpers] === v0.0.453: Enhanced per VISION.md
     if let Some(snap) = snapshot {
         if snap.helpers.total > 0 {
             println!();
             print_section_header("helpers");
-            kv(
-                "installed_by_anna",
-                &format!("{}", snap.helpers.anna_installed),
-            );
-            for helper in snap
-                .helpers
-                .list
-                .iter()
-                .filter(|h| h.source == InstallSource::Anna)
-                .take(3)
-            {
-                println!(
-                    "    {}{}{}  | last_used: -",
-                    colors::DIM,
-                    helper.name,
-                    colors::RESET
+            // v0.0.453: Better formatting per VISION.md
+            if snap.helpers.anna_installed > 0 {
+                kv(
+                    "by_anna",
+                    &format!(
+                        "{} (removed on uninstall with confirm)",
+                        snap.helpers.anna_installed
+                    ),
                 );
+                for helper in snap
+                    .helpers
+                    .list
+                    .iter()
+                    .filter(|h| h.source == InstallSource::Anna)
+                    .take(3)
+                {
+                    let avail = if helper.available {
+                        format!("{}available{}", colors::OK, colors::RESET)
+                    } else {
+                        format!("{}missing{}", colors::ERR, colors::RESET)
+                    };
+                    println!(
+                        "    {} <installed by Anna> [{}]",
+                        helper.name, avail
+                    );
+                }
             }
-            kv(
-                "installed_by_user",
-                &format!("{}", snap.helpers.user_installed),
-            );
-            for helper in snap
-                .helpers
-                .list
-                .iter()
-                .filter(|h| h.source == InstallSource::User)
-                .take(3)
-            {
-                println!("    {}{}{}", colors::DIM, helper.name, colors::RESET);
+            if snap.helpers.user_installed > 0 {
+                kv(
+                    "by_user",
+                    &format!("{} (kept on uninstall)", snap.helpers.user_installed),
+                );
+                for helper in snap
+                    .helpers
+                    .list
+                    .iter()
+                    .filter(|h| h.source == InstallSource::User)
+                    .take(3)
+                {
+                    let avail = if helper.available {
+                        format!("{}available{}", colors::OK, colors::RESET)
+                    } else {
+                        format!("{}missing{}", colors::ERR, colors::RESET)
+                    };
+                    println!(
+                        "    {} <installed by user> [{}]",
+                        helper.name, avail
+                    );
+                }
             }
-            kv("helper_policy", "install-minimal, remove-on-confirm");
         }
     }
 

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.453] - 2025-12-12
+
+### Added - Smart Helper Management (Phase 32)
+
+**Enhanced [helpers] Section per VISION.md:**
+- Shows "by_anna" with count and removal policy
+- Shows "by_user" with count and retention policy
+- Each helper shows availability status (available/missing)
+- Labels: `<installed by Anna>` vs `<installed by user>`
+- Policy notes: "removed on uninstall with confirm" vs "kept on uninstall"
+
+**Helper Display Format:**
+```
+[helpers]
+  by_anna     2 (removed on uninstall with confirm)
+    ollama <installed by Anna> [available]
+  by_user     3 (kept on uninstall)
+    neovim <installed by user> [available]
+```
+
 ## [0.0.452] - 2025-12-12
 
 ### Added - Case Numbers & Reliability Assessments (Phase 31 continued)
