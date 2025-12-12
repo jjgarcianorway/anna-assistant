@@ -71,10 +71,11 @@ pub async fn handle_status() -> Result<()> {
 }
 
 /// Handle stats command (v0.0.27)
-pub async fn handle_stats() -> Result<()> {
+/// v0.0.464: Added category filter for detailed views
+pub async fn handle_stats(category: Option<&str>) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
     let stats = client.stats().await?;
-    print_stats_display(&stats);
+    crate::stats_categories::print_stats_with_category(&stats, category);
     Ok(())
 }
 

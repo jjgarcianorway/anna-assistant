@@ -17,6 +17,7 @@ mod live_request;
 mod output;
 mod progress_display;
 mod spinner;
+mod stats_categories;
 mod stats_display;
 mod stats_display_v2;
 mod status_display_v2;
@@ -83,7 +84,11 @@ enum Command {
     /// Show Anna's status, daemon health, and LLM models
     Status,
     /// Show Service Desk staff performance report
-    Stats,
+    Stats {
+        /// Category filter: rpg, learning, outcomes, handlers, topics, repeated
+        #[arg(value_name = "CATEGORY")]
+        category: Option<String>,
+    },
     /// Show what Anna has learned (probe effectiveness)
     Learning {
         /// Test recommendations for a query (e.g., "how's my disk?")
@@ -154,7 +159,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Some(Command::Status) => handle_status().await,
-        Some(Command::Stats) => handle_stats().await,
+        Some(Command::Stats { category }) => handle_stats(category.as_deref()).await,
         Some(Command::Learning { test }) => handle_learning_with_query(test.as_deref()),
         Some(Command::SuggestRecipes { limit }) => handle_suggest_recipes(limit),
         Some(Command::Debug { cmd }) => handle_debug(cmd).await,

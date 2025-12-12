@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.464] - 2025-12-12
+
+### Added - Enhanced Stats Display (Phase 30)
+
+**RPG System per VISION.md:**
+- Non-linear XP progression (0-100 scale with logistic curve)
+- Funny IT titles by level (Trainee -> Linus's Chosen One)
+- Installation date display
+- Anna solo count (handled without specialists)
+- Most consulted team tracking
+- Fastest/longest response times
+- Current/best streak tracking
+- Average interactions per ticket
+
+**Topic Tracking (v0.0.464):**
+- Repeated questions detection
+- Topic (domain) breakdown with percentages
+- Intent breakdown with percentages
+- `annactl stats <category>` for detailed views
+
+**Category Filter (`annactl stats <cat>`):**
+- rpg: RPG progression stats only
+- learning: Probe learning stats only
+- outcomes/handlers: Ticket outcome breakdown
+- topics: Domain and intent analysis
+- repeated: Repeated question tracking
+
+**New Files:**
+- `stats_categories.rs` - Category-specific display functions
+- Enhanced `ticket_stats.rs` with repeated_queries, top_topic, by_intent
+
 ## [0.0.463] - 2025-12-12
 
 ### Added - Enhanced Status Display (Phase 29)

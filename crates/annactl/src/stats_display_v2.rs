@@ -8,6 +8,7 @@
 //! - Learning stats (v0.0.330)
 //! - Recipe vs LLM stats (v0.0.406)
 //! - RPG stats (v0.0.450)
+//! - Category filtering (v0.0.464)
 //!
 //! v0.0.316: Improved formatting to match service desk vision.
 //! v0.0.330: Added probe learning stats section.
@@ -17,6 +18,7 @@
 //! v0.0.344: Use print_title() and print_footer() for consistency.
 //! v0.0.406: Added recipe vs LLM efficiency section.
 //! v0.0.450: Added RPG stats section per VISION.md.
+//! v0.0.464: Added category filter (annactl stats <category>).
 
 use anna_shared::event_log::EventLog;
 use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, TrendDirection};
@@ -320,7 +322,7 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
 }
 
 /// v0.0.330: Print probe learning statistics section
-fn print_learning_section() {
+pub fn print_learning_section() {
     let store = ProbeLearningStore::load();
     let stats = store.learning_stats();
 
@@ -423,7 +425,7 @@ fn print_learning_section() {
 }
 
 /// v0.0.407: Print truthful stats section
-fn print_efficiency_section() {
+pub fn print_efficiency_section() {
     let tickets = load_recent_tickets(100);
 
     // Only show if there's data

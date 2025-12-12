@@ -283,20 +283,20 @@ Anna v0.0.369 focuses on:
 - [x] Show all config settings in status (not just debug mode)
 - [x] REPL greeting announces errors (SystemError struct, add_error(), render())
 
-### Phase 30 - Enhanced Stats Display (RPG System)
-- [ ] Non-linear XP progression (0-100 RPG style)
-- [ ] Funny titles based on level
-- [ ] Recipes categorized by type
-- [ ] Average interaction count between Anna and specialists
-- [ ] Number of times Anna managed on her own
-- [ ] Number of recipes learned (not initial knowledge)
-- [ ] Longest/shortest resolution times
-- [ ] Most consulted team
-- [ ] Repeated questions tracking
-- [ ] Topic most asked about
-- [ ] Longest/shortest reply
-- [ ] Installation date display
-- [ ] `annactl stats <category>` for detailed views
+### Phase 30 - Enhanced Stats Display ✓ (v0.0.464)
+- [x] Non-linear XP progression (0-100 RPG style, logistic curve)
+- [x] Funny titles based on level (Trainee -> Linus's Chosen One)
+- [x] Recipes categorized by type (in by_handler)
+- [x] Average interaction count between Anna and specialists
+- [x] Number of times Anna managed on her own (anna_solo_count)
+- [x] Number of recipes learned (recipes_learned)
+- [x] Longest/shortest resolution times (min/max_duration_ms)
+- [x] Most consulted team (most_consulted_team)
+- [x] Repeated questions tracking (repeated_queries)
+- [x] Topic most asked about (top_topic)
+- [x] Longest/shortest reply (tracked via duration proxy)
+- [x] Installation date display (first_event_ts)
+- [x] `annactl stats <category>` for detailed views (rpg, learning, outcomes, topics, repeated)
 
 ### Phase 31 - Natural Language Dialog (Fly-on-the-Wall)
 - [ ] Anna-to-Specialist dialog rendering in normal mode

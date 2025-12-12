@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// v0.0.411: Outcome-based ticket statistics (truthful)
+/// v0.0.464: Enhanced with repeated questions, topic tracking per Phase 30
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TicketStats {
     /// Total ticket count (all tickets created)
@@ -51,6 +52,15 @@ pub struct TicketStats {
     pub resolution_rate: f32,
     /// v0.0.411: Error rate (0-100)
     pub error_rate: f32,
+    /// v0.0.464: Repeated questions (query hash -> count)
+    #[serde(default)]
+    pub repeated_queries: HashMap<String, usize>,
+    /// v0.0.464: Most asked topic (domain with most tickets)
+    #[serde(default)]
+    pub top_topic: Option<String>,
+    /// v0.0.464: Tickets by intent
+    #[serde(default)]
+    pub by_intent: HashMap<String, usize>,
 }
 
 /// Calculate statistics from ticket logs (v0.0.411: Outcome-based)
@@ -129,6 +139,13 @@ pub fn calculate_stats(tickets: &[TicketLog]) -> TicketStats {
             .or_default() += 1;
         *stats.by_domain.entry(ticket.domain.clone()).or_default() += 1;
 
+        // v0.0.464: Track by intent
+        *stats.by_intent.entry(ticket.intent.clone()).or_default() += 1;
+
+        // v0.0.464: Track repeated queries (normalize to lowercase for matching)
+        let query_key = normalize_query(&ticket.query);
+        *stats.repeated_queries.entry(query_key).or_default() += 1;
+
         // Track by error kind
         if let Some(ref kind) = ticket.error_kind {
             *stats.by_error.entry(kind.to_string()).or_default() += 1;
@@ -151,6 +168,16 @@ pub fn calculate_stats(tickets: &[TicketLog]) -> TicketStats {
             ((stats.success + stats.partial + stats.cannot_answer) as f32 / total) * 100.0;
         stats.error_rate = (stats.failed as f32 / total) * 100.0;
     }
+
+    // v0.0.464: Find top topic (domain with most tickets)
+    stats.top_topic = stats
+        .by_domain
+        .iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(domain, _)| domain.clone());
+
+    // v0.0.464: Filter repeated queries to only show actually repeated ones (count > 1)
+    stats.repeated_queries.retain(|_, count| *count > 1);
 
     stats
 }
@@ -212,6 +239,16 @@ fn categorize_handler(handler: &str) -> String {
     } else {
         "other".to_string()
     }
+}
+
+/// v0.0.464: Normalize query for duplicate detection
+/// Lowercase, trim, remove extra whitespace
+fn normalize_query(query: &str) -> String {
+    query
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 impl std::fmt::Display for TicketStats {
