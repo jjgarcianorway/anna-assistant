@@ -22,9 +22,7 @@ pub mod tests;
 
 // Re-exports
 pub use answer_contract::{detect_generic_content, AnswerContract, AnswerShape, ContractViolation};
-pub use claim_evidence::{
-    ClaimType, EvidenceBinding, EvidenceType, StrictClaim, StrictEvidence,
-};
+pub use claim_evidence::{ClaimType, EvidenceBinding, EvidenceType, StrictClaim, StrictEvidence};
 pub use deterministic::{DeterministicPolicy, DeterministicRoute, QueryDomain};
 pub use gate::{GateCheck, GateInput, GateOutcome, GateResult, ReliabilityGate};
 

@@ -3,7 +3,9 @@
 //! Handles TOML-based authored recipes from /etc/anna/recipes and ~/.anna/recipes/authored.
 //! These take priority over learned recipes for known query patterns.
 
-use anna_shared::recipe_file::{find_matching_recipe, execute_recipe, render_answer, FileRecipe, RecipeContext, ExecutionResult};
+use anna_shared::recipe_file::{
+    execute_recipe, find_matching_recipe, render_answer, ExecutionResult, FileRecipe, RecipeContext,
+};
 use anna_shared::rpc::{
     EvidenceBlock, QueryIntent, ReliabilitySignals, ServiceDeskResult, SpecialistDomain,
     TranslatorTicket,
@@ -121,7 +123,7 @@ pub fn build_file_recipe_result(
         assigned_staff: None,
         staff_id: None,
         answer,
-        validated: true, // FileRecipes are authored and trusted
+        validated: true,       // FileRecipes are authored and trusted
         reliability_score: 90, // High confidence for authored recipes
         reliability_signals: signals,
         reliability_explanation: None,
@@ -161,9 +163,21 @@ mod tests {
 
     #[test]
     fn test_domain_from_str() {
-        assert!(matches!(domain_from_str("system"), SpecialistDomain::System));
-        assert!(matches!(domain_from_str("storage"), SpecialistDomain::Storage));
-        assert!(matches!(domain_from_str("network"), SpecialistDomain::Network));
-        assert!(matches!(domain_from_str("unknown"), SpecialistDomain::System));
+        assert!(matches!(
+            domain_from_str("system"),
+            SpecialistDomain::System
+        ));
+        assert!(matches!(
+            domain_from_str("storage"),
+            SpecialistDomain::Storage
+        ));
+        assert!(matches!(
+            domain_from_str("network"),
+            SpecialistDomain::Network
+        ));
+        assert!(matches!(
+            domain_from_str("unknown"),
+            SpecialistDomain::System
+        ));
     }
 }

@@ -122,7 +122,8 @@ impl SpecialistCall {
 
     /// Add knowledge snippet
     pub fn with_knowledge(mut self, source: &str, content: &str) -> Self {
-        self.knowledge.insert(source.to_string(), content.to_string());
+        self.knowledge
+            .insert(source.to_string(), content.to_string());
         self
     }
 
@@ -195,7 +196,10 @@ impl SpecialistCall {
     }
 
     /// Process LLM response
-    pub fn process_response(&self, raw_response: &str) -> Result<(SpecialistResponseV2, ValidationResult), String> {
+    pub fn process_response(
+        &self,
+        raw_response: &str,
+    ) -> Result<(SpecialistResponseV2, ValidationResult), String> {
         parse_and_validate(raw_response)
     }
 }

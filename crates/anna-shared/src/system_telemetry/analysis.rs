@@ -174,12 +174,11 @@ pub fn calculate_trends(samples: &VecDeque<TelemetrySample>) -> TrendSummary {
             _ => None,
         }
     });
-    trends.disk_trend = calculate_metric_trend(samples, |s| {
-        match (s.disk_used_bytes, s.disk_total_bytes) {
+    trends.disk_trend =
+        calculate_metric_trend(samples, |s| match (s.disk_used_bytes, s.disk_total_bytes) {
             (Some(used), Some(total)) if total > 0 => Some((used as f32 / total as f32) * 100.0),
             _ => None,
-        }
-    });
+        });
     trends.load_trend = calculate_metric_trend(samples, |s| s.load_average_1m);
 
     trends

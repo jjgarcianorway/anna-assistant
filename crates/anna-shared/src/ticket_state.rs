@@ -103,7 +103,10 @@ impl TicketOutcome {
 
     /// Check if this outcome counts as "resolved" (even if partial/cannot_answer)
     pub fn is_resolved(&self) -> bool {
-        matches!(self, Self::Success | Self::Partial | Self::CannotAnswerSafely)
+        matches!(
+            self,
+            Self::Success | Self::Partial | Self::CannotAnswerSafely
+        )
     }
 
     /// Check if this is a full success
@@ -383,7 +386,10 @@ impl LiveTicket {
     pub fn mark_planned(&mut self, domain: &str, intent: &str) {
         self.domain = domain.to_string();
         self.intent = intent.to_string();
-        self.transition(TicketState::Planned, Some("Translator completed".to_string()));
+        self.transition(
+            TicketState::Planned,
+            Some("Translator completed".to_string()),
+        );
     }
 
     /// Mark probes as run
@@ -394,14 +400,20 @@ impl LiveTicket {
 
     /// Mark docs as attached
     pub fn mark_docs_attached(&mut self) {
-        self.transition(TicketState::DocsAttached, Some("Documentation fetched".to_string()));
+        self.transition(
+            TicketState::DocsAttached,
+            Some("Documentation fetched".to_string()),
+        );
     }
 
     /// Mark LLM request sent
     pub fn mark_llm_requested(&mut self, handler: HandlerType) {
         self.handler = Some(handler);
         self.llm_calls += 1;
-        self.transition(TicketState::LlmRequested, Some("LLM request sent".to_string()));
+        self.transition(
+            TicketState::LlmRequested,
+            Some("LLM request sent".to_string()),
+        );
     }
 
     /// Mark LLM failure
@@ -423,7 +435,10 @@ impl LiveTicket {
 
     /// Mark commands run
     pub fn mark_commands_run(&mut self) {
-        self.transition(TicketState::CommandsRun, Some("Commands executed".to_string()));
+        self.transition(
+            TicketState::CommandsRun,
+            Some("Commands executed".to_string()),
+        );
     }
 
     /// v0.0.411: Mark as successful with explicit outcome
@@ -438,11 +453,19 @@ impl LiveTicket {
     pub fn mark_success(&mut self) {
         self.outcome = Some(TicketOutcome::Success);
         self.duration_ms = self.updated_at.saturating_sub(self.created_at);
-        self.transition(TicketState::Success, Some("Completed successfully".to_string()));
+        self.transition(
+            TicketState::Success,
+            Some("Completed successfully".to_string()),
+        );
     }
 
     /// v0.0.411: Mark as failed with explicit outcome
-    pub fn mark_failed_with_outcome(&mut self, kind: ErrorKind, detail: Option<String>, handler: Option<&str>) {
+    pub fn mark_failed_with_outcome(
+        &mut self,
+        kind: ErrorKind,
+        detail: Option<String>,
+        handler: Option<&str>,
+    ) {
         self.error_kind = Some(kind.clone());
         self.error_detail = detail;
         self.outcome = Some(kind.to_outcome());
@@ -472,7 +495,10 @@ impl LiveTicket {
         self.handled_by = Some(handler.to_string());
         self.error_kind = Some(ErrorKind::MissingEvidence);
         self.duration_ms = self.updated_at.saturating_sub(self.created_at);
-        self.transition(TicketState::Success, Some("Cannot answer safely".to_string()));
+        self.transition(
+            TicketState::Success,
+            Some("Cannot answer safely".to_string()),
+        );
     }
 
     /// Mark as escalated
@@ -541,7 +567,10 @@ impl LiveTicket {
         if let Some(outcome) = self.outcome {
             outcome
         } else if self.state == TicketState::Failed {
-            self.error_kind.as_ref().map(|k| k.to_outcome()).unwrap_or(TicketOutcome::ErrorInternal)
+            self.error_kind
+                .as_ref()
+                .map(|k| k.to_outcome())
+                .unwrap_or(TicketOutcome::ErrorInternal)
         } else if self.state == TicketState::Success {
             if self.confidence >= 0.8 {
                 TicketOutcome::Success
@@ -625,10 +654,22 @@ mod tests {
 
     #[test]
     fn test_error_kind_to_outcome() {
-        assert_eq!(ErrorKind::LlmTimeout.to_outcome(), TicketOutcome::ErrorTimeout);
-        assert_eq!(ErrorKind::LlmParseError.to_outcome(), TicketOutcome::ErrorParse);
-        assert_eq!(ErrorKind::ProbeFailure.to_outcome(), TicketOutcome::ErrorTool);
-        assert_eq!(ErrorKind::MissingEvidence.to_outcome(), TicketOutcome::CannotAnswerSafely);
+        assert_eq!(
+            ErrorKind::LlmTimeout.to_outcome(),
+            TicketOutcome::ErrorTimeout
+        );
+        assert_eq!(
+            ErrorKind::LlmParseError.to_outcome(),
+            TicketOutcome::ErrorParse
+        );
+        assert_eq!(
+            ErrorKind::ProbeFailure.to_outcome(),
+            TicketOutcome::ErrorTool
+        );
+        assert_eq!(
+            ErrorKind::MissingEvidence.to_outcome(),
+            TicketOutcome::CannotAnswerSafely
+        );
     }
 
     #[test]
@@ -660,7 +701,9 @@ mod tests {
 
     #[test]
     fn test_handler_display() {
-        let recipe = HandlerType::Recipe { name: "check_disk".to_string() };
+        let recipe = HandlerType::Recipe {
+            name: "check_disk".to_string(),
+        };
         assert_eq!(recipe.to_string(), "recipe:check_disk");
 
         let llm = HandlerType::LlmSolver {

@@ -11,7 +11,9 @@
 //! 5. Check knowledge store (learned recipes, cached docs)
 
 use crate::doc_brain::search_docs;
-use crate::doc_fetcher::{fetch_arch_wiki, fetch_help_output, fetch_man_page, wiki_cache_available};
+use crate::doc_fetcher::{
+    fetch_arch_wiki, fetch_help_output, fetch_man_page, wiki_cache_available,
+};
 use crate::knowledge::search_builtin_pack;
 use crate::knowledge_config::KnowledgeConfig;
 use crate::knowledge_query::{KnowledgeHit, KnowledgeQuery, KnowledgeResult, KnowledgeSourceKind};
@@ -216,7 +218,11 @@ fn search_arch_wiki(topic: &str, domain: &str, limit: usize) -> Vec<KnowledgeHit
 fn wiki_pages_for_domain(domain: &str) -> Vec<&'static str> {
     match domain {
         "services" | "systemd" => vec!["systemd", "systemd-service", "systemd-analyze"],
-        "network" => vec!["Network_configuration", "NetworkManager", "systemd-networkd"],
+        "network" => vec![
+            "Network_configuration",
+            "NetworkManager",
+            "systemd-networkd",
+        ],
         "storage" => vec!["Fstab", "Partitioning", "Btrfs", "LVM"],
         "boot" => vec!["Arch_boot_process", "systemd-boot", "GRUB"],
         "audio" => vec!["PipeWire", "PulseAudio", "ALSA"],
@@ -247,7 +253,8 @@ fn looks_like_command(s: &str) -> bool {
     s.len() >= 2
         && s.len() <= 20
         && !s.contains(' ')
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// Calculate relevance based on keyword matching
@@ -264,7 +271,10 @@ fn calculate_relevance(text: &str, topic: &str) -> u8 {
     }
 
     // Word matches
-    let word_matches = topic_words.iter().filter(|w| text_lower.contains(*w)).count();
+    let word_matches = topic_words
+        .iter()
+        .filter(|w| text_lower.contains(*w))
+        .count();
     let word_bonus = ((word_matches as f32 / topic_words.len().max(1) as f32) * 20.0) as u8;
     score = score.saturating_add(word_bonus);
 

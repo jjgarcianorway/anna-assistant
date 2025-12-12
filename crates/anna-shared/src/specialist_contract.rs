@@ -157,7 +157,12 @@ impl KnowledgeCitation {
             CitationKind::LocalDoc => "local doc",
             CitationKind::Internal => "internal",
         };
-        format!("{} ({}): \"{}\"", self.title, kind_str, truncate_str(&self.excerpt, 100))
+        format!(
+            "{} ({}): \"{}\"",
+            self.title,
+            kind_str,
+            truncate_str(&self.excerpt, 100)
+        )
     }
 }
 
@@ -313,12 +318,17 @@ impl SpecialistResponse {
             "unknown is installed",
             "unknown is not installed",
             "**unknown**",
-            "2 is installed",  // Common parse bug
+            "2 is installed", // Common parse bug
             "1 is installed",
         ];
 
         let answer_lower = self.answer.short.to_lowercase();
-        let detail_lower = self.answer.detail.as_ref().map(|d| d.to_lowercase()).unwrap_or_default();
+        let detail_lower = self
+            .answer
+            .detail
+            .as_ref()
+            .map(|d| d.to_lowercase())
+            .unwrap_or_default();
 
         for f in forbidden {
             if answer_lower.contains(f) || detail_lower.contains(f) {
@@ -343,7 +353,10 @@ impl SpecialistResponse {
 
         // Check confidence range
         if self.confidence < 0.0 || self.confidence > 1.0 {
-            errors.push(format!("Confidence {} out of range [0.0, 1.0]", self.confidence));
+            errors.push(format!(
+                "Confidence {} out of range [0.0, 1.0]",
+                self.confidence
+            ));
         }
 
         errors
@@ -384,7 +397,12 @@ impl SpecialistResponse {
     }
 
     /// Create a response from deterministic/direct answer
-    pub fn from_direct_answer(ticket_id: &str, answer: &str, evidence_probe: &str, evidence_snippet: &str) -> Self {
+    pub fn from_direct_answer(
+        ticket_id: &str,
+        answer: &str,
+        evidence_probe: &str,
+        evidence_snippet: &str,
+    ) -> Self {
         Self {
             ticket_id: ticket_id.to_string(),
             status: ResponseStatus::Ok,
@@ -622,8 +640,8 @@ mod tests {
                 detail: None,
                 domain_summary: None,
             },
-            evidence: vec![],  // No evidence!
-            confidence: 0.95,  // High confidence!
+            evidence: vec![], // No evidence!
+            confidence: 0.95, // High confidence!
             staff_view: None,
             next_steps: None,
             discovery: None,

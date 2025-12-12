@@ -9,14 +9,15 @@
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{ProbeResult, RuntimeContext, TranslatorTicket};
 use anna_shared::trace::SpecialistOutcome;
+use anna_shared::truth_ledger::{Claim, Source, TrustScore, TruthLedger, Veracity}; // Added TruthLedger and Veracity
 use tracing::info;
 
 use crate::config::LlmConfig;
 use crate::deterministic::{self, DeterministicResult};
+use crate::probe_direct;
 use crate::progress_tracker::ProgressTracker;
 use crate::specialist_json;
 use crate::state::SharedState;
-use crate::probe_direct;
 
 /// Specialist LLM result with resource tracking
 pub struct SpecialistResult {
@@ -44,6 +45,7 @@ pub async fn try_specialist_llm(
     model: &str,
     _debug_mode: bool,
     progress: &mut ProgressTracker,
+    truth_ledger: &TruthLedger, // Added truth_ledger parameter
 ) -> SpecialistResult {
     let stage_start = std::time::Instant::now();
 
@@ -95,6 +97,7 @@ pub async fn try_specialist_llm(
         config,
         model,
         progress,
+        truth_ledger, // Pass truth_ledger
     )
     .await
 }
@@ -112,9 +115,29 @@ async fn try_json_specialist(
     config: &LlmConfig,
     model: &str,
     progress: &mut ProgressTracker,
+    truth_ledger: &TruthLedger, // Added truth_ledger parameter
 ) -> SpecialistResult {
     let stage_start = std::time::Instant::now();
     progress.start_stage(RequestStage::Specialist, config.specialist_timeout_secs);
+
+    // Consult TruthLedger for claims related to the query
+    let mut context_claims = Vec::new();
+    // For simplicity, let's assume the query itself is a claim to check, or we try to extract keywords.
+    // In a more advanced system, we'd use NLP to extract multiple claims from the query.
+    if let Some((veracity, _)) = truth_ledger.check_truthfulness(query) {
+        match veracity {
+            Veracity::Verified => context_claims.push(format!("Fact: \"{}\" is VERIFIED.", query)),
+            Veracity::Disputed => {
+                context_claims.push(format!("Warning: \"{}\" is DISPUTED.", query))
+            }
+            _ => {} // Unverified claims don't directly influence the prompt this way
+        }
+    }
+    let context_claims_str = if context_claims.is_empty() {
+        None
+    } else {
+        Some(context_claims.join("\n"))
+    };
 
     // Generate ticket ID for JSON specialist (use timestamp for uniqueness)
     let ticket_id = format!(
@@ -122,7 +145,8 @@ async fn try_json_specialist(
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
-            .as_millis() % 10000
+            .as_millis()
+            % 10000
     );
 
     info!(
@@ -138,6 +162,7 @@ async fn try_json_specialist(
         probe_results,
         model,
         config.specialist_timeout_secs,
+        context_claims_str, // Pass context claims to the specialist
     )
     .await;
 
@@ -182,6 +207,38 @@ async fn try_json_specialist(
     // Get rendered answer
     let answer = specialist_json::get_answer_text(&result);
 
+    // Add specialist's answer to the TruthLedger
+    if !answer.is_empty() {
+        let llm_confidence = result.response.as_ref().map_or(0.0, |r| r.confidence);
+        let mut state_write = state.write().await;
+
+        // Add the overall answer as a single claim
+        state_write.truth_ledger.add_claim(
+            Claim {
+                text: answer.clone(),
+            },
+            Source::User("LLM Specialist".to_string()),
+            TrustScore::Unknown, // Initial trust for claims from LLM
+            llm_confidence,
+            None, // Default to Unverified initially
+        );
+
+        // Extract individual claims from the LLM's answer and add them to the TruthLedger
+        let claims_from_llm = extract_claims_from_llm_response(&answer);
+        for claim_text in claims_from_llm {
+            // Only add if it's not the exact same as the overall answer (to avoid duplication)
+            if claim_text != answer {
+                state_write.truth_ledger.add_claim(
+                    Claim { text: claim_text },
+                    Source::User("LLM Specialist".to_string()),
+                    TrustScore::Unknown, // Initial trust for claims from LLM
+                    llm_confidence,
+                    None, // Default to Unverified initially
+                );
+            }
+        }
+    }
+
     // Check if we got a valid response
     let (outcome, final_answer, used_det, det_result) = if let Some(ref resp) = result.response {
         if resp.status == anna_shared::specialist_contract::ResponseStatus::Ok {
@@ -198,8 +255,12 @@ async fn try_json_specialist(
             (SpecialistOutcome::Ok, answer, false, None)
         } else {
             // JSON specialist couldn't answer - try deterministic fallback
-            info!("JSON specialist returned {:?}, trying deterministic", resp.status);
-            let (det_answer, det_result) = try_deterministic_fallback(query, context, probe_results, progress);
+            info!(
+                "JSON specialist returned {:?}, trying deterministic",
+                resp.status
+            );
+            let (det_answer, det_result) =
+                try_deterministic_fallback(query, context, probe_results, progress);
             if !det_answer.is_empty() {
                 (SpecialistOutcome::Ok, det_answer, true, det_result)
             } else {
@@ -210,7 +271,8 @@ async fn try_json_specialist(
     } else {
         // Parse failed - try deterministic fallback
         progress.add_specialist_message("[json specialist: parse failed]");
-        let (det_answer, det_result) = try_deterministic_fallback(query, context, probe_results, progress);
+        let (det_answer, det_result) =
+            try_deterministic_fallback(query, context, probe_results, progress);
         if !det_answer.is_empty() {
             (SpecialistOutcome::Ok, det_answer, true, det_result)
         } else {
@@ -226,6 +288,17 @@ async fn try_json_specialist(
         outcome,
         fallback_route_class: Some("json_specialist".to_string()),
     }
+}
+
+/// Helper to extract claims (sentences) from an LLM's response.
+/// This is a basic implementation; a more advanced version would use NLP.
+fn extract_claims_from_llm_response(response: &str) -> Vec<String> {
+    response
+        .split(|c: char| c == '.' || c == '!' || c == '?') // Split by sentence-ending punctuation
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect()
 }
 
 /// Try deterministic fallback after LLM failure
@@ -246,7 +319,9 @@ fn try_deterministic_fallback(
     }
 
     // v0.0.30: If query-based fallback fails, try best-effort summary from evidence
-    if let Some((answer, parsed_count)) = crate::answers::generate_best_effort_summary(probe_results) {
+    if let Some((answer, parsed_count)) =
+        crate::answers::generate_best_effort_summary(probe_results)
+    {
         info!(
             "Best-effort summary produced from {} evidence pieces",
             parsed_count

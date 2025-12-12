@@ -73,8 +73,14 @@ impl FactRequirement {
     pub fn is_satisfied(&self, facts: &HashMap<String, String>) -> bool {
         match self.operator {
             FactOp::Exists => facts.contains_key(&self.key),
-            FactOp::Eq => facts.get(&self.key).map(|v| v == &self.value).unwrap_or(false),
-            FactOp::Ne => facts.get(&self.key).map(|v| v != &self.value).unwrap_or(true),
+            FactOp::Eq => facts
+                .get(&self.key)
+                .map(|v| v == &self.value)
+                .unwrap_or(false),
+            FactOp::Ne => facts
+                .get(&self.key)
+                .map(|v| v != &self.value)
+                .unwrap_or(true),
             FactOp::In => {
                 let allowed: Vec<&str> = self.value.split(',').map(|s| s.trim()).collect();
                 facts
@@ -99,12 +105,18 @@ impl FactRequirement {
 }
 
 /// Check if all requirements are satisfied
-pub fn check_requirements(requirements: &[FactRequirement], facts: &HashMap<String, String>) -> bool {
+pub fn check_requirements(
+    requirements: &[FactRequirement],
+    facts: &HashMap<String, String>,
+) -> bool {
     requirements.iter().all(|r| r.is_satisfied(facts))
 }
 
 /// Get the list of missing fact keys
-pub fn missing_facts(requirements: &[FactRequirement], facts: &HashMap<String, String>) -> Vec<String> {
+pub fn missing_facts(
+    requirements: &[FactRequirement],
+    facts: &HashMap<String, String>,
+) -> Vec<String> {
     requirements
         .iter()
         .filter(|r| !r.is_satisfied(facts))

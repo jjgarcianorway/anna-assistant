@@ -87,9 +87,7 @@ impl MatchQuery {
     pub fn from_question(question: &str) -> Self {
         let intent = super::extract_intent(question);
         let keywords = extract_keywords(question);
-        let params = super::extract_params(question)
-            .into_iter()
-            .collect();
+        let params = super::extract_params(question).into_iter().collect();
 
         Self {
             question: question.to_string(),
@@ -127,7 +125,11 @@ pub fn find_matches(library: &RecipeLibrary, query: &MatchQuery) -> Vec<RecipeMa
     }
 
     // Sort by score (descending)
-    matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    matches.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     // Return top matches
     matches.into_iter().take(5).collect()
@@ -154,10 +156,8 @@ fn match_recipe(recipe: &LearnedRecipe, query: &MatchQuery) -> Option<RecipeMatc
     breakdown.keyword_score = compute_keyword_score(&recipe.pattern.keywords, &query.keywords);
 
     // Signal availability
-    let (signal_score, missing) = compute_signal_score(
-        &recipe.pattern.required_signals,
-        &query.available_signals,
-    );
+    let (signal_score, missing) =
+        compute_signal_score(&recipe.pattern.required_signals, &query.available_signals);
     breakdown.signal_score = signal_score;
 
     // Domain bonus
@@ -231,14 +231,10 @@ fn compute_keyword_score(recipe_keywords: &[String], query_keywords: &[String]) 
         return 0.5; // Neutral if no keywords to compare
     }
 
-    let recipe_set: std::collections::HashSet<_> = recipe_keywords
-        .iter()
-        .map(|s| s.to_lowercase())
-        .collect();
-    let query_set: std::collections::HashSet<_> = query_keywords
-        .iter()
-        .map(|s| s.to_lowercase())
-        .collect();
+    let recipe_set: std::collections::HashSet<_> =
+        recipe_keywords.iter().map(|s| s.to_lowercase()).collect();
+    let query_set: std::collections::HashSet<_> =
+        query_keywords.iter().map(|s| s.to_lowercase()).collect();
 
     let intersection = recipe_set.intersection(&query_set).count();
     let union = recipe_set.union(&query_set).count();
@@ -273,13 +269,13 @@ fn compute_signal_score(required: &[String], available: &[String]) -> (f32, Vec<
 
 /// Extract keywords from text
 fn extract_keywords(text: &str) -> Vec<String> {
-    let stopwords = ["the", "a", "an", "is", "are", "was", "were", "be", "been",
-                     "being", "have", "has", "had", "do", "does", "did", "will",
-                     "would", "could", "should", "may", "might", "must", "shall",
-                     "can", "to", "of", "in", "for", "on", "with", "at", "by",
-                     "from", "or", "and", "not", "no", "but", "if", "then", "else",
-                     "this", "that", "these", "those", "it", "its", "my", "your",
-                     "how", "what", "why", "when", "where", "who", "which"];
+    let stopwords = [
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "shall",
+        "can", "to", "of", "in", "for", "on", "with", "at", "by", "from", "or", "and", "not", "no",
+        "but", "if", "then", "else", "this", "that", "these", "those", "it", "its", "my", "your",
+        "how", "what", "why", "when", "where", "who", "which",
+    ];
 
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
@@ -295,10 +291,7 @@ mod tests {
 
     fn make_recipe(id: &str, intent: &str, keywords: &[&str]) -> LearnedRecipe {
         LearnedRecipe::new(id, "test")
-            .with_pattern(
-                RecipePattern::new(intent)
-                    .with_keywords(keywords)
-            )
+            .with_pattern(RecipePattern::new(intent).with_keywords(keywords))
     }
 
     #[test]
@@ -342,8 +335,20 @@ mod tests {
     fn test_find_matches() {
         let mut library = RecipeLibrary::new();
         // Use keywords that overlap better with query "how much ram available"
-        library.add(make_recipe("ram-check", "check_free_ram", &["ram", "available", "much"])).unwrap();
-        library.add(make_recipe("disk-check", "check_disk", &["disk", "space", "storage"])).unwrap();
+        library
+            .add(make_recipe(
+                "ram-check",
+                "check_free_ram",
+                &["ram", "available", "much"],
+            ))
+            .unwrap();
+        library
+            .add(make_recipe(
+                "disk-check",
+                "check_disk",
+                &["disk", "space", "storage"],
+            ))
+            .unwrap();
 
         let query = MatchQuery::from_question("How much RAM is available?");
         let matches = find_matches(&library, &query);
@@ -356,12 +361,16 @@ mod tests {
     #[test]
     fn test_no_match_wrong_intent() {
         let mut library = RecipeLibrary::new();
-        library.add(make_recipe("disk-check", "check_disk", &["disk", "space"])).unwrap();
+        library
+            .add(make_recipe("disk-check", "check_disk", &["disk", "space"]))
+            .unwrap();
 
         let query = MatchQuery::from_question("How much RAM is available?");
         let matches = find_matches(&library, &query);
 
         // Should not match disk recipe to RAM question
-        assert!(matches.is_empty() || matches[0].score < crate::learning_engine::MIN_RECIPE_MATCH_SCORE);
+        assert!(
+            matches.is_empty() || matches[0].score < crate::learning_engine::MIN_RECIPE_MATCH_SCORE
+        );
     }
 }

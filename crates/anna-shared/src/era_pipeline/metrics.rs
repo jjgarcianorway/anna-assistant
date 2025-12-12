@@ -70,10 +70,7 @@ pub struct ResolutionCriteria {
 
 impl ResolutionCriteria {
     /// Check from pipeline state.
-    pub fn from_pipeline(
-        pipeline: &EraPipeline,
-        confidence_threshold: f64,
-    ) -> Self {
+    pub fn from_pipeline(pipeline: &EraPipeline, confidence_threshold: f64) -> Self {
         let can_answer = pipeline
             .reasoning
             .as_ref()
@@ -315,10 +312,7 @@ impl MetricsSummary {
 }
 
 /// Validate pipeline result and return honest status.
-pub fn validate_resolution(
-    pipeline: &EraPipeline,
-    confidence_threshold: f64,
-) -> ResolutionStatus {
+pub fn validate_resolution(pipeline: &EraPipeline, confidence_threshold: f64) -> ResolutionStatus {
     // Check pipeline status first
     match pipeline.status() {
         PipelineStatus::Failed => return ResolutionStatus::Failed,

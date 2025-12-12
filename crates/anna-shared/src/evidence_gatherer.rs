@@ -75,17 +75,17 @@ pub fn gather_evidence(request: &EvidenceRequest) -> EvidenceBundle {
     for candidate in similar.iter().take(3) {
         bundle.add_recipe(RecipeMatch {
             id: candidate.id.clone(),
-            title: format!(
-                "Learned: {}",
-                candidate.pattern_keywords.join(", ")
-            ),
+            title: format!("Learned: {}", candidate.pattern_keywords.join(", ")),
             summary: format!(
                 "{} ({} confirmations)",
-                candidate.intent,
-                candidate.confirmations
+                candidate.intent, candidate.confirmations
             ),
             confidence: (candidate.confirmations * 30).min(95) as u8,
-            actions: candidate.actions.iter().map(|a| a.description.clone()).collect(),
+            actions: candidate
+                .actions
+                .iter()
+                .map(|a| a.description.clone())
+                .collect(),
         });
     }
 
@@ -107,9 +107,7 @@ pub fn gather_evidence(request: &EvidenceRequest) -> EvidenceBundle {
 fn execute_probe(probe: &ProbeDef) -> Option<ProbeEvidence> {
     debug!("Executing probe: {} ({})", probe.id, probe.command);
 
-    let output = Command::new("sh")
-        .args(["-c", &probe.command])
-        .output();
+    let output = Command::new("sh").args(["-c", &probe.command]).output();
 
     match output {
         Ok(out) => {
@@ -147,7 +145,11 @@ fn parse_probe_output(output: &str, probe: &ProbeDef) -> (String, String) {
             if let Some(line) = trimmed.lines().skip(1).next() {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 5 {
-                    format!("{} {} used", parts.get(0).unwrap_or(&"root"), parts.get(4).unwrap_or(&"?%"))
+                    format!(
+                        "{} {} used",
+                        parts.get(0).unwrap_or(&"root"),
+                        parts.get(4).unwrap_or(&"?%")
+                    )
                 } else {
                     "Disk usage data".to_string()
                 }
@@ -202,16 +204,16 @@ fn parse_probe_output(output: &str, probe: &ProbeDef) -> (String, String) {
         }
         _ => {
             // Generic: first line or type
-            trimmed.lines().next().unwrap_or("Output available").to_string()
+            trimmed
+                .lines()
+                .next()
+                .unwrap_or("Output available")
+                .to_string()
         }
     };
 
     // Excerpt: first few lines, cleaned up
-    let excerpt = trimmed
-        .lines()
-        .take(10)
-        .collect::<Vec<_>>()
-        .join("\n");
+    let excerpt = trimmed.lines().take(10).collect::<Vec<_>>().join("\n");
 
     let excerpt = truncate(&excerpt, 400);
 

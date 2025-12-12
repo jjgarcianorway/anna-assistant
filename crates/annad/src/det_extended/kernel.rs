@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer kernel version query using uname probe
-pub fn answer_kernel_version(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_kernel_version(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "uname")?;
     if probe.exit_code != 0 {
         return None;
@@ -35,7 +38,10 @@ pub fn answer_kernel_version(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer kernel modules query
-pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_kernel_modules(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "kernel_modules")?;
 
     let output = probe.stdout.trim();
@@ -50,7 +56,10 @@ pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Optio
 
     let module_count = output.lines().count().saturating_sub(1);
     Some(DeterministicResult {
-        answer: format!("Loaded kernel modules ({}):\n```\n{}\n```", module_count, output),
+        answer: format!(
+            "Loaded kernel modules ({}):\n```\n{}\n```",
+            module_count, output
+        ),
         grounded: true,
         parsed_data_count: module_count,
         route_class: route_class.to_string(),
@@ -58,7 +67,10 @@ pub fn answer_kernel_modules(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer dmesg errors query
-pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_dmesg_errors(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "dmesg_errors")?;
 
     let output = probe.stdout.trim();
@@ -73,7 +85,10 @@ pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<
 
     let error_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!("Kernel errors/warnings ({} messages):\n```\n{}\n```", error_count, output),
+        answer: format!(
+            "Kernel errors/warnings ({} messages):\n```\n{}\n```",
+            error_count, output
+        ),
         grounded: true,
         parsed_data_count: error_count,
         route_class: route_class.to_string(),
@@ -81,7 +96,10 @@ pub fn answer_dmesg_errors(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer kernel command line query
-pub fn answer_kernel_cmdline(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_kernel_cmdline(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "kernel_cmdline")?;
     let output = probe.stdout.trim();
 
@@ -100,7 +118,10 @@ pub fn answer_kernel_cmdline(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer module parameters query
-pub fn answer_module_params(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_module_params(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "module_params")?;
     let output = probe.stdout.trim();
 
@@ -108,7 +129,13 @@ pub fn answer_module_params(probes: &[ProbeResult], route_class: &str) -> Option
         ("No kernel module information available.".to_string(), 0)
     } else {
         let module_count = output.matches("===").count();
-        (format!("Kernel module parameters ({} modules):\n```\n{}\n```", module_count, output), module_count)
+        (
+            format!(
+                "Kernel module parameters ({} modules):\n```\n{}\n```",
+                module_count, output
+            ),
+            module_count,
+        )
     };
 
     Some(DeterministicResult {
@@ -120,7 +147,10 @@ pub fn answer_module_params(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer loaded firmware query using dmesg
-pub fn answer_loaded_firmware(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_loaded_firmware(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "loaded_firmware")?;
     let output = probe.stdout.trim();
 
@@ -128,7 +158,13 @@ pub fn answer_loaded_firmware(probes: &[ProbeResult], route_class: &str) -> Opti
         ("No firmware loading information available.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("Firmware/microcode log ({} entries):\n```\n{}\n```", count, output), count)
+        (
+            format!(
+                "Firmware/microcode log ({} entries):\n```\n{}\n```",
+                count, output
+            ),
+            count,
+        )
     };
 
     Some(DeterministicResult {
@@ -155,7 +191,10 @@ pub fn answer_xorg_log(probes: &[ProbeResult], route_class: &str) -> Option<Dete
 
     let error_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!("Xorg log errors/warnings ({}):\n```\n{}\n```", error_count, output),
+        answer: format!(
+            "Xorg log errors/warnings ({}):\n```\n{}\n```",
+            error_count, output
+        ),
         grounded: true,
         parsed_data_count: error_count,
         route_class: route_class.to_string(),

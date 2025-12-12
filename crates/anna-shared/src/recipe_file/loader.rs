@@ -29,8 +29,7 @@ pub fn load_recipe_from_file(path: &PathBuf) -> Result<FileRecipe, String> {
     let content = std::fs::read_to_string(path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
 
-    toml::from_str(&content)
-        .map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
+    toml::from_str(&content).map_err(|e| format!("Failed to parse {}: {}", path.display(), e))
 }
 
 /// Load all recipes from all directories
@@ -95,7 +94,8 @@ impl RecipeRegistry {
     /// Load all recipes (with cache)
     pub fn load(&mut self) -> &HashMap<String, FileRecipe> {
         // Reload if stale (older than 60 seconds)
-        let should_reload = self.loaded_at
+        let should_reload = self
+            .loaded_at
             .map(|t| t.elapsed().as_secs() > 60)
             .unwrap_or(true);
 
@@ -152,7 +152,9 @@ mod tests {
         let dirs = recipe_dirs();
         assert!(!dirs.is_empty());
         // Should include /etc/anna/recipes
-        assert!(dirs.iter().any(|d| d.to_str().unwrap().contains("/etc/anna")));
+        assert!(dirs
+            .iter()
+            .any(|d| d.to_str().unwrap().contains("/etc/anna")));
     }
 
     #[test]

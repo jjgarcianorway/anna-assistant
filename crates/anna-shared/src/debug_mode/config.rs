@@ -229,8 +229,7 @@ impl DebugConfig {
     pub fn load_from_file(path: &str) -> Result<Self, String> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| format!("Failed to read debug config: {}", e))?;
-        toml::from_str(&content)
-            .map_err(|e| format!("Failed to parse debug config: {}", e))
+        toml::from_str(&content).map_err(|e| format!("Failed to parse debug config: {}", e))
     }
 
     /// Try to load from default paths, fall back to defaults.
@@ -299,7 +298,10 @@ mod tests {
         assert_eq!("0".parse::<DebugLevel>().unwrap(), DebugLevel::Off);
         assert_eq!("off".parse::<DebugLevel>().unwrap(), DebugLevel::Off);
         assert_eq!("1".parse::<DebugLevel>().unwrap(), DebugLevel::Summary);
-        assert_eq!("summary".parse::<DebugLevel>().unwrap(), DebugLevel::Summary);
+        assert_eq!(
+            "summary".parse::<DebugLevel>().unwrap(),
+            DebugLevel::Summary
+        );
         assert_eq!("2".parse::<DebugLevel>().unwrap(), DebugLevel::Trace);
         assert_eq!("trace".parse::<DebugLevel>().unwrap(), DebugLevel::Trace);
         assert_eq!("3".parse::<DebugLevel>().unwrap(), DebugLevel::Full);

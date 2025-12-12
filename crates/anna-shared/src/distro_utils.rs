@@ -31,17 +31,29 @@ impl PackageManager {
     pub fn from_distro(distro: &str) -> Self {
         let d = distro.to_lowercase();
 
-        if d.contains("arch") || d.contains("manjaro") || d.contains("endeavour")
-            || d.contains("artix") || d.contains("garuda")
+        if d.contains("arch")
+            || d.contains("manjaro")
+            || d.contains("endeavour")
+            || d.contains("artix")
+            || d.contains("garuda")
         {
             Self::Pacman
-        } else if d.contains("ubuntu") || d.contains("debian") || d.contains("mint")
-            || d.contains("pop!_os") || d.contains("elementary") || d.contains("zorin")
-            || d.contains("kali") || d.contains("raspbian")
+        } else if d.contains("ubuntu")
+            || d.contains("debian")
+            || d.contains("mint")
+            || d.contains("pop!_os")
+            || d.contains("elementary")
+            || d.contains("zorin")
+            || d.contains("kali")
+            || d.contains("raspbian")
         {
             Self::Apt
-        } else if d.contains("fedora") || d.contains("rhel") || d.contains("centos")
-            || d.contains("rocky") || d.contains("alma") || d.contains("oracle linux")
+        } else if d.contains("fedora")
+            || d.contains("rhel")
+            || d.contains("centos")
+            || d.contains("rocky")
+            || d.contains("alma")
+            || d.contains("oracle linux")
         {
             Self::Dnf
         } else if d.contains("opensuse") || d.contains("suse") {
@@ -229,7 +241,9 @@ impl DistroContext {
 
     /// Check if we have valid distro info
     pub fn is_known(&self) -> bool {
-        self.package_manager.map(|pm| pm != PackageManager::Unknown).unwrap_or(false)
+        self.package_manager
+            .map(|pm| pm != PackageManager::Unknown)
+            .unwrap_or(false)
     }
 }
 
@@ -239,22 +253,46 @@ mod tests {
 
     #[test]
     fn test_detect_arch() {
-        assert_eq!(PackageManager::from_distro("Arch Linux"), PackageManager::Pacman);
-        assert_eq!(PackageManager::from_distro("Manjaro Linux"), PackageManager::Pacman);
-        assert_eq!(PackageManager::from_distro("EndeavourOS"), PackageManager::Pacman);
+        assert_eq!(
+            PackageManager::from_distro("Arch Linux"),
+            PackageManager::Pacman
+        );
+        assert_eq!(
+            PackageManager::from_distro("Manjaro Linux"),
+            PackageManager::Pacman
+        );
+        assert_eq!(
+            PackageManager::from_distro("EndeavourOS"),
+            PackageManager::Pacman
+        );
     }
 
     #[test]
     fn test_detect_debian() {
-        assert_eq!(PackageManager::from_distro("Ubuntu 22.04"), PackageManager::Apt);
-        assert_eq!(PackageManager::from_distro("Debian GNU/Linux 12"), PackageManager::Apt);
-        assert_eq!(PackageManager::from_distro("Linux Mint 21"), PackageManager::Apt);
+        assert_eq!(
+            PackageManager::from_distro("Ubuntu 22.04"),
+            PackageManager::Apt
+        );
+        assert_eq!(
+            PackageManager::from_distro("Debian GNU/Linux 12"),
+            PackageManager::Apt
+        );
+        assert_eq!(
+            PackageManager::from_distro("Linux Mint 21"),
+            PackageManager::Apt
+        );
     }
 
     #[test]
     fn test_detect_fedora() {
-        assert_eq!(PackageManager::from_distro("Fedora Linux 39"), PackageManager::Dnf);
-        assert_eq!(PackageManager::from_distro("Rocky Linux 9"), PackageManager::Dnf);
+        assert_eq!(
+            PackageManager::from_distro("Fedora Linux 39"),
+            PackageManager::Dnf
+        );
+        assert_eq!(
+            PackageManager::from_distro("Rocky Linux 9"),
+            PackageManager::Dnf
+        );
     }
 
     #[test]

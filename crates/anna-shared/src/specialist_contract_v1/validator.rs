@@ -356,7 +356,10 @@ mod tests {
         let validator = SrcValidator::new("DSK-0101");
         let result = validator.validate("not json at all");
         assert!(!result.is_valid());
-        assert!(matches!(result.error(), Some(ValidationError::InvalidJson { .. })));
+        assert!(matches!(
+            result.error(),
+            Some(ValidationError::InvalidJson { .. })
+        ));
     }
 
     #[test]

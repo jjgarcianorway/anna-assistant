@@ -283,7 +283,8 @@ mod tests {
         let catalog = ModelCatalog::default_catalog();
 
         // Tiny tier with 4GB RAM
-        let translator = catalog.select_model(ModelRole::Translator, CapabilityTier::Tiny, 4.0, false);
+        let translator =
+            catalog.select_model(ModelRole::Translator, CapabilityTier::Tiny, 4.0, false);
         assert!(translator.is_some());
         assert_eq!(translator.unwrap().min_tier, CapabilityTier::Tiny);
 
@@ -296,8 +297,10 @@ mod tests {
         let catalog = ModelCatalog::default_catalog();
 
         // Medium tier with lots of RAM, but prefer small
-        let senior_big = catalog.select_model(ModelRole::Senior, CapabilityTier::Medium, 32.0, false);
-        let senior_small = catalog.select_model(ModelRole::Senior, CapabilityTier::Medium, 32.0, true);
+        let senior_big =
+            catalog.select_model(ModelRole::Senior, CapabilityTier::Medium, 32.0, false);
+        let senior_small =
+            catalog.select_model(ModelRole::Senior, CapabilityTier::Medium, 32.0, true);
 
         assert!(senior_big.is_some());
         assert!(senior_small.is_some());

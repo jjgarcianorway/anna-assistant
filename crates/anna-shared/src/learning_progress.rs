@@ -125,10 +125,7 @@ impl LearningProgress {
         let mut parts = Vec::new();
 
         // Recipe count
-        parts.push(format!(
-            "Anna knows {} recipes",
-            self.recipes_total
-        ));
+        parts.push(format!("Anna knows {} recipes", self.recipes_total));
 
         // Self-sufficiency
         let pct = (self.self_sufficiency * 100.0) as u8;
@@ -138,18 +135,12 @@ impl LearningProgress {
                 pct
             ));
         } else if pct > 0 {
-            parts.push(format!(
-                "handles {}% independently (still learning)",
-                pct
-            ));
+            parts.push(format!("handles {}% independently (still learning)", pct));
         }
 
         // Strong areas
         if !self.strong_areas.is_empty() {
-            parts.push(format!(
-                "strong in {}",
-                self.strong_areas.join(", ")
-            ));
+            parts.push(format!("strong in {}", self.strong_areas.join(", ")));
         }
 
         // Growing areas
@@ -238,10 +229,7 @@ mod tests {
 
     #[test]
     fn test_beginner_detection() {
-        let recipes = vec![
-            test_recipe("storage", 80),
-            test_recipe("network", 75),
-        ];
+        let recipes = vec![test_recipe("storage", 80), test_recipe("network", 75)];
         let progress = LearningProgress::from_recipes(&recipes);
         assert!(progress.is_beginner()); // Less than 10 recipes
     }

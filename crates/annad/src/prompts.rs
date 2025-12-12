@@ -148,9 +148,7 @@ System:
 Hardware (from system probe):
   - CPU: {} ({} cores)
   - RAM: {:.1} GB"#,
-        context.hardware.cpu_model,
-        context.hardware.cpu_cores,
-        context.hardware.ram_gb,
+        context.hardware.cpu_model, context.hardware.cpu_cores, context.hardware.ram_gb,
     ));
 
     if let Some(gpu) = &context.hardware.gpu {
@@ -311,14 +309,20 @@ fn build_context_memory_hints(memory: &ContextMemory, domain: &str) -> String {
 
     // Add mastered commands context (so we don't over-explain)
     if !memory.mastered_commands.is_empty() {
-        let relevant: Vec<_> = memory.mastered_commands.iter()
+        let relevant: Vec<_> = memory
+            .mastered_commands
+            .iter()
             .filter(|cmd| is_domain_relevant_command(cmd, domain))
             .take(3)
             .collect();
         if !relevant.is_empty() {
             hints.push(format!(
                 "  - User knows: {} (no need to explain basics)",
-                relevant.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                relevant
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
     }
@@ -336,11 +340,21 @@ fn build_context_memory_hints(memory: &ContextMemory, domain: &str) -> String {
 /// Check if a command is relevant to a domain
 fn is_domain_relevant_command(cmd: &str, domain: &str) -> bool {
     match domain {
-        "storage" => ["df", "du", "mount", "lsblk", "fdisk"].iter().any(|c| cmd.contains(c)),
-        "network" => ["ip", "ping", "netstat", "ss", "curl"].iter().any(|c| cmd.contains(c)),
-        "system" => ["ps", "top", "htop", "systemctl", "journalctl"].iter().any(|c| cmd.contains(c)),
-        "security" => ["chmod", "chown", "sudo", "firewall"].iter().any(|c| cmd.contains(c)),
-        "packages" => ["pacman", "apt", "dnf", "yum", "pip"].iter().any(|c| cmd.contains(c)),
+        "storage" => ["df", "du", "mount", "lsblk", "fdisk"]
+            .iter()
+            .any(|c| cmd.contains(c)),
+        "network" => ["ip", "ping", "netstat", "ss", "curl"]
+            .iter()
+            .any(|c| cmd.contains(c)),
+        "system" => ["ps", "top", "htop", "systemctl", "journalctl"]
+            .iter()
+            .any(|c| cmd.contains(c)),
+        "security" => ["chmod", "chown", "sudo", "firewall"]
+            .iter()
+            .any(|c| cmd.contains(c)),
+        "packages" => ["pacman", "apt", "dnf", "yum", "pip"]
+            .iter()
+            .any(|c| cmd.contains(c)),
         _ => false,
     }
 }

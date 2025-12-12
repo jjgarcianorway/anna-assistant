@@ -70,7 +70,11 @@ pub fn parse_specialist_response(raw: &str) -> ParseOutcome {
     // Step 1: Extract JSON from raw output
     let json_str = match extract_json(raw) {
         Some(j) => j,
-        None => return ParseOutcome::NoJson { raw: truncate(raw, 500) },
+        None => {
+            return ParseOutcome::NoJson {
+                raw: truncate(raw, 500),
+            }
+        }
     };
 
     // Step 2: Parse JSON
@@ -98,10 +102,11 @@ pub fn parse_specialist_response(raw: &str) -> ParseOutcome {
     } else {
         // Check if errors are severe enough to reject
         let has_severe_errors = validation.errors.iter().any(|e| {
-            matches!(e,
+            matches!(
+                e,
                 super::ValidationError::InventedData(_)
-                | super::ValidationError::ForbiddenPattern(_)
-                | super::ValidationError::EmptySummary
+                    | super::ValidationError::ForbiddenPattern(_)
+                    | super::ValidationError::EmptySummary
             )
         });
 
@@ -167,7 +172,8 @@ fn try_lenient_parse(json_str: &str) -> Option<StrictResponse> {
     let obj = value.as_object()?;
 
     // Extract fields with defaults
-    let status = obj.get("status")
+    let status = obj
+        .get("status")
         .and_then(|v| v.as_str())
         .and_then(|s| match s {
             "success" => Some(ResponseStatus::Success),
@@ -177,40 +183,51 @@ fn try_lenient_parse(json_str: &str) -> Option<StrictResponse> {
         })
         .unwrap_or(ResponseStatus::Failure);
 
-    let confidence = obj.get("confidence")
+    let confidence = obj
+        .get("confidence")
         .and_then(|v| v.as_f64())
         .map(|f| f as f32)
         .unwrap_or(0.0);
 
-    let domain = obj.get("domain")
+    let domain = obj
+        .get("domain")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown")
         .to_string();
 
-    let intent = obj.get("intent")
+    let intent = obj
+        .get("intent")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown")
         .to_string();
 
-    let summary = obj.get("summary")
+    let summary = obj
+        .get("summary")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
 
     // Try to get key_facts from details
-    let key_facts: Vec<String> = obj.get("details")
+    let key_facts: Vec<String> = obj
+        .get("details")
         .and_then(|d| d.get("key_facts"))
         .and_then(|kf| kf.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
 
     let meta = ResponseMeta {
-        handled_by: obj.get("meta")
+        handled_by: obj
+            .get("meta")
             .and_then(|m| m.get("handled_by"))
             .and_then(|v| v.as_str())
             .unwrap_or("Unknown")
             .to_string(),
-        ticket_id: obj.get("meta")
+        ticket_id: obj
+            .get("meta")
             .and_then(|m| m.get("ticket_id"))
             .and_then(|v| v.as_str())
             .unwrap_or("")
@@ -251,11 +268,7 @@ pub fn timeout_outcome(elapsed_ms: u64) -> ParseOutcome {
 }
 
 /// Parse with timeout handling
-pub fn parse_with_timeout(
-    raw: &str,
-    timeout_ms: u64,
-    elapsed_ms: u64,
-) -> ParseOutcome {
+pub fn parse_with_timeout(raw: &str, timeout_ms: u64, elapsed_ms: u64) -> ParseOutcome {
     if elapsed_ms >= timeout_ms {
         return timeout_outcome(elapsed_ms);
     }
@@ -331,7 +344,10 @@ That's all.
         let raw = "{ invalid json syntax }";
         let result = parse_specialist_response(raw);
         // May parse leniently or fail
-        assert!(matches!(result, ParseOutcome::InvalidJson { .. } | ParseOutcome::ValidationFailed(_, _)));
+        assert!(matches!(
+            result,
+            ParseOutcome::InvalidJson { .. } | ParseOutcome::ValidationFailed(_, _)
+        ));
     }
 
     #[test]

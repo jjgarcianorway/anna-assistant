@@ -1,8 +1,8 @@
 //! Report types (v0.0.189).
 
+use crate::parsers::{BlockDevice, CpuInfo, DiskUsage, MemoryInfo, ServiceStatus};
 use crate::reliability::ReliabilityExplanation;
 use crate::trace::{EvidenceKind, ProbeStats};
-use crate::parsers::{BlockDevice, CpuInfo, DiskUsage, MemoryInfo, ServiceStatus};
 use serde::{Deserialize, Serialize};
 
 /// Severity level for health items (stable ordering)

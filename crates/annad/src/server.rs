@@ -25,7 +25,7 @@ use crate::health::health_check_loop;
 use crate::ollama;
 use crate::rpc_handler::handle_request;
 use crate::snapshot_loop::snapshot_loop;
-use crate::state::{create_shared_state, SharedState};
+use crate::state::SharedState;
 use crate::telemetry_collector;
 use crate::update_loop::update_check_loop;
 
@@ -34,10 +34,8 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn new() -> Result<Self> {
-        Ok(Self {
-            state: create_shared_state(),
-        })
+    pub async fn new(state: SharedState) -> Result<Self> {
+        Ok(Self { state })
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -125,15 +123,6 @@ impl Server {
 
     async fn initialize(&self) -> Result<()> {
         info!("Initializing daemon...");
-
-        // Load existing ledger if available
-        {
-            let mut state = self.state.write().await;
-            if let Ok(ledger) = Ledger::load() {
-                state.ledger = ledger;
-                info!("Loaded existing ledger");
-            }
-        }
 
         // Phase: Installing Ollama
         {
@@ -228,12 +217,6 @@ impl Server {
             }
         });
 
-        // Save ledger
-        {
-            let state = self.state.read().await;
-            state.ledger.save()?;
-        }
-
         // v0.0.310: Daemon is already marked Running - initialization complete
         // Model setup continues in background
         info!("Daemon initialized (model setup in background)");
@@ -275,7 +258,11 @@ impl Server {
                     {
                         let mut state_write = state.write().await;
                         for (model, bench) in &result.benchmarks {
-                            state_write.add_model(model, "benchmarked", bench.tokens_per_sec as u64);
+                            state_write.add_model(
+                                model,
+                                "benchmarked",
+                                bench.tokens_per_sec as u64,
+                            );
                         }
                     }
 
@@ -356,11 +343,15 @@ impl Server {
         };
 
         for model in &installed {
-            let anna_owns = anna_pulled.iter().any(|p| model.contains(p) || p.contains(model));
+            let anna_owns = anna_pulled
+                .iter()
+                .any(|p| model.contains(p) || p.contains(model));
             if !anna_owns {
                 continue;
             }
-            let is_needed = required_models.iter().any(|r| model.contains(r) || r.contains(model));
+            let is_needed = required_models
+                .iter()
+                .any(|r| model.contains(r) || r.contains(model));
             if is_needed {
                 continue;
             }
@@ -379,7 +370,6 @@ impl Server {
         {
             let mut state_write = state.write().await;
             state_write.set_llm_ready();
-            let _ = state_write.ledger.save();
         }
 
         info!("Background model setup complete - LLM fully ready");
@@ -430,7 +420,10 @@ impl Server {
     /// v0.0.386: Accept loop with socket health monitoring
     async fn run_socket_accept_loop(socket_file: &str, state: SharedState) -> Result<()> {
         let listener = UnixListener::bind(socket_file)?;
-        info!("Socket available at {} (daemon still initializing)", socket_file);
+        info!(
+            "Socket available at {} (daemon still initializing)",
+            socket_file
+        );
 
         // Set socket permissions: world accessible for zero-friction UX
         fs::set_permissions(socket_file, fs::Permissions::from_mode(0o666))?;

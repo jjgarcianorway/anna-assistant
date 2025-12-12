@@ -93,7 +93,11 @@ fn looks_naturally_varied(response: &str) -> bool {
 }
 
 /// Build the formatting prompt with user preferences
-fn build_format_prompt_with_prefs(original: &str, query: &str, prefs: &ResponsePreferences) -> String {
+fn build_format_prompt_with_prefs(
+    original: &str,
+    query: &str,
+    prefs: &ResponsePreferences,
+) -> String {
     let mut rules = vec![
         "Keep ALL factual information intact (numbers, paths, commands, settings)".to_string(),
         "Keep technical accuracy - don't change the meaning".to_string(),
@@ -137,7 +141,8 @@ fn build_format_prompt_with_prefs(original: &str, query: &str, prefs: &ResponseP
         _ => {} // Balanced - no special rule needed
     }
 
-    let rules_text = rules.iter()
+    let rules_text = rules
+        .iter()
         .enumerate()
         .map(|(i, r)| format!("{}. {}", i + 1, r))
         .collect::<Vec<_>>()
@@ -171,7 +176,10 @@ fn validate_formatted_response(original: &str, formatted: &str) -> bool {
     let original_numbers: Vec<String> = original
         .split_whitespace()
         .filter(|w| w.chars().any(|c| c.is_ascii_digit()))
-        .map(|w| w.trim_end_matches(|c: char| c.is_ascii_punctuation() && c != '%').to_string())
+        .map(|w| {
+            w.trim_end_matches(|c: char| c.is_ascii_punctuation() && c != '%')
+                .to_string()
+        })
         .collect();
 
     // At least 60% of numbers should be preserved
@@ -212,9 +220,13 @@ mod tests {
 
     #[test]
     fn test_looks_naturally_varied() {
-        assert!(looks_naturally_varied("I see that your disk is at 85% usage."));
+        assert!(looks_naturally_varied(
+            "I see that your disk is at 85% usage."
+        ));
         assert!(looks_naturally_varied("Let me check that for you."));
-        assert!(!looks_naturally_varied("Disk usage: 85%. Free space: 15GB."));
+        assert!(!looks_naturally_varied(
+            "Disk usage: 85%. Free space: 15GB."
+        ));
     }
 
     #[test]

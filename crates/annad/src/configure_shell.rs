@@ -101,13 +101,8 @@ pub fn handle_configure_shell(
         }
         (None, Some(feat)) => {
             // Have feature but no shell detected - ask which shell
-            let result = build_clarify_shell_response(
-                request_id,
-                ticket,
-                probe_results,
-                transcript,
-                &feat,
-            );
+            let result =
+                build_clarify_shell_response(request_id, ticket, probe_results, transcript, &feat);
             ConfigureShellResult::Handled(result)
         }
         (None, None) => {
@@ -140,7 +135,11 @@ fn build_recipe_response(
         shell.display_name(),
         config_path.display(),
         lines_to_add,
-        recipe.rollback_hint.as_ref().map(|h| format!("To undo: {}", h)).unwrap_or_default()
+        recipe
+            .rollback_hint
+            .as_ref()
+            .map(|h| format!("To undo: {}", h))
+            .unwrap_or_default()
     );
 
     let mut result = service_desk::build_result_with_flags(
@@ -268,11 +267,7 @@ fn build_clarify_shell_response(
     transcript: Transcript,
     feature: &ShellFeature,
 ) -> ServiceDeskResult {
-    let shells = vec![
-        ("bash", "Bash"),
-        ("zsh", "Zsh"),
-        ("fish", "Fish"),
-    ];
+    let shells = vec![("bash", "Bash"), ("zsh", "Zsh"), ("fish", "Fish")];
 
     let shell_list: Vec<String> = shells
         .iter()

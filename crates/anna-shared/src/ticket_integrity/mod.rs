@@ -22,14 +22,14 @@ mod tests;
 // Re-export main types
 pub use clarification::{
     check_clarification_needed, is_clarification_required_intent, ClarificationDecision,
-    ClarificationOption, ClarificationQuestion, ClarificationRequiredIntent, FactSource,
-    KnownFact, KnownFacts,
+    ClarificationOption, ClarificationQuestion, ClarificationRequiredIntent, FactSource, KnownFact,
+    KnownFacts,
 };
 pub use outcome::{
-    is_parse_error, outcome_from_error, AnsweredConditions, HonestTicketStats,
-    TicketOutcome, TicketOutcomeRecord, PARSE_ERROR_PATTERNS,
+    is_parse_error, outcome_from_error, AnsweredConditions, HonestTicketStats, TicketOutcome,
+    TicketOutcomeRecord, PARSE_ERROR_PATTERNS,
 };
 pub use package_system::{
-    classify_question, PackageIntent, PackageStatus, QuestionClassification, SwapKind,
-    SwapStatus, SystemIntent,
+    classify_question, PackageIntent, PackageStatus, QuestionClassification, SwapKind, SwapStatus,
+    SystemIntent,
 };

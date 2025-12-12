@@ -37,11 +37,26 @@ mod tests {
 
     #[test]
     fn test_category_from_query() {
-        assert_eq!(QueryCategory::from_query("what gpu do I have"), QueryCategory::Graphics);
-        assert_eq!(QueryCategory::from_query("check disk space"), QueryCategory::Storage);
-        assert_eq!(QueryCategory::from_query("list usb devices"), QueryCategory::Hardware);
-        assert_eq!(QueryCategory::from_query("how much ram"), QueryCategory::SystemHealth);
-        assert_eq!(QueryCategory::from_query("random question"), QueryCategory::General);
+        assert_eq!(
+            QueryCategory::from_query("what gpu do I have"),
+            QueryCategory::Graphics
+        );
+        assert_eq!(
+            QueryCategory::from_query("check disk space"),
+            QueryCategory::Storage
+        );
+        assert_eq!(
+            QueryCategory::from_query("list usb devices"),
+            QueryCategory::Hardware
+        );
+        assert_eq!(
+            QueryCategory::from_query("how much ram"),
+            QueryCategory::SystemHealth
+        );
+        assert_eq!(
+            QueryCategory::from_query("random question"),
+            QueryCategory::General
+        );
     }
 
     #[test]
@@ -87,7 +102,8 @@ mod tests {
         let result = store.apply_decay();
         assert!(result.applied);
 
-        let eff = store.effectiveness
+        let eff = store
+            .effectiveness
             .get(&QueryCategory::Graphics)
             .and_then(|m| m.get("gpu_info"));
         assert!(eff.is_some());

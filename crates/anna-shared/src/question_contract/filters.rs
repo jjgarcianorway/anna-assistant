@@ -13,7 +13,7 @@
 //! Wrong: Showing how to debug systemd.
 //! Correct: "No failed systemd services detected."
 
-use super::intent::{QuestionIntent, IntentCategory};
+use super::intent::{IntentCategory, QuestionIntent};
 use serde::{Deserialize, Serialize};
 
 /// Type of content leakage detected.
@@ -209,7 +209,8 @@ impl AnswerFilter {
                             removed_text: removed,
                             pattern: name.to_string(),
                         });
-                        result = format!("{}{}", &result[..start], &result[search_start + end + 1..]);
+                        result =
+                            format!("{}{}", &result[..start], &result[search_start + end + 1..]);
                     } else {
                         break;
                     }
@@ -270,11 +271,7 @@ impl AnswerFilter {
                         pattern: name.to_string(),
                     });
 
-                    result = format!(
-                        "{}{}",
-                        &result[..sentence_start],
-                        &result[sentence_end..]
-                    );
+                    result = format!("{}{}", &result[..sentence_start], &result[sentence_end..]);
                 }
             }
         }
@@ -311,12 +308,12 @@ impl AnswerFilter {
         let lower = text.to_lowercase();
 
         // Quick pattern checks
-        lower.contains("you can ") ||
-        lower.contains("try running ") ||
-        lower.contains("```") ||
-        lower.contains("you should ") ||
-        lower.contains("to diagnose ") ||
-        lower.contains("for more information")
+        lower.contains("you can ")
+            || lower.contains("try running ")
+            || lower.contains("```")
+            || lower.contains("you should ")
+            || lower.contains("to diagnose ")
+            || lower.contains("for more information")
     }
 }
 
@@ -361,7 +358,7 @@ impl StrictFilterResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::question_contract::intent::{IntentBuilder, IntentCategory, Subject, Scope};
+    use crate::question_contract::intent::{IntentBuilder, IntentCategory, Scope, Subject};
 
     #[test]
     fn test_fact_filters_tutorials() {
@@ -374,7 +371,10 @@ mod tests {
         let result = AnswerFilter::filter(&intent, text);
 
         assert!(result.has_leakage());
-        assert!(result.leakages.iter().any(|l| l.leakage_type == LeakageType::Tutorial));
+        assert!(result
+            .leakages
+            .iter()
+            .any(|l| l.leakage_type == LeakageType::Tutorial));
     }
 
     #[test]
@@ -388,7 +388,10 @@ mod tests {
         let result = AnswerFilter::filter(&intent, text);
 
         assert!(result.has_leakage());
-        assert!(result.leakages.iter().any(|l| l.leakage_type == LeakageType::Commands));
+        assert!(result
+            .leakages
+            .iter()
+            .any(|l| l.leakage_type == LeakageType::Commands));
     }
 
     #[test]
@@ -414,7 +417,10 @@ mod tests {
         let result = AnswerFilter::filter(&intent, text);
 
         assert!(result.has_leakage());
-        assert!(result.leakages.iter().any(|l| l.leakage_type == LeakageType::Suggestions));
+        assert!(result
+            .leakages
+            .iter()
+            .any(|l| l.leakage_type == LeakageType::Suggestions));
     }
 
     #[test]
@@ -464,7 +470,10 @@ mod tests {
 
         assert!(AnswerFilter::likely_has_leakage(&intent, "You can do this"));
         assert!(AnswerFilter::likely_has_leakage(&intent, "```code```"));
-        assert!(!AnswerFilter::likely_has_leakage(&intent, "Service is running."));
+        assert!(!AnswerFilter::likely_has_leakage(
+            &intent,
+            "Service is running."
+        ));
     }
 
     #[test]

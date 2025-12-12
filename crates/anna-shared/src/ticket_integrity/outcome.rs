@@ -118,7 +118,8 @@ impl AnsweredConditions {
         if self.is_answered() {
             TicketOutcome::Answered
         } else {
-            self.failure_reason().unwrap_or(TicketOutcome::InternalError)
+            self.failure_reason()
+                .unwrap_or(TicketOutcome::InternalError)
         }
     }
 }
@@ -330,7 +331,9 @@ mod tests {
 
     #[test]
     fn test_is_parse_error() {
-        assert!(is_parse_error("Failed to parse specialist response. Parse error: Timeout"));
+        assert!(is_parse_error(
+            "Failed to parse specialist response. Parse error: Timeout"
+        ));
         assert!(is_parse_error("Invalid JSON in response"));
         assert!(!is_parse_error("Everything worked fine"));
     }

@@ -54,11 +54,7 @@ impl DocEngine {
         let index = self.index.read().unwrap();
 
         // Search index
-        let snippets = index.search(
-            &query.query,
-            &query.preferred_sources,
-            query.limit,
-        );
+        let snippets = index.search(&query.query, &query.preferred_sources, query.limit);
 
         result.snippets = snippets
             .into_iter()
@@ -143,7 +139,9 @@ impl DocEngine {
         }
 
         // Apply relevance scoring
-        let query_words: Vec<String> = query.query.to_lowercase()
+        let query_words: Vec<String> = query
+            .query
+            .to_lowercase()
             .split_whitespace()
             .map(|s| s.to_string())
             .collect();
@@ -153,7 +151,9 @@ impl DocEngine {
         }
 
         // Sort by relevance
-        result.snippets.sort_by(|a, b| b.relevance.cmp(&a.relevance));
+        result
+            .snippets
+            .sort_by(|a, b| b.relevance.cmp(&a.relevance));
         result.snippets.truncate(query.limit);
 
         result.from_cache = false;
@@ -185,7 +185,9 @@ impl DocEngine {
         let start = Instant::now();
         let mut stats = RefreshStats::default();
 
-        let mut index = self.index.write()
+        let mut index = self
+            .index
+            .write()
             .map_err(|_| IndexError::IoError("Lock poisoned".to_string()))?;
 
         // Index essential man pages
@@ -239,7 +241,9 @@ impl DocEngine {
         let mut stats = RefreshStats::default();
         let start = Instant::now();
 
-        let mut index = self.index.write()
+        let mut index = self
+            .index
+            .write()
             .map_err(|_| IndexError::IoError("Lock poisoned".to_string()))?;
 
         // Find stale help outputs
@@ -327,10 +331,7 @@ impl DocEngine {
 
     /// Multi-source query (all sources)
     pub fn search_all(&self, query: &str, limit: usize) -> DocResult {
-        self.query_or_fetch(
-            DocQuery::new(query)
-                .with_limit(limit)
-        )
+        self.query_or_fetch(DocQuery::new(query).with_limit(limit))
     }
 }
 

@@ -70,7 +70,10 @@ pub fn check_eligibility(
     existing_intents: &[&str],
 ) -> EligibilityResult {
     // Rule 1: Status must be success or partial
-    if !matches!(response.status, ResponseStatus::Success | ResponseStatus::Partial) {
+    if !matches!(
+        response.status,
+        ResponseStatus::Success | ResponseStatus::Partial
+    ) {
         return EligibilityResult {
             eligible: false,
             reason: Some(SkipReason::ErrorStatus),
@@ -406,16 +409,23 @@ mod tests {
     fn test_intent_extraction() {
         assert_eq!(extract_intent("how much ram do I have"), "check_free_ram");
         assert_eq!(extract_intent("check disk space"), "check_disk_space");
-        assert_eq!(extract_intent("why is my service failed"), "debug_failed_service");
+        assert_eq!(
+            extract_intent("why is my service failed"),
+            "debug_failed_service"
+        );
     }
 
     #[test]
     fn test_param_extraction() {
         let params = extract_params("check service nginx status");
-        assert!(params.iter().any(|(k, v)| k == "service_name" && v == "nginx"));
+        assert!(params
+            .iter()
+            .any(|(k, v)| k == "service_name" && v == "nginx"));
 
         // "install vim" matches the pattern (?:install|remove|update)\s+(\w+)
         let params = extract_params("install vim");
-        assert!(params.iter().any(|(k, v)| k == "package_name" && v == "vim"));
+        assert!(params
+            .iter()
+            .any(|(k, v)| k == "package_name" && v == "vim"));
     }
 }

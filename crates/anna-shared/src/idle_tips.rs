@@ -197,32 +197,41 @@ pub fn get_contextual_tips() -> Vec<IdleTip> {
 
     // Auto-confirm tips
     if !profile.preferences.auto_confirm_low_risk {
-        tips.push(IdleTip::new(
-            "tip-auto-confirm",
-            TipCategory::System,
-            "I ask for confirmation on every change. If you'd like me to \
+        tips.push(
+            IdleTip::new(
+                "tip-auto-confirm",
+                TipCategory::System,
+                "I ask for confirmation on every change. If you'd like me to \
              auto-apply low-risk fixes, say \"enable auto-confirm\".",
-        ).with_priority(30));
+            )
+            .with_priority(30),
+        );
     }
 
     // Email tip if not set
     if profile.email.is_none() {
-        tips.push(IdleTip::new(
-            "tip-email-setup",
-            TipCategory::System,
-            "For long-running requests, I can email you when I'm done. \
+        tips.push(
+            IdleTip::new(
+                "tip-email-setup",
+                TipCategory::System,
+                "For long-running requests, I can email you when I'm done. \
              Just tell me your email address.",
-        ).with_priority(40));
+            )
+            .with_priority(40),
+        );
     }
 
     // Internal comms tip
     if !profile.preferences.show_internal_comms {
-        tips.push(IdleTip::new(
-            "tip-internal-comms",
-            TipCategory::System,
-            "Want to see the IT department discuss your requests? \
+        tips.push(
+            IdleTip::new(
+                "tip-internal-comms",
+                TipCategory::System,
+                "Want to see the IT department discuss your requests? \
              Say \"show internal comms\" for the fly-on-wall experience.",
-        ).with_priority(35));
+            )
+            .with_priority(35),
+        );
     }
 
     tips
@@ -249,10 +258,7 @@ pub fn format_tip(tip: &IdleTip, colors: &TipColors) -> String {
     ));
 
     if let Some(ref hint) = tip.action_hint {
-        output.push_str(&format!(
-            "  {}→ {}{}\n",
-            colors.dim, hint, colors.reset
-        ));
+        output.push_str(&format!("  {}→ {}{}\n", colors.dim, hint, colors.reset));
     }
 
     output

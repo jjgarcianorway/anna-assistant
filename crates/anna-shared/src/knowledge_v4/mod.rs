@@ -12,20 +12,20 @@
 //! - Graceful degradation: missing sources are skipped, not errors
 //! - Specialist-friendly: designed for integration into reasoning
 
+pub mod adapters;
+pub mod citation;
 pub mod config;
 pub mod engine;
 pub mod query;
 pub mod snippet;
-pub mod adapters;
-pub mod citation;
 
 // Re-exports
+pub use adapters::{DocAdapter, HelpAdapter, ManAdapter, WikiAdapter};
+pub use citation::{format_citation, Citation};
 pub use config::KnowledgeConfig;
 pub use engine::KnowledgeEngine;
 pub use query::{KnowledgeQuery, KnowledgeSource};
-pub use snippet::{KnowledgeSnippet, KnowledgeResult};
-pub use citation::{Citation, format_citation};
-pub use adapters::{ManAdapter, HelpAdapter, DocAdapter, WikiAdapter};
+pub use snippet::{KnowledgeResult, KnowledgeSnippet};
 
 /// Maximum characters per snippet excerpt
 pub const MAX_SNIPPET_CHARS: usize = 1500;
@@ -37,17 +37,11 @@ pub const MAX_RESULTS_PER_QUERY: usize = 5;
 pub const COMMAND_TIMEOUT_MS: u64 = 5000;
 
 /// Default man paths
-pub const DEFAULT_MAN_PATHS: &[&str] = &[
-    "/usr/share/man",
-    "/usr/local/share/man",
-];
+pub const DEFAULT_MAN_PATHS: &[&str] = &["/usr/share/man", "/usr/local/share/man"];
 
 /// Default doc paths
-pub const DEFAULT_DOC_PATHS: &[&str] = &[
-    "/usr/share/doc",
-    "/usr/local/share/doc",
-    "/usr/share/help",
-];
+pub const DEFAULT_DOC_PATHS: &[&str] =
+    &["/usr/share/doc", "/usr/local/share/doc", "/usr/share/help"];
 
 /// Default wiki path (optional)
 pub const DEFAULT_WIKI_PATH: &str = "/var/lib/anna/wiki/arch";

@@ -246,29 +246,74 @@ impl ReliabilityStats {
     pub fn display(&self) -> String {
         let mut out = String::new();
         out.push_str("[requests]\n");
-        out.push_str(&format!("  total_requests         {}\n", self.total_requests));
-        out.push_str(&format!("  answered_verified      {}\n", self.answered_verified));
-        out.push_str(&format!("  answered_partial       {}\n", self.answered_partial));
-        out.push_str(&format!("  clarification_needed   {}\n", self.clarification_needed));
-        out.push_str(&format!("  failed_timeout         {}\n", self.failed_timeout));
+        out.push_str(&format!(
+            "  total_requests         {}\n",
+            self.total_requests
+        ));
+        out.push_str(&format!(
+            "  answered_verified      {}\n",
+            self.answered_verified
+        ));
+        out.push_str(&format!(
+            "  answered_partial       {}\n",
+            self.answered_partial
+        ));
+        out.push_str(&format!(
+            "  clarification_needed   {}\n",
+            self.clarification_needed
+        ));
+        out.push_str(&format!(
+            "  failed_timeout         {}\n",
+            self.failed_timeout
+        ));
         out.push_str(&format!("  failed_parse           {}\n", self.failed_parse));
-        out.push_str(&format!("  failed_probes          {}\n", self.failed_probes));
-        out.push_str(&format!("  aborted_by_user        {}\n", self.aborted_by_user));
-        out.push_str(&format!("  error_internal         {}\n", self.error_internal));
+        out.push_str(&format!(
+            "  failed_probes          {}\n",
+            self.failed_probes
+        ));
+        out.push_str(&format!(
+            "  aborted_by_user        {}\n",
+            self.aborted_by_user
+        ));
+        out.push_str(&format!(
+            "  error_internal         {}\n",
+            self.error_internal
+        ));
         out.push('\n');
 
         out.push_str("[latency]\n");
-        out.push_str(&format!("  avg_total_ms           {}\n", self.avg_total_ms()));
-        out.push_str(&format!("  avg_probe_ms           {}\n", self.avg_probe_ms()));
+        out.push_str(&format!(
+            "  avg_total_ms           {}\n",
+            self.avg_total_ms()
+        ));
+        out.push_str(&format!(
+            "  avg_probe_ms           {}\n",
+            self.avg_probe_ms()
+        ));
         out.push_str(&format!("  avg_llm_ms             {}\n", self.avg_llm_ms()));
-        out.push_str(&format!("  p50_total_ms           {}\n", self.p50_total_ms()));
-        out.push_str(&format!("  p90_total_ms           {}\n", self.p90_total_ms()));
+        out.push_str(&format!(
+            "  p50_total_ms           {}\n",
+            self.p50_total_ms()
+        ));
+        out.push_str(&format!(
+            "  p90_total_ms           {}\n",
+            self.p90_total_ms()
+        ));
         out.push('\n');
 
         out.push_str("[reliability]\n");
-        out.push_str(&format!("  verified_rate          {:.1}%\n", self.verified_rate() * 100.0));
-        out.push_str(&format!("  useful_rate            {:.1}%\n", self.useful_rate() * 100.0));
-        out.push_str(&format!("  failure_rate           {:.1}%\n", self.failure_rate() * 100.0));
+        out.push_str(&format!(
+            "  verified_rate          {:.1}%\n",
+            self.verified_rate() * 100.0
+        ));
+        out.push_str(&format!(
+            "  useful_rate            {:.1}%\n",
+            self.useful_rate() * 100.0
+        ));
+        out.push_str(&format!(
+            "  failure_rate           {:.1}%\n",
+            self.failure_rate() * 100.0
+        ));
         out.push('\n');
 
         if !self.by_topic.is_empty() {

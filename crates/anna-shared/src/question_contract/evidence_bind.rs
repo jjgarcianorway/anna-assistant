@@ -53,19 +53,14 @@ impl BoundClaim {
 #[derive(Debug, Clone)]
 pub enum BindingResult {
     /// All claims are properly bound to evidence.
-    Valid {
-        claims: Vec<BoundClaim>,
-    },
+    Valid { claims: Vec<BoundClaim> },
     /// Some claims could not be bound.
     PartialBind {
         valid_claims: Vec<BoundClaim>,
         unbound_claims: Vec<String>,
     },
     /// Evidence exists but doesn't match the question.
-    MismatchedEvidence {
-        message: String,
-        suggestion: String,
-    },
+    MismatchedEvidence { message: String, suggestion: String },
     /// No evidence at all.
     NoEvidence,
 }
@@ -88,17 +83,15 @@ impl BindingResult {
     /// Get the fallback message for mismatched evidence.
     pub fn fallback_message(&self) -> Option<String> {
         match self {
-            Self::MismatchedEvidence { message, suggestion } => {
-                Some(format!("{}\n\nSuggestion: {}", message, suggestion))
-            }
+            Self::MismatchedEvidence {
+                message,
+                suggestion,
+            } => Some(format!("{}\n\nSuggestion: {}", message, suggestion)),
             Self::NoEvidence => {
                 Some("I could not find evidence to answer this question.".to_string())
             }
             Self::PartialBind { unbound_claims, .. } if !unbound_claims.is_empty() => {
-                Some(format!(
-                    "I could not verify: {}",
-                    unbound_claims.join(", ")
-                ))
+                Some(format!("I could not verify: {}", unbound_claims.join(", ")))
             }
             _ => None,
         }
@@ -120,14 +113,15 @@ impl EvidenceBinding {
         }
 
         // Check if evidence matches the subject
-        let subject_match = evidence.iter().any(|e| {
-            e.subject == intent.subject || intent.subject == Subject::Unknown
-        });
+        let subject_match = evidence
+            .iter()
+            .any(|e| e.subject == intent.subject || intent.subject == Subject::Unknown);
 
         if !subject_match {
             // Evidence exists but for wrong subject
             return BindingResult::MismatchedEvidence {
-                message: "I collected data but cannot safely answer exactly what you asked.".to_string(),
+                message: "I collected data but cannot safely answer exactly what you asked."
+                    .to_string(),
                 suggestion: Self::suggest_alternative(intent, evidence),
             };
         }
@@ -159,8 +153,10 @@ impl EvidenceBinding {
 
         if valid_claims.is_empty() && !unbound_claims.is_empty() {
             BindingResult::MismatchedEvidence {
-                message: "I collected data but cannot safely answer exactly what you asked.".to_string(),
-                suggestion: "Try rephrasing your question or asking about what I found.".to_string(),
+                message: "I collected data but cannot safely answer exactly what you asked."
+                    .to_string(),
+                suggestion: "Try rephrasing your question or asking about what I found."
+                    .to_string(),
             }
         } else if !unbound_claims.is_empty() {
             BindingResult::PartialBind {
@@ -318,13 +314,14 @@ mod tests {
             .allow_fields(vec!["free"])
             .build();
 
-        let claims = vec![
-            UnboundClaim::new("4.2 GB free", "free"),
-        ];
+        let claims = vec![UnboundClaim::new("4.2 GB free", "free")];
 
-        let evidence = vec![
-            EvidenceItem::new("ev_mem", Subject::Memory, vec!["free", "total"], "Memory usage"),
-        ];
+        let evidence = vec![EvidenceItem::new(
+            "ev_mem",
+            Subject::Memory,
+            vec!["free", "total"],
+            "Memory usage",
+        )];
 
         let result = EvidenceBinding::bind(&intent, claims, &evidence);
 
@@ -339,14 +336,15 @@ mod tests {
             .subject(Subject::Memory)
             .build();
 
-        let claims = vec![
-            UnboundClaim::new("Intel Core i7", "cpu_model"),
-        ];
+        let claims = vec![UnboundClaim::new("Intel Core i7", "cpu_model")];
 
         // Evidence is about CPU, not memory
-        let evidence = vec![
-            EvidenceItem::new("ev_cpu", Subject::Cpu, vec!["model"], "CPU info"),
-        ];
+        let evidence = vec![EvidenceItem::new(
+            "ev_cpu",
+            Subject::Cpu,
+            vec!["model"],
+            "CPU info",
+        )];
 
         let result = EvidenceBinding::bind(&intent, claims, &evidence);
 
@@ -365,9 +363,7 @@ mod tests {
             .subject(Subject::Memory)
             .build();
 
-        let claims = vec![
-            UnboundClaim::new("4.2 GB free", "free"),
-        ];
+        let claims = vec![UnboundClaim::new("4.2 GB free", "free")];
 
         let result = EvidenceBinding::bind(&intent, claims, &[]);
 
@@ -387,14 +383,20 @@ mod tests {
             UnboundClaim::new("Some unverified claim", "unknown"),
         ];
 
-        let evidence = vec![
-            EvidenceItem::new("ev_mem", Subject::Memory, vec!["free"], "Memory free"),
-        ];
+        let evidence = vec![EvidenceItem::new(
+            "ev_mem",
+            Subject::Memory,
+            vec!["free"],
+            "Memory free",
+        )];
 
         let result = EvidenceBinding::bind(&intent, claims, &evidence);
 
         match result {
-            BindingResult::PartialBind { valid_claims, unbound_claims } => {
+            BindingResult::PartialBind {
+                valid_claims,
+                unbound_claims,
+            } => {
                 assert_eq!(valid_claims.len(), 1);
                 assert_eq!(unbound_claims.len(), 1);
             }

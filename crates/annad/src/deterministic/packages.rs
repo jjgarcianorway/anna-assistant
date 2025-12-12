@@ -6,7 +6,10 @@ use super::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer package count query using pacman_count probe
-pub fn answer_package_count(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_package_count(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "pacman")?;
     if probe.exit_code != 0 {
         return None;

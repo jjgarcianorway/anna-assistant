@@ -113,11 +113,23 @@ impl std::fmt::Display for LearningStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "[learning]")?;
         writeln!(f, "  recipes_total         {}", self.recipes_total)?;
-        writeln!(f, "  recipes_recent        {} (last 7 days)", self.recipes_recent)?;
+        writeln!(
+            f,
+            "  recipes_recent        {} (last 7 days)",
+            self.recipes_recent
+        )?;
         writeln!(f, "  seed_recipes          {}", self.seed_recipes)?;
         writeln!(f, "  learned_recipes       {}", self.learned_recipes)?;
-        writeln!(f, "  recipe_hit_rate       {:.0}%   (tickets answered by recipes)", self.recipe_hit_rate)?;
-        writeln!(f, "  evidence_cache        {} entries", self.evidence_entries)?;
+        writeln!(
+            f,
+            "  recipe_hit_rate       {:.0}%   (tickets answered by recipes)",
+            self.recipe_hit_rate
+        )?;
+        writeln!(
+            f,
+            "  evidence_cache        {} entries",
+            self.evidence_entries
+        )?;
         writeln!(f)?;
 
         if !self.top_recipes.is_empty() {
@@ -126,10 +138,7 @@ impl std::fmt::Display for LearningStats {
                 writeln!(
                     f,
                     "  {:<30}  uses: {:<4}  success: {:<4}  domain: {}",
-                    recipe.id,
-                    recipe.uses,
-                    recipe.successes,
-                    recipe.domain
+                    recipe.id, recipe.uses, recipe.successes, recipe.domain
                 )?;
             }
         }
@@ -247,8 +256,7 @@ mod tests {
     use crate::learning_engine::{LearnedRecipe, RecipeOrigin, RecipePattern};
 
     fn make_recipe(id: &str, uses: u32, successes: u32, is_seed: bool) -> LearnedRecipe {
-        let mut recipe = LearnedRecipe::new(id, "test")
-            .with_pattern(RecipePattern::new("test"));
+        let mut recipe = LearnedRecipe::new(id, "test").with_pattern(RecipePattern::new("test"));
         recipe.stats.uses = uses;
         recipe.stats.successes = successes;
         recipe.origin.is_seed = is_seed;

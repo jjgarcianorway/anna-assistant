@@ -163,7 +163,10 @@ impl FallbackEngine {
 
     /// Fallback for disk questions
     fn try_disk_fallback(&self) -> Option<SpecialistResponseV2> {
-        if !self.intent.contains("disk") && !self.intent.contains("storage") && !self.intent.contains("space") {
+        if !self.intent.contains("disk")
+            && !self.intent.contains("storage")
+            && !self.intent.contains("space")
+        {
             return None;
         }
 
@@ -176,17 +179,20 @@ impl FallbackEngine {
 
         // Find most critical partition
         let critical: Vec<_> = partitions.iter().filter(|p| p.2 >= 90).collect();
-        let warning: Vec<_> = partitions.iter().filter(|p| p.2 >= 80 && p.2 < 90).collect();
+        let warning: Vec<_> = partitions
+            .iter()
+            .filter(|p| p.2 >= 80 && p.2 < 90)
+            .collect();
 
         let answer_text = if !critical.is_empty() {
-            format!(
-                "Critical: {} at {}% capacity",
-                critical[0].0, critical[0].2
-            )
+            format!("Critical: {} at {}% capacity", critical[0].0, critical[0].2)
         } else if !warning.is_empty() {
             format!("Warning: {} at {}% capacity", warning[0].0, warning[0].2)
         } else {
-            let root = partitions.iter().find(|p| p.0 == "/").unwrap_or(&partitions[0]);
+            let root = partitions
+                .iter()
+                .find(|p| p.0 == "/")
+                .unwrap_or(&partitions[0]);
             format!("Root filesystem: {}% used", root.2)
         };
 
@@ -203,8 +209,10 @@ impl FallbackEngine {
             } else {
                 FindingSeverity::Info
             };
-            response =
-                response.with_finding(KeyFinding::new(&mount, &format!("{}% of {}", percent, size)).with_severity(severity));
+            response = response.with_finding(
+                KeyFinding::new(&mount, &format!("{}% of {}", percent, size))
+                    .with_severity(severity),
+            );
         }
 
         Some(response)
@@ -212,7 +220,10 @@ impl FallbackEngine {
 
     /// Fallback for network questions
     fn try_network_fallback(&self) -> Option<SpecialistResponseV2> {
-        if !self.intent.contains("network") && !self.intent.contains("interface") && !self.intent.contains("ip") {
+        if !self.intent.contains("network")
+            && !self.intent.contains("interface")
+            && !self.intent.contains("ip")
+        {
             return None;
         }
 
@@ -223,7 +234,10 @@ impl FallbackEngine {
             return None;
         }
 
-        let active: Vec<_> = interfaces.iter().filter(|(_, state, _)| state == "UP").collect();
+        let active: Vec<_> = interfaces
+            .iter()
+            .filter(|(_, state, _)| state == "UP")
+            .collect();
 
         let answer_text = if active.is_empty() {
             "No active network interfaces found.".to_string()
@@ -231,7 +245,11 @@ impl FallbackEngine {
             format!(
                 "{} active interface(s): {}",
                 active.len(),
-                active.iter().map(|(n, _, _)| n.as_str()).collect::<Vec<_>>().join(", ")
+                active
+                    .iter()
+                    .map(|(n, _, _)| n.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             )
         };
 
@@ -251,7 +269,8 @@ impl FallbackEngine {
             } else {
                 format!("{} ({})", state, ip)
             };
-            response = response.with_finding(KeyFinding::new(&name, &value).with_severity(severity));
+            response =
+                response.with_finding(KeyFinding::new(&name, &value).with_severity(severity));
         }
 
         Some(response)
@@ -305,7 +324,10 @@ impl FallbackEngine {
         if let Some(uptime_str) = extract_uptime(&output) {
             return Some(
                 SpecialistResponseV2::ok()
-                    .with_direct_answer(DirectAnswer::simple(&format!("System uptime: {}", uptime_str)))
+                    .with_direct_answer(DirectAnswer::simple(&format!(
+                        "System uptime: {}",
+                        uptime_str
+                    )))
                     .with_finding(KeyFinding::info("uptime", &uptime_str))
                     .with_confidence(FALLBACK_CONFIDENCE)
                     .with_citation("probe:uptime"),
@@ -343,7 +365,11 @@ impl FallbackEngine {
             let probe_names: Vec<_> = self.probes.keys().collect();
             return SpecialistResponseV2::insufficient_evidence(&format!(
                 "I had trouble processing the response. Available probe data: {}",
-                probe_names.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+                probe_names
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ))
             .with_notes(reason);
         }
@@ -415,7 +441,10 @@ fn parse_size(s: &str) -> Option<u64> {
         (s, 1)
     };
 
-    num_str.parse::<f64>().ok().map(|n| (n * multiplier as f64) as u64)
+    num_str
+        .parse::<f64>()
+        .ok()
+        .map(|n| (n * multiplier as f64) as u64)
 }
 
 fn format_bytes(bytes: u64) -> String {
@@ -477,7 +506,11 @@ fn parse_network_interfaces(output: &str) -> Vec<(String, String, String)> {
             if name == "lo" {
                 continue;
             }
-            let state = if parts.len() >= 2 { parts[1].to_string() } else { "UNKNOWN".to_string() };
+            let state = if parts.len() >= 2 {
+                parts[1].to_string()
+            } else {
+                "UNKNOWN".to_string()
+            };
             let ip = parts.get(2).unwrap_or(&"").to_string();
             interfaces.push((name, state, ip));
         }
@@ -492,7 +525,12 @@ fn extract_swap_size(output: &str) -> Option<String> {
             for (i, part) in parts.iter().enumerate() {
                 if part.to_lowercase().contains("swap") && i + 1 < parts.len() {
                     let size = parts[i + 1];
-                    if size.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                    if size
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                    {
                         return Some(size.to_string());
                     }
                 }
@@ -509,7 +547,12 @@ fn extract_uptime(output: &str) -> Option<String> {
         if let Some(end) = rest.find(',') {
             return Some(rest[..end + 20.min(rest.len() - end)].trim().to_string());
         }
-        return Some(rest.split_whitespace().take(4).collect::<Vec<_>>().join(" "));
+        return Some(
+            rest.split_whitespace()
+                .take(4)
+                .collect::<Vec<_>>()
+                .join(" "),
+        );
     }
     None
 }
@@ -599,6 +642,9 @@ mod tests {
         let result = engine.try_fallback("test");
 
         assert!(!result.success);
-        assert_eq!(result.response.status, SpecialistStatus::InsufficientEvidence);
+        assert_eq!(
+            result.response.status,
+            SpecialistStatus::InsufficientEvidence
+        );
     }
 }

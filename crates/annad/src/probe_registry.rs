@@ -24,10 +24,10 @@ pub const PROBE_IDS: &[&str] = &[
     "free",             // free -h (alias for memory_info)
     "df",               // df -h (alias for disk_usage)
     // v0.0.318: Config file probes
-    "vimrc_content",    // cat ~/.vimrc or ~/.vim/vimrc
-    "nvim_config",      // cat ~/.config/nvim/init.lua
-    "bashrc_content",   // cat ~/.bashrc (first 100 lines)
-    "zshrc_content",    // cat ~/.zshrc (first 100 lines)
+    "vimrc_content",  // cat ~/.vimrc or ~/.vim/vimrc
+    "nvim_config",    // cat ~/.config/nvim/init.lua
+    "bashrc_content", // cat ~/.bashrc (first 100 lines)
+    "zshrc_content",  // cat ~/.zshrc (first 100 lines)
     // v0.0.321: Hardware acceleration probes
     "gpu_drivers",      // lspci -k | grep VGA + lsmod
     "vaapi_status",     // vainfo
@@ -35,8 +35,8 @@ pub const PROBE_IDS: &[&str] = &[
     "vulkan_status",    // vulkaninfo --summary
     "glxinfo_renderer", // glxinfo | grep renderer
     // v0.0.395: Storage analysis probes (largest folders)
-    "largest_dirs",  // du -h --max-depth=1 / | sort -rh | head -15
-    "largest_home",  // du -h --max-depth=2 $HOME | sort -rh | head -15
+    "largest_dirs", // du -h --max-depth=1 / | sort -rh | head -15
+    "largest_home", // du -h --max-depth=2 $HOME | sort -rh | head -15
     // v0.0.403: Service status probes
     "bluetooth_service", // systemctl status bluetooth.service
 ];

@@ -38,7 +38,6 @@ pub enum Team {
     General,
 }
 
-
 impl std::fmt::Display for Team {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -174,8 +173,8 @@ fn team_from_domain(domain: &str) -> Option<Team> {
         "security" => Some(Team::Security),
         "hardware" => Some(Team::Hardware),
         "performance" => Some(Team::Performance), // v0.0.273: Direct performance mapping
-        "desktop" => Some(Team::Desktop), // v0.0.273: Direct desktop mapping
-        "logs" => Some(Team::Logs), // v0.0.273: Direct logs mapping
+        "desktop" => Some(Team::Desktop),         // v0.0.273: Direct desktop mapping
+        "logs" => Some(Team::Logs),               // v0.0.273: Direct logs mapping
         // v0.0.273: "system" no longer auto-maps to Performance - use General for generic queries
         _ => None,
     }

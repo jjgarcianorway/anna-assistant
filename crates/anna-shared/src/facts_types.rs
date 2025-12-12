@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum FactSource {
     /// Observed from running a probe
-    ObservedProbe { probe_id: String, output_hash: String },
+    ObservedProbe {
+        probe_id: String,
+        output_hash: String,
+    },
     /// Confirmed by user interaction
     UserConfirmed { transcript_id: String },
     /// Derived from other facts

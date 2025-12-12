@@ -25,30 +25,30 @@ pub enum InstantAnswer {
         evidence_ids: Vec<String>,
     },
     /// Found relevant facts that might help
-    FactsAvailable {
-        facts: Vec<(String, String)>,
-    },
+    FactsAvailable { facts: Vec<(String, String)> },
     /// No instant answer, need full evidence gathering
     NeedsEvidence,
 }
 
 /// Check if we can answer instantly from knowledge
-pub fn check_instant_answer(
-    domain: &str,
-    intent: &str,
-    tags: &[String],
-) -> InstantAnswer {
+pub fn check_instant_answer(domain: &str, intent: &str, tags: &[String]) -> InstantAnswer {
     let index = KnowledgeIndex::load();
 
     // Try trusted patterns first
     let trusted = index.find_trusted_patterns(tags, domain, intent);
     if let Some(pattern) = trusted.first() {
         // We have a trusted pattern - can answer directly
-        info!("Found trusted pattern: {} (used {} times)", pattern.id, pattern.usage_count);
+        info!(
+            "Found trusted pattern: {} (used {} times)",
+            pattern.id, pattern.usage_count
+        );
 
         // Build answer from template (simplified - real version would fill placeholders)
         let answer = if pattern.answer_template.is_empty() {
-            format!("Based on previous experience: {}", pattern.keywords.join(", "))
+            format!(
+                "Based on previous experience: {}",
+                pattern.keywords.join(", ")
+            )
         } else {
             pattern.answer_template.clone()
         };
@@ -91,7 +91,11 @@ pub fn run_evidence_pipeline(
     let instant = check_instant_answer(domain_str, intent_str, &tags);
 
     match instant {
-        InstantAnswer::FromPattern { pattern_id, answer, evidence_ids } => {
+        InstantAnswer::FromPattern {
+            pattern_id,
+            answer,
+            evidence_ids,
+        } => {
             // Record pattern usage
             let mut index = KnowledgeIndex::load();
             if let Some(pattern) = index.patterns.get_mut(&pattern_id) {
@@ -107,7 +111,10 @@ pub fn run_evidence_pipeline(
             };
         }
         InstantAnswer::FactsAvailable { facts } => {
-            debug!("Found {} relevant facts, continuing to full evidence", facts.len());
+            debug!(
+                "Found {} relevant facts, continuing to full evidence",
+                facts.len()
+            );
             // Continue to full evidence gathering, but include facts
         }
         InstantAnswer::NeedsEvidence => {
@@ -216,7 +223,10 @@ pub fn record_success(
     recipe_store.add_or_confirm(candidate);
     let _ = recipe_store.save();
 
-    info!("Learned from successful answer: {} ({} keywords)", ticket_id, keyword_count);
+    info!(
+        "Learned from successful answer: {} ({} keywords)",
+        ticket_id, keyword_count
+    );
 }
 
 /// Extract facts from evidence bundle
@@ -247,11 +257,7 @@ pub fn extract_facts_from_bundle(bundle: &EvidenceBundle, domain: &str) -> Vec<L
             }
             "probe:systemctl_failed" => {
                 if probe.summary.contains("No failed") {
-                    facts.push(LearnedFact::new(
-                        "services_healthy",
-                        "true",
-                        "services",
-                    ));
+                    facts.push(LearnedFact::new("services_healthy", "true", "services"));
                 }
             }
             _ => {}
@@ -288,7 +294,8 @@ mod tests {
 
     #[test]
     fn test_check_instant_answer_no_knowledge() {
-        let result = check_instant_answer("unknown_domain", "unknown_intent", &["unknown".to_string()]);
+        let result =
+            check_instant_answer("unknown_domain", "unknown_intent", &["unknown".to_string()]);
         assert!(matches!(result, InstantAnswer::NeedsEvidence));
     }
 

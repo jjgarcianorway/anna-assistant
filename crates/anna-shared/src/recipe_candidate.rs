@@ -71,12 +71,7 @@ pub enum ActionType {
 
 impl RecipeCandidate {
     /// Create a new candidate from ticket data
-    pub fn new(
-        ticket_id: &str,
-        domain: &str,
-        intent: &str,
-        pattern_keywords: Vec<String>,
-    ) -> Self {
+    pub fn new(ticket_id: &str, domain: &str, intent: &str, pattern_keywords: Vec<String>) -> Self {
         let id = compute_candidate_id(domain, intent, &pattern_keywords);
         let now = current_millis();
 
@@ -137,7 +132,8 @@ impl RecipeCandidate {
             return false;
         }
         // Check keyword overlap
-        let overlap = keywords.iter()
+        let overlap = keywords
+            .iter()
             .filter(|k| self.pattern_keywords.contains(k))
             .count();
         overlap >= 1 && overlap >= keywords.len() / 2
@@ -156,15 +152,13 @@ impl RecipeCandidateStore {
         let path = store_path();
         if path.exists() {
             match fs::read_to_string(&path) {
-                Ok(json) => {
-                    match serde_json::from_str(&json) {
-                        Ok(store) => {
-                            debug!("Loaded {} recipe candidates", store_count(&store));
-                            return store;
-                        }
-                        Err(e) => warn!("Failed to parse recipe candidates: {}", e),
+                Ok(json) => match serde_json::from_str(&json) {
+                    Ok(store) => {
+                        debug!("Loaded {} recipe candidates", store_count(&store));
+                        return store;
                     }
-                }
+                    Err(e) => warn!("Failed to parse recipe candidates: {}", e),
+                },
                 Err(e) => warn!("Failed to read recipe candidates: {}", e),
             }
         }
@@ -193,21 +187,32 @@ impl RecipeCandidateStore {
                 candidate.id, existing.confirmations
             );
         } else {
-            info!("New recipe candidate: {} ({})", candidate.id, candidate.pattern_keywords.join(", "));
+            info!(
+                "New recipe candidate: {} ({})",
+                candidate.id,
+                candidate.pattern_keywords.join(", ")
+            );
             self.candidates.insert(candidate.id.clone(), candidate);
         }
     }
 
     /// Find similar candidates
-    pub fn find_similar(&self, domain: &str, intent: &str, keywords: &[String]) -> Vec<&RecipeCandidate> {
-        self.candidates.values()
+    pub fn find_similar(
+        &self,
+        domain: &str,
+        intent: &str,
+        keywords: &[String],
+    ) -> Vec<&RecipeCandidate> {
+        self.candidates
+            .values()
             .filter(|c| c.matches(domain, intent, keywords))
             .collect()
     }
 
     /// Get candidates ready for promotion
     pub fn promotable(&self) -> Vec<&RecipeCandidate> {
-        self.candidates.values()
+        self.candidates
+            .values()
             .filter(|c| c.ready_for_promotion())
             .collect()
     }
@@ -236,10 +241,7 @@ pub fn should_create_candidate(
     used_llm: bool,
 ) -> bool {
     // Only from successful LLM-handled tickets with evidence
-    state == "success"
-        && reliability >= 70
-        && has_evidence
-        && used_llm
+    state == "success" && reliability >= 70 && has_evidence && used_llm
 }
 
 /// Extract pattern keywords from a query
@@ -249,17 +251,14 @@ pub fn extract_pattern_keywords(query: &str) -> Vec<String> {
 
     // Remove common stop words
     let stop_words = [
-        "the", "a", "an", "is", "are", "was", "were", "be", "been",
-        "what", "why", "how", "when", "where", "which", "who",
-        "my", "your", "i", "me", "you", "it", "this", "that",
-        "do", "does", "did", "can", "could", "would", "should",
-        "to", "of", "in", "on", "at", "for", "with", "by",
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "what", "why", "how", "when",
+        "where", "which", "who", "my", "your", "i", "me", "you", "it", "this", "that", "do",
+        "does", "did", "can", "could", "would", "should", "to", "of", "in", "on", "at", "for",
+        "with", "by",
     ];
 
     for word in query_lower.split_whitespace() {
-        let clean: String = word.chars()
-            .filter(|c| c.is_alphanumeric())
-            .collect();
+        let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
 
         if clean.len() >= 3 && !stop_words.contains(&clean.as_str()) {
             keywords.push(clean);
@@ -352,12 +351,8 @@ mod tests {
 
     #[test]
     fn test_confirmation() {
-        let mut candidate = RecipeCandidate::new(
-            "TEST-001",
-            "services",
-            "diagnose",
-            vec!["test".to_string()],
-        );
+        let mut candidate =
+            RecipeCandidate::new("TEST-001", "services", "diagnose", vec!["test".to_string()]);
 
         assert_eq!(candidate.confirmations, 1);
         assert!(!candidate.ready_for_promotion());

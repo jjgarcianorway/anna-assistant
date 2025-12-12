@@ -11,7 +11,10 @@ use anyhow::Result;
 use std::io::{self, Write};
 
 use anna_shared::change::{ChangeOperation, ChangeRisk};
-use anna_shared::ui::{colors, kv, print_err, print_footer, print_hint, print_label, print_ok, print_section_header, print_title};
+use anna_shared::ui::{
+    colors, kv, print_err, print_footer, print_hint, print_label, print_ok, print_section_header,
+    print_title,
+};
 use anna_shared::user_profile::UserProfile;
 
 /// Outcome summary for applying proposed changes
@@ -57,12 +60,22 @@ pub async fn handle_proposed_change(
                 kv("backup", &plan.backup_path.display().to_string());
                 format!("Append line: \"{}\"", line)
             }
-            ChangeOperation::RunCommand { command, what_it_does, needs_sudo } => {
+            ChangeOperation::RunCommand {
+                command,
+                what_it_does,
+                needs_sudo,
+            } => {
                 print_section_header(&format!("step {} (command)", idx + 1));
                 kv("description", what_it_does);
-                kv("command", &format!("{}{}{}", colors::BOLD, command, colors::RESET));
+                kv(
+                    "command",
+                    &format!("{}{}{}", colors::BOLD, command, colors::RESET),
+                );
                 if *needs_sudo {
-                    kv("privileges", &format!("{}elevated{}", colors::WARN, colors::RESET));
+                    kv(
+                        "privileges",
+                        &format!("{}elevated{}", colors::WARN, colors::RESET),
+                    );
                 }
                 "Execute shell command".to_string()
             }
@@ -72,7 +85,10 @@ pub async fn handle_proposed_change(
             ChangeRisk::Medium => colors::WARN,
             ChangeRisk::High => colors::ERR,
         };
-        kv("risk", &format!("{}{:?}{}", risk_color, plan.risk, colors::RESET));
+        kv(
+            "risk",
+            &format!("{}{:?}{}", risk_color, plan.risk, colors::RESET),
+        );
         kv("action", &op);
         println!();
     }

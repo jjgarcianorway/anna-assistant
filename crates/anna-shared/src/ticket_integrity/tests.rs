@@ -23,7 +23,10 @@ fn test_editor_syntax_asks_which_editor() {
 
     // Then: Must ask for clarification, NOT proceed to probes
     match decision {
-        ClarificationDecision::NeedClarification { question, missing_facts } => {
+        ClarificationDecision::NeedClarification {
+            question,
+            missing_facts,
+        } => {
             assert!(
                 question.question.to_lowercase().contains("editor"),
                 "Question must ask about editor"
@@ -83,7 +86,8 @@ fn test_swap_status_none() {
 #[test]
 fn test_swap_status_with_swapfile() {
     // Given: /proc/swaps with swap file
-    let output = "Filename\t\t\t\tType\t\tSize\t\tUsed\t\tPriority\n/swapfile\tfile\t\t8388604\t\t0\t\t-2\n";
+    let output =
+        "Filename\t\t\t\tType\t\tSize\t\tUsed\t\tPriority\n/swapfile\tfile\t\t8388604\t\t0\t\t-2\n";
 
     // When: We parse swap status
     let status = SwapStatus::from_proc_swaps(output);
@@ -164,7 +168,10 @@ fn test_parse_error_outcome() {
 
     // Then: Must be ParseError, NOT Answered
     assert_eq!(outcome, TicketOutcome::ParseError);
-    assert!(!outcome.is_success(), "ParseError must not count as success");
+    assert!(
+        !outcome.is_success(),
+        "ParseError must not count as success"
+    );
 }
 
 /// Test: Stats must show parse errors separately.
@@ -209,7 +216,10 @@ fn test_wallpaper_clarification_required() {
     let is_required = is_clarification_required_intent("wallpapers_location");
 
     // Then: Should require clarification
-    assert!(is_required, "wallpapers_location should require clarification");
+    assert!(
+        is_required,
+        "wallpapers_location should require clarification"
+    );
 
     // And the decision should request clarification
     let decision = check_clarification_needed("wallpapers_location", &facts);
@@ -267,7 +277,9 @@ fn test_games_is_ambiguous() {
 /// Test: Error message detection.
 #[test]
 fn test_error_message_detection() {
-    assert!(is_parse_error("Failed to parse specialist response. Parse error: Timeout"));
+    assert!(is_parse_error(
+        "Failed to parse specialist response. Parse error: Timeout"
+    ));
     assert!(is_parse_error("Invalid JSON in response"));
     assert!(!is_parse_error("Everything worked fine"));
 

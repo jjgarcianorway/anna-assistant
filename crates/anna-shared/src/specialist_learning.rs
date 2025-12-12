@@ -19,18 +19,18 @@ use std::path::PathBuf;
 /// A lesson learned from specialist interaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpecialistLesson {
-    pub id: String,                          // Unique lesson ID
-    pub query_pattern: String,               // Normalized query pattern
-    pub domain: SpecialistDomain,            // Domain this applies to
-    pub category: QueryCategory,             // For probe learning
-    pub issues_fixed: Vec<RevisionIssue>,    // What was wrong
-    pub solution_type: SolutionType,         // How solution was obtained
-    pub effective_probes: Vec<String>,       // Probes that worked
-    pub answer_template: String,             // Successful answer
-    pub confidence: u8,                      // Confidence 0-100
-    pub success_count: u32,                  // Times this succeeded
-    pub learned_at: u64,                     // First learning timestamp
-    pub last_success_at: u64,                // Last success timestamp
+    pub id: String,                              // Unique lesson ID
+    pub query_pattern: String,                   // Normalized query pattern
+    pub domain: SpecialistDomain,                // Domain this applies to
+    pub category: QueryCategory,                 // For probe learning
+    pub issues_fixed: Vec<RevisionIssue>,        // What was wrong
+    pub solution_type: SolutionType,             // How solution was obtained
+    pub effective_probes: Vec<String>,           // Probes that worked
+    pub answer_template: String,                 // Successful answer
+    pub confidence: u8,                          // Confidence 0-100
+    pub success_count: u32,                      // Times this succeeded
+    pub learned_at: u64,                         // First learning timestamp
+    pub last_success_at: u64,                    // Last success timestamp
     pub generic_pattern: Option<GenericPattern>, // Generic pattern if any
 }
 
@@ -66,12 +66,12 @@ pub struct GenericPattern {
 /// Categories of generic patterns
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PatternCategory {
-    ConfigCheck,    // "check X config"
-    ConfigEdit,     // "enable Y in X"
-    ServiceAction,  // "start/stop/restart X"
-    PackageQuery,   // "is X installed"
-    DiskAnalysis,   // "what's using space"
-    ProcessQuery,   // "what's using CPU/memory"
+    ConfigCheck,   // "check X config"
+    ConfigEdit,    // "enable Y in X"
+    ServiceAction, // "start/stop/restart X"
+    PackageQuery,  // "is X installed"
+    DiskAnalysis,  // "what's using space"
+    ProcessQuery,  // "what's using CPU/memory"
     Other,
 }
 
@@ -139,7 +139,9 @@ impl SpecialistLearningStore {
     /// Get store path
     fn store_path() -> PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        PathBuf::from(home).join(".anna").join("specialist_lessons.json")
+        PathBuf::from(home)
+            .join(".anna")
+            .join("specialist_lessons.json")
     }
 
     /// Record a new lesson from specialist interaction
@@ -171,14 +173,17 @@ impl SpecialistLearningStore {
             }
         } else {
             // Add as pending
-            self.pending_patterns.insert(pattern_key, PendingPattern {
-                query_pattern: lesson.query_pattern.clone(),
-                domain: lesson.domain,
-                success_count: 1,
-                last_answer: lesson.answer_template,
-                last_probes: lesson.effective_probes,
-                confidence: lesson.confidence,
-            });
+            self.pending_patterns.insert(
+                pattern_key,
+                PendingPattern {
+                    query_pattern: lesson.query_pattern.clone(),
+                    domain: lesson.domain,
+                    success_count: 1,
+                    last_answer: lesson.answer_template,
+                    last_probes: lesson.effective_probes,
+                    confidence: lesson.confidence,
+                },
+            );
         }
 
         false
@@ -269,7 +274,7 @@ fn extract_keywords(query: &str) -> Vec<String> {
     query
         .to_lowercase()
         .split_whitespace()
-        .filter(|w| w.len() > 2)  // Skip short words
+        .filter(|w| w.len() > 2) // Skip short words
         .filter(|w| !STOP_WORDS.contains(w))
         .map(|w| w.to_string())
         .collect()
@@ -277,11 +282,11 @@ fn extract_keywords(query: &str) -> Vec<String> {
 
 /// Common words to skip when indexing
 const STOP_WORDS: &[&str] = &[
-    "the", "and", "for", "are", "but", "not", "you", "all", "can", "had",
-    "her", "was", "one", "our", "out", "has", "have", "been", "were", "being",
-    "what", "when", "where", "which", "while", "who", "whom", "this", "that",
-    "these", "those", "then", "than", "some", "such", "into", "from", "with",
-    "how", "why", "does", "will", "would", "could", "should", "may", "might",
+    "the", "and", "for", "are", "but", "not", "you", "all", "can", "had", "her", "was", "one",
+    "our", "out", "has", "have", "been", "were", "being", "what", "when", "where", "which",
+    "while", "who", "whom", "this", "that", "these", "those", "then", "than", "some", "such",
+    "into", "from", "with", "how", "why", "does", "will", "would", "could", "should", "may",
+    "might",
 ];
 
 /// Detect if a query fits a generic pattern category
@@ -304,28 +309,37 @@ pub fn detect_pattern_category(query: &str) -> Option<PatternCategory> {
     }
 
     // Service action patterns
-    if q.contains("service") || q.contains("systemd") || q.contains("daemon")
-        || q.contains("start") || q.contains("stop") || q.contains("restart")
+    if q.contains("service")
+        || q.contains("systemd")
+        || q.contains("daemon")
+        || q.contains("start")
+        || q.contains("stop")
+        || q.contains("restart")
     {
         return Some(PatternCategory::ServiceAction);
     }
 
     // Package query patterns
-    if q.contains("installed") || q.contains("package") || q.contains("install")
-    {
+    if q.contains("installed") || q.contains("package") || q.contains("install") {
         return Some(PatternCategory::PackageQuery);
     }
 
     // Disk analysis patterns
-    if q.contains("disk") || q.contains("space") || q.contains("storage")
-        || q.contains("folder") || q.contains("directory")
+    if q.contains("disk")
+        || q.contains("space")
+        || q.contains("storage")
+        || q.contains("folder")
+        || q.contains("directory")
     {
         return Some(PatternCategory::DiskAnalysis);
     }
 
     // Process query patterns
-    if q.contains("cpu") || q.contains("memory") || q.contains("process")
-        || q.contains("using") || q.contains("consuming")
+    if q.contains("cpu")
+        || q.contains("memory")
+        || q.contains("process")
+        || q.contains("using")
+        || q.contains("consuming")
     {
         return Some(PatternCategory::ProcessQuery);
     }
@@ -347,7 +361,8 @@ pub fn extract_target(query: &str) -> Option<String> {
 
     // Priority 2: Look for word before "config", "service", "package"
     for (i, word) in words.iter().enumerate() {
-        if *word == "config" || *word == "configuration" || *word == "service" || *word == "package" {
+        if *word == "config" || *word == "configuration" || *word == "service" || *word == "package"
+        {
             if i > 0 {
                 return Some(words[i - 1].to_string());
             }
@@ -359,11 +374,43 @@ pub fn extract_target(query: &str) -> Option<String> {
 
 /// Known apps, services, editors, etc.
 const KNOWN_TARGETS: &[&str] = &[
-    "vim", "nvim", "neovim", "nano", "emacs", "helix", "hx", "code", "vscode",
-    "hyprland", "sway", "i3", "bspwm", "awesome", "dwm", "qtile",
-    "bash", "zsh", "fish", "tmux", "alacritty", "kitty", "wezterm",
-    "nginx", "apache", "postgres", "mysql", "redis", "docker", "podman",
-    "ssh", "sshd", "cups", "bluetooth", "networkmanager", "pipewire", "pulseaudio",
+    "vim",
+    "nvim",
+    "neovim",
+    "nano",
+    "emacs",
+    "helix",
+    "hx",
+    "code",
+    "vscode",
+    "hyprland",
+    "sway",
+    "i3",
+    "bspwm",
+    "awesome",
+    "dwm",
+    "qtile",
+    "bash",
+    "zsh",
+    "fish",
+    "tmux",
+    "alacritty",
+    "kitty",
+    "wezterm",
+    "nginx",
+    "apache",
+    "postgres",
+    "mysql",
+    "redis",
+    "docker",
+    "podman",
+    "ssh",
+    "sshd",
+    "cups",
+    "bluetooth",
+    "networkmanager",
+    "pipewire",
+    "pulseaudio",
 ];
 
 /// Check if word is a known target
@@ -377,17 +424,38 @@ mod tests {
 
     #[test]
     fn test_detect_pattern_category() {
-        assert_eq!(detect_pattern_category("check hyprland config"), Some(PatternCategory::ConfigCheck));
-        assert_eq!(detect_pattern_category("enable syntax highlighting in vim"), Some(PatternCategory::ConfigEdit));
-        assert_eq!(detect_pattern_category("restart nginx service"), Some(PatternCategory::ServiceAction));
-        assert_eq!(detect_pattern_category("is docker installed"), Some(PatternCategory::PackageQuery));
-        assert_eq!(detect_pattern_category("what folders are taking space"), Some(PatternCategory::DiskAnalysis));
+        assert_eq!(
+            detect_pattern_category("check hyprland config"),
+            Some(PatternCategory::ConfigCheck)
+        );
+        assert_eq!(
+            detect_pattern_category("enable syntax highlighting in vim"),
+            Some(PatternCategory::ConfigEdit)
+        );
+        assert_eq!(
+            detect_pattern_category("restart nginx service"),
+            Some(PatternCategory::ServiceAction)
+        );
+        assert_eq!(
+            detect_pattern_category("is docker installed"),
+            Some(PatternCategory::PackageQuery)
+        );
+        assert_eq!(
+            detect_pattern_category("what folders are taking space"),
+            Some(PatternCategory::DiskAnalysis)
+        );
     }
 
     #[test]
     fn test_extract_target() {
-        assert_eq!(extract_target("check hyprland config"), Some("hyprland".to_string()));
-        assert_eq!(extract_target("restart nginx service"), Some("nginx".to_string()));
+        assert_eq!(
+            extract_target("check hyprland config"),
+            Some("hyprland".to_string())
+        );
+        assert_eq!(
+            extract_target("restart nginx service"),
+            Some("nginx".to_string())
+        );
         assert_eq!(extract_target("is vim installed"), Some("vim".to_string()));
     }
 

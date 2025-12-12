@@ -15,9 +15,7 @@ mod types;
 // Re-export all types and functions
 pub use llm::{check_llm_fallback, LlmBudget, LlmFallback};
 pub use probe::{ProbeBudget, ProbeBudgetCheck};
-pub use stage::{
-    check_stage_budget, check_total_budget, BudgetCheck, BudgetEnforcer, StageBudget,
-};
+pub use stage::{check_stage_budget, check_total_budget, BudgetCheck, BudgetEnforcer, StageBudget};
 pub use types::{
     Stage, StageTiming, LLM_MAX_CONTEXT_TOKENS, LLM_MAX_DRAFT_TOKENS, LLM_MAX_SPECIALIST_TOKENS,
     SPECIALIST_TIMEOUT_SECS, TRANSLATOR_TIMEOUT_SECS,

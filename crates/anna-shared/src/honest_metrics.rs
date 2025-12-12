@@ -76,25 +76,58 @@ impl HonestStats {
 
         // Service desk section
         output.push_str("[service desk]\n");
-        output.push_str(&format!("  total_tickets         {}\n", self.service_desk.total_tickets));
-        output.push_str(&format!("  resolved_success      {}\n", self.service_desk.resolved_success));
-        output.push_str(&format!("  resolved_partial      {}\n", self.service_desk.resolved_partial));
-        output.push_str(&format!("  honest_unknown        {}\n", self.service_desk.honest_unknown));
-        output.push_str(&format!("  failed                {}\n", self.service_desk.failed));
-        output.push_str(&format!("  escalated             {}\n", self.service_desk.escalated));
-        output.push_str(&format!("  avg_response          {:.1}s\n", self.service_desk.avg_response_sec));
+        output.push_str(&format!(
+            "  total_tickets         {}\n",
+            self.service_desk.total_tickets
+        ));
+        output.push_str(&format!(
+            "  resolved_success      {}\n",
+            self.service_desk.resolved_success
+        ));
+        output.push_str(&format!(
+            "  resolved_partial      {}\n",
+            self.service_desk.resolved_partial
+        ));
+        output.push_str(&format!(
+            "  honest_unknown        {}\n",
+            self.service_desk.honest_unknown
+        ));
+        output.push_str(&format!(
+            "  failed                {}\n",
+            self.service_desk.failed
+        ));
+        output.push_str(&format!(
+            "  escalated             {}\n",
+            self.service_desk.escalated
+        ));
+        output.push_str(&format!(
+            "  avg_response          {:.1}s\n",
+            self.service_desk.avg_response_sec
+        ));
         output.push('\n');
 
         // Reliability section
         output.push_str("[reliability]\n");
-        output.push_str(&format!("  success_rate          {:.0}%\n", self.reliability.success_rate));
+        output.push_str(&format!(
+            "  success_rate          {:.0}%\n",
+            self.reliability.success_rate
+        ));
         output.push_str(&format!(
             "  reliability_rate      {:.0}%   ; success / (success + failed + internal errors)\n",
             self.reliability.reliability_rate
         ));
-        output.push_str(&format!("  parse_errors          {}\n", self.reliability.parse_errors));
-        output.push_str(&format!("  timeout_errors        {}\n", self.reliability.timeout_errors));
-        output.push_str(&format!("  internal_errors       {}\n", self.reliability.internal_errors));
+        output.push_str(&format!(
+            "  parse_errors          {}\n",
+            self.reliability.parse_errors
+        ));
+        output.push_str(&format!(
+            "  timeout_errors        {}\n",
+            self.reliability.timeout_errors
+        ));
+        output.push_str(&format!(
+            "  internal_errors       {}\n",
+            self.reliability.internal_errors
+        ));
         output.push('\n');
 
         // Staff roster section
@@ -244,8 +277,8 @@ mod tests {
         assert!(output.contains("internal error"));
         assert!(!output.contains("[debug]"));
 
-        let display_debug = format_internal_error("DSK-001", true)
-            .with_debug("parse_error", "Invalid JSON", 2);
+        let display_debug =
+            format_internal_error("DSK-001", true).with_debug("parse_error", "Invalid JSON", 2);
         let output_debug = display_debug.format();
         assert!(output_debug.contains("[debug]"));
         assert!(output_debug.contains("parse_error"));
@@ -276,7 +309,8 @@ mod tests {
     fn create_success(id: &str) -> TicketRecord {
         let mut t = TicketRecord::new(id, "Test");
         t.start_processing("desktop.junior").unwrap();
-        t.mark_answered(&SpecialistResponse::success(id, "Success")).unwrap();
+        t.mark_answered(&SpecialistResponse::success(id, "Success"))
+            .unwrap();
         t.mark_user_satisfied("Answer").unwrap();
         t
     }
@@ -284,7 +318,8 @@ mod tests {
     fn create_partial(id: &str) -> TicketRecord {
         let mut t = TicketRecord::new(id, "Test");
         t.start_processing("desktop.junior").unwrap();
-        t.mark_answered(&SpecialistResponse::partial(id, "Partial")).unwrap();
+        t.mark_answered(&SpecialistResponse::partial(id, "Partial"))
+            .unwrap();
         t.mark_user_satisfied("Partial").unwrap();
         t
     }
@@ -295,14 +330,16 @@ mod tests {
         t.mark_failed(InternalError::ParseError {
             attempts: 2,
             last_error: "Bad JSON".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
         t
     }
 
     fn create_honest_unknown(id: &str) -> TicketRecord {
         let mut t = TicketRecord::new(id, "Test");
         t.start_processing("desktop.junior").unwrap();
-        t.mark_answered(&SpecialistResponse::no_data(id, "No data")).unwrap();
+        t.mark_answered(&SpecialistResponse::no_data(id, "No data"))
+            .unwrap();
         t.mark_user_satisfied("Unknown").unwrap();
         t
     }

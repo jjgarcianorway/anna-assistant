@@ -60,7 +60,12 @@ impl StreamingUpdate {
                 status,
                 duration_ms,
             } => {
-                format!("[probe] {} → {} ({}ms)", name, status.display(), duration_ms)
+                format!(
+                    "[probe] {} → {} ({}ms)",
+                    name,
+                    status.display(),
+                    duration_ms
+                )
             }
             Self::SpecialistStarted { name, department } => {
                 format!("{} ({}) is reviewing the data...", name, department)
@@ -121,7 +126,11 @@ impl TimingBreakdown {
             probes_ms: summary.probes_ms,
             knowledge_ms: summary.knowledge_ms,
             total_ms: summary.total_ms,
-            timed_out_stages: summary.timeouts.iter().map(|t| t.name().to_string()).collect(),
+            timed_out_stages: summary
+                .timeouts
+                .iter()
+                .map(|t| t.name().to_string())
+                .collect(),
             ..Default::default()
         }
     }

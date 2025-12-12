@@ -210,7 +210,13 @@ impl StrictSpecialistResponse {
     }
 
     /// Builder: add action
-    pub fn with_action(mut self, kind: ActionKind, desc: &str, cmd: Option<&str>, risk: RiskLevel) -> Self {
+    pub fn with_action(
+        mut self,
+        kind: ActionKind,
+        desc: &str,
+        cmd: Option<&str>,
+        risk: RiskLevel,
+    ) -> Self {
         self.actions.push(SuggestedAction {
             kind,
             description: desc.to_string(),
@@ -231,12 +237,18 @@ impl StrictSpecialistResponse {
 
         // Summary length check
         if self.summary.len() > 200 {
-            issues.push(format!("summary too long ({} > 200 chars)", self.summary.len()));
+            issues.push(format!(
+                "summary too long ({} > 200 chars)",
+                self.summary.len()
+            ));
         }
 
         // Confidence range
         if self.confidence < 0.0 || self.confidence > 1.0 {
-            issues.push(format!("confidence {} out of range [0.0, 1.0]", self.confidence));
+            issues.push(format!(
+                "confidence {} out of range [0.0, 1.0]",
+                self.confidence
+            ));
         }
 
         // Ok status requires evidence
@@ -301,7 +313,10 @@ impl StrictSpecialistResponse {
         if self.status == StrictStatus::Ok {
             for pattern in evasion_patterns {
                 if summary_lower.contains(pattern) {
-                    issues.push(format!("status=ok but summary contains evasion: '{}'", pattern));
+                    issues.push(format!(
+                        "status=ok but summary contains evasion: '{}'",
+                        pattern
+                    ));
                 }
             }
         }
@@ -309,12 +324,19 @@ impl StrictSpecialistResponse {
         // Check details for tutorial patterns
         for (i, detail) in self.details.iter().enumerate() {
             if detail.len() > 300 {
-                issues.push(format!("details[{}] too long ({} > 300 chars)", i, detail.len()));
+                issues.push(format!(
+                    "details[{}] too long ({} > 300 chars)",
+                    i,
+                    detail.len()
+                ));
             }
             let detail_lower = detail.to_lowercase();
             for f in forbidden_nonsense {
                 if detail_lower.contains(f) {
-                    issues.push(format!("details[{}] contains forbidden nonsense: '{}'", i, f));
+                    issues.push(format!(
+                        "details[{}] contains forbidden nonsense: '{}'",
+                        i, f
+                    ));
                 }
             }
         }
@@ -326,7 +348,10 @@ impl StrictSpecialistResponse {
 
         // High confidence + failed status is contradictory
         if self.status == StrictStatus::Failed && self.confidence > 0.5 {
-            issues.push(format!("failed status with high confidence {} is contradictory", self.confidence));
+            issues.push(format!(
+                "failed status with high confidence {} is contradictory",
+                self.confidence
+            ));
         }
 
         issues
@@ -356,7 +381,10 @@ pub enum ParseResult {
     /// JSON found but invalid structure
     InvalidJson { raw: String, error: String },
     /// Schema validation failed
-    ValidationFailed { response: StrictSpecialistResponse, issues: Vec<String> },
+    ValidationFailed {
+        response: StrictSpecialistResponse,
+        issues: Vec<String>,
+    },
     /// LLM timed out
     Timeout { elapsed_secs: u64 },
 }
@@ -370,13 +398,18 @@ impl ParseResult {
     pub fn to_response(self, ticket_id: &str, intent: &str) -> StrictSpecialistResponse {
         match self {
             Self::Success(r) => r,
-            Self::NoJson { raw } => {
-                StrictSpecialistResponse::parse_error(ticket_id, intent, &format!("No JSON found: {}", truncate(&raw, 100)))
-            }
+            Self::NoJson { raw } => StrictSpecialistResponse::parse_error(
+                ticket_id,
+                intent,
+                &format!("No JSON found: {}", truncate(&raw, 100)),
+            ),
             Self::InvalidJson { error, .. } => {
                 StrictSpecialistResponse::parse_error(ticket_id, intent, &error)
             }
-            Self::ValidationFailed { mut response, issues } => {
+            Self::ValidationFailed {
+                mut response,
+                issues,
+            } => {
                 // Downgrade to failed with issues noted
                 response.status = StrictStatus::Failed;
                 response.summary = format!("Invalid response: {}", issues.join(", "));
@@ -414,7 +447,8 @@ pub fn extract_json(raw: &str) -> Option<String> {
         if let Some(end) = trimmed[start + 3..].find("```") {
             let json = trimmed[start + 3..start + 3 + end].trim();
             // Skip language identifier if present
-            let json = json.lines()
+            let json = json
+                .lines()
                 .skip_while(|l| !l.trim().starts_with('{'))
                 .collect::<Vec<_>>()
                 .join("\n");
@@ -472,7 +506,11 @@ pub fn parse_specialist_output(raw: &str, ticket_id: &str, intent: &str) -> Pars
 }
 
 /// Lenient parsing - fill in missing fields with defaults
-fn parse_lenient(json_str: &str, ticket_id: &str, intent: &str) -> Result<StrictSpecialistResponse, String> {
+fn parse_lenient(
+    json_str: &str,
+    ticket_id: &str,
+    intent: &str,
+) -> Result<StrictSpecialistResponse, String> {
     #[derive(Deserialize, Default)]
     struct Lenient {
         #[serde(default)]
@@ -511,7 +549,8 @@ fn parse_lenient(json_str: &str, ticket_id: &str, intent: &str) -> Result<Strict
     let l: Lenient = serde_json::from_str(json_str).map_err(|e| e.to_string())?;
 
     // Extract summary from either field
-    let summary = l.summary
+    let summary = l
+        .summary
         .or_else(|| l.answer.as_ref().and_then(|a| a.short.clone()))
         .unwrap_or_else(|| "No summary provided".to_string());
 
@@ -571,11 +610,11 @@ pub struct TimeBudgets {
 impl Default for TimeBudgets {
     fn default() -> Self {
         Self {
-            translator_ms: 1500,  // 1.5s
-            specialist_ms: 4000,  // 4s
-            probe_ms: 3000,       // 3s per probe
+            translator_ms: 1500,   // 1.5s
+            specialist_ms: 4000,   // 4s
+            probe_ms: 3000,        // 3s per probe
             probes_total_ms: 5000, // 5s total for all probes
-            knowledge_ms: 500,    // 500ms for knowledge queries
+            knowledge_ms: 500,     // 500ms for knowledge queries
         }
     }
 }
@@ -610,8 +649,13 @@ mod tests {
 
     #[test]
     fn test_strict_response_ok() {
-        let response = StrictSpecialistResponse::ok("DSK-001", "query_metric", "Available memory: 17.0 GiB", 0.95)
-            .with_evidence("memory_info", "MemAvailable: 17892232 kB");
+        let response = StrictSpecialistResponse::ok(
+            "DSK-001",
+            "query_metric",
+            "Available memory: 17.0 GiB",
+            0.95,
+        )
+        .with_evidence("memory_info", "MemAvailable: 17892232 kB");
 
         assert!(response.is_valid());
         assert!(response.is_resolved());
@@ -619,7 +663,8 @@ mod tests {
 
     #[test]
     fn test_strict_response_validates_forbidden() {
-        let response = StrictSpecialistResponse::ok("DSK-001", "check_package", "unknown is installed", 0.9);
+        let response =
+            StrictSpecialistResponse::ok("DSK-001", "check_package", "unknown is installed", 0.9);
         let issues = response.validate();
         assert!(!issues.is_empty());
         assert!(issues.iter().any(|i| i.contains("forbidden")));
@@ -627,7 +672,8 @@ mod tests {
 
     #[test]
     fn test_strict_response_validates_evidence() {
-        let response = StrictSpecialistResponse::ok("DSK-001", "query_metric", "Your RAM is 16GB", 0.95);
+        let response =
+            StrictSpecialistResponse::ok("DSK-001", "query_metric", "Your RAM is 16GB", 0.95);
         // No evidence but high confidence + ok status
         let issues = response.validate();
         assert!(issues.iter().any(|i| i.contains("no evidence")));

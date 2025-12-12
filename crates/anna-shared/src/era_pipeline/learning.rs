@@ -130,100 +130,105 @@ impl IntentLearningStore {
     /// Add seed mappings for common intents.
     fn add_seed_mappings(&mut self) {
         // Memory intents
-        self.add(IntentFactMapping::new(
-            "memory.free",
-            vec!["memory.free_gib", "memory.total_gib"],
-            AnswerType::Numeric,
-        ).with_primary("memory.free_gib"));
+        self.add(
+            IntentFactMapping::new(
+                "memory.free",
+                vec!["memory.free_gib", "memory.total_gib"],
+                AnswerType::Numeric,
+            )
+            .with_primary("memory.free_gib"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "memory.usage",
-            vec!["memory.used_pct"],
-            AnswerType::Numeric,
-        ).with_primary("memory.used_pct"));
+        self.add(
+            IntentFactMapping::new("memory.usage", vec!["memory.used_pct"], AnswerType::Numeric)
+                .with_primary("memory.used_pct"),
+        );
 
         // Boot intents
-        self.add(IntentFactMapping::new(
-            "boot.time",
-            vec!["boot.total_time_s"],
-            AnswerType::Numeric,
-        ).with_primary("boot.total_time_s"));
+        self.add(
+            IntentFactMapping::new("boot.time", vec!["boot.total_time_s"], AnswerType::Numeric)
+                .with_primary("boot.total_time_s"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "boot.slow_service",
-            vec!["boot.blame", "boot.slowest_service"],
-            AnswerType::Entity,
-        ).with_primary("boot.slowest_service"));
+        self.add(
+            IntentFactMapping::new(
+                "boot.slow_service",
+                vec!["boot.blame", "boot.slowest_service"],
+                AnswerType::Entity,
+            )
+            .with_primary("boot.slowest_service"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "boot.blame_list",
-            vec!["boot.blame"],
-            AnswerType::List,
-        ).with_primary("boot.blame"));
+        self.add(
+            IntentFactMapping::new("boot.blame_list", vec!["boot.blame"], AnswerType::List)
+                .with_primary("boot.blame"),
+        );
 
         // CPU intents
-        self.add(IntentFactMapping::new(
-            "cpu.model",
-            vec!["cpu.model"],
-            AnswerType::Entity,
-        ).with_primary("cpu.model"));
+        self.add(
+            IntentFactMapping::new("cpu.model", vec!["cpu.model"], AnswerType::Entity)
+                .with_primary("cpu.model"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "cpu.temperature",
-            vec!["cpu.temp_c"],
-            AnswerType::Numeric,
-        ).with_primary("cpu.temp_c"));
+        self.add(
+            IntentFactMapping::new("cpu.temperature", vec!["cpu.temp_c"], AnswerType::Numeric)
+                .with_primary("cpu.temp_c"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "cpu.load",
-            vec!["cpu.load_1m"],
-            AnswerType::Numeric,
-        ).with_primary("cpu.load_1m"));
+        self.add(
+            IntentFactMapping::new("cpu.load", vec!["cpu.load_1m"], AnswerType::Numeric)
+                .with_primary("cpu.load_1m"),
+        );
 
         // Disk intents
-        self.add(IntentFactMapping::new(
-            "disk.free",
-            vec!["disk.root_free_gib"],
-            AnswerType::Numeric,
-        ).with_primary("disk.root_free_gib"));
+        self.add(
+            IntentFactMapping::new("disk.free", vec!["disk.root_free_gib"], AnswerType::Numeric)
+                .with_primary("disk.root_free_gib"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "disk.usage",
-            vec!["disk.root_used_pct"],
-            AnswerType::Numeric,
-        ).with_primary("disk.root_used_pct"));
+        self.add(
+            IntentFactMapping::new(
+                "disk.usage",
+                vec!["disk.root_used_pct"],
+                AnswerType::Numeric,
+            )
+            .with_primary("disk.root_used_pct"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "disk.trim",
-            vec!["disk.trim_enabled"],
-            AnswerType::Boolean,
-        ).with_primary("disk.trim_enabled"));
+        self.add(
+            IntentFactMapping::new("disk.trim", vec!["disk.trim_enabled"], AnswerType::Boolean)
+                .with_primary("disk.trim_enabled"),
+        );
 
         // GPU intents
-        self.add(IntentFactMapping::new(
-            "gpu.model",
-            vec!["gpu.model"],
-            AnswerType::Entity,
-        ).with_primary("gpu.model"));
+        self.add(
+            IntentFactMapping::new("gpu.model", vec!["gpu.model"], AnswerType::Entity)
+                .with_primary("gpu.model"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "gpu.driver",
-            vec!["gpu.driver"],
-            AnswerType::Entity,
-        ).with_primary("gpu.driver"));
+        self.add(
+            IntentFactMapping::new("gpu.driver", vec!["gpu.driver"], AnswerType::Entity)
+                .with_primary("gpu.driver"),
+        );
 
         // Service intents
-        self.add(IntentFactMapping::new(
-            "services.failed",
-            vec!["services.failed_list", "services.failed_count"],
-            AnswerType::List,
-        ).with_primary("services.failed_list"));
+        self.add(
+            IntentFactMapping::new(
+                "services.failed",
+                vec!["services.failed_list", "services.failed_count"],
+                AnswerType::List,
+            )
+            .with_primary("services.failed_list"),
+        );
 
-        self.add(IntentFactMapping::new(
-            "services.failed_count",
-            vec!["services.failed_count"],
-            AnswerType::Numeric,
-        ).with_primary("services.failed_count"));
+        self.add(
+            IntentFactMapping::new(
+                "services.failed_count",
+                vec!["services.failed_count"],
+                AnswerType::Numeric,
+            )
+            .with_primary("services.failed_count"),
+        );
 
         self.update_stats();
     }
@@ -256,8 +261,7 @@ impl IntentLearningStore {
 
     /// Get primary fact for direct answer.
     pub fn primary_fact(&self, intent: &str) -> Option<&str> {
-        self.get(intent)
-            .and_then(|m| m.primary_fact.as_deref())
+        self.get(intent).and_then(|m| m.primary_fact.as_deref())
     }
 
     /// Learn from a successful resolution.
@@ -344,9 +348,7 @@ pub enum FastPathDecision {
         answer_type: AnswerType,
     },
     /// Cannot fast path - need reasoning.
-    NeedReasoning {
-        reason: String,
-    },
+    NeedReasoning { reason: String },
     /// Unknown intent - need full pipeline.
     UnknownIntent,
 }
@@ -354,21 +356,17 @@ pub enum FastPathDecision {
 /// Decide whether to use fast path.
 pub fn decide_fast_path(store: &IntentLearningStore, intent: &str) -> FastPathDecision {
     match store.get(intent) {
-        Some(mapping) if mapping.can_fast_path() => {
-            FastPathDecision::UseFastPath {
-                primary_fact: mapping.primary_fact.clone().unwrap_or_default(),
-                required_facts: mapping.required_facts.clone(),
-                answer_type: mapping.answer_type,
-            }
-        }
-        Some(mapping) => {
-            FastPathDecision::NeedReasoning {
-                reason: format!(
-                    "Mapping confidence too low ({:.2}) or insufficient samples",
-                    mapping.confidence
-                ),
-            }
-        }
+        Some(mapping) if mapping.can_fast_path() => FastPathDecision::UseFastPath {
+            primary_fact: mapping.primary_fact.clone().unwrap_or_default(),
+            required_facts: mapping.required_facts.clone(),
+            answer_type: mapping.answer_type,
+        },
+        Some(mapping) => FastPathDecision::NeedReasoning {
+            reason: format!(
+                "Mapping confidence too low ({:.2}) or insufficient samples",
+                mapping.confidence
+            ),
+        },
         None => FastPathDecision::UnknownIntent,
     }
 }
@@ -379,11 +377,9 @@ mod tests {
 
     #[test]
     fn test_intent_fact_mapping() {
-        let mut mapping = IntentFactMapping::new(
-            "memory.free",
-            vec!["memory.free_gib"],
-            AnswerType::Numeric,
-        ).with_primary("memory.free_gib");
+        let mut mapping =
+            IntentFactMapping::new("memory.free", vec!["memory.free_gib"], AnswerType::Numeric)
+                .with_primary("memory.free_gib");
 
         assert_eq!(mapping.confidence, 0.5);
         assert!(!mapping.is_reliable());
@@ -427,7 +423,9 @@ mod tests {
         store.learn_failure("memory.free", &["memory.swap_gib"]);
 
         let mapping = store.get("memory.free").unwrap();
-        assert!(mapping.required_facts.contains(&"memory.swap_gib".to_string()));
+        assert!(mapping
+            .required_facts
+            .contains(&"memory.swap_gib".to_string()));
     }
 
     #[test]

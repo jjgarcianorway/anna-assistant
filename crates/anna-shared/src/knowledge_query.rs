@@ -58,14 +58,14 @@ impl KnowledgeSourceKind {
     /// Get priority for source ordering (lower = higher priority)
     pub fn priority(&self) -> u8 {
         match self {
-            Self::ProbeOutput => 1,      // System facts first
-            Self::ManPage => 2,          // Authoritative docs
-            Self::ArchWikiPage => 3,     // Community docs
+            Self::ProbeOutput => 1,  // System facts first
+            Self::ManPage => 2,      // Authoritative docs
+            Self::ArchWikiPage => 3, // Community docs
             Self::ArchWikiSection => 4,
-            Self::CliHelp => 5,          // Quick reference
-            Self::LearnedRecipe => 6,    // Learned patterns
-            Self::BuiltIn => 7,          // Static knowledge
-            Self::ConfigFile => 8,       // Context
+            Self::CliHelp => 5,       // Quick reference
+            Self::LearnedRecipe => 6, // Learned patterns
+            Self::BuiltIn => 7,       // Static knowledge
+            Self::ConfigFile => 8,    // Context
             Self::LocalDocFile => 9,
             Self::LogExcerpt => 10,
         }
@@ -228,28 +228,53 @@ fn format_origin(source: &DocSource, title: &str) -> String {
 fn domain_tags(domain: &str) -> Vec<String> {
     match domain {
         "services" | "systemd" => vec![
-            "systemctl".into(), "systemd".into(), "service".into(), "unit".into()
+            "systemctl".into(),
+            "systemd".into(),
+            "service".into(),
+            "unit".into(),
         ],
         "network" => vec![
-            "ip".into(), "networkctl".into(), "nmcli".into(), "interface".into()
+            "ip".into(),
+            "networkctl".into(),
+            "nmcli".into(),
+            "interface".into(),
         ],
         "storage" => vec![
-            "df".into(), "mount".into(), "lsblk".into(), "disk".into(), "filesystem".into()
+            "df".into(),
+            "mount".into(),
+            "lsblk".into(),
+            "disk".into(),
+            "filesystem".into(),
         ],
         "packages" => vec![
-            "pacman".into(), "yay".into(), "paru".into(), "package".into()
+            "pacman".into(),
+            "yay".into(),
+            "paru".into(),
+            "package".into(),
         ],
         "boot" => vec![
-            "systemd-analyze".into(), "bootloader".into(), "grub".into(), "systemd-boot".into()
+            "systemd-analyze".into(),
+            "bootloader".into(),
+            "grub".into(),
+            "systemd-boot".into(),
         ],
         "audio" => vec![
-            "pipewire".into(), "pulseaudio".into(), "alsa".into(), "pactl".into()
+            "pipewire".into(),
+            "pulseaudio".into(),
+            "alsa".into(),
+            "pactl".into(),
         ],
         "desktop" => vec![
-            "hyprland".into(), "sway".into(), "kde".into(), "gnome".into()
+            "hyprland".into(),
+            "sway".into(),
+            "kde".into(),
+            "gnome".into(),
         ],
         "security" => vec![
-            "ufw".into(), "iptables".into(), "ssh".into(), "firewall".into()
+            "ufw".into(),
+            "iptables".into(),
+            "ssh".into(),
+            "firewall".into(),
         ],
         _ => vec![],
     }
@@ -294,9 +319,7 @@ impl KnowledgeResult {
         if self.hits.is_empty() {
             return String::new();
         }
-        let citations: Vec<String> = self.hits.iter()
-            .map(|h| h.citation_display())
-            .collect();
+        let citations: Vec<String> = self.hits.iter().map(|h| h.citation_display()).collect();
         format!("Evidence: {}", citations.join(", "))
     }
 }
@@ -318,8 +341,8 @@ mod tests {
 
     #[test]
     fn test_search_tags() {
-        let query = KnowledgeQuery::new("services", "failed service")
-            .with_commands(vec!["systemctl"]);
+        let query =
+            KnowledgeQuery::new("services", "failed service").with_commands(vec!["systemctl"]);
 
         let tags = query.search_tags();
         assert!(tags.contains(&"failed service".to_string()));
@@ -329,8 +352,12 @@ mod tests {
 
     #[test]
     fn test_knowledge_source_kind_priority() {
-        assert!(KnowledgeSourceKind::ProbeOutput.priority() < KnowledgeSourceKind::ManPage.priority());
-        assert!(KnowledgeSourceKind::ManPage.priority() < KnowledgeSourceKind::ArchWikiPage.priority());
+        assert!(
+            KnowledgeSourceKind::ProbeOutput.priority() < KnowledgeSourceKind::ManPage.priority()
+        );
+        assert!(
+            KnowledgeSourceKind::ManPage.priority() < KnowledgeSourceKind::ArchWikiPage.priority()
+        );
     }
 
     #[test]

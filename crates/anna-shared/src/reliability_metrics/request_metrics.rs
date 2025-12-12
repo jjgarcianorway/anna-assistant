@@ -254,7 +254,8 @@ impl RequestMetricsBuilder {
 
     /// Record claims.
     pub fn claims(mut self, total: u32, with_evidence: u32, evidence_ids: Vec<String>) -> Self {
-        self.metrics.record_claims(total, with_evidence, evidence_ids);
+        self.metrics
+            .record_claims(total, with_evidence, evidence_ids);
         self
     }
 
@@ -354,7 +355,10 @@ impl RequestMetricsStore {
 
     /// Get requests with a specific outcome.
     pub fn with_outcome(&self, outcome: CanonicalOutcome) -> Vec<&RequestMetrics> {
-        self.recent.iter().filter(|m| m.outcome == outcome).collect()
+        self.recent
+            .iter()
+            .filter(|m| m.outcome == outcome)
+            .collect()
     }
 
     /// Get requests for a topic.

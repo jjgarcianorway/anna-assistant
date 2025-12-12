@@ -13,7 +13,10 @@ pub enum JsonParseEvent {
     /// Successfully parsed JSON.
     Success { tokens_parsed: usize },
     /// Failed to parse - syntax error.
-    SyntaxError { error: String, position: Option<usize> },
+    SyntaxError {
+        error: String,
+        position: Option<usize>,
+    },
     /// Parsed but missing required fields.
     MissingFields { fields: Vec<String> },
     /// Parsed but has invalid values.
@@ -126,10 +129,7 @@ Example valid response:
 
     /// Format for inclusion in prompt.
     pub fn format_for_prompt(&self) -> String {
-        format!(
-            "{}\n{}\n\n{}",
-            self.schema, self.example, self.reminder
-        )
+        format!("{}\n{}\n\n{}", self.schema, self.example, self.reminder)
     }
 
     /// Stricter version for retry.

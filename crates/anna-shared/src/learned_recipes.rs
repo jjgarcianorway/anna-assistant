@@ -79,10 +79,7 @@ pub enum RecipeComputeStep {
         variable: String,
     },
     /// Check if probe output is empty
-    IsEmpty {
-        probe: String,
-        variable: String,
-    },
+    IsEmpty { probe: String, variable: String },
     /// Parse a numeric value
     ParseNumber {
         source_var: String,
@@ -179,7 +176,8 @@ impl RecipeStats {
     pub fn record_success(&mut self, confidence: f32) {
         self.uses += 1;
         self.successes += 1;
-        self.avg_confidence = (self.avg_confidence * (self.uses - 1) as f32 + confidence) / self.uses as f32;
+        self.avg_confidence =
+            (self.avg_confidence * (self.uses - 1) as f32 + confidence) / self.uses as f32;
     }
 
     pub fn record_failure(&mut self) {
@@ -245,7 +243,9 @@ impl RecipeStore {
             .filter_map(|id| self.recipes.get(id))
             .filter(|r| !r.deprecated && r.stats.success_rate() >= 0.5)
             .max_by(|a, b| {
-                a.stats.success_rate().partial_cmp(&b.stats.success_rate())
+                a.stats
+                    .success_rate()
+                    .partial_cmp(&b.stats.success_rate())
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
     }
@@ -257,9 +257,7 @@ impl RecipeStore {
 
     /// List all active recipes
     pub fn active_recipes(&self) -> Vec<&LearnedRecipe> {
-        self.recipes.values()
-            .filter(|r| !r.deprecated)
-            .collect()
+        self.recipes.values().filter(|r| !r.deprecated).collect()
     }
 
     /// Get stats summary
@@ -339,16 +337,11 @@ pub enum RecipeResult {
         missing: Vec<String>,
     },
     /// Recipe failed (fall back to specialist)
-    Failed {
-        reason: String,
-    },
+    Failed { reason: String },
 }
 
 /// Execute a recipe
-pub fn execute_recipe(
-    recipe: &LearnedRecipe,
-    ctx: &mut RecipeContext,
-) -> RecipeResult {
+pub fn execute_recipe(recipe: &LearnedRecipe, ctx: &mut RecipeContext) -> RecipeResult {
     // Check required probes
     for probe in &recipe.required_probes {
         if !ctx.probe_outputs.contains_key(probe) {
@@ -371,21 +364,23 @@ pub fn execute_recipe(
     // Render answer
     let answer = template.render(&ctx.variables);
 
-    RecipeResult::Success {
-        answer,
-        confidence,
-    }
+    RecipeResult::Success { answer, confidence }
 }
 
 /// Execute a single computation step
 fn execute_step(step: &RecipeComputeStep, ctx: &mut RecipeContext) -> Result<(), String> {
     match step {
-        RecipeComputeStep::Extract { probe, pattern, variable } => {
-            let output = ctx.probe_outputs.get(probe)
+        RecipeComputeStep::Extract {
+            probe,
+            pattern,
+            variable,
+        } => {
+            let output = ctx
+                .probe_outputs
+                .get(probe)
                 .ok_or_else(|| format!("Probe {} not found", probe))?;
 
-            let re = regex::Regex::new(pattern)
-                .map_err(|e| format!("Invalid pattern: {}", e))?;
+            let re = regex::Regex::new(pattern).map_err(|e| format!("Invalid pattern: {}", e))?;
 
             if let Some(caps) = re.captures(output) {
                 let value = caps.get(1).map(|m| m.as_str()).unwrap_or("");
@@ -394,8 +389,15 @@ fn execute_step(step: &RecipeComputeStep, ctx: &mut RecipeContext) -> Result<(),
             Ok(())
         }
 
-        RecipeComputeStep::Compare { variable, operator, threshold, result_var } => {
-            let value: f64 = ctx.variables.get(variable)
+        RecipeComputeStep::Compare {
+            variable,
+            operator,
+            threshold,
+            result_var,
+        } => {
+            let value: f64 = ctx
+                .variables
+                .get(variable)
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0.0);
 
@@ -404,12 +406,17 @@ fn execute_step(step: &RecipeComputeStep, ctx: &mut RecipeContext) -> Result<(),
             Ok(())
         }
 
-        RecipeComputeStep::Count { probe, pattern, variable } => {
-            let output = ctx.probe_outputs.get(probe)
+        RecipeComputeStep::Count {
+            probe,
+            pattern,
+            variable,
+        } => {
+            let output = ctx
+                .probe_outputs
+                .get(probe)
                 .ok_or_else(|| format!("Probe {} not found", probe))?;
 
-            let re = regex::Regex::new(pattern)
-                .map_err(|e| format!("Invalid pattern: {}", e))?;
+            let re = regex::Regex::new(pattern).map_err(|e| format!("Invalid pattern: {}", e))?;
 
             let count = re.find_iter(output).count();
             ctx.variables.insert(variable.clone(), count.to_string());
@@ -417,7 +424,9 @@ fn execute_step(step: &RecipeComputeStep, ctx: &mut RecipeContext) -> Result<(),
         }
 
         RecipeComputeStep::IsEmpty { probe, variable } => {
-            let output = ctx.probe_outputs.get(probe)
+            let output = ctx
+                .probe_outputs
+                .get(probe)
                 .map(|s| s.trim().is_empty())
                 .unwrap_or(true);
 
@@ -425,14 +434,20 @@ fn execute_step(step: &RecipeComputeStep, ctx: &mut RecipeContext) -> Result<(),
             Ok(())
         }
 
-        RecipeComputeStep::ParseNumber { source_var, target_var } => {
-            let source = ctx.variables.get(source_var)
+        RecipeComputeStep::ParseNumber {
+            source_var,
+            target_var,
+        } => {
+            let source = ctx
+                .variables
+                .get(source_var)
                 .ok_or_else(|| format!("Variable {} not found", source_var))?;
 
             // Extract first numeric value
             let re = regex::Regex::new(r"[\d.]+").unwrap();
             if let Some(m) = re.find(source) {
-                ctx.variables.insert(target_var.clone(), m.as_str().to_string());
+                ctx.variables
+                    .insert(target_var.clone(), m.as_str().to_string());
             }
             Ok(())
         }
@@ -458,8 +473,7 @@ fn select_answer_template<'a>(
 }
 
 fn store_path() -> PathBuf {
-    let base = std::env::var("ANNA_STATE_DIR")
-        .unwrap_or_else(|_| "/var/lib/anna".to_string());
+    let base = std::env::var("ANNA_STATE_DIR").unwrap_or_else(|_| "/var/lib/anna".to_string());
     PathBuf::from(base).join("learned_recipes.json")
 }
 
@@ -539,6 +553,8 @@ mod tests {
         };
 
         store.upsert(recipe);
-        assert!(store.find_for_intent(CanonicalIntent::CheckDiskUsage).is_some());
+        assert!(store
+            .find_for_intent(CanonicalIntent::CheckDiskUsage)
+            .is_some());
     }
 }

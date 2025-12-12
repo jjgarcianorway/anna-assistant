@@ -403,11 +403,20 @@ impl StatsEngine {
         lines.push(String::new());
         lines.push(s.format_summary());
         lines.push(String::new());
-        lines.push(format!("Resolved: {} (success: {}, partial: {})",
-            s.total_resolved(), s.successes, s.partial_resolutions));
-        lines.push(format!("Failures: {} (timeouts: {}, parse errors: {}, internal: {})",
-            s.failures, s.timeouts, s.parse_errors, s.internal_errors));
-        lines.push(format!("Awaiting clarification: {}", s.awaiting_clarification));
+        lines.push(format!(
+            "Resolved: {} (success: {}, partial: {})",
+            s.total_resolved(),
+            s.successes,
+            s.partial_resolutions
+        ));
+        lines.push(format!(
+            "Failures: {} (timeouts: {}, parse errors: {}, internal: {})",
+            s.failures, s.timeouts, s.parse_errors, s.internal_errors
+        ));
+        lines.push(format!(
+            "Awaiting clarification: {}",
+            s.awaiting_clarification
+        ));
         lines.push(format!("Total XP: {}", s.total_xp));
 
         // Department breakdown
@@ -428,7 +437,10 @@ impl StatsEngine {
         // Recent failures
         if !s.recent_failures.is_empty() {
             lines.push(String::new());
-            lines.push(format!("Recent failures (last 24h): {}", s.recent_failures.len()));
+            lines.push(format!(
+                "Recent failures (last 24h): {}",
+                s.recent_failures.len()
+            ));
         }
 
         lines.join("\n")
@@ -495,7 +507,10 @@ mod tests {
     fn test_clarification_not_counted() {
         let mut stats = TruthfulStats::default();
 
-        stats.record(&TicketStats::new("t", TicketOutcome::ClarificationRequired), 0);
+        stats.record(
+            &TicketStats::new("t", TicketOutcome::ClarificationRequired),
+            0,
+        );
 
         // Should not count as success or failure
         assert_eq!(stats.successes, 0);

@@ -41,7 +41,10 @@ impl RecipeStats {
         if self.satisfaction_scores.is_empty() {
             0.0
         } else {
-            self.satisfaction_scores.iter().map(|&s| s as f32).sum::<f32>()
+            self.satisfaction_scores
+                .iter()
+                .map(|&s| s as f32)
+                .sum::<f32>()
                 / self.satisfaction_scores.len() as f32
         }
     }
@@ -137,7 +140,10 @@ pub enum LearningOutcome {
     /// New pattern learned.
     NewPattern { pattern_id: String },
     /// Existing pattern reinforced.
-    Reinforced { pattern_id: String, new_confidence: f32 },
+    Reinforced {
+        pattern_id: String,
+        new_confidence: f32,
+    },
     /// Pattern deprecated (too many failures).
     Deprecated { pattern_id: String, reason: String },
     /// Not enough data to learn.
@@ -366,7 +372,13 @@ fn extract_query_pattern(query: &str) -> String {
     let query_clean: String = query
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c.is_whitespace() { c } else { ' ' })
+        .map(|c| {
+            if c.is_alphanumeric() || c.is_whitespace() {
+                c
+            } else {
+                ' '
+            }
+        })
         .collect();
 
     let words: Vec<&str> = query_clean
@@ -380,11 +392,10 @@ fn extract_query_pattern(query: &str) -> String {
 
 /// Common stop words to filter out.
 const STOP_WORDS: &[&str] = &[
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "must", "can", "what", "how", "why", "when",
-    "where", "which", "who", "whom", "this", "that", "these", "those",
-    "i", "me", "my", "we", "our", "you", "your", "it", "its",
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "can", "what",
+    "how", "why", "when", "where", "which", "who", "whom", "this", "that", "these", "those", "i",
+    "me", "my", "we", "our", "you", "your", "it", "its",
 ];
 
 #[cfg(test)]

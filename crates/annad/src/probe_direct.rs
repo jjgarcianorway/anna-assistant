@@ -168,8 +168,19 @@ fn extract_service_name(query: &str) -> Option<String> {
 
     // Check for common service keywords
     for svc in [
-        "bluetooth", "docker", "nginx", "ssh", "sshd", "cups", "pipewire",
-        "pulseaudio", "networkmanager", "apache", "mysql", "postgresql", "redis",
+        "bluetooth",
+        "docker",
+        "nginx",
+        "ssh",
+        "sshd",
+        "cups",
+        "pipewire",
+        "pulseaudio",
+        "networkmanager",
+        "apache",
+        "mysql",
+        "postgresql",
+        "redis",
     ] {
         if query.contains(svc) {
             return Some(svc.to_string());
@@ -212,7 +223,10 @@ fn try_swap_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerRe
                     answer.push_str(&format!("- {} ({} MB)\n", filename, size_mb));
                 }
             }
-            return Some(DirectAnswerResult { answer, confidence: 95 });
+            return Some(DirectAnswerResult {
+                answer,
+                confidence: 95,
+            });
         }
 
         // free -h output
@@ -267,7 +281,10 @@ fn try_disk_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerRe
                     ));
                 }
                 info!("v0.0.403: Direct disk answer");
-                return Some(DirectAnswerResult { answer, confidence: 95 });
+                return Some(DirectAnswerResult {
+                    answer,
+                    confidence: 95,
+                });
             }
         }
     }
@@ -304,7 +321,10 @@ fn try_memory_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswer
                     used_gb, total_gb, used_pct, status, avail_gb
                 );
                 info!("v0.0.403: Direct memory answer");
-                return Some(DirectAnswerResult { answer, confidence: 95 });
+                return Some(DirectAnswerResult {
+                    answer,
+                    confidence: 95,
+                });
             }
         }
     }
@@ -326,7 +346,12 @@ fn try_network_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswe
             let mut current_ips: Vec<String> = Vec::new();
 
             for line in probe.stdout.lines() {
-                if line.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+                if line
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false)
+                {
                     if !current_iface.is_empty() {
                         interfaces.push((current_iface.clone(), current_ips.clone()));
                         current_ips.clear();
@@ -354,7 +379,10 @@ fn try_network_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswe
                     }
                 }
                 info!("v0.0.403: Direct network answer");
-                return Some(DirectAnswerResult { answer, confidence: 90 });
+                return Some(DirectAnswerResult {
+                    answer,
+                    confidence: 90,
+                });
             }
         }
     }
@@ -399,8 +427,10 @@ fn try_bluetooth_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAns
         if cmd.contains("bluetoothctl") {
             if probe.stdout.contains("Controller") {
                 return Some(DirectAnswerResult {
-                    answer: format!("**Bluetooth** hardware detected:\n{}",
-                        probe.stdout.lines().take(5).collect::<Vec<_>>().join("\n")),
+                    answer: format!(
+                        "**Bluetooth** hardware detected:\n{}",
+                        probe.stdout.lines().take(5).collect::<Vec<_>>().join("\n")
+                    ),
                     confidence: 85,
                 });
             }
@@ -433,7 +463,10 @@ fn try_gpu_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerRes
                 answer.push_str(&format!("- {}\n", gpu.trim()));
             }
             info!("v0.0.403: Direct GPU answer");
-            return Some(DirectAnswerResult { answer, confidence: 90 });
+            return Some(DirectAnswerResult {
+                answer,
+                confidence: 90,
+            });
         }
     }
 
@@ -463,7 +496,10 @@ fn try_webcam_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswer
                     answer.push_str(&format!("- {}\n", dev.trim()));
                 }
                 info!("v0.0.403: Direct webcam answer");
-                return Some(DirectAnswerResult { answer, confidence: 90 });
+                return Some(DirectAnswerResult {
+                    answer,
+                    confidence: 90,
+                });
             }
         }
     }
@@ -489,7 +525,10 @@ fn try_cpu_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerRes
                     cpu.cpu_count
                 );
                 info!("v0.0.403: Direct CPU answer");
-                return Some(DirectAnswerResult { answer, confidence: 95 });
+                return Some(DirectAnswerResult {
+                    answer,
+                    confidence: 95,
+                });
             }
         }
     }
@@ -505,7 +544,10 @@ fn try_audio_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerR
 
     for probe in probes {
         let cmd = probe.command.to_lowercase();
-        if cmd.contains("pactl") || cmd.contains("aplay") || (cmd.contains("lspci") && cmd.contains("audio")) {
+        if cmd.contains("pactl")
+            || cmd.contains("aplay")
+            || (cmd.contains("lspci") && cmd.contains("audio"))
+        {
             if !probe.stdout.trim().is_empty() {
                 let mut answer = "**Audio Devices:**\n".to_string();
                 for line in probe.stdout.lines().take(10) {
@@ -514,7 +556,10 @@ fn try_audio_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerR
                     }
                 }
                 info!("v0.0.403: Direct audio answer");
-                return Some(DirectAnswerResult { answer, confidence: 85 });
+                return Some(DirectAnswerResult {
+                    answer,
+                    confidence: 85,
+                });
             }
         }
     }
@@ -565,8 +610,17 @@ mod tests {
 
     #[test]
     fn test_service_extraction() {
-        assert_eq!(extract_service_name("is bluetooth running"), Some("bluetooth".to_string()));
-        assert_eq!(extract_service_name("docker status"), Some("docker".to_string()));
-        assert_eq!(extract_service_name("check nginx service"), Some("nginx".to_string()));
+        assert_eq!(
+            extract_service_name("is bluetooth running"),
+            Some("bluetooth".to_string())
+        );
+        assert_eq!(
+            extract_service_name("docker status"),
+            Some("docker".to_string())
+        );
+        assert_eq!(
+            extract_service_name("check nginx service"),
+            Some("nginx".to_string())
+        );
     }
 }

@@ -216,7 +216,10 @@ impl RecipeStorage {
                 }
             }
             // Remove file
-            let path = self.user_dir.join(&recipe.domain).join(format!("{}.json", id));
+            let path = self
+                .user_dir
+                .join(&recipe.domain)
+                .join(format!("{}.json", id));
             if path.exists() {
                 std::fs::remove_file(path)?;
             }
@@ -336,14 +339,17 @@ mod tests {
     #[test]
     fn test_get_by_domain() {
         let dir = tempdir().unwrap();
-        let mut storage = RecipeStorage::with_dirs(
-            dir.path().join("user"),
-            dir.path().join("sys"),
-        );
+        let mut storage = RecipeStorage::with_dirs(dir.path().join("user"), dir.path().join("sys"));
 
-        storage.save(&make_test_recipe("r1", "desktop", "intent1")).unwrap();
-        storage.save(&make_test_recipe("r2", "desktop", "intent2")).unwrap();
-        storage.save(&make_test_recipe("r3", "network", "intent1")).unwrap();
+        storage
+            .save(&make_test_recipe("r1", "desktop", "intent1"))
+            .unwrap();
+        storage
+            .save(&make_test_recipe("r2", "desktop", "intent2"))
+            .unwrap();
+        storage
+            .save(&make_test_recipe("r3", "network", "intent1"))
+            .unwrap();
 
         let desktop = storage.get_by_domain("desktop");
         assert_eq!(desktop.len(), 2);

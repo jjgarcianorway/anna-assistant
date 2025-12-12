@@ -32,10 +32,7 @@ pub fn answer_process_tree(
 
     let line_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!(
-            "Process tree ({} lines):\n```\n{}\n```",
-            line_count, output
-        ),
+        answer: format!("Process tree ({} lines):\n```\n{}\n```", line_count, output),
         grounded: true,
         parsed_data_count: line_count,
         route_class: route_class.to_string(),

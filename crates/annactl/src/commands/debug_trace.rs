@@ -106,7 +106,10 @@ fn format_summary_info(json: &serde_json::Value, out: &mut String) {
     if let Some(gate) = json.get("reliability_gate") {
         if let Some(outcome) = gate.get("outcome").and_then(|v| v.as_str()) {
             let score = gate.get("score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            out.push_str(&format!("  gate           {} (score: {:.2})\n", outcome, score));
+            out.push_str(&format!(
+                "  gate           {} (score: {:.2})\n",
+                outcome, score
+            ));
         }
     }
 
@@ -154,7 +157,10 @@ fn format_trace_details(json: &serde_json::Value, out: &mut String) {
                 let model = lt.get("model").and_then(|v| v.as_str()).unwrap_or("");
                 let tokens = lt.get("token_count").and_then(|v| v.as_u64()).unwrap_or(0);
                 let dur = lt.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-                out.push_str(&format!("    {}@{} ({}tok, {}ms)\n", role, model, tokens, dur));
+                out.push_str(&format!(
+                    "    {}@{} ({}tok, {}ms)\n",
+                    role, model, tokens, dur
+                ));
 
                 // Prompt digest at trace level
                 if let Some(digest) = lt.get("prompt_digest").and_then(|v| v.as_str()) {
@@ -166,8 +172,14 @@ fn format_trace_details(json: &serde_json::Value, out: &mut String) {
 
     // Timings
     if let Some(timings) = json.get("timings") {
-        let total = timings.get("total_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        let probe = timings.get("probe_ms").and_then(|v| v.as_u64()).unwrap_or(0);
+        let total = timings
+            .get("total_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let probe = timings
+            .get("probe_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
         let llm = timings.get("llm_ms").and_then(|v| v.as_u64()).unwrap_or(0);
         out.push_str(&format!(
             "\n  timings        total:{}ms probe:{}ms llm:{}ms\n",

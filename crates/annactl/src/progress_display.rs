@@ -92,30 +92,57 @@ pub fn print_progress_event(event: &ProgressEvent) {
         ProgressEventType::Complete => {
             print_label(
                 "anna",
-                &format!("{} {}complete{} [{}]", event.stage, colors::OK, colors::RESET, elapsed),
+                &format!(
+                    "{} {}complete{} [{}]",
+                    event.stage,
+                    colors::OK,
+                    colors::RESET,
+                    elapsed
+                ),
                 colors::DIM,
             );
         }
         ProgressEventType::Timeout => {
             print_label(
                 "anna",
-                &format!("{} {}TIMEOUT{} [{}]", event.stage, colors::ERR, colors::RESET, elapsed),
+                &format!(
+                    "{} {}TIMEOUT{} [{}]",
+                    event.stage,
+                    colors::ERR,
+                    colors::RESET,
+                    elapsed
+                ),
                 colors::DIM,
             );
         }
         ProgressEventType::Error { message } => {
             print_label(
                 "anna",
-                &format!("{} {}error:{} {} [{}]", event.stage, colors::ERR, colors::RESET, message, elapsed),
+                &format!(
+                    "{} {}error:{} {} [{}]",
+                    event.stage,
+                    colors::ERR,
+                    colors::RESET,
+                    message,
+                    elapsed
+                ),
                 colors::DIM,
             );
         }
         ProgressEventType::Heartbeat => {
             let detail = event.detail.as_deref().unwrap_or("working");
-            print_label("anna", &format!("still working: {} [{}]", detail, elapsed), colors::DIM);
+            print_label(
+                "anna",
+                &format!("still working: {} [{}]", detail, elapsed),
+                colors::DIM,
+            );
         }
         ProgressEventType::ProbeRunning { probe_id } => {
-            print_label("anna->probe", &format!("running {} [{}]", probe_id, elapsed), colors::DIM);
+            print_label(
+                "anna->probe",
+                &format!("running {} [{}]", probe_id, elapsed),
+                colors::DIM,
+            );
         }
         ProgressEventType::ProbeComplete {
             probe_id,
@@ -129,7 +156,10 @@ pub fn print_progress_event(event: &ProgressEvent) {
             };
             print_label(
                 "anna",
-                &format!("probe {} {} ({}ms) [{}]", probe_id, status, timing_ms, elapsed),
+                &format!(
+                    "probe {} {} ({}ms) [{}]",
+                    probe_id, status, timing_ms, elapsed
+                ),
                 colors::DIM,
             );
         }

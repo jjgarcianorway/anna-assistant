@@ -40,83 +40,219 @@ impl DepartmentRules {
             DepartmentOwnership {
                 department: Department::Storage,
                 owns_topics: vec![
-                    "filesystems", "mounts", "partitions", "SMART", "btrfs", "ext4",
-                    "du", "df", "lsblk", "disk space", "storage", "SSD", "HDD", "NVMe",
+                    "filesystems",
+                    "mounts",
+                    "partitions",
+                    "SMART",
+                    "btrfs",
+                    "ext4",
+                    "du",
+                    "df",
+                    "lsblk",
+                    "disk space",
+                    "storage",
+                    "SSD",
+                    "HDD",
+                    "NVMe",
                 ],
                 keywords: vec![
-                    "disk", "storage", "mount", "partition", "filesystem", "btrfs",
-                    "ext4", "xfs", "fat", "ntfs", "smart", "lsblk", "df", "du",
+                    "disk",
+                    "storage",
+                    "mount",
+                    "partition",
+                    "filesystem",
+                    "btrfs",
+                    "ext4",
+                    "xfs",
+                    "fat",
+                    "ntfs",
+                    "smart",
+                    "lsblk",
+                    "df",
+                    "du",
                 ],
             },
             DepartmentOwnership {
                 department: Department::Hardware,
                 owns_topics: vec![
-                    "CPU hardware", "GPU sensors", "kernel modules", "PCI devices",
-                    "drivers", "temperature", "fans", "USB devices", "audio hardware",
+                    "CPU hardware",
+                    "GPU sensors",
+                    "kernel modules",
+                    "PCI devices",
+                    "drivers",
+                    "temperature",
+                    "fans",
+                    "USB devices",
+                    "audio hardware",
                 ],
                 keywords: vec![
-                    "gpu", "graphics", "driver", "nvidia", "amd", "intel", "radeon",
-                    "nouveau", "kernel module", "lspci", "lsusb", "sensors", "temperature",
-                    "fan", "hardware", "cpu info", "lscpu", "audio", "sound", "alsa",
-                    "pulseaudio", "pipewire",
+                    "gpu",
+                    "graphics",
+                    "driver",
+                    "nvidia",
+                    "amd",
+                    "intel",
+                    "radeon",
+                    "nouveau",
+                    "kernel module",
+                    "lspci",
+                    "lsusb",
+                    "sensors",
+                    "temperature",
+                    "fan",
+                    "hardware",
+                    "cpu info",
+                    "lscpu",
+                    "audio",
+                    "sound",
+                    "alsa",
+                    "pulseaudio",
+                    "pipewire",
                 ],
             },
             DepartmentOwnership {
                 department: Department::Services,
                 owns_topics: vec![
-                    "systemd services", "journald", "timers", "sockets", "targets",
-                    "pacman database locks", "service status",
+                    "systemd services",
+                    "journald",
+                    "timers",
+                    "sockets",
+                    "targets",
+                    "pacman database locks",
+                    "service status",
                 ],
                 keywords: vec![
-                    "service", "systemd", "systemctl", "journalctl", "failed service",
-                    "timer", "unit", "daemon", "pacman", "package",
+                    "service",
+                    "systemd",
+                    "systemctl",
+                    "journalctl",
+                    "failed service",
+                    "timer",
+                    "unit",
+                    "daemon",
+                    "pacman",
+                    "package",
                 ],
             },
             DepartmentOwnership {
                 department: Department::Performance,
                 owns_topics: vec![
-                    "CPU load", "memory usage", "top consumers", "iowait",
-                    "boot performance", "startup time", "load average", "processes",
+                    "CPU load",
+                    "memory usage",
+                    "top consumers",
+                    "iowait",
+                    "boot performance",
+                    "startup time",
+                    "load average",
+                    "processes",
                 ],
                 keywords: vec![
-                    "boot", "startup", "slow", "fast", "load", "memory", "ram", "cpu load",
-                    "top", "htop", "process", "consumer", "iowait", "performance",
-                    "uptime", "free memory", "available memory",
+                    "boot",
+                    "startup",
+                    "slow",
+                    "fast",
+                    "load",
+                    "memory",
+                    "ram",
+                    "cpu load",
+                    "top",
+                    "htop",
+                    "process",
+                    "consumer",
+                    "iowait",
+                    "performance",
+                    "uptime",
+                    "free memory",
+                    "available memory",
                 ],
             },
             DepartmentOwnership {
                 department: Department::Network,
                 owns_topics: vec![
-                    "WiFi", "Ethernet", "DNS", "routing", "DHCP", "IP address",
-                    "network interface", "connectivity",
+                    "WiFi",
+                    "Ethernet",
+                    "DNS",
+                    "routing",
+                    "DHCP",
+                    "IP address",
+                    "network interface",
+                    "connectivity",
                 ],
                 keywords: vec![
-                    "wifi", "wireless", "ethernet", "network", "dns", "route", "routing",
-                    "dhcp", "ip address", "connectivity", "internet", "ping", "nmcli",
-                    "networkmanager", "iw", "iwconfig",
+                    "wifi",
+                    "wireless",
+                    "ethernet",
+                    "network",
+                    "dns",
+                    "route",
+                    "routing",
+                    "dhcp",
+                    "ip address",
+                    "connectivity",
+                    "internet",
+                    "ping",
+                    "nmcli",
+                    "networkmanager",
+                    "iw",
+                    "iwconfig",
                 ],
             },
             DepartmentOwnership {
                 department: Department::Desktop,
                 owns_topics: vec![
-                    "editors", "shells", "dotfiles", "DE/WM configs", "themes",
-                    "keybindings", "terminal emulators",
+                    "editors",
+                    "shells",
+                    "dotfiles",
+                    "DE/WM configs",
+                    "themes",
+                    "keybindings",
+                    "terminal emulators",
                 ],
                 keywords: vec![
-                    "editor", "vim", "neovim", "emacs", "shell", "bash", "zsh", "fish",
-                    "dotfile", "config", "theme", "wallpaper", "desktop", "gnome", "kde",
-                    "i3", "sway", "hyprland", "terminal",
+                    "editor",
+                    "vim",
+                    "neovim",
+                    "emacs",
+                    "shell",
+                    "bash",
+                    "zsh",
+                    "fish",
+                    "dotfile",
+                    "config",
+                    "theme",
+                    "wallpaper",
+                    "desktop",
+                    "gnome",
+                    "kde",
+                    "i3",
+                    "sway",
+                    "hyprland",
+                    "terminal",
                 ],
             },
             DepartmentOwnership {
                 department: Department::Security,
                 owns_topics: vec![
-                    "firewall", "permissions", "vulnerabilities", "audit",
-                    "access control", "encryption",
+                    "firewall",
+                    "permissions",
+                    "vulnerabilities",
+                    "audit",
+                    "access control",
+                    "encryption",
                 ],
                 keywords: vec![
-                    "firewall", "iptables", "nftables", "ufw", "permission", "chmod",
-                    "chown", "security", "vulnerability", "audit", "selinux", "apparmor",
+                    "firewall",
+                    "iptables",
+                    "nftables",
+                    "ufw",
+                    "permission",
+                    "chmod",
+                    "chown",
+                    "security",
+                    "vulnerability",
+                    "audit",
+                    "selinux",
+                    "apparmor",
                 ],
             },
         ];
@@ -267,12 +403,14 @@ impl DeterministicRouter {
         let was_overridden = conflict.is_some();
 
         // Get probes from intent map
-        let required_probes = self.intent_map
+        let required_probes = self
+            .intent_map
             .get_required_probes(corrected.intent)
             .into_iter()
             .map(String::from)
             .collect();
-        let optional_probes = self.intent_map
+        let optional_probes = self
+            .intent_map
             .get_optional_probes(corrected.intent)
             .into_iter()
             .map(String::from)
@@ -399,10 +537,22 @@ mod tests {
     fn test_department_for_keyword() {
         let rules = DepartmentRules::new();
 
-        assert_eq!(rules.department_for_keyword("gpu"), Some(Department::Hardware));
-        assert_eq!(rules.department_for_keyword("boot"), Some(Department::Performance));
-        assert_eq!(rules.department_for_keyword("disk"), Some(Department::Storage));
-        assert_eq!(rules.department_for_keyword("firewall"), Some(Department::Security));
+        assert_eq!(
+            rules.department_for_keyword("gpu"),
+            Some(Department::Hardware)
+        );
+        assert_eq!(
+            rules.department_for_keyword("boot"),
+            Some(Department::Performance)
+        );
+        assert_eq!(
+            rules.department_for_keyword("disk"),
+            Some(Department::Storage)
+        );
+        assert_eq!(
+            rules.department_for_keyword("firewall"),
+            Some(Department::Security)
+        );
     }
 
     #[test]

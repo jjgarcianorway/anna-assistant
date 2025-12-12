@@ -10,8 +10,8 @@
 use std::collections::HashMap;
 
 use super::{
-    RecipeV3, RecipeStep, RecipeRiskLevel, ConfirmationPolicy,
-    StepResult, MatchResult, RecipeStore, StoreError,
+    ConfirmationPolicy, MatchResult, RecipeRiskLevel, RecipeStep, RecipeStore, RecipeV3,
+    StepResult, StoreError,
 };
 
 /// Recipe execution result
@@ -114,7 +114,11 @@ impl RecipeExecutor {
     }
 
     /// Execute a recipe
-    pub fn execute_recipe(&self, recipe: &RecipeV3, initial_vars: HashMap<String, String>) -> ExecutionResult {
+    pub fn execute_recipe(
+        &self,
+        recipe: &RecipeV3,
+        initial_vars: HashMap<String, String>,
+    ) -> ExecutionResult {
         let start = std::time::Instant::now();
         let mut vars = initial_vars;
         let mut steps_executed = vec![];
@@ -200,7 +204,10 @@ impl RecipeExecutor {
         // Build final message
         let message = if all_success {
             if self.dry_run {
-                format!("[DRY RUN] Recipe '{}' would complete successfully", recipe.title)
+                format!(
+                    "[DRY RUN] Recipe '{}' would complete successfully",
+                    recipe.title
+                )
             } else {
                 format!("Recipe '{}' completed successfully", recipe.title)
             }
@@ -253,11 +260,7 @@ pub fn execute_and_record(
     let result = executor.execute_match(match_result);
 
     // Update stats in store
-    store.record_execution(
-        &result.recipe_id,
-        result.success,
-        result.duration_ms,
-    )?;
+    store.record_execution(&result.recipe_id, result.success, result.duration_ms)?;
 
     Ok(result)
 }
@@ -323,7 +326,11 @@ impl ExecutionPlan {
                 RecipeRiskLevel::Medium => "!!",
                 RecipeRiskLevel::High => "!!!",
             };
-            let confirm_indicator = if step.needs_confirmation { "[confirm]" } else { "" };
+            let confirm_indicator = if step.needs_confirmation {
+                "[confirm]"
+            } else {
+                ""
+            };
             output.push(format!(
                 "  {}. {} {} {}",
                 step.index + 1,
@@ -368,11 +375,10 @@ mod tests {
 
     #[test]
     fn test_execution_with_variables() {
-        let recipe = RecipeV3::new("var-test", "Variable Test")
-            .with_step(RecipeStep::Explain {
-                text: "Hello ${name}!".to_string(),
-                citation: None,
-            });
+        let recipe = RecipeV3::new("var-test", "Variable Test").with_step(RecipeStep::Explain {
+            text: "Hello ${name}!".to_string(),
+            citation: None,
+        });
 
         let executor = RecipeExecutor::new().with_var("name", "World");
         let result = executor.execute_recipe(&recipe, HashMap::new());

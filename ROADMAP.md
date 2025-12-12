@@ -273,6 +273,75 @@ Anna v0.0.369 focuses on:
 
 ## Planned
 
+### Phase 29 - Enhanced Status Display (VISION alignment)
+- [ ] Show installed vs available GitHub version with asset verification
+- [ ] Display update check pace, last check, next scheduled check
+- [ ] Show all user groups and folder permissions
+- [ ] Show Ollama status separately from daemon status
+- [ ] List helpers with "installed by Anna" vs "installed by user" labels
+- [ ] Display which specialist uses which LLM
+- [ ] Show all config settings in status (not just debug mode)
+- [ ] REPL greeting announces errors, one-time question if only issue
+
+### Phase 30 - Enhanced Stats Display (RPG System)
+- [ ] Non-linear XP progression (0-100 RPG style)
+- [ ] Funny titles based on level
+- [ ] Recipes categorized by type
+- [ ] Average interaction count between Anna and specialists
+- [ ] Number of times Anna managed on her own
+- [ ] Number of recipes learned (not initial knowledge)
+- [ ] Longest/shortest resolution times
+- [ ] Most consulted team
+- [ ] Repeated questions tracking
+- [ ] Topic most asked about
+- [ ] Longest/shortest reply
+- [ ] Installation date display
+- [ ] `annactl stats <category>` for detailed views
+
+### Phase 31 - Natural Language Dialog (Fly-on-the-Wall)
+- [ ] Anna-to-Specialist dialog rendering in normal mode
+- [ ] Case number display (CN-XXXX-DDMMYYYY format)
+- [ ] Specialist responses with reliability assessments
+- [ ] Anna confirming recipe storage after high-reliability answers
+- [ ] Real-time streaming word-by-word from LLM
+- [ ] Screen updates after each LLM call (not batch)
+
+### Phase 32 - Smart Helper Management
+- [ ] Auto-install helpers learned from specialists
+- [ ] Track helper source (Anna vs User)
+- [ ] Remove only Anna-installed helpers on uninstall
+- [ ] Skip useless helpers (no ethtool without ethernet)
+- [ ] Display helper last_used timestamp
+
+### Phase 33 - Dynamic Team Availability
+- [ ] Detect hardware capabilities (sound, network, etc.)
+- [ ] Hide teams for missing hardware (no Sound team if no audio)
+- [ ] Show available team count in status
+
+### Phase 34 - Long-Running Task Handling
+- [ ] Detect tasks taking > X minutes
+- [ ] Ask for email (store for reuse)
+- [ ] Investigate during idle time
+- [ ] Email with chain of thoughts and conclusion
+- [ ] Second email if internet research needed
+
+### Phase 35 - User Notifications
+- [ ] Email notifications for long tasks
+- [ ] libnotify integration for desktop alerts
+- [ ] wall for terminal broadcasts (optional)
+- [ ] Custom alarms via natural language ("notify me every Monday at 9 about storage")
+
+### Phase 36 - Knowledge & Citations
+- [ ] Citations from Arch Wiki, man pages, --help commands
+- [ ] Local cache of Arch Wiki pages linked from official docs
+- [ ] Learning mode explains why commands are run
+- [ ] Learning mode explains how commands work
+
+### Phase 37 - Idle Time Learning
+- [ ] Senior specialists think strategically during idle time
+- [ ] Resumable tasks if interrupted
+- [ ] Email notification when idle task completes
+
 ### Future
 - [ ] Kubernetes pod/deployment recipes
 - [ ] Nginx/Apache configuration recipes

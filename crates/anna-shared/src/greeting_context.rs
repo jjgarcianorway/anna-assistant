@@ -134,16 +134,15 @@ impl GreetingContext {
                 AlertSeverity::Warning => "[*]",
                 AlertSeverity::Info => continue, // Skip info in greetings
             };
-            self.health_issues.push(format!("{} {}", prefix, alert.message));
+            self.health_issues
+                .push(format!("{} {}", prefix, alert.message));
         }
 
         // Add health score insight if low
         let score = store.health_score();
         if score < 70 {
-            self.health_issues.push(format!(
-                "System health score: {}% (below optimal)",
-                score
-            ));
+            self.health_issues
+                .push(format!("System health score: {}% (below optimal)", score));
         }
 
         self
@@ -155,8 +154,16 @@ impl GreetingContext {
             return None;
         }
 
-        let critical = self.health_issues.iter().filter(|s| s.starts_with("[!]")).count();
-        let warnings = self.health_issues.iter().filter(|s| s.starts_with("[*]")).count();
+        let critical = self
+            .health_issues
+            .iter()
+            .filter(|s| s.starts_with("[!]"))
+            .count();
+        let warnings = self
+            .health_issues
+            .iter()
+            .filter(|s| s.starts_with("[*]"))
+            .count();
 
         if critical > 0 || warnings > 0 {
             Some(format!(
@@ -178,10 +185,8 @@ impl GreetingContext {
 
         // Add only critical/urgent actions (urgency <= 2) as prompts
         for action in actions.iter().filter(|a| a.urgency <= 2).take(2) {
-            self.maintenance_prompts.push(format!(
-                "{}: \"{}\"",
-                action.title, action.anna_query
-            ));
+            self.maintenance_prompts
+                .push(format!("{}: \"{}\"", action.title, action.anna_query));
         }
 
         self
@@ -292,25 +297,38 @@ impl GreetingResponse {
                 let word = if days == 1 { "day" } else { "days" };
                 lines.push(format!("It's been {} {} since we last spoke.", days, word));
             } else {
-                lines.push(format!("{}, {}! Welcome back.", time_greeting, ctx.username));
+                lines.push(format!(
+                    "{}, {}! Welcome back.",
+                    time_greeting, ctx.username
+                ));
             }
         } else if let Some(hours) = ctx.hours_since_last {
             if hours > 12 {
                 lines.push(format!("{}, {}.", time_greeting, ctx.username));
                 lines.push(format!("It's been about {} hours.", hours));
             } else if hours > 1 {
-                lines.push(format!("{}, {}! Welcome back.", time_greeting, ctx.username));
+                lines.push(format!(
+                    "{}, {}! Welcome back.",
+                    time_greeting, ctx.username
+                ));
             } else {
                 lines.push(format!("Hello again, {}!", ctx.username));
             }
         } else {
-            lines.push(format!("{}, {}! Welcome back.", time_greeting, ctx.username));
+            lines.push(format!(
+                "{}, {}! Welcome back.",
+                time_greeting, ctx.username
+            ));
         }
 
         // Open tickets
         if ctx.open_tickets > 0 {
             lines.push(String::new());
-            let word = if ctx.open_tickets == 1 { "ticket" } else { "tickets" };
+            let word = if ctx.open_tickets == 1 {
+                "ticket"
+            } else {
+                "tickets"
+            };
             lines.push(format!("You have {} open {}.", ctx.open_tickets, word));
         }
 

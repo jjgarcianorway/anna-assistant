@@ -10,23 +10,38 @@ use std::sync::LazyLock;
 /// Safe environment variables (allowlist).
 static SAFE_ENV_VARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     let vars = [
-        "PATH", "HOME", "USER", "SHELL", "LANG", "LC_ALL", "TERM",
-        "XDG_CURRENT_DESKTOP", "XDG_SESSION_TYPE", "DISPLAY", "WAYLAND_DISPLAY",
-        "DESKTOP_SESSION", "PWD", "OLDPWD", "HOSTNAME", "EDITOR", "VISUAL",
-        "TZ", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
+        "PATH",
+        "HOME",
+        "USER",
+        "SHELL",
+        "LANG",
+        "LC_ALL",
+        "TERM",
+        "XDG_CURRENT_DESKTOP",
+        "XDG_SESSION_TYPE",
+        "DISPLAY",
+        "WAYLAND_DISPLAY",
+        "DESKTOP_SESSION",
+        "PWD",
+        "OLDPWD",
+        "HOSTNAME",
+        "EDITOR",
+        "VISUAL",
+        "TZ",
+        "XDG_CONFIG_HOME",
+        "XDG_DATA_HOME",
+        "XDG_CACHE_HOME",
     ];
     vars.into_iter().collect()
 });
 
 /// Regex patterns for sensitive data.
 static TOKEN_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(token|bearer|oauth|api[_-]?key|secret|credential)\s*[=:]\s*[^\s\n]+")
-        .unwrap()
+    Regex::new(r"(?i)(token|bearer|oauth|api[_-]?key|secret|credential)\s*[=:]\s*[^\s\n]+").unwrap()
 });
 
-static PASSWORD_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(password|passwd|pwd|pass)\s*[=:]\s*[^\s\n]+").unwrap()
-});
+static PASSWORD_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(password|passwd|pwd|pass)\s*[=:]\s*[^\s\n]+").unwrap());
 
 static PSK_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)(psk|pre[-_]?shared[-_]?key|wpa[-_]?passphrase)\s*[=:]\s*[^\s\n]+").unwrap()
@@ -37,9 +52,8 @@ static SSH_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
-static AUTH_HEADER_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)Authorization:\s*[^\r\n]+").unwrap()
-});
+static AUTH_HEADER_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)Authorization:\s*[^\r\n]+").unwrap());
 
 static PRIVATE_KEY_CONTENT: LazyLock<Regex> = LazyLock::new(|| {
     // Matches base64-like content that looks like key material
@@ -56,13 +70,11 @@ static HASH_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\$[0-9a-z]+\$[^\s:]+").unwrap()
 });
 
-static AWS_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(AKIA|ABIA|ACCA|ASIA)[A-Z0-9]{16}").unwrap()
-});
+static AWS_KEY_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(AKIA|ABIA|ACCA|ASIA)[A-Z0-9]{16}").unwrap());
 
-static JWT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap()
-});
+static JWT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap());
 
 /// Redaction placeholder.
 const REDACTED: &str = "***REDACTED***";

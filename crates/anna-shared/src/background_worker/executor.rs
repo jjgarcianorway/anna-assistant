@@ -2,7 +2,7 @@
 //!
 //! Executes background jobs based on their kind.
 
-use super::job::{BackgroundJob, JobKind, JobResult, PendingNotification, NotificationPriority};
+use super::job::{BackgroundJob, JobKind, JobResult, NotificationPriority, PendingNotification};
 use std::time::Instant;
 
 /// Job executor trait
@@ -48,20 +48,12 @@ impl JobExecutor for DefaultExecutor {
         let start = Instant::now();
 
         let result = match &job.kind {
-            JobKind::LongTicketAnalysis { ticket_id } => {
-                self.execute_long_ticket(ticket_id)
-            }
+            JobKind::LongTicketAnalysis { ticket_id } => self.execute_long_ticket(ticket_id),
             JobKind::DocIndexRefresh => self.execute_doc_refresh(),
             JobKind::ModelBenchmark => self.execute_benchmark(),
-            JobKind::PeriodicProbe { probe_name } => {
-                self.execute_probe(probe_name)
-            }
-            JobKind::UserReminder { reminder_id } => {
-                self.execute_reminder(reminder_id)
-            }
-            JobKind::MonitorCheck { monitor_id } => {
-                self.execute_monitor(monitor_id)
-            }
+            JobKind::PeriodicProbe { probe_name } => self.execute_probe(probe_name),
+            JobKind::UserReminder { reminder_id } => self.execute_reminder(reminder_id),
+            JobKind::MonitorCheck { monitor_id } => self.execute_monitor(monitor_id),
             JobKind::RecipeConsolidation => self.execute_recipe_consolidation(),
             JobKind::SendNotification { notification_id } => {
                 self.execute_notification(notification_id)
@@ -120,8 +112,7 @@ impl DefaultExecutor {
                 "Your scheduled reminder has triggered.",
                 NotificationPriority::Normal,
             );
-            JobResult::success("Reminder triggered")
-                .with_notification(notification)
+            JobResult::success("Reminder triggered").with_notification(notification)
         }
     }
 
@@ -129,7 +120,10 @@ impl DefaultExecutor {
         if let Some(ref handler) = self.monitor_handler {
             handler.check_monitor(monitor_id)
         } else {
-            JobResult::failure(&format!("Monitor handler not configured for {}", monitor_id))
+            JobResult::failure(&format!(
+                "Monitor handler not configured for {}",
+                monitor_id
+            ))
         }
     }
 

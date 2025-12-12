@@ -25,13 +25,7 @@ pub fn extract_help(command: &str) -> Result<DocSnippet, HelpExtractError> {
         return Err(HelpExtractError::NoContent(command.to_string()));
     }
 
-    let mut snippet = DocSnippet::new(
-        DocSourceKind::ToolHelp,
-        command,
-        None,
-        &summary,
-        &content,
-    );
+    let mut snippet = DocSnippet::new(DocSourceKind::ToolHelp, command, None, &summary, &content);
     snippet.truncate_content(MAX_SNIPPET_SIZE);
 
     Ok(snippet)
@@ -53,7 +47,11 @@ fn try_help_flags(command: &str) -> Result<String, HelpExtractError> {
 }
 
 /// Run command with timeout
-fn run_with_timeout(command: &str, flag: &str, timeout: Duration) -> Result<String, HelpExtractError> {
+fn run_with_timeout(
+    command: &str,
+    flag: &str,
+    timeout: Duration,
+) -> Result<String, HelpExtractError> {
     let mut cmd = Command::new(command);
     cmd.arg(flag);
 

@@ -2,10 +2,10 @@
 //!
 //! Honest reflection of hardware, models, and helpers in annactl status/stats.
 
-use super::helpers::{HelperCatalog, HelperManager, HelperInstalledBy};
 use super::helper_config::HelperConfig;
+use super::helpers::{HelperCatalog, HelperInstalledBy, HelperManager};
 use super::model_config::ModelConfig;
-use super::model_health::{ModelHealth, ModelStatus, InstalledBy};
+use super::model_health::{InstalledBy, ModelHealth, ModelStatus};
 use super::model_plan::ModelPlan;
 use super::profile::HardwareProfile;
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,10 @@ impl HardwareStatus {
 
         // System profile section
         lines.push("[system_profile]".to_string());
-        lines.push(format!("  ram_total            {:.1} GB", self.profile.ram_total_gb));
+        lines.push(format!(
+            "  ram_total            {:.1} GB",
+            self.profile.ram_total_gb
+        ));
         lines.push(format!(
             "  cpu                  {}, {} cores{}",
             self.profile.cpu_model,
@@ -57,7 +60,10 @@ impl HardwareStatus {
             lines.push(format!("  gpu                  {}", gpu));
         }
         lines.push(format!("  tier                 {}", self.profile.tier));
-        lines.push(format!("  last_profiled        {}", self.profile.last_profiled));
+        lines.push(format!(
+            "  last_profiled        {}",
+            self.profile.last_profiled
+        ));
         lines.push(String::new());
 
         // LLM section
@@ -194,15 +200,16 @@ impl LlmSection {
             if !seen.contains(model_name) {
                 seen.insert(model_name.clone());
                 let status = health.status(model_name);
-                let installed_by = health
-                    .models
-                    .get(model_name)
-                    .map(|r| r.installed_by)
-                    .map(|ib| match ib {
-                        InstalledBy::Anna => "anna",
-                        InstalledBy::User => "user",
-                        InstalledBy::Unknown => "unknown",
-                    });
+                let installed_by =
+                    health
+                        .models
+                        .get(model_name)
+                        .map(|r| r.installed_by)
+                        .map(|ib| match ib {
+                            InstalledBy::Anna => "anna",
+                            InstalledBy::User => "user",
+                            InstalledBy::Unknown => "unknown",
+                        });
 
                 models.push(ModelStatusEntry {
                     role: role.to_string(),
@@ -222,7 +229,9 @@ impl LlmSection {
         }
 
         // Determine overall state
-        let all_ok = models.iter().all(|m| m.status == "OK" || m.status == "UNVERIFIED");
+        let all_ok = models
+            .iter()
+            .all(|m| m.status == "OK" || m.status == "UNVERIFIED");
         let any_missing = models.iter().any(|m| m.status == "MISSING");
         let state = if all_ok {
             "READY"
@@ -270,11 +279,7 @@ pub struct HelperStatusSection {
 
 impl HelperStatusSection {
     /// Build from manager and config.
-    pub fn build(
-        manager: &HelperManager,
-        catalog: &HelperCatalog,
-        config: &HelperConfig,
-    ) -> Self {
+    pub fn build(manager: &HelperManager, catalog: &HelperCatalog, config: &HelperConfig) -> Self {
         let mut anna_installed = Vec::new();
         let mut user_installed = Vec::new();
 
@@ -357,7 +362,11 @@ impl ModelUsageStats {
         let mut lines = Vec::new();
         lines.push("[llm_usage]".to_string());
 
-        for (role, model_key) in [("translator", "translator"), ("junior", "junior"), ("senior", "senior")] {
+        for (role, model_key) in [
+            ("translator", "translator"),
+            ("junior", "junior"),
+            ("senior", "senior"),
+        ] {
             if let Some((model, usage)) = self.models.iter().find(|(m, _)| m.contains(model_key)) {
                 let avg_ms = if usage.call_count > 0 {
                     usage.total_duration_ms / usage.call_count
@@ -475,8 +484,8 @@ fn timestamp_now() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::profile::{CapabilityTier, CpuInfo, GpuInfo, OsInfo, StorageInfo};
+    use super::*;
 
     fn mock_profile() -> HardwareProfile {
         HardwareProfile {

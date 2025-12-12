@@ -51,7 +51,10 @@ impl fmt::Display for SourcePriority {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum KnowledgeSource {
     /// System probe (e.g., /proc/meminfo, systemd-analyze).
-    Probe { name: String, command: Option<String> },
+    Probe {
+        name: String,
+        command: Option<String>,
+    },
     /// Man page.
     ManPage { name: String, section: Option<u8> },
     /// Command help output (--help).
@@ -246,9 +249,18 @@ mod tests {
 
     #[test]
     fn test_source_priorities() {
-        assert_eq!(KnowledgeSource::probe("mem").priority(), SourcePriority::Probe);
-        assert_eq!(KnowledgeSource::man("ls").priority(), SourcePriority::LocalDoc);
-        assert_eq!(KnowledgeSource::arch_wiki("Systemd").priority(), SourcePriority::CachedWiki);
+        assert_eq!(
+            KnowledgeSource::probe("mem").priority(),
+            SourcePriority::Probe
+        );
+        assert_eq!(
+            KnowledgeSource::man("ls").priority(),
+            SourcePriority::LocalDoc
+        );
+        assert_eq!(
+            KnowledgeSource::arch_wiki("Systemd").priority(),
+            SourcePriority::CachedWiki
+        );
     }
 
     #[test]

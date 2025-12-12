@@ -28,7 +28,11 @@ use anna_shared::ui_config::UiConfig;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 
-use crate::commands::{handle_debug, handle_learning_with_query, handle_suggest_recipes, handle_repl, handle_request, handle_reset, handle_stats, handle_status, handle_uninstall, DebugCommand};
+use crate::commands::{
+    handle_debug, handle_learning_with_query, handle_repl, handle_request, handle_reset,
+    handle_stats, handle_status, handle_suggest_recipes, handle_uninstall, handle_web_search,
+    DebugCommand,
+};
 
 /// Anna - Local AI Assistant
 #[derive(Parser)]
@@ -36,8 +40,7 @@ use crate::commands::{handle_debug, handle_learning_with_query, handle_suggest_r
 #[command(version = anna_shared::VERSION)]
 #[command(about = "Local AI assistant for Linux systems - ask questions in plain English")]
 #[command(disable_help_subcommand = true)]
-#[command(
-    after_help = "EXAMPLES:
+#[command(after_help = "EXAMPLES:
     annactl \"what's using all my memory?\"
     annactl \"show failed services\"
     annactl \"what's my IP address?\"
@@ -53,8 +56,7 @@ NATURAL LANGUAGE:
 INTERACTIVE MODE:
     Run 'annactl' without arguments to enter interactive mode.
     Type 'show internal comms' to see how Anna's team works on your request.
-    Type 'annactl help' to see what Anna can do for you."
-)]
+    Type 'annactl help' to see what Anna can do for you.")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -103,7 +105,34 @@ enum Command {
     Reset,
     /// Remove Anna completely from the system
     Uninstall,
-}
+    /// Submit feedback for a claim in the TruthLedger
+    SubmitClaimFeedback {
+        /// The claim text to provide feedback for
+        claim_text: String,
+        /// True for positive feedback, false for negative
+        positive_feedback: bool,
+    },
+    /// Show the status summary of the TruthLedger (v0.0.449)
+    TruthLedgerStatus {
+        /// Filter by claim text (partial match)
+        #[arg(long, short = 'c')]
+        claim_text: Option<String>,
+        /// Filter by source (Url, File, User)
+        #[arg(long, short = 's')]
+        source: Option<String>,
+        /// Filter by veracity (Verified, Disputed, Unverified)
+        #[arg(long, short = 'v')]
+        veracity: Option<String>,
+        /// Filter by feedback (true for positive, false for negative)
+        #[arg(long, short = 'f')]
+        feedback: Option<bool>,
+    },
+    /// Perform a web search (v0.0.448)
+    WebSearch {
+        /// The query to search for
+        query: String,
+    },
+} // End of enum Command
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -131,6 +160,17 @@ async fn main() -> Result<()> {
         Some(Command::Debug { cmd }) => handle_debug(cmd).await,
         Some(Command::Reset) => handle_reset().await,
         Some(Command::Uninstall) => handle_uninstall().await,
+        Some(Command::SubmitClaimFeedback {
+            claim_text,
+            positive_feedback,
+        }) => commands::handle_submit_claim_feedback(&claim_text, positive_feedback).await,
+        Some(Command::TruthLedgerStatus {
+            claim_text,
+            source,
+            veracity,
+            feedback,
+        }) => commands::handle_truth_ledger_status(claim_text, source, veracity, feedback).await,
+        Some(Command::WebSearch { query }) => commands::handle_web_search(&query).await,
         None => {
             if cli.request.is_empty() {
                 // No args - enter REPL mode

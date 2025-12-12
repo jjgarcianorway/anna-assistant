@@ -70,7 +70,9 @@ impl RecipeDomain {
             RecipeDomain::Desktop => &["vim", "editor", "gui", "hyprland", "waybar", "config"],
             RecipeDomain::Network => &["network", "wifi", "ethernet", "ip", "dns", "interface"],
             RecipeDomain::Storage => &["disk", "storage", "filesystem", "mount", "btrfs", "space"],
-            RecipeDomain::Services => &["service", "systemd", "daemon", "enable", "disable", "restart"],
+            RecipeDomain::Services => &[
+                "service", "systemd", "daemon", "enable", "disable", "restart",
+            ],
             RecipeDomain::Performance => &["memory", "ram", "cpu", "swap", "boot", "slow", "free"],
             RecipeDomain::Security => &["firewall", "permissions", "user", "sudo", "security"],
             RecipeDomain::Generic => &[],

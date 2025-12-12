@@ -2,9 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::shell_recipes::{
-        builtin_recipes, detect_feature, find_recipe, Shell, ShellFeature,
-    };
+    use crate::shell_recipes::{builtin_recipes, detect_feature, find_recipe, Shell, ShellFeature};
 
     #[test]
     fn test_shell_config_path() {

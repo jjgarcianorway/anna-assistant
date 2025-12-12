@@ -73,7 +73,12 @@ pub fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                 timing_ms,
                 stdout_preview,
             } => {
-                event_renders::render_probe_end(probe_id, *exit_code, *timing_ms, stdout_preview.as_deref());
+                event_renders::render_probe_end(
+                    probe_id,
+                    *exit_code,
+                    *timing_ms,
+                    stdout_preview.as_deref(),
+                );
             }
             TranscriptEventKind::Note { text } => {
                 println!("{}  note: {}{}", colors::DIM, text, colors::RESET);
@@ -246,7 +251,12 @@ pub fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
                 risk_level,
                 rollback_available,
             } => {
-                event_renders::render_proposed_action(action_id, description, risk_level, *rollback_available);
+                event_renders::render_proposed_action(
+                    action_id,
+                    description,
+                    risk_level,
+                    *rollback_available,
+                );
                 last_actor = None;
             }
             TranscriptEventKind::ActionConfirmationRequest {
@@ -288,7 +298,12 @@ pub fn render_debug(result: &ServiceDeskResult, output_mode: OutputMode) {
     render_summary(result);
 }
 
-fn render_message(from: &Actor, text: &str, output_mode: OutputMode, last_actor: &mut Option<Actor>) {
+fn render_message(
+    from: &Actor,
+    text: &str,
+    output_mode: OutputMode,
+    last_actor: &mut Option<Actor>,
+) {
     if last_actor.as_ref() != Some(from) {
         println!("\n{}", format_actor_tag(from));
         *last_actor = Some(*from);
@@ -323,12 +338,22 @@ fn render_llm_call(
     );
 
     // v0.0.303: Show full prompt/response in debug mode - no truncation
-    println!("{}--- prompt ({} chars) ---{}", colors::DIM, prompt.len(), colors::RESET);
+    println!(
+        "{}--- prompt ({} chars) ---{}",
+        colors::DIM,
+        prompt.len(),
+        colors::RESET
+    );
     for line in prompt.lines() {
         println!("{}{}{}", colors::DIM, line, colors::RESET);
     }
 
-    println!("{}--- response ({} chars) ---{}", colors::DIM, response.len(), colors::RESET);
+    println!(
+        "{}--- response ({} chars) ---{}",
+        colors::DIM,
+        response.len(),
+        colors::RESET
+    );
     for line in response.lines() {
         println!("{}", line);
     }

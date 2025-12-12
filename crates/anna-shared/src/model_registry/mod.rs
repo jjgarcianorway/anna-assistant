@@ -12,8 +12,8 @@ mod tests;
 mod types;
 
 // Re-export all types and functions
-pub use persistence::{load_model_registry, model_registry_path, parse_ollama_list, save_model_registry};
-pub use registry::ModelRegistry;
-pub use types::{
-    recommended_model_for_tier, HardwareTier, ModelSpec, ModelState, RoleBinding,
+pub use persistence::{
+    load_model_registry, model_registry_path, parse_ollama_list, save_model_registry,
 };
+pub use registry::ModelRegistry;
+pub use types::{recommended_model_for_tier, HardwareTier, ModelSpec, ModelState, RoleBinding};

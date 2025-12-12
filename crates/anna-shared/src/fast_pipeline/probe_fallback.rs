@@ -87,10 +87,7 @@ impl ProbeOnlyResult {
 
     /// Create result with probe data.
     pub fn with_data(probes: Vec<ProbeData>, reason: &str) -> Self {
-        let key_metrics: Vec<_> = probes.iter()
-            .filter(|p| p.is_key_metric)
-            .cloned()
-            .collect();
+        let key_metrics: Vec<_> = probes.iter().filter(|p| p.is_key_metric).cloned().collect();
 
         let summary = Self::generate_summary(&probes);
 
@@ -109,18 +106,18 @@ impl ProbeOnlyResult {
             return "No probe data available.".to_string();
         }
 
-        let key_metrics: Vec<_> = probes.iter()
-            .filter(|p| p.is_key_metric)
-            .collect();
+        let key_metrics: Vec<_> = probes.iter().filter(|p| p.is_key_metric).collect();
 
         if !key_metrics.is_empty() {
-            key_metrics.iter()
+            key_metrics
+                .iter()
                 .map(|p| p.format_display())
                 .collect::<Vec<_>>()
                 .join(", ")
         } else {
             // Use first few probes
-            probes.iter()
+            probes
+                .iter()
                 .take(3)
                 .map(|p| p.format_display())
                 .collect::<Vec<_>>()
@@ -225,7 +222,8 @@ impl ProbeFallbackEngine {
 
     /// Register a display name.
     pub fn register_display_name(&mut self, probe_id: &str, name: &str) {
-        self.display_names.insert(probe_id.to_string(), name.to_string());
+        self.display_names
+            .insert(probe_id.to_string(), name.to_string());
     }
 
     /// Mark a probe as key metric.
@@ -314,9 +312,7 @@ mod tests {
 
     #[test]
     fn test_fallback_answer() {
-        let probes = vec![
-            ProbeData::new("sys.mem.free", "Free Memory", "4.2 GB").as_key_metric(),
-        ];
+        let probes = vec![ProbeData::new("sys.mem.free", "Free Memory", "4.2 GB").as_key_metric()];
         let result = ProbeOnlyResult::with_data(probes, "timeout");
         let answer = FallbackAnswer::from_probes(result);
 

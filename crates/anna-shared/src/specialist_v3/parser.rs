@@ -6,7 +6,7 @@
 //! - Safe error response synthesis on final failure
 //! - No "Failed to parse" errors exposed to users
 
-use super::{ErrorInfo, ErrorKind, SpecialistResponse, ResponseStatus, MAX_PARSE_RETRIES};
+use super::{ErrorInfo, ErrorKind, ResponseStatus, SpecialistResponse, MAX_PARSE_RETRIES};
 use serde_json::Value;
 
 /// Parser result
@@ -73,7 +73,10 @@ fn extract_json(text: &str) -> String {
 
     // Try to find JSON in markdown code block
     if let Some(start) = text.find("```json") {
-        if let Some(end) = text[start..].find("```\n").or_else(|| text[start..].rfind("```")) {
+        if let Some(end) = text[start..]
+            .find("```\n")
+            .or_else(|| text[start..].rfind("```"))
+        {
             let json_start = start + 7; // Skip "```json"
             if json_start < start + end {
                 return text[json_start..start + end].trim().to_string();
@@ -119,12 +122,23 @@ fn generate_repair_message(error: &serde_json::Error, attempted_json: &str) -> S
         let line_idx = error_line - 1;
         let mut ctx = String::new();
         if line_idx > 0 {
-            ctx.push_str(&format!("Line {}: {}\n", error_line - 1, lines[line_idx - 1]));
+            ctx.push_str(&format!(
+                "Line {}: {}\n",
+                error_line - 1,
+                lines[line_idx - 1]
+            ));
         }
-        ctx.push_str(&format!("Line {} (error): {}\n", error_line, lines[line_idx]));
+        ctx.push_str(&format!(
+            "Line {} (error): {}\n",
+            error_line, lines[line_idx]
+        ));
         ctx.push_str(&format!("{}^\n", " ".repeat(error_col + 15)));
         if line_idx + 1 < lines.len() {
-            ctx.push_str(&format!("Line {}: {}\n", error_line + 1, lines[line_idx + 1]));
+            ctx.push_str(&format!(
+                "Line {}: {}\n",
+                error_line + 1,
+                lines[line_idx + 1]
+            ));
         }
         ctx
     } else {
@@ -135,10 +149,7 @@ fn generate_repair_message(error: &serde_json::Error, attempted_json: &str) -> S
         "JSON parse error at line {}, column {}: {}\n\n{}\n\
         Please output ONLY valid JSON matching the SpecialistResponse schema. \
         Required fields: ticket_id, status, summary, confidence.",
-        error_line,
-        error_col,
-        error,
-        context
+        error_line, error_col, error, context
     )
 }
 
@@ -167,37 +178,46 @@ pub fn try_salvage_response(text: &str, ticket_id: &str) -> Option<SpecialistRes
     let obj = value.as_object()?;
 
     // Extract what we can
-    let summary = obj.get("summary")
+    let summary = obj
+        .get("summary")
         .and_then(|v| v.as_str())
         .unwrap_or("Response available")
         .to_string();
 
-    let status = obj.get("status")
+    let status = obj
+        .get("status")
         .and_then(|v| v.as_str())
         .and_then(parse_status)
         .unwrap_or(ResponseStatus::Partial);
 
-    let confidence = obj.get("confidence")
+    let confidence = obj
+        .get("confidence")
         .and_then(|v| v.as_f64())
         .map(|f| f as f32)
         .unwrap_or(0.5);
 
     // Extract findings if present
-    let findings = obj.get("findings")
+    let findings = obj
+        .get("findings")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
                 .filter_map(|f| {
                     let key = f.get("key")?.as_str()?.to_string();
                     let value = f.get("value")?.as_str()?.to_string();
-                    Some(super::Finding { key, value, evidence_refs: vec![] })
+                    Some(super::Finding {
+                        key,
+                        value,
+                        evidence_refs: vec![],
+                    })
                 })
                 .collect()
         })
         .unwrap_or_default();
 
     // Extract analysis bullets if present
-    let analysis = obj.get("analysis")
+    let analysis = obj
+        .get("analysis")
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
@@ -264,8 +284,7 @@ impl RepairRequest {
               \"findings\": [...],\n  \
               \"analysis\": [...]\n\
             }}",
-            self.error,
-            self.ticket_id
+            self.error, self.ticket_id
         )
     }
 }
@@ -289,7 +308,8 @@ Done."#;
 
     #[test]
     fn test_extract_json_raw() {
-        let text = r#"{"ticket_id": "DSK-002", "status": "success", "summary": "Raw", "confidence": 0.8}"#;
+        let text =
+            r#"{"ticket_id": "DSK-002", "status": "success", "summary": "Raw", "confidence": 0.8}"#;
         let json = extract_json(text);
         assert_eq!(json, text);
     }

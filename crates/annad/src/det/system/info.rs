@@ -43,11 +43,23 @@ pub fn answer_os_info(probes: &[ProbeResult], route_class: &str) -> Option<Deter
 
     for line in output.lines() {
         if line.starts_with("PRETTY_NAME=") {
-            pretty_name = line.strip_prefix("PRETTY_NAME=").unwrap_or("").trim_matches('"').to_string();
+            pretty_name = line
+                .strip_prefix("PRETTY_NAME=")
+                .unwrap_or("")
+                .trim_matches('"')
+                .to_string();
         } else if line.starts_with("NAME=") {
-            name = line.strip_prefix("NAME=").unwrap_or("").trim_matches('"').to_string();
+            name = line
+                .strip_prefix("NAME=")
+                .unwrap_or("")
+                .trim_matches('"')
+                .to_string();
         } else if line.starts_with("VERSION=") {
-            version = line.strip_prefix("VERSION=").unwrap_or("").trim_matches('"').to_string();
+            version = line
+                .strip_prefix("VERSION=")
+                .unwrap_or("")
+                .trim_matches('"')
+                .to_string();
         }
     }
 

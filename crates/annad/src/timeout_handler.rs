@@ -46,7 +46,7 @@ pub fn make_timeout_response(
         assigned_staff: None,
         staff_id: None,
         answer,
-        validated: false, // v0.0.298: Timeout responses are not validated
+        validated: false,      // v0.0.298: Timeout responses are not validated
         reliability_score: 20, // Low but not zero - we provided info
         reliability_signals: anna_shared::rpc::ReliabilitySignals::default(),
         reliability_explanation: None,

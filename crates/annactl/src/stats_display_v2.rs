@@ -21,7 +21,7 @@ use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, TrendDirec
 use anna_shared::roster::{person_by_id, Tier};
 use anna_shared::staff_stats::{level_title, StaffStats};
 use anna_shared::stats::GlobalStats;
-use anna_shared::ticket_log::{load_recent_tickets, calculate_stats};
+use anna_shared::ticket_log::{calculate_stats, load_recent_tickets};
 use anna_shared::ui::{colors, kv, kv_colored, print_footer, print_section_header, print_title};
 
 /// Print the Service Desk staff performance report
@@ -123,7 +123,11 @@ pub fn print_stats_display_v2(_stats: &GlobalStats) {
                     } else {
                         capitalize(parts.last().unwrap_or(&"Unknown"))
                     };
-                    let tier = if person_id.contains("_sr") { "Sr" } else { "Jr" };
+                    let tier = if person_id.contains("_sr") {
+                        "Sr"
+                    } else {
+                        "Jr"
+                    };
                     (name, tier)
                 };
 
@@ -255,7 +259,12 @@ fn print_learning_section() {
         };
         kv(
             "avg_quality",
-            &format!("{}{:.1}/5{}", quality_color, stats.avg_quality, colors::RESET),
+            &format!(
+                "{}{:.1}/5{}",
+                quality_color,
+                stats.avg_quality,
+                colors::RESET
+            ),
         );
     }
 
@@ -280,7 +289,12 @@ fn print_learning_section() {
             "trend",
             &format!(
                 "{}{}{} {} (was {:.1}, now {:.1})",
-                trend_color, trend_icon, colors::RESET, trend.trend, trend.previous_avg, trend.current_avg
+                trend_color,
+                trend_icon,
+                colors::RESET,
+                trend.trend,
+                trend.previous_avg,
+                trend.current_avg
             ),
         );
     }
@@ -297,7 +311,13 @@ fn print_learning_section() {
     let confidence = store.confidence_factor();
     kv(
         "health",
-        &format!("{}{}{} ({:.0}% confidence)", health_color, health, colors::RESET, confidence * 100.0),
+        &format!(
+            "{}{}{} ({:.0}% confidence)",
+            health_color,
+            health,
+            colors::RESET,
+            confidence * 100.0
+        ),
     );
 }
 
@@ -332,8 +352,12 @@ fn print_efficiency_section() {
             "resolved",
             &format!(
                 "{}{}{} ({}{:.0}%{})",
-                colors::OK, stats.success, colors::RESET,
-                rate_color, stats.success_rate, colors::RESET
+                colors::OK,
+                stats.success,
+                colors::RESET,
+                rate_color,
+                stats.success_rate,
+                colors::RESET
             ),
         );
 
@@ -350,7 +374,9 @@ fn print_efficiency_section() {
                 "llm_failed",
                 &format!(
                     "{}{}{} (timeout/parse errors)",
-                    colors::WARN, stats.llm_failed, colors::RESET
+                    colors::WARN,
+                    stats.llm_failed,
+                    colors::RESET
                 ),
             );
         }
@@ -375,7 +401,10 @@ fn print_efficiency_section() {
                 "recipes",
                 &format!(
                     "{}{}{} ({:.0}%)",
-                    colors::OK, recipe_count, colors::RESET, recipe_pct
+                    colors::OK,
+                    recipe_count,
+                    colors::RESET,
+                    recipe_pct
                 ),
             );
         }
@@ -385,7 +414,10 @@ fn print_efficiency_section() {
                 "llm",
                 &format!(
                     "{}{}{} ({:.0}%)",
-                    colors::WARN, llm_count, colors::RESET, llm_pct
+                    colors::WARN,
+                    llm_count,
+                    colors::RESET,
+                    llm_pct
                 ),
             );
         }
@@ -395,7 +427,10 @@ fn print_efficiency_section() {
                 "deterministic",
                 &format!(
                     "{}{}{} ({:.0}%)",
-                    colors::DIM, det_count, colors::RESET, det_pct
+                    colors::DIM,
+                    det_count,
+                    colors::RESET,
+                    det_pct
                 ),
             );
         }
@@ -408,7 +443,9 @@ fn print_efficiency_section() {
                 "llm_avoided",
                 &format!(
                     "{}{:.0}%{} handled without LLM",
-                    colors::OK, savings_pct, colors::RESET
+                    colors::OK,
+                    savings_pct,
+                    colors::RESET
                 ),
             );
         }
@@ -422,7 +459,10 @@ fn print_efficiency_section() {
         if stats.avg_duration_ms > 0 {
             kv(
                 "avg_response",
-                &format!("{:.1}s (answered only)", stats.avg_duration_ms as f64 / 1000.0),
+                &format!(
+                    "{:.1}s (answered only)",
+                    stats.avg_duration_ms as f64 / 1000.0
+                ),
             );
         }
         if stats.avg_reliability > 0 {

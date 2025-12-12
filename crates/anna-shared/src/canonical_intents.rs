@@ -81,7 +81,9 @@ impl CanonicalIntent {
             "check_free_ram" | "free_ram" | "ram_usage" | "memory_usage" => Self::CheckFreeRam,
             "check_swap_presence" | "swap_presence" | "has_swap" => Self::CheckSwapPresence,
             "check_swap_usage" | "swap_usage" => Self::CheckSwapUsage,
-            "list_top_memory_processes" | "top_memory" | "memory_hogs" => Self::ListTopMemoryProcesses,
+            "list_top_memory_processes" | "top_memory" | "memory_hogs" => {
+                Self::ListTopMemoryProcesses
+            }
 
             // Storage
             "check_disk_usage" | "disk_usage" | "disk_space" => Self::CheckDiskUsage,
@@ -90,7 +92,9 @@ impl CanonicalIntent {
             "find_largest_files" | "largest_files" | "big_files" => Self::FindLargestFiles,
 
             // Services
-            "check_failed_services" | "failed_services" | "failed_units" => Self::CheckFailedServices,
+            "check_failed_services" | "failed_services" | "failed_units" => {
+                Self::CheckFailedServices
+            }
             "check_service_status" | "service_status" => Self::CheckServiceStatus,
             "list_running_services" | "running_services" => Self::ListRunningServices,
             "check_timers" | "systemd_timers" => Self::CheckTimers,
@@ -101,13 +105,17 @@ impl CanonicalIntent {
             "check_boot_errors" | "boot_errors" => Self::CheckBootErrors,
 
             // Network
-            "check_network_connectivity" | "network_connectivity" | "ping" => Self::CheckNetworkConnectivity,
+            "check_network_connectivity" | "network_connectivity" | "ping" => {
+                Self::CheckNetworkConnectivity
+            }
             "check_dns_health" | "dns_health" | "dns" => Self::CheckDnsHealth,
             "check_listening_ports" | "listening_ports" | "open_ports" => Self::CheckListeningPorts,
             "check_firewall_status" | "firewall_status" | "firewall" => Self::CheckFirewallStatus,
 
             // Packages
-            "check_package_installed" | "package_installed" | "is_installed" => Self::CheckPackageInstalled,
+            "check_package_installed" | "package_installed" | "is_installed" => {
+                Self::CheckPackageInstalled
+            }
             "list_installed_packages" | "installed_packages" => Self::ListInstalledPackages,
             "check_updates" | "updates" | "checkupdates" => Self::CheckUpdates,
 
@@ -117,12 +125,16 @@ impl CanonicalIntent {
             "check_load_average" | "load_average" | "load" => Self::CheckLoadAverage,
 
             // Desktop
-            "check_desktop_environment" | "desktop_environment" | "de" | "wm" => Self::CheckDesktopEnvironment,
+            "check_desktop_environment" | "desktop_environment" | "de" | "wm" => {
+                Self::CheckDesktopEnvironment
+            }
             "find_config_file" | "config_file" | "config" => Self::FindConfigFile,
 
             // Audio
             "check_audio_devices" | "audio_devices" | "sound_devices" => Self::CheckAudioDevices,
-            "check_audio_server" | "audio_server" | "pipewire" | "pulseaudio" => Self::CheckAudioServer,
+            "check_audio_server" | "audio_server" | "pipewire" | "pulseaudio" => {
+                Self::CheckAudioServer
+            }
 
             // GPU
             "check_gpu_drivers" | "gpu_drivers" | "gpu" => Self::CheckGpuDrivers,
@@ -199,7 +211,9 @@ impl CanonicalIntent {
         match self {
             // Memory
             Self::CheckFreeRam | Self::ListTopMemoryProcesses => vec!["ram_usage", "free_command"],
-            Self::CheckSwapPresence | Self::CheckSwapUsage => vec!["swap_configuration", "proc_swaps"],
+            Self::CheckSwapPresence | Self::CheckSwapUsage => {
+                vec!["swap_configuration", "proc_swaps"]
+            }
 
             // Storage
             Self::CheckDiskUsage => vec!["df_command", "disk_usage"],
@@ -234,10 +248,14 @@ impl CanonicalIntent {
             Self::CheckUptime | Self::CheckLoadAverage => vec!["uptime", "load_average"],
 
             // Desktop
-            Self::CheckDesktopEnvironment | Self::FindConfigFile => vec!["desktop_environment", "config_files"],
+            Self::CheckDesktopEnvironment | Self::FindConfigFile => {
+                vec!["desktop_environment", "config_files"]
+            }
 
             // Audio
-            Self::CheckAudioDevices | Self::CheckAudioServer => vec!["pipewire", "pulseaudio", "audio"],
+            Self::CheckAudioDevices | Self::CheckAudioServer => {
+                vec!["pipewire", "pulseaudio", "audio"]
+            }
 
             // GPU
             Self::CheckGpuDrivers | Self::CheckDisplayInfo => vec!["gpu_drivers", "lspci"],
@@ -314,24 +332,51 @@ pub fn intent_to_topics() -> &'static HashMap<&'static str, Vec<&'static str>> {
             let mut m = HashMap::new();
 
             // Memory
-            m.insert("check_free_ram", vec!["ram_usage", "free_command", "proc_meminfo"]);
-            m.insert("check_swap_presence", vec!["swap_configuration", "proc_swaps"]);
+            m.insert(
+                "check_free_ram",
+                vec!["ram_usage", "free_command", "proc_meminfo"],
+            );
+            m.insert(
+                "check_swap_presence",
+                vec!["swap_configuration", "proc_swaps"],
+            );
 
             // Storage
-            m.insert("check_disk_usage", vec!["df_command", "disk_usage", "filesystem"]);
-            m.insert("check_trim_service", vec!["fstrim", "systemd_timers", "ssd_trim"]);
+            m.insert(
+                "check_disk_usage",
+                vec!["df_command", "disk_usage", "filesystem"],
+            );
+            m.insert(
+                "check_trim_service",
+                vec!["fstrim", "systemd_timers", "ssd_trim"],
+            );
 
             // Services
-            m.insert("check_failed_services", vec!["systemctl_failed", "systemd_units"]);
+            m.insert(
+                "check_failed_services",
+                vec!["systemctl_failed", "systemd_units"],
+            );
             m.insert("check_service_status", vec!["systemctl", "systemd_units"]);
 
             // Boot
-            m.insert("check_boot_time", vec!["systemd_analyze", "boot_performance"]);
-            m.insert("diagnose_slow_boot", vec!["systemd_analyze", "systemd_blame", "boot_performance"]);
+            m.insert(
+                "check_boot_time",
+                vec!["systemd_analyze", "boot_performance"],
+            );
+            m.insert(
+                "diagnose_slow_boot",
+                vec!["systemd_analyze", "systemd_blame", "boot_performance"],
+            );
 
             // Network
-            m.insert("check_network_connectivity", vec!["ip_command", "network_interfaces", "ping"]);
-            m.insert("check_dns_health", vec!["dns_resolver", "resolvectl", "nsswitch"]);
+            m.insert(
+                "check_network_connectivity",
+                vec!["ip_command", "network_interfaces", "ping"],
+            );
+            m.insert(
+                "check_dns_health",
+                vec!["dns_resolver", "resolvectl", "nsswitch"],
+            );
 
             // Packages
             m.insert("check_package_installed", vec!["pacman", "package_query"]);
@@ -343,11 +388,7 @@ pub fn intent_to_topics() -> &'static HashMap<&'static str, Vec<&'static str>> {
 }
 
 /// Map translator output to canonical intent
-pub fn translator_to_canonical(
-    intent: &str,
-    domain: &str,
-    probes: &[String],
-) -> CanonicalIntent {
+pub fn translator_to_canonical(intent: &str, domain: &str, probes: &[String]) -> CanonicalIntent {
     // First, try to infer from probes (most specific)
     for probe in probes {
         match probe.as_str() {
@@ -390,9 +431,18 @@ mod tests {
 
     #[test]
     fn test_canonical_intent_from_str() {
-        assert_eq!(CanonicalIntent::from_str("check_free_ram"), CanonicalIntent::CheckFreeRam);
-        assert_eq!(CanonicalIntent::from_str("disk_usage"), CanonicalIntent::CheckDiskUsage);
-        assert_eq!(CanonicalIntent::from_str("unknown"), CanonicalIntent::GeneralQuery);
+        assert_eq!(
+            CanonicalIntent::from_str("check_free_ram"),
+            CanonicalIntent::CheckFreeRam
+        );
+        assert_eq!(
+            CanonicalIntent::from_str("disk_usage"),
+            CanonicalIntent::CheckDiskUsage
+        );
+        assert_eq!(
+            CanonicalIntent::from_str("unknown"),
+            CanonicalIntent::GeneralQuery
+        );
     }
 
     #[test]
@@ -409,11 +459,8 @@ mod tests {
 
     #[test]
     fn test_translator_to_canonical() {
-        let intent = translator_to_canonical(
-            "query_metric",
-            "storage",
-            &["disk_usage".to_string()],
-        );
+        let intent =
+            translator_to_canonical("query_metric", "storage", &["disk_usage".to_string()]);
         assert_eq!(intent, CanonicalIntent::CheckDiskUsage);
     }
 

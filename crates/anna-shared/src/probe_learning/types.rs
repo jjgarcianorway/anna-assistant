@@ -89,52 +89,89 @@ impl QueryCategory {
         let q = query.to_lowercase();
 
         // Graphics/display queries
-        if q.contains("gpu") || q.contains("graphics") || q.contains("display")
-            || q.contains("vaapi") || q.contains("vdpau") || q.contains("vulkan")
-            || q.contains("hardware acceleration") || q.contains("video acceleration")
-            || q.contains("render") {
+        if q.contains("gpu")
+            || q.contains("graphics")
+            || q.contains("display")
+            || q.contains("vaapi")
+            || q.contains("vdpau")
+            || q.contains("vulkan")
+            || q.contains("hardware acceleration")
+            || q.contains("video acceleration")
+            || q.contains("render")
+        {
             return Self::Graphics;
         }
 
         // Hardware queries
-        if q.contains("usb") || q.contains("pci") || q.contains("bluetooth")
-            || q.contains("printer") || q.contains("audio") || q.contains("sound") {
+        if q.contains("usb")
+            || q.contains("pci")
+            || q.contains("bluetooth")
+            || q.contains("printer")
+            || q.contains("audio")
+            || q.contains("sound")
+        {
             return Self::Hardware;
         }
 
         // Network queries
-        if q.contains("network") || q.contains("wifi") || q.contains("ethernet")
-            || q.contains("ip address") || q.contains("dns") || q.contains("ping") {
+        if q.contains("network")
+            || q.contains("wifi")
+            || q.contains("ethernet")
+            || q.contains("ip address")
+            || q.contains("dns")
+            || q.contains("ping")
+        {
             return Self::Network;
         }
 
         // Storage queries
-        if q.contains("disk") || q.contains("storage") || q.contains("space")
-            || q.contains("mount") || q.contains("partition") {
+        if q.contains("disk")
+            || q.contains("storage")
+            || q.contains("space")
+            || q.contains("mount")
+            || q.contains("partition")
+        {
             return Self::Storage;
         }
 
         // Security queries
-        if q.contains("firewall") || q.contains("permission") || q.contains("security")
-            || q.contains("user") || q.contains("group") {
+        if q.contains("firewall")
+            || q.contains("permission")
+            || q.contains("security")
+            || q.contains("user")
+            || q.contains("group")
+        {
             return Self::Security;
         }
 
         // Package queries
-        if q.contains("package") || q.contains("install") || q.contains("update")
-            || q.contains("pacman") || q.contains("apt") || q.contains("dnf") {
+        if q.contains("package")
+            || q.contains("install")
+            || q.contains("update")
+            || q.contains("pacman")
+            || q.contains("apt")
+            || q.contains("dnf")
+        {
             return Self::Packages;
         }
 
         // Service queries
-        if q.contains("service") || q.contains("systemd") || q.contains("daemon")
-            || q.contains("running") && q.contains("process") {
+        if q.contains("service")
+            || q.contains("systemd")
+            || q.contains("daemon")
+            || q.contains("running") && q.contains("process")
+        {
             return Self::Services;
         }
 
         // System health queries
-        if q.contains("cpu") || q.contains("memory") || q.contains("ram")
-            || q.contains("process") || q.contains("load") || q.contains("uptime") {
+        if q.contains("cpu")
+            || q.contains("memory")
+            || q.contains("ram")
+            || q.contains("process")
+            || q.contains("load")
+            || q.contains("uptime")
+        {
             return Self::SystemHealth;
         }
 

@@ -6,6 +6,7 @@
 //! v0.0.298: Return `validated` status from verification loop.
 //! v0.0.380: Record interactions to context memory for cross-session learning.
 
+use crate::state::SharedState;
 use anna_shared::context_memory::ContextMemory;
 use anna_shared::progress::RequestStage;
 use anna_shared::reliability::ReliabilityInput;
@@ -13,8 +14,12 @@ use anna_shared::rpc::{ServiceDeskResult, SpecialistDomain};
 use anna_shared::ticket::TicketStatus;
 use anna_shared::trace::SpecialistOutcome;
 use anna_shared::transcript::Transcript;
+use anna_shared::truth_ledger::{TrustScore, Veracity};
+use tokio; // Added tokio import
+use tracing::{info, warn}; // Added SharedState import
 
 use crate::comms::CommsGenerator;
+use crate::cross_reference::cross_reference_claim;
 use crate::progress_tracker::ProgressTracker;
 use crate::result_stage::build_final_result;
 use crate::router::DeterministicRoute;
@@ -43,13 +48,19 @@ pub struct VerificationInput<'a> {
 }
 
 /// Build reliability input for verification
-pub fn build_reliability_input(
-    input: &VerificationInput,
-) -> ReliabilityInput {
+pub fn build_reliability_input(input: &VerificationInput) -> ReliabilityInput {
     ReliabilityInput {
         planned_probes: input.ticket_probes_planned,
-        succeeded_probes: input.probe_results.iter().filter(|p| p.exit_code == 0).count(),
-        failed_probes: input.probe_results.iter().filter(|p| p.exit_code != 0).count(),
+        succeeded_probes: input
+            .probe_results
+            .iter()
+            .filter(|p| p.exit_code == 0)
+            .count(),
+        failed_probes: input
+            .probe_results
+            .iter()
+            .filter(|p| p.exit_code != 0)
+            .count(),
         timed_out_probes: 0,
         translator_confidence: input.ticket.confidence,
         translator_used: !input.translator_timed_out,
@@ -59,15 +70,30 @@ pub fn build_reliability_input(
         total_claims: 1,
         evidence_required: input.det_route.capability.evidence_required,
         used_deterministic: input.specialist_result.used_deterministic,
-        parsed_data_count: input.specialist_result.det_result.as_ref().map(|d| d.parsed_data_count).unwrap_or(0),
+        parsed_data_count: input
+            .specialist_result
+            .det_result
+            .as_ref()
+            .map(|d| d.parsed_data_count)
+            .unwrap_or(0),
         prompt_truncated: input.specialist_result.prompt_truncated,
         transcript_capped: false,
-        budget_exceeded: matches!(input.specialist_result.outcome, SpecialistOutcome::BudgetExceeded),
+        budget_exceeded: matches!(
+            input.specialist_result.outcome,
+            SpecialistOutcome::BudgetExceeded
+        ),
         exceeded_stage: None,
         stage_budget_ms: 0,
         stage_elapsed_ms: 0,
-        used_deterministic_fallback: matches!(input.specialist_result.outcome, SpecialistOutcome::Timeout | SpecialistOutcome::Error) && input.specialist_result.used_deterministic,
-        fallback_route_class: input.specialist_result.fallback_route_class.clone().unwrap_or_default(),
+        used_deterministic_fallback: matches!(
+            input.specialist_result.outcome,
+            SpecialistOutcome::Timeout | SpecialistOutcome::Error
+        ) && input.specialist_result.used_deterministic,
+        fallback_route_class: input
+            .specialist_result
+            .fallback_route_class
+            .clone()
+            .unwrap_or_default(),
         evidence_kinds: vec![],
         specialist_outcome: Some(input.specialist_result.outcome),
         fallback_used: None,
@@ -83,6 +109,7 @@ pub struct VerificationResult {
 /// Run the verification loop and update comms (v0.0.297: with LLM self-healing)
 /// v0.0.298: Returns VerificationResult with validated status
 pub async fn run_verification(
+    state: &crate::state::SharedState,
     input: &VerificationInput<'_>,
     progress: &mut ProgressTracker,
     comms: &mut CommsGenerator,
@@ -90,7 +117,11 @@ pub async fn run_verification(
     progress.start_stage(RequestStage::Supervisor, input.supervisor_timeout_secs);
 
     let reliability_input = build_reliability_input(input);
-    let route_class = input.specialist_result.fallback_route_class.as_deref().unwrap_or("unknown");
+    let route_class = input
+        .specialist_result
+        .fallback_route_class
+        .as_deref()
+        .unwrap_or("unknown");
     let elapsed_ms = progress.elapsed_ms();
 
     // v0.0.297: Pass model and timeout for LLM self-healing
@@ -110,12 +141,92 @@ pub async fn run_verification(
     )
     .await;
 
+    let web_search_needed: Option<(String, SharedState)> = {
+        let mut state_write = state.write().await;
+        let mut web_search_data = None;
+
+        if state_write
+            .truth_ledger
+            .find_claim(&input.specialist_result.answer)
+            .is_some()
+        {
+            if verification_result.verified {
+                state_write
+                    .truth_ledger
+                    .verify_claim(&input.specialist_result.answer);
+            } else {
+                state_write
+                    .truth_ledger
+                    .dispute_claim(&input.specialist_result.answer);
+            }
+
+            // After initial verification, check truthfulness based on internal logic
+            if let Some((calculated_veracity, web_search_recommended)) = state_write
+                .truth_ledger
+                .check_truthfulness(&input.specialist_result.answer)
+            {
+                let current_veracity = state_write
+                    .truth_ledger
+                    .find_claim(&input.specialist_result.answer)
+                    .unwrap()
+                    .veracity
+                    .clone();
+                if current_veracity != calculated_veracity {
+                    warn!(
+                        "Truthfulness check changed veracity from {:?} to {:?}",
+                        current_veracity, calculated_veracity
+                    );
+                    // Update the veracity based on the check_truthfulness method
+                    if calculated_veracity == Veracity::Verified {
+                        state_write
+                            .truth_ledger
+                            .verify_claim(&input.specialist_result.answer);
+                    } else if calculated_veracity == Veracity::Disputed {
+                        state_write
+                            .truth_ledger
+                            .dispute_claim(&input.specialist_result.answer);
+                    }
+                }
+
+                if web_search_recommended {
+                    web_search_data = Some((input.specialist_result.answer.clone(), state.clone()));
+                }
+            }
+        } else {
+            warn!(
+                "Claim not found in truth ledger: {}",
+                input.specialist_result.answer
+            );
+        }
+        web_search_data
+    };
+
+    // Spawn web search task AFTER releasing the lock
+    if let Some((claim_text, updated_state)) = web_search_needed {
+        tokio::spawn(async move {
+            let mut updated_state_write = updated_state.write().await;
+            if let Err(e) = cross_reference_claim(
+                updated_state.clone(),
+                &mut updated_state_write.truth_ledger,
+                &claim_text,
+            )
+            .await
+            {
+                warn!("Failed to cross-reference claim '{}': {}", claim_text, e);
+            } else {
+                info!("Successfully cross-referenced claim: '{}'", claim_text);
+            }
+        });
+    }
+
     // Update comms based on verification result
     // v0.0.305: Escalation messages are already in transcript from ticket_loop,
     // only add senior response for Escalated/Failed status (avoid duplicates)
     match verification_result.ticket.status {
         TicketStatus::Verified => {
-            comms.junior_done_async(progress, verification_result.score).await;
+            comms
+                .junior_done_async(progress, verification_result.score)
+                .await;
         }
         TicketStatus::Escalated => {
             // Escalation message already in transcript from ticket_loop
@@ -126,7 +237,9 @@ pub async fn run_verification(
             comms.senior_response(progress, false);
         }
         _ => {
-            comms.junior_done_async(progress, verification_result.score).await;
+            comms
+                .junior_done_async(progress, verification_result.score)
+                .await;
         }
     }
     comms.anna_returning_async(progress).await;
@@ -182,12 +295,13 @@ pub fn handle_theatre(
     result: &ServiceDeskResult,
     id: &str,
     total_ms: u64,
+    validated: bool,
 ) -> TheatreContext {
     let mut theatre = TheatreContext::new(query, domain);
     theatre.start_work();
 
     // v0.0.298: Escalate to senior if not validated (not just score < 60)
-    if !result.validated && !result.needs_clarification {
+    if !validated && !result.needs_clarification {
         theatre.escalate();
     }
 
@@ -200,9 +314,9 @@ pub fn handle_theatre(
     theatre.record_staff_stats(result.reliability_score, total_ms);
 
     // v0.0.298: Use validated field for notifications
-    if theatre.should_notify(total_ms) || !result.validated {
+    if theatre.should_notify(total_ms) || !validated {
         theatre.notify_ticket_created();
-        if result.validated {
+        if validated {
             theatre.notify_ticket_resolved();
         }
     }
@@ -211,7 +325,7 @@ pub fn handle_theatre(
     record_event_log(id, result, &theatre, total_ms);
 
     // v0.0.380: Record interaction to context memory for cross-session learning
-    record_context_memory(query, &result.domain.to_string(), result.validated);
+    record_context_memory(query, &result.domain.to_string(), validated);
 
     theatre
 }
@@ -228,9 +342,28 @@ fn record_context_memory(query: &str, domain: &str, validated: bool) {
     if validated {
         // Extract potential commands from the query
         let query_lower = query.to_lowercase();
-        let commands_mentioned = ["systemctl", "journalctl", "df", "du", "mount",
-            "ip", "ping", "netstat", "ps", "top", "htop", "grep", "find", "chmod", "chown",
-            "pacman", "apt", "dnf", "docker", "git"];
+        let commands_mentioned = [
+            "systemctl",
+            "journalctl",
+            "df",
+            "du",
+            "mount",
+            "ip",
+            "ping",
+            "netstat",
+            "ps",
+            "top",
+            "htop",
+            "grep",
+            "find",
+            "chmod",
+            "chown",
+            "pacman",
+            "apt",
+            "dnf",
+            "docker",
+            "git",
+        ];
 
         for cmd in commands_mentioned {
             if query_lower.contains(cmd) {

@@ -9,9 +9,9 @@
 mod acceptance_tests {
     use crate::evidence_first::{
         citations::{Citation, CitationStore, EvidenceId},
-        enforcement::{Claim, ClaimValidator, Strictness, extract_claims},
+        enforcement::{extract_claims, Claim, ClaimValidator, Strictness},
         primitives::{Domain, PrimitiveLibrary},
-        probe_plan::{ProbePlan, ProbeOutput, ProbeSelection},
+        probe_plan::{ProbeOutput, ProbePlan, ProbeSelection},
         recipes::{RecipePromoter, RecipeStep, RecipeTemplate},
         research::{ResearchLoop, ResearchPlan, ResearchResult},
         sources::KnowledgeSource,
@@ -33,9 +33,7 @@ mod acceptance_tests {
         // Should select boot-related probes
         assert!(!plan.is_empty(), "Plan should have probes");
         assert!(
-            plan.selected_primitives
-                .iter()
-                .any(|p| p.contains("boot")),
+            plan.selected_primitives.iter().any(|p| p.contains("boot")),
             "Should include boot probe"
         );
 
@@ -113,10 +111,7 @@ mod acceptance_tests {
 
         // Test keyword search
         let temp_probes = library.find_by_keyword("temperature");
-        assert!(
-            !temp_probes.is_empty(),
-            "Should find temperature probes"
-        );
+        assert!(!temp_probes.is_empty(), "Should find temperature probes");
     }
 
     /// Test 3: Recipe promotion after N confirmations.
@@ -128,7 +123,10 @@ mod acceptance_tests {
         let template = RecipeTemplate::new("restart-service", "Restart Failed Service")
             .with_problem("Service {service} has failed")
             .with_probe("sys.services.failed")
-            .with_step(RecipeStep::new(1, "Check status: systemctl status {service}"))
+            .with_step(RecipeStep::new(
+                1,
+                "Check status: systemctl status {service}",
+            ))
             .with_step(
                 RecipeStep::new(2, "Restart: sudo systemctl restart {service}")
                     .with_command("sudo systemctl restart {service}")
@@ -226,7 +224,10 @@ mod acceptance_tests {
 
         // Verify citation content is in raw evidence
         let citation = &citations[0];
-        assert!(store.verify_citation(citation), "Citation should be verifiable");
+        assert!(
+            store.verify_citation(citation),
+            "Citation should be verifiable"
+        );
     }
 
     /// Test 6: Primitive library coverage.
@@ -247,11 +248,7 @@ mod acceptance_tests {
 
         for domain in domains {
             let probes = library.for_domain(domain);
-            assert!(
-                !probes.is_empty(),
-                "Should have probes for {:?}",
-                domain
-            );
+            assert!(!probes.is_empty(), "Should have probes for {:?}", domain);
         }
 
         // Verify key probes exist
@@ -266,11 +263,7 @@ mod acceptance_tests {
         ];
 
         for probe_id in key_probes {
-            assert!(
-                library.get(probe_id).is_some(),
-                "Should have {}",
-                probe_id
-            );
+            assert!(library.get(probe_id).is_some(), "Should have {}", probe_id);
         }
     }
 
@@ -286,9 +279,15 @@ mod acceptance_tests {
 
         // Should have different types
         use crate::evidence_first::enforcement::ClaimType;
-        let has_factual = claims.iter().any(|c| matches!(c.claim_type, ClaimType::Factual));
-        let has_doc = claims.iter().any(|c| matches!(c.claim_type, ClaimType::Documentation));
-        let has_uncertainty = claims.iter().any(|c| matches!(c.claim_type, ClaimType::Uncertainty));
+        let has_factual = claims
+            .iter()
+            .any(|c| matches!(c.claim_type, ClaimType::Factual));
+        let has_doc = claims
+            .iter()
+            .any(|c| matches!(c.claim_type, ClaimType::Documentation));
+        let has_uncertainty = claims
+            .iter()
+            .any(|c| matches!(c.claim_type, ClaimType::Uncertainty));
 
         assert!(has_factual || has_doc, "Should have factual or doc claims");
     }
@@ -393,15 +392,16 @@ mod acceptance_tests {
         store.add_citation(Citation::new(id, "probe:test", "test output"));
 
         let validator = ClaimValidator::default();
-        let claims = vec![
-            Claim::factual("test output shows results"),
-        ];
+        let claims = vec![Claim::factual("test output shows results")];
 
         let report = validator.validate_claims(&claims, &store);
 
         // Format should include key info
         let formatted = report.format();
-        assert!(formatted.contains("Validation Report"), "Should have header");
+        assert!(
+            formatted.contains("Validation Report"),
+            "Should have header"
+        );
     }
 }
 

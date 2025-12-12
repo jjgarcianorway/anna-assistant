@@ -369,26 +369,32 @@ mod tests {
 
     #[test]
     fn test_storage_followups() {
-        let hints = generate_followup_hints("how much disk space do I have", SpecialistDomain::Storage, "");
+        let hints = generate_followup_hints(
+            "how much disk space do I have",
+            SpecialistDomain::Storage,
+            "",
+        );
         assert!(!hints.is_empty());
         assert!(hints.iter().any(|h| h.command.is_some()));
     }
 
     #[test]
     fn test_system_followups() {
-        let hints = generate_followup_hints("what processes are using memory", SpecialistDomain::System, "");
+        let hints = generate_followup_hints(
+            "what processes are using memory",
+            SpecialistDomain::System,
+            "",
+        );
         assert!(!hints.is_empty());
     }
 
     #[test]
     fn test_format_hints() {
-        let hints = vec![
-            FollowupHint {
-                hint: "Test hint".to_string(),
-                command: Some("test cmd".to_string()),
-                relevance: 80,
-            }
-        ];
+        let hints = vec![FollowupHint {
+            hint: "Test hint".to_string(),
+            command: Some("test cmd".to_string()),
+            relevance: 80,
+        }];
         let formatted = format_hints(&hints);
         assert!(formatted.contains("Related"));
         assert!(formatted.contains("test cmd"));

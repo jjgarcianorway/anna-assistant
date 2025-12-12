@@ -285,11 +285,29 @@ mod tests {
 
     #[test]
     fn test_answer_type_detection() {
-        assert_eq!(AnswerType::from_intent("check_failed_services"), AnswerType::YesNo);
-        assert_eq!(AnswerType::from_intent("is_swap_enabled"), AnswerType::YesNo);
-        assert_eq!(AnswerType::from_intent("show_memory_usage"), AnswerType::Fact);
-        assert_eq!(AnswerType::from_intent("what_gpu_driver"), AnswerType::WhatIs);
-        assert_eq!(AnswerType::from_intent("why_boot_slow"), AnswerType::Diagnostic);
-        assert_eq!(AnswerType::from_intent("enable_vim_syntax"), AnswerType::HowTo);
+        assert_eq!(
+            AnswerType::from_intent("check_failed_services"),
+            AnswerType::YesNo
+        );
+        assert_eq!(
+            AnswerType::from_intent("is_swap_enabled"),
+            AnswerType::YesNo
+        );
+        assert_eq!(
+            AnswerType::from_intent("show_memory_usage"),
+            AnswerType::Fact
+        );
+        assert_eq!(
+            AnswerType::from_intent("what_gpu_driver"),
+            AnswerType::WhatIs
+        );
+        assert_eq!(
+            AnswerType::from_intent("why_boot_slow"),
+            AnswerType::Diagnostic
+        );
+        assert_eq!(
+            AnswerType::from_intent("enable_vim_syntax"),
+            AnswerType::HowTo
+        );
     }
 }

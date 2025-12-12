@@ -248,10 +248,7 @@ impl DesktopRecipe {
                 format!("lookandfeeltool -a {}", theme)
             }
             DesktopEnvironment::Xfce => {
-                format!(
-                    "xfconf-query -c xsettings -p /Net/ThemeName -s '{}'",
-                    theme
-                )
+                format!("xfconf-query -c xsettings -p /Net/ThemeName -s '{}'", theme)
             }
             DesktopEnvironment::Cinnamon => {
                 format!(
@@ -381,7 +378,13 @@ fn extract_theme_name(query: &str) -> Option<String> {
     for theme in known_themes {
         if query_lower.contains(theme) {
             // Capitalize properly
-            return Some(theme.split('-').map(capitalize_first).collect::<Vec<_>>().join("-"));
+            return Some(
+                theme
+                    .split('-')
+                    .map(capitalize_first)
+                    .collect::<Vec<_>>()
+                    .join("-"),
+            );
         }
     }
     None
@@ -434,8 +437,14 @@ mod tests {
 
     #[test]
     fn test_extract_theme_name() {
-        assert_eq!(extract_theme_name("change theme to dracula"), Some("Dracula".to_string()));
-        assert_eq!(extract_theme_name("set arc-dark theme"), Some("Arc-Dark".to_string()));
+        assert_eq!(
+            extract_theme_name("change theme to dracula"),
+            Some("Dracula".to_string())
+        );
+        assert_eq!(
+            extract_theme_name("set arc-dark theme"),
+            Some("Arc-Dark".to_string())
+        );
         assert!(extract_theme_name("change theme").is_none());
     }
 

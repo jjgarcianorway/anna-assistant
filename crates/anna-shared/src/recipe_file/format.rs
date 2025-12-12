@@ -195,7 +195,10 @@ impl FileRecipe {
 
     /// Check if recipe requires any confirmations
     pub fn requires_confirmation(&self) -> bool {
-        self.plan.steps.iter().any(|s| s.needs_confirm != ConfirmLevel::None)
+        self.plan
+            .steps
+            .iter()
+            .any(|s| s.needs_confirm != ConfirmLevel::None)
     }
 
     /// Check if recipe is read-only (no commands, only probes)
@@ -205,7 +208,8 @@ impl FileRecipe {
 
     /// Get all probe IDs used by this recipe
     pub fn probe_ids(&self) -> Vec<&str> {
-        self.plan.steps
+        self.plan
+            .steps
             .iter()
             .filter_map(|s| s.probe.as_deref())
             .collect()

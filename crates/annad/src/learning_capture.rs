@@ -8,8 +8,8 @@ use anna_shared::facts_types::FactSource;
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::rpc::{ProbeResult, SpecialistDomain};
 use anna_shared::specialist_learning::{
-    detect_pattern_category, PatternCategory, SpecialistLesson, SpecialistLearningStore,
-    SolutionType,
+    detect_pattern_category, PatternCategory, SolutionType, SpecialistLearningStore,
+    SpecialistLesson,
 };
 use anna_shared::specialist_patterns::{extract_generic_pattern, get_pattern_hint};
 use anna_shared::specialist_recipes::try_learn_from_specialist;
@@ -128,7 +128,10 @@ pub fn capture_lesson(
                 if lesson.confidence >= 70 {
                     let result = try_learn_from_specialist(lesson);
                     if result.learned {
-                        info!("Created recipe from specialist lesson: {:?}", result.recipe_id);
+                        info!(
+                            "Created recipe from specialist lesson: {:?}",
+                            result.recipe_id
+                        );
                         break; // Only create one recipe per capture
                     }
                 }
@@ -151,7 +154,10 @@ pub fn get_learning_hint(query: &str) -> Option<String> {
 
 /// v0.0.401: Extract facts from specialist answers using pattern matching
 /// Returns list of (key, value) pairs extracted
-pub fn extract_facts_from_answer(answer: &str, domain: &SpecialistDomain) -> Vec<(FactKey, String)> {
+pub fn extract_facts_from_answer(
+    answer: &str,
+    domain: &SpecialistDomain,
+) -> Vec<(FactKey, String)> {
     let mut facts = vec![];
     let answer_lower = answer.to_lowercase();
 
@@ -161,14 +167,19 @@ pub fn extract_facts_from_answer(answer: &str, domain: &SpecialistDomain) -> Vec
             if let Some(pkg) = cap.get(1) {
                 let pkg_name = pkg.as_str().to_lowercase();
                 if pkg_name.len() > 2 && !["the", "it", "this"].contains(&pkg_name.as_str()) {
-                    facts.push((FactKey::InstalledPackage(pkg_name.clone()), "true".to_string()));
+                    facts.push((
+                        FactKey::InstalledPackage(pkg_name.clone()),
+                        "true".to_string(),
+                    ));
                 }
             }
         }
     }
 
     // Desktop environment: "running Hyprland", "using KDE", "on GNOME"
-    if let Ok(re) = Regex::new(r"(?i)(?:running|using|on)\s+(hyprland|kde|gnome|xfce|sway|i3|bspwm)") {
+    if let Ok(re) =
+        Regex::new(r"(?i)(?:running|using|on)\s+(hyprland|kde|gnome|xfce|sway|i3|bspwm)")
+    {
         if let Some(cap) = re.captures(answer) {
             if let Some(de) = cap.get(1) {
                 facts.push((FactKey::Desktop, de.as_str().to_lowercase()));
@@ -179,7 +190,10 @@ pub fn extract_facts_from_answer(answer: &str, domain: &SpecialistDomain) -> Vec
     // Package manager patterns
     if answer_lower.contains("pacman") || answer_lower.contains("arch linux") {
         facts.push((FactKey::PackageManager, "pacman".to_string()));
-    } else if answer_lower.contains("apt") || answer_lower.contains("debian") || answer_lower.contains("ubuntu") {
+    } else if answer_lower.contains("apt")
+        || answer_lower.contains("debian")
+        || answer_lower.contains("ubuntu")
+    {
         facts.push((FactKey::PackageManager, "apt".to_string()));
     }
 
@@ -189,7 +203,10 @@ pub fn extract_facts_from_answer(answer: &str, domain: &SpecialistDomain) -> Vec
     }
 
     // GPU presence
-    if answer_lower.contains("nvidia") || answer_lower.contains("amd gpu") || answer_lower.contains("radeon") {
+    if answer_lower.contains("nvidia")
+        || answer_lower.contains("amd gpu")
+        || answer_lower.contains("radeon")
+    {
         facts.push((FactKey::GpuPresent, "true".to_string()));
     }
 
@@ -198,7 +215,10 @@ pub fn extract_facts_from_answer(answer: &str, domain: &SpecialistDomain) -> Vec
         if let Ok(re) = Regex::new(r"(?i)(\w+\.service)\s+(?:is\s+)?(?:active|running|enabled)") {
             for cap in re.captures_iter(answer) {
                 if let Some(svc) = cap.get(1) {
-                    facts.push((FactKey::UnitExists(svc.as_str().to_lowercase()), "true".to_string()));
+                    facts.push((
+                        FactKey::UnitExists(svc.as_str().to_lowercase()),
+                        "true".to_string(),
+                    ));
                 }
             }
         }
@@ -210,7 +230,9 @@ pub fn extract_facts_from_answer(answer: &str, domain: &SpecialistDomain) -> Vec
 /// v0.0.401: Store extracted facts from specialist answers
 fn store_extracted_facts(answer: &str, domain: &SpecialistDomain) {
     let facts = extract_facts_from_answer(answer, domain);
-    if facts.is_empty() { return; }
+    if facts.is_empty() {
+        return;
+    }
 
     let mut store = FactsStore::load();
     let mut stored = 0;
@@ -251,7 +273,10 @@ pub fn record_user_feedback(query: &str, helpful: bool) -> Option<String> {
         } else {
             // Decrease confidence
             lesson.confidence = lesson.confidence.saturating_sub(10);
-            info!("User feedback: -helpful for lesson {} (confidence now {})", lesson_id, lesson.confidence);
+            info!(
+                "User feedback: -helpful for lesson {} (confidence now {})",
+                lesson_id, lesson.confidence
+            );
         }
 
         if let Err(e) = store.save() {
@@ -296,9 +321,6 @@ mod tests {
             map_pattern_to_query_category(Some(PatternCategory::DiskAnalysis)),
             QueryCategory::Storage
         );
-        assert_eq!(
-            map_pattern_to_query_category(None),
-            QueryCategory::General
-        );
+        assert_eq!(map_pattern_to_query_category(None), QueryCategory::General);
     }
 }

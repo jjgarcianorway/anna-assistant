@@ -84,7 +84,10 @@ impl Citation {
     /// Format for display.
     pub fn format(&self) -> String {
         if let Some(ctx) = &self.context {
-            format!("• evidence: {} ({}) → \"{}\"", self.source_label, ctx, self.excerpt)
+            format!(
+                "• evidence: {} ({}) → \"{}\"",
+                self.source_label, ctx, self.excerpt
+            )
         } else {
             format!("• evidence: {} → \"{}\"", self.source_label, self.excerpt)
         }
@@ -174,7 +177,9 @@ impl CitationStore {
     pub fn verify_citation(&self, citation: &Citation) -> bool {
         if let Some(raw) = self.raw_evidence.get(&citation.evidence_id) {
             // Check if excerpt appears in raw content (case-insensitive)
-            raw.content.to_lowercase().contains(&citation.excerpt.to_lowercase())
+            raw.content
+                .to_lowercase()
+                .contains(&citation.excerpt.to_lowercase())
         } else {
             false
         }

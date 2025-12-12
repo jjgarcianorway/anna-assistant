@@ -10,7 +10,7 @@
 
 use super::citations::{Citation, CitationStore, EvidenceId};
 use super::primitives::PrimitiveLibrary;
-use super::probe_plan::{ProbePlan, ProbeExecutor, ProbeOutput};
+use super::probe_plan::{ProbeExecutor, ProbeOutput, ProbePlan};
 use super::sources::{HelpTextSource, KnowledgeSource, ManPageSource};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -213,10 +213,9 @@ impl ResearchLoop {
             result.iterations = plan.iteration;
 
             // Step 1: Execute probes
-            let outputs = self.executor.execute_with_citations(
-                &plan.probe_plan,
-                &mut result.citations,
-            );
+            let outputs = self
+                .executor
+                .execute_with_citations(&plan.probe_plan, &mut result.citations);
             result.probe_outputs.extend(outputs);
 
             // Step 2: Retrieve documentation

@@ -399,8 +399,14 @@ mod tests {
 
     #[test]
     fn test_evidence_domain_from_str() {
-        assert_eq!(EvidenceDomain::from_str("services"), Some(EvidenceDomain::Services));
-        assert_eq!(EvidenceDomain::from_str("STORAGE"), Some(EvidenceDomain::Storage));
+        assert_eq!(
+            EvidenceDomain::from_str("services"),
+            Some(EvidenceDomain::Services)
+        );
+        assert_eq!(
+            EvidenceDomain::from_str("STORAGE"),
+            Some(EvidenceDomain::Storage)
+        );
         assert_eq!(EvidenceDomain::from_str("unknown"), None);
     }
 

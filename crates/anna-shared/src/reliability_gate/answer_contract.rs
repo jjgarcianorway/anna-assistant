@@ -127,7 +127,10 @@ pub enum ContractViolation {
     /// Too many claims for expected shape
     TooManyClaims { expected: usize, got: usize },
     /// Wrong claim type for expected shape
-    WrongClaimType { expected: Vec<ClaimType>, got: ClaimType },
+    WrongClaimType {
+        expected: Vec<ClaimType>,
+        got: ClaimType,
+    },
     /// Missing required claim type
     MissingRequiredClaim { expected: ClaimType },
     /// Extra unrelated content detected
@@ -241,9 +244,7 @@ pub fn detect_generic_content(answer: &str, question_domain: &str) -> Option<Str
         if answer_lower.contains(pattern) {
             // Check if pattern is related to question domain
             let is_relevant = match question_domain {
-                "system" | "performance" => {
-                    pattern.contains("cpu") || pattern.contains("memory")
-                }
+                "system" | "performance" => pattern.contains("cpu") || pattern.contains("memory"),
                 "storage" => pattern.contains("disk"),
                 _ => false,
             };

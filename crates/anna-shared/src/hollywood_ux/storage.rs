@@ -28,8 +28,7 @@ impl TranscriptStorage {
 
     /// Ensure storage directory exists
     fn ensure_dir(&self) -> Result<(), StorageError> {
-        fs::create_dir_all(&self.base_path)
-            .map_err(|e| StorageError::IoError(e.to_string()))
+        fs::create_dir_all(&self.base_path).map_err(|e| StorageError::IoError(e.to_string()))
     }
 
     /// Save a transcript
@@ -47,8 +46,7 @@ impl TranscriptStorage {
             return Err(StorageError::SizeLimit(json.len()));
         }
 
-        fs::write(&path, json)
-            .map_err(|e| StorageError::IoError(e.to_string()))?;
+        fs::write(&path, json).map_err(|e| StorageError::IoError(e.to_string()))?;
 
         // Rotate if needed
         self.rotate_if_needed()?;
@@ -65,11 +63,10 @@ impl TranscriptStorage {
             return Err(StorageError::NotFound(request_id.to_string()));
         }
 
-        let content = fs::read_to_string(&path)
-            .map_err(|e| StorageError::IoError(e.to_string()))?;
+        let content =
+            fs::read_to_string(&path).map_err(|e| StorageError::IoError(e.to_string()))?;
 
-        serde_json::from_str(&content)
-            .map_err(|e| StorageError::DeserializeError(e.to_string()))
+        serde_json::from_str(&content).map_err(|e| StorageError::DeserializeError(e.to_string()))
     }
 
     /// List recent transcripts
@@ -79,7 +76,12 @@ impl TranscriptStorage {
         let mut entries: Vec<_> = fs::read_dir(&self.base_path)
             .map_err(|e| StorageError::IoError(e.to_string()))?
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .map(|ext| ext == "json")
+                    .unwrap_or(false)
+            })
             .collect();
 
         // Sort by modification time (newest first)
@@ -101,8 +103,7 @@ impl TranscriptStorage {
 
     /// Load just the summary from a file
     fn load_summary(&self, path: &Path) -> Result<TranscriptSummary, StorageError> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| StorageError::IoError(e.to_string()))?;
+        let content = fs::read_to_string(path).map_err(|e| StorageError::IoError(e.to_string()))?;
 
         // Parse minimal fields
         let value: serde_json::Value = serde_json::from_str(&content)
@@ -112,20 +113,13 @@ impl TranscriptStorage {
             .as_str()
             .unwrap_or("unknown")
             .to_string();
-        let user_query = value["user_query"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
+        let user_query = value["user_query"].as_str().unwrap_or("").to_string();
         let outcome: TranscriptOutcome = value["outcome"]
             .as_str()
             .and_then(|s| serde_json::from_str(&format!("\"{}\"", s)).ok())
             .unwrap_or_default();
-        let processing_time_ms = value["processing_time_ms"]
-            .as_u64()
-            .unwrap_or(0);
-        let started_at_ms = value["inner"]["started_at_ms"]
-            .as_u64()
-            .unwrap_or(0);
+        let processing_time_ms = value["processing_time_ms"].as_u64().unwrap_or(0);
+        let started_at_ms = value["inner"]["started_at_ms"].as_u64().unwrap_or(0);
 
         Ok(TranscriptSummary {
             request_id,
@@ -141,7 +135,12 @@ impl TranscriptStorage {
         let entries: Vec<_> = fs::read_dir(&self.base_path)
             .map_err(|e| StorageError::IoError(e.to_string()))?
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .map(|ext| ext == "json")
+                    .unwrap_or(false)
+            })
             .collect();
 
         if entries.len() <= self.max_transcripts {
@@ -176,7 +175,12 @@ impl TranscriptStorage {
         let entries: Vec<_> = fs::read_dir(&self.base_path)
             .map_err(|e| StorageError::IoError(e.to_string()))?
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .map(|ext| ext == "json")
+                    .unwrap_or(false)
+            })
             .collect();
 
         let mut total_size = 0u64;
@@ -201,9 +205,11 @@ impl TranscriptStorage {
             count: entries.len(),
             total_size_bytes: total_size,
             max_transcripts: self.max_transcripts,
-            oldest_timestamp: oldest.and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+            oldest_timestamp: oldest
+                .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs()),
-            newest_timestamp: newest.and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+            newest_timestamp: newest
+                .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs()),
         })
     }
@@ -214,8 +220,7 @@ impl TranscriptStorage {
         let path = self.base_path.join(&filename);
 
         if path.exists() {
-            fs::remove_file(&path)
-                .map_err(|e| StorageError::IoError(e.to_string()))?;
+            fs::remove_file(&path).map_err(|e| StorageError::IoError(e.to_string()))?;
         }
         Ok(())
     }
@@ -225,7 +230,12 @@ impl TranscriptStorage {
         let entries: Vec<_> = fs::read_dir(&self.base_path)
             .map_err(|e| StorageError::IoError(e.to_string()))?
             .filter_map(|e| e.ok())
-            .filter(|e| e.path().extension().map(|ext| ext == "json").unwrap_or(false))
+            .filter(|e| {
+                e.path()
+                    .extension()
+                    .map(|ext| ext == "json")
+                    .unwrap_or(false)
+            })
             .collect();
 
         let count = entries.len();

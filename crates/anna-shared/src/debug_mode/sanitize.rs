@@ -178,7 +178,10 @@ impl Sanitizer {
 
         // SSH keys
         if self.ssh_key_re.is_match(&content) {
-            content = self.ssh_key_re.replace_all(&content, "[REDACTED_SSH_KEY]").to_string();
+            content = self
+                .ssh_key_re
+                .replace_all(&content, "[REDACTED_SSH_KEY]")
+                .to_string();
             count += 1;
         }
 
@@ -187,7 +190,9 @@ impl Sanitizer {
             // Redact password hashes
             let shadow_re = Regex::new(r"\$[0-9a-z]+\$[^\s:]+").expect("valid shadow regex");
             if shadow_re.is_match(&content) {
-                content = shadow_re.replace_all(&content, "[REDACTED_HASH]").to_string();
+                content = shadow_re
+                    .replace_all(&content, "[REDACTED_HASH]")
+                    .to_string();
                 count += 1;
             }
         }
@@ -195,10 +200,12 @@ impl Sanitizer {
         // ~/.ssh paths - redact content after them
         if content.contains("/.ssh/") {
             // Keep the path but redact key content
-            let ssh_content_re = Regex::new(r"(~?/[^\s]*\.ssh/[^\s]+)\s+[^\n]+")
-                .expect("valid ssh path regex");
+            let ssh_content_re =
+                Regex::new(r"(~?/[^\s]*\.ssh/[^\s]+)\s+[^\n]+").expect("valid ssh path regex");
             if ssh_content_re.is_match(&content) {
-                content = ssh_content_re.replace_all(&content, "$1 [REDACTED_CONTENT]").to_string();
+                content = ssh_content_re
+                    .replace_all(&content, "$1 [REDACTED_CONTENT]")
+                    .to_string();
                 count += 1;
             }
         }
@@ -213,21 +220,30 @@ impl Sanitizer {
         // KEY=value, TOKEN=value, etc.
         if self.key_value_re.is_match(&content) {
             let matches = self.key_value_re.find_iter(&content).count();
-            content = self.key_value_re.replace_all(&content, "[REDACTED_SECRET]").to_string();
+            content = self
+                .key_value_re
+                .replace_all(&content, "[REDACTED_SECRET]")
+                .to_string();
             count += matches as u32;
         }
 
         // Authorization headers
         if self.auth_header_re.is_match(&content) {
             let matches = self.auth_header_re.find_iter(&content).count();
-            content = self.auth_header_re.replace_all(&content, "Authorization: [REDACTED]").to_string();
+            content = self
+                .auth_header_re
+                .replace_all(&content, "Authorization: [REDACTED]")
+                .to_string();
             count += matches as u32;
         }
 
         // Password fields
         if self.password_re.is_match(&content) {
             let matches = self.password_re.find_iter(&content).count();
-            content = self.password_re.replace_all(&content, "password=[REDACTED]").to_string();
+            content = self
+                .password_re
+                .replace_all(&content, "password=[REDACTED]")
+                .to_string();
             count += matches as u32;
         }
 
@@ -240,7 +256,10 @@ impl Sanitizer {
         }
 
         let matches = self.email_re.find_iter(input).count();
-        let content = self.email_re.replace_all(input, "[REDACTED_EMAIL]").to_string();
+        let content = self
+            .email_re
+            .replace_all(input, "[REDACTED_EMAIL]")
+            .to_string();
         (content, matches as u32)
     }
 
@@ -250,7 +269,10 @@ impl Sanitizer {
         }
 
         let matches = self.ip_private_re.find_iter(input).count();
-        let content = self.ip_private_re.replace_all(input, "[REDACTED_IP]").to_string();
+        let content = self
+            .ip_private_re
+            .replace_all(input, "[REDACTED_IP]")
+            .to_string();
         (content, matches as u32)
     }
 }
@@ -336,7 +358,10 @@ MIIEpAIBAAKCAQEA0Z...
         config.max_probe_lines = 5;
         let sanitizer = Sanitizer::new(config);
 
-        let input = (1..=20).map(|i| format!("Line {}", i)).collect::<Vec<_>>().join("\n");
+        let input = (1..=20)
+            .map(|i| format!("Line {}", i))
+            .collect::<Vec<_>>()
+            .join("\n");
         let result = sanitizer.sanitize_probe_output(&input);
         assert!(result.success);
         assert!(result.content.contains("[TRUNCATED"));

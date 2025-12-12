@@ -51,13 +51,9 @@ pub enum DecodeError {
         partial_output: Option<String>,
     },
     /// No frame markers found.
-    NoFrame {
-        raw_output: String,
-    },
+    NoFrame { raw_output: String },
     /// Frame was incomplete (missing end marker).
-    IncompleteFrame {
-        partial_content: String,
-    },
+    IncompleteFrame { partial_content: String },
     /// Multiple frames found (protocol violation).
     MultipleFrames,
     /// JSON parsing failed after all repair attempts.
@@ -67,9 +63,7 @@ pub enum DecodeError {
         raw_json: String,
     },
     /// Envelope validation failed.
-    EnvelopeInvalid {
-        issues: Vec<String>,
-    },
+    EnvelopeInvalid { issues: Vec<String> },
     /// Empty output from model.
     EmptyOutput,
 }
@@ -85,9 +79,18 @@ impl DecodeError {
             Self::IncompleteFrame { .. } => {
                 "Protocol frame incomplete (missing end marker)".to_string()
             }
-            Self::MultipleFrames => "Multiple protocol frames found (protocol violation)".to_string(),
-            Self::JsonParseError { message, attempted_repairs, .. } => {
-                format!("JSON parse failed after {} repair attempts: {}", attempted_repairs, message)
+            Self::MultipleFrames => {
+                "Multiple protocol frames found (protocol violation)".to_string()
+            }
+            Self::JsonParseError {
+                message,
+                attempted_repairs,
+                ..
+            } => {
+                format!(
+                    "JSON parse failed after {} repair attempts: {}",
+                    attempted_repairs, message
+                )
             }
             Self::EnvelopeInvalid { issues } => {
                 format!("Envelope validation failed: {}", issues.join("; "))
@@ -295,7 +298,9 @@ fn remove_trailing_commas(json: &str) -> String {
             let trimmed = line.trim();
             if i < lines.len() - 1 {
                 let next_trimmed = lines.get(i + 1).map(|l| l.trim()).unwrap_or("");
-                if trimmed.ends_with(',') && (next_trimmed.starts_with('}') || next_trimmed.starts_with(']')) {
+                if trimmed.ends_with(',')
+                    && (next_trimmed.starts_with('}') || next_trimmed.starts_with(']'))
+                {
                     new_lines.push(line.trim_end_matches(','));
                     continue;
                 }
@@ -358,8 +363,8 @@ fn truncate_output(output: &str, max_len: usize) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::super::framing::{PROTO_END, PROTO_START};
     use super::*;
-    use super::super::framing::{PROTO_START, PROTO_END};
 
     fn valid_envelope_json() -> String {
         r#"{
@@ -372,7 +377,8 @@ mod tests {
             "next_actions": [],
             "evidence_used": [],
             "errors": []
-        }"#.to_string()
+        }"#
+        .to_string()
     }
 
     #[test]
@@ -393,7 +399,9 @@ mod tests {
         let decoder = ProtoDecoder::new();
         let output = format!(
             "Some thinking text...\n{}\n{}\n{}\nMore text",
-            PROTO_START, valid_envelope_json(), PROTO_END
+            PROTO_START,
+            valid_envelope_json(),
+            PROTO_END
         );
 
         let result = decoder.decode(&output);
@@ -447,7 +455,10 @@ mod tests {
 
         let result = decoder.decode(&output);
         // Should still succeed because JSON is complete
-        assert!(result.is_success(), "Should parse complete JSON even without end marker");
+        assert!(
+            result.is_success(),
+            "Should parse complete JSON even without end marker"
+        );
     }
 
     #[test]
@@ -468,7 +479,11 @@ mod tests {
         let result = ProtoDecoder::timeout_error(12000, Some("partial...".to_string()));
 
         assert!(!result.is_success());
-        if let Some(DecodeError::ModelTimeout { timeout_ms, partial_output }) = result.error() {
+        if let Some(DecodeError::ModelTimeout {
+            timeout_ms,
+            partial_output,
+        }) = result.error()
+        {
             assert_eq!(*timeout_ms, 12000);
             assert!(partial_output.is_some());
             assert!(result.error().unwrap().is_timeout());

@@ -138,3 +138,46 @@ pub struct ServiceDeskResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feedback_request: Option<FeedbackRequest>,
 }
+
+/// Status summary of the TruthLedger
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TruthLedgerStatus {
+    pub total_claims: usize,
+    pub verified_claims: usize,
+    pub disputed_claims: usize,
+    pub unverified_claims: usize,
+    pub claims_with_positive_feedback: usize,
+    pub claims_with_negative_feedback: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebSearchResult {
+    pub query: String,
+    pub results: Vec<WebSearchItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebSearchItem {
+    pub title: String,
+    pub url: String,
+    pub snippet: String,
+}
+
+/// A single item representing a claim from the TruthLedger (v0.0.449)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TruthLedgerClaimItem {
+    pub claim_text: String,
+    pub source: String,
+    pub veracity: String,
+    pub trust_score: String,
+    pub confidence_score: f32,
+    pub feedback: Option<bool>,
+    pub timestamp: String, // Formatted timestamp
+}
+
+/// Result of querying the TruthLedger (v0.0.449)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TruthLedgerClaimsResult {
+    pub total_matching_claims: usize,
+    pub claims: Vec<TruthLedgerClaimItem>,
+}

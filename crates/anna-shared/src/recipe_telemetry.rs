@@ -175,7 +175,8 @@ impl RecipeTelemetry {
 
         // Trim if needed
         if self.resolutions.len() > self.max_events {
-            self.resolutions.drain(0..self.resolutions.len() - self.max_events);
+            self.resolutions
+                .drain(0..self.resolutions.len() - self.max_events);
         }
     }
 
@@ -201,7 +202,8 @@ impl RecipeTelemetry {
         if self.stats.total_resolutions == 0 {
             return 0.0;
         }
-        let self_reliant = self.stats.by_recipe + self.stats.by_fast_path + self.stats.by_intent_handler;
+        let self_reliant =
+            self.stats.by_recipe + self.stats.by_fast_path + self.stats.by_intent_handler;
         self_reliant as f32 / self.stats.total_resolutions as f32 * 100.0
     }
 
@@ -380,7 +382,15 @@ mod tests {
             } else {
                 ResolutionSource::Specialist
             };
-            record_resolution(&mut telemetry, &format!("t{}", i), source, None, None, None, 100);
+            record_resolution(
+                &mut telemetry,
+                &format!("t{}", i),
+                source,
+                None,
+                None,
+                None,
+                100,
+            );
         }
 
         let summary = telemetry.summary(5, 1);

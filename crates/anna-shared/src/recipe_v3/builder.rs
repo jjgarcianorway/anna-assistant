@@ -4,8 +4,8 @@
 //! Strict learning rules prevent learning garbage.
 
 use super::{
-    RecipeV3, RecipeStep, RecipeCondition, RecipeMatcher, RecipeDomain,
-    RecipeOrigin, RecipeAuthor, RecipeRiskLevel, ConfirmationPolicy,
+    ConfirmationPolicy, RecipeAuthor, RecipeCondition, RecipeDomain, RecipeMatcher, RecipeOrigin,
+    RecipeRiskLevel, RecipeStep, RecipeV3,
 };
 
 /// Builder for creating recipes from tickets
@@ -118,7 +118,9 @@ impl RecipeBuilder {
 
     /// Add parameter
     pub fn parameter(mut self, name: &str, description: &str) -> Self {
-        self.recipe.parameters.insert(name.to_string(), description.to_string());
+        self.recipe
+            .parameters
+            .insert(name.to_string(), description.to_string());
         self
     }
 
@@ -147,12 +149,14 @@ impl RecipeBuilder {
 
         // Must have at least one step
         if self.recipe.steps.is_empty() {
-            self.errors.push("Recipe must have at least one step".to_string());
+            self.errors
+                .push("Recipe must have at least one step".to_string());
         }
 
         // Must have at least one intent
         if self.recipe.matcher.intents.is_empty() {
-            self.errors.push("Recipe must have at least one intent".to_string());
+            self.errors
+                .push("Recipe must have at least one intent".to_string());
         }
 
         // Limit number of steps
@@ -164,7 +168,10 @@ impl RecipeBuilder {
         }
 
         // Check for dangerous commands without high risk level
-        let max_risk = self.recipe.steps.iter()
+        let max_risk = self
+            .recipe
+            .steps
+            .iter()
             .map(|s| s.risk_level())
             .max()
             .unwrap_or(RecipeRiskLevel::None);
@@ -177,7 +184,8 @@ impl RecipeBuilder {
         if self.recipe.risk_level == RecipeRiskLevel::High
             && self.recipe.confirmation == ConfirmationPolicy::Never
         {
-            self.errors.push("High-risk recipes must require confirmation".to_string());
+            self.errors
+                .push("High-risk recipes must require confirmation".to_string());
         }
     }
 }
@@ -369,7 +377,6 @@ pub fn seed_recipes() -> Vec<RecipeV3> {
             .tag("systemd")
             .build()
             .unwrap(),
-
         // Service status
         RecipeBuilder::new("check-service-status")
             .title("Check Service Status")
@@ -393,7 +400,6 @@ pub fn seed_recipes() -> Vec<RecipeV3> {
             .tag("systemd")
             .build()
             .unwrap(),
-
         // Package install
         RecipeBuilder::new("install-package")
             .title("Install Package")
@@ -424,7 +430,6 @@ pub fn seed_recipes() -> Vec<RecipeV3> {
             .tag("pacman")
             .build()
             .unwrap(),
-
         // Disk usage
         RecipeBuilder::new("check-disk-usage")
             .title("Check Disk Usage")
@@ -448,7 +453,6 @@ pub fn seed_recipes() -> Vec<RecipeV3> {
             .tag("disk")
             .build()
             .unwrap(),
-
         // Memory usage
         RecipeBuilder::new("check-memory-usage")
             .title("Check Memory Usage")
@@ -501,14 +505,20 @@ mod tests {
         // Missing title
         let r1 = RecipeBuilder::new("test")
             .intent("test")
-            .step(RecipeStep::Explain { text: "Hi".to_string(), citation: None })
+            .step(RecipeStep::Explain {
+                text: "Hi".to_string(),
+                citation: None,
+            })
             .build();
         assert!(r1.is_err());
 
         // Missing intent
         let r2 = RecipeBuilder::new("test")
             .title("Test")
-            .step(RecipeStep::Explain { text: "Hi".to_string(), citation: None })
+            .step(RecipeStep::Explain {
+                text: "Hi".to_string(),
+                citation: None,
+            })
             .build();
         assert!(r2.is_err());
 

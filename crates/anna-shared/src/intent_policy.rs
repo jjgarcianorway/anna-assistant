@@ -166,7 +166,10 @@ impl IntentCategory {
                 vec!["systemctl_status"]
             }
 
-            Self::ExplainCommand | Self::ExplainConfig | Self::ExplainError | Self::ExplainConcept => {
+            Self::ExplainCommand
+            | Self::ExplainConfig
+            | Self::ExplainError
+            | Self::ExplainConcept => {
                 vec![] // Explanation intents rely on docs, not probes
             }
 
@@ -361,18 +364,21 @@ mod tests {
     fn test_validate_recipe_policy_good() {
         let result = validate_recipe_policy(
             "check_service_status",
-            &["service status".to_string(), "is service running".to_string()],
+            &[
+                "service status".to_string(),
+                "is service running".to_string(),
+            ],
         );
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_validate_recipe_policy_bad_question() {
-        let result = validate_recipe_policy(
-            "bad_recipe",
-            &["why is my fan so loud".to_string()],
-        );
-        assert!(matches!(result, Err(PolicyViolation::RecipeKeyedByQuestion(_))));
+        let result = validate_recipe_policy("bad_recipe", &["why is my fan so loud".to_string()]);
+        assert!(matches!(
+            result,
+            Err(PolicyViolation::RecipeKeyedByQuestion(_))
+        ));
     }
 
     #[test]

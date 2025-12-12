@@ -76,7 +76,9 @@ pub fn parse_strict<T: DeserializeOwned>(raw: &str, ticket_id: &str) -> ParseRes
         Some(s) => s,
         None => {
             log_parse_failure(ticket_id, raw, "No JSON object found");
-            return ParseResult::NoJson { raw: raw.to_string() };
+            return ParseResult::NoJson {
+                raw: raw.to_string(),
+            };
         }
     };
 
@@ -239,15 +241,10 @@ fn parse_failure_log_dir() -> PathBuf {
 }
 
 /// Convenience function to parse and get Result
-pub fn parse_llm_json<T: DeserializeOwned>(
-    raw: &str,
-    ticket_id: &str,
-) -> Result<T, String> {
+pub fn parse_llm_json<T: DeserializeOwned>(raw: &str, ticket_id: &str) -> Result<T, String> {
     match parse_strict(raw, ticket_id) {
         ParseResult::Ok(v) => Ok(v),
-        ParseResult::NoJson { .. } => {
-            Err("No JSON object found in LLM output".to_string())
-        }
+        ParseResult::NoJson { .. } => Err("No JSON object found in LLM output".to_string()),
         ParseResult::InvalidJson { error, .. } => Err(error),
         ParseResult::SchemaMismatch { error, .. } => Err(error),
     }

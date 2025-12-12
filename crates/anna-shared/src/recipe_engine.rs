@@ -188,8 +188,10 @@ impl RecipeStep {
 
     /// Check if step requires user confirmation
     pub fn requires_confirmation(&self) -> bool {
-        matches!(self.kind, RecipeStepType::EditFile | RecipeStepType::RunCommand)
-            && !self.is_safe_command()
+        matches!(
+            self.kind,
+            RecipeStepType::EditFile | RecipeStepType::RunCommand
+        ) && !self.is_safe_command()
     }
 
     /// Check if command is in the safe list
@@ -200,10 +202,32 @@ impl RecipeStep {
         let cmd = self.params.get("command").map(|s| s.as_str()).unwrap_or("");
         // Safe read-only commands
         let safe_prefixes = [
-            "cat ", "head ", "tail ", "ls ", "df ", "free ", "ps ", "top -bn1",
-            "systemctl status", "systemctl is-", "journalctl ", "lsblk", "lscpu",
-            "ip addr", "ip link", "ip route", "ss -", "pacman -Q", "which ",
-            "echo ", "printf ", "test ", "stat ", "file ", "wc ", "grep ",
+            "cat ",
+            "head ",
+            "tail ",
+            "ls ",
+            "df ",
+            "free ",
+            "ps ",
+            "top -bn1",
+            "systemctl status",
+            "systemctl is-",
+            "journalctl ",
+            "lsblk",
+            "lscpu",
+            "ip addr",
+            "ip link",
+            "ip route",
+            "ss -",
+            "pacman -Q",
+            "which ",
+            "echo ",
+            "printf ",
+            "test ",
+            "stat ",
+            "file ",
+            "wc ",
+            "grep ",
         ];
         safe_prefixes.iter().any(|p| cmd.starts_with(p))
     }
@@ -447,10 +471,15 @@ mod tests {
 
     #[test]
     fn test_recipe_creation() {
-        let recipe = Recipe::new("svc-status", "Service Status Check", RecipeKind::Inspect, "services")
-            .with_intent("check status of a systemd service")
-            .with_tags(vec!["systemd", "service", "status"])
-            .with_triggers(vec!["service status", "is service running"]);
+        let recipe = Recipe::new(
+            "svc-status",
+            "Service Status Check",
+            RecipeKind::Inspect,
+            "services",
+        )
+        .with_intent("check status of a systemd service")
+        .with_tags(vec!["systemd", "service", "status"])
+        .with_triggers(vec!["service status", "is service running"]);
 
         assert_eq!(recipe.id, "svc-status");
         assert_eq!(recipe.kind, RecipeKind::Inspect);
@@ -470,14 +499,16 @@ mod tests {
 
     #[test]
     fn test_param_substitution() {
-        let recipe = Recipe::new("test", "Test", RecipeKind::Inspect, "services")
-            .with_params(vec![RecipeParameter {
-                name: "service_name".to_string(),
-                description: "Name of service".to_string(),
-                extraction_hint: "word before 'service'".to_string(),
-                default: None,
-                required: true,
-            }]);
+        let recipe =
+            Recipe::new("test", "Test", RecipeKind::Inspect, "services").with_params(vec![
+                RecipeParameter {
+                    name: "service_name".to_string(),
+                    description: "Name of service".to_string(),
+                    extraction_hint: "word before 'service'".to_string(),
+                    default: None,
+                    required: true,
+                },
+            ]);
 
         let mut values = HashMap::new();
         values.insert("service_name".to_string(), "nginx".to_string());

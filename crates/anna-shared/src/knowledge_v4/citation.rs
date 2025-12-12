@@ -154,7 +154,14 @@ pub fn format_sources(citations: &[&str]) -> String {
     if formatted.len() == 1 {
         format!("Source: {}", formatted[0])
     } else {
-        format!("Sources:\n{}", formatted.iter().map(|s| format!("  - {}", s)).collect::<Vec<_>>().join("\n"))
+        format!(
+            "Sources:\n{}",
+            formatted
+                .iter()
+                .map(|s| format!("  - {}", s))
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
     }
 }
 

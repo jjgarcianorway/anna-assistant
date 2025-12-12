@@ -264,7 +264,10 @@ fn extract_variables_from_output(probe_id: &str, output: &str) -> HashMap<String
                         vars.insert("total_mem".to_string(), parts[1].to_string());
                         vars.insert("used_mem".to_string(), parts[2].to_string());
                         vars.insert("free_mem".to_string(), parts[3].to_string());
-                        vars.insert("available_mem".to_string(), parts.get(6).unwrap_or(&"").to_string());
+                        vars.insert(
+                            "available_mem".to_string(),
+                            parts.get(6).unwrap_or(&"").to_string(),
+                        );
                     }
                 }
             }
@@ -376,7 +379,11 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("service_name".to_string(), "nginx".to_string());
 
-        let cmd = build_probe_command("probe.systemctl_status", &["{{service_name}}".to_string()], &params);
+        let cmd = build_probe_command(
+            "probe.systemctl_status",
+            &["{{service_name}}".to_string()],
+            &params,
+        );
         assert!(cmd.contains("nginx"));
     }
 

@@ -292,7 +292,11 @@ pub fn answer_network_status(snapshot: &SystemSnapshot, is_fresh: bool) -> FastP
 
     // Simple network status based on available data (v0.0.265: ASCII icons)
     let connected = snapshot.network_connected;
-    let status = if connected { "Connected" } else { "Disconnected" };
+    let status = if connected {
+        "Connected"
+    } else {
+        "Disconnected"
+    };
     let icon = if connected { "[ok]" } else { "[X]" };
 
     let mut answer = format!("**Network Status:** {} {}", icon, status);

@@ -147,11 +147,7 @@ impl UiConfig {
     pub fn summary(&self) -> String {
         format!(
             "mode={}, internal_comms={}, tips={}, probes={}, spinner={}",
-            self.mode,
-            self.show_internal_comms,
-            self.show_tips,
-            self.show_probes,
-            self.spinner
+            self.mode, self.show_internal_comms, self.show_tips, self.show_probes, self.spinner
         )
     }
 }

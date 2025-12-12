@@ -62,10 +62,7 @@ impl LiveRenderer {
 
     /// Render user input immediately
     pub fn render_user_input(&mut self, query: &str) {
-        let line = format!(
-            "\n{}[you]{} {}\n",
-            colors::CYAN, colors::RESET, query
-        );
+        let line = format!("\n{}[you]{} {}\n", colors::CYAN, colors::RESET, query);
         self.print(&line);
     }
 
@@ -134,7 +131,8 @@ impl LiveRenderer {
             if self.config.show_internal_comms {
                 self.print(&format!(
                     "\n{}--- internal comms ---{}\n",
-                    colors::DIM, colors::RESET
+                    colors::DIM,
+                    colors::RESET
                 ));
                 self.in_internal_section = true;
             }
@@ -158,16 +156,19 @@ impl LiveRenderer {
         let probes_str = self.probes_buffer.join("\n  ");
         self.print(&format!(
             "\n{}[probes]{}\n  {}\n",
-            colors::DIM, colors::RESET, probes_str
+            colors::DIM,
+            colors::RESET,
+            probes_str
         ));
         self.probes_buffer.clear();
     }
 
     /// Check if transcript is complete
     fn is_complete(&self, transcript: &Transcript) -> bool {
-        transcript.segments.iter().any(|s| {
-            matches!(s.kind, SegmentKind::Answer | SegmentKind::Error)
-        })
+        transcript
+            .segments
+            .iter()
+            .any(|s| matches!(s.kind, SegmentKind::Answer | SegmentKind::Error))
     }
 
     /// Render the final transcript (for complete results)
@@ -204,10 +205,7 @@ impl LiveRenderer {
     fn render_spinner(&mut self) {
         let frame = self.state.tick_spinner(self.spinner_frames);
         if !frame.is_empty() {
-            print!(
-                "\r{}{} Working...{}",
-                colors::DIM, frame, colors::RESET
-            );
+            print!("\r{}{} Working...{}", colors::DIM, frame, colors::RESET);
             let _ = io::stdout().flush();
         }
     }
@@ -217,7 +215,9 @@ impl LiveRenderer {
         self.stop_spinner();
         self.print(&format!(
             "{}[tip]{} {}\n",
-            colors::DIM, colors::RESET, message
+            colors::DIM,
+            colors::RESET,
+            message
         ));
         self.start_spinner();
     }
@@ -275,10 +275,7 @@ pub fn format_error_section(
     fallback: Option<&str>,
 ) -> String {
     anna_shared::transcript_render::format_error_with_context(
-        error_msg,
-        collected,
-        ticket,
-        fallback,
+        error_msg, collected, ticket, fallback,
     )
 }
 

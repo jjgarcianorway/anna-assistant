@@ -35,10 +35,7 @@ pub fn handle_configure_editor(
     classified_domain: SpecialistDomain,
 ) -> ConfigureEditorResult {
     // Parse probe_results to get installed editors from ToolExists evidence ONLY
-    let parsed: Vec<_> = probe_results
-        .iter()
-        .map(parse_probe_result)
-        .collect();
+    let parsed: Vec<_> = probe_results.iter().map(parse_probe_result).collect();
 
     // Use dedicated helper for consistent editor extraction
     let installed_editors = installed_editors_from_parsed(&parsed);

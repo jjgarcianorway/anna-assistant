@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::{RecipeV3, MIN_MATCH_SCORE, MAX_RECIPES_TO_CHECK};
+use super::{RecipeV3, MAX_RECIPES_TO_CHECK, MIN_MATCH_SCORE};
 
 /// Result of matching a query against recipes
 #[derive(Debug, Clone)]
@@ -156,7 +156,9 @@ impl RecipeMatcher {
 
         // Sort by score descending
         results.sort_by(|a, b| {
-            b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         results
@@ -174,9 +176,7 @@ impl RecipeMatcher {
         // Domain matching (15%)
         if let Some(ref query_domain) = query.domain {
             let recipe_domain = format!("{:?}", recipe.matcher.domain).to_lowercase();
-            if recipe_domain == query_domain.to_lowercase()
-                || recipe_domain == "general"
-            {
+            if recipe_domain == query_domain.to_lowercase() || recipe_domain == "general" {
                 breakdown.domain_score = 1.0;
             }
         } else {
@@ -195,7 +195,9 @@ impl RecipeMatcher {
             } else {
                 // Partial match via similarity key
                 let sim_key = recipe.matcher.similarity_key.to_lowercase();
-                if !sim_key.is_empty() && (intent_lower.contains(&sim_key) || sim_key.contains(&intent_lower)) {
+                if !sim_key.is_empty()
+                    && (intent_lower.contains(&sim_key) || sim_key.contains(&intent_lower))
+                {
                     breakdown.intent_score = 0.6;
                 }
             }
@@ -204,7 +206,12 @@ impl RecipeMatcher {
         // Keyword similarity (30%) - Jaccard index
         if !query.keywords.is_empty() && !recipe.matcher.keywords.is_empty() {
             let query_set: HashSet<_> = query.keywords.iter().map(|s| s.to_lowercase()).collect();
-            let recipe_set: HashSet<_> = recipe.matcher.keywords.iter().map(|s| s.to_lowercase()).collect();
+            let recipe_set: HashSet<_> = recipe
+                .matcher
+                .keywords
+                .iter()
+                .map(|s| s.to_lowercase())
+                .collect();
 
             let intersection = query_set.intersection(&recipe_set).count();
             let union = query_set.union(&recipe_set).count();
@@ -239,7 +246,12 @@ impl RecipeMatcher {
 
             // Also try direct entity match in keywords
             if breakdown.entity_score < 1.0 {
-                let recipe_kw: HashSet<_> = recipe.matcher.keywords.iter().map(|s| s.to_lowercase()).collect();
+                let recipe_kw: HashSet<_> = recipe
+                    .matcher
+                    .keywords
+                    .iter()
+                    .map(|s| s.to_lowercase())
+                    .collect();
                 for entity in &query.entities {
                     if recipe_kw.contains(&entity.to_lowercase()) {
                         breakdown.entity_score = 0.8;
@@ -269,9 +281,10 @@ impl RecipeMatcher {
 
         // Evaluate preconditions if enabled
         let preconditions_met = if self.eval_preconditions && !recipe.preconditions.is_empty() {
-            recipe.preconditions.iter().all(|cond| {
-                cond.evaluate(&extracted_vars).success
-            })
+            recipe
+                .preconditions
+                .iter()
+                .all(|cond| cond.evaluate(&extracted_vars).success)
         } else {
             true
         };
@@ -289,14 +302,15 @@ impl RecipeMatcher {
 /// Extract keywords from question
 fn extract_keywords(question: &str) -> Vec<String> {
     let stop_words: HashSet<&str> = [
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "must", "i", "my", "me", "you", "your",
-        "we", "our", "they", "their", "it", "its", "this", "that", "what",
-        "which", "who", "whom", "how", "why", "when", "where", "to", "of",
-        "in", "on", "at", "by", "for", "with", "about", "into", "through",
-        "can", "please", "help", "want", "need", "get", "just",
-    ].into_iter().collect();
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "i", "my",
+        "me", "you", "your", "we", "our", "they", "their", "it", "its", "this", "that", "what",
+        "which", "who", "whom", "how", "why", "when", "where", "to", "of", "in", "on", "at", "by",
+        "for", "with", "about", "into", "through", "can", "please", "help", "want", "need", "get",
+        "just",
+    ]
+    .into_iter()
+    .collect();
 
     question
         .to_lowercase()
@@ -317,14 +331,16 @@ fn extract_entities(question: &str) -> Vec<String> {
         // Check for path-like patterns first (before trimming which removes /)
         if word.starts_with('/') && word.len() > 1 {
             // Keep the path but trim trailing punctuation
-            let path = word.trim_end_matches(|c: char| c == ',' || c == '.' || c == ':' || c == ';');
+            let path =
+                word.trim_end_matches(|c: char| c == ',' || c == '.' || c == ':' || c == ';');
             if path.len() > 1 {
                 entities.push(path.to_string());
             }
             continue;
         }
 
-        let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_' && c != '.');
+        let clean =
+            word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-' && c != '_' && c != '.');
 
         // Service-like names (end with d or .service)
         if clean.ends_with('d') && clean.len() > 2 && clean.chars().all(|c| c.is_alphanumeric()) {
@@ -338,8 +354,14 @@ fn extract_entities(question: &str) -> Vec<String> {
 
         // Package-like names (lowercase with optional dashes)
         if clean.len() > 2
-            && clean.chars().all(|c| c.is_ascii_lowercase() || c == '-' || c.is_ascii_digit())
-            && clean.chars().next().map(|c| c.is_ascii_lowercase()).unwrap_or(false)
+            && clean
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c == '-' || c.is_ascii_digit())
+            && clean
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_lowercase())
+                .unwrap_or(false)
         {
             entities.push(clean.to_string());
         }
@@ -353,17 +375,42 @@ fn detect_domain(question: &str) -> Option<String> {
     let q = question.to_lowercase();
 
     let domain_patterns = [
-        (&["service", "systemctl", "systemd", "unit", "daemon"][..], "systemd"),
-        (&["package", "pacman", "install", "update", "yay", "paru"], "package"),
-        (&["network", "wifi", "ethernet", "ip", "ping", "dns"], "network"),
-        (&["disk", "mount", "filesystem", "storage", "drive", "partition"], "disk"),
+        (
+            &["service", "systemctl", "systemd", "unit", "daemon"][..],
+            "systemd",
+        ),
+        (
+            &["package", "pacman", "install", "update", "yay", "paru"],
+            "package",
+        ),
+        (
+            &["network", "wifi", "ethernet", "ip", "ping", "dns"],
+            "network",
+        ),
+        (
+            &[
+                "disk",
+                "mount",
+                "filesystem",
+                "storage",
+                "drive",
+                "partition",
+            ],
+            "disk",
+        ),
         (&["memory", "ram", "swap", "oom"], "memory"),
         (&["process", "kill", "ps", "top", "htop"], "process"),
         (&["user", "account", "password", "group", "sudo"], "user"),
         (&["config", "configuration", "settings", ".conf"], "config"),
-        (&["git", "github", "commit", "push", "pull", "branch"], "git"),
+        (
+            &["git", "github", "commit", "push", "pull", "branch"],
+            "git",
+        ),
         (&["docker", "container", "podman", "image"], "docker"),
-        (&["vim", "nvim", "neovim", "nano", "emacs", "editor"], "editor"),
+        (
+            &["vim", "nvim", "neovim", "nano", "emacs", "editor"],
+            "editor",
+        ),
         (&["bash", "zsh", "fish", "shell", "terminal"], "shell"),
         (&["cron", "crontab", "timer", "schedule"], "cron"),
     ];
@@ -433,16 +480,28 @@ mod tests {
 
     #[test]
     fn test_detect_domain() {
-        assert_eq!(detect_domain("restart nginx service"), Some("systemd".to_string()));
+        assert_eq!(
+            detect_domain("restart nginx service"),
+            Some("systemd".to_string())
+        );
         assert_eq!(detect_domain("install vim"), Some("package".to_string()));
-        assert_eq!(detect_domain("check network connection"), Some("network".to_string()));
+        assert_eq!(
+            detect_domain("check network connection"),
+            Some("network".to_string())
+        );
     }
 
     #[test]
     fn test_detect_intent() {
         assert_eq!(detect_intent("restart nginx"), Some("restart".to_string()));
-        assert_eq!(detect_intent("how do I configure vim"), Some("howto".to_string()));
-        assert_eq!(detect_intent("nginx is not working"), Some("fix".to_string()));
+        assert_eq!(
+            detect_intent("how do I configure vim"),
+            Some("howto".to_string())
+        );
+        assert_eq!(
+            detect_intent("nginx is not working"),
+            Some("fix".to_string())
+        );
     }
 
     #[test]
@@ -455,13 +514,12 @@ mod tests {
 
     #[test]
     fn test_recipe_matching() {
-        let recipe = RecipeV3::new("restart-service", "Restart a Service")
-            .with_matcher(
-                RM::new(RecipeDomain::Systemd)
-                    .with_intents(&["restart"])
-                    .with_keywords(&["restart", "service", "systemctl"])
-                    .with_entities(&["*"])
-            );
+        let recipe = RecipeV3::new("restart-service", "Restart a Service").with_matcher(
+            RM::new(RecipeDomain::Systemd)
+                .with_intents(&["restart"])
+                .with_keywords(&["restart", "service", "systemctl"])
+                .with_entities(&["*"]),
+        );
 
         let query = MatchQuery::from_question("restart nginx service");
         let matcher = super::RecipeMatcher::new();

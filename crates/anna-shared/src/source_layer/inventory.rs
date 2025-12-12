@@ -242,9 +242,18 @@ impl ModelRegistry {
             enabled_count: enabled.len(),
             disabled_count: disabled.len(),
             installed_by_anna: by_anna.len(),
-            translator: self.by_role(ModelRole::Translator).first().map(|m| m.name.clone()),
-            junior: self.by_role(ModelRole::Junior).first().map(|m| m.name.clone()),
-            senior: self.by_role(ModelRole::Senior).first().map(|m| m.name.clone()),
+            translator: self
+                .by_role(ModelRole::Translator)
+                .first()
+                .map(|m| m.name.clone()),
+            junior: self
+                .by_role(ModelRole::Junior)
+                .first()
+                .map(|m| m.name.clone()),
+            senior: self
+                .by_role(ModelRole::Senior)
+                .first()
+                .map(|m| m.name.clone()),
         }
     }
 
@@ -276,9 +285,7 @@ pub struct OllamaModel {
 /// Normalize model name.
 fn normalize_model_name(name: &str) -> String {
     // Remove trailing :latest, lowercase
-    name.trim_end_matches(":latest")
-        .to_lowercase()
-        .to_string()
+    name.trim_end_matches(":latest").to_lowercase().to_string()
 }
 
 /// Registry summary for status display.
@@ -498,13 +505,21 @@ pub struct HelperStatus {
 impl HelperStatus {
     /// Format for display.
     pub fn display(&self) -> String {
-        let status = if self.installed { "installed" } else { "not installed" };
+        let status = if self.installed {
+            "installed"
+        } else {
+            "not installed"
+        };
         let by = match self.installed_by {
             InstalledBy::Anna => "anna",
             InstalledBy::User => "user",
             InstalledBy::Unknown => "unknown",
         };
-        let req = if self.required { "required" } else { "optional" };
+        let req = if self.required {
+            "required"
+        } else {
+            "optional"
+        };
         let ver = self.version.as_deref().unwrap_or("?");
 
         format!("{}: {} (by {}, {}, v{})", self.name, status, by, req, ver)

@@ -377,13 +377,8 @@ mod tests {
         let mut probes = std::collections::HashMap::new();
         probes.insert("memory_info".to_string(), "Swap: 0B 0B 0B".to_string());
 
-        let input = build_specialist_input(
-            "DSK-0101",
-            "system",
-            "question",
-            "do I have swap?",
-            &probes,
-        );
+        let input =
+            build_specialist_input("DSK-0101", "system", "question", "do I have swap?", &probes);
 
         assert!(input.contains("DSK-0101"));
         assert!(input.contains("do I have swap"));

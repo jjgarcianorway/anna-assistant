@@ -147,10 +147,7 @@ impl ReasonCode {
 
     /// Check if this is a success/info code.
     pub fn is_success(&self) -> bool {
-        matches!(
-            self,
-            Self::Success | Self::FastPathUsed | Self::RecipeUsed
-        )
+        matches!(self, Self::Success | Self::FastPathUsed | Self::RecipeUsed)
     }
 
     /// Get code as string for display.
@@ -235,12 +232,20 @@ impl ReasonCodes {
 
     /// Get error codes.
     pub fn errors(&self) -> Vec<ReasonCode> {
-        self.codes.iter().filter(|c| c.is_error()).copied().collect()
+        self.codes
+            .iter()
+            .filter(|c| c.is_error())
+            .copied()
+            .collect()
     }
 
     /// Get warning codes.
     pub fn warnings(&self) -> Vec<ReasonCode> {
-        self.codes.iter().filter(|c| c.is_warning()).copied().collect()
+        self.codes
+            .iter()
+            .filter(|c| c.is_warning())
+            .copied()
+            .collect()
     }
 
     /// Format for display.
@@ -284,7 +289,10 @@ mod tests {
 
     #[test]
     fn test_reason_code_display() {
-        assert_eq!(ReasonCode::LlmTimeoutTranslator.code(), "LLM_TIMEOUT_TRANSLATOR");
+        assert_eq!(
+            ReasonCode::LlmTimeoutTranslator.code(),
+            "LLM_TIMEOUT_TRANSLATOR"
+        );
         assert_eq!(ReasonCode::ProbeFailedExit.code(), "PROBE_FAILED_EXIT");
     }
 

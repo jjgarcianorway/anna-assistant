@@ -110,7 +110,8 @@ pub fn render_transcript(transcript: &Transcript, config: &RenderConfig) -> Stri
             if !in_internal_section && config.show_internal_comms {
                 output.push_str(&format!(
                     "\n{}--- internal comms ---{}\n",
-                    colors::DIM, colors::RESET
+                    colors::DIM,
+                    colors::RESET
                 ));
                 in_internal_section = true;
             }
@@ -164,7 +165,9 @@ pub fn render_transcript(transcript: &Transcript, config: &RenderConfig) -> Stri
 fn render_user_input(segment: &TranscriptSegment, _config: &RenderConfig) -> String {
     format!(
         "\n{}[you]{} {}\n",
-        colors::CYAN, colors::RESET, segment.content
+        colors::CYAN,
+        colors::RESET,
+        segment.content
     )
 }
 
@@ -172,7 +175,9 @@ fn render_system_info(segment: &TranscriptSegment, config: &RenderConfig) -> Str
     if config.mode == TranscriptMode::Debug {
         format!(
             "{}[system]{} {}\n",
-            colors::DIM, colors::RESET, segment.content
+            colors::DIM,
+            colors::RESET,
+            segment.content
         )
     } else {
         // In cinematic mode, system info is very subtle
@@ -181,13 +186,25 @@ fn render_system_info(segment: &TranscriptSegment, config: &RenderConfig) -> Str
 }
 
 fn render_ticket_header(segment: &TranscriptSegment, config: &RenderConfig) -> String {
-    let ticket_id = segment.meta.get("ticket_id").map(|s| s.as_str()).unwrap_or("?");
-    let domain = segment.meta.get("domain").map(|s| s.as_str()).unwrap_or("?");
+    let ticket_id = segment
+        .meta
+        .get("ticket_id")
+        .map(|s| s.as_str())
+        .unwrap_or("?");
+    let domain = segment
+        .meta
+        .get("domain")
+        .map(|s| s.as_str())
+        .unwrap_or("?");
 
     if config.mode == TranscriptMode::Debug {
         format!(
             "{}[ticket]{} {} ({}) - {}\n",
-            colors::YELLOW, colors::RESET, ticket_id, domain, segment.content
+            colors::YELLOW,
+            colors::RESET,
+            ticket_id,
+            domain,
+            segment.content
         )
     } else {
         // Cinematic: ticket info is shown in internal comms
@@ -197,7 +214,12 @@ fn render_ticket_header(segment: &TranscriptSegment, config: &RenderConfig) -> S
 
 fn render_internal_comms(segment: &TranscriptSegment, config: &RenderConfig) -> String {
     let timestamp = if config.show_timestamps {
-        format!("{}[{:.1}s]{} ", colors::DIM, segment.relative_secs, colors::RESET)
+        format!(
+            "{}[{:.1}s]{} ",
+            colors::DIM,
+            segment.relative_secs,
+            colors::RESET
+        )
     } else {
         String::new()
     };
@@ -215,10 +237,17 @@ fn render_internal_comms(segment: &TranscriptSegment, config: &RenderConfig) -> 
 fn render_probe_run(segment: &TranscriptSegment, config: &RenderConfig) -> String {
     // Individual probe - usually grouped, but can be rendered alone in debug
     if config.mode == TranscriptMode::Debug {
-        let probe_id = segment.meta.get("probe_id").map(|s| s.as_str()).unwrap_or("?");
+        let probe_id = segment
+            .meta
+            .get("probe_id")
+            .map(|s| s.as_str())
+            .unwrap_or("?");
         format!(
             "{}[probe]{} {} - {}\n",
-            colors::DIM, colors::RESET, probe_id, segment.content
+            colors::DIM,
+            colors::RESET,
+            probe_id,
+            segment.content
         )
     } else {
         String::new()
@@ -227,7 +256,12 @@ fn render_probe_run(segment: &TranscriptSegment, config: &RenderConfig) -> Strin
 
 fn render_specialist_message(segment: &TranscriptSegment, config: &RenderConfig) -> String {
     let timestamp = if config.show_timestamps {
-        format!("{}[{:.1}s]{} ", colors::DIM, segment.relative_secs, colors::RESET)
+        format!(
+            "{}[{:.1}s]{} ",
+            colors::DIM,
+            segment.relative_secs,
+            colors::RESET
+        )
     } else {
         String::new()
     };
@@ -245,7 +279,9 @@ fn render_specialist_message(segment: &TranscriptSegment, config: &RenderConfig)
 fn render_answer(segment: &TranscriptSegment, _config: &RenderConfig) -> String {
     format!(
         "\n{}[anna]{}\n{}\n",
-        colors::OK, colors::RESET, segment.content
+        colors::OK,
+        colors::RESET,
+        segment.content
     )
 }
 
@@ -253,13 +289,17 @@ fn render_error(segment: &TranscriptSegment, config: &RenderConfig) -> String {
     if config.mode == TranscriptMode::Debug {
         format!(
             "\n{}[error]{}\n{}\n",
-            colors::ERR, colors::RESET, segment.content
+            colors::ERR,
+            colors::RESET,
+            segment.content
         )
     } else {
         // Cinematic: errors are presented more gently
         format!(
             "\n{}[anna]{}\n{}\n",
-            colors::WARN, colors::RESET, segment.content
+            colors::WARN,
+            colors::RESET,
+            segment.content
         )
     }
 }
@@ -267,22 +307,33 @@ fn render_error(segment: &TranscriptSegment, config: &RenderConfig) -> String {
 fn render_tip(segment: &TranscriptSegment, _config: &RenderConfig) -> String {
     format!(
         "{}[tip]{} {}\n",
-        colors::DIM, colors::RESET, segment.content
+        colors::DIM,
+        colors::RESET,
+        segment.content
     )
 }
 
 fn render_stats(segment: &TranscriptSegment, _config: &RenderConfig) -> String {
     format!(
         "{}[stats]{} {}\n",
-        colors::DIM, colors::RESET, segment.content
+        colors::DIM,
+        colors::RESET,
+        segment.content
     )
 }
 
 fn render_debug_json(segment: &TranscriptSegment, _config: &RenderConfig) -> String {
-    let label = segment.meta.get("label").map(|s| s.as_str()).unwrap_or("json");
+    let label = segment
+        .meta
+        .get("label")
+        .map(|s| s.as_str())
+        .unwrap_or("json");
     format!(
         "\n{}[debug] {}:{}\n{}\n",
-        colors::YELLOW, label, colors::RESET, segment.content
+        colors::YELLOW,
+        label,
+        colors::RESET,
+        segment.content
     )
 }
 

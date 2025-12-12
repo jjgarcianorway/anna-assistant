@@ -2,9 +2,9 @@
 //!
 //! Tracks resolution rates, routing accuracy, recipe learning.
 
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use crate::teams::Team;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Resolution outcome for a query
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,32 +180,58 @@ impl ScenarioStats {
         report.push_str("═══════════════════════════════════════════════════════════════\n\n");
 
         report.push_str(&format!("Total Scenarios: {}\n", self.total_scenarios));
-        report.push_str(&format!("Passed: {} ({:.1}%)\n", self.passed, self.overall_pass_rate()));
+        report.push_str(&format!(
+            "Passed: {} ({:.1}%)\n",
+            self.passed,
+            self.overall_pass_rate()
+        ));
         report.push_str(&format!("Failed: {}\n\n", self.failed));
 
         report.push_str("─── ROUTING ───\n");
-        report.push_str(&format!("Correct: {} | Incorrect: {} | Accuracy: {:.1}%\n\n",
-            self.routing_correct, self.routing_incorrect, self.routing_accuracy()));
+        report.push_str(&format!(
+            "Correct: {} | Incorrect: {} | Accuracy: {:.1}%\n\n",
+            self.routing_correct,
+            self.routing_incorrect,
+            self.routing_accuracy()
+        ));
 
         report.push_str("─── FAST PATH ───\n");
-        report.push_str(&format!("Expected: {} | Actual: {} | Accuracy: {:.1}%\n\n",
-            self.expected_fast_path, self.actual_fast_path, self.fast_path_accuracy()));
+        report.push_str(&format!(
+            "Expected: {} | Actual: {} | Accuracy: {:.1}%\n\n",
+            self.expected_fast_path,
+            self.actual_fast_path,
+            self.fast_path_accuracy()
+        ));
 
         report.push_str("─── DIFFICULTY ───\n");
-        report.push_str(&format!("Simple: {:.1}% | Medium: {:.1}% | Complex: {:.1}%\n\n",
-            self.simple_pass_rate, self.medium_pass_rate, self.complex_pass_rate));
+        report.push_str(&format!(
+            "Simple: {:.1}% | Medium: {:.1}% | Complex: {:.1}%\n\n",
+            self.simple_pass_rate, self.medium_pass_rate, self.complex_pass_rate
+        ));
 
         report.push_str("─── RECIPE LEARNING ───\n");
-        report.push_str(&format!("Should learn: {} | Did learn: {} | Rate: {:.1}%\n",
-            self.recipes_should_learn, self.recipes_did_learn, self.recipe_learning_rate()));
-        report.push_str(&format!("Recalls tested: {} | Succeeded: {} | Rate: {:.1}%\n\n",
-            self.recipe_recalls_tested, self.recipe_recalls_succeeded, self.recipe_recall_rate()));
+        report.push_str(&format!(
+            "Should learn: {} | Did learn: {} | Rate: {:.1}%\n",
+            self.recipes_should_learn,
+            self.recipes_did_learn,
+            self.recipe_learning_rate()
+        ));
+        report.push_str(&format!(
+            "Recalls tested: {} | Succeeded: {} | Rate: {:.1}%\n\n",
+            self.recipe_recalls_tested,
+            self.recipe_recalls_succeeded,
+            self.recipe_recall_rate()
+        ));
 
         report.push_str("─── JUNIOR VS SENIOR ───\n");
-        report.push_str(&format!("Junior-only expected: {} | actual: {}\n",
-            self.junior_only_expected, self.junior_only_actual));
-        report.push_str(&format!("Senior-needed expected: {} | actual: {}\n\n",
-            self.senior_needed_expected, self.senior_needed_actual));
+        report.push_str(&format!(
+            "Junior-only expected: {} | actual: {}\n",
+            self.junior_only_expected, self.junior_only_actual
+        ));
+        report.push_str(&format!(
+            "Senior-needed expected: {} | actual: {}\n\n",
+            self.senior_needed_expected, self.senior_needed_actual
+        ));
 
         report.push_str("─── BY TEAM ───\n");
         let mut teams: Vec<_> = self.by_team.values().collect();

@@ -13,7 +13,7 @@ mod outcome;
 
 // Re-export all types
 pub use actor::Actor;
-pub use outcome::StageOutcome;
-pub use event_kind::TranscriptEventKind;
-pub use event::TranscriptEvent;
 pub use core::Transcript;
+pub use event::TranscriptEvent;
+pub use event_kind::TranscriptEventKind;
+pub use outcome::StageOutcome;

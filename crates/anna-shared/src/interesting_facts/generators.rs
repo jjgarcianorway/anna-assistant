@@ -202,7 +202,10 @@ pub fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
     if events.current_streak >= 7 {
         facts.push(InterestingFact {
             category: FactCategory::UserPattern,
-            fact: format!("On a {}-day streak - consistent usage", events.current_streak),
+            fact: format!(
+                "On a {}-day streak - consistent usage",
+                events.current_streak
+            ),
             priority: 2,
         });
     } else if events.current_streak >= 3 {
@@ -248,10 +251,7 @@ pub fn user_pattern_facts(events: &AggregatedEvents) -> Vec<InterestingFact> {
         } else if events.avg_duration_ms < 2000.0 {
             facts.push(InterestingFact {
                 category: FactCategory::Performance,
-                fact: format!(
-                    "Average response: {:.1}s",
-                    events.avg_duration_ms / 1000.0
-                ),
+                fact: format!("Average response: {:.1}s", events.avg_duration_ms / 1000.0),
                 priority: 5,
             });
         }

@@ -21,17 +21,26 @@ pub fn print_footer(result: &ServiceDeskResult) {
     // v0.0.170: Show staff member who handled the request with name and role prominently
     if let Some(ref staff_id) = result.staff_id {
         if let Some(person) = person_by_id(staff_id) {
-            kv("handled_by", &format!(
-                "{}{} ({}){}",
-                colors::WARN, person.display_name, person.role_title, colors::RESET
-            ));
+            kv(
+                "handled_by",
+                &format!(
+                    "{}{} ({}){}",
+                    colors::WARN,
+                    person.display_name,
+                    person.role_title,
+                    colors::RESET
+                ),
+            );
             if !person.specializations.is_empty() {
                 kv("specializes_in", &person.specialization_str());
             }
         }
     } else if let Some(ref assigned) = result.assigned_staff {
         // Fallback to assigned_staff string if no staff_id
-        kv("handled_by", &format!("{}{}{}", colors::WARN, assigned, colors::RESET));
+        kv(
+            "handled_by",
+            &format!("{}{}{}", colors::WARN, assigned, colors::RESET),
+        );
     }
 
     // v0.0.106: Case number on separate line

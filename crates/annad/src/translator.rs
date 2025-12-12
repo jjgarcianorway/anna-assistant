@@ -192,8 +192,10 @@ fn get_probe_recommendations(query: &str) -> String {
 
     // v0.0.333: Check if we should trust the learning data
     if !store.should_use_learning() {
-        info!("Learning confidence too low ({:.0}%), skipping recommendations",
-              store.confidence_factor() * 100.0);
+        info!(
+            "Learning confidence too low ({:.0}%), skipping recommendations",
+            store.confidence_factor() * 100.0
+        );
         return String::new();
     }
 
@@ -236,8 +238,11 @@ fn get_probe_recommendations(query: &str) -> String {
     if good_probes.is_empty() {
         String::new()
     } else {
-        info!("Using learned probes (confidence {:.0}%): {}",
-              store.confidence_factor() * 100.0, good_probes.join(", "));
+        info!(
+            "Using learned probes (confidence {:.0}%): {}",
+            store.confidence_factor() * 100.0,
+            good_probes.join(", ")
+        );
         good_probes.join(", ")
     }
 }
@@ -397,7 +402,11 @@ fn parse_translator_response(response: &str, query: &str) -> Result<TranslatorTi
         info!(
             "Translator: DETERMINISTIC probes for '{}': [{}]",
             query,
-            deterministic.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",")
+            deterministic
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
         );
         deterministic.into_iter().map(String::from).collect()
     } else {
@@ -409,7 +418,10 @@ fn parse_translator_response(response: &str, query: &str) -> Result<TranslatorTi
     // v0.0.448: Detect concept queries that should NOT be treated as package queries
     // If this is a concept query (e.g., "do I have swap?"), clear any package-related entities
     let entities = if is_concept_query(query) {
-        info!("Translator: detected concept query, not a package query: '{}'", query);
+        info!(
+            "Translator: detected concept query, not a package query: '{}'",
+            query
+        );
         // Keep entities but mark them as concepts, not packages
         entities
     } else {

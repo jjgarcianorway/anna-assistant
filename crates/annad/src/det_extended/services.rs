@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer running services query using systemctl
-pub fn answer_running_services(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_running_services(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "running_services")?;
     if probe.exit_code != 0 {
         return None;
@@ -31,12 +34,18 @@ pub fn answer_running_services(probes: &[ProbeResult], route_class: &str) -> Opt
         .collect();
 
     let answer = if service_count <= 15 {
-        format!("Running services ({}):\n  {}", service_count, services.join("\n  "))
+        format!(
+            "Running services ({}):\n  {}",
+            service_count,
+            services.join("\n  ")
+        )
     } else {
         let preview: Vec<&str> = services.iter().take(12).copied().collect();
         format!(
             "Running services ({}):\n  {}\n  ...and {} more",
-            service_count, preview.join("\n  "), service_count - 12
+            service_count,
+            preview.join("\n  "),
+            service_count - 12
         )
     };
 
@@ -49,7 +58,10 @@ pub fn answer_running_services(probes: &[ProbeResult], route_class: &str) -> Opt
 }
 
 /// Answer systemd units query
-pub fn answer_systemd_units(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_units(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_units")?;
     if probe.exit_code != 0 {
         return None;
@@ -88,7 +100,10 @@ pub fn answer_crontabs(probes: &[ProbeResult], route_class: &str) -> Option<Dete
         });
     }
 
-    let job_count = output.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).count();
+    let job_count = output
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+        .count();
     Some(DeterministicResult {
         answer: format!("Crontab ({} jobs):\n```\n{}\n```", job_count, output),
         grounded: true,
@@ -98,7 +113,10 @@ pub fn answer_crontabs(probes: &[ProbeResult], route_class: &str) -> Option<Dete
 }
 
 /// Answer Docker containers query
-pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_docker_containers(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "docker_containers")?;
 
     let output = probe.stdout.trim();
@@ -115,7 +133,10 @@ pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Op
     let answer = if container_count == 0 {
         "No running containers.".to_string()
     } else {
-        format!("Docker containers ({}):\n```\n{}\n```", container_count, output)
+        format!(
+            "Docker containers ({}):\n```\n{}\n```",
+            container_count, output
+        )
     };
 
     Some(DeterministicResult {
@@ -127,7 +148,10 @@ pub fn answer_docker_containers(probes: &[ProbeResult], route_class: &str) -> Op
 }
 
 /// Answer Docker images query
-pub fn answer_docker_images(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_docker_images(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "docker_images")?;
 
     let output = probe.stdout.trim();
@@ -156,7 +180,10 @@ pub fn answer_docker_images(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer systemd timers query
-pub fn answer_systemd_timers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_timers(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_timers")?;
     if probe.exit_code != 0 {
         return None;
@@ -182,7 +209,10 @@ pub fn answer_systemd_timers(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer systemd journal query
-pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_journal(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_journal")?;
 
     let output = probe.stdout.trim();
@@ -197,7 +227,10 @@ pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Opti
 
     let line_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!("Recent system logs ({} entries):\n```\n{}\n```", line_count, output),
+        answer: format!(
+            "Recent system logs ({} entries):\n```\n{}\n```",
+            line_count, output
+        ),
         grounded: true,
         parsed_data_count: line_count,
         route_class: route_class.to_string(),
@@ -205,7 +238,10 @@ pub fn answer_systemd_journal(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer systemd targets query
-pub fn answer_systemd_targets(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_targets(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_targets")?;
 
     let output = probe.stdout.trim();
@@ -220,7 +256,10 @@ pub fn answer_systemd_targets(probes: &[ProbeResult], route_class: &str) -> Opti
 
     let target_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!("Active systemd targets ({}):\n```\n{}\n```", target_count, output),
+        answer: format!(
+            "Active systemd targets ({}):\n```\n{}\n```",
+            target_count, output
+        ),
         grounded: true,
         parsed_data_count: target_count,
         route_class: route_class.to_string(),
@@ -228,7 +267,10 @@ pub fn answer_systemd_targets(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer systemd sockets query
-pub fn answer_systemd_sockets(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_sockets(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_sockets")?;
 
     let output = probe.stdout.trim();
@@ -251,7 +293,10 @@ pub fn answer_systemd_sockets(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer systemd slices query
-pub fn answer_systemd_slices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_slices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_slices")?;
 
     let output = probe.stdout.trim();
@@ -273,7 +318,10 @@ pub fn answer_systemd_slices(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer systemd paths query
-pub fn answer_systemd_paths(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_paths(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_paths")?;
 
     let output = probe.stdout.trim();
@@ -296,7 +344,10 @@ pub fn answer_systemd_paths(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer systemctl mask query
-pub fn answer_systemctl_mask(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemctl_mask(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemctl_mask")?;
     let output = probe.stdout.trim();
 
@@ -304,7 +355,10 @@ pub fn answer_systemctl_mask(probes: &[ProbeResult], route_class: &str) -> Optio
         ("No masked systemd units found.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("Masked units ({}):\n```\n{}\n```", count, output), count)
+        (
+            format!("Masked units ({}):\n```\n{}\n```", count, output),
+            count,
+        )
     };
 
     Some(DeterministicResult {
@@ -316,7 +370,10 @@ pub fn answer_systemctl_mask(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer systemd scopes query
-pub fn answer_systemd_scopes(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_scopes(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_scopes")?;
     let output = probe.stdout.trim();
 
@@ -324,7 +381,10 @@ pub fn answer_systemd_scopes(probes: &[ProbeResult], route_class: &str) -> Optio
         ("No systemd scope units found.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("Systemd scopes ({}):\n```\n{}\n```", count, output), count)
+        (
+            format!("Systemd scopes ({}):\n```\n{}\n```", count, output),
+            count,
+        )
     };
 
     Some(DeterministicResult {
@@ -358,7 +418,10 @@ pub fn answer_ntp_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer loginctl sessions query
-pub fn answer_loginctl_sessions(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_loginctl_sessions(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "loginctl_sessions")?;
     let output = probe.stdout.trim();
 
@@ -366,7 +429,10 @@ pub fn answer_loginctl_sessions(probes: &[ProbeResult], route_class: &str) -> Op
         ("No login sessions found.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("Login sessions ({}):\n```\n{}\n```", count, output), count)
+        (
+            format!("Login sessions ({}):\n```\n{}\n```", count, output),
+            count,
+        )
     };
 
     Some(DeterministicResult {

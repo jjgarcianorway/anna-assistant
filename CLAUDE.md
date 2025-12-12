@@ -1,7 +1,20 @@
 # Claude Code Instructions
 
+## VISION DOCUMENT
+Read `VISION.md` for the full product vision. This file contains development rules only.
+
 ## Code Quality
 - Keep all files under 400 lines. Modularization and scalability is key.
+- Hardcode as little as possible - basic reusable recipes yes, specific cases no.
+- Best practices for programming and security.
+
+## Design Principles
+- Anna is a full IT department in the user's computer
+- User experience like "fly on the wall" watching IT team work
+- Hollywood-style clean UI - true color, no icons, professional
+- Real-time feedback (spinning animation, streaming word-by-word)
+- Citations from Arch Wiki, man pages, --help (the bible)
+- Never give "not possible" unless truly impossible
 
 ## Release Workflow - CRITICAL - DO NOT SKIP ANY STEP!!!
 After completing any implementation work, run ALL these steps:
@@ -42,7 +55,21 @@ rm annactl-linux-x86_64 annad-linux-x86_64 SHA256SUMS
 ⚠️ **STEPS 7-8 ARE MANDATORY** - Anna auto-update downloads binaries from GitHub releases!
 Without uploading `annactl-linux-x86_64`, `annad-linux-x86_64`, and `SHA256SUMS`, users will NOT receive the update!
 
+### Post-Release Documentation Updates
+Every new version must also:
+1. Update README.md (description of what works)
+2. Update ROADMAP.md (remove implemented, keep detailed missing items)
+3. Update FEATURES.md (tested and verified features)
+
+### Critical Invariants
+- Auto-update must ALWAYS work
+- curl install must ALWAYS work
+- Installer/uninstaller updated if any change affects them
+
 ## Project Structure
 - `crates/anna-shared/` - Shared types and utilities
 - `crates/annad/` - Daemon (backend)
 - `crates/annactl/` - CLI client
+- `VISION.md` - Full product vision (authoritative)
+- `ROADMAP.md` - Planned features by phase
+- `FEATURES.md` - Implemented features

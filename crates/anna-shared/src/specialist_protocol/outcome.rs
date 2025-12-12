@@ -31,7 +31,10 @@ pub enum TicketOutcome {
 impl TicketOutcome {
     /// Check if this outcome counts as "resolved" for stats
     pub fn is_resolved(&self) -> bool {
-        matches!(self, Self::Success | Self::UsefulPartial | Self::HonestUnknown)
+        matches!(
+            self,
+            Self::Success | Self::UsefulPartial | Self::HonestUnknown
+        )
     }
 
     /// Check if this is a hard failure
@@ -52,13 +55,17 @@ impl TicketOutcome {
 }
 
 /// Determine ticket outcome from response
-pub fn determine_outcome(response: &StrictResponse, validation: &ValidationResult) -> TicketOutcome {
+pub fn determine_outcome(
+    response: &StrictResponse,
+    validation: &ValidationResult,
+) -> TicketOutcome {
     // If validation failed seriously, it's an internal error
     if !validation.valid {
         let has_serious_error = validation.errors.iter().any(|e| {
-            matches!(e,
+            matches!(
+                e,
                 super::ValidationError::InventedData(_)
-                | super::ValidationError::ForbiddenPattern(_)
+                    | super::ValidationError::ForbiddenPattern(_)
             )
         });
 
@@ -118,7 +125,12 @@ fn is_useful_partial(response: &StrictResponse) -> bool {
     // Must have at least one fact or evidence
     let has_facts = !response.details.key_facts.is_empty();
     let has_evidence = !response.evidence.probes_used.is_empty();
-    let has_diagnosis = response.details.diagnosis.as_ref().map(|d| !d.is_empty()).unwrap_or(false);
+    let has_diagnosis = response
+        .details
+        .diagnosis
+        .as_ref()
+        .map(|d| !d.is_empty())
+        .unwrap_or(false);
 
     // Check for common "useless partial" patterns
     let summary_lower = response.summary.to_lowercase();
@@ -130,9 +142,8 @@ fn is_useful_partial(response: &StrictResponse) -> bool {
         "unable to determine",
     ];
 
-    let only_says_failure = useless_patterns.iter().all(|p| summary_lower.contains(p))
-        && !has_facts
-        && !has_evidence;
+    let only_says_failure =
+        useless_patterns.iter().all(|p| summary_lower.contains(p)) && !has_facts && !has_evidence;
 
     if only_says_failure {
         return false;
@@ -196,8 +207,7 @@ impl HonestTicketStats {
 
         // Update running average
         let n = self.total as f64;
-        self.avg_response_ms = self.avg_response_ms * ((n - 1.0) / n)
-            + (response_ms as f64) / n;
+        self.avg_response_ms = self.avg_response_ms * ((n - 1.0) / n) + (response_ms as f64) / n;
 
         match outcome {
             TicketOutcome::Success => self.success += 1,
@@ -292,17 +302,30 @@ impl std::fmt::Display for HonestTicketStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "[service desk]")?;
         writeln!(f, "  total_tickets   {}", self.total)?;
-        writeln!(f, "  resolved        {} ({:.0}%)", self.resolved(), self.resolution_rate())?;
+        writeln!(
+            f,
+            "  resolved        {} ({:.0}%)",
+            self.resolved(),
+            self.resolution_rate()
+        )?;
         writeln!(f, "  escalated       {}", self.escalations)?;
         writeln!(f, "  avg_response    {:.0}ms", self.avg_response_ms)?;
         writeln!(f)?;
         writeln!(f, "[reliability]")?;
-        writeln!(f, "  success         {} ({:.0}%)", self.success, self.success_rate())?;
+        writeln!(
+            f,
+            "  success         {} ({:.0}%)",
+            self.success,
+            self.success_rate()
+        )?;
         writeln!(f, "  useful_partial  {}", self.useful_partial)?;
         writeln!(f, "  honest_unknown  {}", self.honest_unknown)?;
         writeln!(f, "  failed          {}", self.failed)?;
-        writeln!(f, "  internal_errors {} (parse: {}, timeout: {})",
-            self.internal_errors, self.parse_errors, self.timeouts)?;
+        writeln!(
+            f,
+            "  internal_errors {} (parse: {}, timeout: {})",
+            self.internal_errors, self.parse_errors, self.timeouts
+        )?;
         Ok(())
     }
 }
@@ -360,7 +383,8 @@ mod tests {
                 raw_reference: None,
             }],
             make_meta(),
-        ).with_confidence(0.6);
+        )
+        .with_confidence(0.6);
 
         let validation = super::super::validate_response(&response);
         let outcome = determine_outcome(&response, &validation);

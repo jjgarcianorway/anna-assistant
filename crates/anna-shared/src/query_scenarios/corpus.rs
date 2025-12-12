@@ -57,25 +57,40 @@ impl ScenarioCorpus {
     }
 
     pub fn by_team(&self, team: Team) -> Vec<&QueryScenario> {
-        self.scenarios.iter().filter(|s| s.expected_team == team).collect()
+        self.scenarios
+            .iter()
+            .filter(|s| s.expected_team == team)
+            .collect()
     }
 
     pub fn by_difficulty(&self, difficulty: Difficulty) -> Vec<&QueryScenario> {
-        self.scenarios.iter().filter(|s| s.difficulty == difficulty).collect()
+        self.scenarios
+            .iter()
+            .filter(|s| s.difficulty == difficulty)
+            .collect()
     }
 
     pub fn fast_path_scenarios(&self) -> Vec<&QueryScenario> {
-        self.scenarios.iter().filter(|s| s.expected_path == ExpectedPath::FastPath).collect()
+        self.scenarios
+            .iter()
+            .filter(|s| s.expected_path == ExpectedPath::FastPath)
+            .collect()
     }
 
     pub fn learnable_scenarios(&self) -> Vec<&QueryScenario> {
-        self.scenarios.iter().filter(|s| s.expected_path == ExpectedPath::LearnableRecipe).collect()
+        self.scenarios
+            .iter()
+            .filter(|s| s.expected_path == ExpectedPath::LearnableRecipe)
+            .collect()
     }
 }
 
 fn build_corpus() -> Vec<QueryScenario> {
     let mut id = 0;
-    let mut next_id = || { id += 1; id };
+    let mut next_id = || {
+        id += 1;
+        id
+    };
 
     vec![
         // ===== STORAGE TEAM (15 queries) =====
@@ -127,7 +142,7 @@ fn build_corpus() -> Vec<QueryScenario> {
         QueryScenario {
             id: next_id(),
             query: "clean up old journal logs".into(),
-            expected_team: Team::Logs,  // v0.0.268: Fixed - journal logs go to Logs team
+            expected_team: Team::Logs, // v0.0.268: Fixed - journal logs go to Logs team
             difficulty: Difficulty::Medium,
             expected_path: ExpectedPath::LearnableRecipe,
             similar_query: Some("free disk space by removing old logs".into()),
@@ -207,14 +222,13 @@ fn build_corpus() -> Vec<QueryScenario> {
         },
         QueryScenario {
             id: next_id(),
-            query: "find files larger than 1GB on disk".into(),  // v0.0.268: Added "disk" for routing
+            query: "find files larger than 1GB on disk".into(), // v0.0.268: Added "disk" for routing
             expected_team: Team::Storage,
             difficulty: Difficulty::Simple,
             expected_path: ExpectedPath::LearnableRecipe,
             similar_query: Some("locate big files on disk".into()),
             tags: vec!["find".into(), "large".into()],
         },
-
         // ===== NETWORK TEAM (15 queries) =====
         QueryScenario {
             id: next_id(),
@@ -351,7 +365,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: Some("reload network config".into()),
             tags: vec!["restart".into(), "service".into()],
         },
-
         // ===== DESKTOP TEAM (15 queries) =====
         QueryScenario {
             id: next_id(),
@@ -488,7 +501,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: None,
             tags: vec!["tmux".into(), "config".into()],
         },
-
         // ===== SERVICES TEAM (15 queries) =====
         QueryScenario {
             id: next_id(),
@@ -625,7 +637,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: Some("systemctl daemon-reload".into()),
             tags: vec!["systemd".into(), "reload".into()],
         },
-
         // ===== PERFORMANCE TEAM (10 queries) =====
         QueryScenario {
             id: next_id(),
@@ -717,7 +728,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: None,
             tags: vec!["io".into(), "performance".into()],
         },
-
         // ===== HARDWARE TEAM (10 queries) =====
         QueryScenario {
             id: next_id(),
@@ -809,7 +819,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: None,
             tags: vec!["webcam".into(), "hardware".into()],
         },
-
         // ===== SECURITY TEAM (10 queries) =====
         QueryScenario {
             id: next_id(),
@@ -901,7 +910,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: Some("scan local ports".into()),
             tags: vec!["ports".into(), "audit".into()],
         },
-
         // ===== LOGS TEAM (5 queries) =====
         QueryScenario {
             id: next_id(),
@@ -948,7 +956,6 @@ fn build_corpus() -> Vec<QueryScenario> {
             similar_query: None,
             tags: vec!["logging".into(), "config".into()],
         },
-
         // ===== GENERAL (5 queries) =====
         QueryScenario {
             id: next_id(),

@@ -6,20 +6,16 @@
 
 /// Stop words to filter out when extracting keywords
 const STOP_WORDS: &[&str] = &[
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "must", "shall", "can", "need", "dare",
-    "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
-    "into", "through", "during", "before", "after", "above", "below",
-    "between", "under", "again", "further", "then", "once", "here",
-    "there", "when", "where", "why", "how", "all", "each", "few",
-    "more", "most", "other", "some", "such", "no", "nor", "not",
-    "only", "own", "same", "so", "than", "too", "very", "just",
-    "i", "me", "my", "you", "your", "we", "our", "it", "its",
-    "what", "which", "who", "whom", "this", "that", "these", "those",
-    "am", "and", "but", "if", "or", "because", "until", "while",
-    "about", "show", "tell", "give", "get", "check", "see", "look",
-    "please", "help", "want", "know", "find", "using", "use",
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "shall",
+    "can", "need", "dare", "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into",
+    "through", "during", "before", "after", "above", "below", "between", "under", "again",
+    "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "each",
+    "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same",
+    "so", "than", "too", "very", "just", "i", "me", "my", "you", "your", "we", "our", "it", "its",
+    "what", "which", "who", "whom", "this", "that", "these", "those", "am", "and", "but", "if",
+    "or", "because", "until", "while", "about", "show", "tell", "give", "get", "check", "see",
+    "look", "please", "help", "want", "know", "find", "using", "use",
 ];
 
 /// Domain-specific synonyms for better matching
@@ -144,7 +140,8 @@ pub fn extract_keywords(query: &str) -> Vec<String> {
 /// Get the canonical form of a keyword (for matching across synonyms)
 pub fn canonicalize(word: &str) -> String {
     let lower = word.to_lowercase();
-    SYNONYMS.iter()
+    SYNONYMS
+        .iter()
         .find(|(syn, _)| *syn == lower)
         .map(|(_, canonical)| canonical.to_string())
         .unwrap_or(lower)
@@ -162,9 +159,7 @@ pub fn keyword_similarity(keywords1: &[String], keywords2: &[String]) -> f32 {
     let canon2: Vec<String> = keywords2.iter().map(|k| canonicalize(k)).collect();
 
     // Count matches (including synonyms)
-    let matches = canon1.iter()
-        .filter(|k| canon2.contains(k))
-        .count();
+    let matches = canon1.iter().filter(|k| canon2.contains(k)).count();
 
     // Jaccard-like similarity
     let union = (canon1.len() + canon2.len() - matches).max(1);
@@ -179,13 +174,21 @@ mod tests {
     fn test_extract_keywords() {
         let keywords = extract_keywords("how much disk space do I have");
         // Should have compound term
-        assert!(keywords.contains(&"disk_space".to_string()), "Should extract compound: {:?}", keywords);
+        assert!(
+            keywords.contains(&"disk_space".to_string()),
+            "Should extract compound: {:?}",
+            keywords
+        );
     }
 
     #[test]
     fn test_extract_keywords_simple() {
         let keywords = extract_keywords("check the disk");
-        assert!(keywords.contains(&"disk".to_string()), "Should extract disk: {:?}", keywords);
+        assert!(
+            keywords.contains(&"disk".to_string()),
+            "Should extract disk: {:?}",
+            keywords
+        );
     }
 
     #[test]
@@ -199,14 +202,26 @@ mod tests {
     #[test]
     fn test_synonyms() {
         let keywords = extract_keywords("check my RAM");
-        assert!(keywords.contains(&"memory".to_string()), "RAM should map to memory: {:?}", keywords);
-        assert!(keywords.contains(&"ram".to_string()), "Original also kept: {:?}", keywords);
+        assert!(
+            keywords.contains(&"memory".to_string()),
+            "RAM should map to memory: {:?}",
+            keywords
+        );
+        assert!(
+            keywords.contains(&"ram".to_string()),
+            "Original also kept: {:?}",
+            keywords
+        );
     }
 
     #[test]
     fn test_compound_terms() {
         let keywords = extract_keywords("show disk usage");
-        assert!(keywords.contains(&"disk_usage".to_string()), "Should have compound: {:?}", keywords);
+        assert!(
+            keywords.contains(&"disk_usage".to_string()),
+            "Should have compound: {:?}",
+            keywords
+        );
     }
 
     #[test]
@@ -222,7 +237,11 @@ mod tests {
         let k1 = vec!["ram".to_string()];
         let k2 = vec!["memory".to_string()];
         let sim = keyword_similarity(&k1, &k2);
-        assert!(sim > 0.9, "RAM and memory should match via synonym, got {}", sim);
+        assert!(
+            sim > 0.9,
+            "RAM and memory should match via synonym, got {}",
+            sim
+        );
     }
 
     #[test]
@@ -230,7 +249,11 @@ mod tests {
         let k1 = vec!["disk".to_string(), "space".to_string()];
         let k2 = vec!["disk".to_string(), "space".to_string()];
         let sim = keyword_similarity(&k1, &k2);
-        assert!((sim - 1.0).abs() < 0.01, "Exact match should be 1.0, got {}", sim);
+        assert!(
+            (sim - 1.0).abs() < 0.01,
+            "Exact match should be 1.0, got {}",
+            sim
+        );
     }
 
     #[test]
@@ -238,6 +261,10 @@ mod tests {
         let k1 = vec!["disk".to_string(), "usage".to_string()];
         let k2 = vec!["disk".to_string(), "space".to_string()];
         let sim = keyword_similarity(&k1, &k2);
-        assert!(sim > 0.0 && sim < 1.0, "Partial match expected, got {}", sim);
+        assert!(
+            sim > 0.0 && sim < 1.0,
+            "Partial match expected, got {}",
+            sim
+        );
     }
 }

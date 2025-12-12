@@ -36,7 +36,11 @@ pub struct KnowledgeSnippet {
 impl KnowledgeSnippet {
     /// Create a new snippet
     pub fn new(source: KnowledgeSource, title: &str, excerpt: &str) -> Self {
-        let citation_id = format!("{}:{}", source.citation_prefix(), sanitize_for_citation(title));
+        let citation_id = format!(
+            "{}:{}",
+            source.citation_prefix(),
+            sanitize_for_citation(title)
+        );
 
         Self {
             source,
@@ -127,8 +131,14 @@ impl KnowledgeSnippet {
     /// Get a short reference for display
     pub fn short_ref(&self) -> String {
         match self.source {
-            KnowledgeSource::ManPage => format!("man:{}", self.title.strip_prefix("man ").unwrap_or(&self.title)),
-            KnowledgeSource::CommandHelp => format!("help:{}", self.title.split_whitespace().next().unwrap_or(&self.title)),
+            KnowledgeSource::ManPage => format!(
+                "man:{}",
+                self.title.strip_prefix("man ").unwrap_or(&self.title)
+            ),
+            KnowledgeSource::CommandHelp => format!(
+                "help:{}",
+                self.title.split_whitespace().next().unwrap_or(&self.title)
+            ),
             KnowledgeSource::LocalDocs => self.citation_id.clone(),
             KnowledgeSource::ArchWiki => self.citation_id.clone(),
         }
@@ -185,12 +195,18 @@ impl KnowledgeResult {
 
     /// Get all citation IDs
     pub fn citations(&self) -> Vec<&str> {
-        self.snippets.iter().map(|s| s.citation_id.as_str()).collect()
+        self.snippets
+            .iter()
+            .map(|s| s.citation_id.as_str())
+            .collect()
     }
 
     /// Get snippets from a specific source
     pub fn from_source(&self, source: KnowledgeSource) -> Vec<&KnowledgeSnippet> {
-        self.snippets.iter().filter(|s| s.source == source).collect()
+        self.snippets
+            .iter()
+            .filter(|s| s.source == source)
+            .collect()
     }
 
     /// Add a snippet
@@ -204,7 +220,9 @@ impl KnowledgeResult {
     /// Sort snippets by relevance
     pub fn sort_by_relevance(&mut self) {
         self.snippets.sort_by(|a, b| {
-            b.relevance.partial_cmp(&a.relevance).unwrap_or(std::cmp::Ordering::Equal)
+            b.relevance
+                .partial_cmp(&a.relevance)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
     }
 
@@ -292,7 +310,8 @@ mod tests {
 
     #[test]
     fn test_snippet_from_wiki() {
-        let snippet = KnowledgeSnippet::from_wiki("Systemd", "systemd is a system and service manager.");
+        let snippet =
+            KnowledgeSnippet::from_wiki("Systemd", "systemd is a system and service manager.");
         assert_eq!(snippet.citation_id, "wiki:systemd");
     }
 
@@ -309,7 +328,10 @@ mod tests {
 
     #[test]
     fn test_truncate_snippet() {
-        let mut snippet = KnowledgeSnippet::from_man("test", "This is a long text. It has multiple sentences. And more content here.");
+        let mut snippet = KnowledgeSnippet::from_man(
+            "test",
+            "This is a long text. It has multiple sentences. And more content here.",
+        );
         snippet.truncate(30);
         assert!(snippet.excerpt.len() <= 35); // Allow for "..."
     }

@@ -141,7 +141,11 @@ impl ClarificationLearningStore {
         if let Some(lesson) = self.lessons.get(&pattern) {
             if lesson.is_trusted() {
                 // Verify the option is still valid
-                if request.options.iter().any(|o| o.value == lesson.user_answer) {
+                if request
+                    .options
+                    .iter()
+                    .any(|o| o.value == lesson.user_answer)
+                {
                     return Some(&lesson.user_answer);
                 }
             }
@@ -212,11 +216,7 @@ pub fn extract_facts(
 }
 
 /// Update context memory from clarification
-pub fn update_context_memory(
-    request: &ClarifyRequest,
-    answer: &str,
-    memory: &mut ContextMemory,
-) {
+pub fn update_context_memory(request: &ClarifyRequest, answer: &str, memory: &mut ContextMemory) {
     let q = request.question.to_lowercase();
 
     // Editor preference
@@ -263,10 +263,7 @@ fn extract_topic(question: &str) -> String {
 }
 
 /// Integrate learning: call after successful clarification
-pub fn record_clarification_learning(
-    request: &ClarifyRequest,
-    answer: &str,
-) {
+pub fn record_clarification_learning(request: &ClarifyRequest, answer: &str) {
     let mut store = ClarificationLearningStore::load();
     let mut facts = FactsStore::load();
     let mut memory = ContextMemory::load();

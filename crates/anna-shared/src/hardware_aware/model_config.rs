@@ -146,7 +146,9 @@ impl ModelConfig {
     pub fn can_install(&self, model: &str) -> InstallDecision {
         match self.auto_install {
             AutoInstallPolicy::Always => InstallDecision::Allowed,
-            AutoInstallPolicy::Never => InstallDecision::Denied("Auto-install disabled".to_string()),
+            AutoInstallPolicy::Never => {
+                InstallDecision::Denied("Auto-install disabled".to_string())
+            }
             AutoInstallPolicy::AskPerModel => {
                 if let Some(decision) = self.model_decisions.get(model) {
                     if decision.approved {
@@ -265,9 +267,18 @@ mod tests {
 
     #[test]
     fn test_auto_install_policy() {
-        assert_eq!(AutoInstallPolicy::from_str("always"), Some(AutoInstallPolicy::Always));
-        assert_eq!(AutoInstallPolicy::from_str("never"), Some(AutoInstallPolicy::Never));
-        assert_eq!(AutoInstallPolicy::from_str("ask"), Some(AutoInstallPolicy::AskPerModel));
+        assert_eq!(
+            AutoInstallPolicy::from_str("always"),
+            Some(AutoInstallPolicy::Always)
+        );
+        assert_eq!(
+            AutoInstallPolicy::from_str("never"),
+            Some(AutoInstallPolicy::Never)
+        );
+        assert_eq!(
+            AutoInstallPolicy::from_str("ask"),
+            Some(AutoInstallPolicy::AskPerModel)
+        );
     }
 
     #[test]
@@ -301,7 +312,10 @@ mod tests {
         config.auto_install = AutoInstallPolicy::AskPerModel;
 
         // No decision yet
-        assert_eq!(config.can_install("new_model"), InstallDecision::NeedsApproval);
+        assert_eq!(
+            config.can_install("new_model"),
+            InstallDecision::NeedsApproval
+        );
 
         // After approval
         config.record_decision("new_model", true, None);

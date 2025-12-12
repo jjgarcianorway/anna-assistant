@@ -33,8 +33,7 @@ pub fn answer_timezone_info(
                 .unwrap_or("")
                 .trim()
                 .to_string();
-        } else if line.starts_with("NTP service:")
-            || line.starts_with("System clock synchronized:")
+        } else if line.starts_with("NTP service:") || line.starts_with("System clock synchronized:")
         {
             ntp_status = line.to_string();
         }

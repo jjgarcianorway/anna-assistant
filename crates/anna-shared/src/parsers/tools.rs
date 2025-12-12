@@ -32,7 +32,9 @@ pub fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<Par
             None => {
                 return Some(ParsedProbeData::Error(ParseError::new(
                     &probe.command,
-                    ParseErrorReason::MissingSection("could not extract tool name from command".to_string()),
+                    ParseErrorReason::MissingSection(
+                        "could not extract tool name from command".to_string(),
+                    ),
                     &probe.stderr,
                 )));
             }
@@ -68,7 +70,9 @@ pub fn try_parse_tool_exists(probe: &ProbeResult, cmd_lower: &str) -> Option<Par
             _ => {
                 return Some(ParsedProbeData::Error(ParseError::new(
                     &probe.command,
-                    ParseErrorReason::MissingSection("could not extract tool name from which command".to_string()),
+                    ParseErrorReason::MissingSection(
+                        "could not extract tool name from which command".to_string(),
+                    ),
                     &probe.stderr,
                 )));
             }

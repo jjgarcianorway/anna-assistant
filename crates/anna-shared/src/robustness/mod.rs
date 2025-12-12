@@ -8,29 +8,29 @@
 //! - Stats reflect actual outcomes, not any response
 
 mod contract;
-mod timeouts;
-mod json_enforce;
-mod outcome_messages;
-mod stats_engine;
-mod lifecycle;
 mod fallback;
+mod json_enforce;
+mod lifecycle;
+mod outcome_messages;
 mod performance;
+mod stats_engine;
 mod tests;
+mod timeouts;
 
 pub use contract::{
     EvidenceRef, ProposedStep, SpecialistResult, StepCategory, TicketMetrics, TicketOutcome,
 };
-pub use timeouts::{
-    RetryStrategy, StageTiming, TimeBudget, TimeoutConfig, TimeoutEnforcer, TimeoutStage,
-};
+pub use fallback::{FallbackAnswer, FallbackGenerator, ProbeEvidence};
 pub use json_enforce::{JsonEnforcer, JsonParseEvent, ParseResult, SchemaHint};
+pub use lifecycle::{TicketLifecycle, TicketState, TicketTransition};
 pub use outcome_messages::{OutcomeMessage, OutcomeRenderer, UserMessage};
+pub use performance::{PerformanceTracker, StreamingUpdate, TimingBreakdown};
 pub use stats_engine::{
     DepartmentStats, FailureRecord, StaffStats, StatsEngine, TicketStats, TruthfulStats,
 };
-pub use lifecycle::{TicketLifecycle, TicketState, TicketTransition};
-pub use fallback::{FallbackAnswer, FallbackGenerator, ProbeEvidence};
-pub use performance::{PerformanceTracker, StreamingUpdate, TimingBreakdown};
+pub use timeouts::{
+    RetryStrategy, StageTiming, TimeBudget, TimeoutConfig, TimeoutEnforcer, TimeoutStage,
+};
 
 /// Default time budgets (milliseconds).
 pub const TRANSLATOR_HARD_CAP_MS: u64 = 1000;

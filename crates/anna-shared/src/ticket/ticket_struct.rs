@@ -130,7 +130,11 @@ impl Ticket {
     /// Add a citation to this ticket
     pub fn add_citation(&mut self, citation: KnowledgeCitation) {
         // Avoid duplicates by citation_id
-        if !self.citations.iter().any(|c| c.citation_id == citation.citation_id) {
+        if !self
+            .citations
+            .iter()
+            .any(|c| c.citation_id == citation.citation_id)
+        {
             self.citations.push(citation);
         }
     }

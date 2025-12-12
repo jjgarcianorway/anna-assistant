@@ -41,7 +41,10 @@ pub enum ProbeStatus {
 impl ProbeStatus {
     /// Whether this is a terminal state.
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Completed | Self::TimedOut | Self::Failed | Self::Cached)
+        matches!(
+            self,
+            Self::Completed | Self::TimedOut | Self::Failed | Self::Cached
+        )
     }
 
     /// Whether this was successful.
@@ -217,10 +220,8 @@ impl ProbeCache {
 
     /// Set with custom TTL.
     pub fn set_with_ttl(&mut self, probe_id: &str, value: &str, ttl: Duration) {
-        self.entries.insert(
-            probe_id.to_string(),
-            CacheEntry::new(value, ttl),
-        );
+        self.entries
+            .insert(probe_id.to_string(), CacheEntry::new(value, ttl));
     }
 
     /// Clear expired entries.
@@ -323,15 +324,12 @@ pub struct BatchResult {
 impl BatchResult {
     /// Create from results map.
     pub fn from_results(results: HashMap<String, ProbeResult>, duration_ms: u64) -> Self {
-        let cached_count = results.values()
+        let cached_count = results
+            .values()
             .filter(|r| r.status == ProbeStatus::Cached)
             .count();
-        let success_count = results.values()
-            .filter(|r| r.status.is_success())
-            .count();
-        let failed_count = results.values()
-            .filter(|r| !r.status.is_success())
-            .count();
+        let success_count = results.values().filter(|r| r.status.is_success()).count();
+        let failed_count = results.values().filter(|r| !r.status.is_success()).count();
 
         Self {
             results,
@@ -388,7 +386,9 @@ impl ParallelProbeEngine {
 
     /// Check cache for probe.
     pub fn check_cache(&mut self, probe_id: &str) -> Option<ProbeResult> {
-        self.cache.get(probe_id).map(|v| ProbeResult::cached(probe_id, &v))
+        self.cache
+            .get(probe_id)
+            .map(|v| ProbeResult::cached(probe_id, &v))
     }
 
     /// Cache a result.

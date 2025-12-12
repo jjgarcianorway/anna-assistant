@@ -105,9 +105,7 @@ pub fn fallback_message(reason: FallbackReason, response: &FallbackResponse) -> 
         FallbackReason::RetriesExhausted => {
             "Specialist unavailable after retries. Using evidence-only answer."
         }
-        FallbackReason::Unavailable => {
-            "Specialist unavailable. Using evidence-only answer."
-        }
+        FallbackReason::Unavailable => "Specialist unavailable. Using evidence-only answer.",
     };
 
     let mut msg = UxMessage::warning(status);
@@ -151,14 +149,14 @@ pub fn state_message(state: TicketState) -> UxMessage {
             severity: UxSeverity::Info,
         },
         TicketState::Resolved => UxMessage::success("Request completed successfully."),
-        TicketState::FailedProbe => UxMessage::error("Could not gather required system information.")
-            .with_next_steps("Check system permissions or try again."),
+        TicketState::FailedProbe => {
+            UxMessage::error("Could not gather required system information.")
+                .with_next_steps("Check system permissions or try again.")
+        }
         TicketState::FailedSpecialist => {
             UxMessage::warning("Analysis partially complete. Some details may be missing.")
         }
-        TicketState::NeedClarification => {
-            UxMessage::warning("Need more information to proceed.")
-        }
+        TicketState::NeedClarification => UxMessage::warning("Need more information to proceed."),
         TicketState::Escalated => UxMessage::warning("This issue requires further investigation."),
     }
 }
@@ -267,7 +265,8 @@ mod tests {
 
     #[test]
     fn test_fallback_message_insufficient() {
-        let mut response = FallbackResponse::insufficient_evidence("DSK-0101", vec!["systemd_analyze"]);
+        let mut response =
+            FallbackResponse::insufficient_evidence("DSK-0101", vec!["systemd_analyze"]);
         response.next_probe.push("boot_probe".to_string());
 
         let msg = fallback_message(FallbackReason::RetriesExhausted, &response);
@@ -288,8 +287,14 @@ mod tests {
     #[test]
     fn test_state_messages() {
         assert_eq!(state_message(TicketState::Open).severity, UxSeverity::Info);
-        assert_eq!(state_message(TicketState::Resolved).severity, UxSeverity::Success);
-        assert_eq!(state_message(TicketState::FailedProbe).severity, UxSeverity::Error);
+        assert_eq!(
+            state_message(TicketState::Resolved).severity,
+            UxSeverity::Success
+        );
+        assert_eq!(
+            state_message(TicketState::FailedProbe).severity,
+            UxSeverity::Error
+        );
     }
 
     #[test]

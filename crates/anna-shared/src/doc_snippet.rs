@@ -86,14 +86,21 @@ impl DocSnippet {
     pub fn from_wiki(title: &str, excerpt: &str) -> Self {
         Self::new(
             DocSourceKind::ArchWiki,
-            &format!("https://wiki.archlinux.org/title/{}", title.replace(' ', "_")),
+            &format!(
+                "https://wiki.archlinux.org/title/{}",
+                title.replace(' ', "_")
+            ),
             excerpt,
         )
     }
 
     /// Create from help flag
     pub fn from_help(command: &str, excerpt: &str) -> Self {
-        Self::new(DocSourceKind::HelpFlag, &format!("{} --help", command), excerpt)
+        Self::new(
+            DocSourceKind::HelpFlag,
+            &format!("{} --help", command),
+            excerpt,
+        )
     }
 
     /// Set section
@@ -201,9 +208,7 @@ impl DocCache {
 
         let mut results: Vec<_> = scores
             .into_iter()
-            .filter_map(|(id, score)| {
-                self.snippets.get(id).map(|s| (s, score))
-            })
+            .filter_map(|(id, score)| self.snippets.get(id).map(|s| (s, score)))
             .collect();
 
         results.sort_by(|a, b| b.1.cmp(&a.1));
@@ -218,7 +223,8 @@ impl DocCache {
     /// Cleanup old entries
     pub fn cleanup(&mut self, max_age_days: u64) {
         let threshold = current_secs().saturating_sub(max_age_days * 24 * 3600);
-        let to_remove: Vec<_> = self.snippets
+        let to_remove: Vec<_> = self
+            .snippets
             .iter()
             .filter(|(_, s)| s.retrieved_at < threshold)
             .map(|(id, _)| id.clone())
@@ -338,7 +344,9 @@ fn extract_man_synopsis(content: &str) -> String {
 
 /// Extract keywords from doc content
 fn extract_doc_keywords(text: &str) -> Vec<String> {
-    let stop_words = ["the", "a", "an", "is", "are", "to", "of", "in", "for", "with", "on", "at"];
+    let stop_words = [
+        "the", "a", "an", "is", "are", "to", "of", "in", "for", "with", "on", "at",
+    ];
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| w.len() >= 3 && !stop_words.contains(w))

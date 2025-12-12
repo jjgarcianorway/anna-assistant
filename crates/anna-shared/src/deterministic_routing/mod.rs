@@ -15,30 +15,25 @@
 //! - RAM/CPU load questions ALWAYS route to Performance
 //! - Department override logging when translator conflicts with mapping
 
-pub mod intent_schema;
-pub mod intent_map;
-pub mod evidence_gate;
 pub mod answer_tiers;
 pub mod department;
+pub mod evidence_gate;
+pub mod intent_map;
+pub mod intent_schema;
 
 // Re-exports for convenience
-pub use intent_schema::{
-    CanonicalIntent, Department, RiskLevel, TicketIntentSchema,
-    IntentSchemaParser, ParseError,
-};
-pub use intent_map::{IntentMapTable, IntentMapping, get_intent_map};
-pub use evidence_gate::{
-    EvidenceGate, EvidenceStatus, GateDecision, DirectAnswer, ProbeResult,
-};
 pub use answer_tiers::{
-    AnswerTier, TieredAnswer, ClarificationBuilder,
-    build_boot_perf_tiers, build_mem_status_tiers, build_disk_usage_tiers,
-    build_cpu_load_tiers, build_gpu_driver_tiers,
+    build_boot_perf_tiers, build_cpu_load_tiers, build_disk_usage_tiers, build_gpu_driver_tiers,
+    build_mem_status_tiers, AnswerTier, ClarificationBuilder, TieredAnswer,
     MAX_CLARIFICATION_LENGTH,
 };
 pub use department::{
-    DepartmentRules, DepartmentOwnership, DepartmentConflict,
-    DeterministicRouter, RouteResult,
+    DepartmentConflict, DepartmentOwnership, DepartmentRules, DeterministicRouter, RouteResult,
+};
+pub use evidence_gate::{DirectAnswer, EvidenceGate, EvidenceStatus, GateDecision, ProbeResult};
+pub use intent_map::{get_intent_map, IntentMapTable, IntentMapping};
+pub use intent_schema::{
+    CanonicalIntent, Department, IntentSchemaParser, ParseError, RiskLevel, TicketIntentSchema,
 };
 
 /// Version of the deterministic routing system.
@@ -51,13 +46,9 @@ pub const TRANSLATOR_MAX_TOKENS: usize = 200;
 pub const TRANSLATOR_TEMPERATURE: f32 = 0.0;
 
 /// Process a user query through the deterministic routing pipeline.
-pub fn route_query(
-    query: &str,
-    translator_output: &str,
-) -> Result<RouteResult, String> {
+pub fn route_query(query: &str, translator_output: &str) -> Result<RouteResult, String> {
     // 1. Parse translator output
-    let schema = IntentSchemaParser::parse(translator_output)
-        .map_err(|e| e.message())?;
+    let schema = IntentSchemaParser::parse(translator_output).map_err(|e| e.message())?;
 
     // 2. Apply department rules (may override translator)
     let router = DeterministicRouter::new();
@@ -90,13 +81,25 @@ mod tests {
     #[test]
     fn test_canonical_departments() {
         // Boot -> Performance
-        assert_eq!(get_canonical_department(CanonicalIntent::BootPerf), Department::Performance);
+        assert_eq!(
+            get_canonical_department(CanonicalIntent::BootPerf),
+            Department::Performance
+        );
         // GPU -> Hardware
-        assert_eq!(get_canonical_department(CanonicalIntent::GpuInfo), Department::Hardware);
+        assert_eq!(
+            get_canonical_department(CanonicalIntent::GpuInfo),
+            Department::Hardware
+        );
         // Disk -> Storage
-        assert_eq!(get_canonical_department(CanonicalIntent::DiskUsage), Department::Storage);
+        assert_eq!(
+            get_canonical_department(CanonicalIntent::DiskUsage),
+            Department::Storage
+        );
         // RAM -> Performance
-        assert_eq!(get_canonical_department(CanonicalIntent::MemStatus), Department::Performance);
+        assert_eq!(
+            get_canonical_department(CanonicalIntent::MemStatus),
+            Department::Performance
+        );
     }
 
     #[test]

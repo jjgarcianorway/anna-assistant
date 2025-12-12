@@ -481,7 +481,9 @@ fn get_package_manager(distro: &str) -> Result<(&'static str, Vec<&'static str>)
 }
 
 /// Get package manager command for remove.
-fn get_package_manager_remove(distro: &str) -> Result<(&'static str, Vec<&'static str>), HelperError> {
+fn get_package_manager_remove(
+    distro: &str,
+) -> Result<(&'static str, Vec<&'static str>), HelperError> {
     let distro_lower = distro.to_lowercase();
     if distro_lower.contains("arch") {
         Ok(("pacman", vec!["-R", "--noconfirm"]))

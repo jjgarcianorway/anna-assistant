@@ -35,12 +35,12 @@ impl KnowledgeSourceType {
     /// Default confidence for this source type
     pub fn default_confidence(&self) -> u8 {
         match self {
-            Self::ProbeOutput => 95,    // Direct observation
-            Self::ManPage => 90,        // Official documentation
-            Self::HelpOutput => 85,     // Tool-provided help
-            Self::LocalDoc => 70,       // May be outdated
-            Self::ArchWikiLocal => 85,  // Curated but may lag
-            Self::AnnaDoc => 80,        // Learned patterns
+            Self::ProbeOutput => 95,   // Direct observation
+            Self::ManPage => 90,       // Official documentation
+            Self::HelpOutput => 85,    // Tool-provided help
+            Self::LocalDoc => 70,      // May be outdated
+            Self::ArchWikiLocal => 85, // Curated but may lag
+            Self::AnnaDoc => 80,       // Learned patterns
         }
     }
 
@@ -235,7 +235,7 @@ impl KnowledgeQuery {
         Self {
             keywords,
             tags,
-            source_types: vec![],  // Search all
+            source_types: vec![], // Search all
             max_items: 10,
         }
     }
@@ -342,10 +342,7 @@ mod tests {
 
     #[test]
     fn test_from_probe() {
-        let item = KnowledgeItem::from_probe(
-            "systemctl status sshd",
-            "Active: active (running)",
-        );
+        let item = KnowledgeItem::from_probe("systemctl status sshd", "Active: active (running)");
 
         assert_eq!(item.source_type, KnowledgeSourceType::ProbeOutput);
         assert!(item.tags.contains(&"systemd".to_string()));
@@ -376,11 +373,7 @@ mod tests {
 
     #[test]
     fn test_format_evidence() {
-        let item = KnowledgeItem::new(
-            KnowledgeSourceType::ManPage,
-            "man pacman",
-            "content",
-        );
+        let item = KnowledgeItem::new(KnowledgeSourceType::ManPage, "man pacman", "content");
 
         let evidence = item.format_evidence();
         assert!(evidence.contains("[man]"));

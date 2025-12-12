@@ -42,7 +42,11 @@ pub fn search_knowledge(query: &KnowledgeQuery) -> Vec<KnowledgeItem> {
     }
 
     // Search Arch Wiki local (if present)
-    if search_all || query.source_types.contains(&KnowledgeSourceType::ArchWikiLocal) {
+    if search_all
+        || query
+            .source_types
+            .contains(&KnowledgeSourceType::ArchWikiLocal)
+    {
         let wiki_results = search_arch_wiki_local(&query.keywords, query.max_items);
         results.extend(wiki_results);
     }
@@ -81,9 +85,7 @@ pub fn search_man_pages(keywords: &[String], limit: usize) -> Vec<KnowledgeItem>
     let query = keywords.join(" ");
 
     // Run man -k (apropos)
-    let output = Command::new("man")
-        .args(["-k", &query])
-        .output();
+    let output = Command::new("man").args(["-k", &query]).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -135,11 +137,10 @@ fn parse_apropos_line(line: &str) -> Option<KnowledgeItem> {
 
     let title = format!("man {}", name);
 
-    Some(KnowledgeItem::new(
-        KnowledgeSourceType::ManPage,
-        title,
-        description,
-    ).with_tags(vec![name.to_string()]))
+    Some(
+        KnowledgeItem::new(KnowledgeSourceType::ManPage, title, description)
+            .with_tags(vec![name.to_string()]),
+    )
 }
 
 /// Get a relevant snippet from a man page
@@ -149,7 +150,10 @@ fn get_man_page_snippet(title: &str, keywords: &[String]) -> Option<String> {
 
     // Run man with col to strip formatting
     let output = Command::new("sh")
-        .args(["-c", &format!("man {} 2>/dev/null | col -bx | head -100", command)])
+        .args([
+            "-c",
+            &format!("man {} 2>/dev/null | col -bx | head -100", command),
+        ])
         .output()
         .ok()?;
 
@@ -184,10 +188,7 @@ pub fn search_local_docs(keywords: &[String], tags: &[String], limit: usize) -> 
         return results;
     }
 
-    let doc_dirs = [
-        "/usr/share/doc",
-        "/usr/share/help",
-    ];
+    let doc_dirs = ["/usr/share/doc", "/usr/share/help"];
 
     // Build grep pattern
     let pattern = if !keywords.is_empty() {
@@ -209,12 +210,9 @@ pub fn search_local_docs(keywords: &[String], tags: &[String], limit: usize) -> 
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "doc".to_string());
 
-            let item = KnowledgeItem::from_path(
-                KnowledgeSourceType::LocalDoc,
-                path,
-                title,
-                snippet,
-            ).with_tags(tags.to_vec());
+            let item =
+                KnowledgeItem::from_path(KnowledgeSourceType::LocalDoc, path, title, snippet)
+                    .with_tags(tags.to_vec());
 
             results.push(item);
         }
@@ -248,12 +246,7 @@ pub fn search_arch_wiki_local(keywords: &[String], limit: usize) -> Vec<Knowledg
                 .map(|n| format!("Arch Wiki: {}", n.to_string_lossy()))
                 .unwrap_or_else(|| "Arch Wiki".to_string());
 
-            KnowledgeItem::from_path(
-                KnowledgeSourceType::ArchWikiLocal,
-                path,
-                title,
-                snippet,
-            )
+            KnowledgeItem::from_path(KnowledgeSourceType::ArchWikiLocal, path, title, snippet)
         })
         .collect()
 }
@@ -286,12 +279,7 @@ pub fn search_anna_docs(keywords: &[String], limit: usize) -> Vec<KnowledgeItem>
                 .map(|n| format!("Anna: {}", n.to_string_lossy()))
                 .unwrap_or_else(|| "Anna doc".to_string());
 
-            let item = KnowledgeItem::from_path(
-                KnowledgeSourceType::AnnaDoc,
-                path,
-                title,
-                snippet,
-            );
+            let item = KnowledgeItem::from_path(KnowledgeSourceType::AnnaDoc, path, title, snippet);
 
             results.push(item);
         }
@@ -314,11 +302,14 @@ pub fn get_help_output(command: &str) -> Option<KnowledgeItem> {
             let content = String::from_utf8_lossy(&out.stdout);
             let snippet = truncate_to_line_boundary(&content, MAX_SNIPPET);
 
-            Some(KnowledgeItem::new(
-                KnowledgeSourceType::HelpOutput,
-                format!("{} --help", command),
-                snippet,
-            ).with_tags(vec![command.to_string()]))
+            Some(
+                KnowledgeItem::new(
+                    KnowledgeSourceType::HelpOutput,
+                    format!("{} --help", command),
+                    snippet,
+                )
+                .with_tags(vec![command.to_string()]),
+            )
         }
         _ => None,
     }
@@ -331,23 +322,25 @@ fn grep_directory(dir: &str, pattern: &str, limit: usize) -> Vec<(PathBuf, Strin
     // Try ripgrep first (faster), fall back to grep
     let rg_output = Command::new("rg")
         .args([
-            "-l", "-i",
-            "--max-count", "1",
-            "--type", "txt",
-            "--type", "md",
+            "-l",
+            "-i",
+            "--max-count",
+            "1",
+            "--type",
+            "txt",
+            "--type",
+            "md",
             pattern,
             dir,
         ])
         .output();
 
     let files: Vec<PathBuf> = match rg_output {
-        Ok(out) if out.status.success() => {
-            String::from_utf8_lossy(&out.stdout)
-                .lines()
-                .take(limit)
-                .map(PathBuf::from)
-                .collect()
-        }
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .take(limit)
+            .map(PathBuf::from)
+            .collect(),
         _ => {
             // Fallback to grep
             let grep_output = Command::new("grep")
@@ -355,13 +348,11 @@ fn grep_directory(dir: &str, pattern: &str, limit: usize) -> Vec<(PathBuf, Strin
                 .output();
 
             match grep_output {
-                Ok(out) if out.status.success() => {
-                    String::from_utf8_lossy(&out.stdout)
-                        .lines()
-                        .take(limit)
-                        .map(PathBuf::from)
-                        .collect()
-                }
+                Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+                    .lines()
+                    .take(limit)
+                    .map(PathBuf::from)
+                    .collect(),
                 _ => vec![],
             }
         }

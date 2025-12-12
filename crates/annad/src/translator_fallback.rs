@@ -432,8 +432,12 @@ fn classify_audio_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
 fn classify_bluetooth_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
     if q.contains("bluetooth") || q.contains("bt ") || q.contains("pair") {
         // v0.0.403: Distinguish between service status vs device queries
-        let probes = if q.contains("running") || q.contains("active") || q.contains("status")
-            || q.contains("service") || q.contains("start") || q.contains("stop")
+        let probes = if q.contains("running")
+            || q.contains("active")
+            || q.contains("status")
+            || q.contains("service")
+            || q.contains("start")
+            || q.contains("stop")
         {
             // Service status query - use systemctl probe
             vec!["bluetooth_service".to_string()]
@@ -759,10 +763,7 @@ fn classify_docker_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
             intent: classify_intent(q),
             domain: SpecialistDomain::System,
             entities: vec![],
-            needs_probes: vec![
-                "docker_containers".to_string(),
-                "docker_images".to_string(),
-            ],
+            needs_probes: vec!["docker_containers".to_string(), "docker_images".to_string()],
             clarification_question: None,
             confidence: 0.9,
             answer_contract: Some(AnswerContract::from_query(orig)),
@@ -822,10 +823,7 @@ fn classify_intent(q: &str) -> QueryIntent {
         || q.contains("broken")
     {
         QueryIntent::Diagnose // Was Investigate, now Diagnose
-    } else if q.contains("list")
-        || q.contains("show all")
-        || q.contains("what's installed")
-    {
+    } else if q.contains("list") || q.contains("show all") || q.contains("what's installed") {
         QueryIntent::List
     } else if q.contains("is running")
         || q.contains("is active")
@@ -840,9 +838,28 @@ fn classify_intent(q: &str) -> QueryIntent {
 
 fn strip_greetings(q: &str) -> String {
     let patterns = [
-        "hello", "hi ", "hey ", "good morning", "good afternoon", "good evening",
-        "anna", ":)", ":(", ";)", ":d", ":p", "!", "?", "…", "...", "please",
-        "can you", "could you", "would you", "tell me", "show me",
+        "hello",
+        "hi ",
+        "hey ",
+        "good morning",
+        "good afternoon",
+        "good evening",
+        "anna",
+        ":)",
+        ":(",
+        ";)",
+        ":d",
+        ":p",
+        "!",
+        "?",
+        "…",
+        "...",
+        "please",
+        "can you",
+        "could you",
+        "would you",
+        "tell me",
+        "show me",
     ];
     let mut result = q.to_string();
     for p in patterns {
@@ -872,16 +889,24 @@ mod tests {
     fn test_bluetooth_classification() {
         // General bluetooth query - should include both service and devices
         let ticket = translate_fallback("bluetooth not working");
-        assert!(ticket.needs_probes.contains(&"bluetooth_service".to_string()));
-        assert!(ticket.needs_probes.contains(&"bluetooth_devices".to_string()));
+        assert!(ticket
+            .needs_probes
+            .contains(&"bluetooth_service".to_string()));
+        assert!(ticket
+            .needs_probes
+            .contains(&"bluetooth_devices".to_string()));
     }
 
     #[test]
     fn test_bluetooth_service_status() {
         // Service status query - should only include service probe
         let ticket = translate_fallback("is bluetooth running");
-        assert!(ticket.needs_probes.contains(&"bluetooth_service".to_string()));
-        assert!(!ticket.needs_probes.contains(&"bluetooth_devices".to_string()));
+        assert!(ticket
+            .needs_probes
+            .contains(&"bluetooth_service".to_string()));
+        assert!(!ticket
+            .needs_probes
+            .contains(&"bluetooth_devices".to_string()));
     }
 
     #[test]

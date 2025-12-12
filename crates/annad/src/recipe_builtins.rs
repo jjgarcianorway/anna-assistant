@@ -317,10 +317,7 @@ pub fn check_cron_recipes(query: &str) -> Option<RecipeFastPathResult> {
     let synthetic_recipe = Recipe {
         id: format!("cron-{:?}", cron_recipe.feature),
         signature: anna_shared::recipe::RecipeSignature::new(
-            "system",
-            "request",
-            "cron_job",
-            query,
+            "system", "request", "cron_job", query,
         ),
         team: anna_shared::teams::Team::Services,
         risk_level: anna_shared::ticket::RiskLevel::LowRiskChange,

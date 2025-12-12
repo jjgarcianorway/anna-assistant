@@ -96,7 +96,8 @@ pub struct RecipeInputs {
 impl RecipeInputs {
     /// Add a required parameter
     pub fn with_param(mut self, name: &str, description: &str) -> Self {
-        self.params.insert(name.to_string(), description.to_string());
+        self.params
+            .insert(name.to_string(), description.to_string());
         self
     }
 

@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer logged in users query using who command
-pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_logged_in_users(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "who")?;
     if probe.exit_code != 0 {
         return None;
@@ -33,9 +36,16 @@ pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Opti
         .collect();
 
     let answer = if unique_users.len() == 1 && user_count == 1 {
-        format!("1 user logged in: {}", unique_users.iter().next().unwrap_or(&"unknown"))
+        format!(
+            "1 user logged in: {}",
+            unique_users.iter().next().unwrap_or(&"unknown")
+        )
     } else if unique_users.len() == 1 {
-        format!("{} sessions for user: {}", user_count, unique_users.iter().next().unwrap_or(&"unknown"))
+        format!(
+            "{} sessions for user: {}",
+            user_count,
+            unique_users.iter().next().unwrap_or(&"unknown")
+        )
     } else {
         format!(
             "{} users logged in ({} sessions): {}",
@@ -54,7 +64,10 @@ pub fn answer_logged_in_users(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer current user query using id
-pub fn answer_current_user(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_current_user(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "current_user")?;
     if probe.exit_code != 0 {
         return None;
@@ -88,7 +101,12 @@ pub fn answer_current_user(probes: &[ProbeResult], route_class: &str) -> Option<
     }
 
     Some(DeterministicResult {
-        answer: format!("User: {} (uid={})\nGroups: {}", username, uid, groups.join(", ")),
+        answer: format!(
+            "User: {} (uid={})\nGroups: {}",
+            username,
+            uid,
+            groups.join(", ")
+        ),
         grounded: true,
         parsed_data_count: 1,
         route_class: route_class.to_string(),
@@ -96,7 +114,10 @@ pub fn answer_current_user(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer environment variables query
-pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_environment_vars(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "env_vars")?;
     if probe.exit_code != 0 {
         return None;
@@ -113,7 +134,15 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
     }
 
     let var_count = output.lines().count();
-    let important_vars = ["PATH", "HOME", "USER", "SHELL", "TERM", "DISPLAY", "XDG_SESSION_TYPE"];
+    let important_vars = [
+        "PATH",
+        "HOME",
+        "USER",
+        "SHELL",
+        "TERM",
+        "DISPLAY",
+        "XDG_SESSION_TYPE",
+    ];
     let mut key_vars = Vec::new();
     let mut other_count = 0;
 
@@ -129,7 +158,9 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
     let answer = if !key_vars.is_empty() {
         format!(
             "Environment variables ({}):\n  {}\n  ...and {} others",
-            var_count, key_vars.join("\n  "), other_count
+            var_count,
+            key_vars.join("\n  "),
+            other_count
         )
     } else {
         format!("Environment variables ({}):\n{}", var_count, output)
@@ -144,7 +175,10 @@ pub fn answer_environment_vars(probes: &[ProbeResult], route_class: &str) -> Opt
 }
 
 /// Answer user groups query
-pub fn answer_user_groups(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_user_groups(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "user_groups")?;
 
     let output = probe.stdout.trim();
@@ -166,7 +200,10 @@ pub fn answer_user_groups(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer available shells query
-pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_available_shells(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "available_shells")?;
 
     let output = probe.stdout.trim();
@@ -179,9 +216,16 @@ pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Opt
         });
     }
 
-    let shells: Vec<&str> = output.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).collect();
+    let shells: Vec<&str> = output
+        .lines()
+        .filter(|l| !l.starts_with('#') && !l.is_empty())
+        .collect();
     Some(DeterministicResult {
-        answer: format!("Available shells ({}):\n{}", shells.len(), shells.join("\n")),
+        answer: format!(
+            "Available shells ({}):\n{}",
+            shells.len(),
+            shells.join("\n")
+        ),
         grounded: true,
         parsed_data_count: shells.len(),
         route_class: route_class.to_string(),
@@ -189,7 +233,10 @@ pub fn answer_available_shells(probes: &[ProbeResult], route_class: &str) -> Opt
 }
 
 /// Answer installed desktops query
-pub fn answer_installed_desktops(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_installed_desktops(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "installed_desktops")?;
 
     let output = probe.stdout.trim();
@@ -212,7 +259,10 @@ pub fn answer_installed_desktops(probes: &[ProbeResult], route_class: &str) -> O
 }
 
 /// Answer environment variables query (duplicate handler)
-pub fn answer_environment_variables(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_environment_variables(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "environment_variables")?;
     let output = probe.stdout.trim();
 
@@ -220,7 +270,13 @@ pub fn answer_environment_variables(probes: &[ProbeResult], route_class: &str) -
         ("No environment variables found.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("Environment variables ({} shown):\n```\n{}\n```", count, output), count)
+        (
+            format!(
+                "Environment variables ({} shown):\n```\n{}\n```",
+                count, output
+            ),
+            count,
+        )
     };
 
     Some(DeterministicResult {

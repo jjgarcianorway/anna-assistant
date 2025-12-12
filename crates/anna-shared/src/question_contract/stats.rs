@@ -182,10 +182,7 @@ impl MisclassificationDetector {
     }
 
     /// Check if user is asking about a different subject than answered.
-    pub fn subject_mismatch(
-        answered_subject: super::intent::Subject,
-        user_response: &str,
-    ) -> bool {
+    pub fn subject_mismatch(answered_subject: super::intent::Subject, user_response: &str) -> bool {
         use super::intent::Subject;
 
         let lower = user_response.to_lowercase();

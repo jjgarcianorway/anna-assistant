@@ -444,7 +444,11 @@ impl SpecialistResponse {
 
     /// Get all citation IDs
     pub fn citation_ids(&self) -> Vec<&str> {
-        let mut ids: Vec<&str> = self.knowledge_citations.iter().map(|c| c.id.as_str()).collect();
+        let mut ids: Vec<&str> = self
+            .knowledge_citations
+            .iter()
+            .map(|c| c.id.as_str())
+            .collect();
         ids.extend(self.probes_used.iter().map(|p| p.id.as_str()));
         ids
     }
@@ -508,7 +512,7 @@ mod tests {
             ticket_id: String::new(), // Missing
             status: ResponseStatus::Success,
             summary: String::new(), // Missing
-            confidence: 1.5, // Out of range
+            confidence: 1.5,        // Out of range
             ..Default::default()
         };
 

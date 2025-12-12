@@ -352,11 +352,9 @@ mod tests {
 
     #[test]
     fn test_choice_clarification() {
-        let req = ClarificationRequest::choice(
-            "Which package manager?",
-            vec!["pacman", "yay", "paru"],
-        )
-        .with_default("pacman");
+        let req =
+            ClarificationRequest::choice("Which package manager?", vec!["pacman", "yay", "paru"])
+                .with_default("pacman");
 
         assert_eq!(req.options.len(), 3);
         assert_eq!(req.default, Some("pacman".to_string()));
@@ -396,9 +394,8 @@ mod tests {
     fn test_skip_with_default() {
         let mut protocol = ClarificationProtocol::new();
 
-        protocol.request(
-            ClarificationRequest::choice("Pick one", vec!["a", "b"]).with_default("a"),
-        );
+        protocol
+            .request(ClarificationRequest::choice("Pick one", vec!["a", "b"]).with_default("a"));
 
         let skipped = protocol.skip();
         assert!(skipped.is_some());

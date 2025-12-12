@@ -12,10 +12,15 @@
 //! - v0.0.406: Add suggest-recipes command for recipe candidate analysis.
 //! - v0.0.412: Show learned recipes from RecipeStoreV2.
 
-use anna_shared::probe_learning::{LearningHealth, ProbeLearningStore, QueryCategory, TrendDirection};
+use anna_shared::probe_learning::{
+    LearningHealth, ProbeLearningStore, QueryCategory, TrendDirection,
+};
 use anna_shared::recipe_store_v2::RecipeStoreV2;
-use anna_shared::ticket_log::{load_recent_tickets, calculate_stats, TicketResult};
-use anna_shared::ui::{colors, kv, print_footer, print_hint, print_label, print_section_header, print_step, print_title, symbols};
+use anna_shared::ticket_log::{calculate_stats, load_recent_tickets, TicketResult};
+use anna_shared::ui::{
+    colors, kv, print_footer, print_hint, print_label, print_section_header, print_step,
+    print_title, symbols,
+};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -46,9 +51,25 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     // v0.0.334: Show if learning would be used for this query
     let confidence = store.confidence_factor();
     if store.should_use_learning() {
-        kv("learning", &format!("{}Active{} ({:.0}% confidence)", colors::OK, colors::RESET, confidence * 100.0));
+        kv(
+            "learning",
+            &format!(
+                "{}Active{} ({:.0}% confidence)",
+                colors::OK,
+                colors::RESET,
+                confidence * 100.0
+            ),
+        );
     } else {
-        kv("learning", &format!("{}Inactive{} ({:.0}% - need 30%)", colors::WARN, colors::RESET, confidence * 100.0));
+        kv(
+            "learning",
+            &format!(
+                "{}Inactive{} ({:.0}% - need 30%)",
+                colors::WARN,
+                colors::RESET,
+                confidence * 100.0
+            ),
+        );
     }
     println!();
 
@@ -57,10 +78,20 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     print_section_header("category recommendations");
     if !category_recs.is_empty() {
         for (probe_id, score) in category_recs.iter().take(5) {
-            let score_color = if *score >= 0.7 { colors::OK }
-                else if *score >= 0.5 { colors::WARN }
-                else { colors::DIM };
-            print_step(&format!("{} {}{:.0}%{}", probe_id, score_color, score * 100.0, colors::RESET));
+            let score_color = if *score >= 0.7 {
+                colors::OK
+            } else if *score >= 0.5 {
+                colors::WARN
+            } else {
+                colors::DIM
+            };
+            print_step(&format!(
+                "{} {}{:.0}%{}",
+                probe_id,
+                score_color,
+                score * 100.0,
+                colors::RESET
+            ));
         }
     } else {
         print_hint("No category-based recommendations yet");
@@ -82,7 +113,11 @@ fn show_query_recommendations(query: &str) -> Result<()> {
     // Check for known bad combinations
     let probes: Vec<String> = category_recs.iter().map(|(p, _)| p.clone()).collect();
     if let Some(reason) = store.is_known_bad_combo(query, &probes) {
-        print_label("warn", &format!("Similar query had issues: {}", reason), colors::WARN);
+        print_label(
+            "warn",
+            &format!("Similar query had issues: {}", reason),
+            colors::WARN,
+        );
         println!();
     }
 
@@ -119,7 +154,11 @@ pub fn handle_learning() -> Result<()> {
 
             // Sort by score descending
             let mut sorted_probes: Vec<_> = probes.iter().collect();
-            sorted_probes.sort_by(|a, b| b.1.score.partial_cmp(&a.1.score).unwrap_or(std::cmp::Ordering::Equal));
+            sorted_probes.sort_by(|a, b| {
+                b.1.score
+                    .partial_cmp(&a.1.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
             for (probe_id, eff) in sorted_probes.iter().take(5) {
                 let score_color = if eff.score >= 0.7 {
@@ -133,8 +172,14 @@ pub fn handle_learning() -> Result<()> {
                 let bar = score_bar(eff.score, 10);
                 println!(
                     "    {} {}{:.0}%{} [{}] uses:{} ok:{} fail:{}",
-                    probe_id, score_color, eff.score * 100.0, colors::RESET,
-                    bar, eff.uses, eff.helpful, eff.failures
+                    probe_id,
+                    score_color,
+                    eff.score * 100.0,
+                    colors::RESET,
+                    bar,
+                    eff.uses,
+                    eff.helpful,
+                    eff.failures
                 );
             }
         }
@@ -155,9 +200,20 @@ pub fn handle_learning() -> Result<()> {
             let top_probes: String = {
                 let mut probes: Vec<_> = stats.effective_probes.iter().collect();
                 probes.sort_by(|a, b| b.1.cmp(a.1));
-                probes.iter().take(3).map(|(p, _)| p.as_str()).collect::<Vec<_>>().join(", ")
+                probes
+                    .iter()
+                    .take(3)
+                    .map(|(p, _)| p.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
             };
-            print_step(&format!("\"{}\" {} {} (success: {})", keyword, symbols::ARROW, top_probes, stats.success_count));
+            print_step(&format!(
+                "\"{}\" {} {} (success: {})",
+                keyword,
+                symbols::ARROW,
+                top_probes,
+                stats.success_count
+            ));
         }
         println!();
     }
@@ -166,7 +222,13 @@ pub fn handle_learning() -> Result<()> {
     if !store.successful_patterns.is_empty() {
         let stats = store.learning_stats();
         print_section_header("patterns");
-        kv("successful", &format!("{} (avg quality: {:.1}/5)", stats.successful_patterns, stats.avg_quality));
+        kv(
+            "successful",
+            &format!(
+                "{} (avg quality: {:.1}/5)",
+                stats.successful_patterns, stats.avg_quality
+            ),
+        );
     }
 
     // Show negative patterns
@@ -186,7 +248,10 @@ pub fn handle_learning() -> Result<()> {
     print_section_header("summary");
     kv("queries_processed", &format!("{}", stats.total_queries));
     kv("keywords_learned", &format!("{}", stats.keywords_learned));
-    kv("successful_patterns", &format!("{}", stats.successful_patterns));
+    kv(
+        "successful_patterns",
+        &format!("{}", stats.successful_patterns),
+    );
     kv("negative_patterns", &format!("{}", stats.negative_patterns));
     println!();
 
@@ -202,7 +267,16 @@ pub fn handle_learning() -> Result<()> {
     };
 
     print_section_header("health");
-    kv("status", &format!("{}{}{} ({:.0}% confidence)", health_color, health, colors::RESET, confidence * 100.0));
+    kv(
+        "status",
+        &format!(
+            "{}{}{} ({:.0}% confidence)",
+            health_color,
+            health,
+            colors::RESET,
+            confidence * 100.0
+        ),
+    );
 
     if let Some(trend) = store.quality_trend() {
         let (trend_icon, trend_color) = match trend.trend {
@@ -210,14 +284,34 @@ pub fn handle_learning() -> Result<()> {
             TrendDirection::Declining => ("↓", colors::ERR),
             TrendDirection::Stable => ("→", colors::DIM),
         };
-        kv("trend", &format!("{}{}{} {} (was {:.1}, now {:.1})",
-            trend_color, trend_icon, colors::RESET, trend.trend, trend.previous_avg, trend.current_avg));
+        kv(
+            "trend",
+            &format!(
+                "{}{}{} {} (was {:.1}, now {:.1})",
+                trend_color,
+                trend_icon,
+                colors::RESET,
+                trend.trend,
+                trend.previous_avg,
+                trend.current_avg
+            ),
+        );
     }
 
     if store.should_use_learning() {
-        kv("active", &format!("{}yes{} - recommendations will be used", colors::OK, colors::RESET));
+        kv(
+            "active",
+            &format!(
+                "{}yes{} - recommendations will be used",
+                colors::OK,
+                colors::RESET
+            ),
+        );
     } else {
-        kv("active", &format!("{}no{} - using defaults", colors::DIM, colors::RESET));
+        kv(
+            "active",
+            &format!("{}no{} - using defaults", colors::DIM, colors::RESET),
+        );
     }
 
     println!();
@@ -241,11 +335,21 @@ fn show_recipe_stats() {
     kv("total recipes", &format!("{}", stats.total_recipes));
     kv("active", &format!("{}", stats.active_recipes));
     if stats.deprecated_recipes > 0 {
-        kv("deprecated", &format!("{}{}{}",
-            colors::WARN, stats.deprecated_recipes, colors::RESET));
+        kv(
+            "deprecated",
+            &format!(
+                "{}{}{}",
+                colors::WARN,
+                stats.deprecated_recipes,
+                colors::RESET
+            ),
+        );
     }
     kv("total uses", &format!("{}", stats.total_uses));
-    kv("success rate", &format!("{:.1}%", stats.overall_success_rate * 100.0));
+    kv(
+        "success rate",
+        &format!("{:.1}%", stats.overall_success_rate * 100.0),
+    );
 
     // Show top recipes by use count
     let mut recipes: Vec<_> = store.recipes.values().collect();
@@ -268,8 +372,11 @@ fn show_recipe_stats() {
             };
             print_step(&format!(
                 "{} (uses: {}, success: {}{:.0}%{})",
-                recipe.name, recipe.use_count,
-                success_color, recipe.success_rate() * 100.0, colors::RESET
+                recipe.name,
+                recipe.use_count,
+                success_color,
+                recipe.success_rate() * 100.0,
+                colors::RESET
             ));
         }
     }
@@ -321,19 +428,37 @@ pub fn handle_suggest_recipes(limit: Option<usize>) -> Result<()> {
     let stats = calculate_stats(&tickets);
     print_section_header("ticket summary");
     kv("total analyzed", &format!("{}", stats.total));
-    kv("success rate", &format!("{:.0}%", stats.success as f64 / stats.total as f64 * 100.0));
+    kv(
+        "success rate",
+        &format!("{:.0}%", stats.success as f64 / stats.total as f64 * 100.0),
+    );
 
     // Show handler distribution
     if let Some(recipe_count) = stats.by_handler.get("recipe") {
-        kv("handled by recipes", &format!("{} ({:.0}%)", recipe_count, *recipe_count as f64 / stats.total as f64 * 100.0));
+        kv(
+            "handled by recipes",
+            &format!(
+                "{} ({:.0}%)",
+                recipe_count,
+                *recipe_count as f64 / stats.total as f64 * 100.0
+            ),
+        );
     }
     if let Some(llm_count) = stats.by_handler.get("llm") {
-        kv("handled by LLM", &format!("{} ({:.0}%)", llm_count, *llm_count as f64 / stats.total as f64 * 100.0));
+        kv(
+            "handled by LLM",
+            &format!(
+                "{} ({:.0}%)",
+                llm_count,
+                *llm_count as f64 / stats.total as f64 * 100.0
+            ),
+        );
     }
     println!();
 
     // Group successful LLM-handled tickets by domain + intent
-    let mut clusters: HashMap<(String, String), Vec<&anna_shared::ticket_log::TicketLog>> = HashMap::new();
+    let mut clusters: HashMap<(String, String), Vec<&anna_shared::ticket_log::TicketLog>> =
+        HashMap::new();
 
     for ticket in &tickets {
         // Only consider successful LLM-handled tickets as recipe candidates
@@ -424,7 +549,11 @@ pub fn handle_suggest_recipes(limit: Option<usize>) -> Result<()> {
         if count >= 5 {
             print_label("recommend", "High priority - create recipe", colors::OK);
         } else if count >= 3 {
-            print_label("recommend", "Medium priority - consider recipe", colors::WARN);
+            print_label(
+                "recommend",
+                "Medium priority - consider recipe",
+                colors::WARN,
+            );
         }
 
         println!();

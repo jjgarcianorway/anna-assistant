@@ -106,7 +106,8 @@ impl RecipeLearner {
     pub fn ready_to_learn(&self, intent: &str) -> bool {
         if let Some(obs) = self.observations.get(intent) {
             if obs.len() >= self.min_observations {
-                let success_rate = obs.iter().filter(|o| o.verified).count() as f32 / obs.len() as f32;
+                let success_rate =
+                    obs.iter().filter(|o| o.verified).count() as f32 / obs.len() as f32;
                 return success_rate >= self.min_success_rate;
             }
         }
@@ -186,9 +187,10 @@ fn observation_to_recipe(obs: &TicketObservation) -> RecipeV2 {
         .collect::<Vec<_>>()
         .join(" ");
 
-    let mut recipe = RecipeV2::new(&recipe_id, &title, domain)
-        .with_trigger(TriggerPattern::new(&obs.intent, obs.keywords.iter().map(|s| s.as_str()).collect()))
-        ;
+    let mut recipe = RecipeV2::new(&recipe_id, &title, domain).with_trigger(TriggerPattern::new(
+        &obs.intent,
+        obs.keywords.iter().map(|s| s.as_str()).collect(),
+    ));
 
     // Add probe steps
     for probe in &obs.probes_used {

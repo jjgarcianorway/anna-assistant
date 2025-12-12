@@ -70,16 +70,32 @@ impl ConfigChange {
     /// Describe the change in human-readable form
     pub fn description(&self) -> String {
         match self {
-            ConfigChange::LearningMode(true) => "Enabled learning mode - I'll explain why commands work.".to_string(),
-            ConfigChange::LearningMode(false) => "Disabled learning mode - answers will be more concise.".to_string(),
-            ConfigChange::Verbosity(0) => "Set verbosity to minimal - short answers only.".to_string(),
+            ConfigChange::LearningMode(true) => {
+                "Enabled learning mode - I'll explain why commands work.".to_string()
+            }
+            ConfigChange::LearningMode(false) => {
+                "Disabled learning mode - answers will be more concise.".to_string()
+            }
+            ConfigChange::Verbosity(0) => {
+                "Set verbosity to minimal - short answers only.".to_string()
+            }
             ConfigChange::Verbosity(1) => "Set verbosity to normal.".to_string(),
-            ConfigChange::Verbosity(2) => "Set verbosity to detailed - full explanations.".to_string(),
+            ConfigChange::Verbosity(2) => {
+                "Set verbosity to detailed - full explanations.".to_string()
+            }
             ConfigChange::Verbosity(_) => "Verbosity updated.".to_string(),
-            ConfigChange::AutoConfirmLowRisk(true) => "Enabled auto-confirm for low-risk changes.".to_string(),
-            ConfigChange::AutoConfirmLowRisk(false) => "Disabled auto-confirm - I'll ask before changes.".to_string(),
-            ConfigChange::ShowInternalComms(true) => "Showing internal IT communications.".to_string(),
-            ConfigChange::ShowInternalComms(false) => "Hidden internal communications - cleaner output.".to_string(),
+            ConfigChange::AutoConfirmLowRisk(true) => {
+                "Enabled auto-confirm for low-risk changes.".to_string()
+            }
+            ConfigChange::AutoConfirmLowRisk(false) => {
+                "Disabled auto-confirm - I'll ask before changes.".to_string()
+            }
+            ConfigChange::ShowInternalComms(true) => {
+                "Showing internal IT communications.".to_string()
+            }
+            ConfigChange::ShowInternalComms(false) => {
+                "Hidden internal communications - cleaner output.".to_string()
+            }
             ConfigChange::Formality(0) => "Made my style more casual.".to_string(),
             ConfigChange::Formality(1) => "Set to balanced formality.".to_string(),
             ConfigChange::Formality(2) => "Made my style more formal.".to_string(),
@@ -92,7 +108,10 @@ impl ConfigChange {
             ConfigChange::TechnicalDepth(1) => "Balanced technical depth.".to_string(),
             ConfigChange::TechnicalDepth(2) => "Expert mode - full technical details.".to_string(),
             ConfigChange::TechnicalDepth(_) => "Technical depth updated.".to_string(),
-            ConfigChange::Email(addr) => format!("Got it! I'll notify you at {} for long-running tickets.", addr),
+            ConfigChange::Email(addr) => format!(
+                "Got it! I'll notify you at {} for long-running tickets.",
+                addr
+            ),
             ConfigChange::ClearEmail => "Email notifications disabled.".to_string(),
         }
     }
@@ -104,19 +123,55 @@ pub fn parse_config_request(query: &str) -> Option<ConfigChange> {
 
     // v0.0.239: Email setup
     if let Some(email) = extract_email(query) {
-        if matches_any(&q, &["my email", "email is", "notify me", "reach me", "contact me", "email me"]) {
+        if matches_any(
+            &q,
+            &[
+                "my email",
+                "email is",
+                "notify me",
+                "reach me",
+                "contact me",
+                "email me",
+            ],
+        ) {
             return Some(ConfigChange::Email(email));
         }
     }
-    if matches_any(&q, &["disable email", "no email", "don't email", "stop email", "remove email", "clear email"]) {
+    if matches_any(
+        &q,
+        &[
+            "disable email",
+            "no email",
+            "don't email",
+            "stop email",
+            "remove email",
+            "clear email",
+        ],
+    ) {
         return Some(ConfigChange::ClearEmail);
     }
 
     // Learning mode
-    if matches_any(&q, &["enable learning", "turn on learning", "explain commands", "teach me"]) {
+    if matches_any(
+        &q,
+        &[
+            "enable learning",
+            "turn on learning",
+            "explain commands",
+            "teach me",
+        ],
+    ) {
         return Some(ConfigChange::LearningMode(true));
     }
-    if matches_any(&q, &["disable learning", "turn off learning", "no explanations", "don't explain"]) {
+    if matches_any(
+        &q,
+        &[
+            "disable learning",
+            "turn off learning",
+            "no explanations",
+            "don't explain",
+        ],
+    ) {
         return Some(ConfigChange::LearningMode(false));
     }
 
@@ -124,34 +179,69 @@ pub fn parse_config_request(query: &str) -> Option<ConfigChange> {
     if matches_any(&q, &["minimal output", "brief", "less verbose", "concise"]) {
         return Some(ConfigChange::Verbosity(0));
     }
-    if matches_any(&q, &["detailed", "verbose", "more detail", "full explanation"]) {
+    if matches_any(
+        &q,
+        &["detailed", "verbose", "more detail", "full explanation"],
+    ) {
         return Some(ConfigChange::Verbosity(2));
     }
-    if matches_any(&q, &["normal verbosity", "regular output", "default verbosity"]) {
+    if matches_any(
+        &q,
+        &["normal verbosity", "regular output", "default verbosity"],
+    ) {
         return Some(ConfigChange::Verbosity(1));
     }
 
     // Auto-confirm
-    if matches_any(&q, &["auto confirm", "don't ask", "auto-confirm low risk", "skip confirmation"]) {
+    if matches_any(
+        &q,
+        &[
+            "auto confirm",
+            "don't ask",
+            "auto-confirm low risk",
+            "skip confirmation",
+        ],
+    ) {
         return Some(ConfigChange::AutoConfirmLowRisk(true));
     }
-    if matches_any(&q, &["ask before", "confirm changes", "no auto", "always ask"]) {
+    if matches_any(
+        &q,
+        &["ask before", "confirm changes", "no auto", "always ask"],
+    ) {
         return Some(ConfigChange::AutoConfirmLowRisk(false));
     }
 
     // Internal comms
-    if matches_any(&q, &["show internal", "show comms", "fly on wall", "see the team"]) {
+    if matches_any(
+        &q,
+        &["show internal", "show comms", "fly on wall", "see the team"],
+    ) {
         return Some(ConfigChange::ShowInternalComms(true));
     }
-    if matches_any(&q, &["hide internal", "hide comms", "no internal", "clean output"]) {
+    if matches_any(
+        &q,
+        &["hide internal", "hide comms", "no internal", "clean output"],
+    ) {
         return Some(ConfigChange::ShowInternalComms(false));
     }
 
     // Formality
-    if matches_any(&q, &["more casual", "be casual", "relaxed", "informal", "less formal"]) {
+    if matches_any(
+        &q,
+        &[
+            "more casual",
+            "be casual",
+            "relaxed",
+            "informal",
+            "less formal",
+        ],
+    ) {
         return Some(ConfigChange::Formality(0));
     }
-    if matches_any(&q, &["more formal", "professional", "be formal", "business"]) {
+    if matches_any(
+        &q,
+        &["more formal", "professional", "be formal", "business"],
+    ) {
         return Some(ConfigChange::Formality(2));
     }
     if matches_any(&q, &["balanced formality", "normal formality"]) {
@@ -159,10 +249,16 @@ pub fn parse_config_request(query: &str) -> Option<ConfigChange> {
     }
 
     // Humor
-    if matches_any(&q, &["no humor", "no jokes", "be serious", "professional mode"]) {
+    if matches_any(
+        &q,
+        &["no humor", "no jokes", "be serious", "professional mode"],
+    ) {
         return Some(ConfigChange::Humor(0));
     }
-    if matches_any(&q, &["be funny", "more humor", "playful", "be playful", "jokes"]) {
+    if matches_any(
+        &q,
+        &["be funny", "more humor", "playful", "be playful", "jokes"],
+    ) {
         return Some(ConfigChange::Humor(2));
     }
     if matches_any(&q, &["subtle humor", "light humor"]) {
@@ -170,10 +266,26 @@ pub fn parse_config_request(query: &str) -> Option<ConfigChange> {
     }
 
     // Technical depth
-    if matches_any(&q, &["simple terms", "simpler", "less technical", "explain simply"]) {
+    if matches_any(
+        &q,
+        &[
+            "simple terms",
+            "simpler",
+            "less technical",
+            "explain simply",
+        ],
+    ) {
         return Some(ConfigChange::TechnicalDepth(0));
     }
-    if matches_any(&q, &["expert mode", "more technical", "full tech", "technical details"]) {
+    if matches_any(
+        &q,
+        &[
+            "expert mode",
+            "more technical",
+            "full tech",
+            "technical details",
+        ],
+    ) {
         return Some(ConfigChange::TechnicalDepth(2));
     }
     if matches_any(&q, &["balanced technical", "normal depth"]) {
@@ -199,26 +311,66 @@ pub fn is_config_request(query: &str) -> bool {
     let q = query.to_lowercase();
 
     // v0.0.239: Check for email setup patterns (these are always config)
-    if extract_email(query).is_some() && matches_any(&q, &["my email", "email is", "notify me", "reach me", "contact me"]) {
+    if extract_email(query).is_some()
+        && matches_any(
+            &q,
+            &[
+                "my email",
+                "email is",
+                "notify me",
+                "reach me",
+                "contact me",
+            ],
+        )
+    {
         return true;
     }
-    if matches_any(&q, &["disable email", "no email", "don't email", "stop email", "remove email"]) {
+    if matches_any(
+        &q,
+        &[
+            "disable email",
+            "no email",
+            "don't email",
+            "stop email",
+            "remove email",
+        ],
+    ) {
         return true;
     }
 
     // Check for common config-related keywords
     let config_indicators = [
-        "enable", "disable", "turn on", "turn off",
-        "set", "change", "make anna", "make you",
-        "be more", "be less", "show me", "hide",
-        "verbose", "learning mode", "formal", "casual",
-        "humor", "jokes", "technical", "confirm",
-        "internal comms", "fly on wall",
+        "enable",
+        "disable",
+        "turn on",
+        "turn off",
+        "set",
+        "change",
+        "make anna",
+        "make you",
+        "be more",
+        "be less",
+        "show me",
+        "hide",
+        "verbose",
+        "learning mode",
+        "formal",
+        "casual",
+        "humor",
+        "jokes",
+        "technical",
+        "confirm",
+        "internal comms",
+        "fly on wall",
     ];
 
-    config_indicators.iter().any(|&ind| q.contains(ind)) &&
-        (q.contains("anna") || q.contains("setting") || q.contains("config") ||
-         q.contains("mode") || q.contains("prefer") || q.contains("style"))
+    config_indicators.iter().any(|&ind| q.contains(ind))
+        && (q.contains("anna")
+            || q.contains("setting")
+            || q.contains("config")
+            || q.contains("mode")
+            || q.contains("prefer")
+            || q.contains("style"))
 }
 
 #[cfg(test)]
@@ -302,8 +454,14 @@ mod tests {
 
     #[test]
     fn test_extract_email() {
-        assert_eq!(extract_email("my email is user@example.com"), Some("user@example.com".to_string()));
-        assert_eq!(extract_email("notify me at test@domain.org please"), Some("test@domain.org".to_string()));
+        assert_eq!(
+            extract_email("my email is user@example.com"),
+            Some("user@example.com".to_string())
+        );
+        assert_eq!(
+            extract_email("notify me at test@domain.org please"),
+            Some("test@domain.org".to_string())
+        );
         assert_eq!(extract_email("no email here"), None);
     }
 

@@ -56,9 +56,7 @@ pub fn generate_alerts(store: &TelemetryStore) -> Vec<HealthAlert> {
             AnomalyCategory::NetworkError => {
                 "Check network interfaces with 'ip addr' and 'networkctl status'."
             }
-            AnomalyCategory::HighLoad => {
-                "System under heavy load. Check CPU-intensive processes."
-            }
+            AnomalyCategory::HighLoad => "System under heavy load. Check CPU-intensive processes.",
         };
 
         alerts.push(HealthAlert {
@@ -92,10 +90,7 @@ pub fn generate_alerts(store: &TelemetryStore) -> Vec<HealthAlert> {
             alerts.push(HealthAlert {
                 severity: AlertSeverity::Info,
                 category: "Memory Trend".to_string(),
-                message: format!(
-                    "Memory usage trending up by {:.1}%",
-                    trends.memory_trend
-                ),
+                message: format!("Memory usage trending up by {:.1}%", trends.memory_trend),
                 recommendation: "Check for memory leaks in long-running processes.".to_string(),
                 dismissed: false,
             });

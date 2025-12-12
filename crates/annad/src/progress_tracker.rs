@@ -66,11 +66,7 @@ impl ProgressTracker {
 
     pub fn start_stage(&mut self, stage: RequestStage, timeout_secs: u64) {
         self.current_stage = Some(stage);
-        let event = ProgressEvent::starting(
-            stage,
-            timeout_secs,
-            self.elapsed_ms(),
-        );
+        let event = ProgressEvent::starting(stage, timeout_secs, self.elapsed_ms());
         self.add(event.clone());
         // v0.0.248: Push to streaming events for real-time client visibility
         if let Ok(mut streaming) = self.streaming_events.lock() {
@@ -198,12 +194,7 @@ impl ProgressTracker {
     /// v0.0.145: Add internal comms message (IT staff chatter)
     /// v0.0.248: Also push to streaming events for real-time visibility
     pub fn add_internal_comms(&mut self, stage: RequestStage, from: &str, message: &str) {
-        let event = ProgressEvent::internal_comms(
-            stage,
-            from,
-            message,
-            self.elapsed_ms(),
-        );
+        let event = ProgressEvent::internal_comms(stage, from, message, self.elapsed_ms());
         self.add(event.clone());
         // v0.0.248: Push to streaming events for real-time client visibility
         if let Ok(mut streaming) = self.streaming_events.lock() {
@@ -307,10 +298,16 @@ impl StreamingSink {
     pub fn push_token(&self, stage: RequestStage, token: &str, is_final: bool) {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
         if let Ok(mut events) = self.events.lock() {
-            events.push(ProgressEvent::streaming_token(stage, token, is_final, elapsed));
+            events.push(ProgressEvent::streaming_token(
+                stage, token, is_final, elapsed,
+            ));
             // v0.0.248: Debug logging for streaming verification
             if events.len() % 10 == 0 || is_final {
-                tracing::debug!("Streaming: {} tokens pushed, final={}", events.len(), is_final);
+                tracing::debug!(
+                    "Streaming: {} tokens pushed, final={}",
+                    events.len(),
+                    is_final
+                );
             }
         }
     }

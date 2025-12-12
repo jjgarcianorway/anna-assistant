@@ -212,11 +212,7 @@ pub fn plan_ensure_line_with_pattern(
 }
 
 /// v0.0.312: Plan a command execution
-pub fn plan_run_command(
-    command: &str,
-    what_it_does: &str,
-    risk: ChangeRisk,
-) -> ChangePlan {
+pub fn plan_run_command(command: &str, what_it_does: &str, risk: ChangeRisk) -> ChangePlan {
     let needs_sudo = command.trim_start().starts_with("sudo ");
 
     ChangePlan {
@@ -245,7 +241,7 @@ pub fn apply_change(plan: &ChangePlan) -> ChangeResult {
     if let ChangeOperation::RunCommand { .. } = &plan.operation {
         // RunCommand must be executed via apply_command_change, not here
         return ChangeResult::failed(
-            "RunCommand must be executed via daemon (use execute_command RPC)"
+            "RunCommand must be executed via daemon (use execute_command RPC)",
         );
     }
 

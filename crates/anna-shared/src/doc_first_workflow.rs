@@ -112,20 +112,18 @@ impl SpecialistEvidence {
 
     /// Get all citation IDs
     pub fn all_citation_ids(&self) -> Vec<String> {
-        let mut ids: Vec<String> = self.probe_evidence.iter()
-            .map(|p| p.id.clone())
-            .collect();
+        let mut ids: Vec<String> = self.probe_evidence.iter().map(|p| p.id.clone()).collect();
         ids.extend(self.doc_evidence.iter().map(|d| d.doc_id.clone()));
         ids
     }
 
     /// Format evidence line for answer footer
     pub fn format_evidence_line(&self) -> String {
-        let citations: Vec<String> = self.doc_evidence.iter()
-            .map(|d| d.origin.clone())
-            .collect();
+        let citations: Vec<String> = self.doc_evidence.iter().map(|d| d.origin.clone()).collect();
 
-        let probe_cmds: Vec<String> = self.probe_evidence.iter()
+        let probe_cmds: Vec<String> = self
+            .probe_evidence
+            .iter()
             .map(|p| p.command.clone())
             .collect();
 
@@ -166,7 +164,8 @@ pub fn gather_evidence(
     SpecialistEvidence {
         probe_evidence: probe_results,
         doc_evidence: knowledge_result.hits,
-        sources_searched: knowledge_result.sources_searched
+        sources_searched: knowledge_result
+            .sources_searched
             .into_iter()
             .map(|s| s.to_string())
             .collect(),
@@ -177,7 +176,9 @@ pub fn gather_evidence(
 
 /// Convert evidence bundle to specialist evidence
 pub fn from_evidence_bundle(bundle: &EvidenceBundle) -> SpecialistEvidence {
-    let doc_evidence: Vec<KnowledgeHit> = bundle.docs.iter()
+    let doc_evidence: Vec<KnowledgeHit> = bundle
+        .docs
+        .iter()
         .map(|d| KnowledgeHit::from_doc_snippet(d))
         .collect();
 

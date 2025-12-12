@@ -8,7 +8,8 @@ pub fn builtin_recipes() -> Vec<CronRecipe> {
         // Add a cron job
         CronRecipe::new(CronFeature::AddJob, "Add a new cron job")
             .with_command("crontab -e")
-            .with_answer(r#"To add a cron job:
+            .with_answer(
+                r#"To add a cron job:
 
 1. **Open your crontab:**
 ```bash
@@ -41,12 +42,13 @@ crontab -e
 - `@hourly` - Run every hour (same as `0 * * * *`)
 - `@daily` - Run daily at midnight
 - `@weekly` - Run weekly on Sunday
-- `@monthly` - Run on first day of month"#),
-
+- `@monthly` - Run on first day of month"#,
+            ),
         // List cron jobs
         CronRecipe::new(CronFeature::ListJobs, "List current cron jobs")
             .with_command("crontab -l")
-            .with_answer(r#"To list your cron jobs:
+            .with_answer(
+                r#"To list your cron jobs:
 
 **Your user's crontab:**
 ```bash
@@ -77,12 +79,13 @@ done
 **Specific user's crontab:**
 ```bash
 sudo crontab -u username -l
-```"#),
-
+```"#,
+            ),
         // Edit crontab
         CronRecipe::new(CronFeature::EditCrontab, "Edit crontab")
             .with_command("crontab -e")
-            .with_answer(r#"To edit your crontab:
+            .with_answer(
+                r#"To edit your crontab:
 
 ```bash
 crontab -e
@@ -111,11 +114,11 @@ crontab mycrontab.txt
 - Changes take effect immediately after saving
 - Always test your script manually first
 - Use absolute paths for commands
-- Redirect output to a log file"#),
-
+- Redirect output to a log file"#,
+            ),
         // Remove cron job
-        CronRecipe::new(CronFeature::RemoveJob, "Remove a cron job")
-            .with_answer(r#"To remove cron jobs:
+        CronRecipe::new(CronFeature::RemoveJob, "Remove a cron job").with_answer(
+            r#"To remove cron jobs:
 
 **Remove specific job:**
 1. Edit your crontab: `crontab -e`
@@ -139,11 +142,11 @@ crontab -l > ~/crontab.backup
 crontab -r
 # To restore:
 crontab ~/crontab.backup
-```"#),
-
+```"#,
+        ),
         // View logs
-        CronRecipe::new(CronFeature::ViewLogs, "View cron job logs")
-            .with_answer(r#"To view cron logs:
+        CronRecipe::new(CronFeature::ViewLogs, "View cron job logs").with_answer(
+            r#"To view cron logs:
 
 **System cron log (varies by distro):**
 ```bash
@@ -173,11 +176,11 @@ MAILTO=your@email.com
 
 # Or suppress output:
 0 * * * * /script.sh > /dev/null 2>&1
-```"#),
-
+```"#,
+        ),
         // Syntax help
-        CronRecipe::new(CronFeature::SyntaxHelp, "Cron syntax explanation")
-            .with_answer(r#"Cron expression format:
+        CronRecipe::new(CronFeature::SyntaxHelp, "Cron syntax explanation").with_answer(
+            r#"Cron expression format:
 
 ```
  ┌───────────── minute (0-59)
@@ -212,11 +215,11 @@ MAILTO=your@email.com
 @weekly          # 0 0 * * 0
 @monthly         # 0 0 1 * *
 @yearly          # 0 0 1 1 *
-```"#),
-
+```"#,
+        ),
         // Environment variables
-        CronRecipe::new(CronFeature::Environment, "Cron environment variables")
-            .with_answer(r#"Cron runs with a minimal environment. Common issues:
+        CronRecipe::new(CronFeature::Environment, "Cron environment variables").with_answer(
+            r#"Cron runs with a minimal environment. Common issues:
 
 **Set variables in crontab:**
 ```
@@ -255,11 +258,11 @@ MAILTO   # Email output recipient
 ```
 # Add this job to see what cron sees:
 * * * * * env > /tmp/cron_env.txt
-```"#),
-
+```"#,
+        ),
         // Debug cron job
-        CronRecipe::new(CronFeature::DebugJob, "Debug a failing cron job")
-            .with_answer(r#"To debug a failing cron job:
+        CronRecipe::new(CronFeature::DebugJob, "Debug a failing cron job").with_answer(
+            r#"To debug a failing cron job:
 
 1. **Check if cron is running:**
 ```bash
@@ -293,6 +296,7 @@ env -i SHELL=/bin/bash HOME=$HOME /path/to/script.sh
 ```
 # In your crontab:
 * * * * * /bin/bash -x /path/to/script.sh > /tmp/debug.log 2>&1
-```"#),
+```"#,
+        ),
     ]
 }

@@ -32,11 +32,11 @@ impl JobStorage {
             return Ok(HashMap::new());
         }
 
-        let content = fs::read_to_string(&file_path)
-            .map_err(|e| StorageError::ReadError(e.to_string()))?;
+        let content =
+            fs::read_to_string(&file_path).map_err(|e| StorageError::ReadError(e.to_string()))?;
 
-        let jobs: HashMap<String, BackgroundJob> = serde_json::from_str(&content)
-            .map_err(|e| StorageError::ParseError(e.to_string()))?;
+        let jobs: HashMap<String, BackgroundJob> =
+            serde_json::from_str(&content).map_err(|e| StorageError::ParseError(e.to_string()))?;
 
         Ok(jobs)
     }
@@ -86,18 +86,21 @@ impl PendingMessageStorage {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(&file_path)
-            .map_err(|e| StorageError::ReadError(e.to_string()))?;
+        let content =
+            fs::read_to_string(&file_path).map_err(|e| StorageError::ReadError(e.to_string()))?;
 
-        let messages: Vec<PendingMessage> = serde_json::from_str(&content)
-            .map_err(|e| StorageError::ParseError(e.to_string()))?;
+        let messages: Vec<PendingMessage> =
+            serde_json::from_str(&content).map_err(|e| StorageError::ParseError(e.to_string()))?;
 
         Ok(messages)
     }
 
     /// Save pending messages
     pub fn save(&self, messages: &[PendingMessage]) -> Result<(), std::io::Error> {
-        fs::create_dir_all(&self.path)?;
+        // Ensure the directory for the messages file exists
+        if let Some(parent) = self.messages_file().parent() {
+            fs::create_dir_all(parent)?;
+        }
         let content = serde_json::to_string_pretty(messages)?;
         fs::write(self.messages_file(), content)
     }
@@ -240,10 +243,7 @@ mod tests {
         let storage = JobStorage::new(&path);
 
         let mut jobs = HashMap::new();
-        jobs.insert(
-            "JOB-1".to_string(),
-            BackgroundJob::doc_refresh(),
-        );
+        jobs.insert("JOB-1".to_string(), BackgroundJob::doc_refresh());
 
         storage.save(&jobs).unwrap();
         let loaded = storage.load().unwrap();

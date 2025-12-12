@@ -88,7 +88,10 @@ fn truncate_lines(text: &str, max_lines: usize) -> String {
 
     let lines: Vec<&str> = text.lines().take(max_lines).collect();
     let mut result = lines.join("\n");
-    result.push_str(&format!("\n\n[Full output: {} total lines, showing first {}]", total_lines, max_lines));
+    result.push_str(&format!(
+        "\n\n[Full output: {} total lines, showing first {}]",
+        total_lines, max_lines
+    ));
     result
 }
 

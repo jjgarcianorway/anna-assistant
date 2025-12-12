@@ -100,7 +100,10 @@ pub fn print_since_last_time(
                     colors::RESET,
                     unit
                 );
-                print_hint(&format!("Ask me to check it with: \"what's wrong with {}\"", unit));
+                print_hint(&format!(
+                    "Ask me to check it with: \"what's wrong with {}\"",
+                    unit
+                ));
             }
             DeltaItem::ServiceRecovered { unit } => {
                 println!(
@@ -165,13 +168,22 @@ pub fn print_since_last_time(
 pub fn print_system_readiness(status: &DaemonStatus) {
     println!();
 
+    // v0.0.449: Announce daemon errors prominently per VISION.md
+    if let Some(err) = &status.last_error {
+        print_label("daemon error", err, colors::ERR);
+        println!();
+    }
+
     match status.llm.state {
         LlmState::Ready => {
             // Show which models are ready
             if let (Some(trans), Some(spec)) =
                 (&status.llm.translator_model, &status.llm.specialist_model)
             {
-                print_hint(&format!("Systems ready. Translator: {}, Specialist: {}", trans, spec));
+                print_hint(&format!(
+                    "Systems ready. Translator: {}, Specialist: {}",
+                    trans, spec
+                ));
             } else {
                 print_hint("All systems ready.");
             }
@@ -193,13 +205,20 @@ pub fn print_system_readiness(status: &DaemonStatus) {
             if let (Some(trans), Some(spec)) =
                 (&status.llm.translator_model, &status.llm.specialist_model)
             {
-                print_hint(&format!("Systems ready (models loading). Translator: {}, Specialist: {}", trans, spec));
+                print_hint(&format!(
+                    "Systems ready (models loading). Translator: {}, Specialist: {}",
+                    trans, spec
+                ));
             } else {
                 print_hint("Systems ready (downloading models in background)...");
             }
         }
         LlmState::Error => {
-            print_label("error", "AI models not available. Some features may be limited.", colors::ERR);
+            print_label(
+                "error",
+                "AI models not available. Some features may be limited.",
+                colors::ERR,
+            );
             if let Some(err) = &status.last_error {
                 print_hint(err);
             }
@@ -210,7 +229,11 @@ pub fn print_system_readiness(status: &DaemonStatus) {
     if status.update.update_available {
         if let Some(ver) = &status.update.latest_version {
             println!();
-            print_label("update", &format!("Version {} is available. I'll update automatically.", ver), colors::CYAN);
+            print_label(
+                "update",
+                &format!("Version {} is available. I'll update automatically.", ver),
+                colors::CYAN,
+            );
         }
     }
 }

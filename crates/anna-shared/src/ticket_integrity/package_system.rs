@@ -288,7 +288,8 @@ impl SwapStatus {
     /// Format for user display.
     pub fn display(&self) -> String {
         if !self.has_swap {
-            return "You have NO swap configured on this system.\n• evidence: /proc/swaps is empty".to_string();
+            return "You have NO swap configured on this system.\n• evidence: /proc/swaps is empty"
+                .to_string();
         }
 
         let kind_str = match self.kind {
@@ -324,7 +325,10 @@ impl PackageStatus {
         let trimmed = output.trim();
 
         // Check for NOT_INSTALLED marker or error
-        if trimmed.contains("NOT_INSTALLED") || trimmed.contains("was not found") || trimmed.is_empty() {
+        if trimmed.contains("NOT_INSTALLED")
+            || trimmed.contains("was not found")
+            || trimmed.is_empty()
+        {
             return Self {
                 package: package.to_string(),
                 installed: false,
@@ -417,10 +421,16 @@ mod tests {
     #[test]
     fn test_swap_question_classification() {
         let result = classify_question("do I have swap?", None);
-        assert!(matches!(result, QuestionClassification::System(SystemIntent::SwapConfigured)));
+        assert!(matches!(
+            result,
+            QuestionClassification::System(SystemIntent::SwapConfigured)
+        ));
 
         let result = classify_question("is swap enabled?", None);
-        assert!(matches!(result, QuestionClassification::System(SystemIntent::SwapConfigured)));
+        assert!(matches!(
+            result,
+            QuestionClassification::System(SystemIntent::SwapConfigured)
+        ));
     }
 
     #[test]

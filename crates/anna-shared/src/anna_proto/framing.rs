@@ -118,7 +118,10 @@ pub fn validate_frame_markers(output: &str) -> FrameValidation {
         (1, 0) => FrameValidation::MissingEnd,
         (0, 1) => FrameValidation::MissingStart,
         (s, e) if s > 1 || e > 1 => FrameValidation::MultipleMarkers { starts: s, ends: e },
-        _ => FrameValidation::Unbalanced { starts: start_count, ends: end_count },
+        _ => FrameValidation::Unbalanced {
+            starts: start_count,
+            ends: end_count,
+        },
     }
 }
 
@@ -163,7 +166,10 @@ Some trailing text"#;
     #[test]
     fn test_extract_no_frame() {
         let output = "Just regular text without any frame markers";
-        assert!(matches!(extract_framed_content(output), FrameResult::NoFrame));
+        assert!(matches!(
+            extract_framed_content(output),
+            FrameResult::NoFrame
+        ));
     }
 
     #[test]

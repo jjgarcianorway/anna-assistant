@@ -29,18 +29,18 @@ const MIN_MATCHING_TOKENS: usize = 2;
 /// Mature, high-reliability recipes can match with lower scores
 fn dynamic_threshold(recipe: &Recipe) -> u32 {
     let maturity_factor = match recipe.success_count {
-        0 => 25,        // Untested: need very high score
-        1..=2 => 15,    // New: need higher score
-        3..=5 => 10,    // Young: slightly elevated
-        6..=10 => 5,    // Maturing: slight boost
-        _ => 0,         // Mature: base threshold
+        0 => 25,     // Untested: need very high score
+        1..=2 => 15, // New: need higher score
+        3..=5 => 10, // Young: slightly elevated
+        6..=10 => 5, // Maturing: slight boost
+        _ => 0,      // Mature: base threshold
     };
 
     let reliability_factor = match recipe.reliability_score {
-        90..=100 => 0,  // Excellent: no penalty
-        80..=89 => 5,   // Good: small boost needed
-        70..=79 => 10,  // Okay: moderate boost
-        _ => 15,        // Low: need much higher match
+        90..=100 => 0, // Excellent: no penalty
+        80..=89 => 5,  // Good: small boost needed
+        70..=79 => 10, // Okay: moderate boost
+        _ => 15,       // Low: need much higher match
     };
 
     // Higher threshold = harder to match = fewer wrong answers
@@ -125,8 +125,7 @@ pub fn match_recipe(query: &str, index: &RecipeIndex) -> Option<MatchResult> {
     }
 
     // v0.0.373: Determine high confidence using dynamic threshold
-    let high_confidence =
-        score >= threshold && matched_tokens.len() >= 3 && recipe.is_mature();
+    let high_confidence = score >= threshold && matched_tokens.len() >= 3 && recipe.is_mature();
 
     // Extract substitutions (e.g., different package name, different editor)
     let substitutions = extract_substitutions(query, &recipe);
@@ -400,20 +399,35 @@ mod tests {
 
         // Create test recipes with different maturity levels
         let mut new_recipe = Recipe::new(
-            sig.clone(), Team::General, RiskLevel::ReadOnly,
-            vec![], vec![], "test".to_string(), 85,
+            sig.clone(),
+            Team::General,
+            RiskLevel::ReadOnly,
+            vec![],
+            vec![],
+            "test".to_string(),
+            85,
         );
         new_recipe.success_count = 0;
 
         let mut young_recipe = Recipe::new(
-            sig.clone(), Team::General, RiskLevel::ReadOnly,
-            vec![], vec![], "test".to_string(), 85,
+            sig.clone(),
+            Team::General,
+            RiskLevel::ReadOnly,
+            vec![],
+            vec![],
+            "test".to_string(),
+            85,
         );
         young_recipe.success_count = 2;
 
         let mut mature_recipe = Recipe::new(
-            sig.clone(), Team::General, RiskLevel::ReadOnly,
-            vec![], vec![], "test".to_string(), 95,
+            sig.clone(),
+            Team::General,
+            RiskLevel::ReadOnly,
+            vec![],
+            vec![],
+            "test".to_string(),
+            95,
         );
         mature_recipe.success_count = 20;
 
@@ -422,8 +436,18 @@ mod tests {
         let young_threshold = dynamic_threshold(&young_recipe);
         let mature_threshold = dynamic_threshold(&mature_recipe);
 
-        assert!(new_threshold > young_threshold, "new={} should > young={}", new_threshold, young_threshold);
-        assert!(young_threshold > mature_threshold, "young={} should > mature={}", young_threshold, mature_threshold);
+        assert!(
+            new_threshold > young_threshold,
+            "new={} should > young={}",
+            new_threshold,
+            young_threshold
+        );
+        assert!(
+            young_threshold > mature_threshold,
+            "young={} should > mature={}",
+            young_threshold,
+            mature_threshold
+        );
     }
 
     #[test]
@@ -441,20 +465,33 @@ mod tests {
 
         // Same maturity, different reliability
         let mut high_reliability = Recipe::new(
-            sig.clone(), Team::General, RiskLevel::ReadOnly,
-            vec![], vec![], "test".to_string(), 95,
+            sig.clone(),
+            Team::General,
+            RiskLevel::ReadOnly,
+            vec![],
+            vec![],
+            "test".to_string(),
+            95,
         );
         high_reliability.success_count = 10;
 
         let mut low_reliability = Recipe::new(
-            sig.clone(), Team::General, RiskLevel::ReadOnly,
-            vec![], vec![], "test".to_string(), 65,
+            sig.clone(),
+            Team::General,
+            RiskLevel::ReadOnly,
+            vec![],
+            vec![],
+            "test".to_string(),
+            65,
         );
         low_reliability.success_count = 10;
 
         let high_threshold = dynamic_threshold(&high_reliability);
         let low_threshold = dynamic_threshold(&low_reliability);
 
-        assert!(low_threshold > high_threshold, "low reliability should need higher match score");
+        assert!(
+            low_threshold > high_threshold,
+            "low reliability should need higher match score"
+        );
     }
 }

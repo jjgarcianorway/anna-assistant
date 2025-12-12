@@ -77,11 +77,7 @@ impl LearningStats {
         // Probe learning stats
         let probe_store = ProbeLearningStore::load();
         stats.probe_categories_learned = probe_store.effectiveness.len();
-        stats.probe_entries_total = probe_store
-            .effectiveness
-            .values()
-            .map(|m| m.len())
-            .sum();
+        stats.probe_entries_total = probe_store.effectiveness.values().map(|m| m.len()).sum();
 
         // Recipe stats - count recipes in the store
         if let Ok(entries) = std::fs::read_dir(recipe_dir()) {
@@ -152,7 +148,9 @@ impl LearningStats {
         }
 
         if lines.len() == 1 {
-            lines.push("- No learning data yet. Anna learns from successful interactions!".to_string());
+            lines.push(
+                "- No learning data yet. Anna learns from successful interactions!".to_string(),
+            );
         }
 
         lines.join("\n")
@@ -195,10 +193,8 @@ mod tests {
 
     #[test]
     fn test_collect_stats() {
-        let stats = LearningStats::collect();
+        let _stats = LearningStats::collect();
         // Should at least return valid stats even with empty stores
-        assert!(stats.lessons_total >= 0);
-        assert!(stats.facts_total >= 0);
     }
 
     #[test]

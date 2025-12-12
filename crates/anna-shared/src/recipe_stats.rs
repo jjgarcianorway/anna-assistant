@@ -132,12 +132,13 @@ impl RecipeStats {
                 }
 
                 // Update recipe stats
-                let recipe_stats = self.by_recipe
-                    .entry(recipe_id.clone())
-                    .or_insert_with(|| SingleRecipeStats {
-                        recipe_id: recipe_id.clone(),
-                        ..Default::default()
-                    });
+                let recipe_stats =
+                    self.by_recipe
+                        .entry(recipe_id.clone())
+                        .or_insert_with(|| SingleRecipeStats {
+                            recipe_id: recipe_id.clone(),
+                            ..Default::default()
+                        });
                 recipe_stats.uses += 1;
                 if success {
                     recipe_stats.successes += 1;
@@ -146,7 +147,7 @@ impl RecipeStats {
                 }
                 recipe_stats.avg_confidence =
                     (recipe_stats.avg_confidence * (recipe_stats.uses - 1) as f32 + confidence)
-                    / recipe_stats.uses as f32;
+                        / recipe_stats.uses as f32;
                 recipe_stats.last_used = current_secs();
             }
             ResponseSource::Specialist { .. } => {
@@ -210,13 +211,15 @@ impl RecipeStats {
             1.0
         } else {
             (self.resolved_by_recipe + self.resolved_by_specialist) as f32
-            / self.total_tickets as f32
+                / self.total_tickets as f32
         }
     }
 
     /// Get intents with best recipe coverage
     pub fn best_covered_intents(&self, limit: usize) -> Vec<(&str, f32)> {
-        let mut items: Vec<_> = self.by_intent.iter()
+        let mut items: Vec<_> = self
+            .by_intent
+            .iter()
             .filter(|(_, s)| s.has_recipe && s.total > 0)
             .map(|(k, s)| (k.as_str(), s.recipe_coverage()))
             .collect();
@@ -227,7 +230,9 @@ impl RecipeStats {
 
     /// Get intents that need recipes (high specialist usage)
     pub fn intents_needing_recipes(&self, limit: usize) -> Vec<(&str, u32)> {
-        let mut items: Vec<_> = self.by_intent.iter()
+        let mut items: Vec<_> = self
+            .by_intent
+            .iter()
             .filter(|(_, s)| !s.has_recipe && s.specialist_resolved > 0)
             .map(|(k, s)| (k.as_str(), s.specialist_resolved))
             .collect();
@@ -253,8 +258,7 @@ impl RecipeStats {
 }
 
 fn stats_path() -> PathBuf {
-    let base = std::env::var("ANNA_STATE_DIR")
-        .unwrap_or_else(|_| "/var/lib/anna".to_string());
+    let base = std::env::var("ANNA_STATE_DIR").unwrap_or_else(|_| "/var/lib/anna".to_string());
     PathBuf::from(base).join("recipe_stats.json")
 }
 
@@ -287,7 +291,9 @@ mod tests {
 
         stats.record_resolution(
             CanonicalIntent::CheckDiskUsage,
-            &ResponseSource::Recipe { recipe_id: "disk_v1".to_string() },
+            &ResponseSource::Recipe {
+                recipe_id: "disk_v1".to_string(),
+            },
             true,
             0.95,
         );
@@ -305,7 +311,9 @@ mod tests {
         for _ in 0..3 {
             stats.record_resolution(
                 CanonicalIntent::CheckDiskUsage,
-                &ResponseSource::Recipe { recipe_id: "test".to_string() },
+                &ResponseSource::Recipe {
+                    recipe_id: "test".to_string(),
+                },
                 true,
                 0.9,
             );
@@ -313,7 +321,9 @@ mod tests {
         for _ in 0..2 {
             stats.record_resolution(
                 CanonicalIntent::CheckFreeRam,
-                &ResponseSource::Specialist { specialist: "system".to_string() },
+                &ResponseSource::Specialist {
+                    specialist: "system".to_string(),
+                },
                 true,
                 0.85,
             );

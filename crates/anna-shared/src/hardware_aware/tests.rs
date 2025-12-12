@@ -1,14 +1,16 @@
 //! Acceptance tests for hardware-aware system (v0.0.434).
 
 use super::catalog::{ModelCatalog, ModelRole};
-use super::helper_config::{HelperConfig, HelperInstallPolicy, HelperInstallDecision};
+use super::helper_config::{HelperConfig, HelperInstallDecision, HelperInstallPolicy};
 use super::helpers::{HelperCatalog, HelperManager};
 use super::integration::{ModelAvailability, ProbeHelper, SpecialistHelper};
 use super::model_config::{AutoInstallPolicy, InstallDecision, ModelConfig, PreferSmallSetting};
-use super::model_health::{ModelHealth, ModelHealthRecord, ModelStatus, InstalledBy};
+use super::model_health::{InstalledBy, ModelHealth, ModelHealthRecord, ModelStatus};
 use super::model_plan::{ModelPlan, ModelPlanner, PlanValidation};
-use super::profile::{CapabilityTier, CpuInfo, GpuInfo, GpuVendor, HardwareProfile, OsInfo, StorageInfo};
-use super::status::{HardwareStatus, ModelUsageStats, HelperUsageStats};
+use super::profile::{
+    CapabilityTier, CpuInfo, GpuInfo, GpuVendor, HardwareProfile, OsInfo, StorageInfo,
+};
+use super::status::{HardwareStatus, HelperUsageStats, ModelUsageStats};
 
 // === Test Fixtures ===
 
@@ -265,7 +267,10 @@ fn test_auto_install_ask() {
     config.auto_install = AutoInstallPolicy::AskPerModel;
 
     // First time: needs approval
-    assert_eq!(config.can_install("new_model"), InstallDecision::NeedsApproval);
+    assert_eq!(
+        config.can_install("new_model"),
+        InstallDecision::NeedsApproval
+    );
 
     // After approval: allowed
     config.record_decision("new_model", true, None);
@@ -304,11 +309,17 @@ fn test_helper_install_ask() {
     config.auto_install = HelperInstallPolicy::AskPerHelper;
 
     // First time: needs approval
-    assert_eq!(config.can_install("lm_sensors"), HelperInstallDecision::NeedsApproval);
+    assert_eq!(
+        config.can_install("lm_sensors"),
+        HelperInstallDecision::NeedsApproval
+    );
 
     // After approval: allowed
     config.record_decision("lm_sensors", true, None);
-    assert_eq!(config.can_install("lm_sensors"), HelperInstallDecision::Allowed);
+    assert_eq!(
+        config.can_install("lm_sensors"),
+        HelperInstallDecision::Allowed
+    );
 }
 
 /// Test 15: Helper install policy "never".
@@ -381,11 +392,8 @@ fn test_model_availability_fallback() {
 fn test_helper_suggestion() {
     let helper = SpecialistHelper::new();
 
-    let suggestion = helper.suggest_helper_step(
-        "lm_sensors",
-        "To diagnose overheating",
-        "Arch Linux",
-    );
+    let suggestion =
+        helper.suggest_helper_step("lm_sensors", "To diagnose overheating", "Arch Linux");
 
     assert!(suggestion.is_some());
     let s = suggestion.unwrap();
@@ -565,11 +573,17 @@ fn acceptance_helper_request_policy() {
 
     // Policy: ask-per-helper
     config.auto_install = HelperInstallPolicy::AskPerHelper;
-    assert_eq!(config.can_install("lm_sensors"), HelperInstallDecision::NeedsApproval);
+    assert_eq!(
+        config.can_install("lm_sensors"),
+        HelperInstallDecision::NeedsApproval
+    );
 
     // After confirmation
     config.record_decision("lm_sensors", true, None);
-    assert_eq!(config.can_install("lm_sensors"), HelperInstallDecision::Allowed);
+    assert_eq!(
+        config.can_install("lm_sensors"),
+        HelperInstallDecision::Allowed
+    );
 
     // Policy: never
     config.auto_install = HelperInstallPolicy::Never;
@@ -621,7 +635,11 @@ fn test_full_status_format() {
         plan.translator_model.clone(),
         ModelHealthRecord::installed_by_anna(&plan.translator_model),
     );
-    health.models.get_mut(&plan.translator_model).unwrap().status = ModelStatus::Ok;
+    health
+        .models
+        .get_mut(&plan.translator_model)
+        .unwrap()
+        .status = ModelStatus::Ok;
 
     let model_config = ModelConfig::new();
 

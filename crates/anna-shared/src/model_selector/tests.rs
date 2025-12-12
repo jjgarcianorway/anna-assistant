@@ -75,10 +75,7 @@ mod tests {
     #[test]
     fn test_small_models_not_valid_translators() {
         // v0.0.393: Models < 3B should NOT be selected as translators
-        let available = vec![
-            "qwen3-vl:2b".to_string(),
-            "qwen3-vl:1b".to_string(),
-        ];
+        let available = vec!["qwen3-vl:2b".to_string(), "qwen3-vl:1b".to_string()];
         let config = ModelSelectorConfig::default();
         let benchmarks = HashMap::new();
 

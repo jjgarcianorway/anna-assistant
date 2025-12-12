@@ -25,10 +25,7 @@ const MAN_LINE_LIMIT: usize = 100;
 const HELP_LINE_LIMIT: usize = 40;
 
 /// Arch Wiki cache paths
-const WIKI_CACHE_PATHS: &[&str] = &[
-    "/var/lib/anna/wiki-cache",
-    "~/.anna/wiki-cache",
-];
+const WIKI_CACHE_PATHS: &[&str] = &["/var/lib/anna/wiki-cache", "~/.anna/wiki-cache"];
 
 /// Fetch documentation for a list of tags
 pub fn fetch_docs(tags: &[String], max_docs: usize) -> Vec<DocSnippet> {
@@ -77,12 +74,15 @@ pub fn fetch_arch_wiki(topic: &str) -> Option<DocSnippet> {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(&path) {
                 let snippet = extract_relevant_section(&content, topic, MAX_SNIPPET);
-                return Some(DocSnippet::new(
-                    DocSource::ArchWiki,
-                    &format!("Arch Wiki: {}", topic),
-                    &snippet,
-                    &path.display().to_string(),
-                ).with_relevance(90));
+                return Some(
+                    DocSnippet::new(
+                        DocSource::ArchWiki,
+                        &format!("Arch Wiki: {}", topic),
+                        &snippet,
+                        &path.display().to_string(),
+                    )
+                    .with_relevance(90),
+                );
             }
         }
     }
@@ -94,17 +94,22 @@ pub fn fetch_arch_wiki(topic: &str) -> Option<DocSnippet> {
             if name.contains(&topic_lower) {
                 if let Ok(content) = fs::read_to_string(entry.path()) {
                     let snippet = extract_relevant_section(&content, topic, MAX_SNIPPET);
-                    let title = entry.file_name().to_string_lossy()
+                    let title = entry
+                        .file_name()
+                        .to_string_lossy()
                         .trim_end_matches(".txt")
                         .trim_end_matches(".md")
                         .trim_end_matches(".html")
                         .to_string();
-                    return Some(DocSnippet::new(
-                        DocSource::ArchWiki,
-                        &format!("Arch Wiki: {}", title),
-                        &snippet,
-                        &entry.path().display().to_string(),
-                    ).with_relevance(75));
+                    return Some(
+                        DocSnippet::new(
+                            DocSource::ArchWiki,
+                            &format!("Arch Wiki: {}", title),
+                            &snippet,
+                            &entry.path().display().to_string(),
+                        )
+                        .with_relevance(75),
+                    );
                 }
             }
         }
@@ -149,12 +154,15 @@ pub fn fetch_man_page(topic: &str) -> Option<DocSnippet> {
         truncate(&content, MAX_SNIPPET)
     };
 
-    Some(DocSnippet::new(
-        DocSource::ManPage,
-        &format!("man {}", clean_topic),
-        &snippet,
-        &format!("man {}(1)", clean_topic),
-    ).with_relevance(85))
+    Some(
+        DocSnippet::new(
+            DocSource::ManPage,
+            &format!("man {}", clean_topic),
+            &snippet,
+            &format!("man {}(1)", clean_topic),
+        )
+        .with_relevance(85),
+    )
 }
 
 /// Parse man page to extract NAME and DESCRIPTION
@@ -234,12 +242,15 @@ pub fn fetch_help_output(command: &str) -> Option<DocSnippet> {
         return None;
     }
 
-    Some(DocSnippet::new(
-        DocSource::HelpOutput,
-        &format!("{} --help", command),
-        &truncate(&content, MAX_SNIPPET),
-        &format!("{} --help", command),
-    ).with_relevance(70))
+    Some(
+        DocSnippet::new(
+            DocSource::HelpOutput,
+            &format!("{} --help", command),
+            &truncate(&content, MAX_SNIPPET),
+            &format!("{} --help", command),
+        )
+        .with_relevance(70),
+    )
 }
 
 /// Check if command is safe to run with --help
@@ -248,8 +259,8 @@ fn is_safe_help_command(cmd: &str) -> bool {
 
     // Blocklist dangerous commands
     let dangerous = [
-        "rm", "dd", "mkfs", "fdisk", "parted", "sudo", "su",
-        "chmod", "chown", "kill", "reboot", "shutdown", "halt",
+        "rm", "dd", "mkfs", "fdisk", "parted", "sudo", "su", "chmod", "chown", "kill", "reboot",
+        "shutdown", "halt",
     ];
 
     !dangerous.contains(&clean)
@@ -276,12 +287,15 @@ pub fn fetch_local_doc(topic: &str) -> Option<DocSnippet> {
                         let readme_path = entry.path().join(readme);
                         if readme_path.exists() {
                             if let Ok(content) = fs::read_to_string(&readme_path) {
-                                return Some(DocSnippet::new(
-                                    DocSource::LocalDoc,
-                                    &format!("doc: {}", entry.file_name().to_string_lossy()),
-                                    &extract_relevant_section(&content, topic, MAX_SNIPPET),
-                                    &readme_path.display().to_string(),
-                                ).with_relevance(60));
+                                return Some(
+                                    DocSnippet::new(
+                                        DocSource::LocalDoc,
+                                        &format!("doc: {}", entry.file_name().to_string_lossy()),
+                                        &extract_relevant_section(&content, topic, MAX_SNIPPET),
+                                        &readme_path.display().to_string(),
+                                    )
+                                    .with_relevance(60),
+                                );
                             }
                         }
                     }

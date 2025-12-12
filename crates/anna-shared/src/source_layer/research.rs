@@ -84,16 +84,15 @@ impl ResearchPlan {
         if let Some(cmds) = commands_for_intent(intent) {
             // Add man pages for each command
             for cmd in &cmds.commands {
-                plan.sources.push(SourceRequest::man(
-                    &format!("{}(1)", cmd),
-                    "DESCRIPTION",
-                ));
+                plan.sources
+                    .push(SourceRequest::man(&format!("{}(1)", cmd), "DESCRIPTION"));
                 plan.sources.push(SourceRequest::help(cmd, ""));
             }
 
             // Add wiki pages (optional)
             for page in &cmds.wiki_pages {
-                plan.sources.push(SourceRequest::arch_wiki(page, "").optional());
+                plan.sources
+                    .push(SourceRequest::arch_wiki(page, "").optional());
             }
         }
 
@@ -377,7 +376,10 @@ mod tests {
     fn test_research_plan_from_intent() {
         let plan = ResearchPlan::from_intent("packages.update_system", "Update the system");
         assert!(!plan.sources.is_empty());
-        assert!(plan.sources.iter().any(|s| s.source_type == SourceType::Man));
+        assert!(plan
+            .sources
+            .iter()
+            .any(|s| s.source_type == SourceType::Man));
     }
 
     #[test]
@@ -391,7 +393,12 @@ mod tests {
     #[test]
     fn test_cited_answer() {
         let answer = CitedAnswer::new("Run pacman -Syu to update.", 0.9)
-            .cite_source(Citation::source("S1", SourceType::Man, "pacman(8)", "UPGRADE"))
+            .cite_source(Citation::source(
+                "S1",
+                SourceType::Man,
+                "pacman(8)",
+                "UPGRADE",
+            ))
             .cite_evidence(Citation::evidence("E1", "pacman -Qu", "10 packages"));
 
         assert!(answer.has_citations());

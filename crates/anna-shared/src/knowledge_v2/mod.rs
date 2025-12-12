@@ -22,10 +22,10 @@ pub mod sources;
 
 // Re-export main types
 pub use cache::{WikiCache, WikiCacheEntry};
-pub use fetcher::{KnowledgeFetcher, FetchResult};
-pub use policy::{ResearchPolicy, needs_knowledge, get_knowledge_topics};
+pub use fetcher::{FetchResult, KnowledgeFetcher};
+pub use policy::{get_knowledge_topics, needs_knowledge, ResearchPolicy};
 pub use snippet::{KnowledgeSnippet, KnowledgeSource};
-pub use sources::{fetch_man_page, fetch_help_output, fetch_arch_wiki, fetch_local_doc};
+pub use sources::{fetch_arch_wiki, fetch_help_output, fetch_local_doc, fetch_man_page};
 
 /// Maximum snippets per ticket
 pub const MAX_SNIPPETS_PER_TICKET: usize = 5;

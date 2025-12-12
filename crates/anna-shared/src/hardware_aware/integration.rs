@@ -2,10 +2,10 @@
 //!
 //! Connects hardware-aware system to probes and specialist responses.
 
+use super::catalog::ModelRole;
 use super::helpers::{HelperCatalog, HelperEntry, HelperManager};
 use super::model_health::{ModelHealth, ModelStatus};
 use super::model_plan::ModelPlan;
-use super::catalog::ModelRole;
 use serde::{Deserialize, Serialize};
 
 /// Probe helper integration.
@@ -27,7 +27,11 @@ impl ProbeHelper {
         match probe_type {
             "temperature" | "cpu_temp" => {
                 if manager.is_tracked("lm_sensors")
-                    && self.catalog.get("lm_sensors").map(|h| h.is_installed()).unwrap_or(false)
+                    && self
+                        .catalog
+                        .get("lm_sensors")
+                        .map(|h| h.is_installed())
+                        .unwrap_or(false)
                 {
                     ProbeCommand::helper("sensors -j", "lm_sensors")
                 } else {
@@ -39,7 +43,11 @@ impl ProbeHelper {
             }
             "disk_health" | "smart" => {
                 if manager.is_tracked("smartmontools")
-                    && self.catalog.get("smartmontools").map(|h| h.is_installed()).unwrap_or(false)
+                    && self
+                        .catalog
+                        .get("smartmontools")
+                        .map(|h| h.is_installed())
+                        .unwrap_or(false)
                 {
                     ProbeCommand::helper("smartctl -a /dev/sda", "smartmontools")
                 } else {
@@ -48,7 +56,11 @@ impl ProbeHelper {
             }
             "nvme" => {
                 if manager.is_tracked("nvme_cli")
-                    && self.catalog.get("nvme_cli").map(|h| h.is_installed()).unwrap_or(false)
+                    && self
+                        .catalog
+                        .get("nvme_cli")
+                        .map(|h| h.is_installed())
+                        .unwrap_or(false)
                 {
                     ProbeCommand::helper("nvme smart-log /dev/nvme0", "nvme_cli")
                 } else {
@@ -60,7 +72,11 @@ impl ProbeHelper {
             }
             "network" | "nic" => {
                 if manager.is_tracked("ethtool")
-                    && self.catalog.get("ethtool").map(|h| h.is_installed()).unwrap_or(false)
+                    && self
+                        .catalog
+                        .get("ethtool")
+                        .map(|h| h.is_installed())
+                        .unwrap_or(false)
                 {
                     ProbeCommand::helper("ethtool eth0", "ethtool")
                 } else {
@@ -72,11 +88,19 @@ impl ProbeHelper {
             }
             "hardware" | "inventory" => {
                 if manager.is_tracked("lshw")
-                    && self.catalog.get("lshw").map(|h| h.is_installed()).unwrap_or(false)
+                    && self
+                        .catalog
+                        .get("lshw")
+                        .map(|h| h.is_installed())
+                        .unwrap_or(false)
                 {
                     ProbeCommand::helper("lshw -short", "lshw")
                 } else if manager.is_tracked("dmidecode")
-                    && self.catalog.get("dmidecode").map(|h| h.is_installed()).unwrap_or(false)
+                    && self
+                        .catalog
+                        .get("dmidecode")
+                        .map(|h| h.is_installed())
+                        .unwrap_or(false)
                 {
                     ProbeCommand::helper("dmidecode -t system", "dmidecode")
                 } else {
@@ -96,7 +120,11 @@ impl ProbeHelper {
     }
 
     /// Get helpers that would improve a probe.
-    pub fn suggested_helpers(&self, probe_type: &str, manager: &HelperManager) -> Vec<&HelperEntry> {
+    pub fn suggested_helpers(
+        &self,
+        probe_type: &str,
+        manager: &HelperManager,
+    ) -> Vec<&HelperEntry> {
         self.catalog
             .helpers_for_probe(probe_type)
             .into_iter()
@@ -322,7 +350,9 @@ impl HelperSuggestion {
     pub fn format_step(&self) -> String {
         format!(
             "Install {} to {}. Command: {}",
-            self.helper_name, self.purpose.to_lowercase(), self.install_command
+            self.helper_name,
+            self.purpose.to_lowercase(),
+            self.install_command
         )
     }
 }
@@ -333,7 +363,10 @@ pub enum ModelAvailability {
     /// Model is available.
     Available { model: String },
     /// Model is missing.
-    Missing { model: String, fallback: Option<String> },
+    Missing {
+        model: String,
+        fallback: Option<String>,
+    },
     /// Model is broken.
     Broken {
         model: String,
@@ -369,7 +402,13 @@ impl ModelAvailability {
     pub fn is_fallback(&self) -> bool {
         matches!(
             self,
-            Self::Missing { fallback: Some(_), .. } | Self::Broken { fallback: Some(_), .. }
+            Self::Missing {
+                fallback: Some(_),
+                ..
+            } | Self::Broken {
+                fallback: Some(_),
+                ..
+            }
         )
     }
 }

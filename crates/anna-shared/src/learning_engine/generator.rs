@@ -7,8 +7,8 @@
 //! - Tracks citations
 
 use super::{
-    AnswerKind, AnswerTemplate, LearnedRecipe, LogicType, RecipeInputs, RecipeLogic,
-    RecipeOrigin, RecipePattern, RecipeProbe, RecipeSafety, RiskLevel,
+    AnswerKind, AnswerTemplate, LearnedRecipe, LogicType, RecipeInputs, RecipeLogic, RecipeOrigin,
+    RecipePattern, RecipeProbe, RecipeSafety, RiskLevel,
 };
 use crate::specialist_v3::SpecialistResponse;
 use crate::ticket_lifecycle::TicketRecord;
@@ -106,9 +106,10 @@ pub fn generate_from_ticket(
 
 /// Extract keywords from question
 fn extract_keywords(text: &str) -> Vec<String> {
-    let stopwords = ["the", "a", "an", "is", "are", "was", "were", "how", "what",
-                     "why", "when", "where", "my", "your", "this", "that", "do",
-                     "does", "can", "could", "would", "should", "be", "been"];
+    let stopwords = [
+        "the", "a", "an", "is", "are", "was", "were", "how", "what", "why", "when", "where", "my",
+        "your", "this", "that", "do", "does", "can", "could", "would", "should", "be", "been",
+    ];
 
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())

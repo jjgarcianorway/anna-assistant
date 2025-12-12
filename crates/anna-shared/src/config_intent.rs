@@ -147,7 +147,9 @@ impl ConfigHint {
     /// This helps the specialist (Sofia) understand what the user wants.
     pub fn to_specialist_context(&self) -> String {
         let action = if self.enable { "enable" } else { "disable" };
-        let param_text = self.param.as_ref()
+        let param_text = self
+            .param
+            .as_ref()
             .map(|p| format!(" (value: {})", p))
             .unwrap_or_default();
 
@@ -213,7 +215,9 @@ pub fn detect_vim_config_intent(query: &str) -> Option<ConfigIntent> {
     let query_lower = query.to_lowercase();
 
     // Must mention vim (but not neovim)
-    if !query_lower.contains("vim") || query_lower.contains("neovim") || query_lower.contains("nvim")
+    if !query_lower.contains("vim")
+        || query_lower.contains("neovim")
+        || query_lower.contains("nvim")
     {
         return None;
     }

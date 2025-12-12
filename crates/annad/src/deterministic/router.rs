@@ -87,17 +87,11 @@ pub fn try_answer(
         // v0.45.5: ConfigureEditor - needs clarification, cannot be answered deterministically
         QueryClass::ConfigureEditor => None,
         // v0.0.77: MetaSmallTalk - deterministic static response
-        QueryClass::MetaSmallTalk => {
-            Some(det::answer_meta_small_talk(query, &route_class))
-        }
+        QueryClass::MetaSmallTalk => Some(det::answer_meta_small_talk(query, &route_class)),
         // v0.0.77: KernelVersion - deterministic from uname probe
-        QueryClass::KernelVersion => {
-            det::answer_kernel_version(probe_results, &route_class)
-        }
+        QueryClass::KernelVersion => det::answer_kernel_version(probe_results, &route_class),
         // v0.0.77: ConfigFileLocation - deterministic from known paths
-        QueryClass::ConfigFileLocation => {
-            det::answer_config_file_location(query, &route_class)
-        }
+        QueryClass::ConfigFileLocation => det::answer_config_file_location(query, &route_class),
         // v0.0.99: InstallPackage - needs user confirmation, handled in rpc_handler
         QueryClass::InstallPackage => None,
         // v0.0.99: ManageService - needs user confirmation, handled in rpc_handler
@@ -113,9 +107,7 @@ pub fn try_answer(
         // v0.0.111: StaffRoster - deterministic from roster data
         QueryClass::StaffRoster => Some(det::answer_staff_roster(&route_class)),
         // v0.0.122: PackageUpdates - deterministic from checkupdates
-        QueryClass::PackageUpdates => {
-            det::answer_package_updates(probe_results, &route_class)
-        }
+        QueryClass::PackageUpdates => det::answer_package_updates(probe_results, &route_class),
         // v0.0.122: SwapInfo - deterministic from free
         QueryClass::SwapInfo => det::answer_swap_info(probe_results, &route_class),
         // v0.0.122: TimezoneInfo - deterministic from timedatectl
@@ -123,13 +115,9 @@ pub fn try_answer(
         // v0.0.122: SystemUptime - deterministic from uptime
         QueryClass::SystemUptime => det::answer_system_uptime(probe_results, &route_class),
         // v0.0.123: LoggedInUsers - deterministic from who command
-        QueryClass::LoggedInUsers => {
-            det::answer_logged_in_users(probe_results, &route_class)
-        }
+        QueryClass::LoggedInUsers => det::answer_logged_in_users(probe_results, &route_class),
         // v0.0.123: BatteryStatus - deterministic from upower/acpi
-        QueryClass::BatteryStatus => {
-            det::answer_battery_status(probe_results, &route_class)
-        }
+        QueryClass::BatteryStatus => det::answer_battery_status(probe_results, &route_class),
         // v0.0.123: SystemLoad - deterministic from /proc/loadavg
         QueryClass::SystemLoad => det::answer_system_load(probe_results, &route_class),
         // v0.0.123: LastBoot - deterministic from who -b
@@ -149,13 +137,9 @@ pub fn try_answer(
         // v0.0.124: UsbDevices - deterministic from lsusb
         QueryClass::UsbDevices => det::answer_usb_devices(probe_results, &route_class),
         // v0.0.125: ListeningPorts - deterministic from ss
-        QueryClass::ListeningPorts => {
-            det::answer_listening_ports(probe_results, &route_class)
-        }
+        QueryClass::ListeningPorts => det::answer_listening_ports(probe_results, &route_class),
         // v0.0.125: RunningServices - deterministic from systemctl
-        QueryClass::RunningServices => {
-            det::answer_running_services(probe_results, &route_class)
-        }
+        QueryClass::RunningServices => det::answer_running_services(probe_results, &route_class),
         // v0.0.125: CurrentUser - deterministic from id
         QueryClass::CurrentUser => det::answer_current_user(probe_results, &route_class),
         // v0.0.125: SystemArchitecture - deterministic from uname -m
@@ -163,9 +147,7 @@ pub fn try_answer(
             det::answer_system_architecture(probe_results, &route_class)
         }
         // v0.0.125: EnvironmentVars - deterministic from env
-        QueryClass::EnvironmentVars => {
-            det::answer_environment_vars(probe_results, &route_class)
-        }
+        QueryClass::EnvironmentVars => det::answer_environment_vars(probe_results, &route_class),
         // v0.0.126: ProcessTree - deterministic from pstree
         QueryClass::ProcessTree => det_extended::answer_process_tree(probe_results, &route_class),
         // v0.0.126: DnsServers - deterministic from /etc/resolv.conf

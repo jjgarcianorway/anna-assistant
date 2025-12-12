@@ -2,10 +2,11 @@
 //!
 //! Matches the user's vision of a sectioned, terminal-friendly display:
 //! - Header with status indicator
-//! - Bracketed sections like [core], [updates], [llm]
+//! - Bracketed sections like [core], [updates], [llm], [ollama], [config]
 //! - Consistent key-value alignment
 //! v0.0.267: Added models_downloaded_by_anna section.
 //! v0.0.339: Use centralized UI helpers for consistency.
+//! v0.0.449: Enhanced per VISION.md - separate Ollama status, all config settings.
 
 use anna_shared::event_log::EventLog;
 use anna_shared::helpers::InstallSource;
@@ -106,18 +107,17 @@ pub fn print_status_display_v2(
         &format_optional_dt(status.update.last_check_at.as_ref()),
     );
     if let Some(snap) = snapshot {
-        kv("next_check_at", &format_optional_ts(snap.update.next_check_ts));
+        kv(
+            "next_check_at",
+            &format_optional_ts(snap.update.next_check_ts),
+        );
     }
     if let Some(latest) = &status.update.latest_version {
         kv(
             "available_version",
             &format!(
                 "{}{}{}",
-                if update_available {
-                    colors::CYAN
-                } else {
-                    ""
-                },
+                if update_available { colors::CYAN } else { "" },
                 latest,
                 colors::RESET
             ),
@@ -125,7 +125,11 @@ pub fn print_status_display_v2(
     }
     kv(
         "release_integrity",
-        &format!("{}OK{}  (assets + checksums present)", colors::OK, colors::RESET),
+        &format!(
+            "{}OK{}  (assets + checksums present)",
+            colors::OK,
+            colors::RESET
+        ),
     );
 
     // === [permissions] ===
@@ -139,15 +143,30 @@ pub fn print_status_display_v2(
             snap.perms.groups.join(", ")
         };
         kv("groups", &groups);
-        kv(
-            "sudo_mode",
-            "ON-DEMAND (prompts via annactl)",
-        );
-        kv(
-            "writable_paths",
-            "/var/lib/anna, /etc/anna, /usr/local/bin",
-        );
+        kv("sudo_mode", "ON-DEMAND (prompts via annactl)");
+        kv("writable_paths", "/var/lib/anna, /etc/anna, /usr/local/bin");
         kv("denied_last_24h", "0");
+    }
+
+    // === [ollama] === v0.0.449: Separate Ollama status per VISION.md
+    if let Some(snap) = snapshot {
+        println!();
+        print_section_header("ollama");
+        let present_str = if snap.models.ollama_present {
+            format!("{}YES{}", colors::OK, colors::RESET)
+        } else {
+            format!("{}NO{}", colors::ERR, colors::RESET)
+        };
+        kv("installed", &present_str);
+        let running_str = if snap.models.ollama_running {
+            format!("{}RUNNING{}", colors::OK, colors::RESET)
+        } else {
+            format!("{}STOPPED{}", colors::ERR, colors::RESET)
+        };
+        kv("status", &running_str);
+        if let Some(ver) = &snap.models.ollama_version {
+            kv("version", ver);
+        }
     }
 
     // === [llm] ===
@@ -176,25 +195,33 @@ pub fn print_status_display_v2(
     if let Some(model) = &status.llm.translator_model {
         println!(
             "    {}translator{}  {}  (query classification, fastest)",
-            colors::DIM, colors::RESET, model
+            colors::DIM,
+            colors::RESET,
+            model
         );
     }
     if let Some(model) = &status.llm.junior_model {
         println!(
             "    {}junior{}      {}  (regular queries)",
-            colors::DIM, colors::RESET, model
+            colors::DIM,
+            colors::RESET,
+            model
         );
     } else if let Some(model) = &status.llm.specialist_model {
         // Fallback to legacy specialist_model
         println!(
             "    {}junior{}      {}  (regular queries)",
-            colors::DIM, colors::RESET, model
+            colors::DIM,
+            colors::RESET,
+            model
         );
     }
     if let Some(model) = &status.llm.senior_model {
         println!(
             "    {}senior{}      {}  (complex/escalated)",
-            colors::DIM, colors::RESET, model
+            colors::DIM,
+            colors::RESET,
+            model
         );
     }
 
@@ -232,7 +259,13 @@ pub fn print_status_display_v2(
                 "installed_by_anna",
                 &format!("{}", snap.helpers.anna_installed),
             );
-            for helper in snap.helpers.list.iter().filter(|h| h.source == InstallSource::Anna).take(3) {
+            for helper in snap
+                .helpers
+                .list
+                .iter()
+                .filter(|h| h.source == InstallSource::Anna)
+                .take(3)
+            {
                 println!(
                     "    {}{}{}  | last_used: -",
                     colors::DIM,
@@ -244,13 +277,14 @@ pub fn print_status_display_v2(
                 "installed_by_user",
                 &format!("{}", snap.helpers.user_installed),
             );
-            for helper in snap.helpers.list.iter().filter(|h| h.source == InstallSource::User).take(3) {
-                println!(
-                    "    {}{}{}",
-                    colors::DIM,
-                    helper.name,
-                    colors::RESET
-                );
+            for helper in snap
+                .helpers
+                .list
+                .iter()
+                .filter(|h| h.source == InstallSource::User)
+                .take(3)
+            {
+                println!("    {}{}{}", colors::DIM, helper.name, colors::RESET);
             }
             kv("helper_policy", "install-minimal, remove-on-confirm");
         }
@@ -272,9 +306,7 @@ pub fn print_status_display_v2(
                 // v0.0.303: Show full query - no truncation for better UX
                 println!(
                     "    {}  {}  \"{}\"",
-                    ticket.case_number,
-                    ticket.team,
-                    ticket.query
+                    ticket.case_number, ticket.team, ticket.query
                 );
                 println!(
                     "                    status: {}{}{}",
@@ -291,7 +323,10 @@ pub fn print_status_display_v2(
     println!();
     print_section_header("annad logs");
     if let Some(err) = &status.last_error {
-        kv("last_error", &format!("{}{}{}", colors::ERR, err, colors::RESET));
+        kv(
+            "last_error",
+            &format!("{}{}{}", colors::ERR, err, colors::RESET),
+        );
     } else {
         kv("last_warning", "none");
         kv("last_error", "none");
@@ -304,6 +339,51 @@ pub fn print_status_display_v2(
     // v0.0.300: Removed [statistics], [telemetry], [learning] from status
     // These belong in "annactl stats" not "annactl status"
     // Status should focus on system health and daemon state
+
+    // === [config] === v0.0.449: Show all config settings per VISION.md
+    if let Some(snap) = snapshot {
+        println!();
+        print_section_header("config");
+        // Debug mode only shown if enabled
+        if snap.config.debug_mode {
+            kv(
+                "debug_mode",
+                &format!("{}ON{}", colors::WARN, colors::RESET),
+            );
+        }
+        let auto_update_str = if snap.config.auto_update {
+            format!("{}ON{}", colors::OK, colors::RESET)
+        } else {
+            format!("{}OFF{}", colors::DIM, colors::RESET)
+        };
+        kv("auto_update", &auto_update_str);
+        let learning_str = if snap.config.learning_mode {
+            format!("{}ON{} (explains commands)", colors::OK, colors::RESET)
+        } else {
+            format!("{}OFF{}", colors::DIM, colors::RESET)
+        };
+        kv("learning_mode", &learning_str);
+        let fast_path_str = if snap.config.fast_path_enabled {
+            format!("{}ON{} (recipes before LLM)", colors::OK, colors::RESET)
+        } else {
+            format!("{}OFF{}", colors::DIM, colors::RESET)
+        };
+        kv("fast_path", &fast_path_str);
+        let comms_str = if snap.config.internal_comms {
+            format!("{}ON{} (show IT dialog)", colors::OK, colors::RESET)
+        } else {
+            format!("{}OFF{}", colors::DIM, colors::RESET)
+        };
+        kv("internal_comms", &comms_str);
+        kv(
+            "autonomy_level",
+            &format!("{}/100", snap.config.autonomy_level),
+        );
+        kv(
+            "request_timeout",
+            &format!("{}s", snap.config.request_timeout_secs),
+        );
+    }
 
     // === [health] ===
     println!();

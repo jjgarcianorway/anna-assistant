@@ -284,8 +284,12 @@ fn build_status_message(status: &ResponseStatus, reliability: u8) -> String {
         ResponseStatus::CannotAnswer => {
             "System Status | Cannot answer this question with available data.".to_string()
         }
-        ResponseStatus::Error => "System Status | An error occurred processing this request.".to_string(),
-        ResponseStatus::NoEvidence => "System Status | No evidence was collected for this query.".to_string(),
+        ResponseStatus::Error => {
+            "System Status | An error occurred processing this request.".to_string()
+        }
+        ResponseStatus::NoEvidence => {
+            "System Status | No evidence was collected for this query.".to_string()
+        }
     }
 }
 

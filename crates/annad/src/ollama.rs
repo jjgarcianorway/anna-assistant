@@ -203,7 +203,12 @@ pub async fn pull_model(model: &str) -> Result<()> {
         match pull_model_single_attempt(model) {
             Ok(()) => return Ok(()),
             Err(e) => {
-                warn!("Model pull attempt {} failed for {}: {}", attempt + 1, model, e);
+                warn!(
+                    "Model pull attempt {} failed for {}: {}",
+                    attempt + 1,
+                    model,
+                    e
+                );
                 last_error = Some(e);
             }
         }

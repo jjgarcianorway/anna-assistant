@@ -14,8 +14,7 @@ fn test_long_ticket_workflow() {
     let mut scheduler = JobScheduler::new(&path);
 
     // 1. Create long ticket job
-    let job = BackgroundJob::long_ticket("TKT-LONG-001")
-        .with_metadata("estimated_time", "120s");
+    let job = BackgroundJob::long_ticket("TKT-LONG-001").with_metadata("estimated_time", "120s");
 
     // 2. Enqueue the job
     let job_id = scheduler.enqueue(job);
@@ -77,10 +76,12 @@ fn test_monitor_alert_workflow() {
     // Verify monitor created correctly
     assert_eq!(monitor.id, "disk-data");
     assert!(monitor.enabled);
-    assert!(monitor.is_due(std::time::SystemTime::now()
-        .duration_since(std::time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs()));
+    assert!(monitor.is_due(
+        std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    ));
 
     // 2. Simulate check with high value (would trigger)
     let condition = ThresholdCondition::GreaterThan { value: 90.0 };
@@ -123,10 +124,12 @@ fn test_idle_learning_workflow() {
     };
 
     let mut state = idle_learning::IdleLearningState::default();
-    state.idle_since = Some(std::time::SystemTime::now()
-        .duration_since(std::time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs());
+    state.idle_since = Some(
+        std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    );
 
     let manager = idle_learning::IdleLearningManager::with_state(config, state);
 
@@ -239,16 +242,20 @@ fn test_pending_message_queue() {
     let storage = storage::PendingMessageStorage::new(&path);
 
     // Add messages
-    storage.add(storage::PendingMessage::new(
-        "Test Subject",
-        "Test body",
-        "test",
-    )).unwrap();
+    storage
+        .add(storage::PendingMessage::new(
+            "Test Subject",
+            "Test body",
+            "test",
+        ))
+        .unwrap();
 
-    storage.add(storage::PendingMessage::from_monitor(
-        "disk-check",
-        "Disk space critical!",
-    )).unwrap();
+    storage
+        .add(storage::PendingMessage::from_monitor(
+            "disk-check",
+            "Disk space critical!",
+        ))
+        .unwrap();
 
     assert_eq!(storage.count(), 2);
 

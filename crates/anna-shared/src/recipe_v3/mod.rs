@@ -8,24 +8,24 @@
 //! - Full execution logging and stats tracking
 //! - Ticket-to-recipe builder with strict learning rules
 
-pub mod types;
-pub mod condition;
-pub mod step;
-pub mod matcher;
-pub mod store;
-pub mod executor;
 pub mod builder;
+pub mod condition;
+pub mod executor;
+pub mod matcher;
+pub mod step;
+pub mod store;
+pub mod types;
 
-pub use types::{
-    RecipeV3, RecipeOrigin, RecipeAuthor, RecipeDomain, RecipeRiskLevel,
-    ConfirmationPolicy, RecipeMatcher, RecipeStats,
-};
-pub use condition::*;
-pub use step::*;
-pub use matcher::{MatchResult, MatchBreakdown, MatchQuery, RecipeMatcher as QueryMatcher};
-pub use store::*;
-pub use executor::*;
 pub use builder::*;
+pub use condition::*;
+pub use executor::*;
+pub use matcher::{MatchBreakdown, MatchQuery, MatchResult, RecipeMatcher as QueryMatcher};
+pub use step::*;
+pub use store::*;
+pub use types::{
+    ConfirmationPolicy, RecipeAuthor, RecipeDomain, RecipeMatcher, RecipeOrigin, RecipeRiskLevel,
+    RecipeStats, RecipeV3,
+};
 
 /// Maximum recipes to check during matching
 pub const MAX_RECIPES_TO_CHECK: usize = 50;

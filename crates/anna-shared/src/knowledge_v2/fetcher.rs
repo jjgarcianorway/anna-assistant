@@ -13,8 +13,10 @@ use std::collections::HashSet;
 use super::cache::WikiCache;
 use super::policy::{get_research_policy, ResearchPriority};
 use super::snippet::{KnowledgeSnippet, KnowledgeSource};
-use super::sources::{fetch_arch_wiki, fetch_help_output, fetch_local_doc, fetch_man_page, fetch_pacman_info};
-use super::{MAX_SNIPPETS_PER_TICKET, FETCH_TIMEOUT_MS};
+use super::sources::{
+    fetch_arch_wiki, fetch_help_output, fetch_local_doc, fetch_man_page, fetch_pacman_info,
+};
+use super::{FETCH_TIMEOUT_MS, MAX_SNIPPETS_PER_TICKET};
 
 /// Result of a knowledge fetch operation
 #[derive(Debug, Clone)]
@@ -136,11 +138,8 @@ impl KnowledgeFetcher {
             // 1. Try man page
             if let Some(result) = fetch_man_page(topic) {
                 sources_checked.insert(KnowledgeSource::ManPage);
-                let mut snippet = KnowledgeSnippet::from_man(
-                    &format!("k{}", snippet_id),
-                    topic,
-                    &result.content,
-                );
+                let mut snippet =
+                    KnowledgeSnippet::from_man(&format!("k{}", snippet_id), topic, &result.content);
                 snippet = self.enhance_snippet(snippet, &keywords);
                 snippets.push(snippet);
                 snippet_id += 1;
@@ -240,11 +239,8 @@ impl KnowledgeFetcher {
             // Try all sources
             if let Some(result) = fetch_man_page(topic) {
                 sources_checked.insert(KnowledgeSource::ManPage);
-                let mut snippet = KnowledgeSnippet::from_man(
-                    &format!("k{}", snippet_id),
-                    topic,
-                    &result.content,
-                );
+                let mut snippet =
+                    KnowledgeSnippet::from_man(&format!("k{}", snippet_id), topic, &result.content);
                 snippet = self.enhance_snippet(snippet, &keywords);
                 snippets.push(snippet);
                 snippet_id += 1;
@@ -281,7 +277,11 @@ impl KnowledgeFetcher {
     }
 
     /// Enhance snippet with summary and key points (heuristic)
-    fn enhance_snippet(&self, mut snippet: KnowledgeSnippet, keywords: &[String]) -> KnowledgeSnippet {
+    fn enhance_snippet(
+        &self,
+        mut snippet: KnowledgeSnippet,
+        keywords: &[String],
+    ) -> KnowledgeSnippet {
         // Extract summary from first few sentences
         let summary = extract_summary(&snippet.raw_excerpt, 3);
         snippet = snippet.with_summary(&summary);
@@ -302,14 +302,12 @@ impl KnowledgeFetcher {
 /// Extract keywords from question
 fn extract_keywords(question: &str) -> Vec<String> {
     let stop_words: HashSet<&str> = [
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "must", "i", "my", "me", "you", "your",
-        "we", "our", "they", "their", "it", "its", "this", "that", "what",
-        "which", "who", "whom", "how", "why", "when", "where", "to", "of",
-        "in", "on", "at", "by", "for", "with", "about", "into", "through",
-        "during", "before", "after", "above", "below", "from", "up", "down",
-        "out", "off", "over", "under", "again", "further", "then", "once",
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "i", "my",
+        "me", "you", "your", "we", "our", "they", "their", "it", "its", "this", "that", "what",
+        "which", "who", "whom", "how", "why", "when", "where", "to", "of", "in", "on", "at", "by",
+        "for", "with", "about", "into", "through", "during", "before", "after", "above", "below",
+        "from", "up", "down", "out", "off", "over", "under", "again", "further", "then", "once",
     ]
     .into_iter()
     .collect();
@@ -334,7 +332,11 @@ fn extract_summary(content: &str, sentences: usize) -> String {
         }
 
         // Skip section headers (all caps)
-        if trimmed.chars().all(|c| c.is_ascii_uppercase() || c.is_whitespace()) && trimmed.len() < 30 {
+        if trimmed
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_whitespace())
+            && trimmed.len() < 30
+        {
             continue;
         }
 

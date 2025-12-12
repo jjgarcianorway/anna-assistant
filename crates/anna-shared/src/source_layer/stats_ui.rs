@@ -44,8 +44,7 @@ impl CleanStats {
 
         // Update average (rolling)
         let old_total = if self.total > 1 { self.total - 1 } else { 1 };
-        self.avg_response_ms =
-            (self.avg_response_ms * old_total + response_ms) / self.total;
+        self.avg_response_ms = (self.avg_response_ms * old_total + response_ms) / self.total;
     }
 
     /// Get count for outcome.
@@ -396,7 +395,10 @@ impl ProgressIndicator {
         } else {
             100
         };
-        format!("[{}/{}] {} ({}%)", self.current, self.total, self.description, pct)
+        format!(
+            "[{}/{}] {} ({}%)",
+            self.current, self.total, self.description, pct
+        )
     }
 
     /// Format for plain display.
@@ -442,8 +444,14 @@ mod tests {
             .choice("a", "a")
             .choice("b", "b");
 
-        assert_eq!(dialog.parse_input("1"), DialogResult::Selected("a".to_string()));
-        assert_eq!(dialog.parse_input("2"), DialogResult::Selected("b".to_string()));
+        assert_eq!(
+            dialog.parse_input("1"),
+            DialogResult::Selected("a".to_string())
+        );
+        assert_eq!(
+            dialog.parse_input("2"),
+            DialogResult::Selected("b".to_string())
+        );
         assert_eq!(dialog.parse_input("0"), DialogResult::Cancelled);
         assert!(matches!(dialog.parse_input("x"), DialogResult::Invalid(_)));
     }
@@ -469,8 +477,14 @@ mod tests {
 
     #[test]
     fn test_output_modes() {
-        assert_eq!(OutputMode::from_flags(false, false, false), OutputMode::Normal);
-        assert_eq!(OutputMode::from_flags(true, false, false), OutputMode::Plain);
+        assert_eq!(
+            OutputMode::from_flags(false, false, false),
+            OutputMode::Normal
+        );
+        assert_eq!(
+            OutputMode::from_flags(true, false, false),
+            OutputMode::Plain
+        );
         assert_eq!(OutputMode::from_flags(false, true, false), OutputMode::Json);
         assert_eq!(OutputMode::from_flags(false, false, true), OutputMode::Fun);
     }

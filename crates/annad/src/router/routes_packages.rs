@@ -39,7 +39,10 @@ pub fn build_packages_route(class: QueryClass) -> Option<DeterministicRoute> {
             class,
             domain: SpecialistDomain::Packages,
             intent: QueryIntent::Question,
-            probes: vec!["installed_packages".to_string(), "package_count".to_string()],
+            probes: vec![
+                "installed_packages".to_string(),
+                "package_count".to_string(),
+            ],
             capability: RouteCapability {
                 can_answer_deterministically: false,
                 evidence_required: true,

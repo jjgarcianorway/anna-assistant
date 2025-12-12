@@ -29,7 +29,6 @@ pub struct CpuInfo {
     pub model: Option<String>,
 }
 
-
 impl CpuInfo {
     /// Get the number of physical cores (if derivable)
     pub fn physical_cores(&self) -> Option<u32> {

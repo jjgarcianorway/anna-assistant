@@ -173,10 +173,14 @@ impl RecipeLearner {
 
         // Try to create recipe based on intent type
         let recipe = match intent {
-            CanonicalIntent::CheckDiskUsage => learn_disk_usage_recipe(&observations, &common_probes),
+            CanonicalIntent::CheckDiskUsage => {
+                learn_disk_usage_recipe(&observations, &common_probes)
+            }
             CanonicalIntent::CheckFreeRam => learn_memory_recipe(&observations, &common_probes),
             CanonicalIntent::CheckSwapPresence => learn_swap_recipe(&observations, &common_probes),
-            CanonicalIntent::CheckFailedServices => learn_failed_services_recipe(&observations, &common_probes),
+            CanonicalIntent::CheckFailedServices => {
+                learn_failed_services_recipe(&observations, &common_probes)
+            }
             CanonicalIntent::CheckUptime => learn_uptime_recipe(&observations, &common_probes),
             CanonicalIntent::CheckBootTime => learn_boot_time_recipe(&observations, &common_probes),
             _ => learn_generic_recipe(intent, &observations, &common_probes),
@@ -226,11 +230,7 @@ fn find_common_probes(observations: &[&TicketObservation]) -> Vec<String> {
 
     let mut common: Vec<String> = first_probes
         .into_iter()
-        .filter(|p| {
-            observations
-                .iter()
-                .all(|o| o.probes_used.contains(p))
-        })
+        .filter(|p| observations.iter().all(|o| o.probes_used.contains(p)))
         .collect();
 
     common.sort();
@@ -274,7 +274,8 @@ fn learn_disk_usage_recipe(
             evidence: vec!["disk_usage".to_string()],
         },
         answer_critical: Some(AnswerTemplate {
-            summary: "[WARNING] Root filesystem at {root_percent}% used - running low on space".to_string(),
+            summary: "[WARNING] Root filesystem at {root_percent}% used - running low on space"
+                .to_string(),
             details: vec!["Consider cleaning package cache: pacman -Sc".to_string()],
             evidence: vec!["disk_usage".to_string()],
         }),
@@ -340,12 +341,10 @@ fn learn_swap_recipe(
         domain: "system".to_string(),
         required_probes: vec!["swap_files".to_string()],
         optional_probes: vec![],
-        steps: vec![
-            RecipeComputeStep::IsEmpty {
-                probe: "swap_files".to_string(),
-                variable: "no_swap".to_string(),
-            },
-        ],
+        steps: vec![RecipeComputeStep::IsEmpty {
+            probe: "swap_files".to_string(),
+            variable: "no_swap".to_string(),
+        }],
         answer_ok: AnswerTemplate {
             summary: "Swap is configured on this system".to_string(),
             details: vec![],
@@ -423,13 +422,11 @@ fn learn_uptime_recipe(
         domain: "system".to_string(),
         required_probes: vec!["uptime".to_string()],
         optional_probes: vec![],
-        steps: vec![
-            RecipeComputeStep::Extract {
-                probe: "uptime".to_string(),
-                pattern: r"up\s+(.+?),".to_string(),
-                variable: "uptime_str".to_string(),
-            },
-        ],
+        steps: vec![RecipeComputeStep::Extract {
+            probe: "uptime".to_string(),
+            pattern: r"up\s+(.+?),".to_string(),
+            variable: "uptime_str".to_string(),
+        }],
         answer_ok: AnswerTemplate {
             summary: "System uptime: {uptime_str}".to_string(),
             details: vec![],
@@ -458,13 +455,11 @@ fn learn_boot_time_recipe(
         domain: "boot".to_string(),
         required_probes: vec!["boot_time".to_string()],
         optional_probes: vec!["boot_blame".to_string()],
-        steps: vec![
-            RecipeComputeStep::Extract {
-                probe: "boot_time".to_string(),
-                pattern: r"=\s*([\d.]+)s".to_string(),
-                variable: "total_seconds".to_string(),
-            },
-        ],
+        steps: vec![RecipeComputeStep::Extract {
+            probe: "boot_time".to_string(),
+            pattern: r"=\s*([\d.]+)s".to_string(),
+            variable: "total_seconds".to_string(),
+        }],
         answer_ok: AnswerTemplate {
             summary: "Boot time: {total_seconds}s".to_string(),
             details: vec![],
@@ -472,7 +467,10 @@ fn learn_boot_time_recipe(
         },
         answer_critical: None,
         answer_partial: None,
-        knowledge_topics: vec!["systemd_analyze".to_string(), "boot_performance".to_string()],
+        knowledge_topics: vec![
+            "systemd_analyze".to_string(),
+            "boot_performance".to_string(),
+        ],
         source_tickets: observations.iter().map(|o| o.ticket_id.clone()).collect(),
         stats: RecipeStats::default(),
         created_at: current_secs(),
@@ -508,7 +506,11 @@ fn learn_generic_recipe(
         },
         answer_critical: None,
         answer_partial: None,
-        knowledge_topics: intent.knowledge_topics().iter().map(|s| s.to_string()).collect(),
+        knowledge_topics: intent
+            .knowledge_topics()
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
         source_tickets: observations.iter().map(|o| o.ticket_id.clone()).collect(),
         stats: RecipeStats::default(),
         created_at: current_secs(),
@@ -518,8 +520,7 @@ fn learn_generic_recipe(
 }
 
 fn candidates_path() -> std::path::PathBuf {
-    let base = std::env::var("ANNA_STATE_DIR")
-        .unwrap_or_else(|_| "/var/lib/anna".to_string());
+    let base = std::env::var("ANNA_STATE_DIR").unwrap_or_else(|_| "/var/lib/anna".to_string());
     std::path::PathBuf::from(base).join("learning_candidates.json")
 }
 

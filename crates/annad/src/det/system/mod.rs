@@ -13,7 +13,9 @@ mod time;
 mod users;
 
 // Re-export all answer functions
-pub use hardware::{answer_battery_status, answer_swap_info, answer_system_load, answer_usb_devices};
+pub use hardware::{
+    answer_battery_status, answer_swap_info, answer_system_load, answer_usb_devices,
+};
 pub use info::{answer_hostname, answer_os_info};
 pub use network::{answer_mounted_filesystems, answer_network_connectivity};
 pub use packages::answer_package_updates;

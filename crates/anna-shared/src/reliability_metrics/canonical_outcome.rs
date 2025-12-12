@@ -205,9 +205,7 @@ pub fn from_ticket_integrity_outcome(
     outcome: crate::ticket_integrity::outcome::TicketOutcome,
 ) -> CanonicalOutcome {
     match outcome {
-        crate::ticket_integrity::outcome::TicketOutcome::Pending => {
-            CanonicalOutcome::ErrorInternal
-        }
+        crate::ticket_integrity::outcome::TicketOutcome::Pending => CanonicalOutcome::ErrorInternal,
         crate::ticket_integrity::outcome::TicketOutcome::Answered => {
             CanonicalOutcome::AnsweredVerified
         }
@@ -230,9 +228,7 @@ pub fn from_ticket_integrity_outcome(
 }
 
 /// Convert from old TicketOutcome (ticket_state) to canonical.
-pub fn from_ticket_state_outcome(
-    outcome: crate::ticket_state::TicketOutcome,
-) -> CanonicalOutcome {
+pub fn from_ticket_state_outcome(outcome: crate::ticket_state::TicketOutcome) -> CanonicalOutcome {
     match outcome {
         crate::ticket_state::TicketOutcome::Success => CanonicalOutcome::AnsweredVerified,
         crate::ticket_state::TicketOutcome::Partial => CanonicalOutcome::AnsweredPartial,

@@ -34,15 +34,30 @@ mod tests {
     #[test]
     fn test_team_from_query_class() {
         // Config queries always go to Desktop team
-        assert_eq!(team_from_query_class("configure_editor", "system"), Team::Desktop);
-        assert_eq!(team_from_query_class("configure_shell", "system"), Team::Desktop);
-        assert_eq!(team_from_query_class("configure_git", "system"), Team::Desktop);
+        assert_eq!(
+            team_from_query_class("configure_editor", "system"),
+            Team::Desktop
+        );
+        assert_eq!(
+            team_from_query_class("configure_shell", "system"),
+            Team::Desktop
+        );
+        assert_eq!(
+            team_from_query_class("configure_git", "system"),
+            Team::Desktop
+        );
 
         // v0.0.318: System domain now routes to Desktop (Sofia)
         assert_eq!(team_from_query_class("cpu_info", "system"), Team::Desktop);
         // Explicit performance domain goes to Performance team
-        assert_eq!(team_from_query_class("cpu_info", "performance"), Team::Performance);
-        assert_eq!(team_from_query_class("disk_usage", "storage"), Team::Storage);
+        assert_eq!(
+            team_from_query_class("cpu_info", "performance"),
+            Team::Performance
+        );
+        assert_eq!(
+            team_from_query_class("disk_usage", "storage"),
+            Team::Storage
+        );
         assert_eq!(team_from_query_class("unknown", "network"), Team::Network);
     }
 }

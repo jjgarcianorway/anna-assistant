@@ -195,7 +195,8 @@ impl KnowledgeLearningStore {
     pub fn record_ticket(&mut self, record: SolvedTicketRecord) {
         // Update probe effectiveness
         let intent_key = record.intent.to_string();
-        let probe_stats = self.probe_effectiveness
+        let probe_stats = self
+            .probe_effectiveness
             .entry(intent_key.clone())
             .or_default();
 
@@ -218,12 +219,12 @@ impl KnowledgeLearningStore {
 
         // Update averages
         let total = self.stats.tickets_recorded as f32;
-        self.stats.avg_confidence = (self.stats.avg_confidence * (total - 1.0)
-            + record.answer_confidence as f32)
-            / total;
+        self.stats.avg_confidence =
+            (self.stats.avg_confidence * (total - 1.0) + record.answer_confidence as f32) / total;
 
         let grounded_count = if record.was_grounded { 1.0 } else { 0.0 };
-        self.stats.grounding_rate = (self.stats.grounding_rate * (total - 1.0) + grounded_count) / total;
+        self.stats.grounding_rate =
+            (self.stats.grounding_rate * (total - 1.0) + grounded_count) / total;
 
         // Keep last 1000 tickets
         self.tickets.push(record);
@@ -240,7 +241,9 @@ impl KnowledgeLearningStore {
             .map(|stats| {
                 let mut probes: Vec<_> = stats
                     .iter()
-                    .filter(|(_, s)| s.use_count >= 3 && s.effective_count as f32 / s.use_count as f32 > 0.6)
+                    .filter(|(_, s)| {
+                        s.use_count >= 3 && s.effective_count as f32 / s.use_count as f32 > 0.6
+                    })
                     .map(|(p, s)| (p.clone(), s.avg_relevance))
                     .collect();
                 probes.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -304,14 +307,21 @@ impl KnowledgeLearningStore {
                 .collect();
 
             // Calculate average confidence
-            let avg_conf = tickets.iter().map(|t| t.answer_confidence as f32).sum::<f32>()
+            let avg_conf = tickets
+                .iter()
+                .map(|t| t.answer_confidence as f32)
+                .sum::<f32>()
                 / tickets.len() as f32;
 
             // Create proposal
             let proposal = ProposedRecipe {
                 id: format!("learned_{}", intent_str),
                 intent: tickets[0].intent,
-                pattern: format!("Pattern for {} (from {} examples)", intent_str, tickets.len()),
+                pattern: format!(
+                    "Pattern for {} (from {} examples)",
+                    intent_str,
+                    tickets.len()
+                ),
                 probes: common_probes,
                 knowledge_domains: common_domains,
                 answer_template: "Answer based on evidence from probes and docs.".to_string(),
@@ -370,12 +380,14 @@ pub fn create_ticket_record(
     evidence: &SpecialistEvidence,
     answer: &CitedAnswer,
 ) -> SolvedTicketRecord {
-    let probes_used: Vec<String> = evidence.probe_evidence
+    let probes_used: Vec<String> = evidence
+        .probe_evidence
         .iter()
         .map(|p| p.id.clone())
         .collect();
 
-    let probe_effectiveness: HashMap<String, u8> = evidence.probe_evidence
+    let probe_effectiveness: HashMap<String, u8> = evidence
+        .probe_evidence
         .iter()
         .map(|p| {
             // Effectiveness based on whether probe was cited
@@ -388,7 +400,8 @@ pub fn create_ticket_record(
         })
         .collect();
 
-    let docs_consulted: Vec<DocReference> = evidence.doc_evidence
+    let docs_consulted: Vec<DocReference> = evidence
+        .doc_evidence
         .iter()
         .map(|d| DocReference {
             doc_id: d.doc_id.clone(),
@@ -498,10 +511,9 @@ mod tests {
                 domain: "storage".to_string(),
                 query_pattern: "inspect_disk_usage".to_string(),
                 probes_used: vec!["df_root".to_string(), "lsblk".to_string()],
-                probe_effectiveness: [
-                    ("df_root".to_string(), 90),
-                    ("lsblk".to_string(), 75),
-                ].into_iter().collect(),
+                probe_effectiveness: [("df_root".to_string(), 90), ("lsblk".to_string(), 75)]
+                    .into_iter()
+                    .collect(),
                 docs_consulted: vec![],
                 answer_confidence: 85,
                 was_grounded: true,

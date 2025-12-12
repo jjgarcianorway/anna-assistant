@@ -130,9 +130,9 @@ pub struct FeedbackResult {
 /// Mature recipes get smaller adjustments for stability
 fn adaptive_adjustment(success_count: u32, base_amount: u8) -> u8 {
     match success_count {
-        0..=2 => base_amount * 3,      // New: 3x adjustment (learn fast)
-        3..=10 => base_amount * 2,     // Young: 2x adjustment
-        11..=30 => base_amount,        // Maturing: normal adjustment
+        0..=2 => base_amount * 3,  // New: 3x adjustment (learn fast)
+        3..=10 => base_amount * 2, // Young: 2x adjustment
+        11..=30 => base_amount,    // Maturing: normal adjustment
         _ => base_amount.saturating_sub(1).max(1), // Mature: slightly reduced
     }
 }

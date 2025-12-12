@@ -135,10 +135,7 @@ pub fn error_response(ticket: &LiveTicket) -> ErrorResponse {
 
 /// v0.0.411: Format failure message with evidence gathered
 /// Shows what evidence was collected even when the analysis failed
-pub fn format_failure_with_evidence(
-    ticket: &LiveTicket,
-    probes_gathered: &[String],
-) -> String {
+pub fn format_failure_with_evidence(ticket: &LiveTicket, probes_gathered: &[String]) -> String {
     let mut output = String::new();
 
     output.push_str("Anna: I tried to process this with my internal IT team but something went wrong in my reasoning.\n");
@@ -194,7 +191,10 @@ pub fn format_partial_answer(
     }
 
     // Add ticket and handler info
-    output.push_str(&format!("\n\nTicket: {}  handled by {}", ticket_id, handler));
+    output.push_str(&format!(
+        "\n\nTicket: {}  handled by {}",
+        ticket_id, handler
+    ));
 
     output
 }
@@ -218,16 +218,16 @@ pub fn format_success_with_ticket(
     }
 
     // Add ticket and handler info
-    output.push_str(&format!("\n\nTicket: {}  handled by {}", ticket_id, handler));
+    output.push_str(&format!(
+        "\n\nTicket: {}  handled by {}",
+        ticket_id, handler
+    ));
 
     output
 }
 
 /// v0.0.411: Format "missing evidence" response with retry options
-pub fn format_missing_evidence(
-    ticket: &LiveTicket,
-    missing_probes: &[String],
-) -> String {
+pub fn format_missing_evidence(ticket: &LiveTicket, missing_probes: &[String]) -> String {
     let mut output = String::new();
 
     output.push_str("Anna: I need more information to answer safely.\n");
@@ -256,11 +256,7 @@ pub fn format_missing_evidence(
 /// - Optional "Evidence" section with 1-3 bullets
 /// - No internal LLM terms
 /// - No percent success meta statements
-pub fn format_success_answer(
-    answer: &str,
-    evidence: &[String],
-    max_evidence: usize,
-) -> String {
+pub fn format_success_answer(answer: &str, evidence: &[String], max_evidence: usize) -> String {
     let mut output = answer.to_string();
 
     // Add evidence if available
@@ -304,10 +300,7 @@ pub fn format_answer_with_knowledge(
 }
 
 /// v0.0.408: Format a "cannot answer" response with suggestions
-pub fn format_no_evidence_response(
-    reason: &str,
-    suggestions: &[String],
-) -> String {
+pub fn format_no_evidence_response(reason: &str, suggestions: &[String]) -> String {
     let mut output = String::from("I cannot safely answer this from local data.");
 
     if !reason.is_empty() {

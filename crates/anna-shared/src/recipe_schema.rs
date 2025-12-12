@@ -119,7 +119,10 @@ pub enum PlanStep {
     /// Remove lines matching pattern
     RemoveLines { path: String, pattern: String },
     /// Run a command (read-only, for verification)
-    VerifyCommand { command: String, expect_success: bool },
+    VerifyCommand {
+        command: String,
+        expect_success: bool,
+    },
     /// Run a command that changes system state
     RunCommand {
         command: String,
@@ -172,7 +175,10 @@ impl PlanStep {
 
     /// Check if this step modifies the system
     pub fn is_mutating(&self) -> bool {
-        !matches!(self, PlanStep::Explain { .. } | PlanStep::VerifyCommand { .. })
+        !matches!(
+            self,
+            PlanStep::Explain { .. } | PlanStep::VerifyCommand { .. }
+        )
     }
 }
 

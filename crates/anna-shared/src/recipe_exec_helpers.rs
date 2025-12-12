@@ -124,7 +124,10 @@ pub fn evaluate_condition(condition: &str, text: &str) -> bool {
 }
 
 /// Topological sort for step dependencies
-pub fn topological_sort(step_ids: &[String], deps: &HashMap<String, Vec<String>>) -> Result<Vec<String>, String> {
+pub fn topological_sort(
+    step_ids: &[String],
+    deps: &HashMap<String, Vec<String>>,
+) -> Result<Vec<String>, String> {
     let mut in_degree: HashMap<&str, usize> = HashMap::new();
     let mut graph: HashMap<&str, Vec<&str>> = HashMap::new();
 
@@ -137,7 +140,10 @@ pub fn topological_sort(step_ids: &[String], deps: &HashMap<String, Vec<String>>
     // Build dependency graph
     for (step_id, step_deps) in deps {
         for dep in step_deps {
-            graph.entry(dep.as_str()).or_default().push(step_id.as_str());
+            graph
+                .entry(dep.as_str())
+                .or_default()
+                .push(step_id.as_str());
             *in_degree.entry(step_id.as_str()).or_insert(0) += 1;
         }
     }
@@ -207,7 +213,8 @@ pub fn append_to_file(path: &str, content: &str) -> Result<(), String> {
         .append(true)
         .open(path)
         .map_err(|e| e.to_string())?;
-    file.write_all(content.as_bytes()).map_err(|e| e.to_string())
+    file.write_all(content.as_bytes())
+        .map_err(|e| e.to_string())
 }
 
 /// Prepend content to file

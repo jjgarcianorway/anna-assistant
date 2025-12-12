@@ -31,11 +31,16 @@ pub fn answer_package_updates(
     let answer = if update_count == 1 {
         format!("1 package update available:\n  {}", preview_str)
     } else if update_count <= 5 {
-        format!("{} package updates available:\n  {}", update_count, preview_str)
+        format!(
+            "{} package updates available:\n  {}",
+            update_count, preview_str
+        )
     } else {
         format!(
             "{} package updates available:\n  {}\n  ...and {} more",
-            update_count, preview_str, update_count - 5
+            update_count,
+            preview_str,
+            update_count - 5
         )
     };
 

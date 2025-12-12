@@ -29,9 +29,9 @@ impl Default for WikiSyncConfig {
         Self {
             cache_path: PathBuf::from(WIKI_CACHE_DIR),
             max_age_secs: 7 * 24 * 60 * 60, // 7 days
-            rate_limit_secs: 2,              // 2 seconds between requests
+            rate_limit_secs: 2,             // 2 seconds between requests
             articles: default_articles(),
-            max_article_size: 1024 * 1024,   // 1 MB
+            max_article_size: 1024 * 1024, // 1 MB
         }
     }
 }
@@ -130,7 +130,9 @@ impl WikiSyncer {
     /// Get metadata path for an article.
     fn metadata_path(&self, article: &str) -> PathBuf {
         let filename = sanitize_article_name(article);
-        self.config.cache_path.join(format!("{}.meta.json", filename))
+        self.config
+            .cache_path
+            .join(format!("{}.meta.json", filename))
     }
 
     /// Check status of all configured articles.
@@ -221,7 +223,10 @@ impl WikiSyncer {
                 .map(|d| d.as_secs())
                 .unwrap_or(0),
             size_bytes: content.len() as u64,
-            url: format!("https://wiki.archlinux.org/title/{}", article.replace(' ', "_")),
+            url: format!(
+                "https://wiki.archlinux.org/title/{}",
+                article.replace(' ', "_")
+            ),
             last_error: None,
         };
 

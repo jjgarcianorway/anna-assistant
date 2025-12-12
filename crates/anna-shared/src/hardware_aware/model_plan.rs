@@ -122,13 +122,23 @@ impl ModelPlanner {
         // Select junior
         let junior = self
             .catalog
-            .select_model(ModelRole::Junior, profile.tier, available_ram, self.prefer_small)
+            .select_model(
+                ModelRole::Junior,
+                profile.tier,
+                available_ram,
+                self.prefer_small,
+            )
             .ok_or(PlanError::NoSuitableModel(ModelRole::Junior))?;
 
         // Select senior
         let senior = self
             .catalog
-            .select_model(ModelRole::Senior, profile.tier, available_ram, self.prefer_small)
+            .select_model(
+                ModelRole::Senior,
+                profile.tier,
+                available_ram,
+                self.prefer_small,
+            )
             .ok_or(PlanError::NoSuitableModel(ModelRole::Senior))?;
 
         // Calculate disk usage (deduplicated)
@@ -231,7 +241,10 @@ impl std::fmt::Display for PlanError {
             Self::NoSuitableModel(role) => {
                 write!(f, "No suitable model found for {} role", role.label())
             }
-            Self::DiskLimitExceeded { required, available } => {
+            Self::DiskLimitExceeded {
+                required,
+                available,
+            } => {
                 write!(
                     f,
                     "Disk limit exceeded: need {}GB but only {}GB available",
@@ -272,8 +285,8 @@ fn timestamp_now() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::profile::{CpuInfo, GpuInfo, OsInfo, StorageInfo};
+    use super::*;
 
     fn mock_profile(tier: CapabilityTier, ram_gb: f32) -> HardwareProfile {
         HardwareProfile {

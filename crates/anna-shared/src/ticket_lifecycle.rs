@@ -72,7 +72,10 @@ impl TicketResolution {
     pub fn is_resolved(&self) -> bool {
         matches!(
             self,
-            Self::ResolvedSuccess | Self::ResolvedPartial | Self::ResolvedHonestUnknown | Self::ResolvedUnsupported
+            Self::ResolvedSuccess
+                | Self::ResolvedPartial
+                | Self::ResolvedHonestUnknown
+                | Self::ResolvedUnsupported
         )
     }
 
@@ -213,7 +216,11 @@ impl TicketRecord {
     }
 
     /// Transition to a new state (with validation)
-    pub fn transition(&mut self, to: TicketLifecycleState, reason: Option<String>) -> Result<(), String> {
+    pub fn transition(
+        &mut self,
+        to: TicketLifecycleState,
+        reason: Option<String>,
+    ) -> Result<(), String> {
         if !self.can_transition_to(to) {
             return Err(format!(
                 "Invalid transition: {} -> {} (ticket: {})",
@@ -256,7 +263,10 @@ impl TicketRecord {
     /// Move to in_progress (assigned to specialist)
     pub fn start_processing(&mut self, specialist: &str) -> Result<(), String> {
         self.escalation_chain.push(specialist.to_string());
-        self.transition(TicketLifecycleState::InProgress, Some(format!("Assigned to {}", specialist)))
+        self.transition(
+            TicketLifecycleState::InProgress,
+            Some(format!("Assigned to {}", specialist)),
+        )
     }
 
     /// Mark as answered with specialist response
@@ -274,14 +284,20 @@ impl TicketRecord {
     pub fn mark_user_satisfied(&mut self, answer: &str) -> Result<(), String> {
         self.final_answer = Some(answer.to_string());
         self.latency_ms = self.updated_at.saturating_sub(self.created_at);
-        self.transition(TicketLifecycleState::UserSatisfied, Some("Answer delivered".to_string()))
+        self.transition(
+            TicketLifecycleState::UserSatisfied,
+            Some("Answer delivered".to_string()),
+        )
     }
 
     /// Mark as failed with internal error
     pub fn mark_failed(&mut self, error: InternalError) -> Result<(), String> {
         self.internal_error = Some(error.clone());
         self.latency_ms = self.updated_at.saturating_sub(self.created_at);
-        self.transition(TicketLifecycleState::Failed, Some(format!("Error: {}", error)))
+        self.transition(
+            TicketLifecycleState::Failed,
+            Some(format!("Error: {}", error)),
+        )
     }
 
     /// Mark as cancelled
@@ -300,16 +316,14 @@ impl TicketRecord {
     /// Get the final resolution classification
     pub fn resolution(&self) -> TicketResolution {
         match self.state {
-            TicketLifecycleState::UserSatisfied => {
-                match self.final_specialist_status {
-                    Some(ResponseStatus::Success) => TicketResolution::ResolvedSuccess,
-                    Some(ResponseStatus::Partial) => TicketResolution::ResolvedPartial,
-                    Some(ResponseStatus::NoData) => TicketResolution::ResolvedHonestUnknown,
-                    Some(ResponseStatus::Unsupported) => TicketResolution::ResolvedUnsupported,
-                    Some(ResponseStatus::Error) => TicketResolution::Failed,
-                    None => TicketResolution::ResolvedHonestUnknown,
-                }
-            }
+            TicketLifecycleState::UserSatisfied => match self.final_specialist_status {
+                Some(ResponseStatus::Success) => TicketResolution::ResolvedSuccess,
+                Some(ResponseStatus::Partial) => TicketResolution::ResolvedPartial,
+                Some(ResponseStatus::NoData) => TicketResolution::ResolvedHonestUnknown,
+                Some(ResponseStatus::Unsupported) => TicketResolution::ResolvedUnsupported,
+                Some(ResponseStatus::Error) => TicketResolution::Failed,
+                None => TicketResolution::ResolvedHonestUnknown,
+            },
             TicketLifecycleState::Failed => TicketResolution::Failed,
             TicketLifecycleState::Cancelled => TicketResolution::Cancelled,
             _ => TicketResolution::Pending,
@@ -320,7 +334,9 @@ impl TicketRecord {
     pub fn is_terminal(&self) -> bool {
         matches!(
             self.state,
-            TicketLifecycleState::UserSatisfied | TicketLifecycleState::Failed | TicketLifecycleState::Cancelled
+            TicketLifecycleState::UserSatisfied
+                | TicketLifecycleState::Failed
+                | TicketLifecycleState::Cancelled
         )
     }
 
@@ -423,12 +439,17 @@ impl ReliabilityMetrics {
 
         // Calculate rates
         if metrics.total_tickets > 0 {
-            metrics.success_rate = (metrics.resolved_success as f32 / metrics.total_tickets as f32) * 100.0;
+            metrics.success_rate =
+                (metrics.resolved_success as f32 / metrics.total_tickets as f32) * 100.0;
 
             // Reliability rate: success / (success + all failures)
-            let failure_pool = metrics.resolved_success + metrics.failed + metrics.parse_errors + metrics.internal_errors;
+            let failure_pool = metrics.resolved_success
+                + metrics.failed
+                + metrics.parse_errors
+                + metrics.internal_errors;
             if failure_pool > 0 {
-                metrics.reliability_rate = (metrics.resolved_success as f32 / failure_pool as f32) * 100.0;
+                metrics.reliability_rate =
+                    (metrics.resolved_success as f32 / failure_pool as f32) * 100.0;
             }
         }
 
@@ -445,7 +466,11 @@ impl std::fmt::Display for ReliabilityMetrics {
         writeln!(f, "  honest_unknown        {}", self.honest_unknown)?;
         writeln!(f, "  failed                {}", self.failed)?;
         writeln!(f, "  escalated             {}", self.escalated)?;
-        writeln!(f, "  avg_response          {:.1}s", self.avg_response_ms as f64 / 1000.0)?;
+        writeln!(
+            f,
+            "  avg_response          {:.1}s",
+            self.avg_response_ms as f64 / 1000.0
+        )?;
         writeln!(f)?;
         writeln!(f, "[reliability]")?;
         writeln!(f, "  success_rate          {:.0}%", self.success_rate)?;
@@ -509,19 +534,23 @@ pub fn compute_specialist_metrics(tickets: &[TicketRecord]) -> HashMap<String, S
 
         // Track all specialists in chain
         for specialist in &ticket.escalation_chain {
-            let m = metrics.entry(specialist.clone()).or_insert_with(|| SpecialistMetrics {
-                specialist_id: specialist.clone(),
-                ..Default::default()
-            });
+            let m = metrics
+                .entry(specialist.clone())
+                .or_insert_with(|| SpecialistMetrics {
+                    specialist_id: specialist.clone(),
+                    ..Default::default()
+                });
             m.tickets_handled += 1;
         }
 
         // Track lead specialist
         if let Some(lead) = ticket.lead_specialist() {
-            let m = metrics.entry(lead.to_string()).or_insert_with(|| SpecialistMetrics {
-                specialist_id: lead.to_string(),
-                ..Default::default()
-            });
+            let m = metrics
+                .entry(lead.to_string())
+                .or_insert_with(|| SpecialistMetrics {
+                    specialist_id: lead.to_string(),
+                    ..Default::default()
+                });
             m.tickets_lead += 1;
 
             // Count by resolution
@@ -565,7 +594,12 @@ pub fn format_specialist_roster(metrics: &HashMap<String, SpecialistMetrics>) ->
     // Group by department
     let mut by_dept: HashMap<String, Vec<&SpecialistMetrics>> = HashMap::new();
     for m in metrics.values() {
-        let dept = m.specialist_id.split('.').next().unwrap_or("unknown").to_uppercase();
+        let dept = m
+            .specialist_id
+            .split('.')
+            .next()
+            .unwrap_or("unknown")
+            .to_uppercase();
         by_dept.entry(dept).or_default().push(m);
     }
 
@@ -580,7 +614,11 @@ pub fn format_specialist_roster(metrics: &HashMap<String, SpecialistMetrics>) ->
             sorted_staff.sort_by(|a, b| b.xp.cmp(&a.xp));
 
             for m in sorted_staff {
-                let name = m.specialist_id.split('.').last().unwrap_or(&m.specialist_id);
+                let name = m
+                    .specialist_id
+                    .split('.')
+                    .last()
+                    .unwrap_or(&m.specialist_id);
                 let title = m.title();
                 output.push_str(&format!(
                     "    {} ({})    tickets: {:3}   lead: {:3}   success: {:3}   failed: {:2}   honest_unknown: {:2}   rate: {:3.0}%   {}\n",
@@ -619,7 +657,9 @@ mod tests {
         ticket.mark_answered(&response).unwrap();
         assert_eq!(ticket.state, TicketLifecycleState::Answered);
 
-        ticket.mark_user_satisfied("Your boot time is normal").unwrap();
+        ticket
+            .mark_user_satisfied("Your boot time is normal")
+            .unwrap();
         assert_eq!(ticket.state, TicketLifecycleState::UserSatisfied);
         assert_eq!(ticket.resolution(), TicketResolution::ResolvedSuccess);
     }
@@ -647,7 +687,9 @@ mod tests {
 
         let response = SpecialistResponse::no_data("DSK-003", "No data available");
         ticket.mark_answered(&response).unwrap();
-        ticket.mark_user_satisfied("I couldn't find information about this").unwrap();
+        ticket
+            .mark_user_satisfied("I couldn't find information about this")
+            .unwrap();
 
         assert_eq!(ticket.resolution(), TicketResolution::ResolvedHonestUnknown);
     }
@@ -753,10 +795,12 @@ mod tests {
     fn create_failed_ticket_with_specialist(id: &str, specialist: &str) -> TicketRecord {
         let mut ticket = TicketRecord::new(id, "Test");
         ticket.start_processing(specialist).unwrap();
-        ticket.mark_failed(InternalError::ParseError {
-            attempts: 2,
-            last_error: "Invalid JSON".to_string(),
-        }).unwrap();
+        ticket
+            .mark_failed(InternalError::ParseError {
+                attempts: 2,
+                last_error: "Invalid JSON".to_string(),
+            })
+            .unwrap();
         ticket
     }
 

@@ -5,7 +5,7 @@
 //! - JSON MUST conform to ModelResultEnvelope schema
 //! - NO text outside the frame
 
-use super::framing::{PROTO_START, PROTO_END};
+use super::framing::{PROTO_END, PROTO_START};
 
 /// Protocol instruction that MUST be included in every model prompt.
 pub const PROTOCOL_INSTRUCTION: &str = r#"

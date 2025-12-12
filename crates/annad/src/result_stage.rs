@@ -256,11 +256,13 @@ fn record_probe_learning(result: &ServiceDeskResult) {
         // v0.0.325: Record successful patterns for keyword learning
         // v0.0.382: Adjusted quality scoring for new thresholds
         if helpful {
-            let quality = quality_score.unwrap_or(
-                if result.reliability_score >= 85 { 5 }
-                else if result.reliability_score >= 75 { 4 }
-                else { 3 }
-            );
+            let quality = quality_score.unwrap_or(if result.reliability_score >= 85 {
+                5
+            } else if result.reliability_score >= 75 {
+                4
+            } else {
+                3
+            });
             store.record_success(&query, &probes, quality, category.clone());
         }
     }

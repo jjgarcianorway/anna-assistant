@@ -38,56 +38,86 @@
 //! v0.0.445: Hard Reliability Gate - No answer without evidence, no fake success.
 //! v0.0.448: Deterministic Probes - Intent-specific probe mapping, no LLM guessing.
 
-pub mod deterministic_probes; // v0.0.448: Intent → probes deterministic mapping
-pub mod reliability_gate; // v0.0.445: Hard reliability gate, claim/evidence model, deterministic-first
-pub mod reliability_metrics; // v0.0.444: Canonical outcomes, real reliability stats
-pub mod debug_mode; // v0.0.444: Debug levels, sanitization, reason codes
 pub mod advice;
 pub mod anna_proto; // v0.0.436: Unbreakable typed model communication protocol
-pub mod question_contract; // v0.0.437: Question Contract - typed intent and answer shape enforcement
-pub mod fast_pipeline; // v0.0.438: Fast Pipeline - hard budgets, no streaming, reliability stats
-pub mod deterministic_routing; // v0.0.439: Deterministic routing with intent-to-department map
-pub mod specialist_contract_v1; // v0.0.440: Specialist Contract v1 - strict JSON, retries, fallback
-pub mod era_pipeline; // v0.0.441: ERA Pipeline - Evidence → Reasoning → Answer
-pub mod ticket_integrity; // v0.0.442: Honest stats, clarification-first, package/system separation
-pub mod source_layer; // v0.0.443: Source providers, citations, trace, inventories
-pub mod evidence_first; // v0.0.435: Evidence-first knowledge engine
-pub mod hardware_aware; // v0.0.434: Hardware-aware model selection and helper management
-pub mod background_worker; // v0.0.430: Background job system
-pub mod hollywood_ux; // v0.0.431: Unified transcript and Hollywood terminal renderer
-pub mod knowledge_pipeline; // v0.0.432: Priority-ordered knowledge fetching and learning
-pub mod robustness; // v0.0.433: Timeouts, failure handling, and truthful stats
 pub mod answer_contract;
+pub mod answer_shaper; // v0.0.415: Shape answers for users
+pub mod background_worker; // v0.0.430: Background job system
 pub mod brief;
 pub mod budget;
+pub mod canonical_intents; // v0.0.416: Canonical intents and topics
 pub mod change;
 pub mod change_history;
 pub mod change_transaction;
 pub mod claims;
 pub mod clarify;
 pub mod clarify_v2;
+pub mod comms_render; // v0.0.407: Internal comms rendering from ticket state
 pub mod config_intent;
+pub mod config_parser; // v0.0.236
 pub mod config_seed_recipes; // v0.0.264: Seed recipes for editor configs
 pub mod config_types; // v0.0.264: Config types (ConfigTarget, ConfigIntent)
+pub mod context_memory; // v0.0.246
+pub mod cron_recipes; // v0.0.234
+pub mod debug_mode; // v0.0.444: Debug levels, sanitization, reason codes
+pub mod deterministic_probes; // v0.0.448: Intent → probes deterministic mapping
+pub mod deterministic_routing; // v0.0.439: Deterministic routing with intent-to-department map
+pub mod distro_utils; // v0.0.383: Distro-aware package recommendations
+pub mod doc_brain; // v0.0.406: Unified doc search (man pages, wiki, help)
+pub mod doc_engine; // v0.0.429: Documentation brain - local knowledge graph
+pub mod doc_fetcher; // v0.0.410: Enhanced doc fetchers
+pub mod doc_first_workflow; // v0.0.414: Doc-first specialist reasoning
+pub mod doc_search; // v0.0.408: Local documentation search
+pub mod doc_snippet; // v0.0.412: Documentation source integration
+pub mod docker_recipes; // v0.0.235
 pub mod editor_recipe_data;
 pub mod editor_recipes;
 pub mod email; // v0.0.113
+pub mod era_pipeline; // v0.0.441: ERA Pipeline - Evidence → Reasoning → Answer
 pub mod error;
+pub mod error_output; // v0.0.407: User-friendly error messages
+pub mod evidence_engine; // v0.0.410: Evidence engine core types
+pub mod evidence_first; // v0.0.435: Evidence-first knowledge engine
+pub mod evidence_gatherer; // v0.0.410: Evidence orchestration
+pub mod evidence_pipeline; // v0.0.410: Full evidence integration
 pub mod facts;
 pub mod facts_types;
+pub mod fast_pipeline; // v0.0.438: Fast Pipeline - hard budgets, no streaming, reliability stats
 pub mod fastpath;
+pub mod followup_hints; // v0.0.384: Context-aware follow-up suggestions
 pub mod git_recipes;
+pub mod greeting_insights; // v0.0.245
 pub mod grounding;
-pub mod doc_brain; // v0.0.406: Unified doc search (man pages, wiki, help)
 pub mod guard;
+pub mod hardware_aware; // v0.0.434: Hardware-aware model selection and helper management
 pub mod health_brief;
 pub mod health_delta;
+pub mod health_tips; // v0.0.244
 pub mod health_view;
 pub mod helpers;
+pub mod hollywood_ux; // v0.0.431: Unified transcript and Hollywood terminal renderer
+pub mod honest_metrics; // v0.0.426: Reality-based stats (no fake 100%)
+pub mod honest_stats; // v0.0.415: Honest stats tracking
+pub mod idle_tips; // v0.0.240
 pub mod intake;
+pub mod intent_handlers; // v0.0.417: Deterministic intent handlers
+pub mod intent_policy; // v0.0.414: Intent-based routing (no hardcoded NL)
 pub mod inventory;
 pub mod knowledge;
+pub mod knowledge_config; // v0.0.414: Knowledge source configuration
+pub mod knowledge_engine; // v0.0.416: Knowledge engine (man, help, wiki)
+pub mod knowledge_executor; // v0.0.414: Knowledge query executor
+pub mod knowledge_index; // v0.0.410: Compiled knowledge store
+pub mod knowledge_item; // v0.0.408: Knowledge item abstraction
+pub mod knowledge_learning; // v0.0.414: Self-learning from docs and tickets
+pub mod knowledge_pipeline; // v0.0.432: Priority-ordered knowledge fetching and learning
+pub mod knowledge_query; // v0.0.414: Doc-first knowledge query interface
+pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
+pub mod knowledge_v4; // v0.0.424: Complete local knowledge engine with citations
+pub mod learned_recipes; // v0.0.416: Self-learning recipe schema
+pub mod learning_engine; // v0.0.427: Self-learning recipe engine with evidence-based matching
 pub mod ledger;
+pub mod llm_parse; // v0.0.407: Strict LLM JSON parsing with error handling
 pub mod model_registry;
 pub mod model_selector;
 pub mod narrator;
@@ -95,115 +125,86 @@ pub mod package_recipes;
 pub mod parsers;
 pub mod pending;
 pub mod person_stats;
+pub mod probe_registry; // v0.0.410: Composable probe definitions
 pub mod probe_spine;
 pub mod progress;
+pub mod question_contract; // v0.0.437: Question Contract - typed intent and answer shape enforcement
 pub mod recipe;
+pub mod recipe_candidate; // v0.0.408: Recipe candidate storage for learning
+pub mod recipe_converter; // v0.0.412: Ticket-to-recipe conversion
+pub mod recipe_eligibility; // v0.0.418: Recipe learning eligibility checker
+pub mod recipe_engine; // v0.0.412: Self-learning recipe system
+pub mod recipe_exec_helpers; // v0.0.412: Execution helper functions
+pub mod recipe_executor; // v0.0.412: Recipe execution engine
+pub mod recipe_extractor; // v0.0.418: Extract recipes from tickets
+pub mod recipe_fast_path; // v0.0.416: Recipe execution before specialists
 pub mod recipe_feedback;
 pub mod recipe_file; // v0.0.406: TOML-based authored recipes
 pub mod recipe_index;
+pub mod recipe_learner; // v0.0.416: Recipe learning engine
 pub mod recipe_learning;
 pub mod recipe_matcher;
+pub mod recipe_matcher_v2; // v0.0.418: Runtime recipe matching
+pub mod recipe_runtime; // v0.0.418: Recipe execution engine
+pub mod recipe_schema; // v0.0.418: Recipe data model
+pub mod recipe_stats; // v0.0.416: Recipe usage stats
+pub mod recipe_storage; // v0.0.418: Recipe file storage and indexing
+pub mod recipe_store_v2; // v0.0.412: Persistent recipe storage
+pub mod recipe_telemetry; // v0.0.418: Recipe usage telemetry
+pub mod recipe_templates; // v0.0.412: Generic parameterized recipes
+pub mod recipe_v2; // v0.0.420: Clean learning engine with global/user recipes
+pub mod recipe_v3; // v0.0.423: Safe learning/execution engine with risk levels
+pub mod regression_tests; // v0.0.415: Shape validation tests
 pub mod reliability;
+pub mod reliability_gate; // v0.0.445: Hard reliability gate, claim/evidence model, deterministic-first
+pub mod reliability_metrics; // v0.0.444: Canonical outcomes, real reliability stats
+pub mod repl_greeting; // v0.0.413: Stats-based REPL greeting
 pub mod report;
 pub mod resource_limits;
 pub mod review;
 pub mod review_gate;
 pub mod review_prompts;
 pub mod revision;
+pub mod robustness; // v0.0.433: Timeouts, failure handling, and truthful stats
 pub mod roster;
 pub mod rpc;
+pub mod seed_recipes; // v0.0.418: Initial seed recipes
 pub mod service_recipes;
 pub mod shell_recipes;
 pub mod snapshot;
+pub mod solver_prompts; // v0.0.408: Evidence-focused solver prompts
+pub mod source_layer; // v0.0.443: Source providers, citations, trace, inventories
+pub mod specialist_contract_v1; // v0.0.440: Specialist Contract v1 - strict JSON, retries, fallback
+pub mod specialist_protocol; // v0.0.428: Strict specialist protocol, no-bullshit policy, honest stats
+pub mod specialist_response; // v0.0.409: Unified specialist response schema
+pub mod specialist_v2; // v0.0.421: Stable, schema-driven specialist responses
+pub mod specialist_v3; // v0.0.425: Strict JSON contract, robust parser, no parse errors
 pub mod specialists;
 pub mod ssh_recipes;
-pub mod systemd_recipes; // v0.0.233
-pub mod cron_recipes; // v0.0.234
-pub mod docker_recipes; // v0.0.235
-pub mod config_parser; // v0.0.236
-pub mod idle_tips; // v0.0.240
-pub mod health_tips; // v0.0.244
-pub mod greeting_insights; // v0.0.245
-pub mod context_memory; // v0.0.246
-pub mod distro_utils; // v0.0.383: Distro-aware package recommendations
-pub mod followup_hints; // v0.0.384: Context-aware follow-up suggestions
 pub mod stats;
 pub mod status;
 pub mod status_snapshot;
+pub mod strict_contract; // v0.0.415: Strict specialist JSON contract
+pub mod strict_prompts; // v0.0.415: Strict specialist prompts
+pub mod systemd_recipes; // v0.0.233
 pub mod teams;
 pub mod telemetry;
 pub mod ticket;
+pub mod ticket_integrity; // v0.0.442: Honest stats, clarification-first, package/system separation
+pub mod ticket_lifecycle; // v0.0.426: Strict ticket lifecycle state machine
 pub mod ticket_log; // v0.0.406: Structured ticket logs for learning
+pub mod ticket_packet;
 pub mod ticket_state; // v0.0.407: Explicit ticket lifecycle and states
 pub mod ticket_stats; // v0.0.407: Truthful ticket statistics
-pub mod llm_parse; // v0.0.407: Strict LLM JSON parsing with error handling
-pub mod comms_render; // v0.0.407: Internal comms rendering from ticket state
-pub mod error_output; // v0.0.407: User-friendly error messages
-pub mod knowledge_item; // v0.0.408: Knowledge item abstraction
-pub mod doc_search; // v0.0.408: Local documentation search
-pub mod solver_prompts; // v0.0.408: Evidence-focused solver prompts
-pub mod recipe_candidate; // v0.0.408: Recipe candidate storage for learning
-pub mod specialist_response; // v0.0.409: Unified specialist response schema
-pub mod evidence_engine; // v0.0.410: Evidence engine core types
-pub mod probe_registry; // v0.0.410: Composable probe definitions
-pub mod doc_fetcher; // v0.0.410: Enhanced doc fetchers
-pub mod evidence_gatherer; // v0.0.410: Evidence orchestration
-pub mod knowledge_index; // v0.0.410: Compiled knowledge store
-pub mod evidence_pipeline; // v0.0.410: Full evidence integration
-pub mod recipe_engine; // v0.0.412: Self-learning recipe system
-pub mod recipe_store_v2; // v0.0.412: Persistent recipe storage
-pub mod doc_snippet; // v0.0.412: Documentation source integration
-pub mod recipe_executor; // v0.0.412: Recipe execution engine
-pub mod recipe_exec_helpers; // v0.0.412: Execution helper functions
-pub mod recipe_templates; // v0.0.412: Generic parameterized recipes
-pub mod recipe_converter; // v0.0.412: Ticket-to-recipe conversion
-pub mod transcript_segment; // v0.0.413: Transcript segment data model
-pub mod transcript_render; // v0.0.413: Cinematic/debug transcript renderer
-pub mod ui_config; // v0.0.413: UI configuration (mode, spinner, etc.)
-pub mod repl_greeting; // v0.0.413: Stats-based REPL greeting
-pub mod knowledge_query; // v0.0.414: Doc-first knowledge query interface
-pub mod knowledge_config; // v0.0.414: Knowledge source configuration
-pub mod knowledge_executor; // v0.0.414: Knowledge query executor
-pub mod intent_policy; // v0.0.414: Intent-based routing (no hardcoded NL)
-pub mod doc_first_workflow; // v0.0.414: Doc-first specialist reasoning
-pub mod knowledge_learning; // v0.0.414: Self-learning from docs and tickets
-pub mod strict_contract; // v0.0.415: Strict specialist JSON contract
-pub mod strict_prompts; // v0.0.415: Strict specialist prompts
-pub mod translator_contract; // v0.0.415: Strict translator schema
-pub mod answer_shaper; // v0.0.415: Shape answers for users
-pub mod honest_stats; // v0.0.415: Honest stats tracking
-pub mod regression_tests; // v0.0.415: Shape validation tests
-pub mod knowledge_engine; // v0.0.416: Knowledge engine (man, help, wiki)
-pub mod canonical_intents; // v0.0.416: Canonical intents and topics
-pub mod learned_recipes; // v0.0.416: Self-learning recipe schema
-pub mod recipe_learner; // v0.0.416: Recipe learning engine
-pub mod recipe_fast_path; // v0.0.416: Recipe execution before specialists
-pub mod recipe_stats; // v0.0.416: Recipe usage stats
-pub mod intent_handlers; // v0.0.417: Deterministic intent handlers
-pub mod recipe_schema; // v0.0.418: Recipe data model
-pub mod recipe_storage; // v0.0.418: Recipe file storage and indexing
-pub mod recipe_eligibility; // v0.0.418: Recipe learning eligibility checker
-pub mod recipe_extractor; // v0.0.418: Extract recipes from tickets
-pub mod recipe_matcher_v2; // v0.0.418: Runtime recipe matching
-pub mod recipe_runtime; // v0.0.418: Recipe execution engine
-pub mod recipe_telemetry; // v0.0.418: Recipe usage telemetry
-pub mod seed_recipes; // v0.0.418: Initial seed recipes
-pub mod recipe_v2; // v0.0.420: Clean learning engine with global/user recipes
-pub mod specialist_v2; // v0.0.421: Stable, schema-driven specialist responses
-pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
-pub mod recipe_v3; // v0.0.423: Safe learning/execution engine with risk levels
-pub mod knowledge_v4; // v0.0.424: Complete local knowledge engine with citations
-pub mod specialist_v3; // v0.0.425: Strict JSON contract, robust parser, no parse errors
-pub mod ticket_lifecycle; // v0.0.426: Strict ticket lifecycle state machine
-pub mod honest_metrics; // v0.0.426: Reality-based stats (no fake 100%)
-pub mod learning_engine; // v0.0.427: Self-learning recipe engine with evidence-based matching
-pub mod specialist_protocol; // v0.0.428: Strict specialist protocol, no-bullshit policy, honest stats
-pub mod doc_engine; // v0.0.429: Documentation brain - local knowledge graph
-pub mod ticket_packet;
 pub mod trace;
 pub mod transcript;
 pub mod transcript_ext;
+pub mod transcript_render; // v0.0.413: Cinematic/debug transcript renderer
+pub mod transcript_segment; // v0.0.413: Transcript segment data model
+pub mod translator_contract; // v0.0.415: Strict translator schema
+pub mod truth_ledger;
 pub mod ui;
+pub mod ui_config; // v0.0.413: UI configuration (mode, spinner, etc.)
 pub mod update_ledger;
 pub mod verify;
 pub mod version;
@@ -282,11 +283,11 @@ pub mod interesting_facts;
 pub mod probe_learning;
 
 // v0.0.401: Specialist knowledge capture
+pub mod clarification_learning;
+pub mod learning_stats; // v0.0.401: Learning progress statistics
 pub mod specialist_learning;
 pub mod specialist_patterns; // v0.0.401: Generic pattern matching
-pub mod specialist_recipes; // v0.0.401: Recipes from specialist lessons
-pub mod learning_stats; // v0.0.401: Learning progress statistics
-pub mod clarification_learning; // v0.0.401: Learning from user clarifications
+pub mod specialist_recipes; // v0.0.401: Recipes from specialist lessons // v0.0.401: Learning from user clarifications
 
 // v0.0.404: JSON-only specialist contract
 pub mod specialist_contract;

@@ -52,10 +52,7 @@ pub fn fetch_man_page(command: &str) -> Option<SourceFetchResult> {
     }
 
     // Check if man page exists
-    let check = Command::new("man")
-        .args(["-w", command])
-        .output()
-        .ok()?;
+    let check = Command::new("man").args(["-w", command]).output().ok()?;
 
     if !check.status.success() {
         return None;
@@ -104,7 +101,9 @@ fn extract_man_sections(content: &str) -> String {
         // Check for section header (all caps, at start of line)
         let trimmed = line.trim();
         if !trimmed.is_empty()
-            && trimmed.chars().all(|c| c.is_ascii_uppercase() || c.is_whitespace())
+            && trimmed
+                .chars()
+                .all(|c| c.is_ascii_uppercase() || c.is_whitespace())
             && trimmed.len() < 30
         {
             current_section = trimmed.to_string();
@@ -140,9 +139,7 @@ pub fn fetch_help_output(command: &str) -> Option<SourceFetchResult> {
     }
 
     // Try --help first
-    let output = Command::new(command)
-        .arg("--help")
-        .output();
+    let output = Command::new(command).arg("--help").output();
 
     if let Ok(out) = output {
         let content = if out.status.success() {
@@ -154,14 +151,15 @@ pub fn fetch_help_output(command: &str) -> Option<SourceFetchResult> {
 
         if looks_like_help(&content) {
             let truncated = truncate_help(&content, 50);
-            return Some(SourceFetchResult::new(truncated, &format!("{} --help", command)));
+            return Some(SourceFetchResult::new(
+                truncated,
+                &format!("{} --help", command),
+            ));
         }
     }
 
     // Try -h as fallback
-    let output = Command::new(command)
-        .arg("-h")
-        .output();
+    let output = Command::new(command).arg("-h").output();
 
     if let Ok(out) = output {
         let content = if out.status.success() {
@@ -172,7 +170,10 @@ pub fn fetch_help_output(command: &str) -> Option<SourceFetchResult> {
 
         if looks_like_help(&content) {
             let truncated = truncate_help(&content, 50);
-            return Some(SourceFetchResult::new(truncated, &format!("{} -h", command)));
+            return Some(SourceFetchResult::new(
+                truncated,
+                &format!("{} -h", command),
+            ));
         }
     }
 
@@ -228,13 +229,9 @@ fn fetch_wiki_from_cache(topic: &str) -> Option<SourceFetchResult> {
     ];
 
     // Normalize topic to filename
-    let filename = topic
-        .replace(' ', "_")
-        .replace('/', "_")
-        .to_lowercase();
+    let filename = topic.replace(' ', "_").replace('/', "_").to_lowercase();
 
     for cache_path in &cache_paths {
-
         // Try exact match
         let exact_path = cache_path.join(format!("{}.txt", filename));
         if exact_path.exists() {
@@ -267,11 +264,7 @@ fn fetch_wiki_from_cache(topic: &str) -> Option<SourceFetchResult> {
 
 /// Fetch local documentation
 pub fn fetch_local_doc(topic: &str) -> Option<SourceFetchResult> {
-    let doc_paths = [
-        "/usr/share/doc",
-        "/usr/share/help",
-        "/usr/local/share/doc",
-    ];
+    let doc_paths = ["/usr/share/doc", "/usr/share/help", "/usr/local/share/doc"];
 
     let topic_lower = topic.to_lowercase();
 
@@ -332,13 +325,19 @@ pub fn fetch_pacman_info(package: &str) -> Option<SourceFetchResult> {
         if search.status.success() {
             let content = String::from_utf8_lossy(&search.stdout);
             let truncated = truncate_doc(&content, 20);
-            return Some(SourceFetchResult::new(truncated, &format!("pacman -Ss {}", package)));
+            return Some(SourceFetchResult::new(
+                truncated,
+                &format!("pacman -Ss {}", package),
+            ));
         }
         return None;
     }
 
     let content = String::from_utf8_lossy(&output.stdout).to_string();
-    Some(SourceFetchResult::new(content, &format!("pacman -Qi {}", package)))
+    Some(SourceFetchResult::new(
+        content,
+        &format!("pacman -Qi {}", package),
+    ))
 }
 
 /// Truncate document to max lines
@@ -362,9 +361,8 @@ fn is_safe_name(name: &str) -> bool {
 /// Check if command is dangerous
 fn is_dangerous_command(cmd: &str) -> bool {
     const DANGEROUS: &[&str] = &[
-        "rm", "dd", "mkfs", "fdisk", "parted", "sudo", "su", "chmod", "chown",
-        "kill", "pkill", "killall", "reboot", "shutdown", "halt", "poweroff",
-        "mv", "cp", "shred", "wipefs",
+        "rm", "dd", "mkfs", "fdisk", "parted", "sudo", "su", "chmod", "chown", "kill", "pkill",
+        "killall", "reboot", "shutdown", "halt", "poweroff", "mv", "cp", "shred", "wipefs",
     ];
     DANGEROUS.contains(&cmd)
 }
@@ -394,7 +392,9 @@ mod tests {
 
     #[test]
     fn test_looks_like_help() {
-        assert!(looks_like_help("Usage: command [options]\n\nOptions:\n  --help\n  -v, --version"));
+        assert!(looks_like_help(
+            "Usage: command [options]\n\nOptions:\n  --help\n  -v, --version"
+        ));
         assert!(!looks_like_help("command not found"));
         assert!(!looks_like_help("short"));
     }

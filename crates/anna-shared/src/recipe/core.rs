@@ -249,7 +249,11 @@ impl Recipe {
 
     /// v0.0.419: Add a citation
     pub fn add_citation(&mut self, citation: KnowledgeCitation) {
-        if !self.citations.iter().any(|c| c.citation_id == citation.citation_id) {
+        if !self
+            .citations
+            .iter()
+            .any(|c| c.citation_id == citation.citation_id)
+        {
             self.citations.push(citation);
         }
     }
@@ -328,7 +332,11 @@ impl Recipe {
     /// Called when user gives "not helpful" feedback on a semantic match
     pub fn add_negative_match(&mut self, query: &str) {
         let q_lower = query.to_lowercase();
-        if !self.negative_match_patterns.iter().any(|p| p.to_lowercase() == q_lower) {
+        if !self
+            .negative_match_patterns
+            .iter()
+            .any(|p| p.to_lowercase() == q_lower)
+        {
             self.negative_match_patterns.push(query.to_string());
         }
     }

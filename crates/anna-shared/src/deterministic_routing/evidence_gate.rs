@@ -60,10 +60,7 @@ pub struct EvidenceStatus {
 
 impl EvidenceStatus {
     /// Create from probe results and requirements.
-    pub fn from_probes(
-        probes: &HashMap<String, ProbeResult>,
-        required: &[&str],
-    ) -> Self {
+    pub fn from_probes(probes: &HashMap<String, ProbeResult>, required: &[&str]) -> Self {
         let mut missing_required = Vec::new();
         let mut failed_required = Vec::new();
 
@@ -87,9 +84,7 @@ impl EvidenceStatus {
 
     /// Get successful probe output.
     pub fn get_output(&self, probe_id: &str) -> Option<&str> {
-        self.probes
-            .get(probe_id)
-            .and_then(|p| p.output.as_deref())
+        self.probes.get(probe_id).and_then(|p| p.output.as_deref())
     }
 }
 
@@ -102,18 +97,14 @@ pub enum GateDecision {
         reason: String,
     },
     /// Can answer directly from probes (no specialist needed).
-    AnswerFromProbes {
-        answer: DirectAnswer,
-    },
+    AnswerFromProbes { answer: DirectAnswer },
     /// Need specialist for synthesis.
     NeedSpecialist {
         evidence: EvidenceStatus,
         reason: String,
     },
     /// Intent unknown, need clarification.
-    NeedClarification {
-        question: String,
-    },
+    NeedClarification { question: String },
 }
 
 /// A direct answer from probe data.
@@ -139,7 +130,8 @@ impl DirectAnswer {
 
     /// Add evidence.
     pub fn with_evidence(mut self, probe_id: &str, output: &str) -> Self {
-        self.evidence.push((probe_id.to_string(), output.to_string()));
+        self.evidence
+            .push((probe_id.to_string(), output.to_string()));
         self
     }
 }
@@ -169,7 +161,8 @@ impl EvidenceGate {
             Some(m) => m,
             None => {
                 return GateDecision::NeedClarification {
-                    question: "I couldn't understand your question. Could you rephrase it?".to_string(),
+                    question: "I couldn't understand your question. Could you rephrase it?"
+                        .to_string(),
                 };
             }
         };
@@ -177,7 +170,9 @@ impl EvidenceGate {
         // Check if clarification is needed
         if schema.need_clarification {
             return GateDecision::NeedClarification {
-                question: schema.clarifying_question.clone()
+                question: schema
+                    .clarifying_question
+                    .clone()
                     .unwrap_or_else(|| "Could you clarify your question?".to_string()),
             };
         }
@@ -231,45 +226,19 @@ impl EvidenceGate {
         evidence: &EvidenceStatus,
     ) -> Option<DirectAnswer> {
         match intent {
-            CanonicalIntent::MemStatus => {
-                self.build_mem_status_answer(evidence)
-            }
-            CanonicalIntent::DiskUsage => {
-                self.build_disk_usage_answer(evidence)
-            }
-            CanonicalIntent::BootPerf => {
-                self.build_boot_perf_answer(evidence)
-            }
-            CanonicalIntent::CpuLoad => {
-                self.build_cpu_load_answer(evidence)
-            }
-            CanonicalIntent::SvcFailed => {
-                self.build_svc_failed_answer(evidence)
-            }
-            CanonicalIntent::GpuInfo => {
-                self.build_gpu_info_answer(evidence)
-            }
-            CanonicalIntent::GpuDriver => {
-                self.build_gpu_driver_answer(evidence)
-            }
-            CanonicalIntent::DnsHealth => {
-                self.build_dns_health_answer(evidence)
-            }
-            CanonicalIntent::WifiStatus => {
-                self.build_wifi_status_answer(evidence)
-            }
-            CanonicalIntent::HardwareSensors => {
-                self.build_sensors_answer(evidence)
-            }
-            CanonicalIntent::LogsRecentErrors => {
-                self.build_logs_answer(evidence)
-            }
-            CanonicalIntent::SecurityFirewall => {
-                self.build_firewall_answer(evidence)
-            }
-            CanonicalIntent::PkgUpdates => {
-                self.build_pkg_updates_answer(evidence)
-            }
+            CanonicalIntent::MemStatus => self.build_mem_status_answer(evidence),
+            CanonicalIntent::DiskUsage => self.build_disk_usage_answer(evidence),
+            CanonicalIntent::BootPerf => self.build_boot_perf_answer(evidence),
+            CanonicalIntent::CpuLoad => self.build_cpu_load_answer(evidence),
+            CanonicalIntent::SvcFailed => self.build_svc_failed_answer(evidence),
+            CanonicalIntent::GpuInfo => self.build_gpu_info_answer(evidence),
+            CanonicalIntent::GpuDriver => self.build_gpu_driver_answer(evidence),
+            CanonicalIntent::DnsHealth => self.build_dns_health_answer(evidence),
+            CanonicalIntent::WifiStatus => self.build_wifi_status_answer(evidence),
+            CanonicalIntent::HardwareSensors => self.build_sensors_answer(evidence),
+            CanonicalIntent::LogsRecentErrors => self.build_logs_answer(evidence),
+            CanonicalIntent::SecurityFirewall => self.build_firewall_answer(evidence),
+            CanonicalIntent::PkgUpdates => self.build_pkg_updates_answer(evidence),
             _ => None, // Needs specialist
         }
     }
@@ -420,7 +389,10 @@ impl EvidenceGate {
                 return line.to_string();
             }
         }
-        format!("Boot analysis: {}", analyze_output.lines().next().unwrap_or("unavailable"))
+        format!(
+            "Boot analysis: {}",
+            analyze_output.lines().next().unwrap_or("unavailable")
+        )
     }
 
     fn extract_top_blame(blame_output: &str, count: usize) -> String {
@@ -479,7 +451,14 @@ impl EvidenceGate {
         if let Some(lsmod_out) = lsmod {
             if !lsmod_out.is_empty() {
                 result.push_str("Loaded modules: ");
-                result.push_str(lsmod_out.lines().take(3).collect::<Vec<_>>().join(", ").as_str());
+                result.push_str(
+                    lsmod_out
+                        .lines()
+                        .take(3)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                        .as_str(),
+                );
             }
         }
 
@@ -499,7 +478,14 @@ impl EvidenceGate {
             }
         }
         if servers.is_empty() {
-            format!("DNS status:\n{}", resolvectl_output.lines().take(5).collect::<Vec<_>>().join("\n"))
+            format!(
+                "DNS status:\n{}",
+                resolvectl_output
+                    .lines()
+                    .take(5)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
         } else {
             servers.join("\n")
         }
@@ -551,7 +537,10 @@ impl EvidenceGate {
         } else if fw_output.contains("active") || fw_output.contains("running") {
             "Firewall: Active".to_string()
         } else {
-            format!("Firewall status: {}", fw_output.lines().next().unwrap_or("unknown"))
+            format!(
+                "Firewall status: {}",
+                fw_output.lines().next().unwrap_or("unknown")
+            )
         }
     }
 
@@ -587,8 +576,14 @@ mod tests {
     #[test]
     fn test_evidence_status_complete() {
         let mut probes = HashMap::new();
-        probes.insert("probe_a".to_string(), ProbeResult::success("probe_a", "output"));
-        probes.insert("probe_b".to_string(), ProbeResult::success("probe_b", "output"));
+        probes.insert(
+            "probe_a".to_string(),
+            ProbeResult::success("probe_a", "output"),
+        );
+        probes.insert(
+            "probe_b".to_string(),
+            ProbeResult::success("probe_b", "output"),
+        );
 
         let status = EvidenceStatus::from_probes(&probes, &["probe_a", "probe_b"]);
         assert!(status.all_required_available);
@@ -597,7 +592,11 @@ mod tests {
     #[test]
     fn test_gate_need_more_data() {
         let gate = EvidenceGate::new();
-        let schema = TicketIntentSchema::new("how much RAM?", CanonicalIntent::MemStatus, Department::Performance);
+        let schema = TicketIntentSchema::new(
+            "how much RAM?",
+            CanonicalIntent::MemStatus,
+            Department::Performance,
+        );
         let probes = HashMap::new(); // Empty - no probes run yet
 
         let decision = gate.evaluate(&schema, &probes);
@@ -607,7 +606,11 @@ mod tests {
     #[test]
     fn test_gate_answer_from_probes() {
         let gate = EvidenceGate::new();
-        let schema = TicketIntentSchema::new("how much RAM?", CanonicalIntent::MemStatus, Department::Performance);
+        let schema = TicketIntentSchema::new(
+            "how much RAM?",
+            CanonicalIntent::MemStatus,
+            Department::Performance,
+        );
 
         let mut probes = HashMap::new();
         probes.insert("free_h".to_string(), ProbeResult::success("free_h", "              total        used        free      shared  buff/cache   available\nMem:           31Gi       8.2Gi        15Gi       1.2Gi       7.8Gi        21Gi"));
@@ -627,7 +630,10 @@ mod tests {
     #[test]
     fn test_extract_failed_services() {
         let empty = "";
-        assert_eq!(EvidenceGate::extract_failed_services(empty), "No failed services.");
+        assert_eq!(
+            EvidenceGate::extract_failed_services(empty),
+            "No failed services."
+        );
 
         let with_failed = "  UNIT                    LOAD   ACTIVE SUB    DESCRIPTION\n● foo.service           loaded failed failed Foo Service";
         let summary = EvidenceGate::extract_failed_services(with_failed);

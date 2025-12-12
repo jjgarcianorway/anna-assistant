@@ -12,18 +12,18 @@
 //! - No notifications without explicit user consent
 //! - Rate-limited alerts (no spam)
 
-pub mod job;
-pub mod scheduler;
 pub mod executor;
-pub mod notifications;
-pub mod monitors;
 pub mod idle_learning;
+pub mod job;
+pub mod monitors;
+pub mod notifications;
+pub mod scheduler;
 pub mod storage;
 
 pub use job::*;
-pub use scheduler::*;
-pub use notifications::*;
 pub use monitors::*;
+pub use notifications::*;
+pub use scheduler::*;
 
 /// Default idle CPU threshold for low-priority jobs (0.0-1.0)
 pub const IDLE_CPU_THRESHOLD: f32 = 0.3;

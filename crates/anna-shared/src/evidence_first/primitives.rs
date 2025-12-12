@@ -103,21 +103,17 @@ impl Precondition {
     /// Check if precondition is met.
     pub fn check(&self) -> bool {
         match self {
-            Self::CommandExists(cmd) => {
-                std::process::Command::new("which")
-                    .arg(cmd)
-                    .output()
-                    .map(|o| o.status.success())
-                    .unwrap_or(false)
-            }
+            Self::CommandExists(cmd) => std::process::Command::new("which")
+                .arg(cmd)
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false),
             Self::FileExists(path) => std::path::Path::new(path).exists(),
-            Self::SystemdRunning => {
-                std::process::Command::new("systemctl")
-                    .arg("--version")
-                    .output()
-                    .map(|o| o.status.success())
-                    .unwrap_or(false)
-            }
+            Self::SystemdRunning => std::process::Command::new("systemctl")
+                .arg("--version")
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false),
             Self::HelperInstalled(helper) => {
                 // Check if helper command exists
                 let cmd = match *helper {
@@ -175,7 +171,11 @@ impl ProbePrimitive {
     pub fn matches_keywords(&self, query: &[&str]) -> bool {
         for q in query {
             let q_lower = q.to_lowercase();
-            if self.keywords.iter().any(|k| k.contains(&q_lower) || q_lower.contains(*k)) {
+            if self
+                .keywords
+                .iter()
+                .any(|k| k.contains(&q_lower) || q_lower.contains(*k))
+            {
                 return true;
             }
             if self.purpose.to_lowercase().contains(&q_lower) {
@@ -507,7 +507,10 @@ impl PrimitiveLibrary {
 
     /// Get primitives for a domain.
     pub fn for_domain(&self, domain: Domain) -> Vec<&ProbePrimitive> {
-        self.primitives.iter().filter(|p| p.domain == domain).collect()
+        self.primitives
+            .iter()
+            .filter(|p| p.domain == domain)
+            .collect()
     }
 
     /// Find primitives matching keywords.

@@ -278,7 +278,10 @@ impl ReliabilityStats {
             issues.push(format!("{:.0}% timeouts", self.timeout_rate() * 100.0));
         }
         if self.parser_failure_rate() > 0.1 {
-            issues.push(format!("{:.0}% parse failures", self.parser_failure_rate() * 100.0));
+            issues.push(format!(
+                "{:.0}% parse failures",
+                self.parser_failure_rate() * 100.0
+            ));
         }
         if self.fallback_rate() > 0.2 {
             issues.push(format!("{:.0}% fallbacks", self.fallback_rate() * 100.0));
@@ -404,12 +407,21 @@ mod tests {
 
         // Record some successes
         for _ in 0..8 {
-            stats.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistSuccess, 500));
+            stats.record(&ExecutionRecord::new(
+                ReliabilityOutcome::SpecialistSuccess,
+                500,
+            ));
         }
 
         // Record some failures
-        stats.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistTimeout, 1500));
-        stats.record(&ExecutionRecord::new(ReliabilityOutcome::ParserFailure, 1000));
+        stats.record(&ExecutionRecord::new(
+            ReliabilityOutcome::SpecialistTimeout,
+            1500,
+        ));
+        stats.record(&ExecutionRecord::new(
+            ReliabilityOutcome::ParserFailure,
+            1000,
+        ));
 
         assert_eq!(stats.total_executions, 10);
         assert_eq!(stats.successful, 8);
@@ -421,7 +433,10 @@ mod tests {
     #[test]
     fn test_stats_summary() {
         let mut stats = ReliabilityStats::new();
-        stats.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistSuccess, 500));
+        stats.record(&ExecutionRecord::new(
+            ReliabilityOutcome::SpecialistSuccess,
+            500,
+        ));
 
         let summary = stats.summary();
         assert!(summary.contains("success"));
@@ -434,13 +449,19 @@ mod tests {
 
         // Good stats
         for _ in 0..10 {
-            stats.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistSuccess, 500));
+            stats.record(&ExecutionRecord::new(
+                ReliabilityOutcome::SpecialistSuccess,
+                500,
+            ));
         }
         assert!(!stats.has_issues());
 
         // Add many timeouts
         for _ in 0..5 {
-            stats.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistTimeout, 1500));
+            stats.record(&ExecutionRecord::new(
+                ReliabilityOutcome::SpecialistTimeout,
+                1500,
+            ));
         }
         assert!(stats.has_issues());
     }
@@ -449,7 +470,10 @@ mod tests {
     fn test_windowed_stats() {
         let mut stats = WindowedStats::new();
 
-        stats.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistSuccess, 500));
+        stats.record(&ExecutionRecord::new(
+            ReliabilityOutcome::SpecialistSuccess,
+            500,
+        ));
         assert_eq!(stats.current.total_executions, 1);
         assert_eq!(stats.all_time.total_executions, 1);
 
@@ -461,10 +485,16 @@ mod tests {
     #[test]
     fn test_merge_stats() {
         let mut stats1 = ReliabilityStats::new();
-        stats1.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistSuccess, 500));
+        stats1.record(&ExecutionRecord::new(
+            ReliabilityOutcome::SpecialistSuccess,
+            500,
+        ));
 
         let mut stats2 = ReliabilityStats::new();
-        stats2.record(&ExecutionRecord::new(ReliabilityOutcome::SpecialistTimeout, 1500));
+        stats2.record(&ExecutionRecord::new(
+            ReliabilityOutcome::SpecialistTimeout,
+            1500,
+        ));
 
         stats1.merge(&stats2);
         assert_eq!(stats1.total_executions, 2);

@@ -125,11 +125,15 @@ fn check_single_precondition(precond: &Precondition, ctx: &ExecutionContext) -> 
             (met, format!("Probe '{}' contains '{}'", probe, contains))
         }
         Precondition::ProbeMatches { probe, pattern } => {
-            let met = ctx.probes.get(probe).map(|r| {
-                regex::Regex::new(pattern)
-                    .map(|re| re.is_match(r))
-                    .unwrap_or(false)
-            }).unwrap_or(false);
+            let met = ctx
+                .probes
+                .get(probe)
+                .map(|r| {
+                    regex::Regex::new(pattern)
+                        .map(|re| re.is_match(r))
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false);
             (met, format!("Probe '{}' matches pattern", probe))
         }
         Precondition::ServiceExists { service } => {
@@ -220,7 +224,11 @@ fn describe_step(step: &PlanStep, ctx: &ExecutionContext) -> String {
         PlanStep::PrependLine { path, line } => {
             format!("Prepend '{}' to {}", line, expand_path(path, ctx))
         }
-        PlanStep::ReplaceLine { path, pattern, replacement } => {
+        PlanStep::ReplaceLine {
+            path,
+            pattern,
+            replacement,
+        } => {
             format!(
                 "Replace '{}' with '{}' in {}",
                 pattern,
@@ -232,12 +240,20 @@ fn describe_step(step: &PlanStep, ctx: &ExecutionContext) -> String {
             format!("Ensure '{}' exists in {}", line, expand_path(path, ctx))
         }
         PlanStep::RemoveLines { path, pattern } => {
-            format!("Remove lines matching '{}' from {}", pattern, expand_path(path, ctx))
+            format!(
+                "Remove lines matching '{}' from {}",
+                pattern,
+                expand_path(path, ctx)
+            )
         }
         PlanStep::VerifyCommand { command, .. } => {
             format!("Verify: {}", command)
         }
-        PlanStep::RunCommand { description, command, .. } => {
+        PlanStep::RunCommand {
+            description,
+            command,
+            ..
+        } => {
             if description.is_empty() {
                 format!("Run: {}", command)
             } else {
@@ -274,10 +290,7 @@ fn describe_step(step: &PlanStep, ctx: &ExecutionContext) -> String {
 }
 
 /// Execute a recipe (returns execution plan, actual execution done by caller).
-pub fn prepare_execution(
-    recipe: &Recipe,
-    ctx: &ExecutionContext,
-) -> Result<ExecutionPlan, String> {
+pub fn prepare_execution(recipe: &Recipe, ctx: &ExecutionContext) -> Result<ExecutionPlan, String> {
     // Check if recipe is usable
     if recipe.status != RecipeStatus::Active {
         return Err(format!("Recipe '{}' is not active", recipe.id));

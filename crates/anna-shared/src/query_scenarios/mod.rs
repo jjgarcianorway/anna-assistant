@@ -11,5 +11,5 @@ mod stats;
 #[cfg(test)]
 mod tests;
 
-pub use corpus::{QueryScenario, ScenarioCorpus, Difficulty, ExpectedPath};
-pub use stats::{ScenarioStats, TeamStats, ResolutionOutcome};
+pub use corpus::{Difficulty, ExpectedPath, QueryScenario, ScenarioCorpus};
+pub use stats::{ResolutionOutcome, ScenarioStats, TeamStats};

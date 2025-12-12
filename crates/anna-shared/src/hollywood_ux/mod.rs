@@ -12,20 +12,20 @@
 //! - Separate "user view" from "debug view" clearly
 //! - Work on 80-column terminals with minimal unicode
 
-pub mod types;
-pub mod storage;
 pub mod renderer;
+pub mod storage;
 pub mod streaming;
 pub mod styles;
+pub mod types;
 
 #[cfg(test)]
 mod tests;
 
-pub use types::*;
-pub use storage::*;
 pub use renderer::*;
+pub use storage::*;
 pub use streaming::*;
 pub use styles::*;
+pub use types::*;
 
 /// Default terminal width
 pub const DEFAULT_WIDTH: usize = 80;

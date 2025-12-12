@@ -107,12 +107,18 @@ impl ReplGreeting {
         } else if success_rate >= 0.7 {
             (
                 SystemStatus::Warn,
-                format!("Some issues detected ({:.0}% success rate)", success_rate * 100.0),
+                format!(
+                    "Some issues detected ({:.0}% success rate)",
+                    success_rate * 100.0
+                ),
             )
         } else {
             (
                 SystemStatus::Critical,
-                format!("Multiple failures ({:.0}% success rate)", success_rate * 100.0),
+                format!(
+                    "Multiple failures ({:.0}% success rate)",
+                    success_rate * 100.0
+                ),
             )
         };
 
@@ -137,10 +143,12 @@ impl ReplGreeting {
             system_status: SystemStatus::Ok,
             status_summary: "Ready to help".to_string(),
             active_staff: 6,
-            departments: vec!["System", "Network", "Storage", "Desktop", "Security", "Packages"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            departments: vec![
+                "System", "Network", "Storage", "Desktop", "Security", "Packages",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
             first_time: true,
         }
     }
@@ -152,12 +160,16 @@ impl ReplGreeting {
         // Header
         output.push_str(&format!(
             "\n{}Hello {},{}\n\n",
-            colors::CYAN, self.user_name, colors::RESET
+            colors::CYAN,
+            self.user_name,
+            colors::RESET
         ));
 
         if self.first_time {
             output.push_str("First time here? I'm Anna, your local IT department.\n");
-            output.push_str("Ask me anything about your system - disk, memory, services, config.\n\n");
+            output.push_str(
+                "Ask me anything about your system - disk, memory, services, config.\n\n",
+            );
         } else {
             // Last session stats
             output.push_str(&format!(
@@ -189,7 +201,8 @@ impl ReplGreeting {
         // Prompt
         output.push_str(&format!(
             "\n{}What can I help with?{}\n",
-            colors::DIM, colors::RESET
+            colors::DIM,
+            colors::RESET
         ));
 
         output
@@ -200,7 +213,8 @@ impl ReplGreeting {
         if self.first_time {
             format!(
                 "{}Anna{} - Your local IT department. Ask anything!",
-                colors::CYAN, colors::RESET
+                colors::CYAN,
+                colors::RESET
             )
         } else {
             format!(

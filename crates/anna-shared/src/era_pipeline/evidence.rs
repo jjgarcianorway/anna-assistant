@@ -148,9 +148,7 @@ impl EvidenceBundle {
     pub fn add_fact(&mut self, name: &str, value: FactValue) {
         // Update domain confidence
         if let Some(domain) = name.split('.').next() {
-            self.confidence
-                .entry(domain.to_string())
-                .or_insert(1.0);
+            self.confidence.entry(domain.to_string()).or_insert(1.0);
         }
         self.facts.insert(name.to_string(), value);
     }
@@ -276,7 +274,8 @@ impl EvidenceBundleBuilder {
 
     /// Add a string fact.
     pub fn fact_string(mut self, name: &str, value: &str) -> Self {
-        self.bundle.add_fact(name, FactValue::String(value.to_string()));
+        self.bundle
+            .add_fact(name, FactValue::String(value.to_string()));
         self
     }
 
@@ -337,7 +336,10 @@ pub mod extractors {
                         facts.insert("memory.free_gib".to_string(), FactValue::Number(free));
                     }
                     if let Some(available) = parse_size_gib(parts.get(6).unwrap_or(&"")) {
-                        facts.insert("memory.available_gib".to_string(), FactValue::Number(available));
+                        facts.insert(
+                            "memory.available_gib".to_string(),
+                            FactValue::Number(available),
+                        );
                     }
                 }
             }
@@ -437,10 +439,7 @@ pub mod extractors {
     fn parse_size_gib(s: &str) -> Option<f64> {
         let s = s.trim();
         if s.ends_with("Gi") || s.ends_with("G") {
-            s.trim_end_matches("Gi")
-                .trim_end_matches("G")
-                .parse()
-                .ok()
+            s.trim_end_matches("Gi").trim_end_matches("G").parse().ok()
         } else if s.ends_with("Mi") || s.ends_with("M") {
             s.trim_end_matches("Mi")
                 .trim_end_matches("M")
@@ -507,7 +506,10 @@ mod tests {
         assert_eq!(b.display(), "Yes");
 
         let list = FactValue::list(vec!["a".to_string(), "b".to_string()]);
-        assert_eq!(list.as_list(), Some(vec!["a".to_string(), "b".to_string()].as_slice()));
+        assert_eq!(
+            list.as_list(),
+            Some(vec!["a".to_string(), "b".to_string()].as_slice())
+        );
     }
 
     #[test]
@@ -539,7 +541,8 @@ mod tests {
 
     #[test]
     fn test_memory_extraction() {
-        let output = "              total        used        free      shared  buff/cache   available
+        let output =
+            "              total        used        free      shared  buff/cache   available
 Mem:           31Gi       8.2Gi        15Gi       1.2Gi       7.8Gi        21Gi";
 
         let facts = extractors::extract_memory(output);

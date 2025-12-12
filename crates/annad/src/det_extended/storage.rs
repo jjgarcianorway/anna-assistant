@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer block devices query
-pub fn answer_block_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_block_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "block_devices")?;
     if probe.exit_code != 0 {
         return None;
@@ -34,7 +37,10 @@ pub fn answer_block_devices(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer installed kernels query
-pub fn answer_installed_kernels(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_installed_kernels(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "installed_kernels")?;
     if probe.exit_code != 0 && probe.stdout.is_empty() {
         return Some(DeterministicResult {
@@ -96,7 +102,10 @@ pub fn answer_zfs_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer boot loader query
-pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_boot_loader(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "boot_loader")?;
 
     let output = probe.stdout.trim();
@@ -109,13 +118,14 @@ pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<D
         });
     }
 
-    let loader_type = if output.contains("systemd-boot") || output.contains("Boot Loader Specification") {
-        "systemd-boot"
-    } else if output.contains("GRUB") || output.contains("grub") {
-        "GRUB"
-    } else {
-        "Unknown"
-    };
+    let loader_type =
+        if output.contains("systemd-boot") || output.contains("Boot Loader Specification") {
+            "systemd-boot"
+        } else if output.contains("GRUB") || output.contains("grub") {
+            "GRUB"
+        } else {
+            "Unknown"
+        };
 
     Some(DeterministicResult {
         answer: format!("Boot loader: {}\n```\n{}\n```", loader_type, output),
@@ -126,7 +136,10 @@ pub fn answer_boot_loader(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer mounted filesystems query using findmnt
-pub fn answer_mounted_filesystems(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_mounted_filesystems(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "findmnt")?;
     if probe.exit_code != 0 {
         return None;
@@ -174,7 +187,10 @@ pub fn answer_lvm_status(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer RAID status query
-pub fn answer_raid_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_raid_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "raid_status")?;
 
     let output = probe.stdout.trim();
@@ -196,7 +212,10 @@ pub fn answer_raid_status(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer fstab entries query
-pub fn answer_fstab_entries(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_fstab_entries(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "fstab_entries")?;
     let output = probe.stdout.trim();
 
@@ -204,7 +223,10 @@ pub fn answer_fstab_entries(probes: &[ProbeResult], route_class: &str) -> Option
         ("No entries found in /etc/fstab.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("/etc/fstab ({} entries):\n```\n{}\n```", count, output), count)
+        (
+            format!("/etc/fstab ({} entries):\n```\n{}\n```", count, output),
+            count,
+        )
     };
 
     Some(DeterministicResult {
@@ -224,7 +246,13 @@ pub fn answer_swap_files(probes: &[ProbeResult], route_class: &str) -> Option<De
         ("No swap files or partitions configured.".to_string(), 0)
     } else {
         let swap_count = output.lines().count() - 1;
-        (format!("Swap configuration ({} entries):\n```\n{}\n```", swap_count, output), swap_count)
+        (
+            format!(
+                "Swap configuration ({} entries):\n```\n{}\n```",
+                swap_count, output
+            ),
+            swap_count,
+        )
     };
 
     Some(DeterministicResult {
@@ -236,7 +264,10 @@ pub fn answer_swap_files(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer systemd mounts query using systemctl
-pub fn answer_systemd_mounts(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_systemd_mounts(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "systemd_mounts")?;
     let output = probe.stdout.trim();
 
@@ -244,7 +275,10 @@ pub fn answer_systemd_mounts(probes: &[ProbeResult], route_class: &str) -> Optio
         ("No systemd mount units found.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("Systemd mount units ({}):\n```\n{}\n```", count, output), count)
+        (
+            format!("Systemd mount units ({}):\n```\n{}\n```", count, output),
+            count,
+        )
     };
 
     Some(DeterministicResult {

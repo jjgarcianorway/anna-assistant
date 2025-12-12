@@ -4,7 +4,9 @@
 //! v0.0.240: Added idle-time tips during user inactivity.
 //! v0.0.343: Use centralized UI helpers for consistency.
 
-use anna_shared::clarification_learning::{record_clarification_learning, ClarificationLearningStore};
+use anna_shared::clarification_learning::{
+    record_clarification_learning, ClarificationLearningStore,
+};
 use anna_shared::clarify_v2::{ClarifyRequest, ClarifyResponse};
 use anna_shared::config_parser::is_config_request;
 use anna_shared::idle_tips::{format_tip, get_contextual_tips, TipColors, TipQueue};
@@ -48,7 +50,7 @@ pub async fn handle_repl() -> Result<()> {
     };
 
     // Theatre-style greeting with status awareness
-    greeting::print_theatre_greeting(status.as_ref());
+    greeting::print_theatre_greeting(status.as_ref()).await;
 
     // Check if LLM needs bootstrap
     if let Some(ref st) = status {
@@ -191,13 +193,21 @@ pub async fn handle_repl() -> Result<()> {
                             match handle_proposed_change(&proposed).await {
                                 Ok(summary) => {
                                     if summary.failed {
-                                        print_label("config", "Error applying changes", colors::ERR);
+                                        print_label(
+                                            "config",
+                                            "Error applying changes",
+                                            colors::ERR,
+                                        );
                                     } else if summary.applied > 0 {
-                                        print_label("config", &format!(
-                                            "Applied {} change{}",
-                                            summary.applied,
-                                            if summary.applied == 1 { "" } else { "s" }
-                                        ), colors::OK);
+                                        print_label(
+                                            "config",
+                                            &format!(
+                                                "Applied {} change{}",
+                                                summary.applied,
+                                                if summary.applied == 1 { "" } else { "s" }
+                                            ),
+                                            colors::OK,
+                                        );
                                     }
                                 }
                                 Err(e) => {
@@ -208,7 +218,7 @@ pub async fn handle_repl() -> Result<()> {
 
                         // Handle feedback request
                         if let Some(ref feedback_req) = result.feedback_request {
-                            handle_feedback_request(feedback_req).await;
+                            handle_feedback_request(feedback_req, &result.answer).await;
                         }
 
                         // Handle clarification request
@@ -216,10 +226,7 @@ pub async fn handle_repl() -> Result<()> {
                             // v0.0.401: Check if we can auto-answer from learned preferences
                             let learning_store = ClarificationLearningStore::load();
                             if let Some(auto_answer) = learning_store.can_auto_answer(req) {
-                                print_hint(&format!(
-                                    "Using learned preference: {}",
-                                    auto_answer
-                                ));
+                                print_hint(&format!("Using learned preference: {}", auto_answer));
                                 // Reinforce the learning
                                 record_clarification_learning(req, auto_answer);
                             } else {
@@ -266,8 +273,8 @@ async fn read_with_idle_tips(
 
     loop {
         // Check if we should show tips (respect session limit)
-        let should_show_tips = tip_queue.has_tips()
-            && tip_queue.shown_count() < MAX_TIPS_PER_SESSION;
+        let should_show_tips =
+            tip_queue.has_tips() && tip_queue.shown_count() < MAX_TIPS_PER_SESSION;
 
         if should_show_tips {
             // Use select with timeout to detect idle

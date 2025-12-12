@@ -7,7 +7,7 @@
 //!
 //! This rule is ABSOLUTE.
 
-use super::intent::{QuestionIntent, IntentCategory, Scope, Units};
+use super::intent::{IntentCategory, QuestionIntent, Scope, Units};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -189,15 +189,17 @@ impl AnswerPlan {
             !self.fields.is_empty()
         } else {
             // All required fields must be present
-            self.shape.allowed_fields.iter().all(|required| {
-                self.fields.iter().any(|f| &f.name == required)
-            })
+            self.shape
+                .allowed_fields
+                .iter()
+                .all(|required| self.fields.iter().any(|f| &f.name == required))
         }
     }
 
     /// Get missing required fields.
     pub fn missing_fields(&self) -> Vec<String> {
-        self.shape.allowed_fields
+        self.shape
+            .allowed_fields
             .iter()
             .filter(|required| !self.fields.iter().any(|f| &f.name == *required))
             .cloned()
@@ -226,9 +228,7 @@ impl AnswerPlan {
     fn render_boolean(&self) -> String {
         if let Some(field) = self.fields.first() {
             match &field.value {
-                AnswerValue::Boolean(b) => {
-                    if *b { "Yes." } else { "No." }.to_string()
-                }
+                AnswerValue::Boolean(b) => if *b { "Yes." } else { "No." }.to_string(),
                 AnswerValue::String(s) => s.clone(),
                 _ => "Unknown.".to_string(),
             }
@@ -256,7 +256,13 @@ impl AnswerPlan {
 
         self.fields
             .iter()
-            .map(|f| format!("{}: {}", f.name, f.value.format_with_units(self.shape.units)))
+            .map(|f| {
+                format!(
+                    "{}: {}",
+                    f.name,
+                    f.value.format_with_units(self.shape.units)
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -299,10 +305,7 @@ pub struct ShapeEnforcer;
 
 impl ShapeEnforcer {
     /// Filter specialist output to match intent.
-    pub fn enforce(
-        intent: &QuestionIntent,
-        raw_fields: Vec<AnswerField>,
-    ) -> EnforcementResult {
+    pub fn enforce(intent: &QuestionIntent, raw_fields: Vec<AnswerField>) -> EnforcementResult {
         let mut plan = AnswerPlan::new(intent);
 
         for field in raw_fields {
@@ -319,10 +322,7 @@ impl ShapeEnforcer {
     }
 
     /// Check if a raw answer violates constraints.
-    pub fn check_violations(
-        intent: &QuestionIntent,
-        raw_text: &str,
-    ) -> Vec<ShapeViolation> {
+    pub fn check_violations(intent: &QuestionIntent, raw_text: &str) -> Vec<ShapeViolation> {
         let mut violations = Vec::new();
 
         // Check for tutorial leakage in fact/status questions
@@ -337,9 +337,9 @@ impl ShapeEnforcer {
 
         // Check for off-topic content
         let subject_keywords = get_subject_keywords(intent.subject);
-        let has_subject_content = subject_keywords.iter().any(|k| {
-            raw_text.to_lowercase().contains(k)
-        });
+        let has_subject_content = subject_keywords
+            .iter()
+            .any(|k| raw_text.to_lowercase().contains(k));
 
         if !has_subject_content && !intent.allows_extras() {
             violations.push(ShapeViolation::OffTopic);
@@ -381,10 +381,27 @@ fn get_subject_keywords(subject: super::intent::Subject) -> Vec<&'static str> {
     match subject {
         Subject::Memory => vec!["memory", "ram", "swap", "free", "available", "cached"],
         Subject::Cpu => vec!["cpu", "processor", "core", "thread", "frequency", "ghz"],
-        Subject::Disk => vec!["disk", "storage", "filesystem", "mount", "partition", "gb", "tb"],
+        Subject::Disk => vec![
+            "disk",
+            "storage",
+            "filesystem",
+            "mount",
+            "partition",
+            "gb",
+            "tb",
+        ],
         Subject::Service => vec!["service", "systemd", "unit", "running", "active", "failed"],
-        Subject::Network => vec!["network", "interface", "ip", "ethernet", "wifi", "connection"],
-        Subject::Gpu => vec!["gpu", "graphics", "nvidia", "amd", "intel", "driver", "video"],
+        Subject::Network => vec![
+            "network",
+            "interface",
+            "ip",
+            "ethernet",
+            "wifi",
+            "connection",
+        ],
+        Subject::Gpu => vec![
+            "gpu", "graphics", "nvidia", "amd", "intel", "driver", "video",
+        ],
         Subject::Boot => vec!["boot", "startup", "init", "kernel", "systemd-analyze"],
         Subject::Audio => vec!["audio", "sound", "pulseaudio", "pipewire", "alsa", "volume"],
         Subject::Packages => vec!["package", "installed", "pacman", "apt", "dnf", "version"],
@@ -423,7 +440,7 @@ fn format_duration(seconds: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::question_contract::intent::{IntentBuilder, IntentCategory, Subject, Scope};
+    use crate::question_contract::intent::{IntentBuilder, IntentCategory, Scope, Subject};
 
     #[test]
     fn test_answer_plan_filters_disallowed_fields() {
@@ -437,11 +454,20 @@ mod tests {
         let mut plan = AnswerPlan::new(&intent);
 
         // Add allowed field
-        plan.add_field(AnswerField::new("free", AnswerValue::String("4.2 GB".to_string())));
+        plan.add_field(AnswerField::new(
+            "free",
+            AnswerValue::String("4.2 GB".to_string()),
+        ));
 
         // Try to add disallowed field
-        plan.add_field(AnswerField::new("total", AnswerValue::String("16 GB".to_string())));
-        plan.add_field(AnswerField::new("cached", AnswerValue::String("2 GB".to_string())));
+        plan.add_field(AnswerField::new(
+            "total",
+            AnswerValue::String("16 GB".to_string()),
+        ));
+        plan.add_field(AnswerField::new(
+            "cached",
+            AnswerValue::String("2 GB".to_string()),
+        ));
 
         // Only allowed field should be present
         assert_eq!(plan.fields.len(), 1);
@@ -495,9 +521,18 @@ mod tests {
         let mut plan = AnswerPlan::new(&intent);
 
         // All fields should be allowed
-        plan.add_field(AnswerField::new("cause", AnswerValue::String("Slow disk".to_string())));
-        plan.add_field(AnswerField::new("evidence", AnswerValue::String("iostat".to_string())));
-        plan.add_field(AnswerField::new("suggestion", AnswerValue::String("Check SSD".to_string())));
+        plan.add_field(AnswerField::new(
+            "cause",
+            AnswerValue::String("Slow disk".to_string()),
+        ));
+        plan.add_field(AnswerField::new(
+            "evidence",
+            AnswerValue::String("iostat".to_string()),
+        ));
+        plan.add_field(AnswerField::new(
+            "suggestion",
+            AnswerValue::String("Check SSD".to_string()),
+        ));
 
         assert_eq!(plan.fields.len(), 3);
         assert!(plan.discarded.is_empty());
@@ -524,8 +559,14 @@ mod tests {
             .build();
 
         let mut plan = AnswerPlan::new(&intent);
-        plan.add_field(AnswerField::new("item", AnswerValue::String("nginx.service".to_string())));
-        plan.add_field(AnswerField::new("item", AnswerValue::String("apache.service".to_string())));
+        plan.add_field(AnswerField::new(
+            "item",
+            AnswerValue::String("nginx.service".to_string()),
+        ));
+        plan.add_field(AnswerField::new(
+            "item",
+            AnswerValue::String("apache.service".to_string()),
+        ));
 
         let rendered = plan.render();
         assert!(rendered.contains("nginx.service"));

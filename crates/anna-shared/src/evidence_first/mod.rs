@@ -11,24 +11,24 @@
 //! - Probes are primitives, not one-off scripts
 //! - Recipes require proof before promotion
 
-pub mod sources;
 pub mod citations;
-pub mod research;
+pub mod enforcement;
 pub mod primitives;
 pub mod probe_plan;
 pub mod recipes;
-pub mod wiki_cache;
-pub mod enforcement;
+pub mod research;
+pub mod sources;
 pub mod tests;
+pub mod wiki_cache;
 
-pub use sources::{KnowledgeSource, ManPageSource, HelpTextSource, LocalDocsSource};
 pub use citations::{Citation, CitationStore, EvidenceId};
+pub use enforcement::{Claim, ClaimValidator, SupportedClaim};
+pub use primitives::{Domain, ParserId, PrimitiveLibrary, ProbePrimitive};
+pub use probe_plan::{ProbeOutput, ProbePlan, ProbeSelection};
+pub use recipes::{RecipeCandidate, RecipePromoter, RecipeTemplate};
 pub use research::{ResearchLoop, ResearchPlan, ResearchResult};
-pub use primitives::{ProbePrimitive, PrimitiveLibrary, Domain, ParserId};
-pub use probe_plan::{ProbePlan, ProbeSelection, ProbeOutput};
-pub use recipes::{RecipeTemplate, RecipeCandidate, RecipePromoter};
+pub use sources::{HelpTextSource, KnowledgeSource, LocalDocsSource, ManPageSource};
 pub use wiki_cache::{WikiCache, WikiPage, WikiSearchResult};
-pub use enforcement::{ClaimValidator, Claim, SupportedClaim};
 
 /// Maximum probes per ticket.
 pub const MAX_PROBES_PER_TICKET: usize = 5;

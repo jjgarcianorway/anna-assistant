@@ -42,7 +42,12 @@ impl ReasoningEvidence {
         let facts: HashMap<String, serde_json::Value> = bundle
             .facts
             .iter()
-            .map(|(k, v)| (k.clone(), serde_json::to_value(v).unwrap_or(serde_json::Value::Null)))
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    serde_json::to_value(v).unwrap_or(serde_json::Value::Null),
+                )
+            })
             .collect();
 
         Self {
@@ -248,10 +253,7 @@ impl ReasoningValidator {
 
         // Check confidence range
         if output.confidence < 0.0 || output.confidence > 1.0 {
-            errors.push(format!(
-                "confidence out of range: {}",
-                output.confidence
-            ));
+            errors.push(format!("confidence out of range: {}", output.confidence));
         }
 
         // If can_answer=false, requires must not be empty
@@ -289,7 +291,10 @@ pub fn parse_reasoning_output(raw: &str) -> Result<ReasoningOutput, String> {
         }
     }
 
-    Err(format!("Failed to parse reasoning output: {}", truncate(raw, 100)))
+    Err(format!(
+        "Failed to parse reasoning output: {}",
+        truncate(raw, 100)
+    ))
 }
 
 /// Reasoning quality check.
@@ -345,12 +350,9 @@ mod tests {
 
     #[test]
     fn test_reasoning_output_answerable() {
-        let output = ReasoningOutput::answerable(
-            "DSK-0127",
-            "Memory free is 17 GiB from evidence.",
-            0.95,
-        )
-        .with_metric("17.0 GiB");
+        let output =
+            ReasoningOutput::answerable("DSK-0127", "Memory free is 17 GiB from evidence.", 0.95)
+                .with_metric("17.0 GiB");
 
         assert!(output.can_answer);
         assert_eq!(output.derived.metric, Some("17.0 GiB".to_string()));
@@ -373,7 +375,10 @@ mod tests {
     #[test]
     fn test_reasoning_validation() {
         let mut bundle = EvidenceBundle::new("DSK-0127");
-        bundle.add_fact("memory.free_gib", super::super::evidence::FactValue::Number(17.0));
+        bundle.add_fact(
+            "memory.free_gib",
+            super::super::evidence::FactValue::Number(17.0),
+        );
 
         let validator = ReasoningValidator::new("DSK-0127", &bundle);
 

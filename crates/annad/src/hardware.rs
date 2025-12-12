@@ -35,7 +35,11 @@ pub fn probe_hardware() -> Result<HardwareInfo> {
             .as_ref()
             .map(|g| g.model.as_str())
             .unwrap_or("none"),
-        if info.distro.is_empty() { &info.os_name } else { &info.distro },
+        if info.distro.is_empty() {
+            &info.os_name
+        } else {
+            &info.distro
+        },
         &info.kernel
     );
 

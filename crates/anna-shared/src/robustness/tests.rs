@@ -29,10 +29,11 @@ fn test_ram_query_success() {
 
     // Simulate LLM success
     tracker.start_stage(TimeoutStage::JuniorLlm);
-    let result = SpecialistResult::success("You have 17.0 GiB free out of 31.0 GiB total (54% available).")
-        .with_handler("Sofia", "Desktop")
-        .with_confidence(0.95)
-        .with_evidence(EvidenceRef::new("proc_meminfo", "mem_001"));
+    let result =
+        SpecialistResult::success("You have 17.0 GiB free out of 31.0 GiB total (54% available).")
+            .with_handler("Sofia", "Desktop")
+            .with_confidence(0.95)
+            .with_evidence(EvidenceRef::new("proc_meminfo", "mem_001"));
     tracker.end_current_stage();
 
     // Apply outcome
@@ -70,7 +71,8 @@ fn test_ram_query_parse_failure_fallback() {
         "proc_meminfo",
         "MemTotal:       32896136 kB\nMemFree:         8234567 kB\nMemAvailable:   17825792 kB\n",
         true,
-    ).with_duration(30)];
+    )
+    .with_duration(30)];
 
     // Generate fallback
     let result = generator.generate_result(&evidence, "LLM parse failed");
@@ -117,7 +119,10 @@ fn test_mixed_session_stats() {
 
     // 6 successes
     for i in 0..6 {
-        stats_engine.record_ticket(TicketStats::new(&format!("T-{}", i), TicketOutcome::Success));
+        stats_engine.record_ticket(TicketStats::new(
+            &format!("T-{}", i),
+            TicketOutcome::Success,
+        ));
     }
 
     // 2 timeouts
@@ -193,7 +198,10 @@ fn test_clarification_not_resolved() {
     let mut stats = TruthfulStats::default();
 
     // Clarification required
-    stats.record(&TicketStats::new("T-1", TicketOutcome::ClarificationRequired), 0);
+    stats.record(
+        &TicketStats::new("T-1", TicketOutcome::ClarificationRequired),
+        0,
+    );
 
     // Should not count as success or failure
     assert_eq!(stats.successes, 0);
@@ -201,7 +209,10 @@ fn test_clarification_not_resolved() {
     assert_eq!(stats.awaiting_clarification, 1);
 
     // After clarification, success
-    stats.record(&TicketStats::new("T-1-followup", TicketOutcome::Success), 10);
+    stats.record(
+        &TicketStats::new("T-1-followup", TicketOutcome::Success),
+        10,
+    );
 
     assert_eq!(stats.successes, 1);
     assert_eq!(stats.total_resolved(), 1);
@@ -279,7 +290,9 @@ fn test_lifecycle_transitions() {
     assert_eq!(ticket.state, TicketState::InProgress);
 
     // Clarification flow
-    ticket.apply_outcome(TicketOutcome::ClarificationRequired).unwrap();
+    ticket
+        .apply_outcome(TicketOutcome::ClarificationRequired)
+        .unwrap();
     assert_eq!(ticket.state, TicketState::AwaitingClarification);
 
     ticket.provide_clarification("more info").unwrap();
@@ -363,7 +376,7 @@ fn test_xp_calculation() {
         ticket_id: "T1".to_string(),
         outcome: TicketOutcome::Success,
         processing_time_ms: 1000, // Fast
-        probes_count: 3, // Complexity bonus
+        probes_count: 3,          // Complexity bonus
         ..TicketStats::new("T1", TicketOutcome::Success)
     });
     let xp_after_success = engine.stats().total_xp;

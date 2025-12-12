@@ -31,8 +31,8 @@ pub use pipeline::{
 };
 pub use reasoning::{
     build_reasoning_prompt, parse_reasoning_output, DerivedValues, ReasoningEvidence,
-    ReasoningOutput, ReasoningQuality, ReasoningRequest, ReasoningValidator,
-    MAX_REASONING_CHARS, REASONING_SYSTEM_PROMPT,
+    ReasoningOutput, ReasoningQuality, ReasoningRequest, ReasoningValidator, MAX_REASONING_CHARS,
+    REASONING_SYSTEM_PROMPT,
 };
 pub use translator::{
     DirectAnswerBuilder, PrecisionTranslator, TranslatedAnswer, TranslationError,

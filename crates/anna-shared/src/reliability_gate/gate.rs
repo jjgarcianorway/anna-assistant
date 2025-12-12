@@ -60,27 +60,13 @@ impl GateOutcome {
     pub fn failure_message(&self) -> &'static str {
         match self {
             Self::Pass => "",
-            Self::FailedNoEvidence => {
-                "I don't have enough verified data to answer this yet."
-            }
-            Self::FailedTimeout => {
-                "I couldn't complete the analysis in time. Please try again."
-            }
-            Self::FailedParse => {
-                "I encountered an internal error processing this request."
-            }
-            Self::FailedLowConfidence => {
-                "I'm not confident enough in my answer to show it."
-            }
-            Self::FailedAmbiguousQuery => {
-                "I need more details to answer this accurately."
-            }
-            Self::FailedContractViolation => {
-                "I couldn't produce an answer in the expected format."
-            }
-            Self::FailedNoClaims => {
-                "I don't have any verified information to share."
-            }
+            Self::FailedNoEvidence => "I don't have enough verified data to answer this yet.",
+            Self::FailedTimeout => "I couldn't complete the analysis in time. Please try again.",
+            Self::FailedParse => "I encountered an internal error processing this request.",
+            Self::FailedLowConfidence => "I'm not confident enough in my answer to show it.",
+            Self::FailedAmbiguousQuery => "I need more details to answer this accurately.",
+            Self::FailedContractViolation => "I couldn't produce an answer in the expected format.",
+            Self::FailedNoClaims => "I don't have any verified information to share.",
             Self::FailedGenericAnswer => {
                 "I don't have specific information to answer this question."
             }
@@ -90,12 +76,8 @@ impl GateOutcome {
             Self::FailedDomainMismatch => {
                 "I gathered information from the wrong area. Let me refocus."
             }
-            Self::FailedHallucination => {
-                "I couldn't verify some details in my answer."
-            }
-            Self::FailedProbeCoverage => {
-                "Some system checks failed or returned incomplete data."
-            }
+            Self::FailedHallucination => "I couldn't verify some details in my answer.",
+            Self::FailedProbeCoverage => "Some system checks failed or returned incomplete data.",
         }
     }
 
@@ -370,24 +352,14 @@ impl ReliabilityGate {
         // Check 1: No timeout
         if input.timeout_occurred {
             checks.push(GateCheck::fail("no_timeout", "Timeout occurred"));
-            return GateResult::fail(
-                &input.request_id,
-                GateOutcome::FailedTimeout,
-                checks,
-                0.0,
-            );
+            return GateResult::fail(&input.request_id, GateOutcome::FailedTimeout, checks, 0.0);
         }
         checks.push(GateCheck::pass("no_timeout"));
 
         // Check 2: No parse errors
         if input.parse_error_occurred {
             checks.push(GateCheck::fail("no_parse_error", "Parse error occurred"));
-            return GateResult::fail(
-                &input.request_id,
-                GateOutcome::FailedParse,
-                checks,
-                0.0,
-            );
+            return GateResult::fail(&input.request_id, GateOutcome::FailedParse, checks, 0.0);
         }
         checks.push(GateCheck::pass("no_parse_error"));
 
@@ -427,12 +399,7 @@ impl ReliabilityGate {
         // Check 5: Has claims
         if input.binding.claims.is_empty() {
             checks.push(GateCheck::fail("has_claims", "No claims in answer"));
-            return GateResult::fail(
-                &input.request_id,
-                GateOutcome::FailedNoClaims,
-                checks,
-                0.0,
-            );
+            return GateResult::fail(&input.request_id, GateOutcome::FailedNoClaims, checks, 0.0);
         }
         checks.push(GateCheck::pass("has_claims"));
 

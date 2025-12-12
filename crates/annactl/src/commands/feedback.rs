@@ -11,13 +11,19 @@ use anna_shared::ui::{colors, print_hint, print_label};
 use anyhow::Result;
 use std::io::{self, Write};
 
+use crate::client::AnnadClient;
 use crate::display::show_bootstrap_progress;
 use crate::errors;
+use anna_shared::rpc::params::ClaimFeedbackParams;
+use anna_shared::rpc::RpcMethod;
 
 /// v0.0.103: Handle feedback request from Anna
 /// When Anna is uncertain about a recipe answer, she asks the user for feedback
 /// v0.0.317: Also updates staff XP based on feedback
-pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback::FeedbackRequest) {
+pub async fn handle_feedback_request(
+    feedback_req: &anna_shared::recipe_feedback::FeedbackRequest,
+    answer: &str,
+) {
     use anna_shared::recipe_feedback::{
         apply_feedback, log_feedback, FeedbackRating, RecipeFeedback,
     };
@@ -55,7 +61,10 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
         if let Some(result) = apply_feedback(&feedback) {
             print_label(
                 "ok",
-                &format!("Recipe confidence adjusted ({} → {})", result.previous_score, result.new_score),
+                &format!(
+                    "Recipe confidence adjusted ({} → {})",
+                    result.previous_score, result.new_score
+                ),
                 colors::OK,
             );
         } else {
@@ -70,6 +79,23 @@ pub async fn handle_feedback_request(feedback_req: &anna_shared::recipe_feedback
         if let Some(ref query) = feedback_req.original_query {
             apply_learning_feedback(query, helpful);
         }
+
+        // Add feedback to TruthLedger
+        let positive_feedback = matches!(r, FeedbackRating::Helpful);
+        let params = ClaimFeedbackParams {
+            claim_text: answer.to_string(),
+            positive_feedback,
+        };
+
+        // Create a new client for each request
+        if let Ok(mut client) = AnnadClient::connect().await {
+            let _ = client
+                .send_rpc(
+                    RpcMethod::SubmitClaimFeedback,
+                    Some(serde_json::to_value(params).unwrap()),
+                )
+                .await;
+        }
     }
 }
 
@@ -83,7 +109,11 @@ fn apply_learning_feedback(query: &str, helpful: bool) {
     // This helps the learning system understand which categories need more attention
     let probes: Vec<String> = vec![]; // Empty probes - just category feedback
 
-    let failure_reason = if helpful { None } else { Some("user_marked_unhelpful") };
+    let failure_reason = if helpful {
+        None
+    } else {
+        Some("user_marked_unhelpful")
+    };
 
     store.record_feedback(category, &probes, helpful, Some(query), failure_reason);
 
@@ -107,7 +137,10 @@ fn apply_staff_feedback(helpful: bool) {
                 let staff_name = staff_id.split('_').last().unwrap_or(&staff_id);
                 print_label(
                     "staff",
-                    &format!("{} {} (level {} → {})", staff_name, direction, result.old_level, result.new_level),
+                    &format!(
+                        "{} {} (level {} → {})",
+                        staff_name, direction, result.old_level, result.new_level
+                    ),
                     colors::DIM,
                 );
             }

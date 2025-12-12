@@ -240,7 +240,10 @@ impl TicketLifecycle {
         if self.state != TicketState::AwaitingClarification {
             return Err(LifecycleError::NotAwaitingClarification);
         }
-        self.transition_to(TicketState::InProgress, &format!("Clarification: {}", answer))
+        self.transition_to(
+            TicketState::InProgress,
+            &format!("Clarification: {}", answer),
+        )
     }
 
     /// Get duration since created.
@@ -278,7 +281,12 @@ impl std::fmt::Display for LifecycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::InvalidTransition { from, to } => {
-                write!(f, "Cannot transition from {} to {}", from.label(), to.label())
+                write!(
+                    f,
+                    "Cannot transition from {} to {}",
+                    from.label(),
+                    to.label()
+                )
             }
             Self::NotAwaitingClarification => {
                 write!(f, "Ticket is not awaiting clarification")
@@ -323,7 +331,9 @@ mod tests {
         let mut ticket = TicketLifecycle::new("DSK-002", "fix my service");
 
         ticket.start_processing().unwrap();
-        ticket.apply_outcome(TicketOutcome::ClarificationRequired).unwrap();
+        ticket
+            .apply_outcome(TicketOutcome::ClarificationRequired)
+            .unwrap();
 
         assert_eq!(ticket.state, TicketState::AwaitingClarification);
         assert!(!ticket.state.is_terminal());
@@ -363,7 +373,9 @@ mod tests {
     fn test_followup_tickets() {
         let mut parent = TicketLifecycle::new("DSK-005", "original question");
         parent.start_processing().unwrap();
-        parent.apply_outcome(TicketOutcome::ClarificationRequired).unwrap();
+        parent
+            .apply_outcome(TicketOutcome::ClarificationRequired)
+            .unwrap();
 
         let followup = parent.create_followup("DSK-005-1", "clarifying answer");
 

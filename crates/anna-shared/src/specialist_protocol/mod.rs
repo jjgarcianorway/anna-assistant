@@ -12,19 +12,19 @@
 //! - Parse failures become honest "failure" outcomes
 //! - No generic tutorials when user asked for current state
 
-pub mod schema;
-pub mod validator;
 pub mod fallback;
+pub mod guardrails;
 pub mod outcome;
 pub mod parser;
-pub mod guardrails;
+pub mod schema;
+pub mod validator;
 
-pub use schema::*;
-pub use validator::*;
 pub use fallback::*;
+pub use guardrails::*;
 pub use outcome::*;
 pub use parser::*;
-pub use guardrails::*;
+pub use schema::*;
+pub use validator::*;
 
 /// Minimum confidence for learning recipes from a response
 pub const MIN_LEARN_CONFIDENCE: f32 = 0.8;

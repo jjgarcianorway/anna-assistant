@@ -177,10 +177,7 @@ impl EvidenceCache {
 
     /// Get entries by domain
     pub fn by_domain(&self, domain: &str) -> Vec<&EvidenceEntry> {
-        self.entries
-            .iter()
-            .filter(|e| e.domain == domain)
-            .collect()
+        self.entries.iter().filter(|e| e.domain == domain).collect()
     }
 
     /// Get entries by intent
@@ -218,13 +215,20 @@ impl EvidenceCache {
     }
 
     /// Get similar entries to a ticket
-    pub fn similar_to_ticket(&self, domain: &str, intent: &str, keywords: &[&str]) -> Vec<&EvidenceEntry> {
+    pub fn similar_to_ticket(
+        &self,
+        domain: &str,
+        intent: &str,
+        keywords: &[&str],
+    ) -> Vec<&EvidenceEntry> {
         self.entries
             .iter()
             .filter(|e| {
                 e.domain == domain
                     || e.intent.as_deref() == Some(intent)
-                    || keywords.iter().any(|kw| e.keywords.contains(&kw.to_string()))
+                    || keywords
+                        .iter()
+                        .any(|kw| e.keywords.contains(&kw.to_string()))
             })
             .take(10)
             .collect()
@@ -232,22 +236,18 @@ impl EvidenceCache {
 
     /// Get man page evidence for a command
     pub fn get_man_page(&self, command: &str) -> Option<&EvidenceEntry> {
-        self.entries
-            .iter()
-            .find(|e| {
-                e.evidence_type == EvidenceType::ManPage
-                    && e.citation.as_deref() == Some(&format!("man:{}", command))
-            })
+        self.entries.iter().find(|e| {
+            e.evidence_type == EvidenceType::ManPage
+                && e.citation.as_deref() == Some(&format!("man:{}", command))
+        })
     }
 
     /// Get help evidence for a command
     pub fn get_help(&self, command: &str) -> Option<&EvidenceEntry> {
-        self.entries
-            .iter()
-            .find(|e| {
-                e.evidence_type == EvidenceType::HelpOutput
-                    && e.citation.as_deref() == Some(&format!("help:{}", command))
-            })
+        self.entries.iter().find(|e| {
+            e.evidence_type == EvidenceType::HelpOutput
+                && e.citation.as_deref() == Some(&format!("help:{}", command))
+        })
     }
 
     /// Prune old entries (older than days)
@@ -298,12 +298,12 @@ impl EvidenceCache {
 
 /// Extract keywords from text
 fn extract_keywords(text: &str) -> Vec<String> {
-    let stopwords = ["the", "a", "an", "is", "are", "was", "were", "be", "been",
-                     "being", "have", "has", "had", "do", "does", "did", "will",
-                     "would", "could", "should", "may", "might", "must", "shall",
-                     "can", "to", "of", "in", "for", "on", "with", "at", "by",
-                     "from", "or", "and", "not", "no", "but", "if", "then", "else",
-                     "this", "that", "these", "those", "it", "its"];
+    let stopwords = [
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "shall",
+        "can", "to", "of", "in", "for", "on", "with", "at", "by", "from", "or", "and", "not", "no",
+        "but", "if", "then", "else", "this", "that", "these", "those", "it", "its",
+    ];
 
     text.to_lowercase()
         .split(|c: char| !c.is_alphanumeric() && c != '-' && c != '_')
@@ -350,7 +350,8 @@ mod tests {
 
     #[test]
     fn test_evidence_entry_creation() {
-        let entry = EvidenceEntry::probe_output("free", "Mem: 16000 8000 8000", "performance.memory");
+        let entry =
+            EvidenceEntry::probe_output("free", "Mem: 16000 8000 8000", "performance.memory");
         assert!(entry.id.starts_with("probe:free:"));
         assert_eq!(entry.evidence_type, EvidenceType::ProbeOutput);
         assert!(entry.citation.unwrap().contains("probe:free"));
@@ -375,7 +376,11 @@ mod tests {
     #[test]
     fn test_cache_search() {
         let mut cache = EvidenceCache::new(100);
-        cache.add(EvidenceEntry::probe_output("free", "memory available 8000", "memory"));
+        cache.add(EvidenceEntry::probe_output(
+            "free",
+            "memory available 8000",
+            "memory",
+        ));
         cache.add(EvidenceEntry::probe_output("df", "disk usage 50%", "disk"));
 
         let results = cache.search(&["memory"]);

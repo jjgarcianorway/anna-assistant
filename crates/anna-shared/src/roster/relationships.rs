@@ -256,7 +256,9 @@ pub fn get_shift_buddies(person_id: &str) -> Vec<&'static str> {
 
 /// Get rival (if any) for a person
 pub fn get_rival(person_id: &str) -> Option<&'static str> {
-    relationships_of_type(person_id, RelationType::Rival).first().copied()
+    relationships_of_type(person_id, RelationType::Rival)
+        .first()
+        .copied()
 }
 
 /// Check if two people have a relationship
@@ -303,7 +305,12 @@ pub fn escalation_phrase(junior_id: &str, senior_id: &str, seed: u64) -> &'stati
 }
 
 /// Get a relationship-aware response from senior to junior
-pub fn senior_response_phrase(senior_id: &str, junior_id: &str, helpful: bool, seed: u64) -> &'static str {
+pub fn senior_response_phrase(
+    senior_id: &str,
+    junior_id: &str,
+    helpful: bool,
+    seed: u64,
+) -> &'static str {
     let rel = have_relationship(senior_id, junior_id);
     let phrases: &[&str] = match (rel, helpful) {
         (Some(RelationType::Mentor), true) => &[

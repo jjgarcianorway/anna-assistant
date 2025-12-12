@@ -13,20 +13,20 @@
 //!
 //! v0.0.410: Evidence pipeline integration - specialists now receive structured evidence
 
-use anna_shared::rpc::{ProbeResult, SpecialistDomain, TranslatorTicket, QueryIntent};
+use anna_shared::rpc::{ProbeResult, QueryIntent, SpecialistDomain, TranslatorTicket};
 use anna_shared::specialist_contract::SpecialistResponse;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, error, info, warn};
 
 use crate::evidence_integration::{
-    build_evidence_for_specialist, build_enhanced_specialist_input, EvidenceIntegrationResult,
+    build_enhanced_specialist_input, build_evidence_for_specialist, EvidenceIntegrationResult,
 };
 use crate::ollama;
-use crate::response_renderer::{render_response, format_for_display, RenderedResponse};
-use crate::specialist_prompt::{build_specialist_prompt, build_specialist_input};
+use crate::response_renderer::{format_for_display, render_response, RenderedResponse};
+use crate::specialist_prompt::{build_specialist_input, build_specialist_prompt};
 
 /// Result of JSON specialist processing
 #[derive(Debug, Clone)]
@@ -50,6 +50,7 @@ pub async fn call_json_specialist_with_evidence(
     probe_results: &[ProbeResult],
     model: &str,
     timeout_secs: u64,
+    context_claims: Option<String>, // Added context_claims parameter
 ) -> JsonSpecialistResult {
     // Build evidence using the pipeline
     let evidence_result = build_evidence_for_specialist(ticket, ticket_id, question, probe_results);
@@ -81,6 +82,7 @@ pub async fn call_json_specialist_with_evidence(
         &ticket.intent.to_string().to_lowercase(),
         question,
         &evidence_result.bundle,
+        context_claims, // Pass context claims
     );
 
     info!(
@@ -138,7 +140,15 @@ pub async fn call_json_specialist(
         probes.len()
     );
 
-    call_llm_with_prompt(&system_prompt, &user_message, ticket_id, domain, model, timeout_secs).await
+    call_llm_with_prompt(
+        &system_prompt,
+        &user_message,
+        ticket_id,
+        domain,
+        model,
+        timeout_secs,
+    )
+    .await
 }
 
 /// Internal: Call LLM with prepared prompts
@@ -153,10 +163,7 @@ async fn call_llm_with_prompt(
     // Full prompt for LLM
     let full_prompt = format!("{}\n\n{}", system_prompt, user_message);
 
-    debug!(
-        "LLM prompt length: {} chars",
-        full_prompt.len()
-    );
+    debug!("LLM prompt length: {} chars", full_prompt.len());
 
     // Call LLM with streaming
     let token_count = Arc::new(AtomicUsize::new(0));
@@ -164,14 +171,9 @@ async fn call_llm_with_prompt(
 
     let result = timeout(
         Duration::from_secs(timeout_secs),
-        ollama::chat_streaming_with_retry(
-            model,
-            &full_prompt,
-            timeout_secs,
-            move |_token| {
-                token_count_clone.fetch_add(1, Ordering::Relaxed);
-            },
-        ),
+        ollama::chat_streaming_with_retry(model, &full_prompt, timeout_secs, move |_token| {
+            token_count_clone.fetch_add(1, Ordering::Relaxed);
+        }),
     )
     .await;
 
@@ -248,8 +250,8 @@ fn parse_specialist_json(raw: &str, ticket_id: &str) -> Result<SpecialistRespons
     let json_str = extract_json_object(raw)?;
 
     // Parse JSON
-    let mut response: SpecialistResponse = serde_json::from_str(&json_str)
-        .map_err(|e| format!("JSON parse error: {}", e))?;
+    let mut response: SpecialistResponse =
+        serde_json::from_str(&json_str).map_err(|e| format!("JSON parse error: {}", e))?;
 
     // v0.0.409: Validate for forbidden patterns
     let validation_errors = response.validate();
@@ -262,11 +264,20 @@ fn parse_specialist_json(raw: &str, ticket_id: &str) -> Result<SpecialistRespons
         response.confidence = response.confidence.min(0.3);
         if let Some(ref mut staff_view) = response.staff_view {
             staff_view.mood = anna_shared::specialist_contract::Mood::Blocked;
-            staff_view.short_note = Some(format!("Validation failed: {}", validation_errors.join(", ")));
+            staff_view.short_note = Some(format!(
+                "Validation failed: {}",
+                validation_errors.join(", ")
+            ));
         }
         // If forbidden pattern detected, this is an error
-        if validation_errors.iter().any(|e| e.contains("forbidden pattern")) {
-            return Err(format!("Validation failed: {}", validation_errors.join(", ")));
+        if validation_errors
+            .iter()
+            .any(|e| e.contains("forbidden pattern"))
+        {
+            return Err(format!(
+                "Validation failed: {}",
+                validation_errors.join(", ")
+            ));
         }
     }
 

@@ -153,8 +153,7 @@ impl RecipeStorageV2 {
     pub fn clear_user_recipes(&mut self) -> Result<(), String> {
         let dir = user_recipe_dir();
         if dir.exists() {
-            std::fs::remove_dir_all(&dir)
-                .map_err(|e| format!("Failed to clear recipes: {}", e))?;
+            std::fs::remove_dir_all(&dir).map_err(|e| format!("Failed to clear recipes: {}", e))?;
         }
 
         // Remove user recipes from memory
@@ -226,11 +225,10 @@ fn load_recipes_from_dir(base_dir: &Path, is_global: bool) -> Result<Vec<RecipeV
 
 /// Load a single recipe file
 fn load_recipe_file(path: &Path, is_global: bool) -> Result<RecipeV2, String> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(path).map_err(|e| format!("Read error: {}", e))?;
 
-    let mut recipe: RecipeV2 = serde_json::from_str(&content)
-        .map_err(|e| format!("Parse error: {}", e))?;
+    let mut recipe: RecipeV2 =
+        serde_json::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
 
     recipe.is_global = is_global;
     Ok(recipe)
@@ -246,11 +244,10 @@ pub fn save_user_recipe(recipe: &RecipeV2) -> Result<(), String> {
         .map_err(|e| format!("Failed to create {}: {}", domain_dir.display(), e))?;
 
     let path = domain_dir.join(format!("{}.json", recipe.id));
-    let content = serde_json::to_string_pretty(recipe)
-        .map_err(|e| format!("Serialize error: {}", e))?;
+    let content =
+        serde_json::to_string_pretty(recipe).map_err(|e| format!("Serialize error: {}", e))?;
 
-    std::fs::write(&path, content)
-        .map_err(|e| format!("Write error: {}", e))?;
+    std::fs::write(&path, content).map_err(|e| format!("Write error: {}", e))?;
 
     Ok(())
 }

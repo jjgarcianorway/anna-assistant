@@ -5,9 +5,9 @@
 
 mod context;
 mod method;
-mod params;
+pub mod params;
 mod request_response;
-mod result;
+pub mod result;
 mod routing;
 #[cfg(test)]
 mod tests;

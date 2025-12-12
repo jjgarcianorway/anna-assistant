@@ -94,10 +94,7 @@ fn disk_actions(snapshot: &SystemSnapshot) -> Vec<MaintenanceAction> {
             actions.push(MaintenanceAction {
                 id: format!("disk-clean-{}", mount.replace('/', "_")),
                 title: format!("Clean up {}", mount),
-                description: format!(
-                    "{} is {}% full - critically low space.",
-                    mount, use_percent
-                ),
+                description: format!("{} is {}% full - critically low space.", mount, use_percent),
                 anna_query: format!("Help me clean up {}", mount),
                 urgency: 1,
                 category: ActionCategory::DiskCleanup,
@@ -107,10 +104,7 @@ fn disk_actions(snapshot: &SystemSnapshot) -> Vec<MaintenanceAction> {
             actions.push(MaintenanceAction {
                 id: format!("disk-review-{}", mount.replace('/', "_")),
                 title: format!("Review space on {}", mount),
-                description: format!(
-                    "{} is {}% full - getting tight.",
-                    mount, use_percent
-                ),
+                description: format!("{} is {}% full - getting tight.", mount, use_percent),
                 anna_query: format!("What's using space on {}?", mount),
                 urgency: 3,
                 category: ActionCategory::DiskCleanup,
@@ -141,18 +135,14 @@ fn memory_actions(snapshot: &SystemSnapshot) -> Vec<MaintenanceAction> {
     let mut actions = Vec::new();
 
     if snapshot.memory_total_bytes > 0 {
-        let used_percent = (snapshot.memory_used_bytes as f64
-            / snapshot.memory_total_bytes as f64
-            * 100.0) as u8;
+        let used_percent =
+            (snapshot.memory_used_bytes as f64 / snapshot.memory_total_bytes as f64 * 100.0) as u8;
 
         if used_percent >= 90 {
             actions.push(MaintenanceAction {
                 id: "memory-critical".to_string(),
                 title: "Free up memory".to_string(),
-                description: format!(
-                    "Memory at {}% - system may be swapping.",
-                    used_percent
-                ),
+                description: format!("Memory at {}% - system may be swapping.", used_percent),
                 anna_query: "What's using all my memory?".to_string(),
                 urgency: 1,
                 category: ActionCategory::MemoryOptimize,
@@ -183,10 +173,7 @@ fn service_actions(snapshot: &SystemSnapshot) -> Vec<MaintenanceAction> {
         actions.push(MaintenanceAction {
             id: format!("service-repair-{}", service),
             title: format!("Fix {}", service),
-            description: format!(
-                "{} says {} is failed.",
-                person.display_name, service
-            ),
+            description: format!("{} says {} is failed.", person.display_name, service),
             anna_query: format!("Why did {} fail and how do I fix it?", service),
             urgency: 2,
             category: ActionCategory::ServiceRepair,

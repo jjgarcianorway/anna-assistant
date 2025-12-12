@@ -60,10 +60,7 @@ impl Default for RetryConfig {
                 Duration::from_millis(BACKOFF_1_MS),
                 Duration::from_millis(BACKOFF_2_MS),
             ],
-            repair_prompts: vec![
-                REPAIR_PROMPT_1.to_string(),
-                REPAIR_PROMPT_2.to_string(),
-            ],
+            repair_prompts: vec![REPAIR_PROMPT_1.to_string(), REPAIR_PROMPT_2.to_string()],
         }
     }
 }
@@ -76,7 +73,10 @@ impl RetryConfig {
 
     /// Get backoff for attempt (0-indexed).
     pub fn backoff_for_attempt(&self, attempt: usize) -> Duration {
-        self.backoffs.get(attempt).cloned().unwrap_or(Duration::from_millis(500))
+        self.backoffs
+            .get(attempt)
+            .cloned()
+            .unwrap_or(Duration::from_millis(500))
     }
 
     /// Get repair prompt for attempt (0-indexed).
@@ -187,7 +187,10 @@ impl RetryState {
         // Check if can retry
         if self.config.can_retry(self.attempt) {
             let backoff = self.config.backoff_for_attempt(self.attempt);
-            let prompt = self.config.repair_prompt_for_attempt(self.attempt).to_string();
+            let prompt = self
+                .config
+                .repair_prompt_for_attempt(self.attempt)
+                .to_string();
             self.attempt += 1;
             RetryDecision::Retry {
                 attempt: self.attempt,
@@ -214,7 +217,10 @@ impl RetryState {
 
         if self.config.can_retry(self.attempt) {
             let backoff = self.config.backoff_for_attempt(self.attempt);
-            let prompt = self.config.repair_prompt_for_attempt(self.attempt).to_string();
+            let prompt = self
+                .config
+                .repair_prompt_for_attempt(self.attempt)
+                .to_string();
             self.attempt += 1;
             RetryDecision::Retry {
                 attempt: self.attempt,
@@ -233,9 +239,20 @@ impl RetryState {
     pub fn summary(&self) -> RetrySummary {
         RetrySummary {
             total_attempts: self.history.len(),
-            successful: self.history.iter().any(|a| a.result == AttemptResult::Success),
-            timeouts: self.history.iter().filter(|a| a.result == AttemptResult::Timeout).count(),
-            validation_failures: self.history.iter().filter(|a| a.result == AttemptResult::ValidationFailed).count(),
+            successful: self
+                .history
+                .iter()
+                .any(|a| a.result == AttemptResult::Success),
+            timeouts: self
+                .history
+                .iter()
+                .filter(|a| a.result == AttemptResult::Timeout)
+                .count(),
+            validation_failures: self
+                .history
+                .iter()
+                .filter(|a| a.result == AttemptResult::ValidationFailed)
+                .count(),
             total_time_ms: self.total_time_ms,
             exhausted: self.exhausted,
         }
@@ -258,9 +275,7 @@ pub enum RetryDecision {
         repair_prompt: String,
     },
     /// Should give up.
-    GiveUp {
-        reason: String,
-    },
+    GiveUp { reason: String },
 }
 
 impl RetryDecision {
@@ -299,7 +314,11 @@ impl RetrySummary {
         };
         format!(
             "[retry] {} | attempts={} timeouts={} validation_failures={} total_time={}ms",
-            status, self.total_attempts, self.timeouts, self.validation_failures, self.total_time_ms
+            status,
+            self.total_attempts,
+            self.timeouts,
+            self.validation_failures,
+            self.total_time_ms
         )
     }
 }
@@ -411,10 +430,7 @@ mod tests {
     fn test_retry_summary() {
         let mut state = RetryState::new();
         state.record_timeout(8000);
-        state.record_failure(
-            ValidationError::SchemaInvalid { issues: vec![] },
-            500,
-        );
+        state.record_failure(ValidationError::SchemaInvalid { issues: vec![] }, 500);
         state.record_success(300);
 
         let summary = state.summary();

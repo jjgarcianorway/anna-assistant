@@ -8,8 +8,8 @@
 //! These provide a foundation until the system learns more.
 
 use super::{
-    AnswerKind, AnswerTemplate, LearnedRecipe, LogicType, RecipeInputs, RecipeLogic,
-    RecipeOrigin, RecipePattern, RecipeProbe, RecipeSafety, RiskLevel,
+    AnswerKind, AnswerTemplate, LearnedRecipe, LogicType, RecipeInputs, RecipeLogic, RecipeOrigin,
+    RecipePattern, RecipeProbe, RecipeSafety, RiskLevel,
 };
 
 /// Create all seed recipes
@@ -131,7 +131,10 @@ fn seed_check_disk_space() -> LearnedRecipe {
 /// Seed recipe: Check service status
 fn seed_check_service_status() -> LearnedRecipe {
     let mut inputs = RecipeInputs::default();
-    inputs.params.insert("service_name".to_string(), "Name of the systemd service".to_string());
+    inputs.params.insert(
+        "service_name".to_string(),
+        "Name of the systemd service".to_string(),
+    );
 
     LearnedRecipe {
         id: "seed-check-service-status".to_string(),
@@ -163,7 +166,8 @@ fn seed_check_service_status() -> LearnedRecipe {
         },
         answer_template: AnswerTemplate {
             short: "Service {{service_name}}: {{probe:systemctl_output}}".to_string(),
-            detailed: "Service Status for {{service_name}}:\n{{probe:systemctl_output}}".to_string(),
+            detailed: "Service Status for {{service_name}}:\n{{probe:systemctl_output}}"
+                .to_string(),
             variables: vec!["service_name".to_string()],
         },
         safety: RecipeSafety {

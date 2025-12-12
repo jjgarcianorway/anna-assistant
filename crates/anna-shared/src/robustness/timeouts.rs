@@ -212,7 +212,10 @@ impl TimeoutEnforcer {
 
     /// Remaining global time.
     pub fn remaining_global_ms(&self) -> u64 {
-        self.config.global.hard_ms.saturating_sub(self.global_elapsed_ms())
+        self.config
+            .global
+            .hard_ms
+            .saturating_sub(self.global_elapsed_ms())
     }
 
     /// Check if current stage is over soft budget.

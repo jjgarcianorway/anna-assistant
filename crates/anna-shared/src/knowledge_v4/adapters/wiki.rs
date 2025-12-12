@@ -8,8 +8,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{extract_context, truncate_text};
-use crate::knowledge_v4::snippet::KnowledgeSnippet;
 use crate::knowledge_v4::query::KnowledgeSource;
+use crate::knowledge_v4::snippet::KnowledgeSnippet;
 
 /// Wiki index for offline Arch Wiki
 pub struct WikiIndex {
@@ -179,7 +179,11 @@ impl WikiAdapter {
     }
 
     /// Query by entities (try each as a topic)
-    pub fn query_entities(&mut self, entities: &[&str], keyword: Option<&str>) -> Option<KnowledgeSnippet> {
+    pub fn query_entities(
+        &mut self,
+        entities: &[&str],
+        keyword: Option<&str>,
+    ) -> Option<KnowledgeSnippet> {
         for entity in entities {
             if let Some(snippet) = self.query(entity, keyword) {
                 return Some(snippet);

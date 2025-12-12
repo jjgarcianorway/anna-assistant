@@ -192,9 +192,7 @@ impl EraPipeline {
     /// Check if pipeline can proceed to next stage.
     pub fn can_proceed(&self) -> bool {
         match self.stage {
-            PipelineStage::Evidence => {
-                self.intent.is_some() && self.evidence.is_some()
-            }
+            PipelineStage::Evidence => self.intent.is_some() && self.evidence.is_some(),
             PipelineStage::Reasoning => self.reasoning.is_some(),
             PipelineStage::Answer => false, // Terminal stage
         }
@@ -205,7 +203,10 @@ impl EraPipeline {
         if !self.can_proceed() {
             return Err(PipelineError {
                 stage: self.stage,
-                message: format!("Cannot proceed from {} - prerequisites not met", self.stage.label()),
+                message: format!(
+                    "Cannot proceed from {} - prerequisites not met",
+                    self.stage.label()
+                ),
                 recoverable: false,
             });
         }
@@ -389,10 +390,7 @@ impl FactProbeTable {
 
     /// Get all probes needed for a set of facts.
     pub fn get_probes_for_facts(&self, facts: &[String]) -> Vec<&ProbeMapping> {
-        facts
-            .iter()
-            .filter_map(|f| self.get_probe(f))
-            .collect()
+        facts.iter().filter_map(|f| self.get_probe(f)).collect()
     }
 
     /// Get unique probe IDs needed.
@@ -420,7 +418,10 @@ mod tests {
 
     #[test]
     fn test_pipeline_stages() {
-        assert_eq!(PipelineStage::Evidence.next(), Some(PipelineStage::Reasoning));
+        assert_eq!(
+            PipelineStage::Evidence.next(),
+            Some(PipelineStage::Reasoning)
+        );
         assert_eq!(PipelineStage::Reasoning.next(), Some(PipelineStage::Answer));
         assert_eq!(PipelineStage::Answer.next(), None);
     }
@@ -428,7 +429,10 @@ mod tests {
     #[test]
     fn test_answer_type_detection() {
         assert_eq!(AnswerType::from_intent("memory.free"), AnswerType::Numeric);
-        assert_eq!(AnswerType::from_intent("service.is_running"), AnswerType::Boolean);
+        assert_eq!(
+            AnswerType::from_intent("service.is_running"),
+            AnswerType::Boolean
+        );
         assert_eq!(AnswerType::from_intent("boot.which_slow"), AnswerType::List);
         assert_eq!(AnswerType::from_intent("gpu.model"), AnswerType::Entity);
     }
@@ -441,7 +445,10 @@ mod tests {
         assert!(probe.is_some());
         assert_eq!(probe.unwrap().probe_id, "free_h");
 
-        let facts = vec!["memory.free_gib".to_string(), "boot.total_time_s".to_string()];
+        let facts = vec![
+            "memory.free_gib".to_string(),
+            "boot.total_time_s".to_string(),
+        ];
         let ids = table.unique_probe_ids(&facts);
         assert!(ids.contains(&"free_h".to_string()));
         assert!(ids.contains(&"systemd_analyze".to_string()));

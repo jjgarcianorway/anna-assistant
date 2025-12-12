@@ -12,25 +12,25 @@
 //! - Recipes are the first engine; LLM is the fallback
 //! - Honest metrics about recipe hit rates
 
-pub mod recipe;
-pub mod evidence;
 pub mod eligibility;
+pub mod evidence;
+pub mod executor;
 pub mod generator;
 pub mod matcher;
-pub mod executor;
-pub mod storage;
-pub mod stats;
+pub mod recipe;
 pub mod seeds;
+pub mod stats;
+pub mod storage;
 
-pub use recipe::*;
-pub use evidence::*;
 pub use eligibility::*;
+pub use evidence::*;
+pub use executor::*;
 pub use generator::*;
 pub use matcher::*;
-pub use executor::*;
-pub use storage::*;
-pub use stats::*;
+pub use recipe::*;
 pub use seeds::*;
+pub use stats::*;
+pub use storage::*;
 
 /// Minimum confidence to learn from a ticket
 pub const MIN_LEARN_CONFIDENCE: f32 = 0.8;

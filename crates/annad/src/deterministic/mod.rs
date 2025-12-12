@@ -15,9 +15,9 @@ mod router;
 mod types;
 
 // Re-export main types and functions
-pub use types::DeterministicResult;
-pub use router::try_answer;
 pub use help::answer_help;
+pub use router::try_answer;
+pub use types::DeterministicResult;
 
 // Re-export handlers for use by router
 pub use audio::answer_hardware_audio;

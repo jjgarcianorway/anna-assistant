@@ -38,7 +38,7 @@ impl Default for IdleLearningConfig {
             max_jobs_per_day: MAX_IDLE_JOBS_PER_DAY,
             recipe_consolidation: true,
             doc_refresh: true,
-            model_benchmark: false, // Disabled by default (expensive)
+            model_benchmark: false,  // Disabled by default (expensive)
             min_idle_time_secs: 300, // 5 minutes idle before starting
         }
     }

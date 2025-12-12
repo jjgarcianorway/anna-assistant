@@ -112,10 +112,7 @@ pub fn get_research_policy(intent: &str, domain: &str, entities: &[String]) -> R
     // Category 4: Complex configuration - knowledge mandatory
     if is_complex_config(&intent_lower) {
         let topics = topics_from_entities(entities, domain);
-        return ResearchPolicy::with_knowledge(
-            topics,
-            "Complex config requires documentation",
-        );
+        return ResearchPolicy::with_knowledge(topics, "Complex config requires documentation");
     }
 
     // Category 5: Diagnostic questions - probes first, then knowledge
@@ -132,10 +129,7 @@ pub fn get_research_policy(intent: &str, domain: &str, entities: &[String]) -> R
         ResearchPolicy::probes_only("Simple question - probes sufficient")
     } else {
         let topics = topics_from_entities(entities, domain);
-        ResearchPolicy::probes_then_knowledge(
-            topics,
-            "General question - may need documentation",
-        )
+        ResearchPolicy::probes_then_knowledge(topics, "General question - may need documentation")
     }
 }
 
@@ -163,12 +157,18 @@ fn is_status_only(intent: &str) -> bool {
     }
 
     // "How much" questions about system resources
-    if intent.contains("how_much") && (intent.contains("ram") || intent.contains("memory") || intent.contains("disk") || intent.contains("space")) {
+    if intent.contains("how_much")
+        && (intent.contains("ram")
+            || intent.contains("memory")
+            || intent.contains("disk")
+            || intent.contains("space"))
+    {
         return true;
     }
 
     // "Do I have" questions about status
-    if intent.starts_with("do_i_have") && (intent.contains("failed") || intent.contains("running")) {
+    if intent.starts_with("do_i_have") && (intent.contains("failed") || intent.contains("running"))
+    {
         return true;
     }
 
@@ -312,22 +312,14 @@ mod tests {
 
     #[test]
     fn test_research_policy_howto() {
-        let policy = get_research_policy(
-            "how_to_enable_syntax",
-            "desktop",
-            &["vim".to_string()],
-        );
+        let policy = get_research_policy("how_to_enable_syntax", "desktop", &["vim".to_string()]);
         assert!(policy.needs_knowledge);
         assert!(policy.topics.contains(&"vim".to_string()));
     }
 
     #[test]
     fn test_research_policy_diagnostic() {
-        let policy = get_research_policy(
-            "why_boot_slow",
-            "boot",
-            &["systemd".to_string()],
-        );
+        let policy = get_research_policy("why_boot_slow", "boot", &["systemd".to_string()]);
         assert!(policy.needs_knowledge);
         assert_eq!(policy.priority, ResearchPriority::ProbesFirst);
     }

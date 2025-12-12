@@ -71,6 +71,8 @@ pub struct FeedbackParams {
     pub request_id: String,
     /// The original query
     pub query: String,
+    /// The answer that was presented to the user
+    pub answer: String,
     /// Was the answer helpful?
     pub helpful: bool,
     /// Optional comment from user
@@ -84,4 +86,26 @@ pub struct FeedbackResult {
     pub recorded: bool,
     /// Optional message about learning
     pub learning_message: Option<String>,
+}
+
+/// Parameters for SubmitClaimFeedback RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClaimFeedbackParams {
+    pub claim_text: String,
+    pub positive_feedback: bool,
+}
+
+/// Parameters for WebSearch RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebSearchParams {
+    pub query: String,
+}
+
+/// Parameters for querying the TruthLedger (v0.0.449)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TruthLedgerQueryParams {
+    pub claim_text: Option<String>,
+    pub source: Option<String>,
+    pub veracity: Option<String>, // Verified, Disputed, Unverified
+    pub feedback: Option<bool>,   // true for positive, false for negative
 }

@@ -20,6 +20,9 @@ mod repl;
 #[allow(unused_imports)]
 pub use config::{show_config_status, try_handle_config, ConfigResult};
 pub use debug::{handle_debug, DebugCommand};
-pub use handlers::{handle_request, handle_reset, handle_stats, handle_status, handle_uninstall};
+pub use handlers::{
+    handle_request, handle_reset, handle_stats, handle_status, handle_submit_claim_feedback,
+    handle_truth_ledger_status, handle_uninstall, handle_web_search,
+};
 pub use learning::{handle_learning_with_query, handle_suggest_recipes};
 pub use repl::handle_repl;

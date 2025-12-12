@@ -93,22 +93,22 @@ fn test_index_operations() {
 #[test]
 fn test_result_merging() {
     let mut r1 = DocResult::default();
-    r1.snippets.push(DocSnippet::new(
-        DocSourceKind::ManPage,
-        "test1",
-        None,
-        "Test 1",
-        "Content 1",
-    ).with_relevance(80));
+    r1.snippets.push(
+        DocSnippet::new(DocSourceKind::ManPage, "test1", None, "Test 1", "Content 1")
+            .with_relevance(80),
+    );
 
     let mut r2 = DocResult::default();
-    r2.snippets.push(DocSnippet::new(
-        DocSourceKind::ArchWiki,
-        "test2",
-        None,
-        "Test 2",
-        "Content 2",
-    ).with_relevance(90));
+    r2.snippets.push(
+        DocSnippet::new(
+            DocSourceKind::ArchWiki,
+            "test2",
+            None,
+            "Test 2",
+            "Content 2",
+        )
+        .with_relevance(90),
+    );
 
     let merged = r1.merge(r2);
     assert_eq!(merged.snippets.len(), 2);
@@ -119,13 +119,7 @@ fn test_result_merging() {
 // Test 7: Snippet staleness detection
 #[test]
 fn test_snippet_staleness() {
-    let mut snippet = DocSnippet::new(
-        DocSourceKind::ToolHelp,
-        "test",
-        None,
-        "Test",
-        "Content",
-    );
+    let mut snippet = DocSnippet::new(DocSourceKind::ToolHelp, "test", None, "Test", "Content");
 
     // Fresh snippet should not be stale
     assert!(!snippet.is_stale(7));
@@ -139,13 +133,7 @@ fn test_snippet_staleness() {
 #[test]
 fn test_content_truncation() {
     let long_content = "x".repeat(5000);
-    let mut snippet = DocSnippet::new(
-        DocSourceKind::ManPage,
-        "test",
-        None,
-        "Test",
-        &long_content,
-    );
+    let mut snippet = DocSnippet::new(DocSourceKind::ManPage, "test", None, "Test", &long_content);
 
     snippet.truncate_content(1000);
     assert!(snippet.content.len() <= 1003); // +3 for "..."
@@ -155,8 +143,8 @@ fn test_content_truncation() {
 // Test 9: Essential lists are populated
 #[test]
 fn test_essential_lists() {
-    use super::man_parser::get_essential_man_pages;
     use super::help_extractor::get_essential_commands;
+    use super::man_parser::get_essential_man_pages;
     use super::wiki_reader::get_essential_wiki_pages;
 
     let man_pages = get_essential_man_pages();
@@ -201,17 +189,13 @@ fn test_doc_engine_basic() {
 
     // Empty query should return (possibly empty) result
     let result = engine.query(DocQuery::new("test"));
-    assert!(result.query_time_ms >= 0);
 }
 
 // Test 12: Multiple sources query
 #[test]
 fn test_multi_source_query() {
     let query = DocQuery::new("systemd services")
-        .with_sources(vec![
-            DocSourceKind::ArchWiki,
-            DocSourceKind::ManPage,
-        ])
+        .with_sources(vec![DocSourceKind::ArchWiki, DocSourceKind::ManPage])
         .with_limit(5)
         .with_min_relevance(10);
 
@@ -254,7 +238,10 @@ fn test_keyword_extraction() {
 
     // Should have extracted keywords
     assert!(snippet.keywords.contains(&"solid_state_drive".to_string()));
-    assert!(snippet.keywords.iter().any(|k| k.contains("trim") || k.contains("ssd")));
+    assert!(snippet
+        .keywords
+        .iter()
+        .any(|k| k.contains("trim") || k.contains("ssd")));
 }
 
 // Test 15: Citation format consistency

@@ -7,26 +7,26 @@
 //! - Helper tool policy and lifecycle
 //! - Honest reflection in status and stats
 
-pub mod profile;
 pub mod catalog;
-pub mod model_plan;
-pub mod model_health;
-pub mod model_config;
-pub mod helpers;
 pub mod helper_config;
+pub mod helpers;
 pub mod integration;
+pub mod model_config;
+pub mod model_health;
+pub mod model_plan;
+pub mod profile;
 pub mod status;
 pub mod tests;
 
-pub use profile::{HardwareProfile, CapabilityTier, CpuInfo, GpuInfo, GpuVendor, StorageInfo};
 pub use catalog::{ModelCatalog, ModelEntry, ModelRole};
-pub use model_plan::{ModelPlan, ModelPlanner};
-pub use model_health::{ModelHealth, ModelStatus, ModelVerifier};
-pub use model_config::{ModelConfig, AutoInstallPolicy};
-pub use helpers::{HelperCatalog, HelperEntry, HelperState, HelperManager};
 pub use helper_config::{HelperConfig, HelperInstallPolicy};
+pub use helpers::{HelperCatalog, HelperEntry, HelperManager, HelperState};
 pub use integration::{ProbeHelper, SpecialistHelper};
-pub use status::{HardwareStatus, LlmSection, HelperStatusSection};
+pub use model_config::{AutoInstallPolicy, ModelConfig};
+pub use model_health::{ModelHealth, ModelStatus, ModelVerifier};
+pub use model_plan::{ModelPlan, ModelPlanner};
+pub use profile::{CapabilityTier, CpuInfo, GpuInfo, GpuVendor, HardwareProfile, StorageInfo};
+pub use status::{HardwareStatus, HelperStatusSection, LlmSection};
 
 /// Current catalog version.
 pub const CATALOG_VERSION: u32 = 1;

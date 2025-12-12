@@ -67,7 +67,7 @@ pub fn handle_desktop_wallpaper(
         // v0.0.318: Create structured ClarifyRequest for proper follow-up
         let req = ClarifyRequest::new(
             Uuid::new_v4().to_string(),
-            "I couldn't check your wallpaper settings. Where do you keep your wallpaper files?"
+            "I couldn't check your wallpaper settings. Where do you keep your wallpaper files?",
         )
         .with_reason("Example: ~/Pictures/Wallpapers or ~/.config/hypr/hyprpaper.conf");
         (String::new(), true, Some(req))

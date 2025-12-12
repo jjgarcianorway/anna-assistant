@@ -39,17 +39,32 @@ impl KnowledgeSource {
 
     /// Default priority order for system topics
     pub fn system_priority() -> Vec<Self> {
-        vec![Self::ManPage, Self::ArchWiki, Self::LocalDocs, Self::CommandHelp]
+        vec![
+            Self::ManPage,
+            Self::ArchWiki,
+            Self::LocalDocs,
+            Self::CommandHelp,
+        ]
     }
 
     /// Default priority order for tool/command topics
     pub fn tool_priority() -> Vec<Self> {
-        vec![Self::ManPage, Self::CommandHelp, Self::LocalDocs, Self::ArchWiki]
+        vec![
+            Self::ManPage,
+            Self::CommandHelp,
+            Self::LocalDocs,
+            Self::ArchWiki,
+        ]
     }
 
     /// Default priority order for configuration topics
     pub fn config_priority() -> Vec<Self> {
-        vec![Self::ArchWiki, Self::LocalDocs, Self::ManPage, Self::CommandHelp]
+        vec![
+            Self::ArchWiki,
+            Self::LocalDocs,
+            Self::ManPage,
+            Self::CommandHelp,
+        ]
     }
 }
 
@@ -173,7 +188,8 @@ fn is_command_like(s: &str) -> bool {
         && !s.starts_with('/')
         && !s.starts_with('~')
         && s.len() < 50
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
 }
 
 /// Builder for creating queries from ticket context

@@ -181,7 +181,9 @@ fn render_headline(response: &SpecialistResponseV2) -> String {
         SpecialistStatus::InsufficientEvidence => {
             "I couldn't find enough information to answer this.".to_string()
         }
-        SpecialistStatus::Error => "Something went wrong while processing your request.".to_string(),
+        SpecialistStatus::Error => {
+            "Something went wrong while processing your request.".to_string()
+        }
     }
 }
 
@@ -268,7 +270,10 @@ pub fn render_friendly_error(internal_error: &str, probe_data: &[(&str, &str)]) 
         headline,
         findings,
         actions: vec![],
-        sources: probe_data.iter().map(|(k, _)| format!("probe {}", k)).collect(),
+        sources: probe_data
+            .iter()
+            .map(|(k, _)| format!("probe {}", k))
+            .collect(),
         notes: None,
         status_indicator: StatusIndicator::Partial,
     }

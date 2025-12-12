@@ -224,7 +224,10 @@ impl StaffStats {
 
         for (person_id, metrics) in &self.by_staff {
             let dept = person_id.split('_').next().unwrap_or("unknown").to_string();
-            departments.entry(dept).or_default().push((person_id, metrics));
+            departments
+                .entry(dept)
+                .or_default()
+                .push((person_id, metrics));
         }
 
         // Sort each department by tickets handled (descending)
@@ -451,8 +454,8 @@ mod tests {
 
     #[test]
     fn test_xp_to_level() {
-        assert_eq!(xp_to_level(0), 1);   // Novice
-        assert_eq!(xp_to_level(99), 1);  // Novice
+        assert_eq!(xp_to_level(0), 1); // Novice
+        assert_eq!(xp_to_level(99), 1); // Novice
         assert_eq!(xp_to_level(100), 2); // Apprentice
         assert_eq!(xp_to_level(299), 2); // Apprentice
         assert_eq!(xp_to_level(300), 3); // Competent

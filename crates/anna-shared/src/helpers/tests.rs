@@ -2,9 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::helpers::{
-        known_helpers, HelperPackage, HelpersRegistry, InstallSource,
-    };
+    use crate::helpers::{known_helpers, HelperPackage, HelpersRegistry, InstallSource};
 
     #[test]
     fn test_helper_package_new() {

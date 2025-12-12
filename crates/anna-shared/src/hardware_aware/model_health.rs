@@ -350,7 +350,11 @@ impl ModelVerifier {
     }
 
     /// Sync health with actual Ollama state.
-    pub fn sync_health(&self, health: &mut ModelHealth, plan: &ModelPlan) -> Result<(), VerifyError> {
+    pub fn sync_health(
+        &self,
+        health: &mut ModelHealth,
+        plan: &ModelPlan,
+    ) -> Result<(), VerifyError> {
         let installed = self.list_installed()?;
 
         for model_name in plan.model_names() {
@@ -480,8 +484,8 @@ fn timestamp_now() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::profile::CapabilityTier;
+    use super::*;
 
     fn mock_plan() -> ModelPlan {
         ModelPlan {
@@ -595,10 +599,9 @@ mod tests {
             "model1".to_string(),
             ModelHealthRecord::installed_by_anna("model1"),
         );
-        health.models.insert(
-            "model2".to_string(),
-            ModelHealthRecord::detected("model2"),
-        );
+        health
+            .models
+            .insert("model2".to_string(), ModelHealthRecord::detected("model2"));
 
         let anna_models = health.anna_installed_models();
         assert_eq!(anna_models.len(), 1);

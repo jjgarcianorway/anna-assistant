@@ -58,7 +58,8 @@ impl RecipeTemplate {
 
     /// Add precondition.
     pub fn with_precondition(mut self, probe_id: &str, pattern: &str) -> Self {
-        self.preconditions.insert(probe_id.to_string(), pattern.to_string());
+        self.preconditions
+            .insert(probe_id.to_string(), pattern.to_string());
         self
     }
 
@@ -86,7 +87,9 @@ impl RecipeTemplate {
             let found = outputs.iter().any(|o| {
                 o.primitive_id == *probe_id
                     && o.success()
-                    && o.raw_output.to_lowercase().contains(&pattern.to_lowercase())
+                    && o.raw_output
+                        .to_lowercase()
+                        .contains(&pattern.to_lowercase())
             });
             if !found {
                 return false;
@@ -324,8 +327,7 @@ impl RecipePromoter {
 
     /// Add a candidate recipe.
     pub fn add_candidate(&mut self, template: RecipeTemplate) {
-        if !self.candidates.contains_key(&template.id)
-            && !self.promoted.contains_key(&template.id)
+        if !self.candidates.contains_key(&template.id) && !self.promoted.contains_key(&template.id)
         {
             self.candidates
                 .insert(template.id.clone(), RecipeCandidate::new(template));
@@ -360,7 +362,8 @@ impl RecipePromoter {
     /// Promote a candidate to full recipe.
     fn promote(&mut self, recipe_id: &str) {
         if let Some(candidate) = self.candidates.remove(recipe_id) {
-            self.promoted.insert(recipe_id.to_string(), candidate.template);
+            self.promoted
+                .insert(recipe_id.to_string(), candidate.template);
         }
     }
 
@@ -458,7 +461,10 @@ mod tests {
             .with_problem("service {service} is not responding")
             .with_probe("sys.services.status")
             .with_precondition("sys.services.status", "inactive")
-            .with_step(RecipeStep::new(1, "Check service status: systemctl status {service}"))
+            .with_step(RecipeStep::new(
+                1,
+                "Check service status: systemctl status {service}",
+            ))
             .with_step(
                 RecipeStep::new(2, "Restart service: sudo systemctl restart {service}")
                     .with_command("sudo systemctl restart {service}")
@@ -511,13 +517,7 @@ mod tests {
 
         // Record 3 successes
         for i in 1..=3 {
-            promoter.record_execution(
-                "test",
-                &format!("ticket-{}", i),
-                true,
-                Some(&store),
-                None,
-            );
+            promoter.record_execution("test", &format!("ticket-{}", i), true, Some(&store), None);
         }
 
         // Should be promoted now

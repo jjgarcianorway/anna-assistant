@@ -44,7 +44,11 @@ fn count_updates_from_probe(probe_results: &[ProbeResult]) -> Option<usize> {
         // Check stdout for package_updates probe
         if result.command.contains("checkupdates") || result.command.contains("pacman -Qu") {
             if result.exit_code == 0 {
-                let count = result.stdout.lines().filter(|l| !l.trim().is_empty()).count();
+                let count = result
+                    .stdout
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .count();
                 return Some(count);
             }
         }

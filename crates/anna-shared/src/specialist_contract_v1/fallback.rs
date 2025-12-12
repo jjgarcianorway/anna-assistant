@@ -125,46 +125,64 @@ impl FallbackSummarizer {
         let mut templates = HashMap::new();
 
         // Memory templates
-        templates.insert("free_h".to_string(), AnswerTemplate {
-            probe_id: "free_h".to_string(),
-            extractor: extract_memory_from_free,
-            default_confidence: 0.85,
-        });
+        templates.insert(
+            "free_h".to_string(),
+            AnswerTemplate {
+                probe_id: "free_h".to_string(),
+                extractor: extract_memory_from_free,
+                default_confidence: 0.85,
+            },
+        );
 
         // Boot templates
-        templates.insert("systemd_analyze".to_string(), AnswerTemplate {
-            probe_id: "systemd_analyze".to_string(),
-            extractor: extract_boot_time,
-            default_confidence: 0.9,
-        });
+        templates.insert(
+            "systemd_analyze".to_string(),
+            AnswerTemplate {
+                probe_id: "systemd_analyze".to_string(),
+                extractor: extract_boot_time,
+                default_confidence: 0.9,
+            },
+        );
 
         // Disk templates
-        templates.insert("df_h".to_string(), AnswerTemplate {
-            probe_id: "df_h".to_string(),
-            extractor: extract_disk_usage,
-            default_confidence: 0.85,
-        });
+        templates.insert(
+            "df_h".to_string(),
+            AnswerTemplate {
+                probe_id: "df_h".to_string(),
+                extractor: extract_disk_usage,
+                default_confidence: 0.85,
+            },
+        );
 
         // Service templates
-        templates.insert("systemctl_failed".to_string(), AnswerTemplate {
-            probe_id: "systemctl_failed".to_string(),
-            extractor: extract_failed_services,
-            default_confidence: 0.9,
-        });
+        templates.insert(
+            "systemctl_failed".to_string(),
+            AnswerTemplate {
+                probe_id: "systemctl_failed".to_string(),
+                extractor: extract_failed_services,
+                default_confidence: 0.9,
+            },
+        );
 
         // Load templates
-        templates.insert("uptime".to_string(), AnswerTemplate {
-            probe_id: "uptime".to_string(),
-            extractor: extract_load_average,
-            default_confidence: 0.85,
-        });
+        templates.insert(
+            "uptime".to_string(),
+            AnswerTemplate {
+                probe_id: "uptime".to_string(),
+                extractor: extract_load_average,
+                default_confidence: 0.85,
+            },
+        );
 
         // GPU templates
-        templates.insert("lspci_gpu".to_string(), AnswerTemplate {
-            probe_id: "lspci_gpu".to_string(),
-            extractor: extract_gpu_info,
-            default_confidence: 0.9,
-        });
+        templates.insert(
+            "lspci_gpu".to_string(),
+            AnswerTemplate {
+                probe_id: "lspci_gpu".to_string(),
+                extractor: extract_gpu_info,
+                default_confidence: 0.9,
+            },
+        );
 
         Self { templates }
     }
@@ -179,7 +197,10 @@ impl FallbackSummarizer {
         // Check for missing required probes
         let mut missing = Vec::new();
         for probe_id in required_probes {
-            if !evidence.iter().any(|e| e.probe_id == *probe_id && e.success) {
+            if !evidence
+                .iter()
+                .any(|e| e.probe_id == *probe_id && e.success)
+            {
                 missing.push(*probe_id);
             }
         }
@@ -202,7 +223,11 @@ impl FallbackSummarizer {
     }
 
     /// Build a generic response listing available evidence.
-    fn build_generic_response(&self, case_id: &str, evidence: &[ProbeEvidence]) -> FallbackResponse {
+    fn build_generic_response(
+        &self,
+        case_id: &str,
+        evidence: &[ProbeEvidence],
+    ) -> FallbackResponse {
         let successful: Vec<_> = evidence.iter().filter(|e| e.success).collect();
 
         if successful.is_empty() {
@@ -222,7 +247,9 @@ impl FallbackSummarizer {
 
     /// Check if evidence is sufficient for a direct answer.
     pub fn can_answer_directly(&self, evidence: &[ProbeEvidence]) -> bool {
-        evidence.iter().any(|e| e.success && self.templates.contains_key(&e.probe_id))
+        evidence
+            .iter()
+            .any(|e| e.success && self.templates.contains_key(&e.probe_id))
     }
 }
 
@@ -254,7 +281,10 @@ fn extract_boot_time(output: &str) -> Option<String> {
             return Some(line.trim().to_string());
         }
     }
-    output.lines().next().map(|l| format!("Boot time: {}", l.trim()))
+    output
+        .lines()
+        .next()
+        .map(|l| format!("Boot time: {}", l.trim()))
 }
 
 fn extract_disk_usage(output: &str) -> Option<String> {
@@ -401,7 +431,9 @@ mod tests {
 
         let response = summarizer.summarize("DSK-0101", &evidence, &["systemd_analyze"]);
         assert!(response.is_insufficient());
-        assert!(response.missing_evidence.contains(&"systemd_analyze".to_string()));
+        assert!(response
+            .missing_evidence
+            .contains(&"systemd_analyze".to_string()));
     }
 
     #[test]
@@ -420,6 +452,9 @@ mod tests {
     #[test]
     fn test_fallback_reason() {
         assert_eq!(FallbackReason::Timeout.label(), "timeout");
-        assert_eq!(FallbackReason::RetriesExhausted.label(), "retries_exhausted");
+        assert_eq!(
+            FallbackReason::RetriesExhausted.label(),
+            "retries_exhausted"
+        );
     }
 }

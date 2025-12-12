@@ -205,16 +205,15 @@ mod tests {
 
     #[test]
     fn test_partial_match() {
-        let recipe = make_test_recipe("test", "enable_vim_syntax", vec!["vim", "syntax", "highlight"]);
+        let recipe = make_test_recipe(
+            "test",
+            "enable_vim_syntax",
+            vec!["vim", "syntax", "highlight"],
+        );
         let recipes: Vec<&RecipeV2> = vec![&recipe];
         let facts = HashMap::new();
 
-        let result = find_best_recipe(
-            &recipes,
-            "enable_vim",
-            &["vim".into()],
-            &facts,
-        );
+        let result = find_best_recipe(&recipes, "enable_vim", &["vim".into()], &facts);
 
         assert!(result.is_some());
         let r = result.unwrap();

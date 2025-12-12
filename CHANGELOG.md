@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.449] - 2025-12-12
+
+### Added - Enhanced Status Display (Phase 29)
+
+**Goal:** `annactl status` shows comprehensive system state per VISION.md.
+
+**New [ollama] Section:**
+- Separate Ollama status from daemon status
+- Shows: installed (YES/NO), status (RUNNING/STOPPED), version
+
+**New [config] Section:**
+- All user-visible configuration settings
+- debug_mode (only shown if ON)
+- auto_update (ON/OFF)
+- learning_mode (ON/OFF with description)
+- fast_path (ON/OFF with description)
+- internal_comms (ON/OFF with description)
+- autonomy_level (0-100)
+- request_timeout (seconds)
+
+**Enhanced REPL Greeting:**
+- Daemon errors announced prominently at top
+- Error label with red color for visibility
+
+**ConfigInfo Enhanced:**
+- New fields: auto_update, learning_mode, fast_path_enabled, internal_comms
+- New fields: request_timeout_secs, update_check_interval_secs
+
 ## [0.0.448] - 2025-12-12
 
 ### Fixed - Deterministic Probes: Stop Wrong Probe Selection

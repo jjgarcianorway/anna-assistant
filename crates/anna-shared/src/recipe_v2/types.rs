@@ -2,9 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    FactRequirement, RecipeDomain, RecipeStats, RecipeStepV2, TriggerPattern,
-};
+use super::{FactRequirement, RecipeDomain, RecipeStats, RecipeStepV2, TriggerPattern};
 use crate::specialist_contract::KnowledgeCitation;
 
 /// A reusable troubleshooting or configuration pattern (v0.0.420).

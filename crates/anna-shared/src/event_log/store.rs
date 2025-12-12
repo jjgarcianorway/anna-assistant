@@ -33,7 +33,9 @@ impl EventLog {
         }
         // Fallback to home directory
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        std::path::PathBuf::from(home).join(".anna").join("events.jsonl")
+        std::path::PathBuf::from(home)
+            .join(".anna")
+            .join("events.jsonl")
     }
 
     /// Append an event record

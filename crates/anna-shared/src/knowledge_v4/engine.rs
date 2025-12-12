@@ -5,10 +5,10 @@
 
 use std::time::Instant;
 
-use super::adapters::{ManAdapter, HelpAdapter, DocAdapter, WikiAdapter};
+use super::adapters::{DocAdapter, HelpAdapter, ManAdapter, WikiAdapter};
 use super::config::KnowledgeConfig;
 use super::query::{KnowledgeQuery, KnowledgeSource};
-use super::snippet::{KnowledgeSnippet, KnowledgeResult};
+use super::snippet::{KnowledgeResult, KnowledgeSnippet};
 
 /// The main Knowledge Engine
 pub struct KnowledgeEngine {
@@ -44,9 +44,10 @@ impl KnowledgeEngine {
             .with_paths(config.doc_paths.clone())
             .with_max_chars(config.max_snippet_chars);
 
-        let wiki_adapter = config.wiki_path.as_ref().map(|p| {
-            WikiAdapter::new(Some(p.clone())).with_max_chars(config.max_snippet_chars)
-        });
+        let wiki_adapter = config
+            .wiki_path
+            .as_ref()
+            .map(|p| WikiAdapter::new(Some(p.clone())).with_max_chars(config.max_snippet_chars));
 
         Self {
             config,
@@ -66,7 +67,9 @@ impl KnowledgeEngine {
         if self.config.log_queries {
             tracing::debug!(
                 "KnowledgeEngine query: ticket={}, topic={}, entities={:?}",
-                q.ticket_id, q.topic, q.entities
+                q.ticket_id,
+                q.topic,
+                q.entities
             );
         }
 
@@ -118,7 +121,11 @@ impl KnowledgeEngine {
         for cmd in commands {
             if let Some(mut snippet) = self.man_adapter.query(cmd, Some(&q.topic), None) {
                 // Boost relevance if topic is in excerpt
-                if snippet.excerpt.to_lowercase().contains(&q.topic.to_lowercase()) {
+                if snippet
+                    .excerpt
+                    .to_lowercase()
+                    .contains(&q.topic.to_lowercase())
+                {
                     snippet.relevance = 0.9;
                 }
                 result.add_snippet(snippet);
@@ -205,7 +212,10 @@ impl KnowledgeEngine {
 
     /// Check if wiki is available
     pub fn wiki_available(&self) -> bool {
-        self.wiki_adapter.as_ref().map(|w| w.is_available()).unwrap_or(false)
+        self.wiki_adapter
+            .as_ref()
+            .map(|w| w.is_available())
+            .unwrap_or(false)
     }
 
     /// Get config reference
@@ -221,7 +231,8 @@ fn is_command_like(s: &str) -> bool {
         && !s.starts_with('/')
         && !s.starts_with('~')
         && s.len() < 50
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
 }
 
 /// Builder for ticket integration
@@ -288,23 +299,20 @@ mod tests {
     fn test_query_command() {
         let mut engine = KnowledgeEngine::new();
         // This test depends on system having 'ls' man page
-        let result = engine.query_command("ls");
+        let _result = engine.query_command("ls");
         // Just verify it doesn't panic
-        assert!(result.duration_ms >= 0);
     }
 
     #[test]
     fn test_query_topic() {
         let mut engine = KnowledgeEngine::new();
-        let result = engine.query_topic("vim syntax", &["vim"]);
+        let _result = engine.query_topic("vim syntax", &["vim"]);
         // Just verify it doesn't panic
-        assert!(result.duration_ms >= 0);
     }
 
     #[test]
     fn test_query_builder() {
         let mut builder = EngineQueryBuilder::new();
-        let result = builder.from_ticket("t1", "editor", "vim config", &["vim".to_string()]);
-        assert!(result.duration_ms >= 0);
+        let _result = builder.from_ticket("t1", "editor", "vim config", &["vim".to_string()]);
     }
 }

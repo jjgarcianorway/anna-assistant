@@ -11,11 +11,11 @@
 
 #[cfg(test)]
 mod canary_tests {
-    use crate::question_contract::intent::*;
     use crate::question_contract::answer_plan::*;
-    use crate::question_contract::filters::*;
-    use crate::question_contract::evidence_bind::*;
     use crate::question_contract::diagnosis::*;
+    use crate::question_contract::evidence_bind::*;
+    use crate::question_contract::filters::*;
+    use crate::question_contract::intent::*;
     use crate::question_contract::*;
 
     // ============================================
@@ -58,8 +58,8 @@ mod canary_tests {
 
         let raw_fields = vec![
             AnswerField::new("free", AnswerValue::String("4.2 GB".to_string())),
-            AnswerField::new("total", AnswerValue::String("16 GB".to_string())),  // Should be discarded
-            AnswerField::new("cached", AnswerValue::String("8 GB".to_string())),  // Should be discarded
+            AnswerField::new("total", AnswerValue::String("16 GB".to_string())), // Should be discarded
+            AnswerField::new("cached", AnswerValue::String("8 GB".to_string())), // Should be discarded
         ];
 
         let result = ShapeEnforcer::enforce(&intent, raw_fields);
@@ -83,7 +83,10 @@ mod canary_tests {
         let result = AnswerFilter::filter(&intent, bad_answer);
 
         assert!(result.has_leakage(), "Tutorial leakage must be detected");
-        assert!(result.leakages.iter().any(|l| l.leakage_type == LeakageType::Tutorial));
+        assert!(result
+            .leakages
+            .iter()
+            .any(|l| l.leakage_type == LeakageType::Tutorial));
 
         // Good answer has no leakage
         let good_answer = "4.2 GB free.";
@@ -172,12 +175,24 @@ mod canary_tests {
             .build();
 
         let mut plan = AnswerPlan::new(&intent);
-        plan.add_field(AnswerField::new("service", AnswerValue::String("NetworkManager.service (2.5s)".to_string())));
-        plan.add_field(AnswerField::new("service", AnswerValue::String("docker.service (1.8s)".to_string())));
-        plan.add_field(AnswerField::new("service", AnswerValue::String("postgresql.service (1.2s)".to_string())));
+        plan.add_field(AnswerField::new(
+            "service",
+            AnswerValue::String("NetworkManager.service (2.5s)".to_string()),
+        ));
+        plan.add_field(AnswerField::new(
+            "service",
+            AnswerValue::String("docker.service (1.8s)".to_string()),
+        ));
+        plan.add_field(AnswerField::new(
+            "service",
+            AnswerValue::String("postgresql.service (1.2s)".to_string()),
+        ));
 
         // Try to add disallowed field
-        plan.add_field(AnswerField::new("kernel_time", AnswerValue::String("3.2s".to_string())));
+        plan.add_field(AnswerField::new(
+            "kernel_time",
+            AnswerValue::String("3.2s".to_string()),
+        ));
 
         // Only services should be included
         assert_eq!(plan.fields.len(), 3);
@@ -240,9 +255,9 @@ mod canary_tests {
 
         let raw_fields = vec![
             AnswerField::new("driver", AnswerValue::String("nvidia".to_string())),
-            AnswerField::new("model", AnswerValue::String("RTX 3080".to_string())),     // Discard
-            AnswerField::new("memory", AnswerValue::String("10 GB".to_string())),       // Discard
-            AnswerField::new("pci_id", AnswerValue::String("10de:2206".to_string())),   // Discard
+            AnswerField::new("model", AnswerValue::String("RTX 3080".to_string())), // Discard
+            AnswerField::new("memory", AnswerValue::String("10 GB".to_string())),   // Discard
+            AnswerField::new("pci_id", AnswerValue::String("10de:2206".to_string())), // Discard
         ];
 
         let result = ShapeEnforcer::enforce(&intent, raw_fields);
@@ -274,7 +289,10 @@ mod canary_tests {
 
         let raw_fields = vec![
             AnswerField::new("driver", AnswerValue::String("nvidia".to_string())),
-            AnswerField::new("gpu_dump", AnswerValue::String("NVIDIA RTX 3080...".to_string())),
+            AnswerField::new(
+                "gpu_dump",
+                AnswerValue::String("NVIDIA RTX 3080...".to_string()),
+            ),
         ];
 
         let result = ShapeEnforcer::enforce(&intent, raw_fields);
@@ -290,7 +308,7 @@ mod canary_tests {
         // A diagnosis without conclusion is invalid
         let incomplete = DiagnosisConclusion {
             conclusion: ConclusionState::Likely,
-            primary_cause: None,  // Missing!
+            primary_cause: None, // Missing!
             confidence: 0.8,
             supporting_evidence: vec![],
             alternatives: vec![],
@@ -300,11 +318,8 @@ mod canary_tests {
         assert!(!validation.is_valid());
 
         // Complete diagnosis
-        let complete = DiagnosisConclusion::likely(
-            "slow disk I/O",
-            0.85,
-            vec!["ev_iostat".to_string()],
-        );
+        let complete =
+            DiagnosisConclusion::likely("slow disk I/O", 0.85, vec!["ev_iostat".to_string()]);
         assert!(complete.validate().is_valid());
     }
 
@@ -333,8 +348,8 @@ mod canary_tests {
     #[test]
     fn canary_clarification_blocks() {
         let intent = IntentBuilder::new("canary_ambiguous")
-            .category(IntentCategory::Status)  // Set category even for clarification
-            .subject(Subject::Service)          // Set subject even for clarification
+            .category(IntentCategory::Status) // Set category even for clarification
+            .subject(Subject::Service) // Set subject even for clarification
             .needs_clarification(
                 "Which service do you mean?",
                 vec!["nginx", "apache", "postgresql"],
@@ -362,18 +377,19 @@ mod canary_tests {
             .subject(Subject::Memory)
             .build();
 
-        let claims = vec![
-            UnboundClaim::new("4.2 GB free", "free"),
-        ];
+        let claims = vec![UnboundClaim::new("4.2 GB free", "free")];
 
         // No evidence = binding fails
         let result = EvidenceBinding::bind(&intent, claims.clone(), &[]);
         assert!(matches!(result, BindingResult::NoEvidence));
 
         // With evidence = binding succeeds
-        let evidence = vec![
-            EvidenceItem::new("ev_mem", Subject::Memory, vec!["free"], "Memory info"),
-        ];
+        let evidence = vec![EvidenceItem::new(
+            "ev_mem",
+            Subject::Memory,
+            vec!["free"],
+            "Memory info",
+        )];
         let result = EvidenceBinding::bind(&intent, claims, &evidence);
         assert!(result.is_valid());
     }
@@ -418,8 +434,7 @@ mod canary_tests {
     #[test]
     fn canary_intent_validation() {
         // Unknown category is invalid
-        let bad_intent = IntentBuilder::new("canary_bad")
-            .build();  // No category or subject set
+        let bad_intent = IntentBuilder::new("canary_bad").build(); // No category or subject set
         let validation = validate_intent(&bad_intent);
         assert!(!validation.is_valid());
 

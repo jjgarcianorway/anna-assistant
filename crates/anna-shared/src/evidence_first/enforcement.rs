@@ -180,8 +180,7 @@ fn validate_claim_support(claim: &Claim, citations: &[Citation]) -> ValidationRe
             if has_probe {
                 ValidationResult::valid()
             } else if !citations.is_empty() {
-                ValidationResult::valid()
-                    .with_warning("Factual claim supported by docs, not probe")
+                ValidationResult::valid().with_warning("Factual claim supported by docs, not probe")
             } else {
                 ValidationResult::invalid("Factual claim requires probe evidence")
             }
@@ -233,22 +232,14 @@ impl ClaimValidator {
     }
 
     /// Validate a single claim.
-    pub fn validate_claim(
-        &self,
-        claim: &Claim,
-        store: &CitationStore,
-    ) -> SupportedClaim {
+    pub fn validate_claim(&self, claim: &Claim, store: &CitationStore) -> SupportedClaim {
         // Find citations relevant to this claim
         let relevant_citations = self.find_relevant_citations(claim, store);
         SupportedClaim::new(claim.clone(), relevant_citations)
     }
 
     /// Validate multiple claims.
-    pub fn validate_claims(
-        &self,
-        claims: &[Claim],
-        store: &CitationStore,
-    ) -> ValidationReport {
+    pub fn validate_claims(&self, claims: &[Claim], store: &CitationStore) -> ValidationReport {
         let mut supported_claims = Vec::new();
         let mut unsupported_claims = Vec::new();
 
@@ -380,7 +371,10 @@ impl ValidationReport {
         if !self.unsupported_claims.is_empty() {
             lines.push("\nUnsupported claims:".to_string());
             for claim in &self.unsupported_claims {
-                lines.push(format!("  - {}: {}", claim.claim.text, claim.validation.reason));
+                lines.push(format!(
+                    "  - {}: {}",
+                    claim.claim.text, claim.validation.reason
+                ));
             }
         }
 
@@ -559,7 +553,9 @@ mod tests {
         assert!(claims.len() >= 2);
 
         // Check for factual claim
-        assert!(claims.iter().any(|c| matches!(c.claim_type, ClaimType::Factual)));
+        assert!(claims
+            .iter()
+            .any(|c| matches!(c.claim_type, ClaimType::Factual)));
 
         // Check for doc claim
         assert!(claims

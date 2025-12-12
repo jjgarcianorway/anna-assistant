@@ -16,7 +16,9 @@ pub mod ux;
 pub mod validator;
 
 // Re-export main types for convenience
-pub use fallback::{FallbackContext, FallbackReason, FallbackResponse, FallbackSummarizer, ProbeEvidence};
+pub use fallback::{
+    FallbackContext, FallbackReason, FallbackResponse, FallbackSummarizer, ProbeEvidence,
+};
 pub use retry::{
     build_repair_prompt, AttemptResult, RetryAttempt, RetryConfig, RetryDecision, RetryState,
     RetrySummary, BACKOFF_1_MS, BACKOFF_2_MS, MAX_RETRIES, REPAIR_PROMPT_1, REPAIR_PROMPT_2,
@@ -27,12 +29,12 @@ pub use schema::{
     SrcDepartment, SrcRisk, MAX_ACTIONS, MAX_CITATIONS, MAX_SNIPPET_CHARS, MAX_SUMMARY_CHARS,
 };
 pub use ticket_state::{
-    ResolutionCriteria, StatsSummary, StateTransition, TicketState, TicketStateMachine,
+    ResolutionCriteria, StateTransition, StatsSummary, TicketState, TicketStateMachine,
     TicketStats, MIN_CONFIDENCE_FOR_RESOLVED,
 };
 pub use ux::{
-    fallback_message, retry_message, state_message, success_message, ProgressIndicator,
-    UxMessage, UxSeverity,
+    fallback_message, retry_message, state_message, success_message, ProgressIndicator, UxMessage,
+    UxSeverity,
 };
 pub use validator::{
     BatchValidator, SrcValidator, ValidationError, ValidationResult, MAX_RESPONSE_CHARS,

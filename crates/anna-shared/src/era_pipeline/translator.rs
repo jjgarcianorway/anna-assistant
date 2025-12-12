@@ -75,9 +75,7 @@ fn validate_answer_type(text: &str, expected: AnswerType) -> bool {
             // Entity should be concise
             text.len() <= MAX_ENTITY_ANSWER && !text.contains('\n')
         }
-        AnswerType::Brief => {
-            text.len() <= MAX_BRIEF_ANSWER
-        }
+        AnswerType::Brief => text.len() <= MAX_BRIEF_ANSWER,
     }
 }
 
@@ -172,7 +170,8 @@ impl PrecisionTranslator {
             let lower = metric.to_lowercase();
             if lower.contains("yes") || lower.contains("true") || lower.contains("enabled") {
                 return Ok("Yes.".to_string());
-            } else if lower.contains("no") || lower.contains("false") || lower.contains("disabled") {
+            } else if lower.contains("no") || lower.contains("false") || lower.contains("disabled")
+            {
                 return Ok("No.".to_string());
             }
         }
@@ -180,7 +179,11 @@ impl PrecisionTranslator {
         // Look for boolean facts
         for (_, value) in &evidence.facts {
             if let Some(b) = value.as_bool() {
-                return Ok(if b { "Yes.".to_string() } else { "No.".to_string() });
+                return Ok(if b {
+                    "Yes.".to_string()
+                } else {
+                    "No.".to_string()
+                });
             }
         }
 
@@ -359,18 +362,24 @@ impl DirectAnswerBuilder {
             }
             AnswerType::Boolean => {
                 let b = value.as_bool()?;
-                Some(if b { "Yes.".to_string() } else { "No.".to_string() })
+                Some(if b {
+                    "Yes.".to_string()
+                } else {
+                    "No.".to_string()
+                })
             }
             AnswerType::List => {
                 let list = value.as_list()?;
-                Some(list.iter().take(MAX_LIST_ITEMS).cloned().collect::<Vec<_>>().join(", "))
+                Some(
+                    list.iter()
+                        .take(MAX_LIST_ITEMS)
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                )
             }
-            AnswerType::Entity => {
-                Some(value.as_string()?.to_string())
-            }
-            AnswerType::Brief => {
-                Some(value.display())
-            }
+            AnswerType::Entity => Some(value.as_string()?.to_string()),
+            AnswerType::Brief => Some(value.display()),
         }
     }
 }
@@ -390,7 +399,9 @@ mod tests {
             .with_metric("17.0 GiB");
 
         let translator = PrecisionTranslator::new();
-        let answer = translator.translate(&reasoning, &evidence, AnswerType::Numeric).unwrap();
+        let answer = translator
+            .translate(&reasoning, &evidence, AnswerType::Numeric)
+            .unwrap();
 
         assert_eq!(answer.text, "17.0 GiB");
         assert!(answer.type_match);
@@ -402,11 +413,13 @@ mod tests {
             .fact_bool("disk.trim_enabled", true)
             .build();
 
-        let reasoning = ReasoningOutput::answerable("DSK-0127", "Trim is enabled", 0.9)
-            .with_metric("enabled");
+        let reasoning =
+            ReasoningOutput::answerable("DSK-0127", "Trim is enabled", 0.9).with_metric("enabled");
 
         let translator = PrecisionTranslator::new();
-        let answer = translator.translate(&reasoning, &evidence, AnswerType::Boolean).unwrap();
+        let answer = translator
+            .translate(&reasoning, &evidence, AnswerType::Boolean)
+            .unwrap();
 
         assert!(answer.text.starts_with("Yes"));
     }
@@ -414,16 +427,21 @@ mod tests {
     #[test]
     fn test_list_answer() {
         let evidence = EvidenceBundleBuilder::new("DSK-0127")
-            .fact_list("boot.blame", vec![
-                "NetworkManager.service (2.5s)".to_string(),
-                "systemd-udev-settle.service (1.2s)".to_string(),
-            ])
+            .fact_list(
+                "boot.blame",
+                vec![
+                    "NetworkManager.service (2.5s)".to_string(),
+                    "systemd-udev-settle.service (1.2s)".to_string(),
+                ],
+            )
             .build();
 
         let reasoning = ReasoningOutput::answerable("DSK-0127", "Services listed", 0.9);
 
         let translator = PrecisionTranslator::new();
-        let answer = translator.translate(&reasoning, &evidence, AnswerType::List).unwrap();
+        let answer = translator
+            .translate(&reasoning, &evidence, AnswerType::List)
+            .unwrap();
 
         assert!(answer.text.contains("NetworkManager"));
     }
@@ -438,7 +456,9 @@ mod tests {
             .with_metric("NVIDIA GeForce RTX 3080");
 
         let translator = PrecisionTranslator::new();
-        let answer = translator.translate(&reasoning, &evidence, AnswerType::Entity).unwrap();
+        let answer = translator
+            .translate(&reasoning, &evidence, AnswerType::Entity)
+            .unwrap();
 
         assert_eq!(answer.text, "NVIDIA GeForce RTX 3080");
     }
@@ -446,11 +466,8 @@ mod tests {
     #[test]
     fn test_cannot_answer() {
         let evidence = EvidenceBundle::new("DSK-0127");
-        let reasoning = ReasoningOutput::unanswerable(
-            "DSK-0127",
-            "Missing boot data",
-            vec!["boot.blame"],
-        );
+        let reasoning =
+            ReasoningOutput::unanswerable("DSK-0127", "Missing boot data", vec!["boot.blame"]);
 
         let translator = PrecisionTranslator::new();
         let result = translator.translate(&reasoning, &evidence, AnswerType::List);
@@ -477,7 +494,10 @@ mod tests {
         assert!(!validate_answer_type("hello world", AnswerType::Numeric));
 
         assert!(validate_answer_type("Yes.", AnswerType::Boolean));
-        assert!(validate_answer_type("No, it is not enabled.", AnswerType::Boolean));
+        assert!(validate_answer_type(
+            "No, it is not enabled.",
+            AnswerType::Boolean
+        ));
         assert!(!validate_answer_type("Maybe", AnswerType::Boolean));
     }
 }

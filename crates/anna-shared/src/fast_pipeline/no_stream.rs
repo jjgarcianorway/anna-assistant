@@ -269,8 +269,14 @@ mod tests {
             .force_no_stream()
             .allow_renderer();
 
-        assert_eq!(builder.policy_for(CallType::JuniorSpecialist), CallPolicy::NoStream);
-        assert_eq!(builder.policy_for(CallType::Renderer), CallPolicy::StreamAllowed);
+        assert_eq!(
+            builder.policy_for(CallType::JuniorSpecialist),
+            CallPolicy::NoStream
+        );
+        assert_eq!(
+            builder.policy_for(CallType::Renderer),
+            CallPolicy::StreamAllowed
+        );
     }
 
     #[test]

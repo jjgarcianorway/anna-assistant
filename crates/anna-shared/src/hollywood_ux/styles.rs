@@ -65,7 +65,12 @@ pub fn probe_line(name: &str, status: &str, duration_ms: u64) -> String {
         "timeout" => "TIMEOUT",
         _ => status,
     };
-    format!("  {:24} {:8} ({:>3}ms)", truncate(name, 24), status_str, duration_ms)
+    format!(
+        "  {:24} {:8} ({:>3}ms)",
+        truncate(name, 24),
+        status_str,
+        duration_ms
+    )
 }
 
 /// Format evidence footer line

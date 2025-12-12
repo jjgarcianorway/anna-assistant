@@ -28,7 +28,10 @@ fn build_greeting_prompt(ctx: &GreetingContext) -> String {
 
     // Streak
     if ctx.streak_days > 1 {
-        facts.push(format!("Current streak: {} consecutive days", ctx.streak_days));
+        facts.push(format!(
+            "Current streak: {} consecutive days",
+            ctx.streak_days
+        ));
     }
 
     // Preferences
@@ -52,7 +55,13 @@ fn build_greeting_prompt(ctx: &GreetingContext) -> String {
 
     // Health issues
     if !ctx.health_issues.is_empty() {
-        let issues = ctx.health_issues.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
+        let issues = ctx
+            .health_issues
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ");
         facts.push(format!("System issues: {}", issues));
     }
 
@@ -123,7 +132,10 @@ fn build_personality_rules(ctx: &GreetingContext) -> String {
 
     // Technical depth
     if !ctx.personality.technical_depth.is_empty() {
-        rules.push(format!("Technical style: {}", ctx.personality.technical_depth));
+        rules.push(format!(
+            "Technical style: {}",
+            ctx.personality.technical_depth
+        ));
     }
 
     rules.join("\n")
@@ -137,7 +149,11 @@ pub async fn generate_greeting(
 ) -> GreetingResponse {
     let prompt = build_greeting_prompt(ctx);
 
-    info!("Generating greeting for {} (payload {} bytes)", ctx.username, prompt.len());
+    info!(
+        "Generating greeting for {} (payload {} bytes)",
+        ctx.username,
+        prompt.len()
+    );
 
     match ollama::chat_with_timeout(model, &prompt, timeout_secs).await {
         Ok(response) => {
@@ -151,7 +167,10 @@ pub async fn generate_greeting(
                     is_llm_generated: true,
                 }
             } else {
-                warn!("LLM greeting invalid length ({}), using fallback", greeting.len());
+                warn!(
+                    "LLM greeting invalid length ({}), using fallback",
+                    greeting.len()
+                );
                 GreetingResponse::fallback(ctx)
             }
         }

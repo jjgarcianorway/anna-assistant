@@ -332,12 +332,14 @@ impl HardwareProfile {
             .unwrap_or_default();
 
         if ollama_dir.exists() {
-            info.model_storage_available_gb = get_available_space_gb(ollama_dir.to_str().unwrap_or("/"));
+            info.model_storage_available_gb =
+                get_available_space_gb(ollama_dir.to_str().unwrap_or("/"));
             info.model_storage_total_gb = get_total_space_gb(ollama_dir.to_str().unwrap_or("/"));
         } else {
             // Fall back to home directory
             if let Some(home) = dirs::home_dir() {
-                info.model_storage_available_gb = get_available_space_gb(home.to_str().unwrap_or("/"));
+                info.model_storage_available_gb =
+                    get_available_space_gb(home.to_str().unwrap_or("/"));
                 info.model_storage_total_gb = get_total_space_gb(home.to_str().unwrap_or("/"));
             }
         }
@@ -374,7 +376,8 @@ impl HardwareProfile {
     /// Compute capability tier from hardware.
     fn compute_tier(ram_gb: f32, gpu: &GpuInfo) -> CapabilityTier {
         // GPU can bump tier but needs adequate RAM too
-        let has_strong_gpu = gpu.discrete && matches!(gpu.vendor, GpuVendor::Nvidia | GpuVendor::Amd);
+        let has_strong_gpu =
+            gpu.discrete && matches!(gpu.vendor, GpuVendor::Nvidia | GpuVendor::Amd);
         let vram_ok = gpu.vram_gb.unwrap_or(0) >= 6;
 
         // Large: high RAM, or good RAM + strong GPU
@@ -529,10 +532,22 @@ mod tests {
     fn test_compute_tier() {
         let no_gpu = GpuInfo::default();
 
-        assert_eq!(HardwareProfile::compute_tier(4.0, &no_gpu), CapabilityTier::Tiny);
-        assert_eq!(HardwareProfile::compute_tier(12.0, &no_gpu), CapabilityTier::Small);
-        assert_eq!(HardwareProfile::compute_tier(24.0, &no_gpu), CapabilityTier::Medium);
-        assert_eq!(HardwareProfile::compute_tier(64.0, &no_gpu), CapabilityTier::Large);
+        assert_eq!(
+            HardwareProfile::compute_tier(4.0, &no_gpu),
+            CapabilityTier::Tiny
+        );
+        assert_eq!(
+            HardwareProfile::compute_tier(12.0, &no_gpu),
+            CapabilityTier::Small
+        );
+        assert_eq!(
+            HardwareProfile::compute_tier(24.0, &no_gpu),
+            CapabilityTier::Medium
+        );
+        assert_eq!(
+            HardwareProfile::compute_tier(64.0, &no_gpu),
+            CapabilityTier::Large
+        );
     }
 
     #[test]
@@ -545,10 +560,16 @@ mod tests {
         };
 
         // 12GB RAM would be Small, but with NVIDIA GPU becomes Medium
-        assert_eq!(HardwareProfile::compute_tier(12.0, &nvidia_gpu), CapabilityTier::Medium);
+        assert_eq!(
+            HardwareProfile::compute_tier(12.0, &nvidia_gpu),
+            CapabilityTier::Medium
+        );
 
         // 20GB RAM with strong GPU becomes Large
-        assert_eq!(HardwareProfile::compute_tier(20.0, &nvidia_gpu), CapabilityTier::Large);
+        assert_eq!(
+            HardwareProfile::compute_tier(20.0, &nvidia_gpu),
+            CapabilityTier::Large
+        );
     }
 
     #[test]

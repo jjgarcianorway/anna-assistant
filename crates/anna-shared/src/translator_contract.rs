@@ -155,7 +155,10 @@ impl TranslatorOutput {
         }
 
         if self.follow_up_questions.len() > 3 {
-            issues.push(format!("too many follow-up questions ({} > 3)", self.follow_up_questions.len()));
+            issues.push(format!(
+                "too many follow-up questions ({} > 3)",
+                self.follow_up_questions.len()
+            ));
         }
 
         if self.confidence < 0.0 || self.confidence > 1.0 {
@@ -289,15 +292,30 @@ mod tests {
 
     #[test]
     fn test_intent_from_str() {
-        assert_eq!(TranslatorIntent::from_str("query_metric"), TranslatorIntent::QueryMetric);
-        assert_eq!(TranslatorIntent::from_str("diagnose"), TranslatorIntent::Diagnose);
-        assert_eq!(TranslatorIntent::from_str("unknown"), TranslatorIntent::QueryMetric);
+        assert_eq!(
+            TranslatorIntent::from_str("query_metric"),
+            TranslatorIntent::QueryMetric
+        );
+        assert_eq!(
+            TranslatorIntent::from_str("diagnose"),
+            TranslatorIntent::Diagnose
+        );
+        assert_eq!(
+            TranslatorIntent::from_str("unknown"),
+            TranslatorIntent::QueryMetric
+        );
     }
 
     #[test]
     fn test_domain_from_str() {
         assert_eq!(TranslatorDomain::from_str("ram"), TranslatorDomain::System);
-        assert_eq!(TranslatorDomain::from_str("disk"), TranslatorDomain::Storage);
-        assert_eq!(TranslatorDomain::from_str("wifi"), TranslatorDomain::Network);
+        assert_eq!(
+            TranslatorDomain::from_str("disk"),
+            TranslatorDomain::Storage
+        );
+        assert_eq!(
+            TranslatorDomain::from_str("wifi"),
+            TranslatorDomain::Network
+        );
     }
 }

@@ -169,10 +169,8 @@ pub async fn run_ticket_loop(
     );
 
     // v0.0.297: Build ParsedEvidence from probe results for LLM self-healing
-    let parsed_probes: Vec<ParsedProbeData> = probe_results
-        .iter()
-        .map(parse_probe_result)
-        .collect();
+    let parsed_probes: Vec<ParsedProbeData> =
+        probe_results.iter().map(parse_probe_result).collect();
     let evidence = ParsedEvidence::from_probes(&parsed_probes);
 
     // Step 4: Senior escalation with LLM self-healing (v0.0.297)
@@ -204,7 +202,7 @@ pub async fn run_ticket_loop(
         // Create a synthetic escalation event for transcript
         let escalation = anna_shared::revision::SeniorEscalation::success(
             anna_shared::revision::RevisionInstruction::default()
-                .with_explanation("LLM self-healing applied")
+                .with_explanation("LLM self-healing applied"),
         );
         add_senior_escalation_event(transcript, elapsed_ms, &escalation);
 
@@ -257,7 +255,11 @@ pub async fn run_ticket_loop(
     warn!(
         "LLM self-healing failed: score={}, issues={:?}",
         validation_result.score,
-        validation_result.issues.iter().map(|i| i.to_string()).collect::<Vec<_>>()
+        validation_result
+            .issues
+            .iter()
+            .map(|i| i.to_string())
+            .collect::<Vec<_>>()
     );
 
     // Update current answer if healing produced something
@@ -391,9 +393,18 @@ mod tests {
 
     #[test]
     fn test_evidence_kinds_mapping() {
-        assert_eq!(evidence_kinds_from_route("MemoryUsage"), vec![EvidenceKind::Memory]);
-        assert_eq!(evidence_kinds_from_route("DiskUsage"), vec![EvidenceKind::Disk]);
-        assert_eq!(evidence_kinds_from_route("service_status"), vec![EvidenceKind::Services]);
+        assert_eq!(
+            evidence_kinds_from_route("MemoryUsage"),
+            vec![EvidenceKind::Memory]
+        );
+        assert_eq!(
+            evidence_kinds_from_route("DiskUsage"),
+            vec![EvidenceKind::Disk]
+        );
+        assert_eq!(
+            evidence_kinds_from_route("service_status"),
+            vec![EvidenceKind::Services]
+        );
         assert!(evidence_kinds_from_route("Unknown").is_empty());
     }
 }

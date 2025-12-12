@@ -141,9 +141,9 @@ pub fn check_eligibility(ticket: &TicketForEligibility) -> EligibilityResult {
 
     // Rule 4: Intent must be learnable
     let intent = ticket.intent.as_deref().unwrap_or("");
-    let is_learnable_intent = LEARNABLE_INTENTS.iter().any(|&i| {
-        intent.contains(i) || i.contains(intent)
-    });
+    let is_learnable_intent = LEARNABLE_INTENTS
+        .iter()
+        .any(|&i| intent.contains(i) || i.contains(intent));
 
     // Detect recipe type from context
     let recipe_type = detect_recipe_type(ticket);
@@ -193,7 +193,11 @@ pub fn check_eligibility(ticket: &TicketForEligibility) -> EligibilityResult {
 /// Detect recipe type from ticket context.
 fn detect_recipe_type(ticket: &TicketForEligibility) -> Option<RecipeType> {
     let query = ticket.user_query.to_lowercase();
-    let summary = ticket.specialist_summary.as_deref().unwrap_or("").to_lowercase();
+    let summary = ticket
+        .specialist_summary
+        .as_deref()
+        .unwrap_or("")
+        .to_lowercase();
     let combined = format!("{} {}", query, summary);
 
     // Check for config changes
@@ -215,7 +219,15 @@ fn detect_recipe_type(ticket: &TicketForEligibility) -> Option<RecipeType> {
     }
 
     // Check for service actions
-    let service_keywords = ["systemctl", "service", "enable", "disable", "restart", "start", "stop"];
+    let service_keywords = [
+        "systemctl",
+        "service",
+        "enable",
+        "disable",
+        "restart",
+        "start",
+        "stop",
+    ];
     if service_keywords.iter().any(|k| combined.contains(k)) {
         return Some(RecipeType::ServiceAction);
     }
@@ -228,8 +240,8 @@ fn detect_recipe_type(ticket: &TicketForEligibility) -> Option<RecipeType> {
 
     // Check for diagnostics
     let diag_keywords = [
-        "check", "status", "how much", "what is", "show", "list",
-        "disk", "ram", "memory", "cpu", "swap", "uptime", "boot",
+        "check", "status", "how much", "what is", "show", "list", "disk", "ram", "memory", "cpu",
+        "swap", "uptime", "boot",
     ];
     if diag_keywords.iter().any(|k| combined.contains(k)) {
         return Some(RecipeType::RepeatableDiagnostic);
@@ -246,9 +258,9 @@ fn detect_recipe_type(ticket: &TicketForEligibility) -> Option<RecipeType> {
 
 /// Check if a specific intent is learnable.
 pub fn is_learnable_intent(intent: &str) -> bool {
-    LEARNABLE_INTENTS.iter().any(|&i| {
-        intent.contains(i) || i.contains(intent)
-    })
+    LEARNABLE_INTENTS
+        .iter()
+        .any(|&i| intent.contains(i) || i.contains(intent))
 }
 
 /// Get list of learnable intents.

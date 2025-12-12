@@ -6,10 +6,10 @@ use anna_shared::progress::ProgressEvent;
 use anna_shared::rpc::{
     CommandExecutionResult, DaemonInfo, RpcMethod, RpcRequest, RpcResponse, ServiceDeskResult,
 };
+use anna_shared::socket_path;
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::DaemonStatus;
 use anna_shared::status_snapshot::StatusSnapshot;
-use anna_shared::socket_path;
 use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::time::Duration;
@@ -107,6 +107,15 @@ impl AnnadClient {
         let response: RpcResponse = serde_json::from_str(&line)
             .map_err(|e| anyhow!("Invalid response from daemon: {}", e))?;
         Ok(response)
+    }
+
+    /// Send a raw RPC request (used by annactl commands)
+    pub async fn send_rpc(
+        &mut self,
+        method: RpcMethod,
+        params: Option<serde_json::Value>,
+    ) -> Result<RpcResponse> {
+        self.call(method, params).await
     }
 
     /// Get daemon status
@@ -280,7 +289,6 @@ impl AnnadClient {
     }
 
     /// v0.0.275: Generate personalized greeting via LLM
-    #[allow(dead_code)]
     pub async fn generate_greeting(
         &mut self,
         ctx: &anna_shared::greeting_context::GreetingContext,

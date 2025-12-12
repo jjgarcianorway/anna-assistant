@@ -109,8 +109,16 @@ pub fn extract_recipe(data: &TicketData) -> ExtractionResult {
     let success_criteria = build_success_criteria(&plan);
 
     // Create recipe
-    let domain = data.eligibility.domain.clone().unwrap_or_else(|| "general".into());
-    let intent = data.eligibility.intent.clone().unwrap_or_else(|| "unknown".into());
+    let domain = data
+        .eligibility
+        .domain
+        .clone()
+        .unwrap_or_else(|| "general".into());
+    let intent = data
+        .eligibility
+        .intent
+        .clone()
+        .unwrap_or_else(|| "unknown".into());
 
     let mut recipe = Recipe::new(recipe_id, domain, intent, pattern, matcher, plan);
     recipe.preconditions = preconditions;
@@ -144,7 +152,13 @@ fn generate_recipe_id(data: &TicketData, recipe_type: Option<RecipeType>) -> Str
     };
 
     if key_words.is_empty() {
-        format!("{}_{}_{}_{}", domain, intent, type_suffix, &data.ticket_id[..8.min(data.ticket_id.len())])
+        format!(
+            "{}_{}_{}_{}",
+            domain,
+            intent,
+            type_suffix,
+            &data.ticket_id[..8.min(data.ticket_id.len())]
+        )
     } else {
         format!("{}_{}_{}", domain, key_words.join("_"), type_suffix)
     }
@@ -152,15 +166,13 @@ fn generate_recipe_id(data: &TicketData, recipe_type: Option<RecipeType>) -> Str
 
 fn is_stop_word(word: &str) -> bool {
     const STOP_WORDS: &[&str] = &[
-        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-        "have", "has", "had", "do", "does", "did", "will", "would", "could",
-        "should", "may", "might", "must", "shall", "can", "need", "dare",
-        "ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
-        "from", "as", "into", "through", "during", "before", "after",
-        "above", "below", "between", "under", "again", "further", "then",
-        "once", "here", "there", "when", "where", "why", "how", "all",
-        "each", "few", "more", "most", "other", "some", "such", "only",
-        "own", "same", "than", "too", "very", "just", "also", "now",
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+        "do", "does", "did", "will", "would", "could", "should", "may", "might", "must", "shall",
+        "can", "need", "dare", "ought", "used", "to", "of", "in", "for", "on", "with", "at", "by",
+        "from", "as", "into", "through", "during", "before", "after", "above", "below", "between",
+        "under", "again", "further", "then", "once", "here", "there", "when", "where", "why",
+        "how", "all", "each", "few", "more", "most", "other", "some", "such", "only", "own",
+        "same", "than", "too", "very", "just", "also", "now",
     ];
     STOP_WORDS.contains(&word)
 }
@@ -467,7 +479,10 @@ mod tests {
                 assert_eq!(recipe.domain, "desktop");
                 assert!(!recipe.plan.is_empty());
                 assert!(!recipe.matcher.required_keywords.is_empty());
-                assert!(recipe.matcher.negative_keywords.contains(&"neovim".to_string()));
+                assert!(recipe
+                    .matcher
+                    .negative_keywords
+                    .contains(&"neovim".to_string()));
             }
             _ => panic!("Expected NewRecipe"),
         }

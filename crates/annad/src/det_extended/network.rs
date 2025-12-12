@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer network connectivity query using ping
-pub fn answer_network_connectivity(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_network_connectivity(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "ping_check")?;
 
     let answer = if probe.exit_code == 0 {
@@ -16,7 +19,11 @@ pub fn answer_network_connectivity(probes: &[ProbeResult], route_class: &str) ->
         let latency = output
             .lines()
             .find(|line| line.contains("time="))
-            .and_then(|line| line.split("time=").nth(1).and_then(|s| s.split_whitespace().next()));
+            .and_then(|line| {
+                line.split("time=")
+                    .nth(1)
+                    .and_then(|s| s.split_whitespace().next())
+            });
 
         if let Some(lat) = latency {
             format!("Online - ping to 8.8.8.8: {} ms", lat)
@@ -36,7 +43,10 @@ pub fn answer_network_connectivity(probes: &[ProbeResult], route_class: &str) ->
 }
 
 /// Answer DNS servers query
-pub fn answer_dns_servers(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_dns_servers(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "dns_servers")?;
     if probe.exit_code != 0 {
         return None;
@@ -74,7 +84,10 @@ pub fn answer_dns_servers(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer default gateway query
-pub fn answer_default_gateway(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_default_gateway(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "default_gateway")?;
     if probe.exit_code != 0 {
         return None;
@@ -107,7 +120,10 @@ pub fn answer_default_gateway(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer listening ports query using ss
-pub fn answer_listening_ports(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_listening_ports(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "listening_ports")?;
     if probe.exit_code != 0 {
         return None;
@@ -148,7 +164,10 @@ pub fn answer_ip_routes(probes: &[ProbeResult], route_class: &str) -> Option<Det
 
     let route_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!("IP routing table ({} routes):\n```\n{}\n```", route_count, output),
+        answer: format!(
+            "IP routing table ({} routes):\n```\n{}\n```",
+            route_count, output
+        ),
         grounded: true,
         parsed_data_count: route_count,
         route_class: route_class.to_string(),
@@ -179,7 +198,10 @@ pub fn answer_arp_table(probes: &[ProbeResult], route_class: &str) -> Option<Det
 }
 
 /// Answer network namespaces query
-pub fn answer_network_namespaces(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_network_namespaces(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "network_namespaces")?;
 
     let output = probe.stdout.trim();
@@ -202,12 +224,18 @@ pub fn answer_network_namespaces(probes: &[ProbeResult], route_class: &str) -> O
 }
 
 /// Answer network bonding query
-pub fn answer_network_bonding(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_network_bonding(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "network_bonding")?;
     let output = probe.stdout.trim();
 
     let (answer, parsed) = if output.contains("No network bonding") || output.is_empty() {
-        ("No network bonding configured on this system.".to_string(), 0)
+        (
+            "No network bonding configured on this system.".to_string(),
+            0,
+        )
     } else {
         (format!("Network bonding status:\n```\n{}\n```", output), 1)
     };
@@ -221,7 +249,10 @@ pub fn answer_network_bonding(probes: &[ProbeResult], route_class: &str) -> Opti
 }
 
 /// Answer network statistics query using /proc/net/dev
-pub fn answer_network_stats(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_network_stats(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "network_stats")?;
     let output = probe.stdout.trim();
 
@@ -243,7 +274,10 @@ pub fn answer_network_stats(probes: &[ProbeResult], route_class: &str) -> Option
         if interfaces.is_empty() {
             ("No network interface statistics found.".to_string(), 0)
         } else {
-            (format!("Network interface statistics:\n{}", interfaces.join("\n")), interfaces.len())
+            (
+                format!("Network interface statistics:\n{}", interfaces.join("\n")),
+                interfaces.len(),
+            )
         }
     };
 
@@ -264,7 +298,10 @@ pub fn answer_hosts_file(probes: &[ProbeResult], route_class: &str) -> Option<De
         ("No non-comment entries found in /etc/hosts.".to_string(), 0)
     } else {
         let count = output.lines().count();
-        (format!("/etc/hosts ({} entries):\n```\n{}\n```", count, output), count)
+        (
+            format!("/etc/hosts ({} entries):\n```\n{}\n```", count, output),
+            count,
+        )
     };
 
     Some(DeterministicResult {
@@ -276,7 +313,10 @@ pub fn answer_hosts_file(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer wireless networks query
-pub fn answer_wireless_networks(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_wireless_networks(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "wireless_networks")?;
 
     let output = probe.stdout.trim();
@@ -291,7 +331,10 @@ pub fn answer_wireless_networks(probes: &[ProbeResult], route_class: &str) -> Op
 
     let network_count = output.lines().count().saturating_sub(1);
     Some(DeterministicResult {
-        answer: format!("Available wireless networks ({}):\n```\n{}\n```", network_count, output),
+        answer: format!(
+            "Available wireless networks ({}):\n```\n{}\n```",
+            network_count, output
+        ),
         grounded: true,
         parsed_data_count: network_count,
         route_class: route_class.to_string(),

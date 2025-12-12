@@ -68,7 +68,10 @@ pub enum RecipeCondition {
 
 impl RecipeCondition {
     /// Evaluate the condition, returns (success, message)
-    pub fn evaluate(&self, variables: &std::collections::HashMap<String, String>) -> ConditionResult {
+    pub fn evaluate(
+        &self,
+        variables: &std::collections::HashMap<String, String>,
+    ) -> ConditionResult {
         match self {
             Self::ProbeTrue { probe, expected } => {
                 let probe = substitute_vars(probe, variables);
@@ -195,9 +198,7 @@ fn substitute_vars(template: &str, vars: &std::collections::HashMap<String, Stri
 
 /// Evaluate probe condition
 fn eval_probe_true(probe: &str, expected: Option<&str>) -> ConditionResult {
-    let output = Command::new("sh")
-        .args(["-c", probe])
-        .output();
+    let output = Command::new("sh").args(["-c", probe]).output();
 
     match output {
         Ok(out) => {
@@ -223,9 +224,7 @@ fn eval_probe_true(probe: &str, expected: Option<&str>) -> ConditionResult {
 
 /// Check if command exists
 fn eval_command_exists(command: &str) -> ConditionResult {
-    let output = Command::new("which")
-        .arg(command)
-        .output();
+    let output = Command::new("which").arg(command).output();
 
     match output {
         Ok(out) if out.status.success() => {
@@ -239,9 +238,7 @@ fn eval_command_exists(command: &str) -> ConditionResult {
 /// Check if package is installed
 fn eval_package_installed(package: &str) -> ConditionResult {
     // Try pacman first (Arch)
-    let output = Command::new("pacman")
-        .args(["-Q", package])
-        .output();
+    let output = Command::new("pacman").args(["-Q", package]).output();
 
     if let Ok(out) = output {
         if out.status.success() {
@@ -297,7 +294,10 @@ fn eval_config_not_contains(path: &str, pattern: &str) -> ConditionResult {
         }
         Err(_) => {
             // File not existing means pattern not present
-            ConditionResult::ok(&format!("Config '{}' does not exist (pattern absent)", path))
+            ConditionResult::ok(&format!(
+                "Config '{}' does not exist (pattern absent)",
+                path
+            ))
         }
     }
 }

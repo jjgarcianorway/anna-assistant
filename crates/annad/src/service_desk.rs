@@ -230,7 +230,6 @@ pub struct FallbackContext {
     pub evidence_required: Option<bool>,
 }
 
-
 /// Calculate reliability using the new graduated scoring model.
 /// Returns (signals for backward compat, output, input) for explanation building.
 fn calculate_reliability_v2(

@@ -348,7 +348,10 @@ impl StrictResponse {
     /// Check if actions can be suggested
     pub fn can_suggest_actions(&self) -> bool {
         self.confidence >= super::MIN_ACTION_CONFIDENCE
-            && matches!(self.status, ResponseStatus::Success | ResponseStatus::Partial)
+            && matches!(
+                self.status,
+                ResponseStatus::Success | ResponseStatus::Partial
+            )
     }
 }
 

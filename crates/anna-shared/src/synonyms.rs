@@ -26,7 +26,14 @@ const SYNONYM_GROUPS: &[&[&str]] = &[
     &["fast", "quick", "speedy", "responsive"],
     &["performance", "speed", "efficiency"],
     // Network related
-    &["network", "internet", "connection", "connectivity", "online", "connected"],
+    &[
+        "network",
+        "internet",
+        "connection",
+        "connectivity",
+        "online",
+        "connected",
+    ],
     &["ip", "address", "ipaddress"],
     &["wifi", "wireless", "wlan"],
     &["ethernet", "wired", "lan"],
@@ -46,7 +53,13 @@ const SYNONYM_GROUPS: &[&[&str]] = &[
     &["fix", "repair", "solve", "resolve", "troubleshoot"],
     &["configure", "config", "set", "change", "modify", "edit"],
     // Config related
-    &["config", "configuration", "settings", "preferences", "options"],
+    &[
+        "config",
+        "configuration",
+        "settings",
+        "preferences",
+        "options",
+    ],
     &["syntax", "highlighting", "colors", "coloring"],
     &["theme", "appearance", "style", "colorscheme"],
     &["line", "lines", "number", "numbers"],
@@ -55,7 +68,9 @@ const SYNONYM_GROUPS: &[&[&str]] = &[
     &["boot", "startup", "bootup", "reboot"],
     &["update", "upgrade", "patch"],
     &["health", "healthy", "ok", "okay", "fine", "good"],
-    &["error", "errors", "problem", "problems", "issue", "issues", "warning", "warnings"],
+    &[
+        "error", "errors", "problem", "problems", "issue", "issues", "warning", "warnings",
+    ],
     // Files
     &["file", "document"],
     &["folder", "directory", "dir"],
@@ -135,7 +150,10 @@ pub fn are_synonyms(a: &str, b: &str) -> bool {
 }
 
 /// Get synonym boost - how many synonyms matched (for scoring)
-pub fn synonym_match_count(query_tokens: &BTreeSet<String>, target_tokens: &BTreeSet<String>) -> u32 {
+pub fn synonym_match_count(
+    query_tokens: &BTreeSet<String>,
+    target_tokens: &BTreeSet<String>,
+) -> u32 {
     let mut count = 0;
     for q_token in query_tokens {
         for t_token in target_tokens {
@@ -192,7 +210,10 @@ mod tests {
     #[test]
     fn test_synonym_match_count() {
         let query: BTreeSet<String> = ["space", "free"].iter().map(|s| s.to_string()).collect();
-        let target: BTreeSet<String> = ["disk", "available"].iter().map(|s| s.to_string()).collect();
+        let target: BTreeSet<String> = ["disk", "available"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         // space->disk (synonym), free->available (synonym)
         assert_eq!(synonym_match_count(&query, &target), 2);
     }

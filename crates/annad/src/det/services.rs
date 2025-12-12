@@ -65,7 +65,11 @@ pub fn answer_running_services(
         .collect();
 
     let answer = if service_count <= 15 {
-        format!("Running services ({}):\n  {}", service_count, services.join("\n  "))
+        format!(
+            "Running services ({}):\n  {}",
+            service_count,
+            services.join("\n  ")
+        )
     } else {
         let preview: Vec<&str> = services.iter().take(12).copied().collect();
         format!(
@@ -122,7 +126,12 @@ pub fn answer_current_user(
     }
 
     Some(DeterministicResult {
-        answer: format!("User: {} (uid={})\nGroups: {}", username, uid, groups.join(", ")),
+        answer: format!(
+            "User: {} (uid={})\nGroups: {}",
+            username,
+            uid,
+            groups.join(", ")
+        ),
         grounded: true,
         parsed_data_count: 1,
         route_class: route_class.to_string(),
@@ -182,7 +191,15 @@ pub fn answer_environment_vars(
     }
 
     let var_count = output.lines().count();
-    let important_vars = ["PATH", "HOME", "USER", "SHELL", "TERM", "DISPLAY", "XDG_SESSION_TYPE"];
+    let important_vars = [
+        "PATH",
+        "HOME",
+        "USER",
+        "SHELL",
+        "TERM",
+        "DISPLAY",
+        "XDG_SESSION_TYPE",
+    ];
     let mut key_vars = Vec::new();
     let mut other_count = 0;
 

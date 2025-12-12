@@ -45,11 +45,11 @@ impl DocIndex {
             return Ok(Self::new());
         }
 
-        let content = fs::read_to_string(&index_file)
-            .map_err(|e| IndexError::IoError(e.to_string()))?;
+        let content =
+            fs::read_to_string(&index_file).map_err(|e| IndexError::IoError(e.to_string()))?;
 
-        let index: Self = serde_json::from_str(&content)
-            .map_err(|e| IndexError::ParseError(e.to_string()))?;
+        let index: Self =
+            serde_json::from_str(&content).map_err(|e| IndexError::ParseError(e.to_string()))?;
 
         // Version check
         if index.version != Self::VERSION {
@@ -64,15 +64,13 @@ impl DocIndex {
 
     /// Save index to disk
     pub fn save(&self, path: &Path) -> Result<(), IndexError> {
-        fs::create_dir_all(path)
-            .map_err(|e| IndexError::IoError(e.to_string()))?;
+        fs::create_dir_all(path).map_err(|e| IndexError::IoError(e.to_string()))?;
 
         let index_file = path.join("doc_index.json");
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| IndexError::ParseError(e.to_string()))?;
 
-        fs::write(&index_file, content)
-            .map_err(|e| IndexError::IoError(e.to_string()))?;
+        fs::write(&index_file, content).map_err(|e| IndexError::IoError(e.to_string()))?;
 
         Ok(())
     }
@@ -175,13 +173,9 @@ impl DocIndex {
         }
 
         // Sort by score (descending), then by source priority
-        scored.sort_by(|a, b| {
-            match b.0.cmp(&a.0) {
-                std::cmp::Ordering::Equal => {
-                    a.1.source.priority().cmp(&b.1.source.priority())
-                }
-                other => other,
-            }
+        scored.sort_by(|a, b| match b.0.cmp(&a.0) {
+            std::cmp::Ordering::Equal => a.1.source.priority().cmp(&b.1.source.priority()),
+            other => other,
         });
 
         // Return top results with relevance set
@@ -213,11 +207,7 @@ impl DocIndex {
         let source_key = format!("{:?}", source);
         self.source_index
             .get(&source_key)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.snippets.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.snippets.get(id)).collect())
             .unwrap_or_default()
     }
 
@@ -323,7 +313,11 @@ impl std::fmt::Display for IndexError {
             Self::IoError(e) => write!(f, "IO error: {}", e),
             Self::ParseError(e) => write!(f, "Parse error: {}", e),
             Self::VersionMismatch { expected, found } => {
-                write!(f, "Index version mismatch: expected {}, found {}", expected, found)
+                write!(
+                    f,
+                    "Index version mismatch: expected {}, found {}",
+                    expected, found
+                )
             }
         }
     }

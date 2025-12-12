@@ -4,25 +4,29 @@
 
 #[cfg(test)]
 mod acceptance_tests {
-    use crate::anna_proto::*;
-    use crate::anna_proto::decoder::{DecodeResult, DecodeError, ProtoDecoder};
+    use crate::anna_proto::decoder::{DecodeError, DecodeResult, ProtoDecoder};
     use crate::anna_proto::envelope::{
-        ModelResultEnvelope, ModelRole, Claim, Action, EvidenceRef, ModelError, ErrorCode,
-        EvidenceKind,
+        Action, Claim, ErrorCode, EvidenceKind, EvidenceRef, ModelError, ModelResultEnvelope,
+        ModelRole,
     };
     use crate::anna_proto::fallback::{EvidenceFallback, GatheredEvidence};
-    use crate::anna_proto::framing::{PROTO_START, PROTO_END, create_frame};
-    use crate::anna_proto::stats::{PeriodStats, TicketOutcome, outcome_from_decode};
+    use crate::anna_proto::framing::{create_frame, PROTO_END, PROTO_START};
+    use crate::anna_proto::stats::{outcome_from_decode, PeriodStats, TicketOutcome};
     use crate::anna_proto::streaming::{StreamBuffer, StreamState};
+    use crate::anna_proto::*;
 
     // ========================================
     // Acceptance Test 1: Valid framed response
     // ========================================
     #[test]
     fn test_valid_framed_response_decodes_successfully() {
-        let envelope = ModelResultEnvelope::success(ModelRole::Junior, "DSK-001", "Boot is 15s", 0.9)
-            .with_claim(Claim::with_support("Boot is slow", vec!["ev_boot".to_string()]))
-            .with_evidence(EvidenceRef::probe("ev_boot", "Boot analysis"));
+        let envelope =
+            ModelResultEnvelope::success(ModelRole::Junior, "DSK-001", "Boot is 15s", 0.9)
+                .with_claim(Claim::with_support(
+                    "Boot is slow",
+                    vec!["ev_boot".to_string()],
+                ))
+                .with_evidence(EvidenceRef::probe("ev_boot", "Boot analysis"));
 
         let json = serde_json::to_string_pretty(&envelope).unwrap();
         let framed = create_frame(&json);
@@ -117,7 +121,10 @@ mod acceptance_tests {
 
         // Valid success
         let success = DecodeResult::Success(ModelResultEnvelope::success(
-            ModelRole::Junior, "DSK-005", "Success", 0.9,
+            ModelRole::Junior,
+            "DSK-005",
+            "Success",
+            0.9,
         ));
         let outcome = outcome_from_decode(&success);
         assert_eq!(outcome, TicketOutcome::Resolved);
@@ -239,10 +246,11 @@ mod acceptance_tests {
     #[test]
     fn test_full_pipeline_success() {
         // 1. Create envelope
-        let envelope = ModelResultEnvelope::success(ModelRole::Junior, "DSK-010", "Boot is 15s", 0.85)
-            .with_claim(Claim::with_support("Boot slow", vec!["ev_1".to_string()]))
-            .with_action(Action::probe("sys.boot.breakdown"))
-            .with_evidence(EvidenceRef::probe("ev_1", "Boot timing"));
+        let envelope =
+            ModelResultEnvelope::success(ModelRole::Junior, "DSK-010", "Boot is 15s", 0.85)
+                .with_claim(Claim::with_support("Boot slow", vec!["ev_1".to_string()]))
+                .with_action(Action::probe("sys.boot.breakdown"))
+                .with_evidence(EvidenceRef::probe("ev_1", "Boot timing"));
 
         // 2. Serialize and frame
         let json = serde_json::to_string(&envelope).unwrap();

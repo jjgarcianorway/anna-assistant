@@ -309,9 +309,18 @@ mod tests {
 
     #[test]
     fn test_failure_type_strategy() {
-        assert_eq!(FailureType::Timeout.default_strategy(), RetryStrategy::RetrySmaller);
-        assert_eq!(FailureType::ParseError.default_strategy(), RetryStrategy::RetrySame);
-        assert_eq!(FailureType::RateLimit.default_strategy(), RetryStrategy::FallbackProbeOnly);
+        assert_eq!(
+            FailureType::Timeout.default_strategy(),
+            RetryStrategy::RetrySmaller
+        );
+        assert_eq!(
+            FailureType::ParseError.default_strategy(),
+            RetryStrategy::RetrySame
+        );
+        assert_eq!(
+            FailureType::RateLimit.default_strategy(),
+            RetryStrategy::FallbackProbeOnly
+        );
     }
 
     #[test]

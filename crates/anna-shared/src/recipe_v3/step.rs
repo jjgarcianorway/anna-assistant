@@ -115,7 +115,11 @@ impl RecipeStep {
                 }
             }
             Self::CallSubRecipe { .. } => RecipeRiskLevel::Medium,
-            Self::Conditional { then_steps, else_steps, .. } => {
+            Self::Conditional {
+                then_steps,
+                else_steps,
+                ..
+            } => {
                 // Highest risk of any sub-step
                 let all_steps: Vec<_> = then_steps.iter().chain(else_steps.iter()).collect();
                 all_steps
@@ -132,7 +136,11 @@ impl RecipeStep {
         match self {
             Self::Explain { text, .. } => format!("Explain: {}", truncate(text, 50)),
             Self::ShowCommand { command, .. } => format!("Show: {}", truncate(command, 50)),
-            Self::RunCommand { command, description, .. } => {
+            Self::RunCommand {
+                command,
+                description,
+                ..
+            } => {
                 if description.is_empty() {
                     format!("Run: {}", truncate(command, 50))
                 } else {
@@ -159,7 +167,10 @@ impl RecipeStep {
                 let expanded = substitute_vars(text, variables);
                 StepResult::ok(&expanded).with_citation(citation.clone())
             }
-            Self::ShowCommand { command, description } => {
+            Self::ShowCommand {
+                command,
+                description,
+            } => {
                 let cmd = substitute_vars(command, variables);
                 StepResult::ok(&format!("{}\nCommand: {}", description, cmd))
             }
@@ -217,7 +228,11 @@ impl RecipeStep {
                 else_steps,
             } => {
                 let result = condition.evaluate(variables);
-                let steps = if result.success { then_steps } else { else_steps };
+                let steps = if result.success {
+                    then_steps
+                } else {
+                    else_steps
+                };
 
                 let mut outputs = vec![];
                 for step in steps {
@@ -313,8 +328,17 @@ fn infer_command_risk(command: &str) -> RecipeRiskLevel {
 
     // High risk commands
     let high_risk = [
-        "rm ", "rm\t", "dd ", "mkfs", "fdisk", "parted", "shred",
-        "wipefs", "> /dev/", "chmod 777", "chmod -R",
+        "rm ",
+        "rm\t",
+        "dd ",
+        "mkfs",
+        "fdisk",
+        "parted",
+        "shred",
+        "wipefs",
+        "> /dev/",
+        "chmod 777",
+        "chmod -R",
     ];
     if high_risk.iter().any(|p| cmd_lower.contains(p)) {
         return RecipeRiskLevel::High;
@@ -322,8 +346,15 @@ fn infer_command_risk(command: &str) -> RecipeRiskLevel {
 
     // Medium risk commands
     let medium_risk = [
-        "sudo ", "systemctl restart", "systemctl stop", "kill ",
-        "pkill", "mv ", "cp -r", "chown", "chmod",
+        "sudo ",
+        "systemctl restart",
+        "systemctl stop",
+        "kill ",
+        "pkill",
+        "mv ",
+        "cp -r",
+        "chown",
+        "chmod",
     ];
     if medium_risk.iter().any(|p| cmd_lower.contains(p)) {
         return RecipeRiskLevel::Medium;
@@ -331,8 +362,13 @@ fn infer_command_risk(command: &str) -> RecipeRiskLevel {
 
     // Low risk commands (modifications)
     let low_risk = [
-        "systemctl start", "systemctl enable", "pacman -S",
-        "yay -S", "paru -S", "mkdir", "touch",
+        "systemctl start",
+        "systemctl enable",
+        "pacman -S",
+        "yay -S",
+        "paru -S",
+        "mkdir",
+        "touch",
     ];
     if low_risk.iter().any(|p| cmd_lower.contains(p)) {
         return RecipeRiskLevel::Low;
@@ -340,8 +376,15 @@ fn infer_command_risk(command: &str) -> RecipeRiskLevel {
 
     // Default: read-only commands are safe
     let safe = [
-        "systemctl status", "cat ", "ls ", "grep ", "find ",
-        "pacman -Q", "which ", "echo ", "pwd",
+        "systemctl status",
+        "cat ",
+        "ls ",
+        "grep ",
+        "find ",
+        "pacman -Q",
+        "which ",
+        "echo ",
+        "pwd",
     ];
     if safe.iter().any(|p| cmd_lower.contains(p)) {
         return RecipeRiskLevel::None;
@@ -360,9 +403,7 @@ fn execute_command(
 ) -> StepResult {
     let start = std::time::Instant::now();
 
-    let output = Command::new("sh")
-        .args(["-c", command])
-        .output();
+    let output = Command::new("sh").args(["-c", command]).output();
 
     let duration = start.elapsed().as_millis() as u64;
 
@@ -399,16 +440,13 @@ fn execute_probe(
     output_var: &str,
     variables: &mut HashMap<String, String>,
 ) -> StepResult {
-    let output = Command::new("sh")
-        .args(["-c", probe])
-        .output();
+    let output = Command::new("sh").args(["-c", probe]).output();
 
     match output {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout).trim().to_string();
             variables.insert(output_var.to_string(), stdout.clone());
-            StepResult::ok(&format!("Probe result stored in ${}", output_var))
-                .with_output(&stdout)
+            StepResult::ok(&format!("Probe result stored in ${}", output_var)).with_output(&stdout)
         }
         Err(e) => StepResult::fail(&format!("Probe failed: {}", e)),
     }
@@ -426,7 +464,11 @@ fn execute_append(path: &str, content: &str, backup: bool) -> StepResult {
 
     // Append content
     use std::io::Write;
-    match std::fs::OpenOptions::new().append(true).create(true).open(path) {
+    match std::fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(path)
+    {
         Ok(mut file) => {
             if let Err(e) = writeln!(file, "{}", content) {
                 StepResult::fail(&format!("Failed to append: {}", e))
@@ -494,7 +536,10 @@ mod tests {
     #[test]
     fn test_infer_command_risk() {
         assert_eq!(infer_command_risk("rm -rf /"), RecipeRiskLevel::High);
-        assert_eq!(infer_command_risk("sudo systemctl restart nginx"), RecipeRiskLevel::Medium);
+        assert_eq!(
+            infer_command_risk("sudo systemctl restart nginx"),
+            RecipeRiskLevel::Medium
+        );
         // pacman -S is considered medium due to sudo typically being needed
         assert!(infer_command_risk("pacman -S vim") <= RecipeRiskLevel::Medium);
         assert_eq!(infer_command_risk("ls -la"), RecipeRiskLevel::None);

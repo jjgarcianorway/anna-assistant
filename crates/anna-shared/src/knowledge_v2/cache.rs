@@ -104,8 +104,7 @@ impl WikiCache {
         let json = serde_json::to_string_pretty(entry)
             .map_err(|e| format!("Failed to serialize cache entry: {}", e))?;
 
-        std::fs::write(&path, json)
-            .map_err(|e| format!("Failed to write cache entry: {}", e))?;
+        std::fs::write(&path, json).map_err(|e| format!("Failed to write cache entry: {}", e))?;
 
         Ok(())
     }

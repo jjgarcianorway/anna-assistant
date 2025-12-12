@@ -3,7 +3,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::{DEFAULT_MAN_PATHS, DEFAULT_DOC_PATHS, DEFAULT_WIKI_PATH, MAX_SNIPPET_CHARS, MAX_RESULTS_PER_QUERY};
+use super::{
+    DEFAULT_DOC_PATHS, DEFAULT_MAN_PATHS, DEFAULT_WIKI_PATH, MAX_RESULTS_PER_QUERY,
+    MAX_SNIPPET_CHARS,
+};
 
 /// Configuration for the KnowledgeEngine
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,10 +91,7 @@ impl KnowledgeConfig {
 
     /// Check if wiki is available
     pub fn wiki_available(&self) -> bool {
-        self.wiki_path
-            .as_ref()
-            .map(|p| p.exists())
-            .unwrap_or(false)
+        self.wiki_path.as_ref().map(|p| p.exists()).unwrap_or(false)
     }
 
     /// Get effective man paths (only existing ones)

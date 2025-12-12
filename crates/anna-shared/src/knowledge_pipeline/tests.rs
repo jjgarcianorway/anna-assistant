@@ -1,11 +1,11 @@
 //! Knowledge Pipeline acceptance tests (v0.0.432).
 
-use super::sources::{Citation, KnowledgeSource, SourcePriority, SourceResult};
-use super::fetcher::{FetchConfig, FetchResult, KnowledgeFetcher};
-use super::research::{ResearchOutcome, ResearchPattern, ResearchRequest};
-use super::wiki_sync::WikiSyncer;
 use super::clarification::{ClarificationProtocol, ClarificationRequest, ClarificationResponse};
+use super::fetcher::{FetchConfig, FetchResult, KnowledgeFetcher};
 use super::learning::{LearningLoop, LearningOutcome, RecipeStats};
+use super::research::{ResearchOutcome, ResearchPattern, ResearchRequest};
+use super::sources::{Citation, KnowledgeSource, SourcePriority, SourceResult};
+use super::wiki_sync::WikiSyncer;
 use std::path::Path;
 
 /// Test scenario 1: Memory query uses probes first (highest trust).
@@ -43,9 +43,9 @@ fn test_remote_disabled_by_default() {
     assert!(!config.allow_remote);
 
     let fetcher = KnowledgeFetcher::new();
-    let sources = vec![
-        KnowledgeSource::RemoteUrl { url: "https://example.com".to_string() },
-    ];
+    let sources = vec![KnowledgeSource::RemoteUrl {
+        url: "https://example.com".to_string(),
+    }];
 
     let result = fetcher.fetch("test", &sources);
     // Remote should be skipped
@@ -228,12 +228,7 @@ fn test_pattern_deprecation() {
     learning.clear();
 
     // Create a pattern
-    learning.learn_from_success(
-        "test query",
-        &[KnowledgeSource::probe("test")],
-        &[],
-        50,
-    );
+    learning.learn_from_success("test query", &[KnowledgeSource::probe("test")], &[], 50);
 
     // Record many failures (need at least 5 uses for evaluation)
     for _ in 0..6 {
@@ -305,13 +300,18 @@ fn test_full_pipeline_integration() {
     let pattern = ResearchPattern::new();
 
     // 3. Research a memory question
-    let request = ResearchRequest::new("memory info")
-        .with_source(KnowledgeSource::probe("meminfo"));
+    let request =
+        ResearchRequest::new("memory info").with_source(KnowledgeSource::probe("meminfo"));
 
     let outcome = pattern.research(&request);
 
     // 4. If successful, learn from it
-    if let ResearchOutcome::Found { citations, confidence, .. } = &outcome {
+    if let ResearchOutcome::Found {
+        citations,
+        confidence,
+        ..
+    } = &outcome
+    {
         if *confidence > 0.7 {
             learning.learn_from_success(
                 "memory info",

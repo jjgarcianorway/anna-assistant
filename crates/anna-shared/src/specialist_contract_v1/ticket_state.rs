@@ -210,8 +210,7 @@ impl TicketStateMachine {
 
     /// Transition to FAILED_SPECIALIST.
     pub fn fail_specialist(&mut self, reason: &str) {
-        let transition =
-            StateTransition::new(self.state, TicketState::FailedSpecialist, reason);
+        let transition = StateTransition::new(self.state, TicketState::FailedSpecialist, reason);
         self.history.push(transition);
         self.state = TicketState::FailedSpecialist;
     }
@@ -382,10 +381,7 @@ mod tests {
 
         let no_answer = ResolutionCriteria::new(true, false, 0.9);
         assert!(!no_answer.is_resolved());
-        assert_eq!(
-            no_answer.failure_reason(),
-            Some("No valid answer produced")
-        );
+        assert_eq!(no_answer.failure_reason(), Some("No valid answer produced"));
     }
 
     #[test]

@@ -145,11 +145,16 @@ impl DiagnosisConclusion {
                 if self.confidence >= 0.8 {
                     format!("The issue is most likely caused by: {}", cause)
                 } else {
-                    format!("The probable cause is: {} (confidence: {:.0}%)", cause, self.confidence * 100.0)
+                    format!(
+                        "The probable cause is: {} (confidence: {:.0}%)",
+                        cause,
+                        self.confidence * 100.0
+                    )
                 }
             }
             ConclusionState::Uncertain => {
-                let mut parts = vec!["Unable to determine the root cause with confidence.".to_string()];
+                let mut parts =
+                    vec!["Unable to determine the root cause with confidence.".to_string()];
                 if !self.alternatives.is_empty() {
                     parts.push(format!("Possible causes: {}", self.alternatives.join(", ")));
                 }
@@ -224,7 +229,8 @@ impl ConclusionLanguageValidator {
                     let cause = conclusion.primary_cause.as_ref().unwrap().to_lowercase();
                     if !lower.contains(&cause) {
                         LanguageValidation::Warning {
-                            reason: "Likely conclusion doesn't mention the primary cause".to_string(),
+                            reason: "Likely conclusion doesn't mention the primary cause"
+                                .to_string(),
                         }
                     } else {
                         LanguageValidation::Valid
@@ -240,7 +246,8 @@ impl ConclusionLanguageValidator {
 
                 if !indicates_no_issue {
                     LanguageValidation::Warning {
-                        reason: "No-issue conclusion should explicitly state no issue found".to_string(),
+                        reason: "No-issue conclusion should explicitly state no issue found"
+                            .to_string(),
                     }
                 } else {
                     LanguageValidation::Valid
@@ -336,11 +343,8 @@ mod tests {
 
     #[test]
     fn test_likely_conclusion() {
-        let conclusion = DiagnosisConclusion::likely(
-            "slow disk I/O",
-            0.85,
-            vec!["ev_iostat".to_string()],
-        );
+        let conclusion =
+            DiagnosisConclusion::likely("slow disk I/O", 0.85, vec!["ev_iostat".to_string()]);
 
         assert_eq!(conclusion.conclusion, ConclusionState::Likely);
         assert!(conclusion.validate().is_valid());
@@ -380,10 +384,7 @@ mod tests {
 
     #[test]
     fn test_language_validation_uncertain() {
-        let conclusion = DiagnosisConclusion::uncertain(
-            vec!["option A".to_string()],
-            vec![],
-        );
+        let conclusion = DiagnosisConclusion::uncertain(vec!["option A".to_string()], vec![]);
 
         // Bad: confident language
         let bad_text = "The cause is definitely memory.";

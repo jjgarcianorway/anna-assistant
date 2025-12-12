@@ -9,7 +9,6 @@ use std::time::Instant;
 use anna_shared::ledger::Ledger;
 use anna_shared::progress::ProgressEvent;
 use anna_shared::recipe_index::RecipeIndex;
-use std::sync::Mutex;
 use anna_shared::rpc::ProbeResult;
 use anna_shared::stats::GlobalStats;
 use anna_shared::status::{
@@ -20,13 +19,18 @@ use anna_shared::status_snapshot::{
     ConfigInfo, DaemonInfo, HelpersInfo, ModelsInfo, PermissionsInfo, RoleModelBinding,
     StatusSnapshot, UpdateInfo, UpdateResult, VersionInfo,
 };
+use anna_shared::truth_ledger::{TruthLedger, Veracity};
 use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
+use std::sync::Mutex;
 use tokio::sync::RwLock;
+use tracing::info;
 
 use crate::state_types::{CachedProbe, PipelineLatency};
 
 use crate::config::Config;
+
+pub const TRUTH_LEDGER_PATH: &str = "/var/lib/anna/truth_ledger.json";
 
 /// Shared daemon state
 pub struct DaemonStateInner {
@@ -38,6 +42,7 @@ pub struct DaemonStateInner {
     pub llm: LlmStatus,
     pub hardware: HardwareInfo,
     pub ledger: Ledger,
+    pub truth_ledger: TruthLedger,
     pub last_error: Option<String>,
     /// Probe result cache (command -> cached result)
     pub probe_cache: HashMap<String, CachedProbe>,
@@ -51,9 +56,14 @@ pub struct DaemonStateInner {
     pub latency: PipelineLatency,
     /// v0.0.79: Global statistics (requests, fast-path hits, etc.)
     pub stats: GlobalStats,
+    /// Overall truthfulness score of the system (0.0 - 1.0)
+    pub truthfulness_score: f64,
     /// v0.0.101: Recipe index for fast path recipe matching
     pub recipe_index: RecipeIndex,
 }
+
+/// Thread-safe shared state handle
+pub type SharedState = Arc<RwLock<DaemonStateInner>>;
 
 /// Update state tracking
 /// v0.0.72: Field names match UpdateStatus for clarity
@@ -105,7 +115,8 @@ impl DaemonStateInner {
             ollama: OllamaStatus::default(),
             llm: LlmStatus::default(),
             hardware: HardwareInfo::default(),
-            ledger: Ledger::new(),
+            ledger: Ledger::new(),            // Initialize empty
+            truth_ledger: TruthLedger::new(), // Initialize empty
             last_error: None,
             probe_cache: HashMap::new(),
             progress_events: Vec::new(),
@@ -113,6 +124,7 @@ impl DaemonStateInner {
             config: Config::load(),
             latency: PipelineLatency::default(),
             stats: GlobalStats::new(),
+            truthfulness_score: 1.0, // Initialize truthfulness score
             recipe_index: RecipeIndex::build_from_disk(),
         }
     }
@@ -142,6 +154,38 @@ impl DaemonStateInner {
     /// Clean expired probe cache entries
     pub fn clean_probe_cache(&mut self) {
         self.probe_cache.retain(|_, cached| cached.is_valid());
+    }
+
+    /// Calculate the system's overall truthfulness score based on the TruthLedger.
+    /// Score is between 0.0 and 1.0. 1.0 means perfect truthfulness.
+    pub fn calculate_truthfulness_score(&self) -> f64 {
+        let claims = self.truth_ledger.get_all_claims();
+        if claims.is_empty() {
+            return 1.0; // Perfect score if no claims
+        }
+
+        let mut verified_count = 0;
+        let mut disputed_count = 0;
+
+        for claim in claims {
+            match claim.veracity {
+                Veracity::Verified => verified_count += 1,
+                Veracity::Disputed => disputed_count += 1,
+                _ => {} // Ignore Unknown or Pending for score calculation for now
+            }
+        }
+
+        let total_assessable_claims = (verified_count + disputed_count) as f64;
+        if total_assessable_claims == 0.0 {
+            return 1.0; // Still perfect if no assessable claims
+        }
+
+        // Simple score: (verified - disputed) / total_assessable_claims
+        // This gives a range from -1.0 (all disputed) to 1.0 (all verified)
+        let score = (verified_count as f64 - disputed_count as f64) / total_assessable_claims;
+
+        // Normalize to 0.0 - 1.0 range: (score + 1.0) / 2.0
+        (score + 1.0) / 2.0
     }
 
     pub fn to_status(&self) -> DaemonStatus {
@@ -185,8 +229,8 @@ impl DaemonStateInner {
                 next_check_at: self.update.next_check_at,
                 latest_version: self.update.latest_version.clone(),
                 latest_checked_at: self.update.latest_checked_at,
-                update_available: self.update.update_available,
-                check_state: self.update.check_state.clone(),
+                update_available: false,
+                check_state: anna_shared::status::UpdateCheckState::NeverChecked,
             },
             llm: self.llm.clone(),
             hardware: self.hardware.clone(),
@@ -194,6 +238,7 @@ impl DaemonStateInner {
             last_error: self.last_error.clone(),
             latency,
             teams: anna_shared::status::TeamRoster::new(),
+            truthfulness_score: self.truthfulness_score,
         }
     }
 
@@ -241,7 +286,7 @@ impl DaemonStateInner {
     }
 
     /// v0.0.79: Record request outcome details in stats
-    /// v0.0.248: No longer increments total_requests - that's done at start via record_request_received
+    /// v00.248: No longer increments total_requests - that's done at start via record_request_received
     pub fn record_request(
         &mut self,
         fast_path: bool,
@@ -351,11 +396,17 @@ impl DaemonStateInner {
             downloads: Vec::new(),
         };
 
-        // Config info
+        // Config info - v0.0.449: Enhanced per VISION.md
         let config = ConfigInfo {
             debug_mode: self.config.debug_mode(),
             repl_clean_mode: !self.config.debug_mode(),
             autonomy_level: 0, // Conservative default
+            auto_update: self.config.daemon.auto_update,
+            learning_mode: false, // TODO: Add to config when implemented
+            fast_path_enabled: self.config.daemon.fast_path_enabled,
+            internal_comms: false, // TODO: Add to config when implemented
+            request_timeout_secs: self.config.daemon.request_timeout_secs,
+            update_check_interval_secs: self.config.daemon.update_interval,
         };
 
         StatusSnapshot {
@@ -367,6 +418,7 @@ impl DaemonStateInner {
             helpers,
             models,
             config,
+            truthfulness_score: self.truthfulness_score,
         }
     }
 }
@@ -391,9 +443,20 @@ fn current_user_and_groups() -> (String, Vec<String>) {
     (user, groups)
 }
 
-/// Thread-safe shared state handle
-pub type SharedState = Arc<RwLock<DaemonStateInner>>;
-
-pub fn create_shared_state() -> SharedState {
-    Arc::new(RwLock::new(DaemonStateInner::new()))
+pub async fn load_initial_state() -> SharedState {
+    let shared_state = Arc::new(RwLock::new(DaemonStateInner::new()));
+    {
+        let mut state_write = shared_state.write().await;
+        // Load existing ledger if available
+        if let Ok(ledger) = Ledger::load() {
+            state_write.ledger = ledger;
+            info!("Loaded existing ledger");
+        }
+        // Load existing truth ledger if available
+        if let Ok(truth_ledger) = TruthLedger::load(TRUTH_LEDGER_PATH) {
+            state_write.truth_ledger = truth_ledger;
+            info!("Loaded existing truth ledger");
+        }
+    }
+    shared_state
 }

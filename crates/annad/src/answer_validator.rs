@@ -88,7 +88,9 @@ impl std::fmt::Display for ValidationIssue {
             Self::InventionDetected { claim } => write!(f, "invented: {}", claim),
             Self::MissingEvidence { kind } => write!(f, "missing {} evidence", kind),
             Self::TooVague => write!(f, "answer too vague"),
-            Self::LowConfidence { confidence } => write!(f, "low confidence: {:.0}%", confidence * 100.0),
+            Self::LowConfidence { confidence } => {
+                write!(f, "low confidence: {:.0}%", confidence * 100.0)
+            }
         }
     }
 }
@@ -106,7 +108,16 @@ pub async fn validate_and_heal(
     timeout_secs: u64,
 ) -> ValidationResult {
     // Use base threshold when domain not provided
-    validate_and_heal_with_domain(answer, query, evidence, reliability_input, model, timeout_secs, None).await
+    validate_and_heal_with_domain(
+        answer,
+        query,
+        evidence,
+        reliability_input,
+        model,
+        timeout_secs,
+        None,
+    )
+    .await
 }
 
 /// v0.0.376: Validate with domain-specific thresholds
@@ -140,7 +151,10 @@ pub async fn validate_and_heal_with_domain(
 
         // Step 2: Check if we pass (v0.0.376: use domain-specific threshold)
         if score >= threshold && issues.is_empty() {
-            info!("Answer validated: score={} (threshold={})", score, threshold);
+            info!(
+                "Answer validated: score={} (threshold={})",
+                score, threshold
+            );
             return ValidationResult {
                 answer: current_answer,
                 score,
@@ -171,10 +185,21 @@ pub async fn validate_and_heal_with_domain(
         heal_attempts += 1;
         info!(
             "Self-healing attempt {}/{}: {} issues to fix",
-            heal_attempts, MAX_HEAL_ATTEMPTS, issues.len()
+            heal_attempts,
+            MAX_HEAL_ATTEMPTS,
+            issues.len()
         );
 
-        match heal_answer(&current_answer, query, evidence, &issues, model, timeout_secs).await {
+        match heal_answer(
+            &current_answer,
+            query,
+            evidence,
+            &issues,
+            model,
+            timeout_secs,
+        )
+        .await
+        {
             Ok(healed) => {
                 validation_path.push(format!("healed: {} chars", healed.len()));
                 current_answer = healed;
@@ -222,7 +247,10 @@ fn validate_answer(
     if guard.invention_detected {
         // Extract unverifiable claims from details
         for item in &guard.details {
-            if matches!(item.result, VerifyResult::Unverifiable | VerifyResult::Contradiction { .. }) {
+            if matches!(
+                item.result,
+                VerifyResult::Unverifiable | VerifyResult::Contradiction { .. }
+            ) {
                 issues.push(ValidationIssue::InventionDetected {
                     claim: format!("{:?}", item.claim),
                 });
@@ -281,7 +309,10 @@ fn build_correction_prompt(
     for issue in issues {
         match issue {
             ValidationIssue::UngroundedClaims { .. } => {
-                constraints.push("- Only make claims that are directly supported by the evidence below".to_string());
+                constraints.push(
+                    "- Only make claims that are directly supported by the evidence below"
+                        .to_string(),
+                );
             }
             ValidationIssue::InventionDetected { ref claim } => {
                 constraints.push(format!("- Do NOT claim: {}", claim));
@@ -290,7 +321,8 @@ fn build_correction_prompt(
                 constraints.push(format!("- Include {} information from the evidence", kind));
             }
             ValidationIssue::TooVague => {
-                constraints.push("- Be specific with numbers and values from the evidence".to_string());
+                constraints
+                    .push("- Be specific with numbers and values from the evidence".to_string());
             }
             ValidationIssue::LowConfidence { .. } => {
                 constraints.push("- Focus on answering exactly what was asked".to_string());

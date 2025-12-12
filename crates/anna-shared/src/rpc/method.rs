@@ -34,6 +34,14 @@ pub enum RpcMethod {
     ExecuteCommand,
     /// v0.0.401: Submit feedback for a completed request (helpful/not helpful)
     SubmitFeedback,
+    /// Submit feedback for a claim in the TruthLedger
+    SubmitClaimFeedback,
+    /// Get status of the TruthLedger
+    GetTruthLedgerStatus,
+    /// Get filtered claims from the TruthLedger (v0.0.449)
+    GetTruthLedgerClaims,
+    /// Perform a web search
+    WebSearch,
 }
 
 /// v0.0.73: Response from GetDaemonInfo RPC call

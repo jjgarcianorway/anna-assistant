@@ -230,8 +230,7 @@ impl TranscriptSegment {
 
     /// Probe run segment
     pub fn probe_run(probe_id: &str, status: &str) -> Self {
-        Self::new(SegmentKind::ProbeRun, Actor::system(), status)
-            .with_meta("probe_id", probe_id)
+        Self::new(SegmentKind::ProbeRun, Actor::system(), status).with_meta("probe_id", probe_id)
     }
 
     /// Specialist message
@@ -261,8 +260,7 @@ impl TranscriptSegment {
 
     /// Debug JSON dump (only shown in debug mode)
     pub fn debug_json(label: &str, json: &str) -> Self {
-        Self::new(SegmentKind::DebugJson, Actor::system(), json)
-            .with_meta("label", label)
+        Self::new(SegmentKind::DebugJson, Actor::system(), json).with_meta("label", label)
     }
 
     /// Progress indicator
@@ -334,7 +332,10 @@ impl Transcript {
 
     /// Get the final answer segment if present
     pub fn answer(&self) -> Option<&TranscriptSegment> {
-        self.segments.iter().rev().find(|s| s.kind == SegmentKind::Answer)
+        self.segments
+            .iter()
+            .rev()
+            .find(|s| s.kind == SegmentKind::Answer)
     }
 
     /// Get all internal comms
@@ -372,12 +373,18 @@ mod tests {
     fn test_transcript_building() {
         let mut t = Transcript::new("req-001");
         t.add_user_input("why is nginx failing?");
-        t.add(TranscriptSegment::ticket_header("SRV-001", "services", "nginx investigation"));
+        t.add(TranscriptSegment::ticket_header(
+            "SRV-001",
+            "services",
+            "nginx investigation",
+        ));
         t.add(TranscriptSegment::internal_comms(
             staff::hugo(),
             "On it. Checking service status.",
         ));
-        t.add(TranscriptSegment::answer("nginx is not running due to config error"));
+        t.add(TranscriptSegment::answer(
+            "nginx is not running due to config error",
+        ));
 
         assert_eq!(t.segments.len(), 4);
         assert!(t.answer().is_some());

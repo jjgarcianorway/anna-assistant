@@ -20,7 +20,6 @@ use crate::comms::{team_from_query_class, CommsGenerator};
 use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
 use crate::configure_shell::{handle_configure_shell, ConfigureShellResult};
 use crate::desktop_wallpaper::{handle_desktop_wallpaper, DesktopWallpaperResult};
-use crate::system_update::{handle_system_update, SystemUpdateResult};
 use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
 use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
@@ -31,6 +30,7 @@ use crate::routing_stage::{enforce_probe_spine, route_query};
 use crate::service_desk;
 use crate::specialist_stage::execute_specialist_stage;
 use crate::state::SharedState;
+use crate::system_update::{handle_system_update, SystemUpdateResult};
 use crate::theatre::TheatreContext;
 use crate::timeout_handler::make_timeout_response;
 use crate::triage;
@@ -103,7 +103,16 @@ async fn handle_llm_request_inner(
 
     // Get config, models, and hardware from state
     // v0.0.310: Allow requests when models are loading - deterministic answers work
-    let (llm_config, translator_model, specialist_model, hw_cores, hw_ram_gb, has_gpu, debug_mode, models_fully_ready) = {
+    let (
+        llm_config,
+        translator_model,
+        specialist_model,
+        hw_cores,
+        hw_ram_gb,
+        has_gpu,
+        debug_mode,
+        models_fully_ready,
+    ) = {
         let state = state.read().await;
         if !state.llm.state.can_handle_requests() {
             return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
@@ -243,9 +252,8 @@ async fn handle_llm_request_inner(
     // v0.0.266: Use query class for team routing (ConfigureEditor -> Desktop team)
     // v0.0.390: DISABLED LLM dialogue - small models produce nonsense. Using static messages.
     let team = team_from_query_class(&det_route.class.to_string(), &classified_domain.to_string());
-    let mut comms = CommsGenerator::new(team, &request_id)
-        .with_query(query);
-        // .with_model(&translator_model) - v0.0.390: disabled, small models generate garbage
+    let mut comms = CommsGenerator::new(team, &request_id).with_query(query);
+    // .with_model(&translator_model) - v0.0.390: disabled, small models generate garbage
 
     // v0.0.254: Anna dispatches to team and junior acknowledges (async for LLM dialogue)
     comms.dispatch_async(&mut progress).await;
@@ -426,19 +434,24 @@ async fn handle_llm_request_inner(
     save_progress(&state, &progress).await;
 
     // Step 7: v0.0.167 - Execute specialist stage via module
-    let mut specialist_result = execute_specialist_stage(
-        &state,
-        query,
-        &context,
-        &probe_results,
-        &ticket,
-        &det_route,
-        &llm_config,
-        &specialist_model,
-        debug_mode,
-        &mut progress,
-    )
-    .await;
+    let mut specialist_result = {
+        let state_read = state.read().await; // Acquire read lock once
+        let truth_ledger_ref = &state_read.truth_ledger; // Get reference
+        execute_specialist_stage(
+            &state,
+            query,
+            &context,
+            &probe_results,
+            &ticket,
+            &det_route,
+            &llm_config,
+            &specialist_model,
+            debug_mode,
+            &mut progress,
+            truth_ledger_ref, // Pass truth_ledger_ref
+        )
+        .await
+    };
 
     // Step 7.5: v0.0.276 - Format deterministic answers via translator LLM
     if specialist_result.used_deterministic && !specialist_result.answer.is_empty() {
@@ -485,8 +498,13 @@ async fn handle_llm_request_inner(
     };
 
     // v0.0.298: run_verification returns VerificationResult with validated status
-    let verification_result =
-        verification_stage::run_verification(&verification_input, &mut progress, &mut comms).await;
+    let verification_result = verification_stage::run_verification(
+        &state,
+        &verification_input,
+        &mut progress,
+        &mut comms,
+    )
+    .await;
     save_progress(&state, &progress).await;
 
     progress.add_final_answer(&verification_result.answer);
@@ -529,8 +547,23 @@ async fn handle_llm_request_inner(
 
     save_progress(&state, &progress).await;
 
+    // Save the truth ledger
+    {
+        let state = state.read().await;
+        if let Err(e) = state.truth_ledger.save(crate::state::TRUTH_LEDGER_PATH) {
+            warn!("Failed to save truth ledger: {}", e);
+        }
+    }
+
     // v0.0.291: Handle theatre recording via extracted module
-    let theatre = verification_stage::handle_theatre(query, classified_domain, &result, &id, total_ms);
+    let theatre = verification_stage::handle_theatre(
+        query,
+        classified_domain,
+        &result,
+        &id,
+        total_ms,
+        result.validated,
+    );
 
     // Return with theatre context
     wrap_with_theatre(id, result, Some(theatre))

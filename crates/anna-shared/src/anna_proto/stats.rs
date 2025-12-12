@@ -256,19 +256,10 @@ mod tests {
 
     #[test]
     fn test_outcome_from_envelope() {
-        let success = ModelResultEnvelope::success(
-            ModelRole::Junior,
-            "DSK-001",
-            "Test",
-            0.9,
-        );
+        let success = ModelResultEnvelope::success(ModelRole::Junior, "DSK-001", "Test", 0.9);
         assert_eq!(outcome_from_envelope(&success), TicketOutcome::Resolved);
 
-        let failure = ModelResultEnvelope::failure(
-            ModelRole::Junior,
-            "DSK-001",
-            vec![],
-        );
+        let failure = ModelResultEnvelope::failure(ModelRole::Junior, "DSK-001", vec![]);
         assert_eq!(outcome_from_envelope(&failure), TicketOutcome::Escalated);
     }
 
@@ -283,7 +274,10 @@ mod tests {
         let no_frame = DecodeError::NoFrame {
             raw_output: "test".to_string(),
         };
-        assert_eq!(outcome_from_error(&no_frame), TicketOutcome::InternalFailure);
+        assert_eq!(
+            outcome_from_error(&no_frame),
+            TicketOutcome::InternalFailure
+        );
     }
 
     #[test]

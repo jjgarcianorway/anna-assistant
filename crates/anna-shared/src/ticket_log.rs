@@ -288,7 +288,12 @@ impl TicketLog {
     }
 
     /// Set LLM details
-    pub fn with_llm_details(mut self, model: &str, analysis: Option<String>, tokens: Option<u32>) -> Self {
+    pub fn with_llm_details(
+        mut self,
+        model: &str,
+        analysis: Option<String>,
+        tokens: Option<u32>,
+    ) -> Self {
         self.solver_output.model = Some(model.to_string());
         self.solver_output.analysis = analysis;
         self.solver_output.tokens_used = tokens;
@@ -394,10 +399,15 @@ mod tests {
 
     #[test]
     fn test_ticket_log_creation() {
-        let log = TicketLog::new("SVC-0001", SpecialistDomain::Services, "diagnose", "why is sshd failing")
-            .with_solver("llm:junior")
-            .with_handler("llm:junior")
-            .with_metrics(500, 85);
+        let log = TicketLog::new(
+            "SVC-0001",
+            SpecialistDomain::Services,
+            "diagnose",
+            "why is sshd failing",
+        )
+        .with_solver("llm:junior")
+        .with_handler("llm:junior")
+        .with_metrics(500, 85);
 
         assert_eq!(log.id, "SVC-0001");
         assert_eq!(log.domain, "services");

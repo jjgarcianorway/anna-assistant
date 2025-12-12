@@ -6,8 +6,8 @@
 //! v0.0.378: Actually integrated personality quirks into prompts.
 //!           Each staff member now has unique voice based on personality.rs.
 
-use anna_shared::roster::{personality_for, PersonProfile};
 use crate::ollama;
+use anna_shared::roster::{personality_for, PersonProfile};
 use tracing::{debug, warn};
 
 /// Context for dialogue generation
@@ -64,8 +64,13 @@ Examples of good responses:
 - "Hey {}, process question coming your way."
 
 Your line (no quotes):"#,
-        junior.display_name, query_summary, short_id,
-        junior.display_name, junior.display_name, junior.display_name, junior.display_name
+        junior.display_name,
+        query_summary,
+        short_id,
+        junior.display_name,
+        junior.display_name,
+        junior.display_name,
+        junior.display_name
     );
 
     generate_dialogue(model, &prompt, 3, 18).await
@@ -73,11 +78,7 @@ Your line (no quotes):"#,
 
 /// Generate junior's acknowledgment - shows they understand the task
 /// v0.0.378: Now uses personality quirks for unique voice
-pub async fn gen_junior_ack(
-    model: &str,
-    junior: &PersonProfile,
-    query: &str,
-) -> Option<String> {
+pub async fn gen_junior_ack(model: &str, junior: &PersonProfile, query: &str) -> Option<String> {
     let query_summary = summarize_query(query);
     let personality = personality_for(&junior.person_id);
     let example_greeting = personality.greetings.first().unwrap_or(&"On it!");
@@ -95,8 +96,12 @@ Your quirk: {}
 Example in your style: "{}"
 
 Your line (no quotes):"#,
-        junior.display_name, personality.quirk, query_summary,
-        personality.greetings, personality.quirk, example_greeting
+        junior.display_name,
+        personality.quirk,
+        query_summary,
+        personality.greetings,
+        personality.quirk,
+        example_greeting
     );
 
     generate_dialogue(model, &prompt, 2, 14).await
@@ -122,8 +127,11 @@ Examples of good responses:
 - "Checking {} things..."
 
 Your line (no quotes):"#,
-        junior.display_name, probe_count, if probe_count == 1 { "" } else { "s" },
-        probe_count, probe_count
+        junior.display_name,
+        probe_count,
+        if probe_count == 1 { "" } else { "s" },
+        probe_count,
+        probe_count
     );
 
     generate_dialogue(model, &prompt, 2, 12).await
@@ -165,10 +173,7 @@ Your line (no quotes):"#,
 }
 
 /// Generate junior's reviewing message - shows quality check
-pub async fn gen_junior_reviewing(
-    model: &str,
-    junior: &PersonProfile,
-) -> Option<String> {
+pub async fn gen_junior_reviewing(model: &str, junior: &PersonProfile) -> Option<String> {
     let prompt = format!(
         r#"You are {}, reviewing an answer before sending it back.
 
@@ -200,7 +205,10 @@ pub async fn gen_junior_done(
     let (quality_word, example_phrase) = if confidence >= 70 {
         ("solid", personality.success.first().unwrap_or(&"Done!"))
     } else {
-        ("uncertain", personality.uncertain.first().unwrap_or(&"Not sure..."))
+        (
+            "uncertain",
+            personality.uncertain.first().unwrap_or(&"Not sure..."),
+        )
     };
 
     let prompt = format!(
@@ -216,18 +224,21 @@ Your uncertain phrases: {:?}
 Example in your style: "{} {}%"
 
 Your line (no quotes):"#,
-        junior.display_name, personality.quirk, confidence, quality_word,
-        personality.success, personality.uncertain, example_phrase, confidence
+        junior.display_name,
+        personality.quirk,
+        confidence,
+        quality_word,
+        personality.success,
+        personality.uncertain,
+        example_phrase,
+        confidence
     );
 
     generate_dialogue(model, &prompt, 2, 14).await
 }
 
 /// Generate Anna's returning message - thanks the staff
-pub async fn gen_anna_returning(
-    model: &str,
-    junior: &PersonProfile,
-) -> Option<String> {
+pub async fn gen_anna_returning(model: &str, junior: &PersonProfile) -> Option<String> {
     let prompt = format!(
         r#"You are Anna, thanking {} for handling a ticket.
 
@@ -242,7 +253,11 @@ Examples of good responses:
 - "Got it. Thanks {}."
 
 Your line (no quotes):"#,
-        junior.display_name, junior.display_name, junior.display_name, junior.display_name, junior.display_name
+        junior.display_name,
+        junior.display_name,
+        junior.display_name,
+        junior.display_name,
+        junior.display_name
     );
 
     generate_dialogue(model, &prompt, 2, 12).await
@@ -262,8 +277,11 @@ async fn generate_dialogue(
                 debug!("Generated dialogue: {}", cleaned);
                 Some(cleaned)
             } else {
-                debug!("Invalid dialogue ({}w), using fallback: {}",
-                    cleaned.split_whitespace().count(), cleaned);
+                debug!(
+                    "Invalid dialogue ({}w), using fallback: {}",
+                    cleaned.split_whitespace().count(),
+                    cleaned
+                );
                 None
             }
         }
@@ -283,7 +301,11 @@ fn summarize_query(query: &str) -> String {
         "disk/storage".to_string()
     } else if q.contains("memory") || q.contains("ram") || q.contains("swap") {
         "memory usage".to_string()
-    } else if q.contains("network") || q.contains("internet") || q.contains("wifi") || q.contains("ip") {
+    } else if q.contains("network")
+        || q.contains("internet")
+        || q.contains("wifi")
+        || q.contains("ip")
+    {
         "network".to_string()
     } else if q.contains("process") || q.contains("cpu") || q.contains("slow") {
         "performance".to_string()
@@ -291,7 +313,11 @@ fn summarize_query(query: &str) -> String {
         "services".to_string()
     } else if q.contains("package") || q.contains("install") || q.contains("update") {
         "packages".to_string()
-    } else if q.contains("config") || q.contains("vim") || q.contains("bash") || q.contains("editor") {
+    } else if q.contains("config")
+        || q.contains("vim")
+        || q.contains("bash")
+        || q.contains("editor")
+    {
         "configuration".to_string()
     } else if q.contains("health") || q.contains("status") || q.contains("how is") {
         "system health".to_string()
@@ -308,16 +334,23 @@ fn clean_dialogue_response(response: &str) -> String {
 
     // Remove markdown quotes
     if s.starts_with('"') && s.ends_with('"') && s.len() > 2 {
-        s = &s[1..s.len()-1];
+        s = &s[1..s.len() - 1];
     }
     if s.starts_with('\'') && s.ends_with('\'') && s.len() > 2 {
-        s = &s[1..s.len()-1];
+        s = &s[1..s.len() - 1];
     }
 
     // Remove common prefixes the LLM might add
     for prefix in &[
-        "Message:", "Your message:", "Response:", "Answer:", "Line:",
-        "Your line:", "My line:", "Reply:", "Output:",
+        "Message:",
+        "Your message:",
+        "Response:",
+        "Answer:",
+        "Line:",
+        "Your line:",
+        "My line:",
+        "Reply:",
+        "Output:",
     ] {
         if let Some(rest) = s.strip_prefix(prefix) {
             s = rest.trim();

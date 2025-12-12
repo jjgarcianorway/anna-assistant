@@ -28,12 +28,12 @@ fn test_trace_level_includes_required_fields() {
     };
 
     block.probes_required = vec!["df".into(), "free".into()];
-    block.probes_run.push(
-        ProbeDebugInfo::new("df", "df -h", 0, 50).with_status(ProbeStatus::Ok),
-    );
-    block.probes_run.push(
-        ProbeDebugInfo::new("free", "free -h", 0, 30).with_status(ProbeStatus::Ok),
-    );
+    block
+        .probes_run
+        .push(ProbeDebugInfo::new("df", "df -h", 0, 50).with_status(ProbeStatus::Ok));
+    block
+        .probes_run
+        .push(ProbeDebugInfo::new("free", "free -h", 0, 30).with_status(ProbeStatus::Ok));
 
     block.timings = TimingDebug {
         total_ms: 1500,
@@ -55,7 +55,10 @@ fn test_trace_level_includes_required_fields() {
     assert!(output.contains("models_used"), "Missing models_used");
     assert!(output.contains("qwen2.5:3b"), "Missing translator model");
     assert!(output.contains("qwen2.5:7b"), "Missing specialist model");
-    assert!(output.contains("probes_required"), "Missing probes_required");
+    assert!(
+        output.contains("probes_required"),
+        "Missing probes_required"
+    );
     assert!(output.contains("probes_run"), "Missing probes_run");
     assert!(output.contains("df"), "Missing probe df");
     assert!(output.contains("timings"), "Missing timings");
@@ -135,8 +138,14 @@ fn test_timeout_produces_failed_timeout() {
 
     // User message should explain timeout
     let user_msg = block.timeout_user_message().unwrap();
-    assert!(user_msg.contains("timeout"), "Missing timeout in user message");
-    assert!(user_msg.contains("specialist"), "Missing stage in user message");
+    assert!(
+        user_msg.contains("timeout"),
+        "Missing timeout in user message"
+    );
+    assert!(
+        user_msg.contains("specialist"),
+        "Missing stage in user message"
+    );
     assert!(
         user_msg.contains("No verified answer"),
         "Missing failure acknowledgment"
@@ -151,9 +160,9 @@ fn test_debug_block_formatting_at_all_levels() {
         .with_topic("storage");
 
     block.probes_required = vec!["df".into(), "free".into()];
-    block.probes_run.push(
-        ProbeDebugInfo::new("df", "df -h", 0, 50).with_status(ProbeStatus::Ok),
-    );
+    block
+        .probes_run
+        .push(ProbeDebugInfo::new("df", "df -h", 0, 50).with_status(ProbeStatus::Ok));
     block.add_reason(ReasonCode::Success);
 
     // Level 0 (Off): No output
@@ -166,7 +175,10 @@ fn test_debug_block_formatting_at_all_levels() {
     assert!(summary_str.contains("[summary]"), "Missing summary section");
     assert!(summary_str.contains("request_id"), "Missing request_id");
     assert!(summary_str.contains("outcome"), "Missing outcome");
-    assert!(summary_str.contains("probes_required"), "Missing probes_required");
+    assert!(
+        summary_str.contains("probes_required"),
+        "Missing probes_required"
+    );
 
     // Level 2 (Trace): Detailed debug output
     let trace = block.format(DebugLevel::Trace);
@@ -195,8 +207,14 @@ fn test_parse_error_outcome() {
 
     let output = block.format_trace();
 
-    assert!(output.contains("PARSE_ERROR"), "Missing PARSE_ERROR outcome");
-    assert!(output.contains("LLM_INVALID_JSON"), "Missing invalid json reason");
+    assert!(
+        output.contains("PARSE_ERROR"),
+        "Missing PARSE_ERROR outcome"
+    );
+    assert!(
+        output.contains("LLM_INVALID_JSON"),
+        "Missing invalid json reason"
+    );
     assert!(
         output.contains("VALIDATOR_FAIL_SCHEMA"),
         "Missing schema fail reason"
@@ -211,17 +229,23 @@ fn test_probe_failure_reason_codes() {
         .with_topic("storage");
 
     block.probes_required = vec!["df".into(), "du".into()];
-    block.probes_run.push(
-        ProbeDebugInfo::new("df", "df -h", 1, 50).with_status(ProbeStatus::Fail),
-    );
+    block
+        .probes_run
+        .push(ProbeDebugInfo::new("df", "df -h", 1, 50).with_status(ProbeStatus::Fail));
 
     block.add_reason(ReasonCode::ProbeFailedExit);
     block.add_reason(ReasonCode::ProbeMissingRequired);
 
     let output = block.format_trace();
 
-    assert!(output.contains("PROBE_FAILED"), "Missing PROBE_FAILED outcome");
-    assert!(output.contains("PROBE_FAILED_EXIT"), "Missing probe fail reason");
+    assert!(
+        output.contains("PROBE_FAILED"),
+        "Missing PROBE_FAILED outcome"
+    );
+    assert!(
+        output.contains("PROBE_FAILED_EXIT"),
+        "Missing probe fail reason"
+    );
     assert!(
         output.contains("PROBE_MISSING_REQUIRED"),
         "Missing missing probe reason"
@@ -276,7 +300,10 @@ fn test_low_confidence_reason_code() {
         output.contains("ROUTE_LOW_CONFIDENCE"),
         "Missing low confidence reason"
     );
-    assert!(output.contains("ROUTE_NO_PROBES"), "Missing no probes reason");
+    assert!(
+        output.contains("ROUTE_NO_PROBES"),
+        "Missing no probes reason"
+    );
 }
 
 /// Test: Debug config parsing.
@@ -402,9 +429,9 @@ fn test_summary_level_output() {
         .with_topic("storage");
 
     block.probes_required = vec!["df".into()];
-    block.probes_run.push(
-        ProbeDebugInfo::new("df", "df -h", 0, 50).with_status(ProbeStatus::Ok),
-    );
+    block
+        .probes_run
+        .push(ProbeDebugInfo::new("df", "df -h", 0, 50).with_status(ProbeStatus::Ok));
     block.add_reason(ReasonCode::Success);
 
     let output = block.format_summary();
@@ -416,7 +443,10 @@ fn test_summary_level_output() {
     assert!(output.contains("probes_run"), "Missing probes_run");
 
     // Summary should NOT include detailed info
-    assert!(!output.contains("models_used"), "Should not have models_used at summary");
+    assert!(
+        !output.contains("models_used"),
+        "Should not have models_used at summary"
+    );
     assert!(!output.contains("[debug]"), "Should not have debug header");
 }
 
@@ -474,10 +504,7 @@ fn test_redactor_mandatory_secrets() {
 /// Test: PromptDigest captures system and user prompt info.
 #[test]
 fn test_prompt_digest_creation() {
-    let digest = PromptDigest::new(
-        "You are a Linux expert.",
-        "How much RAM do I have?",
-    );
+    let digest = PromptDigest::new("You are a Linux expert.", "How much RAM do I have?");
 
     // Digest should capture previews
     assert!(digest.system_preview.contains("Linux expert"));
@@ -516,7 +543,10 @@ fn test_probe_trace_parsed() {
 
     assert_eq!(probe_trace.command, "free -h");
     assert_eq!(probe_trace.exit_code, 0);
-    assert_eq!(probe_trace.parsed.get("available"), Some(&"8.1Gi".to_string()));
+    assert_eq!(
+        probe_trace.parsed.get("available"),
+        Some(&"8.1Gi".to_string())
+    );
     assert_eq!(probe_trace.parsed.get("total"), Some(&"15Gi".to_string()));
 }
 
@@ -532,7 +562,10 @@ fn test_timeout_info_stage() {
 
     assert_eq!(timeout.stage, "specialist");
     assert_eq!(timeout.timeout_ms, 10000);
-    assert!(timeout.elapsed_ms > timeout.timeout_ms, "Elapsed should exceed configured");
+    assert!(
+        timeout.elapsed_ms > timeout.timeout_ms,
+        "Elapsed should exceed configured"
+    );
     assert!(timeout.partial_output.is_some());
 }
 
@@ -560,11 +593,20 @@ fn test_redactor_preserves_safe_vars() {
 
     // Safe vars preserved
     assert!(result.contains("PATH=/usr/bin"), "PATH should be preserved");
-    assert!(result.contains("HOME=/home/user"), "HOME should be preserved");
-    assert!(result.contains("LANG=en_US.UTF-8"), "LANG should be preserved");
+    assert!(
+        result.contains("HOME=/home/user"),
+        "HOME should be preserved"
+    );
+    assert!(
+        result.contains("LANG=en_US.UTF-8"),
+        "LANG should be preserved"
+    );
 
     // Unsafe vars redacted
-    assert!(!result.contains("mysecret"), "SECRET_KEY value should be redacted");
+    assert!(
+        !result.contains("mysecret"),
+        "SECRET_KEY value should be redacted"
+    );
 }
 
 /// Test: Sensitive paths are detected.
@@ -642,8 +684,7 @@ fn test_config_parses_all_levels() {
 /// Test: ParseErrorInfo captures error context.
 #[test]
 fn test_parse_error_info() {
-    let error = ParseErrorInfo::new("Invalid JSON at line 5")
-        .with_location(150, "claims");
+    let error = ParseErrorInfo::new("Invalid JSON at line 5").with_location(150, "claims");
 
     assert!(error.message.contains("Invalid JSON"));
     assert_eq!(error.byte_offset, Some(150));
@@ -655,6 +696,9 @@ fn test_parse_error_info() {
 fn test_trace_outcome_values() {
     assert_eq!(format!("{}", TraceOutcome::Success), "SUCCESS");
     assert_eq!(format!("{}", TraceOutcome::FailedTimeout), "FAILED_TIMEOUT");
-    assert_eq!(format!("{}", TraceOutcome::FailedNoEvidence), "FAILED_NO_EVIDENCE");
+    assert_eq!(
+        format!("{}", TraceOutcome::FailedNoEvidence),
+        "FAILED_NO_EVIDENCE"
+    );
     assert_eq!(format!("{}", TraceOutcome::FailedParse), "FAILED_PARSE");
 }

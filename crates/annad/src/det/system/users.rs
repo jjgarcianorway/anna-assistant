@@ -34,9 +34,16 @@ pub fn answer_logged_in_users(
         .collect();
 
     let answer = if unique_users.len() == 1 && user_count == 1 {
-        format!("1 user logged in: {}", unique_users.iter().next().unwrap_or(&"unknown"))
+        format!(
+            "1 user logged in: {}",
+            unique_users.iter().next().unwrap_or(&"unknown")
+        )
     } else if unique_users.len() == 1 {
-        format!("{} sessions for user: {}", user_count, unique_users.iter().next().unwrap_or(&"unknown"))
+        format!(
+            "{} sessions for user: {}",
+            user_count,
+            unique_users.iter().next().unwrap_or(&"unknown")
+        )
     } else {
         format!(
             "{} users logged in ({} sessions): {}",

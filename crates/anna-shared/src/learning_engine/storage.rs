@@ -73,10 +73,7 @@ impl RecipeLibrary {
             .or_default()
             .push(id.clone());
         if !intent.is_empty() {
-            self.intent_index
-                .entry(intent)
-                .or_default()
-                .push(id);
+            self.intent_index.entry(intent).or_default().push(id);
         }
 
         self.last_modified = now_epoch();
@@ -230,7 +227,10 @@ impl RecipeLibrary {
 
     /// Get learned recipes (non-seed)
     pub fn learned(&self) -> Vec<&LearnedRecipe> {
-        self.recipes.values().filter(|r| !r.origin.is_seed).collect()
+        self.recipes
+            .values()
+            .filter(|r| !r.origin.is_seed)
+            .collect()
     }
 
     /// Get recipes used in last N days
@@ -239,7 +239,8 @@ impl RecipeLibrary {
         self.recipes
             .values()
             .filter(|r| {
-                r.stats.last_used_at
+                r.stats
+                    .last_used_at
                     .as_ref()
                     .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
                     .map(|dt| dt.timestamp() as u64 >= cutoff)
@@ -275,23 +276,22 @@ impl RecipeLibrary {
         let content = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize library: {}", e))?;
 
-        std::fs::write(path, content)
-            .map_err(|e| format!("Failed to write library: {}", e))?;
+        std::fs::write(path, content).map_err(|e| format!("Failed to write library: {}", e))?;
 
         Ok(())
     }
 
     /// Get default library path
     pub fn default_path() -> PathBuf {
-        let state_dir = std::env::var("ANNA_STATE_DIR")
-            .unwrap_or_else(|_| "/var/lib/anna".to_string());
+        let state_dir =
+            std::env::var("ANNA_STATE_DIR").unwrap_or_else(|_| "/var/lib/anna".to_string());
         PathBuf::from(state_dir).join("recipes.json")
     }
 
     /// Get default evidence cache path
     pub fn evidence_cache_path() -> PathBuf {
-        let state_dir = std::env::var("ANNA_STATE_DIR")
-            .unwrap_or_else(|_| "/var/lib/anna".to_string());
+        let state_dir =
+            std::env::var("ANNA_STATE_DIR").unwrap_or_else(|_| "/var/lib/anna".to_string());
         PathBuf::from(state_dir).join("evidence_cache.json")
     }
 
@@ -351,8 +351,7 @@ mod tests {
     use crate::learning_engine::{RecipeOrigin, RecipePattern};
 
     fn make_recipe(id: &str, domain: &str, intent: &str) -> LearnedRecipe {
-        LearnedRecipe::new(id, domain)
-            .with_pattern(RecipePattern::new(intent))
+        LearnedRecipe::new(id, domain).with_pattern(RecipePattern::new(intent))
     }
 
     #[test]
@@ -378,9 +377,12 @@ mod tests {
     #[test]
     fn test_library_indexes() {
         let mut lib = RecipeLibrary::new();
-        lib.add(make_recipe("mem-1", "memory", "check_ram")).unwrap();
-        lib.add(make_recipe("mem-2", "memory", "check_swap")).unwrap();
-        lib.add(make_recipe("disk-1", "disk", "check_disk")).unwrap();
+        lib.add(make_recipe("mem-1", "memory", "check_ram"))
+            .unwrap();
+        lib.add(make_recipe("mem-2", "memory", "check_swap"))
+            .unwrap();
+        lib.add(make_recipe("disk-1", "disk", "check_disk"))
+            .unwrap();
 
         let memory_recipes = lib.by_domain("memory");
         assert_eq!(memory_recipes.len(), 2);
@@ -392,7 +394,8 @@ mod tests {
     #[test]
     fn test_library_disable() {
         let mut lib = RecipeLibrary::new();
-        lib.add(make_recipe("test-1", "memory", "check_ram")).unwrap();
+        lib.add(make_recipe("test-1", "memory", "check_ram"))
+            .unwrap();
 
         assert!(lib.get("test-1").unwrap().enabled);
         lib.disable("test-1");
@@ -405,7 +408,8 @@ mod tests {
     #[test]
     fn test_library_stats() {
         let mut lib = RecipeLibrary::new();
-        lib.add(make_recipe("test-1", "memory", "check_ram")).unwrap();
+        lib.add(make_recipe("test-1", "memory", "check_ram"))
+            .unwrap();
 
         lib.record_success("test-1");
         lib.record_success("test-1");

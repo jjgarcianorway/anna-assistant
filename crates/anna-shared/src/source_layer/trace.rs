@@ -127,7 +127,10 @@ fn redact_sensitive(value: &serde_json::Value) -> serde_json::Value {
             let mut new_map = serde_json::Map::new();
             for (key, val) in map {
                 if is_sensitive_key(key) {
-                    new_map.insert(key.clone(), serde_json::Value::String("[REDACTED]".to_string()));
+                    new_map.insert(
+                        key.clone(),
+                        serde_json::Value::String("[REDACTED]".to_string()),
+                    );
                 } else {
                     new_map.insert(key.clone(), redact_sensitive(val));
                 }
@@ -165,7 +168,10 @@ fn looks_like_secret(s: &str) -> bool {
     }
 
     // API keys (long alphanumeric strings)
-    if s.len() > 30 && s.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+    if s.len() > 30
+        && s.chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
         return true;
     }
 

@@ -186,7 +186,10 @@ pub fn find_matching_recipe(
         }
 
         // Check required keywords (all must match)
-        let all_required_match = recipe.match_criteria.required_keywords.iter()
+        let all_required_match = recipe
+            .match_criteria
+            .required_keywords
+            .iter()
             .all(|kw| query_lower.contains(&kw.to_lowercase()));
         if !recipe.match_criteria.required_keywords.is_empty() {
             if all_required_match {
@@ -315,9 +318,7 @@ pub fn execute_recipe(
         // Handle confirmation
         if step.needs_confirm != ConfirmLevel::None && context.execute {
             let desc = step.description.as_deref().unwrap_or(&command);
-            let confirmed = context.confirm_callback
-                .map(|cb| cb(desc))
-                .unwrap_or(false);
+            let confirmed = context.confirm_callback.map(|cb| cb(desc)).unwrap_or(false);
 
             if !confirmed {
                 result.steps.push(StepResult {
@@ -448,7 +449,10 @@ fn evaluate_condition(condition: &str, variables: &HashMap<String, String>) -> b
     }
 
     // Just check if variable exists and is non-empty
-    variables.get(condition.trim()).map(|v| !v.is_empty()).unwrap_or(false)
+    variables
+        .get(condition.trim())
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
 }
 
 /// Render the answer template with execution results
@@ -500,7 +504,8 @@ impl RecipeEngine {
 
     /// Register a probe command
     pub fn register_probe(&mut self, id: &str, command: &str) {
-        self.probe_commands.insert(id.to_string(), command.to_string());
+        self.probe_commands
+            .insert(id.to_string(), command.to_string());
     }
 
     /// Find and execute matching recipe
@@ -594,7 +599,9 @@ mod tests {
         };
 
         let mut result = ExecutionResult::empty("test".to_string());
-        result.variables.insert("count".to_string(), "5".to_string());
+        result
+            .variables
+            .insert("count".to_string(), "5".to_string());
 
         let answer = render_answer(&recipe, &result);
         assert_eq!(answer, "Found 5 items (default: none)");

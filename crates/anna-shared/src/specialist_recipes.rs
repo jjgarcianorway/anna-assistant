@@ -17,11 +17,19 @@ pub struct SpecialistLearnResult {
 
 impl SpecialistLearnResult {
     fn learned(recipe_id: String) -> Self {
-        Self { learned: true, recipe_id: Some(recipe_id), reason: None }
+        Self {
+            learned: true,
+            recipe_id: Some(recipe_id),
+            reason: None,
+        }
     }
 
     fn skipped(reason: impl Into<String>) -> Self {
-        Self { learned: false, recipe_id: None, reason: Some(reason.into()) }
+        Self {
+            learned: false,
+            recipe_id: None,
+            reason: Some(reason.into()),
+        }
     }
 }
 
@@ -68,13 +76,19 @@ pub fn try_learn_from_specialist(lesson: &SpecialistLesson) -> SpecialistLearnRe
 fn is_valid_specialist_query(query: &str) -> bool {
     let q = query.trim().to_lowercase();
     // Minimum length (8 chars) and word count (2 words)
-    if q.len() < 8 { return false; }
+    if q.len() < 8 {
+        return false;
+    }
     let word_count = q.split_whitespace().count();
-    if word_count < 2 { return false; }
+    if word_count < 2 {
+        return false;
+    }
     // Reject test patterns
     let test_patterns = ["test-", "test_", "foo", "bar", "baz", "asdf"];
     for p in test_patterns {
-        if q.contains(p) { return false; }
+        if q.contains(p) {
+            return false;
+        }
     }
     true
 }
@@ -83,7 +97,12 @@ fn is_valid_specialist_query(query: &str) -> bool {
 fn build_specialist_signature(lesson: &SpecialistLesson) -> RecipeSignature {
     let query_pattern = if let Some(ref pattern) = lesson.generic_pattern {
         // Use generic pattern for wider matching
-        pattern.answer_template.split_whitespace().take(5).collect::<Vec<_>>().join(" ")
+        pattern
+            .answer_template
+            .split_whitespace()
+            .take(5)
+            .collect::<Vec<_>>()
+            .join(" ")
     } else {
         lesson.query_pattern.to_lowercase().trim().to_string()
     };

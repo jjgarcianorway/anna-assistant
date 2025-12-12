@@ -4,9 +4,9 @@
 //! with confidence thresholds and clarification fallback.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
 
-use anna_shared::rpc::{SpecialistDomain, TranslatorTicket};
 #[cfg(test)]
 use anna_shared::rpc::QueryIntent;
+use anna_shared::rpc::{SpecialistDomain, TranslatorTicket};
 use tracing::info;
 
 /// Maximum probes allowed from triage path

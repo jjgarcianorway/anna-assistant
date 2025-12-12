@@ -150,7 +150,10 @@ impl QueryDomain {
             Self::Cpu => vec!["lscpu | head -20", "nproc"],
             Self::Uptime => vec!["uptime -p", "uptime"],
             Self::Disk => vec!["df -h", "lsblk -f"],
-            Self::Services => vec!["systemctl list-units --failed", "systemctl --user list-units --failed"],
+            Self::Services => vec![
+                "systemctl list-units --failed",
+                "systemctl --user list-units --failed",
+            ],
             Self::Packages => vec!["pacman -Q 2>/dev/null | wc -l || dpkg -l 2>/dev/null | wc -l"],
             Self::Swap => vec!["swapon --show", "free -h | grep Swap"],
             Self::Kernel => vec!["uname -r", "uname -a"],
@@ -437,10 +440,7 @@ mod tests {
 
     #[test]
     fn test_format_swap_answer() {
-        assert_eq!(
-            format_swap_answer(""),
-            "No, swap is not enabled."
-        );
+        assert_eq!(format_swap_answer(""), "No, swap is not enabled.");
         assert!(format_swap_answer("NAME TYPE SIZE\n/dev/sda2 partition 8G")
             .contains("Yes, swap is enabled"));
     }

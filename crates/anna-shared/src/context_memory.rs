@@ -156,7 +156,11 @@ impl ContextMemory {
     /// Learn a preference from user behavior
     pub fn learn_preference(&mut self, preference: &str, source: &str, confidence: f32) {
         // Update existing or add new
-        if let Some(existing) = self.preferences.iter_mut().find(|p| p.preference == preference) {
+        if let Some(existing) = self
+            .preferences
+            .iter_mut()
+            .find(|p| p.preference == preference)
+        {
             // Increase confidence if we see it again
             existing.confidence = (existing.confidence + confidence) / 2.0;
             existing.learned_at = Utc::now();
@@ -170,7 +174,8 @@ impl ContextMemory {
         }
 
         // Keep only top 10 preferences
-        self.preferences.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
+        self.preferences
+            .sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap());
         self.preferences.truncate(10);
     }
 
@@ -212,7 +217,10 @@ impl ContextMemory {
 
     /// Get high-priority continuity items
     pub fn pending_continuity(&self) -> Vec<&ContinuityItem> {
-        self.continuity.iter().filter(|c| c.priority >= 50).collect()
+        self.continuity
+            .iter()
+            .filter(|c| c.priority >= 50)
+            .collect()
     }
 
     /// Generate a continuity message for greeting

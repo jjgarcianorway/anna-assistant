@@ -19,7 +19,9 @@ use crate::telemetry::TelemetrySnapshot;
 use serde::{Deserialize, Serialize};
 
 // Re-export types
-pub use generators::{boot_time_facts, growth_facts, hardware_facts, performance_facts, user_pattern_facts};
+pub use generators::{
+    boot_time_facts, growth_facts, hardware_facts, performance_facts, user_pattern_facts,
+};
 pub use types::{FactCategory, InterestingFact};
 
 /// Collection of interesting facts

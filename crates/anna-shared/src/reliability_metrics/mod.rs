@@ -27,8 +27,8 @@ pub use canonical_outcome::{
     from_ticket_integrity_outcome, from_ticket_state_outcome, CanonicalOutcome, OutcomeConditions,
 };
 pub use model_inventory::{
-    default_probe_inventory, ConfiguredModels, ModelEntry, ModelInventory, ModelOwner,
-    ProbeEntry, ProbeInventory,
+    default_probe_inventory, ConfiguredModels, ModelEntry, ModelInventory, ModelOwner, ProbeEntry,
+    ProbeInventory,
 };
 pub use request_metrics::{ModelsUsed, RequestMetrics, RequestMetricsBuilder, RequestMetricsStore};
 

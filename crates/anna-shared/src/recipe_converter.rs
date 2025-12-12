@@ -193,10 +193,19 @@ fn validate_step(step: &SpecialistStepCandidate) -> Result<(), String> {
 /// Check if probe ID is valid
 fn is_valid_probe(probe_id: &str) -> bool {
     let valid_probes = [
-        "memory_info", "meminfo", "disk_usage", "df_root",
-        "systemd_failed", "systemd_services", "pacman_list",
-        "journal_errors", "network_interfaces", "gpu_info",
-        "audio_devices", "cpu_info", "kernel_info",
+        "memory_info",
+        "meminfo",
+        "disk_usage",
+        "df_root",
+        "systemd_failed",
+        "systemd_services",
+        "pacman_list",
+        "journal_errors",
+        "network_interfaces",
+        "gpu_info",
+        "audio_devices",
+        "cpu_info",
+        "kernel_info",
     ];
     valid_probes.contains(&probe_id) || probe_id.starts_with("custom:")
 }
@@ -207,9 +216,16 @@ fn is_safe_command(cmd: &str) -> bool {
 
     // Dangerous patterns
     let dangerous = [
-        "rm -rf", "mkfs", "dd if=", "> /dev/",
-        "chmod 777", "curl | sh", "wget | sh",
-        "eval ", "$(", "`",
+        "rm -rf",
+        "mkfs",
+        "dd if=",
+        "> /dev/",
+        "chmod 777",
+        "curl | sh",
+        "wget | sh",
+        "eval ",
+        "$(",
+        "`",
     ];
     if dangerous.iter().any(|d| cmd_lower.contains(d)) {
         return false;
@@ -217,19 +233,52 @@ fn is_safe_command(cmd: &str) -> bool {
 
     // Safe command prefixes
     let safe_prefixes = [
-        "cat ", "head ", "tail ", "ls ", "df ", "free ", "ps ",
-        "systemctl status", "systemctl is-", "systemctl list-",
-        "journalctl ", "lsblk", "lscpu", "lspci", "lsusb",
-        "ip addr", "ip link", "ip route", "ss -", "netstat ",
-        "pacman -q", "pacman -si", "which ", "whereis ",
-        "echo ", "printf ", "test ", "stat ", "file ", "wc ",
-        "grep ", "awk ", "sed ", "sort ", "uniq ", "cut ",
-        "du ", "find ", "locate ", "uname ", "hostname ",
+        "cat ",
+        "head ",
+        "tail ",
+        "ls ",
+        "df ",
+        "free ",
+        "ps ",
+        "systemctl status",
+        "systemctl is-",
+        "systemctl list-",
+        "journalctl ",
+        "lsblk",
+        "lscpu",
+        "lspci",
+        "lsusb",
+        "ip addr",
+        "ip link",
+        "ip route",
+        "ss -",
+        "netstat ",
+        "pacman -q",
+        "pacman -si",
+        "which ",
+        "whereis ",
+        "echo ",
+        "printf ",
+        "test ",
+        "stat ",
+        "file ",
+        "wc ",
+        "grep ",
+        "awk ",
+        "sed ",
+        "sort ",
+        "uniq ",
+        "cut ",
+        "du ",
+        "find ",
+        "locate ",
+        "uname ",
+        "hostname ",
     ];
 
     // Allow safe prefixes or parameterized commands
-    safe_prefixes.iter().any(|p| cmd_lower.starts_with(p))
-        || cmd.contains("{{")  // Parameterized commands need runtime validation
+    safe_prefixes.iter().any(|p| cmd_lower.starts_with(p)) || cmd.contains("{{")
+    // Parameterized commands need runtime validation
 }
 
 /// Convert candidate to full recipe
@@ -244,12 +293,14 @@ fn convert_candidate(candidate: &SpecialistRecipeCandidate, ticket_id: &str) -> 
         _ => RecipeKind::ProbeOnly,
     };
 
-    let evidence: Vec<EvidenceRequirement> = candidate.required_evidence
+    let evidence: Vec<EvidenceRequirement> = candidate
+        .required_evidence
         .iter()
         .map(|e| parse_evidence_requirement(e))
         .collect();
 
-    let steps: Vec<RecipeStep> = candidate.steps
+    let steps: Vec<RecipeStep> = candidate
+        .steps
         .iter()
         .enumerate()
         .map(|(i, s)| convert_step(s, i))
@@ -295,7 +346,8 @@ fn auto_generate_recipe(ticket: &TicketLog) -> Option<Recipe> {
     let recipe_id = format!("auto-{}", ticket.id.to_lowercase());
     let kind = RecipeKind::ProbeOnly;
 
-    let mut steps: Vec<RecipeStep> = ticket.probes
+    let mut steps: Vec<RecipeStep> = ticket
+        .probes
         .iter()
         .enumerate()
         .map(|(i, p)| {
@@ -319,17 +371,19 @@ fn auto_generate_recipe(ticket: &TicketLog) -> Option<Recipe> {
     );
     steps.push(render_step);
 
-    let doc_sources: Vec<&str> = ticket.docs_used
-        .iter()
-        .map(|d| d.title.as_str())
-        .collect();
+    let doc_sources: Vec<&str> = ticket.docs_used.iter().map(|d| d.title.as_str()).collect();
 
     Some(
-        Recipe::new(&recipe_id, &format!("Auto: {}", ticket.domain), kind, &ticket.domain)
-            .with_intent(&ticket.query)
-            .with_steps(steps)
-            .with_docs(doc_sources)
-            .from_ticket(&ticket.id)
+        Recipe::new(
+            &recipe_id,
+            &format!("Auto: {}", ticket.domain),
+            kind,
+            &ticket.domain,
+        )
+        .with_intent(&ticket.query)
+        .with_steps(steps)
+        .with_docs(doc_sources)
+        .from_ticket(&ticket.id),
     )
 }
 
@@ -405,7 +459,8 @@ mod tests {
                 kind: "run_probe".to_string(),
                 description: "Get failed units".to_string(),
                 params: [("probe_id".to_string(), "systemd_failed".to_string())]
-                    .into_iter().collect(),
+                    .into_iter()
+                    .collect(),
             }],
             doc_sources: vec!["man:systemctl".to_string()],
             supersedes_recipe_ids: vec![],

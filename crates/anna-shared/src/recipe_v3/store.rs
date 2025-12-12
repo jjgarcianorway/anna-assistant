@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use super::{RecipeV3, RecipeDomain, RecipeOrigin};
+use super::{RecipeDomain, RecipeOrigin, RecipeV3};
 
 /// Recipe store with file-based persistence
 pub struct RecipeStore {
@@ -108,11 +108,13 @@ impl RecipeStore {
 
     /// Load a single recipe file
     fn load_recipe_file(&self, path: &Path) -> Result<RecipeV3, StoreError> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| StoreError::IoError(format!("Failed to read {}: {}", path.display(), e)))?;
+        let content = std::fs::read_to_string(path).map_err(|e| {
+            StoreError::IoError(format!("Failed to read {}: {}", path.display(), e))
+        })?;
 
-        serde_json::from_str(&content)
-            .map_err(|e| StoreError::ParseError(format!("Failed to parse {}: {}", path.display(), e)))
+        serde_json::from_str(&content).map_err(|e| {
+            StoreError::ParseError(format!("Failed to parse {}: {}", path.display(), e))
+        })
     }
 
     /// Index a recipe
@@ -164,8 +166,9 @@ impl RecipeStore {
             .map_err(|e| StoreError::SerializeError(format!("Failed to serialize: {}", e)))?;
 
         // Write file
-        std::fs::write(&path, content)
-            .map_err(|e| StoreError::IoError(format!("Failed to write {}: {}", path.display(), e)))?;
+        std::fs::write(&path, content).map_err(|e| {
+            StoreError::IoError(format!("Failed to write {}: {}", path.display(), e))
+        })?;
 
         // Update indexes - remove old recipe from indexes first
         let recipe_id = recipe.id.clone();
@@ -223,7 +226,10 @@ impl RecipeStore {
                 r.title.to_lowercase().contains(&q)
                     || r.description.to_lowercase().contains(&q)
                     || r.tags.iter().any(|t| t.to_lowercase().contains(&q))
-                    || r.matcher.keywords.iter().any(|k| k.to_lowercase().contains(&q))
+                    || r.matcher
+                        .keywords
+                        .iter()
+                        .any(|k| k.to_lowercase().contains(&q))
             })
             .collect()
     }

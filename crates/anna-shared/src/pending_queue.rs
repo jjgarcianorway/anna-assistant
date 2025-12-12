@@ -278,8 +278,13 @@ mod tests {
     #[test]
     fn test_mark_retried() {
         let mut queue = PendingQueue::new();
-        let ticket =
-            create_pending_ticket("NET-0001", "query", 55, PendingReason::LowReliability, "net");
+        let ticket = create_pending_ticket(
+            "NET-0001",
+            "query",
+            55,
+            PendingReason::LowReliability,
+            "net",
+        );
         queue.enqueue(ticket);
 
         queue.mark_retried("NET-0001");
@@ -306,8 +311,13 @@ mod tests {
     #[test]
     fn test_prune_exhausted() {
         let mut queue = PendingQueue::new();
-        let mut ticket =
-            create_pending_ticket("NET-0001", "query", 55, PendingReason::LowReliability, "net");
+        let mut ticket = create_pending_ticket(
+            "NET-0001",
+            "query",
+            55,
+            PendingReason::LowReliability,
+            "net",
+        );
         ticket.retry_count = MAX_RETRY_ATTEMPTS;
         queue.tickets.push_back(ticket);
 

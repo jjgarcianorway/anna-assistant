@@ -19,6 +19,6 @@ pub use render::render;
 
 // Keep these for external use and tests
 #[allow(unused_imports)]
-pub use render::render_with_options;
-#[allow(unused_imports)]
 pub use helpers::{format_outcome, reliability_color, truncate};
+#[allow(unused_imports)]
+pub use render::render_with_options;

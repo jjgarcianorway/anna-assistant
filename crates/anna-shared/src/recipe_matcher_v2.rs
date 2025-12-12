@@ -174,7 +174,8 @@ impl<'a> RecipeMatcher<'a> {
         }
 
         // Intent match
-        if let (Some(query_intent), Some(recipe_intent)) = (&query.intent, &recipe.matcher.exact_intent)
+        if let (Some(query_intent), Some(recipe_intent)) =
+            (&query.intent, &recipe.matcher.exact_intent)
         {
             if query_intent == recipe_intent {
                 breakdown.intent_score = 1.0;
@@ -257,7 +258,12 @@ mod tests {
     use crate::recipe_schema::{PlanStep, RecipeMatcher as SchemaMatcher, RecipePattern};
     use tempfile::tempdir;
 
-    fn make_test_recipe(id: &str, required: Vec<&str>, optional: Vec<&str>, negative: Vec<&str>) -> Recipe {
+    fn make_test_recipe(
+        id: &str,
+        required: Vec<&str>,
+        optional: Vec<&str>,
+        negative: Vec<&str>,
+    ) -> Recipe {
         let mut recipe = Recipe::new(
             id.into(),
             "desktop".into(),
@@ -285,10 +291,7 @@ mod tests {
     #[test]
     fn test_basic_matching() {
         let dir = tempdir().unwrap();
-        let mut storage = RecipeStorage::with_dirs(
-            dir.path().join("user"),
-            dir.path().join("sys"),
-        );
+        let mut storage = RecipeStorage::with_dirs(dir.path().join("user"), dir.path().join("sys"));
 
         let recipe = make_test_recipe(
             "vim_syntax",
@@ -315,10 +318,7 @@ mod tests {
     #[test]
     fn test_optional_keywords_boost() {
         let dir = tempdir().unwrap();
-        let mut storage = RecipeStorage::with_dirs(
-            dir.path().join("user"),
-            dir.path().join("sys"),
-        );
+        let mut storage = RecipeStorage::with_dirs(dir.path().join("user"), dir.path().join("sys"));
 
         let recipe = make_test_recipe(
             "vim_syntax",
@@ -338,10 +338,7 @@ mod tests {
     #[test]
     fn test_intent_matching() {
         let dir = tempdir().unwrap();
-        let mut storage = RecipeStorage::with_dirs(
-            dir.path().join("user"),
-            dir.path().join("sys"),
-        );
+        let mut storage = RecipeStorage::with_dirs(dir.path().join("user"), dir.path().join("sys"));
 
         let mut recipe = make_test_recipe("vim_syntax", vec!["vim", "syntax"], vec![], vec![]);
         recipe.matcher.exact_intent = Some("configure_editor".into());

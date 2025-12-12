@@ -7,7 +7,7 @@
 //! - Never claim confidence > 0.5 without synthesis
 
 use super::decoder::DecodeError;
-use super::envelope::{ModelRole, EvidenceRef, EvidenceKind, Action};
+use super::envelope::{Action, EvidenceKind, EvidenceRef, ModelRole};
 use serde::{Deserialize, Serialize};
 
 /// Maximum confidence for fallback responses.
@@ -124,7 +124,12 @@ impl FallbackResponse {
         if !self.evidence.is_empty() {
             parts.push("**Evidence collected:**".to_string());
             for ev in &self.evidence {
-                parts.push(format!("- {} ({}): {}", ev.title, ev.kind_label(), ev.summary));
+                parts.push(format!(
+                    "- {} ({}): {}",
+                    ev.title,
+                    ev.kind_label(),
+                    ev.summary
+                ));
             }
             parts.push(String::new());
         }
@@ -247,7 +252,10 @@ impl EvidenceFallback {
         // Check what evidence types we're missing
         let has_probe = self.evidence.iter().any(|e| e.kind == EvidenceKind::Probe);
         let has_docs = self.evidence.iter().any(|e| {
-            matches!(e.kind, EvidenceKind::Man | EvidenceKind::Help | EvidenceKind::Wiki)
+            matches!(
+                e.kind,
+                EvidenceKind::Man | EvidenceKind::Help | EvidenceKind::Wiki
+            )
         });
 
         if !has_probe {
@@ -282,17 +290,26 @@ impl EvidenceFallback {
             suggestions.push("sys.boot.analyze".to_string());
         }
 
-        if !probe_ids.iter().any(|p| p.contains("services") || p.contains("failed")) {
+        if !probe_ids
+            .iter()
+            .any(|p| p.contains("services") || p.contains("failed"))
+        {
             // No service probes - suggest failed services check
             suggestions.push("sys.services.failed".to_string());
         }
 
-        if !probe_ids.iter().any(|p| p.contains("mem") || p.contains("memory")) {
+        if !probe_ids
+            .iter()
+            .any(|p| p.contains("mem") || p.contains("memory"))
+        {
             // No memory probes
             suggestions.push("sys.mem.free".to_string());
         }
 
-        if !probe_ids.iter().any(|p| p.contains("logs") || p.contains("errors")) {
+        if !probe_ids
+            .iter()
+            .any(|p| p.contains("logs") || p.contains("errors"))
+        {
             // No log probes
             suggestions.push("sys.logs.errors".to_string());
         }
@@ -328,8 +345,8 @@ mod tests {
             partial_output: None,
         };
 
-        let response = FallbackResponse::new("DSK-001", ModelRole::Junior, &error)
-            .with_confidence(0.9); // Try to set high confidence
+        let response =
+            FallbackResponse::new("DSK-001", ModelRole::Junior, &error).with_confidence(0.9); // Try to set high confidence
 
         assert!(response.confidence <= MAX_FALLBACK_CONFIDENCE);
     }

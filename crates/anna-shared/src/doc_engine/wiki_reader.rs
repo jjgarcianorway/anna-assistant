@@ -11,8 +11,8 @@ use std::path::{Path, PathBuf};
 /// Read Arch Wiki page from local cache
 pub fn read_wiki_page(name: &str, cache_path: &Path) -> Result<Vec<DocSnippet>, WikiReadError> {
     let page_path = find_wiki_page(name, cache_path)?;
-    let content = fs::read_to_string(&page_path)
-        .map_err(|e| WikiReadError::ReadFailed(e.to_string()))?;
+    let content =
+        fs::read_to_string(&page_path).map_err(|e| WikiReadError::ReadFailed(e.to_string()))?;
 
     // Detect format and parse
     let is_html = page_path.extension().map(|e| e == "html").unwrap_or(false)
@@ -259,7 +259,10 @@ fn is_wiki_heading(line: &str) -> bool {
     // Plain text style: all caps, short line
     if trimmed.len() < 50
         && trimmed.len() > 3
-        && trimmed.chars().filter(|c| c.is_alphabetic()).all(|c| c.is_uppercase())
+        && trimmed
+            .chars()
+            .filter(|c| c.is_alphabetic())
+            .all(|c| c.is_uppercase())
     {
         return true;
     }

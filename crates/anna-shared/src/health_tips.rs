@@ -68,9 +68,8 @@ pub fn generate_health_tips(
 
     // Check memory state (memory_total_bytes and memory_used_bytes)
     if snapshot.memory_total_bytes > 0 {
-        let used_percent = (snapshot.memory_used_bytes as f64
-            / snapshot.memory_total_bytes as f64
-            * 100.0) as u8;
+        let used_percent =
+            (snapshot.memory_used_bytes as f64 / snapshot.memory_total_bytes as f64 * 100.0) as u8;
 
         if used_percent >= 90 {
             let person = person_for(Team::Performance, Tier::Senior);
@@ -262,7 +261,8 @@ pub fn generate_telemetry_tips(telemetry: &TelemetryStore) -> Vec<IdleTip> {
             IdleTip::new(
                 format!("telemetry-anomaly-{:?}", anomaly.category),
                 match anomaly.category {
-                    AnomalyCategory::HighCpu | AnomalyCategory::HighLoad
+                    AnomalyCategory::HighCpu
+                    | AnomalyCategory::HighLoad
                     | AnomalyCategory::HighMemory => TipCategory::Performance,
                     AnomalyCategory::LowDisk => TipCategory::Storage,
                     AnomalyCategory::ServiceDown => TipCategory::Services,

@@ -113,7 +113,10 @@ pub fn model_matches(catalog_name: &str, available_name: &str) -> bool {
     fn extract_size(s: &str) -> Option<String> {
         let rest = s.split(':').nth(1)?;
         // Extract size - first part with digits + 'b' like "4b", "7b", "3b"
-        let size: String = rest.chars().take_while(|c| c.is_ascii_digit() || *c == 'b').collect();
+        let size: String = rest
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == 'b')
+            .collect();
         if size.ends_with('b') && size.len() > 1 {
             Some(size)
         } else {

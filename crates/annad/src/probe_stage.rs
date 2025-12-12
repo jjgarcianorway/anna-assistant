@@ -37,7 +37,9 @@ pub async fn execute_probe_stage(
 
     // Report probe progress if we have probes to run
     if !ticket.needs_probes.is_empty() {
-        comms.junior_probing_async(progress, ticket.needs_probes.len()).await;
+        comms
+            .junior_probing_async(progress, ticket.needs_probes.len())
+            .await;
         save_progress(state, progress).await;
     }
 
@@ -64,7 +66,9 @@ pub async fn execute_probe_stage(
 
             // Count successful probes
             let success_count = results.iter().filter(|p| p.exit_code == 0).count();
-            comms.junior_probes_done_async(progress, success_count).await;
+            comms
+                .junior_probes_done_async(progress, success_count)
+                .await;
             save_progress(state, progress).await;
 
             ProbeStageResult {

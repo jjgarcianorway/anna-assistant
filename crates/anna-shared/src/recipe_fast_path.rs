@@ -36,10 +36,7 @@ pub enum FastPathResult {
         reason: String,
     },
     /// Recipe failed, fall back to specialist
-    RecipeFailed {
-        recipe_id: String,
-        reason: String,
-    },
+    RecipeFailed { recipe_id: String, reason: String },
 }
 
 /// Fast path executor
@@ -107,7 +104,8 @@ impl FastPathExecutor {
         match result {
             RecipeResult::Success { answer, confidence } => {
                 // Record success
-                self.learner.record_recipe_result(&recipe.id, true, confidence);
+                self.learner
+                    .record_recipe_result(&recipe.id, true, confidence);
 
                 // Optionally fetch knowledge for enrichment
                 let knowledge_enrichment = self.fetch_knowledge_enrichment(&recipe, &intent);
@@ -121,9 +119,14 @@ impl FastPathExecutor {
                     knowledge_enrichment,
                 }
             }
-            RecipeResult::Partial { answer, confidence, missing } => {
+            RecipeResult::Partial {
+                answer,
+                confidence,
+                missing,
+            } => {
                 // Partial success - still use it but note the limitations
-                self.learner.record_recipe_result(&recipe.id, true, confidence * 0.8);
+                self.learner
+                    .record_recipe_result(&recipe.id, true, confidence * 0.8);
 
                 FastPathResult::Answered {
                     summary: answer.summary,
@@ -131,7 +134,10 @@ impl FastPathExecutor {
                     evidence: answer.evidence,
                     confidence: confidence * 0.8,
                     recipe_id: recipe.id,
-                    knowledge_enrichment: Some(format!("(partial: missing {})", missing.join(", "))),
+                    knowledge_enrichment: Some(format!(
+                        "(partial: missing {})",
+                        missing.join(", ")
+                    )),
                 }
             }
             RecipeResult::Failed { reason } => {
@@ -168,9 +174,7 @@ impl FastPathExecutor {
         };
 
         let response = self.knowledge.query(&request);
-        response.hits.first().map(|h| {
-            format!("(ref: {})", h.title)
-        })
+        response.hits.first().map(|h| format!("(ref: {})", h.title))
     }
 
     /// Get learner reference for recording observations
@@ -195,7 +199,8 @@ impl FastPathExecutor {
 
     /// Get list of intents covered by recipes
     fn covered_intents(&self) -> Vec<String> {
-        self.learner.store()
+        self.learner
+            .store()
             .active_recipes()
             .iter()
             .map(|r| format!("{:?}", r.intent))
@@ -241,10 +246,7 @@ pub fn should_try_fast_path(translator_output: &TranslatorOutput) -> bool {
 }
 
 /// Create ticket response from fast path result
-pub fn fast_path_to_response(
-    result: &FastPathResult,
-    ticket_id: &str,
-) -> Option<FastPathResponse> {
+pub fn fast_path_to_response(result: &FastPathResult, ticket_id: &str) -> Option<FastPathResponse> {
     match result {
         FastPathResult::Answered {
             summary,
@@ -253,19 +255,17 @@ pub fn fast_path_to_response(
             confidence,
             recipe_id,
             knowledge_enrichment,
-        } => {
-            Some(FastPathResponse {
-                ticket_id: ticket_id.to_string(),
-                summary: summary.clone(),
-                details: details.clone(),
-                evidence: evidence.clone(),
-                confidence: *confidence,
-                source: ResponseSource::Recipe {
-                    recipe_id: recipe_id.clone(),
-                },
-                enrichment: knowledge_enrichment.clone(),
-            })
-        }
+        } => Some(FastPathResponse {
+            ticket_id: ticket_id.to_string(),
+            summary: summary.clone(),
+            details: details.clone(),
+            evidence: evidence.clone(),
+            confidence: *confidence,
+            source: ResponseSource::Recipe {
+                recipe_id: recipe_id.clone(),
+            },
+            enrichment: knowledge_enrichment.clone(),
+        }),
         _ => None,
     }
 }
@@ -296,7 +296,7 @@ pub enum ResponseSource {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::translator_contract::{TranslatorDomain, TranslatorIntent, Priority};
+    use crate::translator_contract::{Priority, TranslatorDomain, TranslatorIntent};
 
     #[test]
     fn test_should_try_fast_path() {

@@ -249,13 +249,11 @@ impl DocUsageGuidelines {
          Docs interpret results, they don't invent state.";
 
     /// Rule 2: Doc queries must be explicit
-    pub const EXPLICIT_QUERIES: &'static str =
-        "Send structured doc queries with specific topics. \
+    pub const EXPLICIT_QUERIES: &'static str = "Send structured doc queries with specific topics. \
          Don't just search for entire questions.";
 
     /// Rule 3: Summarization required
-    pub const SUMMARIZE: &'static str =
-        "Don't dump raw doc content into answers. \
+    pub const SUMMARIZE: &'static str = "Don't dump raw doc content into answers. \
          Summarize the relevant part and cite the source.";
 
     /// Rule 4: No overreach
@@ -282,15 +280,24 @@ mod tests {
     fn test_explanation_needs_docs() {
         let analysis = analyze_doc_need("What is TRIM and why do I need it?");
         assert_eq!(analysis.level, DocNeedLevel::Required);
-        assert!(analysis.suggested_topics.contains(&"TRIM".to_string())
-            || analysis.suggested_topics.contains(&"Solid_state_drive".to_string()));
+        assert!(
+            analysis.suggested_topics.contains(&"TRIM".to_string())
+                || analysis
+                    .suggested_topics
+                    .contains(&"Solid_state_drive".to_string())
+        );
     }
 
     #[test]
     fn test_fix_request_recommends_docs() {
         let analysis = analyze_doc_need("How do I fix a failing systemd service?");
-        assert!(analysis.level == DocNeedLevel::Recommended || analysis.level == DocNeedLevel::Required);
-        assert!(analysis.suggested_topics.iter().any(|t| t.contains("systemd")));
+        assert!(
+            analysis.level == DocNeedLevel::Recommended || analysis.level == DocNeedLevel::Required
+        );
+        assert!(analysis
+            .suggested_topics
+            .iter()
+            .any(|t| t.contains("systemd")));
     }
 
     #[test]
@@ -308,10 +315,14 @@ mod tests {
     #[test]
     fn test_topic_extraction() {
         let topics = extract_topics("how to configure systemd timer for weekly trim");
-        assert!(topics.contains(&"systemd".to_string())
-            || topics.contains(&"systemd.timer".to_string()));
-        assert!(topics.contains(&"TRIM".to_string())
-            || topics.contains(&"Solid_state_drive".to_string()));
+        assert!(
+            topics.contains(&"systemd".to_string())
+                || topics.contains(&"systemd.timer".to_string())
+        );
+        assert!(
+            topics.contains(&"TRIM".to_string())
+                || topics.contains(&"Solid_state_drive".to_string())
+        );
     }
 
     #[test]

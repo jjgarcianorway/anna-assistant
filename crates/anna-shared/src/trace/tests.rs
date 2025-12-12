@@ -2,9 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::trace::{
-        EvidenceKind, ExecutionTrace, FallbackUsed, ProbeStats,
-    };
+    use crate::trace::{EvidenceKind, ExecutionTrace, FallbackUsed, ProbeStats};
 
     #[test]
     fn test_specialist_ok_display() {

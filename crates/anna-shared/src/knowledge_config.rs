@@ -68,12 +68,24 @@ pub struct KnowledgeConfig {
     pub learning_min_confidence: u8,
 }
 
-fn default_wiki_enabled() -> bool { true }
-fn default_wiki_path() -> String { DEFAULT_WIKI_PATH.to_string() }
-fn default_doc_cache() -> String { DEFAULT_DOC_CACHE.to_string() }
-fn default_true() -> bool { true }
-fn default_cache_hours() -> u32 { 168 } // 1 week
-fn default_learn_confidence() -> u8 { 80 }
+fn default_wiki_enabled() -> bool {
+    true
+}
+fn default_wiki_path() -> String {
+    DEFAULT_WIKI_PATH.to_string()
+}
+fn default_doc_cache() -> String {
+    DEFAULT_DOC_CACHE.to_string()
+}
+fn default_true() -> bool {
+    true
+}
+fn default_cache_hours() -> u32 {
+    168
+} // 1 week
+fn default_learn_confidence() -> u8 {
+    80
+}
 
 fn default_preferred_sources() -> Vec<String> {
     vec![
@@ -279,9 +291,15 @@ mod tests {
 
     #[test]
     fn test_parse_source_kind() {
-        assert_eq!(parse_source_kind("man_page"), Some(KnowledgeSourceKind::ManPage));
+        assert_eq!(
+            parse_source_kind("man_page"),
+            Some(KnowledgeSourceKind::ManPage)
+        );
         assert_eq!(parse_source_kind("man"), Some(KnowledgeSourceKind::ManPage));
-        assert_eq!(parse_source_kind("wiki"), Some(KnowledgeSourceKind::ArchWikiPage));
+        assert_eq!(
+            parse_source_kind("wiki"),
+            Some(KnowledgeSourceKind::ArchWikiPage)
+        );
         assert_eq!(parse_source_kind("unknown"), None);
     }
 

@@ -59,7 +59,6 @@ impl DeterministicProbeRegistry {
                     probes: &["cpu_info"],
                     description: "CPU hardware info",
                 },
-
                 // === MEMORY QUERIES ===
                 ProbeRule {
                     intent_id: "memory.free",
@@ -89,7 +88,6 @@ impl DeterministicProbeRegistry {
                     probes: &["top_memory"],
                     description: "What is using memory",
                 },
-
                 // === SWAP QUERIES (NOT PACKAGES!) ===
                 ProbeRule {
                     intent_id: "swap.status",
@@ -105,7 +103,6 @@ impl DeterministicProbeRegistry {
                     probes: &["swap_files", "memory_info"],
                     description: "Do I have swap",
                 },
-
                 // === BLUETOOTH QUERIES ===
                 ProbeRule {
                     intent_id: "bluetooth.status",
@@ -128,13 +125,17 @@ impl DeterministicProbeRegistry {
                     probes: &["bluetooth_service", "bluetooth_devices"],
                     description: "Is bluetooth working",
                 },
-
                 // === EDITOR/CONFIG QUERIES ===
                 ProbeRule {
                     intent_id: "vim.setup",
                     keywords: &["vim"],
                     negative_keywords: &["install", "package"],
-                    probes: &["command_v_vim", "command_v_nvim", "vimrc_content", "nvim_config"],
+                    probes: &[
+                        "command_v_vim",
+                        "command_v_nvim",
+                        "vimrc_content",
+                        "nvim_config",
+                    ],
                     description: "Vim/nvim setup",
                 },
                 ProbeRule {
@@ -155,7 +156,13 @@ impl DeterministicProbeRegistry {
                     intent_id: "editor.setup",
                     keywords: &["editor", "setup"],
                     negative_keywords: &[],
-                    probes: &["command_v_vim", "command_v_nvim", "command_v_nano", "command_v_emacs", "command_v_code"],
+                    probes: &[
+                        "command_v_vim",
+                        "command_v_nvim",
+                        "command_v_nano",
+                        "command_v_emacs",
+                        "command_v_code",
+                    ],
                     description: "Editor setup",
                 },
                 ProbeRule {
@@ -172,7 +179,6 @@ impl DeterministicProbeRegistry {
                     probes: &["zshrc_content"],
                     description: "Zshrc content",
                 },
-
                 // === BOOT QUERIES ===
                 ProbeRule {
                     intent_id: "boot.slow",
@@ -195,7 +201,6 @@ impl DeterministicProbeRegistry {
                     probes: &["boot_time", "boot_blame"],
                     description: "Boot analysis",
                 },
-
                 // === SERVICE QUERIES ===
                 ProbeRule {
                     intent_id: "services.failed",
@@ -218,7 +223,6 @@ impl DeterministicProbeRegistry {
                     probes: &["running_services", "failed_services"],
                     description: "Service status",
                 },
-
                 // === DISK/STORAGE QUERIES ===
                 ProbeRule {
                     intent_id: "disk.usage",
@@ -255,7 +259,6 @@ impl DeterministicProbeRegistry {
                     probes: &["largest_dirs", "largest_home"],
                     description: "Biggest folders",
                 },
-
                 // === NETWORK QUERIES ===
                 ProbeRule {
                     intent_id: "network.ip",
@@ -292,7 +295,6 @@ impl DeterministicProbeRegistry {
                     probes: &["wireless_networks", "network_addrs"],
                     description: "WiFi status",
                 },
-
                 // === DESKTOP QUERIES ===
                 ProbeRule {
                     intent_id: "desktop.wallpaper",
@@ -322,7 +324,6 @@ impl DeterministicProbeRegistry {
                     probes: &["display_server"],
                     description: "Display server (X11)",
                 },
-
                 // === GPU/GRAPHICS QUERIES ===
                 ProbeRule {
                     intent_id: "gpu.info",
@@ -342,10 +343,14 @@ impl DeterministicProbeRegistry {
                     intent_id: "gpu.acceleration",
                     keywords: &["hardware", "acceleration"],
                     negative_keywords: &[],
-                    probes: &["vaapi_status", "vdpau_status", "vulkan_status", "glxinfo_renderer"],
+                    probes: &[
+                        "vaapi_status",
+                        "vdpau_status",
+                        "vulkan_status",
+                        "glxinfo_renderer",
+                    ],
                     description: "Hardware acceleration",
                 },
-
                 // === AUDIO QUERIES ===
                 ProbeRule {
                     intent_id: "audio.status",
@@ -361,7 +366,6 @@ impl DeterministicProbeRegistry {
                     probes: &["audio_devices", "audio_server"],
                     description: "Sound status",
                 },
-
                 // === SECURITY QUERIES ===
                 ProbeRule {
                     intent_id: "security.firewall",
@@ -384,7 +388,6 @@ impl DeterministicProbeRegistry {
                     probes: &["ssh_connections", "listening_ports"],
                     description: "SSH connections",
                 },
-
                 // === SYSTEM INFO QUERIES ===
                 ProbeRule {
                     intent_id: "system.uptime",
@@ -414,7 +417,6 @@ impl DeterministicProbeRegistry {
                     probes: &["os_release"],
                     description: "Distribution info",
                 },
-
                 // === DOCKER QUERIES ===
                 ProbeRule {
                     intent_id: "docker.containers",
@@ -430,7 +432,6 @@ impl DeterministicProbeRegistry {
                     probes: &["docker_images"],
                     description: "Docker images",
                 },
-
                 // === TEMPERATURE/SENSORS QUERIES ===
                 ProbeRule {
                     intent_id: "sensors.temp",
@@ -446,7 +447,6 @@ impl DeterministicProbeRegistry {
                     probes: &["sensors_temp"],
                     description: "CPU temperature",
                 },
-
                 // === UPDATES QUERIES ===
                 ProbeRule {
                     intent_id: "updates.available",
@@ -462,7 +462,6 @@ impl DeterministicProbeRegistry {
                     probes: &["package_updates"],
                     description: "Package updates",
                 },
-
                 // === JOURNAL/LOGS QUERIES ===
                 ProbeRule {
                     intent_id: "logs.errors",
@@ -497,18 +496,20 @@ impl DeterministicProbeRegistry {
 
         for rule in &self.rules {
             // Check all keywords present
-            let all_keywords_match = rule.keywords.iter().all(|kw| {
-                query_words.iter().any(|w| w.contains(kw))
-            });
+            let all_keywords_match = rule
+                .keywords
+                .iter()
+                .all(|kw| query_words.iter().any(|w| w.contains(kw)));
 
             if !all_keywords_match {
                 continue;
             }
 
             // Check no negative keywords present
-            let no_negative_match = rule.negative_keywords.iter().all(|nkw| {
-                !query_words.iter().any(|w| w.contains(nkw))
-            });
+            let no_negative_match = rule
+                .negative_keywords
+                .iter()
+                .all(|nkw| !query_words.iter().any(|w| w.contains(nkw)));
 
             if no_negative_match {
                 return Some(rule);
@@ -530,13 +531,36 @@ impl DeterministicProbeRegistry {
 
         // Words that are concepts, not packages
         let concept_words = [
-            "swap", "games", "apps", "tools", "utils", "drivers",
-            "audio", "sound", "video", "network", "bluetooth", "wifi",
-            "graphics", "display", "desktop", "fonts", "themes",
+            "swap",
+            "games",
+            "apps",
+            "tools",
+            "utils",
+            "drivers",
+            "audio",
+            "sound",
+            "video",
+            "network",
+            "bluetooth",
+            "wifi",
+            "graphics",
+            "display",
+            "desktop",
+            "fonts",
+            "themes",
         ];
 
         // Package verbs that indicate actual package intent
-        let package_verbs = ["install", "remove", "uninstall", "update", "upgrade", "pacman", "apt", "yum"];
+        let package_verbs = [
+            "install",
+            "remove",
+            "uninstall",
+            "update",
+            "upgrade",
+            "pacman",
+            "apt",
+            "yum",
+        ];
 
         let has_concept_word = concept_words.iter().any(|w| query_lower.contains(w));
         let has_package_verb = package_verbs.iter().any(|v| query_lower.contains(v));
@@ -573,7 +597,11 @@ mod tests {
         let probes = registry.get_probes("which service is using the most CPU?");
         assert!(probes.is_some());
         let probes = probes.unwrap();
-        assert!(probes.contains(&"top_cpu"), "Should contain top_cpu, got {:?}", probes);
+        assert!(
+            probes.contains(&"top_cpu"),
+            "Should contain top_cpu, got {:?}",
+            probes
+        );
         assert!(!probes.contains(&"cpu_info"), "Should NOT contain cpu_info");
     }
 

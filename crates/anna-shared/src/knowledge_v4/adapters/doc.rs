@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::{extract_context, truncate_text};
-use crate::knowledge_v4::snippet::KnowledgeSnippet;
 use crate::knowledge_v4::query::KnowledgeSource;
+use crate::knowledge_v4::snippet::KnowledgeSnippet;
 
 /// Local documentation adapter
 pub struct DocAdapter {
@@ -97,9 +97,9 @@ impl DocAdapter {
                     });
 
                     // Match by topic words
-                    let matches_topic = topic_lower.split_whitespace().any(|w| {
-                        w.len() > 2 && name.contains(w)
-                    });
+                    let matches_topic = topic_lower
+                        .split_whitespace()
+                        .any(|w| w.len() > 2 && name.contains(w));
 
                     if matches_entity || matches_topic {
                         candidates.push((entry.file_name().to_string_lossy().to_string(), path));
@@ -137,9 +137,16 @@ impl DocAdapter {
     fn extract_from_dir(&self, name: &str, dir: &Path, topic: &str) -> Option<KnowledgeSnippet> {
         // Look for common doc files
         let doc_names = [
-            "README", "README.md", "README.txt", "README.rst",
-            "readme", "readme.md", "readme.txt",
-            "INSTALL", "USAGE", "HELP",
+            "README",
+            "README.md",
+            "README.txt",
+            "README.rst",
+            "readme",
+            "readme.md",
+            "readme.txt",
+            "INSTALL",
+            "USAGE",
+            "HELP",
         ];
 
         for doc_name in doc_names {
@@ -195,7 +202,11 @@ impl DocAdapter {
             return None;
         }
 
-        Some(KnowledgeSnippet::from_doc(name, &file.to_path_buf(), &truncated))
+        Some(KnowledgeSnippet::from_doc(
+            name,
+            &file.to_path_buf(),
+            &truncated,
+        ))
     }
 }
 
@@ -205,9 +216,7 @@ fn is_text_file(path: &Path) -> bool {
 
     // Known text extensions
     let text_exts = [
-        "txt", "md", "rst", "asciidoc", "adoc",
-        "conf", "cfg", "ini",
-        "html", "htm", "xml",
+        "txt", "md", "rst", "asciidoc", "adoc", "conf", "cfg", "ini", "html", "htm", "xml",
         "", // No extension (README, INSTALL, etc.)
     ];
 
@@ -217,10 +226,7 @@ fn is_text_file(path: &Path) -> bool {
 
     // Skip known binary extensions
     let binary_exts = [
-        "gz", "xz", "bz2", "zst",
-        "png", "jpg", "gif", "ico",
-        "pdf", "ps", "dvi",
-        "so", "o", "a",
+        "gz", "xz", "bz2", "zst", "png", "jpg", "gif", "ico", "pdf", "ps", "dvi", "so", "o", "a",
     ];
 
     if binary_exts.contains(&ext) {
@@ -264,8 +270,7 @@ mod tests {
     fn test_find_candidates() {
         let adapter = DocAdapter::new();
         // This test depends on what's installed
-        let candidates = adapter.find_candidates("linux", &["linux"]);
+        let _candidates = adapter.find_candidates("linux", &["linux"]);
         // Just verify it doesn't panic
-        assert!(candidates.len() >= 0);
     }
 }

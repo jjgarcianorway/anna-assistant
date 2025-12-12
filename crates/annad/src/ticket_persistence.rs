@@ -39,9 +39,7 @@ pub fn persist_ticket_log(
     } else {
         debug!(
             "Saved ticket log: id={}, outcome={:?}, reliability={}",
-            log.id,
-            log.state,
-            log.reliability_score
+            log.id, log.state, log.reliability_score
         );
     }
 }
@@ -266,10 +264,7 @@ pub fn get_recent_stats(hours: u64) -> anna_shared::ticket_stats::TicketStats {
 /// - Success outcomes trigger recipe learning
 /// - Partial outcomes log for potential future learning
 /// - Error outcomes help improve error handling
-pub fn trigger_learning_for_outcome(
-    result: &ServiceDeskResult,
-    outcome: &TicketOutcome,
-) {
+pub fn trigger_learning_for_outcome(result: &ServiceDeskResult, outcome: &TicketOutcome) {
     match outcome {
         TicketOutcome::Success => {
             // High-confidence success - immediately trigger learning
@@ -292,8 +287,10 @@ pub fn trigger_learning_for_outcome(
                 result.request_id
             );
         }
-        TicketOutcome::ErrorParse | TicketOutcome::ErrorTimeout
-        | TicketOutcome::ErrorTool | TicketOutcome::ErrorInternal => {
+        TicketOutcome::ErrorParse
+        | TicketOutcome::ErrorTimeout
+        | TicketOutcome::ErrorTool
+        | TicketOutcome::ErrorInternal => {
             // Errors - log for debugging but don't learn from failures
             warn!(
                 "Error outcome {:?} for {} - not learning from errors",

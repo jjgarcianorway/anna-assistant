@@ -378,8 +378,8 @@ pub async fn handle_generate_greeting(
     id: String,
     params: Option<serde_json::Value>,
 ) -> RpcResponse {
-    use anna_shared::greeting_context::GreetingContext;
     use crate::greeting_generator;
+    use anna_shared::greeting_context::GreetingContext;
 
     // Parse greeting context from params
     let ctx: GreetingContext = match params {
@@ -396,11 +396,17 @@ pub async fn handle_generate_greeting(
     // Get translator model from state
     let translator_model = {
         let state = state.read().await;
-        state.llm.translator_model.clone()
+        state
+            .llm
+            .translator_model
+            .clone()
             .unwrap_or_else(|| state.config.llm.translator_model.clone())
     };
 
-    info!("Generating greeting for {} using {}", ctx.username, translator_model);
+    info!(
+        "Generating greeting for {} using {}",
+        ctx.username, translator_model
+    );
 
     // Generate greeting with 10 second timeout (greeting should be quick)
     let response = greeting_generator::generate_greeting(&translator_model, &ctx, 10).await;
@@ -443,10 +449,7 @@ pub async fn handle_execute_command(id: String, params: Option<serde_json::Value
     let start = Instant::now();
 
     // Execute the command via sh -c to support pipes, sudo, etc.
-    let output = Command::new("sh")
-        .arg("-c")
-        .arg(&params.command)
-        .output();
+    let output = Command::new("sh").arg("-c").arg(&params.command).output();
 
     let duration_ms = start.elapsed().as_millis() as u64;
 

@@ -138,7 +138,13 @@ fn print_evidence_bullets(result: &ServiceDeskResult) {
     if !items.is_empty() {
         for item in items.iter().take(3) {
             // Max 3 evidence lines
-            println!("{}{} evidence:{} {}", colors::DIM, symbols::BULLET, colors::RESET, item);
+            println!(
+                "{}{} evidence:{} {}",
+                colors::DIM,
+                symbols::BULLET,
+                colors::RESET,
+                item
+            );
         }
     }
 }

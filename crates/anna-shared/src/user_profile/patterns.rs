@@ -289,7 +289,9 @@ mod tests {
         let insight = history.editor_trend_insight(Some("vim"), &usage);
         assert!(insight.is_some());
         match insight.unwrap() {
-            EditorTrendInsight::LearningNew { current, emerging, .. } => {
+            EditorTrendInsight::LearningNew {
+                current, emerging, ..
+            } => {
                 assert_eq!(current, "vim");
                 assert_eq!(emerging, "nano");
             }

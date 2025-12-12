@@ -13,67 +13,125 @@ mod tests {
         let q = query.to_lowercase();
 
         // Check desktop first since it has many specific keywords
-        if q.contains("vim") || q.contains("nano") || q.contains("editor")
-            || q.contains("emacs") || q.contains("helix") || q.contains("neovim")
-            || q.contains("hyprland") || q.contains("gnome") || q.contains("kde")
-            || q.contains("gtk") || q.contains("wayland") || q.contains("x11")
-            || q.contains("theme") || q.contains("font") || q.contains("hidpi")
-            || q.contains("tmux") || q.contains("bash prompt") || q.contains("ps1")
-            || q.contains("sway") || q.contains("i3") || q.contains("dark mode")
-            || q.contains("shortcut") || q.contains("keybind") || q.contains("screenshot")
+        if q.contains("vim")
+            || q.contains("nano")
+            || q.contains("editor")
+            || q.contains("emacs")
+            || q.contains("helix")
+            || q.contains("neovim")
+            || q.contains("hyprland")
+            || q.contains("gnome")
+            || q.contains("kde")
+            || q.contains("gtk")
+            || q.contains("wayland")
+            || q.contains("x11")
+            || q.contains("theme")
+            || q.contains("font")
+            || q.contains("hidpi")
+            || q.contains("tmux")
+            || q.contains("bash prompt")
+            || q.contains("ps1")
+            || q.contains("sway")
+            || q.contains("i3")
+            || q.contains("dark mode")
+            || q.contains("shortcut")
+            || q.contains("keybind")
+            || q.contains("screenshot")
         {
             return "desktop";
         }
         // Services - check before network to handle "postgresql connections" correctly
-        if q.contains("systemd") || q.contains("nginx") || q.contains("docker")
-            || q.contains("apache") || q.contains("cron") || q.contains("timer")
-            || q.contains("daemon") || q.contains("postgresql") || q.contains("httpd")
-            || q.contains("sshd") || q.contains("mysql") || q.contains("mariadb")
-            || q.contains("redis") || q.contains("mongodb")
+        if q.contains("systemd")
+            || q.contains("nginx")
+            || q.contains("docker")
+            || q.contains("apache")
+            || q.contains("cron")
+            || q.contains("timer")
+            || q.contains("daemon")
+            || q.contains("postgresql")
+            || q.contains("httpd")
+            || q.contains("sshd")
+            || q.contains("mysql")
+            || q.contains("mariadb")
+            || q.contains("redis")
+            || q.contains("mongodb")
         {
             return "services";
         }
         // Security - check before logs to handle "login" vs "log" correctly
-        if q.contains("permission") || q.contains("ssh key") || q.contains("security")
-            || q.contains("fail2ban") || q.contains("gpg") || q.contains("encrypt")
-            || q.contains("ufw") || q.contains("harden") || q.contains("login")
+        if q.contains("permission")
+            || q.contains("ssh key")
+            || q.contains("security")
+            || q.contains("fail2ban")
+            || q.contains("gpg")
+            || q.contains("encrypt")
+            || q.contains("ufw")
+            || q.contains("harden")
+            || q.contains("login")
         {
             return "security";
         }
         // Logs - check "log" after security to avoid "login" -> "log" match
-        if (q.contains("log") && !q.contains("login")) || q.contains("journal") || q.contains("dmesg")
-            || q.contains("syslog") || q.contains("crash") || q.contains("kernel messages")
+        if (q.contains("log") && !q.contains("login"))
+            || q.contains("journal")
+            || q.contains("dmesg")
+            || q.contains("syslog")
+            || q.contains("crash")
+            || q.contains("kernel messages")
         {
             return "logs";
         }
         // Hardware - check before performance to handle "CPU temperature" correctly
-        if q.contains("gpu") || q.contains("nvidia") || q.contains("bluetooth")
-            || q.contains("sound") || q.contains("audio") || q.contains("webcam")
-            || q.contains("keyboard backlight") || q.contains("driver")
-            || q.contains("temperature") || q.contains("monitor") || q.contains("display")
-            || q.contains("cpu cores") || q.contains("how many cpu")
-            || q.contains("ram speed") || q.contains("ram type") || q.contains("check ram")
+        if q.contains("gpu")
+            || q.contains("nvidia")
+            || q.contains("bluetooth")
+            || q.contains("sound")
+            || q.contains("audio")
+            || q.contains("webcam")
+            || q.contains("keyboard backlight")
+            || q.contains("driver")
+            || q.contains("temperature")
+            || q.contains("monitor")
+            || q.contains("display")
+            || q.contains("cpu cores")
+            || q.contains("how many cpu")
+            || q.contains("ram speed")
+            || q.contains("ram type")
+            || q.contains("check ram")
         {
             return "hardware";
         }
         // Network - check "network slow" case specifically
-        if q.contains("network") || q.contains("wifi") || q.contains("ip ")
-            || q.contains("dns") || q.contains("vpn") || q.contains("internet")
-            || q.contains("bonding") || q.contains("bridge") || q.contains("connected")
+        if q.contains("network")
+            || q.contains("wifi")
+            || q.contains("ip ")
+            || q.contains("dns")
+            || q.contains("vpn")
+            || q.contains("internet")
+            || q.contains("bonding")
+            || q.contains("bridge")
+            || q.contains("connected")
         {
             return "network";
         }
         // Performance - check before storage to handle "benchmark disk io" correctly
         // v0.0.273: More precise performance keywords (avoid matching general queries)
-        if q.contains("benchmark") || q.contains("iowait")
+        if q.contains("benchmark")
+            || q.contains("iowait")
             || (q.contains("slow") && !q.contains("network"))
             || q.contains("load") && q.contains("system")
             || q.contains("performance")
             || q.contains("swap")
-            || (q.contains("cpu") && !q.contains("cpu cores") && !q.contains("cpu info")
-                && !q.contains("how many cpu") && !q.contains("temperature"))
-            || (q.contains("ram") && !q.contains("ram speed") && !q.contains("ram type")
-                && !q.contains("check ram") && q.contains("using"))
+            || (q.contains("cpu")
+                && !q.contains("cpu cores")
+                && !q.contains("cpu info")
+                && !q.contains("how many cpu")
+                && !q.contains("temperature"))
+            || (q.contains("ram")
+                && !q.contains("ram speed")
+                && !q.contains("ram type")
+                && !q.contains("check ram")
+                && q.contains("using"))
             || (q.contains("memory") && !q.contains("memory info") && q.contains("using"))
             || q.contains("power consumption")
             || (q.contains("tune") && q.contains("kernel"))
@@ -82,9 +140,15 @@ mod tests {
             return "performance";
         }
         // Storage
-        if q.contains("disk") || q.contains("storage") || q.contains("mount")
-            || q.contains("partition") || q.contains("btrfs") || q.contains("filesystem")
-            || q.contains("space") || q.contains("inode") || q.contains("lsblk")
+        if q.contains("disk")
+            || q.contains("storage")
+            || q.contains("mount")
+            || q.contains("partition")
+            || q.contains("btrfs")
+            || q.contains("filesystem")
+            || q.contains("space")
+            || q.contains("inode")
+            || q.contains("lsblk")
         {
             return "storage";
         }
@@ -97,68 +161,127 @@ mod tests {
         let q = query.to_lowercase();
 
         // Desktop - editors and DE/WM
-        if q.contains("vim") || q.contains("nano") || q.contains("editor")
-            || q.contains("emacs") || q.contains("helix") || q.contains("neovim")
-            || q.contains("gnome") || q.contains("kde") || q.contains("hyprland")
-            || q.contains("sway") || q.contains("i3") || q.contains("wayland")
-            || q.contains("x11") || q.contains("gtk") || q.contains("theme")
-            || q.contains("font") || q.contains("hidpi") || q.contains("dark mode")
-            || q.contains("tmux") || q.contains("bash prompt") || q.contains("ps1")
-            || q.contains("shortcut") || q.contains("keybind") || q.contains("screenshot")
+        if q.contains("vim")
+            || q.contains("nano")
+            || q.contains("editor")
+            || q.contains("emacs")
+            || q.contains("helix")
+            || q.contains("neovim")
+            || q.contains("gnome")
+            || q.contains("kde")
+            || q.contains("hyprland")
+            || q.contains("sway")
+            || q.contains("i3")
+            || q.contains("wayland")
+            || q.contains("x11")
+            || q.contains("gtk")
+            || q.contains("theme")
+            || q.contains("font")
+            || q.contains("hidpi")
+            || q.contains("dark mode")
+            || q.contains("tmux")
+            || q.contains("bash prompt")
+            || q.contains("ps1")
+            || q.contains("shortcut")
+            || q.contains("keybind")
+            || q.contains("screenshot")
         {
             return "desktop";
         }
         // Services - check before network to handle database connection issues
-        if q.contains("service") || q.contains("systemd") || q.contains("nginx")
-            || q.contains("docker") || q.contains("apache") || q.contains("cron")
-            || q.contains("timer") || q.contains("daemon") || q.contains("postgresql")
-            || q.contains("httpd") || q.contains("sshd") || q.contains("mysql")
-            || q.contains("mariadb") || q.contains("redis") || q.contains("mongodb")
+        if q.contains("service")
+            || q.contains("systemd")
+            || q.contains("nginx")
+            || q.contains("docker")
+            || q.contains("apache")
+            || q.contains("cron")
+            || q.contains("timer")
+            || q.contains("daemon")
+            || q.contains("postgresql")
+            || q.contains("httpd")
+            || q.contains("sshd")
+            || q.contains("mysql")
+            || q.contains("mariadb")
+            || q.contains("redis")
+            || q.contains("mongodb")
         {
             return "service";
         }
         // Security - check before logs to handle "login" vs "log" correctly
-        if q.contains("permission") || q.contains("ssh key") || q.contains("ufw")
-            || q.contains("fail2ban") || q.contains("gpg") || q.contains("encrypt")
-            || q.contains("security") || q.contains("harden") || q.contains("login")
+        if q.contains("permission")
+            || q.contains("ssh key")
+            || q.contains("ufw")
+            || q.contains("fail2ban")
+            || q.contains("gpg")
+            || q.contains("encrypt")
+            || q.contains("security")
+            || q.contains("harden")
+            || q.contains("login")
         {
             return "security";
         }
         // Logs - check "log" after security to avoid "login" -> "log" match
-        if (q.contains("log") && !q.contains("login")) || q.contains("journal") || q.contains("dmesg")
-            || q.contains("syslog") || q.contains("crash") || q.contains("kernel messages")
+        if (q.contains("log") && !q.contains("login"))
+            || q.contains("journal")
+            || q.contains("dmesg")
+            || q.contains("syslog")
+            || q.contains("crash")
+            || q.contains("kernel messages")
         {
             return "log";
         }
         // Hardware - check before performance to handle "CPU temperature" correctly
-        if q.contains("gpu") || q.contains("nvidia") || q.contains("bluetooth")
-            || q.contains("sound") || q.contains("audio") || q.contains("webcam")
-            || q.contains("monitor") || q.contains("display") || q.contains("driver")
-            || q.contains("cpu cores") || q.contains("how many cpu")
-            || q.contains("ram speed") || q.contains("ram type") || q.contains("check ram")
+        if q.contains("gpu")
+            || q.contains("nvidia")
+            || q.contains("bluetooth")
+            || q.contains("sound")
+            || q.contains("audio")
+            || q.contains("webcam")
+            || q.contains("monitor")
+            || q.contains("display")
+            || q.contains("driver")
+            || q.contains("cpu cores")
+            || q.contains("how many cpu")
+            || q.contains("ram speed")
+            || q.contains("ram type")
+            || q.contains("check ram")
             || q.contains("temperature")
         {
             return "hardware";
         }
         // Network
-        if q.contains("network") || q.contains("wifi") || q.contains("ip ")
-            || q.contains("dns") || q.contains("port") || q.contains("firewall")
-            || q.contains("vpn") || q.contains("internet") || q.contains("connection")
-            || q.contains("bonding") || q.contains("bridge")
+        if q.contains("network")
+            || q.contains("wifi")
+            || q.contains("ip ")
+            || q.contains("dns")
+            || q.contains("port")
+            || q.contains("firewall")
+            || q.contains("vpn")
+            || q.contains("internet")
+            || q.contains("connection")
+            || q.contains("bonding")
+            || q.contains("bridge")
         {
             return "network";
         }
         // Performance - more precise matching (avoid matching general queries)
         // v0.0.273: Tightened performance keywords
-        if q.contains("benchmark") || q.contains("iowait")
+        if q.contains("benchmark")
+            || q.contains("iowait")
             || (q.contains("slow") && !q.contains("network"))
             || (q.contains("load") && q.contains("system"))
             || q.contains("performance")
             || q.contains("swap")
-            || (q.contains("cpu") && !q.contains("cpu cores") && !q.contains("cpu info")
-                && !q.contains("how many cpu") && !q.contains("temperature"))
-            || (q.contains("ram") && !q.contains("ram speed") && !q.contains("ram type")
-                && !q.contains("check ram") && q.contains("using"))
+            || (q.contains("cpu")
+                && !q.contains("cpu cores")
+                && !q.contains("cpu info")
+                && !q.contains("how many cpu")
+                && !q.contains("temperature"))
+            || (q.contains("ram")
+                && !q.contains("ram speed")
+                && !q.contains("ram type")
+                && !q.contains("check ram")
+                && q.contains("using"))
             || (q.contains("memory") && !q.contains("memory info") && q.contains("using"))
             || q.contains("power consumption")
             || (q.contains("tune") && q.contains("kernel"))
@@ -167,9 +290,15 @@ mod tests {
             return "performance";
         }
         // Storage
-        if q.contains("disk") || q.contains("space") || q.contains("mount")
-            || q.contains("partition") || q.contains("btrfs") || q.contains("filesystem")
-            || q.contains("inode") || q.contains("lsblk") || q.contains("du ")
+        if q.contains("disk")
+            || q.contains("space")
+            || q.contains("mount")
+            || q.contains("partition")
+            || q.contains("btrfs")
+            || q.contains("filesystem")
+            || q.contains("inode")
+            || q.contains("lsblk")
+            || q.contains("du ")
         {
             return "disk";
         }
@@ -222,9 +351,21 @@ mod tests {
         let medium = corpus.by_difficulty(Difficulty::Medium).len();
         let complex = corpus.by_difficulty(Difficulty::Complex).len();
 
-        assert!(simple >= 20, "Should have 20+ simple scenarios, got {}", simple);
-        assert!(medium >= 30, "Should have 30+ medium scenarios, got {}", medium);
-        assert!(complex >= 10, "Should have 10+ complex scenarios, got {}", complex);
+        assert!(
+            simple >= 20,
+            "Should have 20+ simple scenarios, got {}",
+            simple
+        );
+        assert!(
+            medium >= 30,
+            "Should have 30+ medium scenarios, got {}",
+            medium
+        );
+        assert!(
+            complex >= 10,
+            "Should have 10+ complex scenarios, got {}",
+            complex
+        );
     }
 
     #[test]
@@ -442,11 +583,7 @@ mod tests {
                 if queries_would_match(&scenario.query, similar) {
                     matched += 1;
                 } else {
-                    mismatches.push((
-                        scenario.id,
-                        scenario.query.clone(),
-                        similar.clone(),
-                    ));
+                    mismatches.push((scenario.id, scenario.query.clone(), similar.clone()));
                 }
             }
         }
@@ -458,7 +595,10 @@ mod tests {
         let match_rate = matched as f32 / total_with_similar as f32 * 100.0;
 
         if !mismatches.is_empty() {
-            eprintln!("\n=== SIMILAR QUERY TOKEN MISMATCHES ({}) ===", mismatches.len());
+            eprintln!(
+                "\n=== SIMILAR QUERY TOKEN MISMATCHES ({}) ===",
+                mismatches.len()
+            );
             for (id, original, similar) in mismatches.iter().take(5) {
                 eprintln!("  #{}: \"{}\"", id, original);
                 eprintln!("      similar: \"{}\"", similar);
@@ -505,7 +645,10 @@ mod tests {
         }
 
         if !bad_tokens.is_empty() {
-            eprintln!("\n=== LEARNABLE SCENARIOS WITH FEW TOKENS ({}) ===", bad_tokens.len());
+            eprintln!(
+                "\n=== LEARNABLE SCENARIOS WITH FEW TOKENS ({}) ===",
+                bad_tokens.len()
+            );
             for (query, tokens) in bad_tokens.iter().take(5) {
                 eprintln!("  \"{}\" -> {:?}", query, tokens);
             }
@@ -528,7 +671,10 @@ mod tests {
             ("check storage", "disk usage"),
             // Network
             ("what is my ip address", "show my IP"),
-            ("am I connected to the internet", "check internet connection"),
+            (
+                "am I connected to the internet",
+                "check internet connection",
+            ),
             // Performance
             ("why is my computer slow", "system is slow"),
             ("check CPU usage", "CPU load"),
@@ -575,7 +721,9 @@ mod tests {
         // Log the actual match rate for tracking improvement
         eprintln!(
             "\n[INFO] Paraphrase matching: {:.1}% ({}/{})",
-            match_rate, matched, paraphrase_pairs.len()
+            match_rate,
+            matched,
+            paraphrase_pairs.len()
         );
     }
 
@@ -620,9 +768,7 @@ mod tests {
             assert!(
                 has_target,
                 "Query \"{}\" should contain target \"{}\", got tokens: {:?}",
-                query,
-                expected_target,
-                tokens
+                query, expected_target, tokens
             );
         }
     }

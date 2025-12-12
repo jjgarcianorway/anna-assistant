@@ -118,8 +118,13 @@ impl LearnedPattern {
             return false;
         }
         // At least half keywords must match
-        let matches = keywords.iter()
-            .filter(|k| self.keywords.iter().any(|pk| pk.to_lowercase() == k.to_lowercase()))
+        let matches = keywords
+            .iter()
+            .filter(|k| {
+                self.keywords
+                    .iter()
+                    .any(|pk| pk.to_lowercase() == k.to_lowercase())
+            })
             .count();
         matches >= 1 && matches >= keywords.len() / 2
     }
@@ -162,15 +167,13 @@ impl KnowledgeIndex {
         let path = index_path();
         if path.exists() {
             match fs::read_to_string(&path) {
-                Ok(json) => {
-                    match serde_json::from_str(&json) {
-                        Ok(index) => {
-                            debug!("Loaded knowledge index");
-                            return index;
-                        }
-                        Err(e) => warn!("Failed to parse knowledge index: {}", e),
+                Ok(json) => match serde_json::from_str(&json) {
+                    Ok(index) => {
+                        debug!("Loaded knowledge index");
+                        return index;
                     }
-                }
+                    Err(e) => warn!("Failed to parse knowledge index: {}", e),
+                },
                 Err(e) => warn!("Failed to read knowledge index: {}", e),
             }
         }
@@ -186,7 +189,11 @@ impl KnowledgeIndex {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         fs::write(&path, json)?;
-        debug!("Saved knowledge index ({} facts, {} patterns)", self.facts.len(), self.patterns.len());
+        debug!(
+            "Saved knowledge index ({} facts, {} patterns)",
+            self.facts.len(),
+            self.patterns.len()
+        );
         Ok(())
     }
 
@@ -207,7 +214,8 @@ impl KnowledgeIndex {
 
     /// Get facts for a domain
     pub fn facts_for_domain(&self, domain: &str) -> Vec<&LearnedFact> {
-        self.facts.values()
+        self.facts
+            .values()
             .filter(|f| f.domain == domain && !f.is_stale())
             .collect()
     }
@@ -222,14 +230,25 @@ impl KnowledgeIndex {
     }
 
     /// Find matching patterns
-    pub fn find_patterns(&self, keywords: &[String], domain: &str, intent: &str) -> Vec<&LearnedPattern> {
-        self.patterns.values()
+    pub fn find_patterns(
+        &self,
+        keywords: &[String],
+        domain: &str,
+        intent: &str,
+    ) -> Vec<&LearnedPattern> {
+        self.patterns
+            .values()
             .filter(|p| p.matches(keywords, domain, intent))
             .collect()
     }
 
     /// Find trusted patterns (can answer without LLM)
-    pub fn find_trusted_patterns(&self, keywords: &[String], domain: &str, intent: &str) -> Vec<&LearnedPattern> {
+    pub fn find_trusted_patterns(
+        &self,
+        keywords: &[String],
+        domain: &str,
+        intent: &str,
+    ) -> Vec<&LearnedPattern> {
         self.find_patterns(keywords, domain, intent)
             .into_iter()
             .filter(|p| p.is_trusted())
@@ -238,12 +257,15 @@ impl KnowledgeIndex {
 
     /// Cache a doc snippet
     pub fn cache_doc(&mut self, topic: &str, source: &str, snippet: &str) {
-        self.doc_cache.insert(topic.to_lowercase(), CachedDoc {
-            topic: topic.to_string(),
-            source: source.to_string(),
-            snippet: snippet.to_string(),
-            cached_at: current_millis(),
-        });
+        self.doc_cache.insert(
+            topic.to_lowercase(),
+            CachedDoc {
+                topic: topic.to_string(),
+                source: source.to_string(),
+                snippet: snippet.to_string(),
+                cached_at: current_millis(),
+            },
+        );
     }
 
     /// Get cached doc
@@ -270,7 +292,9 @@ impl KnowledgeIndex {
     /// Prune stale entries
     pub fn prune_stale(&mut self) {
         // Remove stale facts
-        let stale_facts: Vec<String> = self.facts.iter()
+        let stale_facts: Vec<String> = self
+            .facts
+            .iter()
             .filter(|(_, f)| f.is_stale())
             .map(|(k, _)| k.clone())
             .collect();
@@ -280,7 +304,8 @@ impl KnowledgeIndex {
 
         // Remove old doc cache (>7 days)
         let old_threshold = current_millis().saturating_sub(604800_000);
-        self.doc_cache.retain(|_, doc| doc.cached_at > old_threshold);
+        self.doc_cache
+            .retain(|_, doc| doc.cached_at > old_threshold);
     }
 }
 
@@ -360,11 +385,7 @@ mod tests {
 
     #[test]
     fn test_pattern_trust() {
-        let mut pattern = LearnedPattern::new(
-            vec!["test".to_string()],
-            "system",
-            "diagnose",
-        );
+        let mut pattern = LearnedPattern::new(vec!["test".to_string()], "system", "diagnose");
 
         assert!(!pattern.is_trusted());
 

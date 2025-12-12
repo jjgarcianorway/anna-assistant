@@ -234,7 +234,10 @@ fn extract_boot_time_fact(analyze_output: &str) -> String {
             return line.to_string();
         }
     }
-    format!("Boot analysis: {}", analyze_output.lines().next().unwrap_or("unavailable"))
+    format!(
+        "Boot analysis: {}",
+        analyze_output.lines().next().unwrap_or("unavailable")
+    )
 }
 
 fn extract_top_offenders(blame_output: &str, count: usize) -> Vec<String> {
@@ -254,7 +257,10 @@ fn extract_memory_fact(free_output: &str) -> String {
                 let total = parts.get(1).unwrap_or(&"?");
                 let used = parts.get(2).unwrap_or(&"?");
                 let available = parts.get(6).unwrap_or(parts.get(3).unwrap_or(&"?"));
-                return format!("Memory: {} total, {} used, {} available", total, used, available);
+                return format!(
+                    "Memory: {} total, {} used, {} available",
+                    total, used, available
+                );
             }
         }
     }
@@ -365,12 +371,30 @@ impl ClarificationBuilder {
     pub fn new() -> Self {
         Self {
             questions: vec![
-                (CanonicalIntent::BootPerf, "Do you mean boot time (startup) or wake-from-sleep resume time?"),
-                (CanonicalIntent::MemStatus, "Do you want total RAM, available RAM, or memory usage by application?"),
-                (CanonicalIntent::DiskUsage, "Which partition? Root (/), home (/home), or all?"),
-                (CanonicalIntent::SvcStatus, "Which service do you want to check?"),
-                (CanonicalIntent::NetHealth, "Do you mean WiFi, Ethernet, or DNS connectivity?"),
-                (CanonicalIntent::AudioHealth, "Is the issue with playback, recording, or both?"),
+                (
+                    CanonicalIntent::BootPerf,
+                    "Do you mean boot time (startup) or wake-from-sleep resume time?",
+                ),
+                (
+                    CanonicalIntent::MemStatus,
+                    "Do you want total RAM, available RAM, or memory usage by application?",
+                ),
+                (
+                    CanonicalIntent::DiskUsage,
+                    "Which partition? Root (/), home (/home), or all?",
+                ),
+                (
+                    CanonicalIntent::SvcStatus,
+                    "Which service do you want to check?",
+                ),
+                (
+                    CanonicalIntent::NetHealth,
+                    "Do you mean WiFi, Ethernet, or DNS connectivity?",
+                ),
+                (
+                    CanonicalIntent::AudioHealth,
+                    "Is the issue with playback, recording, or both?",
+                ),
             ],
         }
     }
@@ -432,8 +456,8 @@ impl Default for ClarificationBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::deterministic_routing::evidence_gate::ProbeResult;
+    use std::collections::HashMap;
 
     fn make_evidence(probes: Vec<(&str, &str)>) -> EvidenceStatus {
         let mut map = HashMap::new();
@@ -446,8 +470,14 @@ mod tests {
     #[test]
     fn test_boot_perf_tiers() {
         let evidence = make_evidence(vec![
-            ("systemd_analyze", "Startup finished in 2.5s (kernel) + 5.2s (userspace) = 7.7s"),
-            ("systemd_blame", "3.5s NetworkManager.service\n2.1s docker.service\n1.8s systemd-udevd.service"),
+            (
+                "systemd_analyze",
+                "Startup finished in 2.5s (kernel) + 5.2s (userspace) = 7.7s",
+            ),
+            (
+                "systemd_blame",
+                "3.5s NetworkManager.service\n2.1s docker.service\n1.8s systemd-udevd.service",
+            ),
         ]);
 
         let answer = build_boot_perf_tiers(&evidence);
@@ -478,9 +508,15 @@ mod tests {
     #[test]
     fn test_needs_clarification() {
         // Specific queries don't need clarification
-        assert!(!ClarificationBuilder::needs_clarification("how much RAM is available", CanonicalIntent::MemStatus));
+        assert!(!ClarificationBuilder::needs_clarification(
+            "how much RAM is available",
+            CanonicalIntent::MemStatus
+        ));
 
         // Unknown intents may need clarification
-        assert!(ClarificationBuilder::needs_clarification("?", CanonicalIntent::Unknown));
+        assert!(ClarificationBuilder::needs_clarification(
+            "?",
+            CanonicalIntent::Unknown
+        ));
     }
 }

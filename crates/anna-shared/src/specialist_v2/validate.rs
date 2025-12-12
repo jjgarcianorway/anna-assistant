@@ -122,7 +122,9 @@ pub fn validate_response(response: &SpecialistResponseV2) -> ValidationResult {
 }
 
 /// Parse JSON and validate in one step
-pub fn parse_and_validate(json_str: &str) -> Result<(SpecialistResponseV2, ValidationResult), String> {
+pub fn parse_and_validate(
+    json_str: &str,
+) -> Result<(SpecialistResponseV2, ValidationResult), String> {
     // Try to extract JSON from potentially wrapped text
     let clean_json = extract_json(json_str)?;
 
@@ -155,7 +157,10 @@ fn extract_json(text: &str) -> Result<String, String> {
 
     // Try markdown code block
     if let Some(start) = trimmed.find("```json") {
-        if let Some(end) = trimmed[start..].find("```\n").or(trimmed[start..].rfind("```")) {
+        if let Some(end) = trimmed[start..]
+            .find("```\n")
+            .or(trimmed[start..].rfind("```"))
+        {
             let json_start = start + 7; // len("```json")
             let json_content = &trimmed[json_start..start + end];
             let clean = json_content.trim();
@@ -224,7 +229,10 @@ mod tests {
 
         let result = validate_response(&response);
         assert!(!result.is_valid);
-        assert!(result.errors.iter().any(|e| e.contains("Forbidden pattern")));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| e.contains("Forbidden pattern")));
     }
 
     #[test]

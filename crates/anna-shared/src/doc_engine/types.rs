@@ -141,9 +141,12 @@ impl DocSnippet {
         }
 
         // Extract words from summary (skip common words)
-        let stop_words = ["the", "a", "an", "is", "are", "to", "for", "and", "or", "of", "in"];
+        let stop_words = [
+            "the", "a", "an", "is", "are", "to", "for", "and", "or", "of", "in",
+        ];
         for word in summary.split_whitespace() {
-            let word_lower = word.to_lowercase()
+            let word_lower = word
+                .to_lowercase()
                 .trim_matches(|c: char| !c.is_alphanumeric())
                 .to_string();
             if word_lower.len() > 2 && !stop_words.contains(&word_lower.as_str()) {
@@ -158,7 +161,8 @@ impl DocSnippet {
 
     /// Get citation string for this snippet
     pub fn citation(&self) -> String {
-        self.source.citation_format(&self.name, self.section.as_deref())
+        self.source
+            .citation_format(&self.name, self.section.as_deref())
     }
 
     /// Check if this snippet is stale (needs refresh)
@@ -257,8 +261,7 @@ impl DocQuery {
 
     /// Query for Arch Wiki only
     pub fn arch_wiki(topic: &str) -> Self {
-        Self::new(topic)
-            .with_sources(vec![DocSourceKind::ArchWiki])
+        Self::new(topic).with_sources(vec![DocSourceKind::ArchWiki])
     }
 
     /// Query for help output only
@@ -365,7 +368,8 @@ impl DocReference {
 
     /// Get citation string
     pub fn citation(&self) -> String {
-        self.source.citation_format(&self.name, self.section.as_deref())
+        self.source
+            .citation_format(&self.name, self.section.as_deref())
     }
 
     /// Arch Wiki reference
@@ -399,7 +403,8 @@ mod tests {
         let id = DocSnippet::generate_id(DocSourceKind::ManPage, "systemctl", Some("1"));
         assert_eq!(id, "man:systemctl:1");
 
-        let id = DocSnippet::generate_id(DocSourceKind::ArchWiki, "Systemd", Some("Troubleshooting"));
+        let id =
+            DocSnippet::generate_id(DocSourceKind::ArchWiki, "Systemd", Some("Troubleshooting"));
         assert_eq!(id, "wiki:systemd:troubleshooting");
     }
 

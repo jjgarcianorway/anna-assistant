@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::user_profile::{UserProfile, UserPreferences};
+    use crate::user_profile::{UserPreferences, UserProfile};
 
     #[test]
     fn test_default_profile() {

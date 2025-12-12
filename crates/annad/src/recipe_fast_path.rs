@@ -5,6 +5,7 @@
 //! v0.0.406: TOML-based FileRecipe check moved to file_recipe_path.rs.
 //! v0.0.412: Check learned recipes FIRST (RecipeStoreV2) before hardcoded.
 
+use crate::recipe_engine_v2;
 use anna_shared::recipe::{Recipe, RecipeKind};
 use anna_shared::recipe_index::RecipeIndex;
 use anna_shared::recipe_matcher::{match_recipe, MatchResult};
@@ -14,7 +15,6 @@ use anna_shared::rpc::{
 };
 use anna_shared::trace::{ExecutionTrace, ProbeStats};
 use anna_shared::transcript::Transcript;
-use crate::recipe_engine_v2;
 use tracing::info;
 
 // Re-export built-in recipe matchers
@@ -255,8 +255,7 @@ pub fn build_recipe_result(
         )
     } else if recipe.success_count < 3 {
         Some(anna_shared::recipe_feedback::FeedbackRequest::new_recipe(
-            &recipe.id,
-            query,
+            &recipe.id, query,
         ))
     } else {
         None

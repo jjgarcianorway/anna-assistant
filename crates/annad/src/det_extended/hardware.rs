@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer battery status query using upower or /sys
-pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_battery_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "battery")?;
 
     let output = probe.stdout.trim();
@@ -31,13 +34,25 @@ pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Optio
         for line in output.lines() {
             let line = line.trim();
             if line.starts_with("percentage:") {
-                percentage = line.strip_prefix("percentage:").unwrap_or("").trim().to_string();
+                percentage = line
+                    .strip_prefix("percentage:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("state:") {
                 state = line.strip_prefix("state:").unwrap_or("").trim().to_string();
             } else if line.starts_with("time to empty:") {
-                time_to_empty = line.strip_prefix("time to empty:").unwrap_or("").trim().to_string();
+                time_to_empty = line
+                    .strip_prefix("time to empty:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("time to full:") {
-                time_to_full = line.strip_prefix("time to full:").unwrap_or("").trim().to_string();
+                time_to_full = line
+                    .strip_prefix("time to full:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             }
         }
 
@@ -61,7 +76,13 @@ pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Optio
     }
 
     if let Ok(pct) = output.parse::<u32>() {
-        let status = if pct > 80 { "Good" } else if pct > 20 { "OK" } else { "Low" };
+        let status = if pct > 80 {
+            "Good"
+        } else if pct > 20 {
+            "OK"
+        } else {
+            "Low"
+        };
         return Some(DeterministicResult {
             answer: format!("Battery: {}% ({})", pct, status),
             grounded: true,
@@ -79,7 +100,10 @@ pub fn answer_battery_status(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer CPU frequency query
-pub fn answer_cpu_frequency(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_cpu_frequency(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "cpu_frequency")?;
     if probe.exit_code != 0 {
         return None;
@@ -119,7 +143,10 @@ pub fn answer_cpu_frequency(probes: &[ProbeResult], route_class: &str) -> Option
 }
 
 /// Answer memory slots query
-pub fn answer_memory_slots(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_memory_slots(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "memory_slots")?;
 
     let output = probe.stdout.trim();
@@ -141,7 +168,10 @@ pub fn answer_memory_slots(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer sensors temperature query
-pub fn answer_sensors_temp(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_sensors_temp(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "sensors_temp")?;
 
     let output = probe.stdout.trim();
@@ -169,7 +199,8 @@ pub fn answer_gpu_memory(probes: &[ProbeResult], route_class: &str) -> Option<De
     let output = probe.stdout.trim();
     if output.contains("not available") || output.is_empty() {
         return Some(DeterministicResult {
-            answer: "nvidia-smi not available. This requires NVIDIA drivers to be installed.".to_string(),
+            answer: "nvidia-smi not available. This requires NVIDIA drivers to be installed."
+                .to_string(),
             grounded: true,
             parsed_data_count: 0,
             route_class: route_class.to_string(),
@@ -185,7 +216,10 @@ pub fn answer_gpu_memory(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer PCI devices query
-pub fn answer_pci_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_pci_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "pci_devices")?;
 
     let output = probe.stdout.trim();
@@ -208,7 +242,10 @@ pub fn answer_pci_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer USB devices query using lsusb
-pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_usb_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "lsusb")?;
     if probe.exit_code != 0 {
         return None;
@@ -239,12 +276,18 @@ pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
         .collect();
 
     let answer = if device_count <= 10 {
-        format!("USB devices ({}):\n  {}", device_count, devices.join("\n  "))
+        format!(
+            "USB devices ({}):\n  {}",
+            device_count,
+            devices.join("\n  ")
+        )
     } else {
         let preview: Vec<&str> = devices.iter().take(8).map(|s| s.as_str()).collect();
         format!(
             "USB devices ({}):\n  {}\n  ...and {} more",
-            device_count, preview.join("\n  "), device_count - 8
+            device_count,
+            preview.join("\n  "),
+            device_count - 8
         )
     };
 
@@ -257,12 +300,18 @@ pub fn answer_usb_devices(probes: &[ProbeResult], route_class: &str) -> Option<D
 }
 
 /// Answer CPU governor query using cpufreq
-pub fn answer_cpu_governor(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_cpu_governor(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "cpu_governor")?;
     let output = probe.stdout.trim();
 
     let (answer, parsed) = if output.contains("not available") || output.is_empty() {
-        ("CPU frequency scaling not available on this system.".to_string(), 0)
+        (
+            "CPU frequency scaling not available on this system.".to_string(),
+            0,
+        )
     } else {
         let governors: Vec<&str> = output.lines().collect();
         let summary: Vec<String> = governors
@@ -276,7 +325,10 @@ pub fn answer_cpu_governor(probes: &[ProbeResult], route_class: &str) -> Option<
                 }
             })
             .collect();
-        (format!("CPU scaling governors:\n  {}", summary.join("\n  ")), governors.len())
+        (
+            format!("CPU scaling governors:\n  {}", summary.join("\n  ")),
+            governors.len(),
+        )
     };
 
     Some(DeterministicResult {

@@ -8,7 +8,9 @@
 //! The goal: Specialist sees structured evidence, not raw chaos.
 
 use anna_shared::evidence_engine::{EvidenceBundle, EvidenceDomain, EvidenceIntent};
-use anna_shared::evidence_pipeline::{check_instant_answer, run_evidence_pipeline, InstantAnswer, PipelineResult};
+use anna_shared::evidence_pipeline::{
+    check_instant_answer, run_evidence_pipeline, InstantAnswer, PipelineResult,
+};
 use anna_shared::rpc::{ProbeResult, SpecialistDomain, TranslatorTicket};
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -53,7 +55,9 @@ pub fn build_evidence_for_specialist(
     let instant = check_instant_answer(&domain_str, &intent_str, &tags);
 
     match instant {
-        InstantAnswer::FromPattern { answer, pattern_id, .. } => {
+        InstantAnswer::FromPattern {
+            answer, pattern_id, ..
+        } => {
             info!("Instant answer from pattern {}", pattern_id);
 
             // Build minimal bundle with existing probes
@@ -73,13 +77,7 @@ pub fn build_evidence_for_specialist(
     }
 
     // Run full evidence pipeline
-    let result = run_evidence_pipeline(
-        ticket_id,
-        question,
-        &domain_str,
-        &intent_str,
-        tags.clone(),
-    );
+    let result = run_evidence_pipeline(ticket_id, question, &domain_str, &intent_str, tags.clone());
 
     let bundle = match result {
         PipelineResult::Instant { answer, .. } => {
@@ -92,7 +90,10 @@ pub fn build_evidence_for_specialist(
                 intent,
             };
         }
-        PipelineResult::Evidence { bundle, duration_ms } => {
+        PipelineResult::Evidence {
+            bundle,
+            duration_ms,
+        } => {
             info!("Evidence gathered in {}ms", duration_ms);
             bundle
         }
@@ -171,29 +172,38 @@ pub fn build_enhanced_specialist_input(
     intent: &str,
     question: &str,
     bundle: &EvidenceBundle,
+    context_claims: Option<String>, // Added context_claims parameter
 ) -> String {
     let probes_json = evidence_to_probe_map(bundle);
 
     // Build docs array
-    let docs: Vec<serde_json::Value> = bundle.docs.iter().map(|d| {
-        serde_json::json!({
-            "source": d.source.to_string(),
-            "title": d.title,
-            "snippet": d.snippet
+    let docs: Vec<serde_json::Value> = bundle
+        .docs
+        .iter()
+        .map(|d| {
+            serde_json::json!({
+                "source": d.source.to_string(),
+                "title": d.title,
+                "snippet": d.snippet
+            })
         })
-    }).collect();
+        .collect();
 
     // Build recipes array
-    let recipes: Vec<serde_json::Value> = bundle.recipes.iter().map(|r| {
-        serde_json::json!({
-            "id": r.id,
-            "title": r.title,
-            "confidence": r.confidence,
-            "actions": r.actions
+    let recipes: Vec<serde_json::Value> = bundle
+        .recipes
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.id,
+                "title": r.title,
+                "confidence": r.confidence,
+                "actions": r.actions
+            })
         })
-    }).collect();
+        .collect();
 
-    let input = serde_json::json!({
+    let mut input = serde_json::json!({
         "ticket_id": ticket_id,
         "domain": domain,
         "intent": intent,
@@ -207,6 +217,10 @@ pub fn build_enhanced_specialist_input(
             "gather_time_ms": bundle.metadata.gather_time_ms
         }
     });
+
+    if let Some(claims) = context_claims {
+        input["context_claims"] = serde_json::Value::String(claims);
+    }
 
     serde_json::to_string_pretty(&input).unwrap_or_else(|_| "{}".to_string())
 }
@@ -294,7 +308,9 @@ fn extract_tag_from_probe(probe: &str) -> Option<String> {
 
 /// Extract keywords from question
 fn extract_keywords_from_question(question: &str) -> Vec<String> {
-    let stopwords = ["is", "my", "do", "i", "have", "what", "how", "much", "the", "a", "an"];
+    let stopwords = [
+        "is", "my", "do", "i", "have", "what", "how", "much", "the", "a", "an",
+    ];
 
     question
         .to_lowercase()
@@ -317,7 +333,8 @@ fn bundle_from_existing_probes(ticket_id: &str, probes: &[ProbeResult]) -> Evide
                 &probe.command,
                 &summarize_probe_output(&probe.stdout),
                 &truncate(&probe.stdout, 400),
-            ).with_exit_code(probe.exit_code);
+            )
+            .with_exit_code(probe.exit_code);
 
             bundle.add_probe(evidence);
         }
@@ -327,7 +344,10 @@ fn bundle_from_existing_probes(ticket_id: &str, probes: &[ProbeResult]) -> Evide
 }
 
 /// Merge evidence bundle with existing probes
-fn merge_with_existing_probes(mut bundle: EvidenceBundle, probes: &[ProbeResult]) -> EvidenceBundle {
+fn merge_with_existing_probes(
+    mut bundle: EvidenceBundle,
+    probes: &[ProbeResult],
+) -> EvidenceBundle {
     use anna_shared::evidence_engine::ProbeEvidence;
 
     // Add existing probes that aren't already in the bundle
@@ -341,7 +361,8 @@ fn merge_with_existing_probes(mut bundle: EvidenceBundle, probes: &[ProbeResult]
                     &probe.command,
                     &summarize_probe_output(&probe.stdout),
                     &truncate(&probe.stdout, 400),
-                ).with_exit_code(probe.exit_code);
+                )
+                .with_exit_code(probe.exit_code);
 
                 bundle.add_probe(evidence);
             }
@@ -392,9 +413,15 @@ mod tests {
 
     #[test]
     fn test_extract_tag_from_probe() {
-        assert_eq!(extract_tag_from_probe("free -h"), Some("memory".to_string()));
+        assert_eq!(
+            extract_tag_from_probe("free -h"),
+            Some("memory".to_string())
+        );
         assert_eq!(extract_tag_from_probe("df -h"), Some("disk".to_string()));
-        assert_eq!(extract_tag_from_probe("pacman -Q vim"), Some("packages".to_string()));
+        assert_eq!(
+            extract_tag_from_probe("pacman -Q vim"),
+            Some("packages".to_string())
+        );
     }
 
     #[test]

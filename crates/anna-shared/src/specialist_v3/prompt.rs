@@ -3,7 +3,7 @@
 //! Strict prompts that enforce JSON-only responses.
 //! No tutorials, no explanations - just structured data.
 
-use super::{ResponseStatus, Severity, RiskLevel};
+use super::{ResponseStatus, RiskLevel, Severity};
 
 /// System prompt for all specialists.
 pub const SPECIALIST_SYSTEM_PROMPT: &str = r#"You are a Linux system specialist. You MUST respond with ONLY valid JSON.
@@ -85,7 +85,11 @@ pub fn build_specialist_prompt(
     if !probe_data.is_empty() {
         prompt.push_str("PROBE DATA:\n");
         for (probe_id, output) in probe_data {
-            prompt.push_str(&format!("--- {} ---\n{}\n\n", probe_id, truncate_probe(output)));
+            prompt.push_str(&format!(
+                "--- {} ---\n{}\n\n",
+                probe_id,
+                truncate_probe(output)
+            ));
         }
     } else {
         prompt.push_str("PROBE DATA: (none available)\n\n");
@@ -356,7 +360,10 @@ mod tests {
         let prompt = build_specialist_prompt(
             "DSK-001",
             "How much memory is available?",
-            &[("probe:free".to_string(), "Mem: 25600 8400 17000".to_string())],
+            &[(
+                "probe:free".to_string(),
+                "Mem: 25600 8400 17000".to_string(),
+            )],
             &[],
             "desktop",
         );
@@ -378,15 +385,27 @@ mod tests {
 
     #[test]
     fn test_severity_for_finding() {
-        assert_eq!(severity_for_finding("mem_available_mb", "100"), Severity::Critical);
-        assert_eq!(severity_for_finding("mem_available_mb", "1000"), Severity::Warning);
-        assert_eq!(severity_for_finding("mem_available_mb", "8000"), Severity::Info);
+        assert_eq!(
+            severity_for_finding("mem_available_mb", "100"),
+            Severity::Critical
+        );
+        assert_eq!(
+            severity_for_finding("mem_available_mb", "1000"),
+            Severity::Warning
+        );
+        assert_eq!(
+            severity_for_finding("mem_available_mb", "8000"),
+            Severity::Info
+        );
     }
 
     #[test]
     fn test_risk_for_command() {
         assert_eq!(risk_for_command("rm -rf /tmp/*"), RiskLevel::High);
-        assert_eq!(risk_for_command("sudo systemctl restart foo"), RiskLevel::Medium);
+        assert_eq!(
+            risk_for_command("sudo systemctl restart foo"),
+            RiskLevel::Medium
+        );
         assert_eq!(risk_for_command("ls -la"), RiskLevel::Low);
     }
 }

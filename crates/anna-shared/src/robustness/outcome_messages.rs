@@ -105,10 +105,7 @@ impl OutcomeRenderer {
             evidence,
             resolved: true,
             is_failure: false,
-            status_line: format!(
-                "Confidence: {:.0}% | Resolved",
-                result.confidence * 100.0
-            ),
+            status_line: format!("Confidence: {:.0}% | Resolved", result.confidence * 100.0),
         }
     }
 
@@ -178,7 +175,8 @@ impl OutcomeRenderer {
 
         OutcomeMessage {
             header: "[anna] Something went wrong".to_string(),
-            body: "Something went wrong while processing this request (internal error).".to_string(),
+            body: "Something went wrong while processing this request (internal error)."
+                .to_string(),
             context: debug_hint,
             steps: Vec::new(),
             evidence: result

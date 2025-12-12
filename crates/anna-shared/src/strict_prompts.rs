@@ -372,9 +372,16 @@ mod tests {
 
     #[test]
     fn test_all_domains_have_transformations() {
-        for domain in &["system", "boot", "services", "network", "storage", "packages", "audio", "display", "desktop", "security"] {
+        for domain in &[
+            "system", "boot", "services", "network", "storage", "packages", "audio", "display",
+            "desktop", "security",
+        ] {
             let prompt = build_strict_prompt(domain);
-            assert!(prompt.contains("REQUIRED TRANSFORMATIONS") || prompt.contains("DOMAIN:"), "Missing hints for {}", domain);
+            assert!(
+                prompt.contains("REQUIRED TRANSFORMATIONS") || prompt.contains("DOMAIN:"),
+                "Missing hints for {}",
+                domain
+            );
         }
     }
 

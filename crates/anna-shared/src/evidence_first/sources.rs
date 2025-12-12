@@ -25,9 +25,11 @@ impl KnowledgeSource {
     /// Human-readable label.
     pub fn label(&self) -> String {
         match self {
-            Self::ManPage(m) => format!("man {}{}",
+            Self::ManPage(m) => format!(
+                "man {}{}",
                 m.section.map(|s| format!("{} ", s)).unwrap_or_default(),
-                m.command),
+                m.command
+            ),
             Self::HelpText(h) => format!("{} {}", h.command, h.variant.flag()),
             Self::LocalDocs(d) => format!("doc:{}", d.package.as_deref().unwrap_or(&d.path)),
             Self::ArchWiki(page) => format!("archwiki:{}", page),
@@ -81,7 +83,10 @@ impl ManPageSource {
             .map_err(|e| SourceError::CommandFailed(format!("man: {}", e)))?;
 
         if !output.status.success() {
-            return Err(SourceError::NotFound(format!("man page for {}", self.command)));
+            return Err(SourceError::NotFound(format!(
+                "man page for {}",
+                self.command
+            )));
         }
 
         self.content = Some(String::from_utf8_lossy(&output.stdout).to_string());
@@ -99,7 +104,11 @@ impl ManPageSource {
 
         for line in content.lines() {
             // Section headers are typically ALL CAPS at start of line
-            if line.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+            if line
+                .chars()
+                .next()
+                .map(|c| c.is_uppercase())
+                .unwrap_or(false)
                 && !line.contains("  ")
                 && line.len() < 30
             {
@@ -142,7 +151,10 @@ impl ManPageSource {
                         if snippet.len() <= super::MAX_CITATION_EXCERPT_LEN {
                             results.push(snippet);
                         } else {
-                            results.push(format!("{}...", &snippet[..super::MAX_CITATION_EXCERPT_LEN]));
+                            results.push(format!(
+                                "{}...",
+                                &snippet[..super::MAX_CITATION_EXCERPT_LEN]
+                            ));
                         }
                     }
                 }
@@ -209,7 +221,11 @@ impl HelpTextSource {
     /// Retrieve help text, trying multiple variants.
     pub fn retrieve(&mut self) -> Result<(), SourceError> {
         // Try variants in order
-        for variant in [HelpVariant::LongHelp, HelpVariant::ShortHelp, HelpVariant::HelpSubcommand] {
+        for variant in [
+            HelpVariant::LongHelp,
+            HelpVariant::ShortHelp,
+            HelpVariant::HelpSubcommand,
+        ] {
             if let Ok(content) = self.try_variant(variant) {
                 self.variant = variant;
                 self.content = Some(content);
@@ -223,21 +239,9 @@ impl HelpTextSource {
     /// Try a specific help variant.
     fn try_variant(&self, variant: HelpVariant) -> Result<String, SourceError> {
         let output = match variant {
-            HelpVariant::LongHelp => {
-                Command::new(&self.command)
-                    .arg("--help")
-                    .output()
-            }
-            HelpVariant::ShortHelp => {
-                Command::new(&self.command)
-                    .arg("-h")
-                    .output()
-            }
-            HelpVariant::HelpSubcommand => {
-                Command::new(&self.command)
-                    .arg("help")
-                    .output()
-            }
+            HelpVariant::LongHelp => Command::new(&self.command).arg("--help").output(),
+            HelpVariant::ShortHelp => Command::new(&self.command).arg("-h").output(),
+            HelpVariant::HelpSubcommand => Command::new(&self.command).arg("help").output(),
         };
 
         let output = output.map_err(|e| SourceError::CommandFailed(e.to_string()))?;
@@ -275,7 +279,10 @@ impl HelpTextSource {
                     if snippet.len() <= super::MAX_CITATION_EXCERPT_LEN {
                         results.push(snippet);
                     } else {
-                        results.push(format!("{}...", &snippet[..super::MAX_CITATION_EXCERPT_LEN]));
+                        results.push(format!(
+                            "{}...",
+                            &snippet[..super::MAX_CITATION_EXCERPT_LEN]
+                        ));
                     }
                 }
             }

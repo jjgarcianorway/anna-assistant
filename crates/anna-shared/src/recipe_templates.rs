@@ -34,12 +34,24 @@ pub fn service_status_recipe() -> Recipe {
         required: true,
     }])
     .with_steps(vec![
-        RecipeStep::command("s1", "systemctl status {{service_name}} --no-pager", "Get service status"),
-        RecipeStep::command("s2", "journalctl -u {{service_name}} -n 30 --no-pager", "Get recent logs")
-            .depends("s1"),
+        RecipeStep::command(
+            "s1",
+            "systemctl status {{service_name}} --no-pager",
+            "Get service status",
+        ),
+        RecipeStep::command(
+            "s2",
+            "journalctl -u {{service_name}} -n 30 --no-pager",
+            "Get recent logs",
+        )
+        .depends("s1"),
         RecipeStep::render("s3", SERVICE_STATUS_TEMPLATE, "Render answer").depends("s2"),
     ])
-    .with_docs(vec!["man:systemctl", "man:journalctl", "Arch Wiki: Systemd"])
+    .with_docs(vec![
+        "man:systemctl",
+        "man:journalctl",
+        "Arch Wiki: Systemd",
+    ])
 }
 
 const SERVICE_STATUS_TEMPLATE: &str = r#"**Service Status: {{service_name}}**
@@ -86,8 +98,12 @@ pub fn disk_usage_recipe() -> Recipe {
     }])
     .with_steps(vec![
         RecipeStep::probe("s1", "disk_usage", "Get disk usage"),
-        RecipeStep::command("s2", "du -sh {{mount_path}}/* 2>/dev/null | sort -rh | head -10", "Top space users")
-            .depends("s1"),
+        RecipeStep::command(
+            "s2",
+            "du -sh {{mount_path}}/* 2>/dev/null | sort -rh | head -10",
+            "Top space users",
+        )
+        .depends("s1"),
         RecipeStep::render("s3", DISK_USAGE_TEMPLATE, "Render answer").depends("s2"),
     ])
     .with_docs(vec!["man:df", "man:du", "Arch Wiki: Disk"])
@@ -126,11 +142,18 @@ pub fn memory_usage_recipe() -> Recipe {
         "swap usage",
         "out of memory",
     ])
-    .with_evidence(vec![EvidenceRequirement::Meminfo, EvidenceRequirement::Swaps])
+    .with_evidence(vec![
+        EvidenceRequirement::Meminfo,
+        EvidenceRequirement::Swaps,
+    ])
     .with_steps(vec![
         RecipeStep::probe("s1", "memory_info", "Get memory info"),
-        RecipeStep::command("s2", "ps aux --sort=-%mem | head -10", "Top memory processes")
-            .depends("s1"),
+        RecipeStep::command(
+            "s2",
+            "ps aux --sort=-%mem | head -10",
+            "Top memory processes",
+        )
+        .depends("s1"),
         RecipeStep::render("s3", MEMORY_USAGE_TEMPLATE, "Render answer").depends("s2"),
     ])
     .with_docs(vec!["man:free", "man:ps", "Arch Wiki: Swap"])
@@ -177,9 +200,17 @@ pub fn package_check_recipe() -> Recipe {
         required: true,
     }])
     .with_steps(vec![
-        RecipeStep::command("s1", "pacman -Q {{package_name}} 2>/dev/null || echo 'Not installed'", "Check package"),
-        RecipeStep::command("s2", "pacman -Qi {{package_name}} 2>/dev/null | head -15", "Package info")
-            .depends("s1"),
+        RecipeStep::command(
+            "s1",
+            "pacman -Q {{package_name}} 2>/dev/null || echo 'Not installed'",
+            "Check package",
+        ),
+        RecipeStep::command(
+            "s2",
+            "pacman -Qi {{package_name}} 2>/dev/null | head -15",
+            "Package info",
+        )
+        .depends("s1"),
         RecipeStep::render("s3", PACKAGE_CHECK_TEMPLATE, "Render answer").depends("s2"),
     ])
     .with_docs(vec!["man:pacman", "Arch Wiki: Pacman"])

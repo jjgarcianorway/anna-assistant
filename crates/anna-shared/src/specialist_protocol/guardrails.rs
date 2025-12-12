@@ -6,11 +6,11 @@
 //! - No auto-invention of facts when specialist fails
 
 use super::{
-    fallback::{FallbackContext, FallbackReason, generate_fallback},
-    outcome::{TicketOutcome, determine_outcome},
-    parser::{ParseOutcome, parse_specialist_response},
+    fallback::{generate_fallback, FallbackContext, FallbackReason},
+    outcome::{determine_outcome, TicketOutcome},
+    parser::{parse_specialist_response, ParseOutcome},
     schema::{ResponseStatus, StrictResponse},
-    validator::{validate_response, is_useful_response, ValidationResult},
+    validator::{is_useful_response, validate_response, ValidationResult},
 };
 
 /// Intent type classification
@@ -122,15 +122,7 @@ pub fn classify_intent(question: &str) -> IntentType {
 
     // Action patterns
     let action_patterns = [
-        "install",
-        "remove",
-        "delete",
-        "restart",
-        "stop",
-        "start",
-        "enable",
-        "disable",
-        "update",
+        "install", "remove", "delete", "restart", "stop", "start", "enable", "disable", "update",
         "upgrade",
     ];
 
@@ -169,7 +161,8 @@ impl GuardrailContext {
 
     /// Add probe result
     pub fn with_probe(mut self, id: &str, output: &str) -> Self {
-        self.available_probes.insert(id.to_string(), output.to_string());
+        self.available_probes
+            .insert(id.to_string(), output.to_string());
         self
     }
 }
@@ -191,7 +184,10 @@ pub struct GuardrailResult {
 #[derive(Debug, Clone)]
 pub enum GuardrailViolation {
     /// Response type doesn't match intent (e.g., how-to for state query)
-    IntentMismatch { expected: IntentType, got: ResponseType },
+    IntentMismatch {
+        expected: IntentType,
+        got: ResponseType,
+    },
     /// Response contains invented facts not in evidence
     InventedFacts(Vec<String>),
     /// Response is too vague for the intent type
@@ -322,10 +318,12 @@ pub fn check_guardrails(
         determine_outcome(response, validation)
     } else {
         // Has violations - check severity
-        let has_severe = violations.iter().any(|v| matches!(v,
-            GuardrailViolation::InventedFacts(_)
-            | GuardrailViolation::ValidationFailed(_)
-        ));
+        let has_severe = violations.iter().any(|v| {
+            matches!(
+                v,
+                GuardrailViolation::InventedFacts(_) | GuardrailViolation::ValidationFailed(_)
+            )
+        });
 
         if has_severe {
             TicketOutcome::InternalError
@@ -380,12 +378,22 @@ fn check_invented_facts(
     // Extract numbers from response
     let response_numbers: Vec<String> = extract_numbers(&response.summary)
         .into_iter()
-        .chain(response.details.key_facts.iter().flat_map(|f| extract_numbers(f)))
+        .chain(
+            response
+                .details
+                .key_facts
+                .iter()
+                .flat_map(|f| extract_numbers(f)),
+        )
         .filter(|n| !is_common_number(n))
         .collect();
 
     // Extract numbers from probe outputs
-    let evidence_text: String = probes.values().map(|s| s.as_str()).collect::<Vec<_>>().join(" ");
+    let evidence_text: String = probes
+        .values()
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
     let evidence_numbers: Vec<String> = extract_numbers(&evidence_text);
 
     // Find numbers in response not in evidence
@@ -459,8 +467,8 @@ pub fn process_with_guardrails(
     let parse_result = parse_specialist_response(raw_output);
 
     match parse_result {
-        ParseOutcome::Success(response, validation) |
-        ParseOutcome::ValidationFailed(response, validation) => {
+        ParseOutcome::Success(response, validation)
+        | ParseOutcome::ValidationFailed(response, validation) => {
             let guardrail_result = check_guardrails(&response, ctx, &validation);
 
             if guardrail_result.passed {
@@ -479,7 +487,8 @@ pub fn process_with_guardrails(
 
                 let fallback_response = generate_fallback(&fallback_ctx);
                 let fallback_validation = validate_response(&fallback_response);
-                let fallback_guardrails = check_guardrails(&fallback_response, ctx, &fallback_validation);
+                let fallback_guardrails =
+                    check_guardrails(&fallback_response, ctx, &fallback_validation);
 
                 // Return fallback if it's better, otherwise original
                 if is_useful_response(&fallback_response) && fallback_guardrails.passed {
@@ -490,11 +499,15 @@ pub fn process_with_guardrails(
             }
         }
 
-        ParseOutcome::NoJson { .. } |
-        ParseOutcome::InvalidJson { .. } |
-        ParseOutcome::SchemaMismatch { .. } => {
+        ParseOutcome::NoJson { .. }
+        | ParseOutcome::InvalidJson { .. }
+        | ParseOutcome::SchemaMismatch { .. } => {
             // Use fallback
-            let reason = parse_result.to_fallback_reason().unwrap_or(FallbackReason::ParseError("Unknown parse error".to_string()));
+            let reason = parse_result
+                .to_fallback_reason()
+                .unwrap_or(FallbackReason::ParseError(
+                    "Unknown parse error".to_string(),
+                ));
             let fallback_ctx = FallbackContext {
                 ticket_id: String::new(),
                 domain: ctx.domain.clone(),
@@ -507,7 +520,8 @@ pub fn process_with_guardrails(
 
             let fallback_response = generate_fallback(&fallback_ctx);
             let fallback_validation = validate_response(&fallback_response);
-            let fallback_guardrails = check_guardrails(&fallback_response, ctx, &fallback_validation);
+            let fallback_guardrails =
+                check_guardrails(&fallback_response, ctx, &fallback_validation);
 
             (fallback_response, fallback_guardrails)
         }
@@ -525,7 +539,8 @@ pub fn process_with_guardrails(
 
             let fallback_response = generate_fallback(&fallback_ctx);
             let fallback_validation = validate_response(&fallback_response);
-            let fallback_guardrails = check_guardrails(&fallback_response, ctx, &fallback_validation);
+            let fallback_guardrails =
+                check_guardrails(&fallback_response, ctx, &fallback_validation);
 
             (fallback_response, fallback_guardrails)
         }
@@ -540,23 +555,41 @@ mod tests {
     #[test]
     fn test_classify_intent_state() {
         // "do i have" triggers CheckState
-        assert_eq!(classify_intent("do I have any failed services?"), IntentType::CheckState);
+        assert_eq!(
+            classify_intent("do I have any failed services?"),
+            IntentType::CheckState
+        );
         // "how much" triggers CheckState
-        assert_eq!(classify_intent("how much RAM do I have?"), IntentType::CheckState);
+        assert_eq!(
+            classify_intent("how much RAM do I have?"),
+            IntentType::CheckState
+        );
         // "is it running" needs the full phrase
-        assert_eq!(classify_intent("Is nginx currently running?"), IntentType::CheckState);
+        assert_eq!(
+            classify_intent("Is nginx currently running?"),
+            IntentType::CheckState
+        );
     }
 
     #[test]
     fn test_classify_intent_howto() {
-        assert_eq!(classify_intent("How do I configure nginx?"), IntentType::HowTo);
+        assert_eq!(
+            classify_intent("How do I configure nginx?"),
+            IntentType::HowTo
+        );
         assert_eq!(classify_intent("How to install vim?"), IntentType::HowTo);
     }
 
     #[test]
     fn test_classify_intent_diagnose() {
-        assert_eq!(classify_intent("My wifi is not working"), IntentType::Diagnose);
-        assert_eq!(classify_intent("nginx service failed"), IntentType::Diagnose);
+        assert_eq!(
+            classify_intent("My wifi is not working"),
+            IntentType::Diagnose
+        );
+        assert_eq!(
+            classify_intent("nginx service failed"),
+            IntentType::Diagnose
+        );
     }
 
     #[test]
@@ -578,8 +611,9 @@ mod tests {
             },
         );
 
-        let ctx = GuardrailContext::from_question("Do I have any failed services?", "services.systemd")
-            .with_probe("systemctl_failed", "0 loaded units listed.");
+        let ctx =
+            GuardrailContext::from_question("Do I have any failed services?", "services.systemd")
+                .with_probe("systemctl_failed", "0 loaded units listed.");
 
         let validation = validate_response(&response);
         let result = check_guardrails(&response, &ctx, &validation);
@@ -603,13 +637,17 @@ mod tests {
             },
         );
 
-        let ctx = GuardrailContext::from_question("Do I have any failed services?", "services.systemd");
+        let ctx =
+            GuardrailContext::from_question("Do I have any failed services?", "services.systemd");
         let validation = validate_response(&response);
         let result = check_guardrails(&response, &ctx, &validation);
 
         // Should have intent mismatch violation
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| matches!(v, GuardrailViolation::IntentMismatch { .. })));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v, GuardrailViolation::IntentMismatch { .. })));
     }
 
     #[test]
@@ -629,13 +667,29 @@ mod tests {
     #[test]
     fn test_response_type_classification() {
         let state_response = StrictResponse::success(
-            "system", "check", "nginx is running.", vec![], vec![], ResponseMeta::default()
+            "system",
+            "check",
+            "nginx is running.",
+            vec![],
+            vec![],
+            ResponseMeta::default(),
         );
-        assert_eq!(classify_response(&state_response), ResponseType::StateAnswer);
+        assert_eq!(
+            classify_response(&state_response),
+            ResponseType::StateAnswer
+        );
 
         let tutorial_response = StrictResponse::success(
-            "system", "howto", "Step 1: First, install the package.", vec![], vec![], ResponseMeta::default()
+            "system",
+            "howto",
+            "Step 1: First, install the package.",
+            vec![],
+            vec![],
+            ResponseMeta::default(),
         );
-        assert_eq!(classify_response(&tutorial_response), ResponseType::Tutorial);
+        assert_eq!(
+            classify_response(&tutorial_response),
+            ResponseType::Tutorial
+        );
     }
 }

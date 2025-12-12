@@ -310,7 +310,12 @@ fn test_metric_answer_contract() {
     assert!(violation.is_none());
 
     // Invalid: too many claims
-    binding.add_claim(StrictClaim::new("C2", "8 GiB used", ClaimType::Metric, "system"));
+    binding.add_claim(StrictClaim::new(
+        "C2",
+        "8 GiB used",
+        ClaimType::Metric,
+        "system",
+    ));
     let violation = contract.validate_answer(&binding);
     assert!(matches!(
         violation,

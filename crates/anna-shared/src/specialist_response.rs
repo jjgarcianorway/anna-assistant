@@ -83,7 +83,10 @@ pub enum ParseOutcome {
     /// JSON parsed but invalid structure
     InvalidJson { raw: String, error: String },
     /// Schema validation failed (missing required fields, bad values)
-    SchemaError { response: UnifiedSpecialistResponse, errors: Vec<String> },
+    SchemaError {
+        response: UnifiedSpecialistResponse,
+        errors: Vec<String>,
+    },
     /// LLM timed out
     Timeout { elapsed_secs: u64 },
 }
@@ -296,7 +299,10 @@ pub fn format_parse_failure(outcome: &ParseOutcome, suggestions: &[String]) -> S
             "I had an internal error: the specialist did not return valid data.".to_string()
         }
         ParseOutcome::InvalidJson { error, .. } => {
-            format!("I had an internal error parsing the response: {}", truncate(error, 100))
+            format!(
+                "I had an internal error parsing the response: {}",
+                truncate(error, 100)
+            )
         }
         ParseOutcome::SchemaError { errors, .. } => {
             format!("The specialist response was invalid: {}", errors.join(", "))
@@ -340,7 +346,8 @@ mod tests {
 
     #[test]
     fn test_extract_json_with_prose() {
-        let raw = r#"I analyzed the data. {"can_answer": true, "confidence": 0.9} That's my answer."#;
+        let raw =
+            r#"I analyzed the data. {"can_answer": true, "confidence": 0.9} That's my answer."#;
         let json = extract_json(raw).unwrap();
         assert!(json.starts_with('{'));
         assert!(json.ends_with('}'));

@@ -37,8 +37,7 @@ pub fn detect_feature(query: &str) -> Option<DockerFeature> {
         return Some(DockerFeature::Debug);
     }
 
-    if q.contains("cleanup") || q.contains("clean") || q.contains("prune") || q.contains("remove")
-    {
+    if q.contains("cleanup") || q.contains("clean") || q.contains("prune") || q.contains("remove") {
         return Some(DockerFeature::Cleanup);
     }
 

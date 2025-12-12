@@ -4,7 +4,7 @@
 //! Show spinner + progress while model thinks.
 //! Only render after decoding completes.
 
-use super::framing::{PROTO_START, PROTO_END, has_incomplete_frame};
+use super::framing::{has_incomplete_frame, PROTO_END, PROTO_START};
 use serde::{Deserialize, Serialize};
 
 /// State of the stream buffer.
@@ -42,10 +42,7 @@ impl StreamState {
 
     /// Whether to show spinner.
     pub fn show_spinner(&self) -> bool {
-        matches!(
-            self,
-            Self::Waiting | Self::Receiving | Self::FrameStarted
-        )
+        matches!(self, Self::Waiting | Self::Receiving | Self::FrameStarted)
     }
 
     /// Whether streaming is complete.
@@ -295,7 +292,10 @@ impl StreamDisplay {
 
         if self.show_time && buffer.elapsed_ms() > 0 {
             let secs = buffer.elapsed_ms() / 1000;
-            parts.push(format!("[{:.1}s]", secs as f64 + (buffer.elapsed_ms() % 1000) as f64 / 1000.0));
+            parts.push(format!(
+                "[{:.1}s]",
+                secs as f64 + (buffer.elapsed_ms() % 1000) as f64 / 1000.0
+            ));
         }
 
         parts.join(" ")
@@ -382,8 +382,14 @@ mod tests {
 
     #[test]
     fn test_stream_state_status() {
-        assert_eq!(StreamState::Waiting.status_text(), "Waiting for specialist...");
-        assert_eq!(StreamState::Receiving.status_text(), "Specialist is thinking...");
+        assert_eq!(
+            StreamState::Waiting.status_text(),
+            "Waiting for specialist..."
+        );
+        assert_eq!(
+            StreamState::Receiving.status_text(),
+            "Specialist is thinking..."
+        );
         assert!(StreamState::Waiting.show_spinner());
         assert!(!StreamState::FrameComplete.show_spinner());
     }

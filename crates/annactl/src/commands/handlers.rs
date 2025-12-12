@@ -6,9 +6,13 @@
 //! v0.0.356: Uninstall uses centralized UI helpers.
 
 use anna_shared::probe_learning::ProbeLearningStore;
-use anna_shared::rpc::ServiceDeskResult;
+use anna_shared::rpc::params::ClaimFeedbackParams;
+use anna_shared::rpc::{RpcMethod, ServiceDeskResult};
 use anna_shared::status::LlmState;
-use anna_shared::ui::{colors, print_hint, print_label, print_ok, print_section_header, print_step, print_title, print_warn};
+use anna_shared::ui::{
+    colors, print_hint, print_label, print_ok, print_section_header, print_step, print_title,
+    print_warn,
+};
 use anna_shared::version::VERSION;
 use anyhow::Result;
 use std::io::{self, Write};
@@ -22,6 +26,38 @@ use super::feedback::handle_feedback_request;
 
 // v0.0.97: Change management (handle_proposed_change still needed for config changes)
 use crate::change_commands::handle_proposed_change;
+
+/// Handle submitting feedback for a claim
+pub async fn handle_submit_claim_feedback(claim_text: &str, positive_feedback: bool) -> Result<()> {
+    let mut client = AnnadClient::connect().await?;
+
+    print_step(&format!("Submitting feedback for claim: '{}'", claim_text));
+
+    let params = ClaimFeedbackParams {
+        claim_text: claim_text.to_string(),
+        positive_feedback,
+    };
+
+    let response = client
+        .send_rpc(
+            anna_shared::rpc::RpcMethod::SubmitClaimFeedback,
+            Some(serde_json::to_value(params)?),
+        )
+        .await?;
+
+    if response.is_success() {
+        print_ok("Feedback recorded.");
+    } else {
+        print_warn(&format!(
+            "Failed to record feedback: {}",
+            response
+                .error_message()
+                .unwrap_or("unknown error".to_string())
+        ));
+    }
+
+    Ok(())
+}
 
 /// Handle status command - shows Anna's health, config, and system info
 pub async fn handle_status() -> Result<()> {
@@ -76,7 +112,11 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
     if !proposed.is_empty() {
         let summary = handle_proposed_change(&proposed).await?;
         if summary.failed {
-            print_label("config", "Application hit errors; review details above", colors::ERR);
+            print_label(
+                "config",
+                "Application hit errors; review details above",
+                colors::ERR,
+            );
         } else if summary.applied > 0 {
             let msg = format!(
                 "Applied ({} step{}, {} noop)",
@@ -86,13 +126,17 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
             );
             print_label("config", &msg, colors::OK);
         } else {
-            print_label("config", "Nothing to change; already configured", colors::DIM);
+            print_label(
+                "config",
+                "Nothing to change; already configured",
+                colors::DIM,
+            );
         }
     }
 
     // v0.0.103: Handle feedback request from Anna
     if let Some(ref feedback_req) = result.feedback_request {
-        handle_feedback_request(feedback_req).await;
+        handle_feedback_request(feedback_req, &result.answer).await;
     }
 
     Ok(())
@@ -211,5 +255,109 @@ pub async fn handle_reset() -> Result<()> {
     client.reset().await?;
 
     print_ok("Reset complete. Anna will start fresh.");
+    Ok(())
+}
+
+/// Handle TruthLedgerStatus command - shows summary of the TruthLedger
+pub async fn handle_truth_ledger_status(
+    claim_text: Option<String>,
+    source: Option<String>,
+    veracity: Option<String>,
+    feedback: Option<bool>,
+) -> Result<()> {
+    let mut client = AnnadClient::connect().await?;
+
+    let query_params = anna_shared::rpc::params::TruthLedgerQueryParams {
+        claim_text,
+        source,
+        veracity,
+        feedback,
+    };
+
+    let response = client
+        .send_rpc(
+            anna_shared::rpc::RpcMethod::GetTruthLedgerClaims, // New RPC method
+            Some(serde_json::to_value(query_params)?),
+        )
+        .await?;
+
+    if response.is_success() {
+        let claims_result: anna_shared::rpc::result::TruthLedgerClaimsResult =
+            serde_json::from_value(response.result.unwrap())?;
+
+        println!();
+        print_section_header("truth ledger claims");
+        println!(
+            "  Total matching claims: {}",
+            claims_result.total_matching_claims
+        );
+        println!();
+
+        if claims_result.total_matching_claims == 0 {
+            println!("  No claims found matching the criteria.");
+        } else {
+            for claim in claims_result.claims {
+                print_ok(&claim.claim_text);
+                println!("    Source: {}", claim.source);
+                println!("    Veracity: {}", claim.veracity);
+                println!("    Trust Score: {}", claim.trust_score);
+                println!("    Confidence: {:.2}", claim.confidence_score);
+                if let Some(fb) = claim.feedback {
+                    println!("    Feedback: {}", if fb { "Positive" } else { "Negative" });
+                }
+                println!("    Timestamp: {}", claim.timestamp);
+                println!();
+            }
+        }
+    } else {
+        print_warn(&format!(
+            "Failed to get truth ledger claims: {}",
+            response
+                .error_message()
+                .unwrap_or("unknown error".to_string())
+        ));
+    }
+
+    Ok(())
+}
+
+/// Handle WebSearch command - performs a web search
+pub async fn handle_web_search(query: &str) -> Result<()> {
+    let mut client = AnnadClient::connect().await?;
+
+    print_step(&format!("Searching the web for: '{}'", query));
+
+    let params = anna_shared::rpc::params::WebSearchParams {
+        query: query.to_string(),
+    };
+
+    let response = client
+        .send_rpc(
+            anna_shared::rpc::RpcMethod::WebSearch,
+            Some(serde_json::to_value(params)?),
+        )
+        .await?;
+
+    if response.is_success() {
+        let search_result: anna_shared::rpc::result::WebSearchResult =
+            serde_json::from_value(response.result.unwrap())?;
+
+        println!();
+        print_section_header(&format!("web search results for '{}'", search_result.query));
+        for item in search_result.results {
+            print_ok(&item.title);
+            println!("  {}", item.url);
+            println!("  {}", item.snippet);
+            println!();
+        }
+    } else {
+        print_warn(&format!(
+            "Web search failed: {}",
+            response
+                .error_message()
+                .unwrap_or("unknown error".to_string())
+        ));
+    }
+
     Ok(())
 }

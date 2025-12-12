@@ -9,20 +9,20 @@
 //! LLMs interpret and synthesize; they don't memorize facts.
 //! Successful research becomes reusable parametric recipes.
 
-mod sources;
-mod fetcher;
-mod research;
-mod wiki_sync;
 mod clarification;
+mod fetcher;
 mod learning;
+mod research;
+mod sources;
 mod tests;
+mod wiki_sync;
 
-pub use sources::{KnowledgeSource, SourcePriority, SourceResult, Citation};
-pub use fetcher::{KnowledgeFetcher, FetchConfig, FetchResult};
-pub use research::{ResearchPattern, ResearchRequest, ResearchOutcome};
-pub use wiki_sync::{WikiSyncer, WikiSyncConfig, SyncStatus};
 pub use clarification::{ClarificationProtocol, ClarificationRequest, ClarificationResponse};
-pub use learning::{LearningLoop, RecipeStats, LearningOutcome};
+pub use fetcher::{FetchConfig, FetchResult, KnowledgeFetcher};
+pub use learning::{LearningLoop, LearningOutcome, RecipeStats};
+pub use research::{ResearchOutcome, ResearchPattern, ResearchRequest};
+pub use sources::{Citation, KnowledgeSource, SourcePriority, SourceResult};
+pub use wiki_sync::{SyncStatus, WikiSyncConfig, WikiSyncer};
 
 /// Maximum age for cached wiki content (7 days).
 pub const WIKI_CACHE_MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;

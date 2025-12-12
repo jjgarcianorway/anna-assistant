@@ -17,7 +17,11 @@ pub fn answer_network_connectivity(
         let latency = output
             .lines()
             .find(|line| line.contains("time="))
-            .and_then(|line| line.split("time=").nth(1).and_then(|s| s.split_whitespace().next()));
+            .and_then(|line| {
+                line.split("time=")
+                    .nth(1)
+                    .and_then(|s| s.split_whitespace().next())
+            });
 
         if let Some(lat) = latency {
             format!("Online - ping to 8.8.8.8: {} ms", lat)

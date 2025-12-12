@@ -36,18 +36,29 @@ fn test_ram_question_direct_answer() {
 
     // Validate
     let validation = validate_response(&response);
-    assert!(validation.valid, "Response should be valid: {:?}", validation.errors);
+    assert!(
+        validation.valid,
+        "Response should be valid: {:?}",
+        validation.errors
+    );
 
     // Check it's not a tutorial
     let response_type = classify_response(&response);
-    assert_ne!(response_type, ResponseType::Tutorial, "RAM answer should not be a tutorial");
+    assert_ne!(
+        response_type,
+        ResponseType::Tutorial,
+        "RAM answer should not be a tutorial"
+    );
 
     // Check outcome
     let outcome = determine_outcome(&response, &validation);
     assert_eq!(outcome, TicketOutcome::Success, "Should be full success");
 
     // Check learnable
-    assert!(response.is_learnable(), "High-confidence answer with evidence should be learnable");
+    assert!(
+        response.is_learnable(),
+        "High-confidence answer with evidence should be learnable"
+    );
 }
 
 // Test 2: Failed services question - yes/no, not tutorial
@@ -117,7 +128,10 @@ fn test_failed_services_yes_no_answer() {
     let validation = validate_response(&tutorial_response);
     // Should have violations
     assert!(
-        validation.errors.iter().any(|e| matches!(e, ValidationError::GenericHowTo)),
+        validation
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::GenericHowTo)),
         "Tutorial response to state question should be flagged"
     );
 }
@@ -153,13 +167,16 @@ fn test_timeout_graceful_degradation() {
     // Should NOT say "Failed to parse specialist response"
     assert!(
         !response.summary.contains("Failed to parse"),
-        "Should never show parse errors to user: {}", response.summary
+        "Should never show parse errors to user: {}",
+        response.summary
     );
 
     // Should have some useful info from probes
     if response.status == ResponseStatus::Partial {
-        assert!(!response.details.key_facts.is_empty() || !response.evidence.probes_used.is_empty(),
-            "Partial response should have some facts or evidence");
+        assert!(
+            !response.details.key_facts.is_empty() || !response.evidence.probes_used.is_empty(),
+            "Partial response should have some facts or evidence"
+        );
     }
 
     // Outcome should be usefulpartial or failure, not internal error
@@ -169,7 +186,8 @@ fn test_timeout_graceful_degradation() {
         outcome == TicketOutcome::UsefulPartial
             || outcome == TicketOutcome::Failed
             || outcome == TicketOutcome::HonestUnknown,
-        "Timeout outcome should be honest: {:?}", outcome
+        "Timeout outcome should be honest: {:?}",
+        outcome
     );
 }
 
@@ -177,7 +195,10 @@ fn test_timeout_graceful_degradation() {
 #[test]
 fn test_nonsense_detection_blocked() {
     let nonsense_responses = vec![
-        ("unknown is installed on your system", "unknown is installed"),
+        (
+            "unknown is installed on your system",
+            "unknown is installed",
+        ),
         ("You have unknown is installed", "unknown pattern"),
         ("2 is installed", "numeric nonsense"),
         ("1 is installed on your machine", "numeric nonsense"),
@@ -201,8 +222,13 @@ fn test_nonsense_detection_blocked() {
             summary, description, validation.errors
         );
         assert!(
-            validation.errors.iter().any(|e| matches!(e, ValidationError::ForbiddenPattern(_))),
-            "Should have forbidden pattern error for '{}': {:?}", summary, validation.errors
+            validation
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::ForbiddenPattern(_))),
+            "Should have forbidden pattern error for '{}': {:?}",
+            summary,
+            validation.errors
         );
     }
 }
@@ -225,7 +251,10 @@ fn test_honest_stats() {
     assert_eq!(stats.internal_errors, 1); // parse error
 
     // Success rate should NOT be 100%
-    assert!(stats.success_rate() < 100.0, "Success rate should not be 100% with failures");
+    assert!(
+        stats.success_rate() < 100.0,
+        "Success rate should not be 100% with failures"
+    );
     assert_eq!(stats.success_rate(), 40.0); // 2/5 = 40%
 
     // Resolution rate includes partials
@@ -252,7 +281,9 @@ fn test_intent_classification() {
         let intent = classify_intent(query);
         assert!(
             intent == IntentType::CheckState || intent == IntentType::Unknown,
-            "State query '{}' should be CheckState, got {:?}", query, intent
+            "State query '{}' should be CheckState, got {:?}",
+            query,
+            intent
         );
     }
 
@@ -265,7 +296,12 @@ fn test_intent_classification() {
 
     for query in howto_queries {
         let intent = classify_intent(query);
-        assert_eq!(intent, IntentType::HowTo, "How-to query '{}' should be HowTo", query);
+        assert_eq!(
+            intent,
+            IntentType::HowTo,
+            "How-to query '{}' should be HowTo",
+            query
+        );
     }
 }
 
@@ -296,8 +332,12 @@ fn test_vague_language_blocked() {
 
         let validation = validate_response(&response);
         assert!(
-            validation.errors.iter().any(|e| matches!(e, ValidationError::VagueLanguage(_))),
-            "Vague response '{}' should be flagged", summary
+            validation
+                .errors
+                .iter()
+                .any(|e| matches!(e, ValidationError::VagueLanguage(_))),
+            "Vague response '{}' should be flagged",
+            summary
         );
     }
 }
@@ -324,7 +364,11 @@ fn test_guardrail_with_probes() {
     let validation = validate_response(&response);
     let result = check_guardrails(&response, &ctx, &validation);
 
-    assert!(result.passed, "Valid response should pass guardrails: {:?}", result.violations);
+    assert!(
+        result.passed,
+        "Valid response should pass guardrails: {:?}",
+        result.violations
+    );
     assert_eq!(result.outcome, TicketOutcome::Success);
 }
 

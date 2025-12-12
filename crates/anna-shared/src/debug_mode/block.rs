@@ -389,15 +389,23 @@ impl DebugBlock {
 
         // Just show probe IDs and status
         if !self.probes_run.is_empty() {
-            let probe_summary: Vec<String> = self.probes_run.iter()
+            let probe_summary: Vec<String> = self
+                .probes_run
+                .iter()
                 .map(|p| format!("{}(exit={})", p.id, p.exit_code))
                 .collect();
-            out.push_str(&format!("  probes_run          [{}]\n", probe_summary.join(", ")));
+            out.push_str(&format!(
+                "  probes_run          [{}]\n",
+                probe_summary.join(", ")
+            ));
         }
 
         // Reliability/confidence score
         if !self.reason_codes.is_empty() {
-            out.push_str(&format!("  reason_codes        {}\n", self.reason_codes.display()));
+            out.push_str(&format!(
+                "  reason_codes        {}\n",
+                self.reason_codes.display()
+            ));
         }
 
         // Timeout info (important for failures)
@@ -419,7 +427,10 @@ impl DebugBlock {
             self.outcome.map(|o| o.label()).unwrap_or("PENDING")
         ));
         out.push_str(&format!("  routed_topic        {}\n", self.routed_topic));
-        out.push_str(&format!("  models_used         {}\n", self.models.display()));
+        out.push_str(&format!(
+            "  models_used         {}\n",
+            self.models.display()
+        ));
         out.push_str(&format!(
             "  probes_required     [{}]\n",
             self.probes_required.join(", ")
@@ -431,9 +442,18 @@ impl DebugBlock {
             out.push('\n');
         }
 
-        out.push_str(&format!("  timings             {}\n", self.timings.display()));
-        out.push_str(&format!("  evidence            {}\n", self.evidence.display()));
-        out.push_str(&format!("  reason_codes        {}\n", self.reason_codes.display()));
+        out.push_str(&format!(
+            "  timings             {}\n",
+            self.timings.display()
+        ));
+        out.push_str(&format!(
+            "  evidence            {}\n",
+            self.evidence.display()
+        ));
+        out.push_str(&format!(
+            "  reason_codes        {}\n",
+            self.reason_codes.display()
+        ));
 
         // Translator decision (routing transparency)
         if let Some(td) = &self.translator_decision {
@@ -546,7 +566,9 @@ mod tests {
         };
 
         block.probes_required = vec!["df".into(), "du".into()];
-        block.probes_run.push(ProbeDebugInfo::new("df", "df -h", 0, 50));
+        block
+            .probes_run
+            .push(ProbeDebugInfo::new("df", "df -h", 0, 50));
 
         block.timings = TimingDebug {
             total_ms: 1500,

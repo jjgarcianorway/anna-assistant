@@ -288,11 +288,7 @@ async fn triage_path(
     let mut enriched_ticket = triage_result.ticket.clone();
     enrich_with_learned_probes(&mut enriched_ticket, query);
 
-    (
-        enriched_ticket,
-        Some(triage_result),
-        translator_timed_out,
-    )
+    (enriched_ticket, Some(triage_result), translator_timed_out)
 }
 
 /// v0.0.401: Enrich ticket with probes from specialist lessons
@@ -302,7 +298,8 @@ fn enrich_with_learned_probes(ticket: &mut TranslatorTicket, query: &str) {
 
     // Check for generic pattern match first (e.g., "check X config" pattern)
     if let Some((pattern, target)) = match_generic_pattern(&store, query) {
-        let learned_probes: Vec<String> = pattern.probe_templates
+        let learned_probes: Vec<String> = pattern
+            .probe_templates
             .iter()
             .map(|t| t.replace("{target}", &target))
             .collect();
@@ -317,7 +314,10 @@ fn enrich_with_learned_probes(ticket: &mut TranslatorTicket, query: &str) {
                 }
             }
             if added > 0 {
-                info!("v0.0.401: Added {} learned probes from pattern for '{}'", added, target);
+                info!(
+                    "v0.0.401: Added {} learned probes from pattern for '{}'",
+                    added, target
+                );
             }
             return;
         }

@@ -9,8 +9,8 @@
 use std::collections::HashMap;
 
 use super::{
-    find_best_recipe, get_seed_recipes, MatchResult, RecipeLearner, RecipeStorageV2,
-    RecipeV2, TicketObservation,
+    find_best_recipe, get_seed_recipes, MatchResult, RecipeLearner, RecipeStorageV2, RecipeV2,
+    TicketObservation,
 };
 
 /// Recipe dispatcher - integrates recipes into the request flow
@@ -100,11 +100,7 @@ impl RecipeDispatcher {
         // Try to learn a new recipe if ready
         if self.learner.ready_to_learn(&intent) {
             if let Ok(recipe) = self.learner.learn_and_save(&intent, &mut self.storage) {
-                tracing::info!(
-                    "Learned new recipe: {} ({})",
-                    recipe.id,
-                    recipe.title
-                );
+                tracing::info!("Learned new recipe: {} ({})", recipe.id, recipe.title);
             }
         }
     }

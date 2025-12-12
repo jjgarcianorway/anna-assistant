@@ -175,20 +175,18 @@ impl KnowledgeFetcher {
     }
 
     /// Fetch from a specific source.
-    fn fetch_from_source(&self, source: &KnowledgeSource, query: &str) -> Result<SourceResult, String> {
+    fn fetch_from_source(
+        &self,
+        source: &KnowledgeSource,
+        query: &str,
+    ) -> Result<SourceResult, String> {
         match source {
             KnowledgeSource::Probe { name, command } => {
                 self.fetch_probe(name, command.as_deref(), query)
             }
-            KnowledgeSource::ManPage { name, section } => {
-                self.fetch_man(name, *section, query)
-            }
-            KnowledgeSource::HelpOutput { command } => {
-                self.fetch_help(command, query)
-            }
-            KnowledgeSource::DocFile { path } => {
-                self.fetch_doc_file(path, query)
-            }
+            KnowledgeSource::ManPage { name, section } => self.fetch_man(name, *section, query),
+            KnowledgeSource::HelpOutput { command } => self.fetch_help(command, query),
+            KnowledgeSource::DocFile { path } => self.fetch_doc_file(path, query),
             KnowledgeSource::ArchWiki { article, cached } => {
                 if *cached {
                     self.fetch_cached_wiki(article, query)
@@ -199,27 +197,30 @@ impl KnowledgeFetcher {
             KnowledgeSource::Wiki { name, article } => {
                 self.fetch_cached_wiki(&format!("{}:{}", name, article), query)
             }
-            KnowledgeSource::RemoteUrl { .. } => {
-                Err("Remote URLs disabled".to_string())
-            }
+            KnowledgeSource::RemoteUrl { .. } => Err("Remote URLs disabled".to_string()),
         }
     }
 
     /// Fetch from a probe.
-    fn fetch_probe(&self, name: &str, cmd: Option<&str>, query: &str) -> Result<SourceResult, String> {
+    fn fetch_probe(
+        &self,
+        name: &str,
+        cmd: Option<&str>,
+        query: &str,
+    ) -> Result<SourceResult, String> {
         let content = if let Some(cmd) = cmd {
             run_command(cmd)?
         } else {
             // Common probe mappings
             match name {
-                "meminfo" | "memory" => std::fs::read_to_string("/proc/meminfo")
-                    .map_err(|e| e.to_string())?,
-                "cpuinfo" | "cpu" => std::fs::read_to_string("/proc/cpuinfo")
-                    .map_err(|e| e.to_string())?,
-                "uptime" => std::fs::read_to_string("/proc/uptime")
-                    .map_err(|e| e.to_string())?,
-                "loadavg" => std::fs::read_to_string("/proc/loadavg")
-                    .map_err(|e| e.to_string())?,
+                "meminfo" | "memory" => {
+                    std::fs::read_to_string("/proc/meminfo").map_err(|e| e.to_string())?
+                }
+                "cpuinfo" | "cpu" => {
+                    std::fs::read_to_string("/proc/cpuinfo").map_err(|e| e.to_string())?
+                }
+                "uptime" => std::fs::read_to_string("/proc/uptime").map_err(|e| e.to_string())?,
+                "loadavg" => std::fs::read_to_string("/proc/loadavg").map_err(|e| e.to_string())?,
                 _ => return Err(format!("Unknown probe: {}", name)),
             }
         };
@@ -233,7 +234,12 @@ impl KnowledgeFetcher {
     }
 
     /// Fetch from a man page.
-    fn fetch_man(&self, name: &str, section: Option<u8>, query: &str) -> Result<SourceResult, String> {
+    fn fetch_man(
+        &self,
+        name: &str,
+        section: Option<u8>,
+        query: &str,
+    ) -> Result<SourceResult, String> {
         let cmd = match section {
             Some(s) => format!("man {} {} 2>/dev/null | col -b", s, name),
             None => format!("man {} 2>/dev/null | col -b", name),
@@ -272,7 +278,9 @@ impl KnowledgeFetcher {
         let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
         let relevance = compute_relevance(&content, query);
         Ok(SourceResult::new(
-            KnowledgeSource::DocFile { path: path.to_string() },
+            KnowledgeSource::DocFile {
+                path: path.to_string(),
+            },
             content,
             relevance,
         ))
@@ -280,7 +288,10 @@ impl KnowledgeFetcher {
 
     /// Fetch from cached wiki.
     fn fetch_cached_wiki(&self, article: &str, query: &str) -> Result<SourceResult, String> {
-        let cache_path = self.config.wiki_cache_path.as_ref()
+        let cache_path = self
+            .config
+            .wiki_cache_path
+            .as_ref()
             .ok_or("Wiki cache not configured")?;
 
         let article_path = cache_path.join(format!("{}.txt", sanitize_filename(article)));
@@ -311,7 +322,10 @@ impl KnowledgeFetcher {
         }
         if topic_lower.contains("uptime") || topic_lower.contains("boot") {
             sources.push(KnowledgeSource::probe("uptime"));
-            sources.push(KnowledgeSource::probe_with_cmd("boot_time", "systemd-analyze"));
+            sources.push(KnowledgeSource::probe_with_cmd(
+                "boot_time",
+                "systemd-analyze",
+            ));
         }
         if topic_lower.contains("load") {
             sources.push(KnowledgeSource::probe("loadavg"));
@@ -374,7 +388,8 @@ fn compute_relevance(content: &str, query: &str) -> f32 {
         return 0.5;
     }
 
-    let matches = query_words.iter()
+    let matches = query_words
+        .iter()
         .filter(|w| content_lower.contains(*w))
         .count();
 
@@ -383,15 +398,26 @@ fn compute_relevance(content: &str, query: &str) -> f32 {
 
 /// Check if a word looks like a command.
 fn is_likely_command(word: &str) -> bool {
-    word.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    word.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
         && word.len() >= 2
-        && word.chars().next().map(|c| c.is_ascii_lowercase()).unwrap_or(false)
+        && word
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_lowercase())
+            .unwrap_or(false)
 }
 
 /// Sanitize a string for use as a filename.
 fn sanitize_filename(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -418,9 +444,13 @@ mod tests {
         let fetcher = KnowledgeFetcher::new();
 
         let mem_sources = fetcher.suggest_sources("memory usage");
-        assert!(mem_sources.iter().any(|s| matches!(s, KnowledgeSource::Probe { name, .. } if name == "meminfo")));
+        assert!(mem_sources
+            .iter()
+            .any(|s| matches!(s, KnowledgeSource::Probe { name, .. } if name == "meminfo")));
 
         let cpu_sources = fetcher.suggest_sources("cpu info");
-        assert!(cpu_sources.iter().any(|s| matches!(s, KnowledgeSource::Probe { name, .. } if name == "cpuinfo")));
+        assert!(cpu_sources
+            .iter()
+            .any(|s| matches!(s, KnowledgeSource::Probe { name, .. } if name == "cpuinfo")));
     }
 }

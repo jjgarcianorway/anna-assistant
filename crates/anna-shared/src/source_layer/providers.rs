@@ -207,7 +207,11 @@ impl ManProvider {
             let trimmed = line.trim();
 
             // Check for section header (all caps, at start of line)
-            if trimmed.chars().all(|c| c.is_ascii_uppercase() || c.is_whitespace()) && !trimmed.is_empty() {
+            if trimmed
+                .chars()
+                .all(|c| c.is_ascii_uppercase() || c.is_whitespace())
+                && !trimmed.is_empty()
+            {
                 if trimmed.contains(&section_upper) {
                     in_section = true;
                     result.push(line.to_string());
@@ -235,9 +239,7 @@ impl HelpProvider {
     /// Fetch command help.
     pub fn fetch(command: &str) -> Result<String, String> {
         // Try --help first, then -h
-        let output = std::process::Command::new(command)
-            .arg("--help")
-            .output();
+        let output = std::process::Command::new(command).arg("--help").output();
 
         match output {
             Ok(out) if out.status.success() || !out.stdout.is_empty() => {
@@ -391,8 +393,7 @@ impl LocalConfigProvider {
 
     /// Read config file.
     pub fn read(path: &str) -> Result<String, String> {
-        std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read {}: {}", path, e))
+        std::fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {}", path, e))
     }
 }
 
@@ -414,14 +415,8 @@ pub fn commands_for_intent(intent: &str) -> Option<IntentCommands> {
             vec!["pacman", "checkupdates"],
             vec!["Pacman", "System_maintenance"],
         ),
-        "packages.install" | "package_install" => (
-            vec!["pacman"],
-            vec!["Pacman"],
-        ),
-        "services.failed_services" | "services_failed" => (
-            vec!["systemctl"],
-            vec!["Systemd"],
-        ),
+        "packages.install" | "package_install" => (vec!["pacman"], vec!["Pacman"]),
+        "services.failed_services" | "services_failed" => (vec!["systemctl"], vec!["Systemd"]),
         "boot.boot_time" | "boot_time" => (
             vec!["systemd-analyze"],
             vec!["Improving_performance/Boot_process"],
@@ -434,14 +429,8 @@ pub fn commands_for_intent(intent: &str) -> Option<IntentCommands> {
             vec!["firewall-cmd", "ufw", "iptables"],
             vec!["Firewalld", "Uncomplicated_Firewall"],
         ),
-        "memory.status" | "memory_free" => (
-            vec!["free"],
-            vec!["Swap"],
-        ),
-        "disk.usage" | "disk_free" => (
-            vec!["df", "du"],
-            vec!["File_systems"],
-        ),
+        "memory.status" | "memory_free" => (vec!["free"], vec!["Swap"]),
+        "disk.usage" | "disk_free" => (vec!["df", "du"], vec!["File_systems"]),
         _ => return None,
     };
 

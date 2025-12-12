@@ -6,7 +6,9 @@
 //! - Explicit unknowns (no vague language)
 //! - All claims must trace to evidence
 
-use super::{ResponseStatus, StrictResponse, MAX_KEY_FACTS, MAX_RECOMMENDATIONS, MAX_SUMMARY_LENGTH};
+use super::{
+    ResponseStatus, StrictResponse, MAX_KEY_FACTS, MAX_RECOMMENDATIONS, MAX_SUMMARY_LENGTH,
+};
 
 /// Validation result
 #[derive(Debug, Clone)]
@@ -121,12 +123,18 @@ pub fn validate_response(response: &StrictResponse) -> ValidationResult {
 
     // 9. Check key facts count
     if response.details.key_facts.len() > MAX_KEY_FACTS {
-        warnings.push(format!("Too many key facts ({}), consider consolidating", response.details.key_facts.len()));
+        warnings.push(format!(
+            "Too many key facts ({}), consider consolidating",
+            response.details.key_facts.len()
+        ));
     }
 
     // 10. Check recommendations count
     if response.details.recommendations.len() > MAX_RECOMMENDATIONS {
-        warnings.push(format!("Too many recommendations ({})", response.details.recommendations.len()));
+        warnings.push(format!(
+            "Too many recommendations ({})",
+            response.details.recommendations.len()
+        ));
     }
 
     // Compute adjusted status and confidence
@@ -178,7 +186,10 @@ fn check_forbidden_patterns(text: &str, errors: &mut Vec<ValidationError>) {
 
     for pattern in &placeholders {
         if lower.contains(pattern) {
-            errors.push(ValidationError::ForbiddenPattern(format!("placeholder: {}", pattern)));
+            errors.push(ValidationError::ForbiddenPattern(format!(
+                "placeholder: {}",
+                pattern
+            )));
         }
     }
 }
@@ -191,13 +202,17 @@ fn check_invented_numbers(
 ) {
     // Extract numbers from summary and key_facts
     let summary_numbers = extract_numbers(&response.summary);
-    let fact_numbers: Vec<String> = response.details.key_facts
+    let fact_numbers: Vec<String> = response
+        .details
+        .key_facts
         .iter()
         .flat_map(|f| extract_numbers(f))
         .collect();
 
     // Extract numbers from evidence summaries
-    let evidence_numbers: Vec<String> = response.evidence.probes_used
+    let evidence_numbers: Vec<String> = response
+        .evidence
+        .probes_used
         .iter()
         .flat_map(|p| extract_numbers(&p.summary))
         .collect();
@@ -211,7 +226,11 @@ fn check_invented_numbers(
 
         // Check if this number appears anywhere in evidence
         let found_in_evidence = evidence_numbers.iter().any(|e| e == num)
-            || response.evidence.probes_used.iter().any(|p| p.summary.contains(num));
+            || response
+                .evidence
+                .probes_used
+                .iter()
+                .any(|p| p.summary.contains(num));
 
         if !found_in_evidence && response.status == ResponseStatus::Success {
             // This could be invented - add warning
@@ -288,7 +307,9 @@ fn check_generic_howto(response: &StrictResponse, errors: &mut Vec<ValidationErr
     ];
 
     let summary_lower = response.summary.to_lowercase();
-    let diagnosis_lower = response.details.diagnosis
+    let diagnosis_lower = response
+        .details
+        .diagnosis
         .as_ref()
         .map(|d| d.to_lowercase())
         .unwrap_or_default();
@@ -345,27 +366,34 @@ fn compute_adjustments(
     }
 
     // Serious errors that should downgrade to failure
-    let serious_errors = errors.iter().any(|e| matches!(
-        e,
-        ValidationError::InventedData(_)
-            | ValidationError::ForbiddenPattern(_)
-            | ValidationError::EmptySummary
-    ));
+    let serious_errors = errors.iter().any(|e| {
+        matches!(
+            e,
+            ValidationError::InventedData(_)
+                | ValidationError::ForbiddenPattern(_)
+                | ValidationError::EmptySummary
+        )
+    });
 
     if serious_errors {
         return (ResponseStatus::Failure, 0.0);
     }
 
     // Moderate errors that should downgrade success to partial
-    let moderate_errors = errors.iter().any(|e| matches!(
-        e,
-        ValidationError::GenericHowTo
-            | ValidationError::MissingEvidence
-            | ValidationError::VagueLanguage(_)
-    ));
+    let moderate_errors = errors.iter().any(|e| {
+        matches!(
+            e,
+            ValidationError::GenericHowTo
+                | ValidationError::MissingEvidence
+                | ValidationError::VagueLanguage(_)
+        )
+    });
 
     if moderate_errors && response.status == ResponseStatus::Success {
-        return (ResponseStatus::Partial, (response.confidence * 0.5).min(0.5));
+        return (
+            ResponseStatus::Partial,
+            (response.confidence * 0.5).min(0.5),
+        );
     }
 
     // Other errors: lower confidence
@@ -441,7 +469,10 @@ mod tests {
 
         let result = validate_response(&response);
         assert!(!result.valid);
-        assert!(result.errors.iter().any(|e| matches!(e, ValidationError::ForbiddenPattern(_))));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::ForbiddenPattern(_))));
         assert_eq!(result.adjusted_status, ResponseStatus::Failure);
     }
 
@@ -457,9 +488,14 @@ mod tests {
         );
 
         let result = validate_response(&response);
-        assert!(result.errors.iter().any(|e| matches!(e, ValidationError::GenericHowTo)));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::GenericHowTo)));
         // Should be downgraded
-        assert!(result.adjusted_status != ResponseStatus::Success || result.adjusted_confidence < 0.8);
+        assert!(
+            result.adjusted_status != ResponseStatus::Success || result.adjusted_confidence < 0.8
+        );
     }
 
     #[test]
@@ -478,7 +514,10 @@ mod tests {
         );
 
         let result = validate_response(&response);
-        assert!(result.errors.iter().any(|e| matches!(e, ValidationError::VagueLanguage(_))));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::VagueLanguage(_))));
     }
 
     #[test]
@@ -490,10 +529,14 @@ mod tests {
             vec!["vim version 9.0".to_string()],
             vec![], // No evidence!
             make_meta(),
-        ).with_confidence(0.95);
+        )
+        .with_confidence(0.95);
 
         let result = validate_response(&response);
-        assert!(result.errors.iter().any(|e| matches!(e, ValidationError::MissingEvidence)));
+        assert!(result
+            .errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingEvidence)));
     }
 
     #[test]

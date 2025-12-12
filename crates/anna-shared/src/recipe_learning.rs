@@ -80,10 +80,7 @@ pub fn try_learn_from_result(result: &ServiceDeskResult) -> LearnResult {
     // v0.0.290: Validate the user query before learning
     let user_query = extract_user_query(result);
     if !is_valid_learnable_query(&user_query) {
-        return LearnResult::skipped(format!(
-            "Invalid query pattern: '{}'",
-            user_query
-        ));
+        return LearnResult::skipped(format!("Invalid query pattern: '{}'", user_query));
     }
 
     // Build signature from result
@@ -173,9 +170,8 @@ fn is_valid_learnable_query(query: &str) -> bool {
 
     // Reject test-like patterns
     let test_patterns = [
-        "test-", "test_", "test123", "test 123",
-        "abc", "foo", "bar", "baz", "qux",
-        "asdf", "lorem", "ipsum",
+        "test-", "test_", "test123", "test 123", "abc", "foo", "bar", "baz", "qux", "asdf",
+        "lorem", "ipsum",
     ];
     for pattern in test_patterns {
         if q.contains(pattern) {
@@ -184,15 +180,12 @@ fn is_valid_learnable_query(query: &str) -> bool {
     }
 
     // Reject if looks like a UUID or request ID
-    if q.chars().filter(|c| c.is_ascii_hexdigit()).count() > q.len() / 2
-        && q.len() > 10 {
+    if q.chars().filter(|c| c.is_ascii_hexdigit()).count() > q.len() / 2 && q.len() > 10 {
         return false;
     }
 
     // Reject if starts with common non-question patterns
-    let non_question_starts = [
-        "req-", "req_", "id:", "id=",
-    ];
+    let non_question_starts = ["req-", "req_", "id:", "id="];
     for pattern in non_question_starts {
         if q.starts_with(pattern) {
             return false;
@@ -200,7 +193,8 @@ fn is_valid_learnable_query(query: &str) -> bool {
     }
 
     // Must contain at least one real word (>3 chars, not all digits)
-    let has_real_word = q.split_whitespace()
+    let has_real_word = q
+        .split_whitespace()
         .any(|word| word.len() > 3 && !word.chars().all(|c| c.is_ascii_digit()));
 
     has_real_word

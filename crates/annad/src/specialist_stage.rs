@@ -5,6 +5,7 @@
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{ProbeResult, RuntimeContext, TranslatorTicket};
 use anna_shared::trace::SpecialistOutcome;
+use anna_shared::truth_ledger::TruthLedger; // Added TruthLedger import
 use tracing::{info, warn};
 
 use crate::config::LlmConfig;
@@ -26,6 +27,7 @@ pub async fn execute_specialist_stage(
     specialist_model: &str,
     debug_mode: bool,
     progress: &mut ProgressTracker,
+    truth_ledger: &TruthLedger, // Added truth_ledger parameter
 ) -> SpecialistResult {
     // Try deterministic answer FIRST for known query classes
     if det_route.can_answer_deterministically() {
@@ -63,6 +65,7 @@ pub async fn execute_specialist_stage(
         specialist_model,
         debug_mode,
         progress,
+        truth_ledger, // Pass truth_ledger
     )
     .await
 }

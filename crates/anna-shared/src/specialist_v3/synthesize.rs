@@ -4,8 +4,8 @@
 //! Never expose "Failed to parse" or technical errors.
 
 use super::{
-    ErrorInfo, ErrorKind, Finding, ProbeStatus, ProbeUsed, ResponseStatus,
-    Severity, SpecialistResponse, DEFAULT_CONFIDENCE, MIN_USEFUL_CONFIDENCE,
+    ErrorInfo, ErrorKind, Finding, ProbeStatus, ProbeUsed, ResponseStatus, Severity,
+    SpecialistResponse, DEFAULT_CONFIDENCE, MIN_USEFUL_CONFIDENCE,
 };
 
 /// Synthesize a response when the LLM completely fails to respond.
@@ -110,7 +110,11 @@ pub fn synthesize_from_probes(
         // Record probe usage
         probes_used.push(ProbeUsed {
             id: format!("probe:{}", probe_id),
-            status: if output.is_empty() { ProbeStatus::Empty } else { ProbeStatus::Ok },
+            status: if output.is_empty() {
+                ProbeStatus::Empty
+            } else {
+                ProbeStatus::Ok
+            },
             description: format!("Raw output from {}", probe_id),
             raw_key: Some(probe_id.clone()),
         });
@@ -127,7 +131,10 @@ pub fn synthesize_from_probes(
         format!("Extracted {} findings from probe data", findings.len())
     };
 
-    analysis.push(format!("Raw data available from {} probes", probe_data.len()));
+    analysis.push(format!(
+        "Raw data available from {} probes",
+        probe_data.len()
+    ));
     analysis.push("Automated analysis may be incomplete".to_string());
 
     SpecialistResponse {
@@ -233,7 +240,11 @@ pub fn merge_responses(responses: &[SpecialistResponse]) -> SpecialistResponse {
     let best = responses
         .iter()
         .filter(|r| r.status.is_success())
-        .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal));
+        .max_by(|a, b| {
+            a.confidence
+                .partial_cmp(&b.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
     match best {
         Some(primary) => {
@@ -339,7 +350,10 @@ mod tests {
     #[test]
     fn test_synthesize_from_probes() {
         let probe_data = vec![
-            ("free".to_string(), "Mem: 25600 8400 0 500 2000 17000".to_string()),
+            (
+                "free".to_string(),
+                "Mem: 25600 8400 0 500 2000 17000".to_string(),
+            ),
             ("uptime".to_string(), "3 days, 4 hours".to_string()),
         ];
         let resp = synthesize_from_probes("DSK-003", &probe_data);

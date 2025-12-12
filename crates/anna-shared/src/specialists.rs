@@ -33,7 +33,6 @@ impl std::fmt::Display for SpecialistRole {
     }
 }
 
-
 /// Profile for a specialist (team + role combination)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpecialistProfile {

@@ -6,8 +6,12 @@ use super::types::{SystemdFeature, SystemdRecipe};
 pub fn builtin_recipes() -> Vec<SystemdRecipe> {
     vec![
         // Create a basic service
-        SystemdRecipe::new(SystemdFeature::CreateService, "Create a systemd service unit")
-            .with_template(r#"[Unit]
+        SystemdRecipe::new(
+            SystemdFeature::CreateService,
+            "Create a systemd service unit",
+        )
+        .with_template(
+            r#"[Unit]
 Description=My Service
 After=network.target
 
@@ -19,11 +23,13 @@ RestartSec=5
 User=myuser
 
 [Install]
-WantedBy=multi-user.target"#)
-            .with_command("sudo systemctl daemon-reload")
-            .with_command("sudo systemctl enable myservice.service")
-            .with_command("sudo systemctl start myservice.service")
-            .with_answer(r#"To create a systemd service:
+WantedBy=multi-user.target"#,
+        )
+        .with_command("sudo systemctl daemon-reload")
+        .with_command("sudo systemctl enable myservice.service")
+        .with_command("sudo systemctl start myservice.service")
+        .with_answer(
+            r#"To create a systemd service:
 
 1. **Create the unit file** at `/etc/systemd/system/myservice.service`:
 
@@ -60,12 +66,16 @@ Common `Type` values:
 - `simple` - default, process stays in foreground
 - `forking` - forks to background (like traditional daemons)
 - `oneshot` - runs once and exits
-- `notify` - sends notification when ready"#)
-            .with_note("Replace myservice, paths, and user with your values"),
-
+- `notify` - sends notification when ready"#,
+        )
+        .with_note("Replace myservice, paths, and user with your values"),
         // Create a timer (cron replacement)
-        SystemdRecipe::new(SystemdFeature::CreateTimer, "Create a systemd timer for scheduled tasks")
-            .with_template(r#"# mytimer.timer
+        SystemdRecipe::new(
+            SystemdFeature::CreateTimer,
+            "Create a systemd timer for scheduled tasks",
+        )
+        .with_template(
+            r#"# mytimer.timer
 [Unit]
 Description=Run my task periodically
 
@@ -74,8 +84,10 @@ OnCalendar=*-*-* 00:00:00
 Persistent=true
 
 [Install]
-WantedBy=timers.target"#)
-            .with_answer(r#"To create a systemd timer (modern cron replacement):
+WantedBy=timers.target"#,
+        )
+        .with_answer(
+            r#"To create a systemd timer (modern cron replacement):
 
 1. **Create the service** at `/etc/systemd/system/mytask.service`:
 ```ini
@@ -117,11 +129,15 @@ sudo systemctl start mytask.timer
 **Check timers:**
 ```bash
 systemctl list-timers
-```"#),
-
+```"#,
+        ),
         // Create user service
-        SystemdRecipe::new(SystemdFeature::CreateUserService, "Create a user-level systemd service")
-            .with_template(r#"[Unit]
+        SystemdRecipe::new(
+            SystemdFeature::CreateUserService,
+            "Create a user-level systemd service",
+        )
+        .with_template(
+            r#"[Unit]
 Description=My User Service
 
 [Service]
@@ -129,8 +145,10 @@ Type=simple
 ExecStart=/home/user/bin/myapp
 
 [Install]
-WantedBy=default.target"#)
-            .with_answer(r#"To create a user-level service (no root required):
+WantedBy=default.target"#,
+        )
+        .with_answer(
+            r#"To create a user-level service (no root required):
 
 1. **Create the directory:**
 ```bash
@@ -166,13 +184,17 @@ loginctl enable-linger $USER
 **Notes:**
 - `%h` expands to home directory
 - User services run as your user, no sudo needed
-- Located in `~/.config/systemd/user/`"#),
-
+- Located in `~/.config/systemd/user/`"#,
+        ),
         // Enable/start service
-        SystemdRecipe::new(SystemdFeature::EnableService, "Enable and start a systemd service")
-            .with_command("sudo systemctl enable servicename")
-            .with_command("sudo systemctl start servicename")
-            .with_answer(r#"To enable and start a service:
+        SystemdRecipe::new(
+            SystemdFeature::EnableService,
+            "Enable and start a systemd service",
+        )
+        .with_command("sudo systemctl enable servicename")
+        .with_command("sudo systemctl start servicename")
+        .with_answer(
+            r#"To enable and start a service:
 
 **Enable (start at boot) and start now:**
 ```bash
@@ -196,12 +218,13 @@ sudo systemctl disable servicename  # Don't start at boot
 **For user services:**
 ```bash
 systemctl --user enable --now servicename
-```"#),
-
+```"#,
+        ),
         // View logs
         SystemdRecipe::new(SystemdFeature::ViewLogs, "View systemd service logs")
             .with_command("journalctl -u servicename")
-            .with_answer(r#"To view service logs with journalctl:
+            .with_answer(
+                r#"To view service logs with journalctl:
 
 **Basic log viewing:**
 ```bash
@@ -233,11 +256,15 @@ journalctl -u servicename -p warning
 ```bash
 journalctl -u servicename -b        # Current boot only
 journalctl -u servicename -b -1     # Previous boot
-```"#),
-
+```"#,
+            ),
         // Debug failing service
-        SystemdRecipe::new(SystemdFeature::DebugService, "Debug a failing systemd service")
-            .with_answer(r#"To debug a failing service:
+        SystemdRecipe::new(
+            SystemdFeature::DebugService,
+            "Debug a failing systemd service",
+        )
+        .with_answer(
+            r#"To debug a failing service:
 
 1. **Check status:**
 ```bash
@@ -278,11 +305,15 @@ sudo systemctl reset-failed servicename
 Environment="DEBUG=1"
 StandardOutput=journal
 StandardError=journal
-```"#),
-
+```"#,
+        ),
         // Socket activation
-        SystemdRecipe::new(SystemdFeature::SocketActivation, "Create a socket-activated service")
-            .with_answer(r#"To create a socket-activated service:
+        SystemdRecipe::new(
+            SystemdFeature::SocketActivation,
+            "Create a socket-activated service",
+        )
+        .with_answer(
+            r#"To create a socket-activated service:
 
 1. **Create the socket** at `/etc/systemd/system/myapp.socket`:
 ```ini
@@ -319,11 +350,15 @@ sudo systemctl start myapp.socket
 **Benefits:**
 - Service starts on-demand when connection arrives
 - Systemd handles socket, service can restart without dropping connections
-- Better resource usage for infrequent services"#),
-
+- Better resource usage for infrequent services"#,
+        ),
         // Service hardening
-        SystemdRecipe::new(SystemdFeature::HardenService, "Harden a systemd service with security options")
-            .with_answer(r#"To harden a systemd service, add these to `[Service]`:
+        SystemdRecipe::new(
+            SystemdFeature::HardenService,
+            "Harden a systemd service with security options",
+        )
+        .with_answer(
+            r#"To harden a systemd service, add these to `[Service]`:
 
 **Basic hardening:**
 ```ini
@@ -367,6 +402,7 @@ systemd-analyze security servicename
 ```ini
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-```"#),
+```"#,
+        ),
     ]
 }

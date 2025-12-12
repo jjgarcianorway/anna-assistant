@@ -6,14 +6,14 @@
 //! - DocAdapter: local documentation
 //! - WikiAdapter: offline Arch Wiki
 
-pub mod man;
-pub mod help;
 pub mod doc;
+pub mod help;
+pub mod man;
 pub mod wiki;
 
-pub use man::ManAdapter;
-pub use help::HelpAdapter;
 pub use doc::DocAdapter;
+pub use help::HelpAdapter;
+pub use man::ManAdapter;
 pub use wiki::WikiAdapter;
 
 use std::process::Command;
@@ -21,10 +21,7 @@ use std::time::Duration;
 
 /// Execute a command with timeout
 pub fn run_command(cmd: &str, args: &[&str], timeout_ms: u64) -> Option<String> {
-    let output = Command::new(cmd)
-        .args(args)
-        .output()
-        .ok()?;
+    let output = Command::new(cmd).args(args).output().ok()?;
 
     if output.status.success() {
         Some(String::from_utf8_lossy(&output.stdout).to_string())
@@ -138,7 +135,9 @@ mod tests {
 
     #[test]
     fn test_looks_like_docs() {
-        assert!(looks_like_docs("NAME\n  vim - text editor\n\nSYNOPSIS\n  vim [options] [file...]"));
+        assert!(looks_like_docs(
+            "NAME\n  vim - text editor\n\nSYNOPSIS\n  vim [options] [file...]"
+        ));
         assert!(!looks_like_docs("command not found: foobar"));
         assert!(!looks_like_docs("short"));
     }

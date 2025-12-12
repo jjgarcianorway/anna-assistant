@@ -72,10 +72,7 @@ pub fn generate_fallback(ctx: &FallbackContext) -> StrictResponse {
 }
 
 /// Extract facts from raw probe outputs
-fn extract_facts_from_probes(
-    probes: &HashMap<String, String>,
-    intent: &str,
-) -> Vec<ExtractedFact> {
+fn extract_facts_from_probes(probes: &HashMap<String, String>, intent: &str) -> Vec<ExtractedFact> {
     let mut facts = vec![];
 
     for (probe_id, output) in probes {
@@ -181,7 +178,10 @@ fn extract_disk_fact(probe_id: &str, output: &str) -> Option<ExtractedFact> {
                 let available = parts.get(3).unwrap_or(&"?");
                 return Some(ExtractedFact {
                     probe_id: probe_id.to_string(),
-                    summary: format!("Root filesystem at {} used ({} available)", used_pct, available),
+                    summary: format!(
+                        "Root filesystem at {} used ({} available)",
+                        used_pct, available
+                    ),
                     raw_snippet: line.to_string(),
                 });
             }
@@ -221,7 +221,8 @@ fn extract_failed_services_fact(probe_id: &str, output: &str) -> Option<Extracte
     let lines: Vec<&str> = output.lines().filter(|l| !l.trim().is_empty()).collect();
 
     // Count failed units (excluding header)
-    let failed_count = lines.iter()
+    let failed_count = lines
+        .iter()
         .filter(|l| l.contains(".service") || l.contains(".socket") || l.contains(".timer"))
         .count();
 
@@ -234,16 +235,25 @@ fn extract_failed_services_fact(probe_id: &str, output: &str) -> Option<Extracte
     }
 
     // List up to 3 failed services
-    let failed_names: Vec<&str> = lines.iter()
+    let failed_names: Vec<&str> = lines
+        .iter()
         .filter(|l| l.contains(".service"))
         .take(3)
         .map(|l| l.split_whitespace().next().unwrap_or(""))
         .collect();
 
     let summary = if failed_count <= 3 {
-        format!("{} failed service(s): {}", failed_count, failed_names.join(", "))
+        format!(
+            "{} failed service(s): {}",
+            failed_count,
+            failed_names.join(", ")
+        )
     } else {
-        format!("{} failed service(s), including: {}", failed_count, failed_names.join(", "))
+        format!(
+            "{} failed service(s), including: {}",
+            failed_count,
+            failed_names.join(", ")
+        )
     };
 
     Some(ExtractedFact {
@@ -259,9 +269,15 @@ fn generate_partial_response(ctx: &FallbackContext, facts: Vec<ExtractedFact>) -
     let summary = if facts.len() == 1 {
         facts[0].summary.clone()
     } else {
-        format!("I found {} pieces of information: {}",
+        format!(
+            "I found {} pieces of information: {}",
             facts.len(),
-            facts.iter().map(|f| f.summary.as_str()).collect::<Vec<_>>().join("; "))
+            facts
+                .iter()
+                .map(|f| f.summary.as_str())
+                .collect::<Vec<_>>()
+                .join("; ")
+        )
     };
 
     // Add explanation about the limitation
@@ -271,15 +287,20 @@ fn generate_partial_response(ctx: &FallbackContext, facts: Vec<ExtractedFact>) -
         FallbackReason::ValidationFailed(_) => "Some analysis results were inconsistent.",
         FallbackReason::LlmError(_) => "I couldn't complete the full analysis.",
         FallbackReason::NoSpecialist => "No specialist was available for this query.",
-        FallbackReason::RetryExhausted => "I couldn't get a complete analysis after multiple attempts.",
+        FallbackReason::RetryExhausted => {
+            "I couldn't get a complete analysis after multiple attempts."
+        }
     };
 
     let key_facts: Vec<String> = facts.iter().map(|f| f.summary.clone()).collect();
-    let probes: Vec<ProbeEvidence> = facts.iter().map(|f| ProbeEvidence {
-        id: f.probe_id.clone(),
-        summary: f.summary.clone(),
-        raw_reference: Some(truncate(&f.raw_snippet, 100)),
-    }).collect();
+    let probes: Vec<ProbeEvidence> = facts
+        .iter()
+        .map(|f| ProbeEvidence {
+            id: f.probe_id.clone(),
+            summary: f.summary.clone(),
+            raw_reference: Some(truncate(&f.raw_snippet, 100)),
+        })
+        .collect();
 
     let meta = ResponseMeta {
         handled_by: "Fallback Handler".to_string(),
@@ -295,7 +316,8 @@ fn generate_partial_response(ctx: &FallbackContext, facts: Vec<ExtractedFact>) -
         reason_text,
         probes,
         meta,
-    ).with_latency(ctx.elapsed_ms)
+    )
+    .with_latency(ctx.elapsed_ms)
 }
 
 /// Generate failure response when no useful data available
@@ -310,9 +332,7 @@ fn generate_failure_response(ctx: &FallbackContext) -> StrictResponse {
         FallbackReason::ValidationFailed(_) => {
             "I couldn't produce a reliable answer. Please try a different approach."
         }
-        FallbackReason::LlmError(_) => {
-            "I'm having trouble analyzing this. Please try again later."
-        }
+        FallbackReason::LlmError(_) => "I'm having trouble analyzing this. Please try again later.",
         FallbackReason::NoSpecialist => {
             "I don't have a specialist available for this type of question."
         }
@@ -327,8 +347,7 @@ fn generate_failure_response(ctx: &FallbackContext) -> StrictResponse {
         version: 1,
     };
 
-    StrictResponse::failure(&ctx.domain, &ctx.intent, summary, meta)
-        .with_latency(ctx.elapsed_ms)
+    StrictResponse::failure(&ctx.domain, &ctx.intent, summary, meta).with_latency(ctx.elapsed_ms)
 }
 
 /// Truncate string to max length
@@ -428,7 +447,14 @@ mod tests {
         let response = generate_fallback(&ctx);
         assert_eq!(response.status, ResponseStatus::Partial);
         // Should mention the failed services
-        assert!(response.summary.contains("failed") || response.details.key_facts.iter().any(|f| f.contains("failed")));
+        assert!(
+            response.summary.contains("failed")
+                || response
+                    .details
+                    .key_facts
+                    .iter()
+                    .any(|f| f.contains("failed"))
+        );
     }
 
     #[test]
@@ -437,22 +463,31 @@ mod tests {
         ctx.intent = "check_failed_services".to_string();
         ctx.probe_results.insert(
             "systemctl_failed".to_string(),
-            "0 loaded units listed.".to_string()
+            "0 loaded units listed.".to_string(),
         );
 
         let response = generate_fallback(&ctx);
         // Even with timeout, we should get a partial with some info
-        assert!(response.status == ResponseStatus::Partial || response.status == ResponseStatus::Failure);
+        assert!(
+            response.status == ResponseStatus::Partial
+                || response.status == ResponseStatus::Failure
+        );
     }
 
     #[test]
     fn test_user_friendly_messages() {
         assert!(!user_friendly_error_message(&FallbackReason::Timeout).contains("JSON"));
-        assert!(!user_friendly_error_message(&FallbackReason::ParseError("x".to_string())).contains("parse"));
+        assert!(
+            !user_friendly_error_message(&FallbackReason::ParseError("x".to_string()))
+                .contains("parse")
+        );
     }
 
     #[test]
     fn test_debug_messages() {
-        assert!(debug_error_message(&FallbackReason::ParseError("bad json".to_string())).contains("bad json"));
+        assert!(
+            debug_error_message(&FallbackReason::ParseError("bad json".to_string()))
+                .contains("bad json")
+        );
     }
 }

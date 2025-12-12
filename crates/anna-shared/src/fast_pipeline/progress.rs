@@ -169,7 +169,10 @@ impl PhaseProgress {
             String::new()
         };
 
-        format!("{} {}: {}{}", indicator, phase_label, status_label, time_str)
+        format!(
+            "{} {}: {}{}",
+            indicator, phase_label, status_label, time_str
+        )
     }
 }
 
@@ -274,7 +277,9 @@ impl PipelineProgress {
 
     /// Check if any phase timed out.
     pub fn has_timeout(&self) -> bool {
-        self.phases.iter().any(|p| p.status == PhaseStatus::TimedOut)
+        self.phases
+            .iter()
+            .any(|p| p.status == PhaseStatus::TimedOut)
     }
 
     /// Check if any phase failed.

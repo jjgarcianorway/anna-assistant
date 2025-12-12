@@ -47,7 +47,11 @@ pub fn render_comms(ticket: &LiveTicket, elapsed_secs: f64) -> Vec<CommsMessage>
             messages.push(CommsMessage {
                 time_label: time_label.clone(),
                 speaker: "Anna".to_string(),
-                message: format!("Ticket {} created: \"{}\"", ticket.id, truncate(&ticket.user_question, 50)),
+                message: format!(
+                    "Ticket {} created: \"{}\"",
+                    ticket.id,
+                    truncate(&ticket.user_question, 50)
+                ),
                 level: CommsLevel::Info,
             });
         }
@@ -65,7 +69,10 @@ pub fn render_comms(ticket: &LiveTicket, elapsed_secs: f64) -> Vec<CommsMessage>
         }
 
         TicketState::ProbesRun => {
-            let evidence = ticket.evidence_summary.as_deref().unwrap_or("system data collected");
+            let evidence = ticket
+                .evidence_summary
+                .as_deref()
+                .unwrap_or("system data collected");
             messages.push(CommsMessage {
                 time_label: time_label.clone(),
                 speaker: staff.clone(),
@@ -134,7 +141,9 @@ pub fn render_comms(ticket: &LiveTicket, elapsed_secs: f64) -> Vec<CommsMessage>
         }
 
         TicketState::Failed => {
-            let reason = ticket.error_kind.as_ref()
+            let reason = ticket
+                .error_kind
+                .as_ref()
                 .map(|k| format!(" ({})", k))
                 .unwrap_or_default();
             messages.push(CommsMessage {
@@ -279,7 +288,9 @@ mod tests {
     #[test]
     fn test_one_line_summary() {
         let mut ticket = LiveTicket::new("TEST-003", "Test");
-        ticket.handler = Some(HandlerType::Recipe { name: "check_disk".to_string() });
+        ticket.handler = Some(HandlerType::Recipe {
+            name: "check_disk".to_string(),
+        });
         ticket.mark_success();
 
         let summary = one_line_summary(&ticket);
@@ -294,9 +305,14 @@ mod tests {
             tier: SolverTier::Junior,
             model: "test".to_string(),
         };
-        assert_eq!(staff_name_from_handler(Some(&junior), "storage"), "Storage (Jr)");
+        assert_eq!(
+            staff_name_from_handler(Some(&junior), "storage"),
+            "Storage (Jr)"
+        );
 
-        let recipe = HandlerType::Recipe { name: "check_disk".to_string() };
+        let recipe = HandlerType::Recipe {
+            name: "check_disk".to_string(),
+        };
         assert!(staff_name_from_handler(Some(&recipe), "storage").contains("Recipe"));
     }
 }

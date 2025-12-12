@@ -86,7 +86,11 @@ impl SessionSummary {
         let mut summary = Vec::new();
 
         if self.query_count > 0 {
-            let q_word = if self.query_count == 1 { "query" } else { "queries" };
+            let q_word = if self.query_count == 1 {
+                "query"
+            } else {
+                "queries"
+            };
             summary.push(format!("Handled {} {}", self.query_count, q_word));
         }
 
@@ -114,10 +118,7 @@ impl SessionSummary {
             if self.recipes_executed.len() == 1 {
                 summary.push(format!("Ran recipe: {}", self.recipes_executed[0]));
             } else {
-                summary.push(format!(
-                    "Ran {} recipes",
-                    self.recipes_executed.len()
-                ));
+                summary.push(format!("Ran {} recipes", self.recipes_executed.len()));
             }
         }
 
@@ -166,9 +167,17 @@ impl SessionHistory {
         // Format time since last session
         let elapsed = Utc::now() - last.ended_at;
         let time_str = if elapsed.num_days() > 0 {
-            format!("{} day{} ago", elapsed.num_days(), if elapsed.num_days() == 1 { "" } else { "s" })
+            format!(
+                "{} day{} ago",
+                elapsed.num_days(),
+                if elapsed.num_days() == 1 { "" } else { "s" }
+            )
         } else if elapsed.num_hours() > 0 {
-            format!("{} hour{} ago", elapsed.num_hours(), if elapsed.num_hours() == 1 { "" } else { "s" })
+            format!(
+                "{} hour{} ago",
+                elapsed.num_hours(),
+                if elapsed.num_hours() == 1 { "" } else { "s" }
+            )
         } else {
             "earlier today".to_string()
         };

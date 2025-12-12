@@ -8,19 +8,26 @@ use crate::specialist_learning::{
 
 /// Extract a generic pattern from a query and answer
 /// Returns a pattern with {target} placeholder if applicable
-pub fn extract_generic_pattern(query: &str, answer: &str, probes: &[String]) -> Option<GenericPattern> {
+pub fn extract_generic_pattern(
+    query: &str,
+    answer: &str,
+    probes: &[String],
+) -> Option<GenericPattern> {
     let category = detect_pattern_category(query)?;
     let target = extract_target(query)?;
 
     // Create probe templates by replacing target with placeholder
-    let probe_templates: Vec<String> = probes.iter()
+    let probe_templates: Vec<String> = probes
+        .iter()
         .map(|p| p.replace(&target, "{target}"))
         .filter(|p| p.contains("{target}"))
         .collect();
 
     // Create answer template
     let answer_template = answer.replace(&target, "{target}");
-    if !answer_template.contains("{target}") { return None; }
+    if !answer_template.contains("{target}") {
+        return None;
+    }
 
     Some(GenericPattern {
         category,
@@ -36,7 +43,10 @@ pub fn extract_generic_pattern(query: &str, answer: &str, probes: &[String]) -> 
 
 /// Match a query against learned generic patterns
 /// Returns (pattern, extracted_target) if matched
-pub fn match_generic_pattern(store: &SpecialistLearningStore, query: &str) -> Option<(GenericPattern, String)> {
+pub fn match_generic_pattern(
+    store: &SpecialistLearningStore,
+    query: &str,
+) -> Option<(GenericPattern, String)> {
     let category = detect_pattern_category(query)?;
     let target = extract_target(query)?;
 
@@ -46,7 +56,11 @@ pub fn match_generic_pattern(store: &SpecialistLearningStore, query: &str) -> Op
             if let Some(lesson) = store.lessons.get(id) {
                 if let Some(ref pattern) = lesson.generic_pattern {
                     // Check if this is a different target (reuse pattern)
-                    if !pattern.variables.iter().any(|v| v.example_values.contains(&target)) {
+                    if !pattern
+                        .variables
+                        .iter()
+                        .any(|v| v.example_values.contains(&target))
+                    {
                         return Some((pattern.clone(), target));
                     }
                 }
@@ -58,7 +72,11 @@ pub fn match_generic_pattern(store: &SpecialistLearningStore, query: &str) -> Op
 
 /// Apply a generic pattern to generate probes/answer for a new target
 pub fn apply_pattern(pattern: &GenericPattern, target: &str) -> (Vec<String>, String) {
-    let probes = pattern.probe_templates.iter().map(|t| t.replace("{target}", target)).collect();
+    let probes = pattern
+        .probe_templates
+        .iter()
+        .map(|t| t.replace("{target}", target))
+        .collect();
     let answer = pattern.answer_template.replace("{target}", target);
     (probes, answer)
 }
@@ -66,7 +84,9 @@ pub fn apply_pattern(pattern: &GenericPattern, target: &str) -> (Vec<String>, St
 /// Get a learning hint that includes pattern matching info
 pub fn get_pattern_hint(store: &SpecialistLearningStore, query: &str) -> Option<String> {
     if let Some((pattern, target)) = match_generic_pattern(store, query) {
-        let example = pattern.variables.first()
+        let example = pattern
+            .variables
+            .first()
             .and_then(|v| v.example_values.first())
             .map(|e| e.as_str())
             .unwrap_or("similar apps");

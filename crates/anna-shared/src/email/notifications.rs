@@ -66,11 +66,7 @@ Or simply reply to this email.
 Anna Service Desk
 Your local IT department
 "#,
-                ticket.case_number,
-                ticket.query,
-                ticket.team,
-                ticket.status,
-                ticket.case_number
+                ticket.case_number, ticket.query, ticket.team, ticket.status, ticket.case_number
             );
             (subject, body)
         }

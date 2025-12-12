@@ -315,7 +315,8 @@ impl BudgetSummary {
     /// Format as display string.
     pub fn display(&self) -> String {
         let status = if self.within_budget { "OK" } else { "OVER" };
-        let phase_str: Vec<String> = self.phases
+        let phase_str: Vec<String> = self
+            .phases
             .iter()
             .map(|(p, ms, timeout)| {
                 let marker = if *timeout { "!" } else { "" };
@@ -394,7 +395,11 @@ impl BudgetTracker {
         if let (Some(phase), Some(start)) = (self.current_phase, self.phase_started_at) {
             let elapsed = start.elapsed().as_millis() as u64;
             let budget = phase.budget_ms();
-            if elapsed >= budget { 0 } else { budget - elapsed }
+            if elapsed >= budget {
+                0
+            } else {
+                budget - elapsed
+            }
         } else {
             0
         }

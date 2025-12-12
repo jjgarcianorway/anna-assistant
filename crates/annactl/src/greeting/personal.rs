@@ -81,7 +81,11 @@ pub fn print_user_patterns(profile: &UserProfile) {
                 profile.streak_days
             )
         } else {
-            format!("{} {} day streak so far.", symbols::BULLET, profile.streak_days)
+            format!(
+                "{} {} day streak so far.",
+                symbols::BULLET,
+                profile.streak_days
+            )
         };
         patterns.push(streak_msg);
     }
@@ -102,12 +106,12 @@ pub fn print_user_patterns(profile: &UserProfile) {
             // Offer help if it's an editor
             if count > 5 {
                 // Note: Can't use print_hint here as we're building a string vec
-            patterns.push(format!(
-                "    {}If you want, I can suggest some {} tips!{}",
-                colors::DIM,
-                editor,
-                colors::RESET
-            ));
+                patterns.push(format!(
+                    "    {}If you want, I can suggest some {} tips!{}",
+                    colors::DIM,
+                    editor,
+                    colors::RESET
+                ));
             }
         }
     }
@@ -170,7 +174,12 @@ pub fn print_open_tickets() {
     print_label("open tickets", "", colors::WARN);
     for ticket in open_tickets.iter().take(3) {
         // Show full query, wrapped naturally by terminal
-        println!("  {} {} ({})", symbols::BULLET, ticket.case_number, ticket.status);
+        println!(
+            "  {} {} ({})",
+            symbols::BULLET,
+            ticket.case_number,
+            ticket.status
+        );
         println!("    {}", ticket.query);
     }
     if open_tickets.len() > 3 {

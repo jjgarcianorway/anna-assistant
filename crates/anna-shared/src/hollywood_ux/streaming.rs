@@ -129,11 +129,7 @@ impl StreamingRenderer {
     /// Print spinner line
     fn print_spinner_line(&self) {
         let elapsed = self.started_at.elapsed().as_secs_f32();
-        let line = styles::working_status(
-            &self.spinner.message,
-            elapsed,
-            self.spinner.frame,
-        );
+        let line = styles::working_status(&self.spinner.message, elapsed, self.spinner.frame);
         print!("\r{}", line);
         let _ = io::stdout().flush();
     }
@@ -225,8 +221,16 @@ impl StreamingRenderer {
             }
             SegmentKind::DebugJson => {
                 if self.options.is_debug() {
-                    let label = segment.meta.get("label").map(|s| s.as_str()).unwrap_or("json");
-                    println!("\n[debug] {}:\n{}", label, styles::indent(&segment.content, 2));
+                    let label = segment
+                        .meta
+                        .get("label")
+                        .map(|s| s.as_str())
+                        .unwrap_or("json");
+                    println!(
+                        "\n[debug] {}:\n{}",
+                        label,
+                        styles::indent(&segment.content, 2)
+                    );
                 }
             }
             _ => {
@@ -310,9 +314,10 @@ impl StreamingRenderer {
 
     /// Check if transcript is complete
     pub fn is_transcript_complete(&self, transcript: &HollywoodTranscript) -> bool {
-        transcript.segments().iter().any(|s| {
-            matches!(s.kind, SegmentKind::Answer | SegmentKind::Error)
-        })
+        transcript
+            .segments()
+            .iter()
+            .any(|s| matches!(s.kind, SegmentKind::Answer | SegmentKind::Error))
     }
 
     /// Get elapsed time
@@ -378,10 +383,8 @@ mod tests {
         let error = TranscriptSegment::error("test");
         assert!(renderer.is_complete(&error));
 
-        let comms = TranscriptSegment::internal_comms(
-            crate::transcript_segment::staff::sofia(),
-            "test",
-        );
+        let comms =
+            TranscriptSegment::internal_comms(crate::transcript_segment::staff::sofia(), "test");
         assert!(!renderer.is_complete(&comms));
     }
 }

@@ -222,9 +222,11 @@ impl ResearchPattern {
             // Truncate if too long
             let content = &best.content;
             if content.len() > 2000 {
-                format!("{}...\n\n[Truncated - full content available from {}]",
+                format!(
+                    "{}...\n\n[Truncated - full content available from {}]",
                     &content[..2000],
-                    best.source.description())
+                    best.source.description()
+                )
             } else {
                 content.clone()
             }
@@ -238,7 +240,13 @@ impl ResearchPattern {
         let summaries: Vec<String> = results
             .iter()
             .take(3)
-            .map(|r| format!("- {}: relevance {:.0}%", r.source.description(), r.relevance * 100.0))
+            .map(|r| {
+                format!(
+                    "- {}: relevance {:.0}%",
+                    r.source.description(),
+                    r.relevance * 100.0
+                )
+            })
             .collect();
 
         format!("Found information from:\n{}", summaries.join("\n"))
@@ -260,10 +268,7 @@ impl ResearchPattern {
         }
 
         // Check relevance
-        let low_relevance: Vec<_> = results
-            .iter()
-            .filter(|r| r.relevance < 0.5)
-            .collect();
+        let low_relevance: Vec<_> = results.iter().filter(|r| r.relevance < 0.5).collect();
         if !low_relevance.is_empty() {
             gaps.push("Some sources had low relevance to the question".to_string());
         }

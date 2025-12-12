@@ -90,7 +90,9 @@ impl CanonicalIntent {
 
             "gpu_info" | "gpuinfo" | "gpu" => Self::GpuInfo,
             "gpu_driver" | "gpudriver" => Self::GpuDriver,
-            "hardware_sensors" | "hardwaresensors" | "sensors" | "temperature" => Self::HardwareSensors,
+            "hardware_sensors" | "hardwaresensors" | "sensors" | "temperature" => {
+                Self::HardwareSensors
+            }
             "cpu_info" | "cpuinfo" => Self::CpuInfo,
             "audio_health" | "audiohealth" | "audio" | "sound" => Self::AudioHealth,
             "usb_devices" | "usbdevices" | "usb" => Self::UsbDevices,
@@ -308,7 +310,10 @@ impl TicketIntentSchema {
                 errors.push("need_clarification=true but no clarifying_question".to_string());
             } else if let Some(q) = &self.clarifying_question {
                 if q.len() > 120 {
-                    errors.push(format!("clarifying_question exceeds 120 chars: {}", q.len()));
+                    errors.push(format!(
+                        "clarifying_question exceeds 120 chars: {}",
+                        q.len()
+                    ));
                 }
             }
         }
@@ -437,22 +442,41 @@ mod tests {
 
     #[test]
     fn test_canonical_intent_from_str() {
-        assert_eq!(CanonicalIntent::from_str_loose("boot_perf"), CanonicalIntent::BootPerf);
-        assert_eq!(CanonicalIntent::from_str_loose("GPU_INFO"), CanonicalIntent::GpuInfo);
-        assert_eq!(CanonicalIntent::from_str_loose("unknown_thing"), CanonicalIntent::Unknown);
+        assert_eq!(
+            CanonicalIntent::from_str_loose("boot_perf"),
+            CanonicalIntent::BootPerf
+        );
+        assert_eq!(
+            CanonicalIntent::from_str_loose("GPU_INFO"),
+            CanonicalIntent::GpuInfo
+        );
+        assert_eq!(
+            CanonicalIntent::from_str_loose("unknown_thing"),
+            CanonicalIntent::Unknown
+        );
     }
 
     #[test]
     fn test_department_from_str() {
-        assert_eq!(Department::from_str_loose("Performance"), Some(Department::Performance));
-        assert_eq!(Department::from_str_loose("hardware"), Some(Department::Hardware));
+        assert_eq!(
+            Department::from_str_loose("Performance"),
+            Some(Department::Performance)
+        );
+        assert_eq!(
+            Department::from_str_loose("hardware"),
+            Some(Department::Hardware)
+        );
         assert_eq!(Department::from_str_loose("bogus"), None);
     }
 
     #[test]
     fn test_schema_creation() {
-        let schema = TicketIntentSchema::new("how much RAM?", CanonicalIntent::MemStatus, Department::Performance)
-            .with_required_evidence(vec!["meminfo", "free_h"]);
+        let schema = TicketIntentSchema::new(
+            "how much RAM?",
+            CanonicalIntent::MemStatus,
+            Department::Performance,
+        )
+        .with_required_evidence(vec!["meminfo", "free_h"]);
 
         assert_eq!(schema.intent, CanonicalIntent::MemStatus);
         assert_eq!(schema.department, Department::Performance);
@@ -462,8 +486,9 @@ mod tests {
     #[test]
     fn test_clarification_truncation() {
         let long_question = "a".repeat(200);
-        let schema = TicketIntentSchema::new("query", CanonicalIntent::Unknown, Department::Performance)
-            .needs_clarification(&long_question);
+        let schema =
+            TicketIntentSchema::new("query", CanonicalIntent::Unknown, Department::Performance)
+                .needs_clarification(&long_question);
 
         assert!(schema.clarifying_question.unwrap().len() <= 120);
     }

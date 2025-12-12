@@ -125,9 +125,11 @@ impl RecipeExecutor {
             };
 
             // Check dependencies succeeded
-            if !step.depends_on.iter().all(|dep| {
-                ctx.outputs.get(dep).map(|o| o.success).unwrap_or(false)
-            }) {
+            if !step
+                .depends_on
+                .iter()
+                .all(|dep| ctx.outputs.get(dep).map(|o| o.success).unwrap_or(false))
+            {
                 debug!("Skipping step {} - dependency not met", step_id);
                 continue;
             }
@@ -189,9 +191,7 @@ impl RecipeExecutor {
             RecipeStepType::CheckCondition => self.check_condition(step, ctx),
             RecipeStepType::EditFile => self.edit_file(step, recipe, ctx),
             RecipeStepType::RenderAnswer => self.render_answer(step, recipe, ctx),
-            RecipeStepType::Subrecipe => {
-                Err("Subrecipe execution not yet implemented".to_string())
-            }
+            RecipeStepType::Subrecipe => Err("Subrecipe execution not yet implemented".to_string()),
         }
         .map(|mut output| {
             output.duration_ms = start.elapsed().as_millis() as u64;
@@ -269,7 +269,12 @@ impl RecipeExecutor {
         Ok(StepOutput {
             step_id: step.id.clone(),
             success,
-            stdout: if success { "condition met" } else { "condition not met" }.to_string(),
+            stdout: if success {
+                "condition met"
+            } else {
+                "condition not met"
+            }
+            .to_string(),
             stderr: String::new(),
             exit_code: if success { 0 } else { 1 },
             duration_ms: 0,
@@ -287,11 +292,16 @@ impl RecipeExecutor {
         let file_path = substitute_params(file_path, &ctx.params);
         let content = step.params.get("content").ok_or("Missing content")?;
         let content = substitute_params(content, &ctx.params);
-        let mode = step.params.get("mode").map(|s| s.as_str()).unwrap_or("append");
+        let mode = step
+            .params
+            .get("mode")
+            .map(|s| s.as_str())
+            .unwrap_or("append");
 
         // Always ask for confirmation on file edits
         if !ctx.auto_confirm {
-            let msg = format!(
+            let msg =
+                format!(
                 "Recipe '{}' wants to {} file:\n  {}\nWith content:\n  {}\n\nAllow this change?",
                 recipe.name, mode, file_path, content.chars().take(100).collect::<String>()
             );
@@ -537,7 +547,8 @@ fn append_to_file(path: &str, content: &str) -> Result<(), String> {
         .append(true)
         .open(path)
         .map_err(|e| e.to_string())?;
-    file.write_all(content.as_bytes()).map_err(|e| e.to_string())
+    file.write_all(content.as_bytes())
+        .map_err(|e| e.to_string())
 }
 
 /// Prepend content to file

@@ -27,12 +27,23 @@ pub fn parse_man_page(name: &str, section: Option<&str>) -> Result<Vec<DocSnippe
     }
 
     // Create snippets for key sections
-    let key_sections = ["SYNOPSIS", "OPTIONS", "COMMANDS", "EXAMPLES", "EXIT STATUS", "SEE ALSO"];
+    let key_sections = [
+        "SYNOPSIS",
+        "OPTIONS",
+        "COMMANDS",
+        "EXAMPLES",
+        "EXIT STATUS",
+        "SEE ALSO",
+    ];
 
     for sec_name in &key_sections {
         if let Some(content) = sections.get(*sec_name) {
             if !content.trim().is_empty() && content.len() > 10 {
-                let section_id = format!("{}:{}", man_section, sec_name.to_lowercase().replace(' ', "_"));
+                let section_id = format!(
+                    "{}:{}",
+                    man_section,
+                    sec_name.to_lowercase().replace(' ', "_")
+                );
                 let summary = format!("{} - {}", name, sec_name);
 
                 let mut snippet = DocSnippet::new(
@@ -142,7 +153,9 @@ fn is_section_header(line: &str) -> bool {
     }
 
     // Must be all uppercase (with spaces allowed)
-    trimmed.chars().all(|c| c.is_uppercase() || c.is_whitespace() || c == '-')
+    trimmed
+        .chars()
+        .all(|c| c.is_uppercase() || c.is_whitespace() || c == '-')
         && trimmed.chars().any(|c| c.is_alphabetic())
 }
 
@@ -166,7 +179,9 @@ fn extract_first_line(content: &str) -> String {
 fn is_safe_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() < 64
-        && name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
 }
 
 /// Search for man pages by keyword
@@ -175,10 +190,7 @@ pub fn search_man_pages(keyword: &str, limit: usize) -> Vec<ManPageInfo> {
         return Vec::new();
     }
 
-    let output = Command::new("man")
-        .arg("-k")
-        .arg(keyword)
-        .output();
+    let output = Command::new("man").arg("-k").arg(keyword).output();
 
     match output {
         Ok(out) if out.status.success() => {

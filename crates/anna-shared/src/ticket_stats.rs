@@ -94,8 +94,10 @@ pub fn calculate_stats(tickets: &[TicketLog]) -> TicketStats {
                 stats.cannot_answer += 1;
                 stats.answered += 1;
             }
-            TicketOutcome::ErrorParse | TicketOutcome::ErrorTimeout
-            | TicketOutcome::ErrorTool | TicketOutcome::ErrorInternal => {
+            TicketOutcome::ErrorParse
+            | TicketOutcome::ErrorTimeout
+            | TicketOutcome::ErrorTool
+            | TicketOutcome::ErrorInternal => {
                 stats.failed += 1;
             }
         }
@@ -125,10 +127,7 @@ pub fn calculate_stats(tickets: &[TicketLog]) -> TicketStats {
             .by_handler
             .entry(categorize_handler(&ticket.handled_by))
             .or_default() += 1;
-        *stats
-            .by_domain
-            .entry(ticket.domain.clone())
-            .or_default() += 1;
+        *stats.by_domain.entry(ticket.domain.clone()).or_default() += 1;
 
         // Track by error kind
         if let Some(ref kind) = ticket.error_kind {
@@ -148,7 +147,8 @@ pub fn calculate_stats(tickets: &[TicketLog]) -> TicketStats {
     if stats.total > 0 {
         let total = stats.total as f32;
         stats.success_rate = (stats.success as f32 / total) * 100.0;
-        stats.resolution_rate = ((stats.success + stats.partial + stats.cannot_answer) as f32 / total) * 100.0;
+        stats.resolution_rate =
+            ((stats.success + stats.partial + stats.cannot_answer) as f32 / total) * 100.0;
         stats.error_rate = (stats.failed as f32 / total) * 100.0;
     }
 
@@ -306,7 +306,7 @@ mod tests {
         ticket.state = Some(TicketState::Failed);
 
         let stats = calculate_stats(&[ticket]);
-        assert_eq!(stats.llm_failed, 1);  // Validation failure is an LLM failure
+        assert_eq!(stats.llm_failed, 1); // Validation failure is an LLM failure
         assert_eq!(stats.failed, 1);
         assert!(stats.by_outcome.contains_key("error_parse"));
     }

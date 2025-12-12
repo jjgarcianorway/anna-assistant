@@ -25,6 +25,13 @@ pub struct DaemonStatus {
     /// Team roster with active teams (v0.0.25)
     #[serde(default)]
     pub teams: TeamRoster,
+    /// Overall truthfulness score of the system (0.0 - 1.0)
+    #[serde(default = "default_truthfulness_score")]
+    pub truthfulness_score: f64,
+}
+
+fn default_truthfulness_score() -> f64 {
+    1.0
 }
 
 /// Team roster showing which teams are active

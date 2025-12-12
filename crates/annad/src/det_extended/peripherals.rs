@@ -8,7 +8,10 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer bluetooth devices query
-pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_bluetooth_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "bluetooth_devices")?;
 
     let output = probe.stdout.trim();
@@ -23,7 +26,10 @@ pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Op
 
     let device_count = output.lines().count();
     Some(DeterministicResult {
-        answer: format!("Bluetooth devices ({}):\n```\n{}\n```", device_count, output),
+        answer: format!(
+            "Bluetooth devices ({}):\n```\n{}\n```",
+            device_count, output
+        ),
         grounded: true,
         parsed_data_count: device_count,
         route_class: route_class.to_string(),
@@ -31,7 +37,10 @@ pub fn answer_bluetooth_devices(probes: &[ProbeResult], route_class: &str) -> Op
 }
 
 /// Answer printer status query
-pub fn answer_printer_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_printer_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "printer_status")?;
 
     let output = probe.stdout.trim();
@@ -53,7 +62,10 @@ pub fn answer_printer_status(probes: &[ProbeResult], route_class: &str) -> Optio
 }
 
 /// Answer audio devices query
-pub fn answer_audio_devices(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_audio_devices(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "audio_devices")?;
 
     let output = probe.stdout.trim();

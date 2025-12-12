@@ -7,8 +7,8 @@
 //! 3. check_free_ram - Repeatable diagnostic recipe
 
 use crate::recipe_schema::{
-    ConfirmationPolicy, PlanStep, Precondition, Recipe, RecipeMatcher, RecipePattern,
-    RecipeStatus, SuccessCriteria,
+    ConfirmationPolicy, PlanStep, Precondition, Recipe, RecipeMatcher, RecipePattern, RecipeStatus,
+    SuccessCriteria,
 };
 use crate::recipe_storage::RecipeStorage;
 use std::collections::HashMap;
@@ -87,9 +87,7 @@ fn create_vim_enable_syntax() -> Recipe {
         ],
     );
 
-    recipe.preconditions = vec![
-        Precondition::ToolExists { tool: "vim".into() },
-    ];
+    recipe.preconditions = vec![Precondition::ToolExists { tool: "vim".into() }];
     recipe.confirmation_policy = ConfirmationPolicy::MutatingOnly;
     recipe.success_criteria = SuccessCriteria {
         must_succeed: vec!["ensure_line".into()],
@@ -385,10 +383,7 @@ mod tests {
     #[test]
     fn test_install_seed_recipes() {
         let dir = tempdir().unwrap();
-        let mut storage = RecipeStorage::with_dirs(
-            dir.path().join("user"),
-            dir.path().join("sys"),
-        );
+        let mut storage = RecipeStorage::with_dirs(dir.path().join("user"), dir.path().join("sys"));
 
         let installed = install_seed_recipes(&mut storage).unwrap();
         assert!(installed >= 3);
@@ -403,9 +398,18 @@ mod tests {
         let recipe = get_seed_recipe("vim_enable_syntax").unwrap();
 
         assert_eq!(recipe.domain, "desktop");
-        assert!(recipe.matcher.required_keywords.contains(&"vim".to_string()));
-        assert!(recipe.matcher.required_keywords.contains(&"syntax".to_string()));
-        assert!(recipe.matcher.negative_keywords.contains(&"neovim".to_string()));
+        assert!(recipe
+            .matcher
+            .required_keywords
+            .contains(&"vim".to_string()));
+        assert!(recipe
+            .matcher
+            .required_keywords
+            .contains(&"syntax".to_string()));
+        assert!(recipe
+            .matcher
+            .negative_keywords
+            .contains(&"neovim".to_string()));
         assert!(!recipe.citations.is_empty());
     }
 

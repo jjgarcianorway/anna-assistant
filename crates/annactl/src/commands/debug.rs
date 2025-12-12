@@ -14,11 +14,11 @@
 //! - 2 (trace):   Above + probe commands, exit codes, parsed values, LLM tokens
 //! - 3 (full):    Above + full prompts/responses, raw probe output, parser errors
 
+use super::debug_trace::show_last_trace;
 use anna_shared::debug_mode::{DebugConfig, DebugLevel};
 use anna_shared::state_dir;
 use anyhow::Result;
 use clap::Subcommand;
-use super::debug_trace::show_last_trace;
 use std::fs;
 use std::path::PathBuf;
 
@@ -72,8 +72,12 @@ pub async fn handle_debug(cmd: DebugCommand) -> Result<()> {
         DebugCommand::Last => show_debug_last().await,
         DebugCommand::Trace { level } => show_last_trace(&level).await,
         DebugCommand::Request { id } => show_debug_request(&id).await,
-        DebugCommand::Llm { cmd: LlmSubCommand::Last } => show_llm_last().await,
-        DebugCommand::Probes { cmd: ProbesSubCommand::Last } => show_probes_last().await,
+        DebugCommand::Llm {
+            cmd: LlmSubCommand::Last,
+        } => show_llm_last().await,
+        DebugCommand::Probes {
+            cmd: ProbesSubCommand::Last,
+        } => show_probes_last().await,
         DebugCommand::Config => show_debug_config(),
     }
 }
@@ -177,10 +181,22 @@ async fn show_llm_last() -> Result<()> {
 
 /// Print a single LLM call.
 fn print_llm_call(call: &serde_json::Value) {
-    let role = call.get("role").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let model = call.get("model").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let duration = call.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-    let parse_success = call.get("parse_success").and_then(|v| v.as_bool()).unwrap_or(false);
+    let role = call
+        .get("role")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let model = call
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let duration = call
+        .get("duration_ms")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+    let parse_success = call
+        .get("parse_success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     println!("  --- {} ({}) ---", role, model);
     println!("  duration: {}ms", duration);
@@ -246,11 +262,23 @@ async fn show_probes_last() -> Result<()> {
 
 /// Print a single probe.
 fn print_probe(probe: &serde_json::Value) {
-    let id = probe.get("id").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let id = probe
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
     let cmd = probe.get("command").and_then(|v| v.as_str()).unwrap_or("");
-    let status = probe.get("status").and_then(|v| v.as_str()).unwrap_or("unknown");
-    let exit_code = probe.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(-1);
-    let duration = probe.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0);
+    let status = probe
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let exit_code = probe
+        .get("exit_code")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(-1);
+    let duration = probe
+        .get("duration_ms")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
     println!("  --- {} ({}) ---", id, cmd);
     println!("  status: {} (exit {})", status, exit_code);
@@ -291,25 +319,37 @@ fn show_debug_config() -> Result<()> {
     };
 
     println!("[debug configuration]");
-    println!("  level: {}", match config.level {
-        DebugLevel::Off => "off (0) - normal user output only",
-        DebugLevel::Summary => "summary (1) - domain, intent, probes, outcome, failures",
-        DebugLevel::Trace => "trace (2) - above + probe details, LLM tokens, gate report",
-        DebugLevel::Full => "full (3) - above + raw prompts/responses, raw probe output",
-    });
+    println!(
+        "  level: {}",
+        match config.level {
+            DebugLevel::Off => "off (0) - normal user output only",
+            DebugLevel::Summary => "summary (1) - domain, intent, probes, outcome, failures",
+            DebugLevel::Trace => "trace (2) - above + probe details, LLM tokens, gate report",
+            DebugLevel::Full => "full (3) - above + raw prompts/responses, raw probe output",
+        }
+    );
     println!();
     println!("[redaction settings]");
     println!("  redact_emails: {}", config.redact.redact_emails);
     println!("  redact_private_ips: {}", config.redact.redact_private_ips);
     println!("  redact_secrets: {}", config.redact.redact_secrets);
-    println!("  redact_sensitive_files: {}", config.redact.redact_sensitive_files);
+    println!(
+        "  redact_sensitive_files: {}",
+        config.redact.redact_sensitive_files
+    );
     println!("  max_probe_lines: {}", config.redact.max_probe_lines);
-    println!("  max_llm_output_chars: {}", config.redact.max_llm_output_chars);
+    println!(
+        "  max_llm_output_chars: {}",
+        config.redact.max_llm_output_chars
+    );
     println!();
     println!("Config file: {}", config_path.display());
 
     if !config_path.exists() {
-        println!("\nTo enable debug mode, create {} with:", config_path.display());
+        println!(
+            "\nTo enable debug mode, create {} with:",
+            config_path.display()
+        );
         println!("  level = \"summary\"  # or \"trace\" or \"full\"");
     }
 
@@ -349,27 +389,48 @@ fn format_debug_block(json_line: &str) -> Result<String> {
 
     // Timings
     if let Some(timings) = json.get("timings") {
-        let total = timings.get("total_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        let probe = timings.get("probe_ms").and_then(|v| v.as_u64()).unwrap_or(0);
+        let total = timings
+            .get("total_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let probe = timings
+            .get("probe_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
         let llm = timings.get("llm_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        out.push_str(&format!("  timings             total:{}ms probe:{}ms llm:{}ms\n", total, probe, llm));
+        out.push_str(&format!(
+            "  timings             total:{}ms probe:{}ms llm:{}ms\n",
+            total, probe, llm
+        ));
     }
 
     // Reason codes
     if let Some(codes) = json.get("reason_codes").and_then(|v| v.as_array()) {
-        let code_strs: Vec<&str> = codes.iter()
-            .filter_map(|c| c.as_str())
-            .collect();
-        out.push_str(&format!("  reason_codes        [{}]\n", code_strs.join(", ")));
+        let code_strs: Vec<&str> = codes.iter().filter_map(|c| c.as_str()).collect();
+        out.push_str(&format!(
+            "  reason_codes        [{}]\n",
+            code_strs.join(", ")
+        ));
     }
 
     // Timeout
     if let Some(timeout) = json.get("timeout") {
-        let stage = timeout.get("stage").and_then(|v| v.as_str()).unwrap_or("unknown");
-        let configured = timeout.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        let elapsed = timeout.get("elapsed_ms").and_then(|v| v.as_u64()).unwrap_or(0);
-        out.push_str(&format!("  timeout             {} (configured: {}ms, elapsed: {}ms)\n",
-            stage, configured, elapsed));
+        let stage = timeout
+            .get("stage")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let configured = timeout
+            .get("timeout_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let elapsed = timeout
+            .get("elapsed_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        out.push_str(&format!(
+            "  timeout             {} (configured: {}ms, elapsed: {}ms)\n",
+            stage, configured, elapsed
+        ));
     }
 
     Ok(out)

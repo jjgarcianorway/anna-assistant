@@ -33,7 +33,11 @@ pub fn refs_from_snippets(snippets: &[DocSnippet]) -> Vec<DocReference> {
 
 /// Query documentation relevant to a recipe's domain/intent
 pub fn query_for_recipe(engine: &DocEngine, recipe: &LearnedRecipe) -> DocResult {
-    let query_text = format!("{} {}", recipe.pattern.intent.replace('_', " "), recipe.domain);
+    let query_text = format!(
+        "{} {}",
+        recipe.pattern.intent.replace('_', " "),
+        recipe.domain
+    );
 
     // Determine preferred sources based on answer kind
     let sources = match recipe.logic.answer_kind {
@@ -47,7 +51,11 @@ pub fn query_for_recipe(engine: &DocEngine, recipe: &LearnedRecipe) -> DocResult
         }
         AnswerKind::Fix => {
             // Both for fixes
-            vec![DocSourceKind::ArchWiki, DocSourceKind::ManPage, DocSourceKind::ToolHelp]
+            vec![
+                DocSourceKind::ArchWiki,
+                DocSourceKind::ManPage,
+                DocSourceKind::ToolHelp,
+            ]
         }
     };
 
@@ -109,9 +117,9 @@ pub fn suggest_doc_refs(domain: &str) -> Vec<DocReference> {
             DocReference::man_page("free", "1").with_reason("Memory info"),
             DocReference::man_page("top", "1").with_reason("Process monitor"),
         ],
-        _ => vec![
-            DocReference::arch_wiki("General_troubleshooting").with_reason("Troubleshooting"),
-        ],
+        _ => {
+            vec![DocReference::arch_wiki("General_troubleshooting").with_reason("Troubleshooting")]
+        }
     }
 }
 
@@ -151,19 +159,29 @@ pub fn find_relevant_snippet<'a>(result: &'a DocResult, topic: &str) -> Option<&
     let topic_lower = topic.to_lowercase();
 
     // First try exact name match
-    if let Some(s) = result.snippets.iter().find(|s| s.name.to_lowercase() == topic_lower) {
+    if let Some(s) = result
+        .snippets
+        .iter()
+        .find(|s| s.name.to_lowercase() == topic_lower)
+    {
         return Some(s);
     }
 
     // Then try section match
     if let Some(s) = result.snippets.iter().find(|s| {
-        s.section.as_ref().map(|sec| sec.to_lowercase().contains(&topic_lower)).unwrap_or(false)
+        s.section
+            .as_ref()
+            .map(|sec| sec.to_lowercase().contains(&topic_lower))
+            .unwrap_or(false)
     }) {
         return Some(s);
     }
 
     // Fall back to content match
-    result.snippets.iter().find(|s| s.content.to_lowercase().contains(&topic_lower))
+    result
+        .snippets
+        .iter()
+        .find(|s| s.content.to_lowercase().contains(&topic_lower))
 }
 
 #[cfg(test)]
@@ -174,23 +192,33 @@ mod tests {
     fn test_suggest_doc_refs() {
         let refs = suggest_doc_refs("services.systemd");
         assert!(!refs.is_empty());
-        assert!(refs.iter().any(|r| r.name.contains("systemd") || r.name.contains("systemctl")));
+        assert!(refs
+            .iter()
+            .any(|r| r.name.contains("systemd") || r.name.contains("systemctl")));
     }
 
     #[test]
     fn test_format_citations() {
-        let snippets = vec![
-            DocSnippet::new(DocSourceKind::ManPage, "systemctl", Some("1"), "test", "content"),
-        ];
+        let snippets = vec![DocSnippet::new(
+            DocSourceKind::ManPage,
+            "systemctl",
+            Some("1"),
+            "test",
+            "content",
+        )];
         let formatted = format_citations_for_answer(&snippets);
         assert!(formatted.contains("systemctl(1)"));
     }
 
     #[test]
     fn test_refs_from_snippets() {
-        let snippets = vec![
-            DocSnippet::new(DocSourceKind::ArchWiki, "systemd", None, "Systemd info", "..."),
-        ];
+        let snippets = vec![DocSnippet::new(
+            DocSourceKind::ArchWiki,
+            "systemd",
+            None,
+            "Systemd info",
+            "...",
+        )];
         let refs = refs_from_snippets(&snippets);
         assert_eq!(refs.len(), 1);
         assert_eq!(refs[0].source, DocSourceKind::ArchWiki);

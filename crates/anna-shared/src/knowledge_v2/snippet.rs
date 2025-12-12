@@ -160,11 +160,7 @@ impl KnowledgeSnippet {
 
     /// Create from local doc
     pub fn from_local_doc(id: &str, path: &str, content: &str) -> Self {
-        let title = path
-            .split('/')
-            .last()
-            .unwrap_or(path)
-            .to_string();
+        let title = path.split('/').last().unwrap_or(path).to_string();
         let citation = format!("doc:{}", path);
 
         Self::new(id, KnowledgeSource::LocalDoc, &title)
@@ -310,8 +306,8 @@ mod tests {
     #[test]
     fn test_truncation() {
         let long_text = "a".repeat(3000);
-        let snippet = KnowledgeSnippet::new("k1", KnowledgeSource::ManPage, "test")
-            .with_excerpt(&long_text);
+        let snippet =
+            KnowledgeSnippet::new("k1", KnowledgeSource::ManPage, "test").with_excerpt(&long_text);
         assert!(snippet.raw_excerpt.len() <= super::super::MAX_EXCERPT_LENGTH);
     }
 }

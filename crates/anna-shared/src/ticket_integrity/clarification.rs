@@ -118,8 +118,12 @@ impl ClarificationRequiredIntent {
         match intent.to_lowercase().as_str() {
             "editor.syntax_status" | "editor_syntax_status" => Some(Self::EditorSyntaxStatus),
             "editor.syntax_enable" | "editor_syntax_enable" => Some(Self::EditorSyntaxEnable),
-            "desktop.wallpapers_location" | "wallpapers_location" => Some(Self::DesktopWallpapersLocation),
-            "editor.config_overview" | "editor_config" | "vim_setup" => Some(Self::EditorConfigOverview),
+            "desktop.wallpapers_location" | "wallpapers_location" => {
+                Some(Self::DesktopWallpapersLocation)
+            }
+            "editor.config_overview" | "editor_config" | "vim_setup" => {
+                Some(Self::EditorConfigOverview)
+            }
             "terminal.theme" | "terminal_theme" => Some(Self::TerminalTheme),
             "shell.prompt_change" | "shell_prompt" => Some(Self::ShellPromptChange),
             _ => None,
@@ -281,10 +285,7 @@ pub enum ClarificationDecision {
 }
 
 /// Check if clarification is needed BEFORE probes.
-pub fn check_clarification_needed(
-    intent: &str,
-    known_facts: &KnownFacts,
-) -> ClarificationDecision {
+pub fn check_clarification_needed(intent: &str, known_facts: &KnownFacts) -> ClarificationDecision {
     // Check if this is a clarification-required intent
     let cri = match ClarificationRequiredIntent::from_intent(intent) {
         Some(i) => i,
@@ -320,7 +321,9 @@ pub fn is_clarification_required_intent(intent: &str) -> bool {
     let lower = intent.to_lowercase();
 
     // Editor-related config questions
-    if lower.contains("editor") && (lower.contains("syntax") || lower.contains("config") || lower.contains("setup")) {
+    if lower.contains("editor")
+        && (lower.contains("syntax") || lower.contains("config") || lower.contains("setup"))
+    {
         return true;
     }
 
@@ -378,7 +381,10 @@ mod tests {
         let decision = check_clarification_needed("editor.syntax_status", &facts);
 
         match decision {
-            ClarificationDecision::NeedClarification { question, missing_facts } => {
+            ClarificationDecision::NeedClarification {
+                question,
+                missing_facts,
+            } => {
                 assert!(!missing_facts.is_empty());
                 assert!(question.question.contains("editor"));
             }

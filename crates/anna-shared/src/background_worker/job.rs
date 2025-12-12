@@ -93,7 +93,10 @@ pub enum JobStatus {
 impl JobStatus {
     /// Check if job is in a terminal state
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Completed { .. } | Self::Failed { .. } | Self::Cancelled { .. })
+        matches!(
+            self,
+            Self::Completed { .. } | Self::Failed { .. } | Self::Cancelled { .. }
+        )
     }
 
     /// Check if job is runnable
@@ -401,12 +404,18 @@ impl PendingNotification {
 
 /// Generate a unique job ID
 fn generate_job_id() -> String {
-    format!("JOB-{}", uuid::Uuid::new_v4().to_string()[..8].to_uppercase())
+    format!(
+        "JOB-{}",
+        uuid::Uuid::new_v4().to_string()[..8].to_uppercase()
+    )
 }
 
 /// Generate a unique notification ID
 fn generate_notification_id() -> String {
-    format!("NOTIF-{}", uuid::Uuid::new_v4().to_string()[..8].to_uppercase())
+    format!(
+        "NOTIF-{}",
+        uuid::Uuid::new_v4().to_string()[..8].to_uppercase()
+    )
 }
 
 /// Get current unix timestamp

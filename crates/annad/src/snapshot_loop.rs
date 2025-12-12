@@ -78,8 +78,12 @@ fn collect_disk_usage(snapshot: &mut SystemSnapshot) {
                     let mount = parts[1];
 
                     // Only track relevant mounts
-                    if mount == "/" || mount == "/home" || mount == "/var" || mount == "/tmp"
-                        || mount.starts_with("/mnt") || mount.starts_with("/media")
+                    if mount == "/"
+                        || mount == "/home"
+                        || mount == "/var"
+                        || mount == "/tmp"
+                        || mount.starts_with("/mnt")
+                        || mount.starts_with("/media")
                     {
                         if let Ok(pct) = percent_str.parse::<u8>() {
                             snapshot.add_disk(mount, pct);
@@ -102,7 +106,9 @@ fn collect_memory_usage(snapshot: &mut SystemSnapshot) {
                 if line.starts_with("Mem:") {
                     let parts: Vec<&str> = line.split_whitespace().collect();
                     if parts.len() >= 3 {
-                        if let (Ok(total), Ok(used)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>()) {
+                        if let (Ok(total), Ok(used)) =
+                            (parts[1].parse::<u64>(), parts[2].parse::<u64>())
+                        {
                             snapshot.set_memory(total, used);
                             return;
                         }
@@ -125,7 +131,10 @@ fn collect_failed_services(snapshot: &mut SystemSnapshot) {
             for line in stdout.lines() {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 for part in parts {
-                    if part.ends_with(".service") || part.ends_with(".socket") || part.ends_with(".mount") {
+                    if part.ends_with(".service")
+                        || part.ends_with(".socket")
+                        || part.ends_with(".mount")
+                    {
                         snapshot.add_failed_service(part);
                         break;
                     }
@@ -154,7 +163,8 @@ fn collect_boot_time(snapshot: &mut SystemSnapshot) {
                     parts[5].parse::<u32>(),
                 ) {
                     // Approximate Unix timestamp calculation
-                    let days_since_epoch = days_from_year(y) + days_from_month(mon, is_leap_year(y)) + d - 1;
+                    let days_since_epoch =
+                        days_from_year(y) + days_from_month(mon, is_leap_year(y)) + d - 1;
                     let secs = (days_since_epoch as u64 * 86400)
                         + (h as u64 * 3600)
                         + (m as u64 * 60)

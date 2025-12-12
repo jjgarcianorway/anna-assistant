@@ -159,16 +159,19 @@ const FORBIDDEN_SECTION: &str = r#"
 /// Get question type specific rules
 fn get_question_type_rules(qtype: &str) -> String {
     match qtype {
-        "fact" => r#"
+        "fact" => {
+            r#"
 ## Question Type: FACT
 User is asking for a specific piece of information.
 - direct_answer.short_text MUST contain the requested value
 - Include metrics with machine-readable values
 - Example: "Available memory: 17.0 GiB (54% of 31.0 GiB total)"
 - key_findings should have 1-3 relevant data points
-- recommended_actions usually empty unless issue detected"#,
+- recommended_actions usually empty unless issue detected"#
+        }
 
-        "yes_no" => r#"
+        "yes_no" => {
+            r#"
 ## Question Type: YES/NO
 User is asking a yes/no question.
 - direct_answer.short_text MUST start with "Yes, " or "No, "
@@ -176,29 +179,36 @@ User is asking a yes/no question.
 - Example: "No, there are no failed systemd services."
 - Example: "Yes, swap is enabled (8.0 GiB configured)."
 - key_findings should list relevant items if answering "yes"
-- DO NOT provide generic debugging tutorials"#,
+- DO NOT provide generic debugging tutorials"#
+        }
 
-        "what_is" => r#"
+        "what_is" => {
+            r#"
 ## Question Type: WHAT IS
 User is asking what something is or which option is active.
 - direct_answer.short_text should identify the thing clearly
 - Example: "You are using the nvidia driver (kernel module: nvidia)."
 - key_findings: relevant attributes (version, path, status)
-- citations: probes used to determine this"#,
+- citations: probes used to determine this"#
+        }
 
-        "diagnostic" => r#"
+        "diagnostic" => {
+            r#"
 ## Question Type: DIAGNOSTIC
 User is asking WHY something is happening.
 - direct_answer.short_text: 1-2 sentences on likely main cause
 - key_findings: sorted by relevance/severity
 - recommended_actions: specific fixes with risk levels
-- Do not dump all possible causes - focus on evidence-backed ones"#,
+- Do not dump all possible causes - focus on evidence-backed ones"#
+        }
 
-        _ => r#"
+        _ => {
+            r#"
 ## Question Type: GENERAL
 - Answer the specific question asked
 - Be concise and evidence-based
-- Do not provide unrequested tutorials"#,
+- Do not provide unrequested tutorials"#
+        }
     }
     .to_string()
 }
@@ -261,8 +271,7 @@ mod tests {
 
     #[test]
     fn test_build_prompt() {
-        let config = SpecialistPromptConfig::for_domain("performance")
-            .with_question_type("fact");
+        let config = SpecialistPromptConfig::for_domain("performance").with_question_type("fact");
 
         let prompt = build_specialist_prompt(&config);
         assert!(prompt.contains("Specialist Instructions"));

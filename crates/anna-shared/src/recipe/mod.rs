@@ -17,13 +17,13 @@ mod target;
 mod types;
 
 // Re-export all types
-pub use types::{RecipeAction, RecipeKind};
-pub use target::{RecipeTarget, RollbackInfo};
+pub use core::{compute_recipe_id, Recipe};
+pub use search::{find_config_edit_recipes, search_recipes_by_keywords, RecipeMatch};
 pub use signature::RecipeSignature;
 pub use slot::{ClarifyPrereq, RecipeSlot};
-pub use core::{compute_recipe_id, Recipe};
 pub use storage::{
     clear_all_recipes, recipe_count, recipe_dir, recipe_filename, should_persist_recipe,
     RECIPE_PERSIST_THRESHOLD,
 };
-pub use search::{find_config_edit_recipes, search_recipes_by_keywords, RecipeMatch};
+pub use target::{RecipeTarget, RollbackInfo};
+pub use types::{RecipeAction, RecipeKind};

@@ -452,13 +452,23 @@ impl TraceBlock {
 
         // Level 1 (Summary): Basic info
         out.push_str(&format!("  request_id:       {}\n", self.request_id));
-        out.push_str(&format!("  intent/domain:    {}/{}\n", self.intent, self.domain));
+        out.push_str(&format!(
+            "  intent/domain:    {}/{}\n",
+            self.intent, self.domain
+        ));
         out.push_str(&format!("  route:            {}\n", self.route));
-        out.push_str(&format!("  probes:           [{}]\n", self.probes.join(", ")));
+        out.push_str(&format!(
+            "  probes:           [{}]\n",
+            self.probes.join(", ")
+        ));
         out.push_str(&format!("  outcome:          {}\n", self.outcome));
         out.push_str(&format!(
             "  reliability_gate: {}\n",
-            if self.reliability_gate.passed { "PASS" } else { "FAIL" }
+            if self.reliability_gate.passed {
+                "PASS"
+            } else {
+                "FAIL"
+            }
         ));
 
         if !self.failures.is_empty() {
@@ -470,9 +480,15 @@ impl TraceBlock {
 
         // Timings
         out.push_str("  timings:\n");
-        out.push_str(&format!("    translator_ms:  {}\n", self.timings.translator_ms));
+        out.push_str(&format!(
+            "    translator_ms:  {}\n",
+            self.timings.translator_ms
+        ));
         out.push_str(&format!("    probes_ms:      {}\n", self.timings.probes_ms));
-        out.push_str(&format!("    specialist_ms:  {}\n", self.timings.specialist_ms));
+        out.push_str(&format!(
+            "    specialist_ms:  {}\n",
+            self.timings.specialist_ms
+        ));
         out.push_str(&format!("    gate_ms:        {}\n", self.timings.gate_ms));
         out.push_str(&format!("    total_ms:       {}\n", self.timings.total_ms));
 
@@ -518,7 +534,10 @@ impl TraceBlock {
                         "      params: temp={}, max_tokens={}\n",
                         l.temperature, l.max_tokens
                     ));
-                    out.push_str(&format!("      parse: {}\n", if l.parse_success { "ok" } else { "FAILED" }));
+                    out.push_str(&format!(
+                        "      parse: {}\n",
+                        if l.parse_success { "ok" } else { "FAILED" }
+                    ));
 
                     if let Some(err) = &l.parse_error {
                         out.push_str(&format!("      parse_error: {}\n", err.message));
@@ -656,8 +675,8 @@ mod tests {
 
     #[test]
     fn test_trace_block_with_timeout() {
-        let trace = TraceBlock::new("REQ-003", "complex query")
-            .with_timeout("specialist", 10000, 15000);
+        let trace =
+            TraceBlock::new("REQ-003", "complex query").with_timeout("specialist", 10000, 15000);
 
         let output = trace.format(DebugLevel::Summary);
         assert!(output.is_some());
@@ -680,10 +699,7 @@ mod tests {
 
     #[test]
     fn test_prompt_digest() {
-        let digest = PromptDigest::new(
-            "You are a helpful assistant.",
-            "What is my disk usage?",
-        );
+        let digest = PromptDigest::new("You are a helpful assistant.", "What is my disk usage?");
 
         assert!(!digest.system_hash.is_empty());
         assert!(!digest.user_hash.is_empty());

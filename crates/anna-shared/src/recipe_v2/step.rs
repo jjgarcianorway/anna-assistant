@@ -25,7 +25,10 @@ impl RecipeStepKind {
 
     /// Check if this step makes changes
     pub fn is_mutating(&self) -> bool {
-        matches!(self, RecipeStepKind::SafeChange | RecipeStepKind::RiskyChange)
+        matches!(
+            self,
+            RecipeStepKind::SafeChange | RecipeStepKind::RiskyChange
+        )
     }
 }
 

@@ -106,7 +106,11 @@ impl TestResult {
     /// Format for display
     pub fn format(&self) -> String {
         if self.passed {
-            format!("[PASS] {} - {:.0}% confidence", self.test_id, self.confidence * 100.0)
+            format!(
+                "[PASS] {} - {:.0}% confidence",
+                self.test_id,
+                self.confidence * 100.0
+            )
         } else {
             format!(
                 "[FAIL] {} - {}\n       Issues: {}",
@@ -162,7 +166,6 @@ pub fn regression_suite() -> Vec<TestCase> {
             min_evidence: 1,
             forbidden_patterns: vec!["unknown"],
         },
-
         // Boot domain
         TestCase {
             id: "boot_time",
@@ -174,7 +177,6 @@ pub fn regression_suite() -> Vec<TestCase> {
             min_evidence: 1,
             forbidden_patterns: vec![],
         },
-
         // Services domain
         TestCase {
             id: "failed_services",
@@ -186,7 +188,6 @@ pub fn regression_suite() -> Vec<TestCase> {
             min_evidence: 1,
             forbidden_patterns: vec!["unknown"],
         },
-
         // Storage domain
         TestCase {
             id: "disk_space",
@@ -198,7 +199,6 @@ pub fn regression_suite() -> Vec<TestCase> {
             min_evidence: 1,
             forbidden_patterns: vec!["unknown"],
         },
-
         // Packages domain
         TestCase {
             id: "package_check",
@@ -220,7 +220,6 @@ pub fn regression_suite() -> Vec<TestCase> {
             min_evidence: 1,
             forbidden_patterns: vec!["unknown"],
         },
-
         // Desktop domain
         TestCase {
             id: "config_location",
@@ -354,8 +353,9 @@ mod tests {
             forbidden_patterns: vec!["unknown"],
         };
 
-        let response = StrictSpecialistResponse::ok("DSK-001", "query_metric", "You have 16GB RAM", 0.95)
-            .with_evidence("memory_info", "MemTotal: 16384000 kB");
+        let response =
+            StrictSpecialistResponse::ok("DSK-001", "query_metric", "You have 16GB RAM", 0.95)
+                .with_evidence("memory_info", "MemTotal: 16384000 kB");
 
         let result = test_case.validate(&response);
         assert!(result.passed, "Issues: {:?}", result.issues);
@@ -374,7 +374,8 @@ mod tests {
             forbidden_patterns: vec!["unknown is installed"],
         };
 
-        let response = StrictSpecialistResponse::ok("DSK-001", "check_status", "unknown is installed", 0.95);
+        let response =
+            StrictSpecialistResponse::ok("DSK-001", "check_status", "unknown is installed", 0.95);
 
         let result = test_case.validate(&response);
         assert!(!result.passed);

@@ -11,7 +11,7 @@ use super::update::{UpdateInfo, UpdateResult};
 use super::version::VersionInfo;
 
 /// Complete status snapshot
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatusSnapshot {
     /// Timestamp when snapshot was taken (epoch seconds)
     pub captured_at_ts: u64,
@@ -29,20 +29,35 @@ pub struct StatusSnapshot {
     pub models: ModelsInfo,
     /// Configuration
     pub config: ConfigInfo,
+    /// Overall truthfulness score of the system (0.0 - 1.0)
+    pub truthfulness_score: f64,
+}
+
+impl Default for StatusSnapshot {
+    fn default() -> Self {
+        Self {
+            captured_at_ts: 0,
+            versions: VersionInfo::default(),
+            daemon: DaemonInfo::default(),
+            perms: PermissionsInfo::default(),
+            update: UpdateInfo::default(),
+            helpers: HelpersInfo::default(),
+            models: ModelsInfo::default(),
+            config: ConfigInfo::default(),
+            truthfulness_score: 1.0, // Default to 1.0
+        }
+    }
 }
 
 impl StatusSnapshot {
     /// Create a new snapshot with current timestamp
     pub fn new() -> Self {
-        let captured_at_ts = std::time::SystemTime::now()
+        let mut s = Self::default(); // Use default to initialize
+        s.captured_at_ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-
-        Self {
-            captured_at_ts,
-            ..Default::default()
-        }
+        s
     }
 
     /// Check if daemon is healthy

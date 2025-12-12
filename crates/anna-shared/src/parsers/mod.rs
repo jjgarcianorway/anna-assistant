@@ -63,8 +63,8 @@ pub use systemctl::{
     parse_failed_units, parse_is_active, parse_status_verbose, ServiceState, ServiceStatus,
 };
 pub use tools::{
-    extract_package_name_from_pacman, extract_tool_name_from_command_v, try_parse_package_installed,
-    try_parse_tool_exists,
+    extract_package_name_from_pacman, extract_tool_name_from_command_v,
+    try_parse_package_installed, try_parse_tool_exists,
 };
 
 use crate::rpc::ProbeResult;

@@ -67,9 +67,13 @@ impl KnowledgeEngineHit {
     pub fn citation_ref(&self) -> String {
         match self.kind {
             KnowledgeKind::ManPage => format!("[man {}]", self.title),
-            KnowledgeKind::CliHelp => format!("[{} --help]", self.title.trim_end_matches(" --help")),
+            KnowledgeKind::CliHelp => {
+                format!("[{} --help]", self.title.trim_end_matches(" --help"))
+            }
             KnowledgeKind::LocalDoc => format!("[doc:{}]", self.title),
-            KnowledgeKind::ArchWiki => format!("[wiki:{}]", self.title.trim_start_matches("Arch Wiki: ")),
+            KnowledgeKind::ArchWiki => {
+                format!("[wiki:{}]", self.title.trim_start_matches("Arch Wiki: "))
+            }
             KnowledgeKind::BuiltIn => format!("[{}]", self.title),
         }
     }
@@ -83,7 +87,12 @@ impl KnowledgeEngineHit {
             KnowledgeKind::ArchWiki => "Arch Wiki",
             KnowledgeKind::BuiltIn => "built-in",
         };
-        format!("{} ({}): \"{}\"", self.title, source_type, truncate(&self.snippet, 100))
+        format!(
+            "{} ({}): \"{}\"",
+            self.title,
+            source_type,
+            truncate(&self.snippet, 100)
+        )
     }
 }
 
@@ -364,7 +373,8 @@ impl KnowledgeEngine {
             .map_err(|e| format!("Read {}: {}", doc_file.display(), e))?;
 
         let (snippet, line_range) = self.extract_snippet_with_lines(&content, Some(topic));
-        let title = path.file_name()
+        let title = path
+            .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "doc".to_string());
 
@@ -402,9 +412,13 @@ impl KnowledgeEngine {
         if let Ok(entries) = std::fs::read_dir(&wiki_path) {
             for entry in entries.take(100).flatten() {
                 let name = entry.file_name().to_string_lossy().to_lowercase();
-                if search_terms.iter().any(|t| name.contains(&t.to_lowercase())) {
+                if search_terms
+                    .iter()
+                    .any(|t| name.contains(&t.to_lowercase()))
+                {
                     if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                        let (snippet, line_range) = self.extract_wiki_snippet_with_lines(&content, topic);
+                        let (snippet, line_range) =
+                            self.extract_wiki_snippet_with_lines(&content, topic);
                         let article = name.trim_end_matches(".html");
                         let citation_id = if let Some((start, end)) = line_range {
                             format!("wiki:{}:line{}-{}", article, start, end)
@@ -436,7 +450,11 @@ impl KnowledgeEngine {
     }
 
     /// Extract relevant snippet from content with line numbers
-    fn extract_snippet_with_lines(&self, content: &str, keyword: Option<&str>) -> (String, Option<(usize, usize)>) {
+    fn extract_snippet_with_lines(
+        &self,
+        content: &str,
+        keyword: Option<&str>,
+    ) -> (String, Option<(usize, usize)>) {
         let lines: Vec<&str> = content.lines().collect();
 
         // If keyword provided, try to find relevant section
@@ -448,7 +466,10 @@ impl KnowledgeEngine {
                     let start = i.saturating_sub(2);
                     let end = (i + 5).min(lines.len());
                     let snippet: String = lines[start..end].join("\n");
-                    return (truncate(&snippet, self.max_snippet_len), Some((start + 1, end)));
+                    return (
+                        truncate(&snippet, self.max_snippet_len),
+                        Some((start + 1, end)),
+                    );
                 }
             }
         }
@@ -461,7 +482,10 @@ impl KnowledgeEngine {
             .cloned()
             .collect();
         let end_line = meaningful.len().min(10);
-        (truncate(&meaningful.join("\n"), self.max_snippet_len), Some((1, end_line)))
+        (
+            truncate(&meaningful.join("\n"), self.max_snippet_len),
+            Some((1, end_line)),
+        )
     }
 
     /// Extract snippet from HTML wiki content
@@ -470,7 +494,11 @@ impl KnowledgeEngine {
     }
 
     /// Extract snippet from HTML wiki content with line numbers
-    fn extract_wiki_snippet_with_lines(&self, html: &str, topic: &str) -> (String, Option<(usize, usize)>) {
+    fn extract_wiki_snippet_with_lines(
+        &self,
+        html: &str,
+        topic: &str,
+    ) -> (String, Option<(usize, usize)>) {
         // Basic HTML stripping (proper parsing would need html crate)
         let text = html
             .replace("<p>", "\n")
@@ -566,17 +594,52 @@ struct CacheEntry {
 /// Safe commands whitelist
 fn is_safe_command(cmd: &str) -> bool {
     const SAFE_COMMANDS: &[&str] = &[
-        "systemctl", "systemd-analyze", "journalctl",
-        "df", "du", "lsblk", "mount", "findmnt", "blkid",
-        "free", "top", "ps", "uptime", "uname",
-        "ip", "ss", "networkctl", "nmcli", "resolvectl",
-        "pacman", "paru", "yay", "makepkg",
-        "pactl", "wpctl", "aplay", "arecord",
-        "hyprctl", "swaymsg",
-        "cat", "head", "tail", "grep", "ls", "stat", "file",
-        "git", "ssh", "rsync",
-        "fstrim", "lscpu", "lspci", "lsusb",
-        "timedatectl", "localectl", "hostnamectl",
+        "systemctl",
+        "systemd-analyze",
+        "journalctl",
+        "df",
+        "du",
+        "lsblk",
+        "mount",
+        "findmnt",
+        "blkid",
+        "free",
+        "top",
+        "ps",
+        "uptime",
+        "uname",
+        "ip",
+        "ss",
+        "networkctl",
+        "nmcli",
+        "resolvectl",
+        "pacman",
+        "paru",
+        "yay",
+        "makepkg",
+        "pactl",
+        "wpctl",
+        "aplay",
+        "arecord",
+        "hyprctl",
+        "swaymsg",
+        "cat",
+        "head",
+        "tail",
+        "grep",
+        "ls",
+        "stat",
+        "file",
+        "git",
+        "ssh",
+        "rsync",
+        "fstrim",
+        "lscpu",
+        "lspci",
+        "lsusb",
+        "timedatectl",
+        "localectl",
+        "hostnamectl",
     ];
     SAFE_COMMANDS.contains(&cmd)
 }

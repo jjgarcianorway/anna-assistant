@@ -2,7 +2,9 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::theatre_render::helpers::{probe_id_from_command, reliability_color, team_from_domain};
+    use crate::theatre_render::helpers::{
+        probe_id_from_command, reliability_color, team_from_domain,
+    };
     use anna_shared::teams::Team;
     use anna_shared::ui::colors;
 

@@ -136,16 +136,17 @@ impl JobScheduler {
             .collect();
 
         // Sort by priority (high first) then by scheduled time
-        due.sort_by(|a, b| {
-            match b.priority.cmp(&a.priority) {
-                std::cmp::Ordering::Equal => a.scheduled_for.cmp(&b.scheduled_for),
-                other => other,
-            }
+        due.sort_by(|a, b| match b.priority.cmp(&a.priority) {
+            std::cmp::Ordering::Equal => a.scheduled_for.cmp(&b.scheduled_for),
+            other => other,
         });
 
         // Limit concurrent jobs
         let running_count = self.count_running();
-        let available_slots = self.config.max_concurrent_jobs.saturating_sub(running_count);
+        let available_slots = self
+            .config
+            .max_concurrent_jobs
+            .saturating_sub(running_count);
 
         due.into_iter().take(available_slots).collect()
     }
@@ -417,11 +418,7 @@ mod tests {
 
     fn unique_test_path() -> String {
         let id = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
-        format!(
-            "/tmp/anna_scheduler_test_{}_{}",
-            std::process::id(),
-            id
-        )
+        format!("/tmp/anna_scheduler_test_{}_{}", std::process::id(), id)
     }
 
     fn cleanup(path: &str) {

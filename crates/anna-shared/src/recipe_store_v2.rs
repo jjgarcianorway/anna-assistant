@@ -177,7 +177,11 @@ impl RecipeStoreV2 {
         }
 
         // Sort by score descending
-        matches.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        matches.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         matches
     }
 
@@ -189,7 +193,9 @@ impl RecipeStoreV2 {
         for trigger in &recipe.trigger_patterns {
             if query.contains(&trigger.to_lowercase()) {
                 score = score.max(0.95);
-            } else if trigger.to_lowercase().split_whitespace()
+            } else if trigger
+                .to_lowercase()
+                .split_whitespace()
                 .all(|w| query.contains(w))
             {
                 score = score.max(0.85);
@@ -199,7 +205,12 @@ impl RecipeStoreV2 {
         // Tag overlap
         let tag_matches: usize = keywords
             .iter()
-            .filter(|k| recipe.tags.iter().any(|t| t.to_lowercase().contains(&k.to_lowercase())))
+            .filter(|k| {
+                recipe
+                    .tags
+                    .iter()
+                    .any(|t| t.to_lowercase().contains(&k.to_lowercase()))
+            })
             .count();
         if !keywords.is_empty() && !recipe.tags.is_empty() {
             let tag_score = tag_matches as f32 / keywords.len().min(recipe.tags.len()) as f32;
@@ -223,7 +234,12 @@ impl RecipeStoreV2 {
     }
 
     /// Get best match above threshold
-    pub fn best_match(&self, query: &str, domain: Option<&str>, threshold: f32) -> Option<RecipeMatch> {
+    pub fn best_match(
+        &self,
+        query: &str,
+        domain: Option<&str>,
+        threshold: f32,
+    ) -> Option<RecipeMatch> {
         self.find_matches(query, domain)
             .into_iter()
             .find(|m| m.score >= threshold)
@@ -243,13 +259,10 @@ impl RecipeStoreV2 {
         let now = current_secs();
         let old_threshold = now.saturating_sub(30 * 24 * 3600); // 30 days
 
-        let to_remove: Vec<_> = self.recipes
+        let to_remove: Vec<_> = self
+            .recipes
             .iter()
-            .filter(|(_, r)| {
-                r.deprecated
-                    && r.last_used_at < old_threshold
-                    && r.use_count < 5
-            })
+            .filter(|(_, r)| r.deprecated && r.last_used_at < old_threshold && r.use_count < 5)
             .map(|(id, _)| id.clone())
             .collect();
 
@@ -296,11 +309,7 @@ impl RecipeStoreV2 {
     pub fn by_domain(&self, domain: &str) -> Vec<&Recipe> {
         self.domain_index
             .get(domain)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.recipes.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.recipes.get(id)).collect())
             .unwrap_or_default()
     }
 
@@ -354,7 +363,11 @@ impl std::fmt::Display for RecipeStoreStats {
         writeln!(f, "  active            {}", self.active_recipes)?;
         writeln!(f, "  deprecated        {}", self.deprecated_recipes)?;
         writeln!(f, "  total_uses        {}", self.total_uses)?;
-        writeln!(f, "  success_rate      {:.1}%", self.overall_success_rate * 100.0)?;
+        writeln!(
+            f,
+            "  success_rate      {:.1}%",
+            self.overall_success_rate * 100.0
+        )?;
         Ok(())
     }
 }
@@ -362,16 +375,19 @@ impl std::fmt::Display for RecipeStoreStats {
 /// Extract keywords from query
 fn extract_keywords(query: &str) -> Vec<String> {
     let stop_words = [
-        "the", "a", "an", "is", "are", "was", "were", "be", "been",
-        "what", "why", "how", "when", "where", "which", "who",
-        "my", "your", "i", "me", "you", "it", "this", "that",
-        "do", "does", "did", "can", "could", "would", "should",
-        "to", "of", "in", "on", "at", "for", "with", "by",
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "what", "why", "how", "when",
+        "where", "which", "who", "my", "your", "i", "me", "you", "it", "this", "that", "do",
+        "does", "did", "can", "could", "would", "should", "to", "of", "in", "on", "at", "for",
+        "with", "by",
     ];
 
     query
         .split_whitespace()
-        .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>())
+        .map(|w| {
+            w.chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+        })
         .filter(|w| w.len() >= 3 && !stop_words.contains(&w.as_str()))
         .collect()
 }
@@ -395,9 +411,14 @@ mod tests {
     #[test]
     fn test_add_and_find() {
         let mut store = RecipeStoreV2::default();
-        let recipe = Recipe::new("disk-usage", "Check Disk Usage", RecipeKind::Inspect, "storage")
-            .with_tags(vec!["disk", "space", "usage", "df"])
-            .with_triggers(vec!["disk usage", "disk space", "what's using space"]);
+        let recipe = Recipe::new(
+            "disk-usage",
+            "Check Disk Usage",
+            RecipeKind::Inspect,
+            "storage",
+        )
+        .with_tags(vec!["disk", "space", "usage", "df"])
+        .with_triggers(vec!["disk usage", "disk space", "what's using space"]);
 
         store.add(recipe);
 

@@ -8,9 +8,9 @@
 
 use std::process::Command;
 
-use super::{extract_context, truncate_text, looks_like_docs};
-use crate::knowledge_v4::snippet::KnowledgeSnippet;
+use super::{extract_context, looks_like_docs, truncate_text};
 use crate::knowledge_v4::query::KnowledgeSource;
+use crate::knowledge_v4::snippet::KnowledgeSnippet;
 
 /// Man page adapter
 pub struct ManAdapter {
@@ -42,7 +42,12 @@ impl ManAdapter {
     }
 
     /// Query man page for a command
-    pub fn query(&self, command: &str, topic: Option<&str>, section: Option<u8>) -> Option<KnowledgeSnippet> {
+    pub fn query(
+        &self,
+        command: &str,
+        topic: Option<&str>,
+        section: Option<u8>,
+    ) -> Option<KnowledgeSnippet> {
         // Validate command name
         if !is_safe_command(command) {
             return None;
@@ -200,7 +205,9 @@ fn fetch_man_content(command: &str, section: Option<u8>) -> Option<String> {
 fn is_section_header(line: &str) -> bool {
     !line.is_empty()
         && line.len() < 30
-        && line.chars().all(|c| c.is_ascii_uppercase() || c.is_whitespace())
+        && line
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_whitespace())
         && !line.starts_with(' ')
 }
 
@@ -208,7 +215,9 @@ fn is_section_header(line: &str) -> bool {
 fn is_safe_command(cmd: &str) -> bool {
     !cmd.is_empty()
         && cmd.len() < 100
-        && cmd.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && cmd
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
         && !cmd.contains("..")
 }
 

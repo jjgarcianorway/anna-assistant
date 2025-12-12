@@ -8,8 +8,7 @@ pub fn match_query(query: &str) -> Option<&'static CronRecipe> {
     let q = query.to_lowercase();
 
     // Must mention cron, crontab, or schedule to match
-    let cron_related =
-        q.contains("cron") || q.contains("crontab") || q.contains("scheduled task");
+    let cron_related = q.contains("cron") || q.contains("crontab") || q.contains("scheduled task");
 
     if !cron_related {
         return None;

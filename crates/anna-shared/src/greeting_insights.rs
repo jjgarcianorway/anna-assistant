@@ -28,10 +28,7 @@ pub struct GreetingInsight {
 }
 
 /// Generate greeting insights from system snapshot
-pub fn generate_insights(
-    snapshot: &SystemSnapshot,
-    deltas: &[DeltaItem],
-) -> Vec<GreetingInsight> {
+pub fn generate_insights(snapshot: &SystemSnapshot, deltas: &[DeltaItem]) -> Vec<GreetingInsight> {
     let mut insights = Vec::new();
 
     // Check for critical issues first
@@ -117,10 +114,9 @@ fn add_learning_insights(insights: &mut Vec<GreetingInsight>) {
             format!("building knowledge from {} queries", stats.total_queries),
             15,
         ),
-        LearningHealth::Insufficient | LearningHealth::NeedsAttention => (
-            "still getting to know your system".to_string(),
-            10,
-        ),
+        LearningHealth::Insufficient | LearningHealth::NeedsAttention => {
+            ("still getting to know your system".to_string(), 10)
+        }
     };
 
     // Use Sofia (Desktop Jr) for learning insights - she's the learner
@@ -141,10 +137,7 @@ fn add_disk_insights(snapshot: &SystemSnapshot, insights: &mut Vec<GreetingInsig
             insights.push(GreetingInsight {
                 staff_name: person.display_name,
                 team: Team::Storage,
-                message: format!(
-                    "{} is at {}% - pool status is concerning",
-                    mount, percent
-                ),
+                message: format!("{} is at {}% - pool status is concerning", mount, percent),
                 priority: 95,
                 positive: false,
             });
@@ -179,16 +172,18 @@ fn add_memory_insights(snapshot: &SystemSnapshot, insights: &mut Vec<GreetingIns
         return;
     }
 
-    let used_percent = (snapshot.memory_used_bytes as f64
-        / snapshot.memory_total_bytes as f64
-        * 100.0) as u8;
+    let used_percent =
+        (snapshot.memory_used_bytes as f64 / snapshot.memory_total_bytes as f64 * 100.0) as u8;
 
     if used_percent >= 90 {
         let person = person_for(Team::Performance, Tier::Senior);
         insights.push(GreetingInsight {
             staff_name: person.display_name,
             team: Team::Performance,
-            message: format!("memory at {}% - that's 90% efficiency... wait", used_percent),
+            message: format!(
+                "memory at {}% - that's 90% efficiency... wait",
+                used_percent
+            ),
             priority: 90,
             positive: false,
         });
@@ -323,8 +318,8 @@ pub fn quick_status_line(snapshot: &SystemSnapshot) -> String {
         .unwrap_or("disks ok");
 
     let mem_status = if snapshot.memory_total_bytes > 0 {
-        let pct = (snapshot.memory_used_bytes as f64 / snapshot.memory_total_bytes as f64 * 100.0)
-            as u8;
+        let pct =
+            (snapshot.memory_used_bytes as f64 / snapshot.memory_total_bytes as f64 * 100.0) as u8;
         if pct >= 90 {
             "memory high"
         } else if pct >= 80 {
@@ -429,7 +424,10 @@ mod tests {
         // If we have no learning data, no insight is added
         // If we have data, priority should be low
         for insight in &insights {
-            assert!(insight.priority < 30, "Learning insight should have low priority");
+            assert!(
+                insight.priority < 30,
+                "Learning insight should have low priority"
+            );
             assert!(insight.positive, "Learning insight should be positive");
         }
     }

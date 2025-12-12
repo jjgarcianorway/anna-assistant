@@ -86,20 +86,10 @@ pub fn build_similarity_prompt(request: &SimilarityRequest) -> String {
     prompt.push_str("CANDIDATE RECIPES:\n");
 
     for (i, candidate) in request.candidates.iter().enumerate() {
-        prompt.push_str(&format!(
-            "\n{}. Recipe: {}\n",
-            i + 1,
-            candidate.recipe_id
-        ));
-        prompt.push_str(&format!(
-            "   Pattern: \"{}\"\n",
-            candidate.query_pattern
-        ));
+        prompt.push_str(&format!("\n{}. Recipe: {}\n", i + 1, candidate.recipe_id));
+        prompt.push_str(&format!("   Pattern: \"{}\"\n", candidate.query_pattern));
         prompt.push_str(&format!("   Domain: {}\n", candidate.domain));
-        prompt.push_str(&format!(
-            "   Tags: {}\n",
-            candidate.intent_tags.join(", ")
-        ));
+        prompt.push_str(&format!("   Tags: {}\n", candidate.intent_tags.join(", ")));
     }
 
     prompt.push_str("\nFor each recipe, respond with:\n");

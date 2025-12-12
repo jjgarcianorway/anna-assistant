@@ -133,11 +133,7 @@ Respond with ONLY a JSON object:
 If can_answer=false, answer.short should explain why and suggest manual steps."#;
 
 /// Build a prompt for when no knowledge was found
-pub fn build_no_knowledge_prompt(
-    question: &str,
-    domain: &str,
-    probes: &[ProbeResult],
-) -> String {
+pub fn build_no_knowledge_prompt(question: &str, domain: &str, probes: &[ProbeResult]) -> String {
     let mut prompt = String::new();
 
     prompt.push_str("You are a system specialist. No relevant documentation was found.\n\n");
@@ -156,7 +152,8 @@ pub fn build_no_knowledge_prompt(
         }
     }
 
-    prompt.push_str(r#"
+    prompt.push_str(
+        r#"
 NO DOCUMENTATION FOUND.
 
 You MUST:
@@ -185,7 +182,8 @@ Response format:
       {"id": "check_wiki", "description": "See: https://wiki.archlinux.org/title/..."}
     ]
   }
-}"#);
+}"#,
+    );
 
     prompt
 }
@@ -232,7 +230,10 @@ pub fn suggest_manual_commands(domain: &str, keywords: &[String]) -> Vec<String>
     // Add Arch Wiki suggestion if we have keywords
     if let Some(kw) = keywords.first() {
         let slug = kw.replace(' ', "_");
-        suggestions.push(format!("Arch Wiki: https://wiki.archlinux.org/title/{}", slug));
+        suggestions.push(format!(
+            "Arch Wiki: https://wiki.archlinux.org/title/{}",
+            slug
+        ));
     }
 
     suggestions

@@ -6,7 +6,10 @@ use super::DeterministicResult;
 
 /// Answer hardware audio query using typed AudioDevices evidence (v0.0.66)
 /// v0.0.66: Clean output format, no markdown in debug OFF mode.
-pub fn answer_hardware_audio(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_hardware_audio(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     use anna_shared::parsers::{find_audio_evidence, parse_probe_result, ParsedProbeData};
 
     // Parse all probes to typed evidence

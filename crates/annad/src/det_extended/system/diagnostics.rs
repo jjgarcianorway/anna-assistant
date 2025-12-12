@@ -46,10 +46,7 @@ pub fn answer_coredump_list(
 
     let dump_count = output.lines().count().saturating_sub(1);
     Some(DeterministicResult {
-        answer: format!(
-            "Coredumps ({} found):\n```\n{}\n```",
-            dump_count, output
-        ),
+        answer: format!("Coredumps ({} found):\n```\n{}\n```", dump_count, output),
         grounded: true,
         parsed_data_count: dump_count,
         route_class: route_class.to_string(),

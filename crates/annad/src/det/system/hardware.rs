@@ -64,13 +64,25 @@ pub fn answer_battery_status(
         for line in output.lines() {
             let line = line.trim();
             if line.starts_with("percentage:") {
-                percentage = line.strip_prefix("percentage:").unwrap_or("").trim().to_string();
+                percentage = line
+                    .strip_prefix("percentage:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("state:") {
                 state = line.strip_prefix("state:").unwrap_or("").trim().to_string();
             } else if line.starts_with("time to empty:") {
-                time_to_empty = line.strip_prefix("time to empty:").unwrap_or("").trim().to_string();
+                time_to_empty = line
+                    .strip_prefix("time to empty:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("time to full:") {
-                time_to_full = line.strip_prefix("time to full:").unwrap_or("").trim().to_string();
+                time_to_full = line
+                    .strip_prefix("time to full:")
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             }
         }
 
@@ -94,7 +106,13 @@ pub fn answer_battery_status(
     }
 
     if let Ok(pct) = output.parse::<u32>() {
-        let status = if pct > 80 { "Good" } else if pct > 20 { "OK" } else { "Low" };
+        let status = if pct > 80 {
+            "Good"
+        } else if pct > 20 {
+            "OK"
+        } else {
+            "Low"
+        };
         return Some(DeterministicResult {
             answer: format!("Battery: {}% ({})", pct, status),
             grounded: true,
@@ -179,7 +197,11 @@ pub fn answer_usb_devices(
         .collect();
 
     let answer = if device_count <= 10 {
-        format!("USB devices ({}):\n  {}", device_count, devices.join("\n  "))
+        format!(
+            "USB devices ({}):\n  {}",
+            device_count,
+            devices.join("\n  ")
+        )
     } else {
         let preview: Vec<&str> = devices.iter().take(8).map(|s| s.as_str()).collect();
         format!(

@@ -82,14 +82,30 @@ pub async fn auto_select_models(
     // Step 5: Select best models
     let config = ModelSelectorConfig::default();
 
-    let translator = select_model(ModelRole::Translator, &final_available, &config, &benchmarks)
-        .ok_or("No suitable translator model found")?;
+    let translator = select_model(
+        ModelRole::Translator,
+        &final_available,
+        &config,
+        &benchmarks,
+    )
+    .ok_or("No suitable translator model found")?;
 
-    let specialist = select_model(ModelRole::Specialist, &final_available, &config, &benchmarks)
-        .ok_or("No suitable specialist model found")?;
+    let specialist = select_model(
+        ModelRole::Specialist,
+        &final_available,
+        &config,
+        &benchmarks,
+    )
+    .ok_or("No suitable specialist model found")?;
 
-    info!("Selected translator: {} ({})", translator.model, translator.reason);
-    info!("Selected specialist: {} ({})", specialist.model, specialist.reason);
+    info!(
+        "Selected translator: {} ({})",
+        translator.model, translator.reason
+    );
+    info!(
+        "Selected specialist: {} ({})",
+        specialist.model, specialist.reason
+    );
 
     Ok(AutoSelectResult {
         translator,
@@ -214,23 +230,21 @@ pub async fn quick_select_models(available_ram_gb: f32) -> Result<(String, Strin
     let suitable: Vec<String> = available
         .iter()
         .filter(|a| {
-            catalog
-                .iter()
-                .any(|c| c.size_gb <= available_ram_gb && model_available(&c.name, &[a.to_string()]))
+            catalog.iter().any(|c| {
+                c.size_gb <= available_ram_gb && model_available(&c.name, &[a.to_string()])
+            })
         })
         .cloned()
         .collect();
 
     // v0.0.397: Translator fallback must be 3B+ for reliable JSON
-    let translator =
-        select_model(ModelRole::Translator, &suitable, &config, &empty_benchmarks)
-            .map(|s| s.model)
-            .unwrap_or_else(|| "qwen2.5:3b-instruct".to_string());
+    let translator = select_model(ModelRole::Translator, &suitable, &config, &empty_benchmarks)
+        .map(|s| s.model)
+        .unwrap_or_else(|| "qwen2.5:3b-instruct".to_string());
 
-    let specialist =
-        select_model(ModelRole::Specialist, &suitable, &config, &empty_benchmarks)
-            .map(|s| s.model)
-            .unwrap_or_else(|| "qwen2.5:7b-instruct".to_string());
+    let specialist = select_model(ModelRole::Specialist, &suitable, &config, &empty_benchmarks)
+        .map(|s| s.model)
+        .unwrap_or_else(|| "qwen2.5:7b-instruct".to_string());
 
     Ok((translator, specialist))
 }

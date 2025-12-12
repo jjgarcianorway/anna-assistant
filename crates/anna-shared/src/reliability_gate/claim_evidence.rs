@@ -246,7 +246,11 @@ impl EvidenceBinding {
         if self.claims.is_empty() {
             return 0.0;
         }
-        let bound = self.claims.iter().filter(|c| c.has_sufficient_evidence()).count();
+        let bound = self
+            .claims
+            .iter()
+            .filter(|c| c.has_sufficient_evidence())
+            .count();
         bound as f32 / self.claims.len() as f32
     }
 }

@@ -37,6 +37,14 @@ pub struct RpcResponse {
 }
 
 impl RpcResponse {
+    pub fn is_success(&self) -> bool {
+        self.error.is_none()
+    }
+
+    pub fn error_message(&self) -> Option<String> {
+        self.error.as_ref().map(|e| e.message.clone())
+    }
+
     pub fn success(id: String, result: serde_json::Value) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),

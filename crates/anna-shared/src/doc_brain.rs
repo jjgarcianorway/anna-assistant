@@ -9,8 +9,8 @@
 //! Key function: `search_docs()` for retrieval-augmented answering.
 
 use crate::knowledge::{
-    search_builtin_pack, KnowledgeSource, KnowledgeStore, KnowledgeStoreTrait,
-    RetrievalQuery, RetrievalHit, Provenance, KnowledgeDoc,
+    search_builtin_pack, KnowledgeDoc, KnowledgeSource, KnowledgeStore, KnowledgeStoreTrait,
+    Provenance, RetrievalHit, RetrievalQuery,
 };
 
 /// Result from doc brain search
@@ -85,9 +85,7 @@ pub fn search_man_page(command: &str) -> Option<DocSearchResult> {
         .with_sources(vec![KnowledgeSource::ManPage])
         .with_limit(1);
 
-    store.query(&query)
-        .first()
-        .map(|hit| hit.clone().into())
+    store.query(&query).first().map(|hit| hit.clone().into())
 }
 
 /// Search for --help output
@@ -99,9 +97,7 @@ pub fn search_help_output(command: &str) -> Option<DocSearchResult> {
         .with_sources(vec![KnowledgeSource::HelpOutput])
         .with_limit(1);
 
-    store.query(&query)
-        .first()
-        .map(|hit| hit.clone().into())
+    store.query(&query).first().map(|hit| hit.clone().into())
 }
 
 /// Cache a man page in the knowledge store
@@ -133,8 +129,7 @@ pub fn cache_help_output(command: &str, content: &str) -> bool {
 /// Search the knowledge store (internal)
 fn search_knowledge_store(query: &str, limit: usize) -> Option<Vec<RetrievalHit>> {
     let store = KnowledgeStore::load_or_default();
-    let retrieval_query = RetrievalQuery::new(query)
-        .with_limit(limit);
+    let retrieval_query = RetrievalQuery::new(query).with_limit(limit);
 
     let results = store.query(&retrieval_query);
     if results.is_empty() {

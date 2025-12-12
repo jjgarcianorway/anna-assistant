@@ -133,7 +133,15 @@ impl HonestStats {
     }
 
     /// Record a ticket outcome
-    pub fn record(&mut self, ticket_id: &str, domain: &str, intent: &str, outcome: TicketOutcome, response_ms: u64, confidence: f32) {
+    pub fn record(
+        &mut self,
+        ticket_id: &str,
+        domain: &str,
+        intent: &str,
+        outcome: TicketOutcome,
+        response_ms: u64,
+        confidence: f32,
+    ) {
         self.total_tickets += 1;
 
         match outcome {
@@ -198,7 +206,14 @@ impl HonestStats {
     /// Record a timeout
     pub fn record_timeout(&mut self, ticket_id: &str, domain: &str, intent: &str, elapsed_ms: u64) {
         self.timeouts += 1;
-        self.record(ticket_id, domain, intent, TicketOutcome::Failed, elapsed_ms, 0.0);
+        self.record(
+            ticket_id,
+            domain,
+            intent,
+            TicketOutcome::Failed,
+            elapsed_ms,
+            0.0,
+        );
 
         // Update failure record with timeout reason
         if let Some(last) = self.recent_failures.last_mut() {
@@ -281,7 +296,10 @@ mod tests {
         assert_eq!(TicketOutcome::from_response(&good), TicketOutcome::Resolved);
 
         let partial = StrictSpecialistResponse::partial("DSK-001", "query", "Partial");
-        assert_eq!(TicketOutcome::from_response(&partial), TicketOutcome::Partial);
+        assert_eq!(
+            TicketOutcome::from_response(&partial),
+            TicketOutcome::Partial
+        );
 
         let failed = StrictSpecialistResponse::failed("DSK-001", "query", "Error");
         assert_eq!(TicketOutcome::from_response(&failed), TicketOutcome::Failed);
@@ -292,9 +310,30 @@ mod tests {
         let mut stats = HonestStats::default();
 
         // Record some outcomes
-        stats.record("DSK-001", "system", "query_metric", TicketOutcome::Resolved, 100, 0.95);
-        stats.record("DSK-002", "system", "query_metric", TicketOutcome::Resolved, 150, 0.90);
-        stats.record("DSK-003", "system", "query_metric", TicketOutcome::Failed, 200, 0.0);
+        stats.record(
+            "DSK-001",
+            "system",
+            "query_metric",
+            TicketOutcome::Resolved,
+            100,
+            0.95,
+        );
+        stats.record(
+            "DSK-002",
+            "system",
+            "query_metric",
+            TicketOutcome::Resolved,
+            150,
+            0.90,
+        );
+        stats.record(
+            "DSK-003",
+            "system",
+            "query_metric",
+            TicketOutcome::Failed,
+            200,
+            0.0,
+        );
 
         assert_eq!(stats.total_tickets, 3);
         assert_eq!(stats.resolved, 2);
@@ -326,7 +365,14 @@ mod tests {
     #[test]
     fn test_format_summary() {
         let mut stats = HonestStats::default();
-        stats.record("DSK-001", "system", "query", TicketOutcome::Resolved, 100, 0.95);
+        stats.record(
+            "DSK-001",
+            "system",
+            "query",
+            TicketOutcome::Resolved,
+            100,
+            0.95,
+        );
 
         let summary = stats.format_summary();
         assert!(summary.contains("1 total"));

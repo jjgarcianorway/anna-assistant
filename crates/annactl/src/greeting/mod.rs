@@ -87,7 +87,7 @@ fn build_greeting_context(
 
 /// Print the theatre-style REPL greeting
 /// v0.0.275: Now uses LLM-generated greetings via translator
-pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
+pub async fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let username = std::env::var("USER").unwrap_or_else(|_| "user".to_string());
 
     // v0.0.106: Load user profile
@@ -162,7 +162,7 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     print_hr();
 
     // v0.0.275: Try LLM-generated greeting, fall back to deterministic
-    let greeting_text = try_llm_greeting(&ctx);
+    let greeting_text = try_llm_greeting(&ctx).await;
     println!();
     println!("{}", greeting_text);
 
@@ -183,11 +183,19 @@ pub fn print_theatre_greeting(status: Option<&DaemonStatus>) {
     let _ = snapshot::save_snapshot(&current_snapshot);
 }
 
+use crate::client::AnnadClient;
 /// v0.0.300: Deterministic greeting (fast, reliable)
 /// LLM-generated greetings were causing hangs and empty output.
-fn try_llm_greeting(ctx: &GreetingContext) -> String {
+async fn try_llm_greeting(ctx: &GreetingContext) -> String {
     use anna_shared::greeting_context::GreetingResponse;
 
-    // Always use deterministic fallback - it's fast and reliable
+    if let Ok(mut client) = AnnadClient::connect().await {
+        if let Ok(response) = client.generate_greeting(ctx).await {
+            if response.is_llm_generated {
+                return response.greeting;
+            }
+        }
+    }
+    // Fallback to deterministic greeting
     GreetingResponse::fallback(ctx).greeting
 }

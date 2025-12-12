@@ -105,7 +105,12 @@ pub enum MonitorStatus {
 
 impl Monitor {
     /// Create a new monitor
-    pub fn new(id: &str, description: &str, check: MonitorCheck, threshold: ThresholdCondition) -> Self {
+    pub fn new(
+        id: &str,
+        description: &str,
+        check: MonitorCheck,
+        threshold: ThresholdCondition,
+    ) -> Self {
         Self {
             id: id.to_string(),
             description: description.to_string(),
@@ -359,7 +364,9 @@ fn check_disk_space(path: &str) -> Result<f64, String> {
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines().skip(1) {
         if let Some(pct) = line.trim().strip_suffix('%') {
-            return pct.parse().map_err(|e: std::num::ParseFloatError| e.to_string());
+            return pct
+                .parse()
+                .map_err(|e: std::num::ParseFloatError| e.to_string());
         }
     }
     Err("Could not parse df output".to_string())

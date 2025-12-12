@@ -11,7 +11,7 @@
 
 use anna_shared::config_parser::{parse_config_request, ConfigChange};
 use anna_shared::email::EmailConfig;
-use anna_shared::ui::{colors, kv_colored, print_hint, print_label, print_section_header, kv};
+use anna_shared::ui::{colors, kv, kv_colored, print_hint, print_label, print_section_header};
 use anna_shared::user_profile::UserProfile;
 
 /// Result of attempting to handle a config request
@@ -50,7 +50,11 @@ fn apply_config_change(change: &ConfigChange) {
 
     // Save profile
     if let Err(e) = profile.save() {
-        print_label("warn", &format!("Could not save preferences: {}", e), colors::WARN);
+        print_label(
+            "warn",
+            &format!("Could not save preferences: {}", e),
+            colors::WARN,
+        );
         return;
     }
 
@@ -81,7 +85,11 @@ fn apply_email_change(change: &ConfigChange) {
     }
 
     if let Err(e) = config.save() {
-        print_label("warn", &format!("Could not save email config: {}", e), colors::WARN);
+        print_label(
+            "warn",
+            &format!("Could not save email config: {}", e),
+            colors::WARN,
+        );
         return;
     }
 
@@ -100,9 +108,7 @@ fn show_config_tip(change: &ConfigChange) {
         ConfigChange::LearningMode(true) => {
             Some("I'll explain why commands work and what they do.")
         }
-        ConfigChange::LearningMode(false) => {
-            Some("To re-enable: \"Anna, enable learning mode\"")
-        }
+        ConfigChange::LearningMode(false) => Some("To re-enable: \"Anna, enable learning mode\""),
         ConfigChange::ShowInternalComms(true) => {
             Some("You'll see the IT department chatter during requests.")
         }
@@ -144,11 +150,14 @@ pub fn show_config_status() {
     } else {
         kv_colored("learning_mode", "disabled", colors::DIM);
     }
-    kv("verbosity", match prefs.verbosity {
-        0 => "minimal",
-        1 => "normal",
-        _ => "detailed",
-    });
+    kv(
+        "verbosity",
+        match prefs.verbosity {
+            0 => "minimal",
+            1 => "normal",
+            _ => "detailed",
+        },
+    );
 
     // Automation
     if prefs.auto_confirm_low_risk {
@@ -172,21 +181,30 @@ pub fn show_config_status() {
     // Personality
     println!();
     print_section_header("personality");
-    kv("formality", match pers.formality {
-        0 => "casual",
-        1 => "balanced",
-        _ => "formal",
-    });
-    kv("humor", match pers.humor {
-        0 => "none",
-        1 => "subtle",
-        _ => "playful",
-    });
-    kv("technical_depth", match pers.technical_depth {
-        0 => "simple",
-        1 => "balanced",
-        _ => "expert",
-    });
+    kv(
+        "formality",
+        match pers.formality {
+            0 => "casual",
+            1 => "balanced",
+            _ => "formal",
+        },
+    );
+    kv(
+        "humor",
+        match pers.humor {
+            0 => "none",
+            1 => "subtle",
+            _ => "playful",
+        },
+    );
+    kv(
+        "technical_depth",
+        match pers.technical_depth {
+            0 => "simple",
+            1 => "balanced",
+            _ => "expert",
+        },
+    );
 
     println!();
     print_hint("Change settings with natural language, e.g.:");

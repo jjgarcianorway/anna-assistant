@@ -13,10 +13,10 @@
 
 use anna_shared::health_tips::generate_telemetry_tips;
 use anna_shared::idle_tips::{get_contextual_tips, TipColors, TipQueue};
-use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::progress::{ProgressEvent, ProgressEventType};
 use anna_shared::roster;
 use anna_shared::rpc::ServiceDeskResult;
+use anna_shared::system_telemetry::TelemetryStore;
 use anna_shared::ui::colors;
 use anna_shared::user_profile::UserProfile;
 use anyhow::Result;
@@ -265,7 +265,11 @@ fn display_progress_event(event: &ProgressEvent, state: &mut StreamingState) {
             }
         }
         // v0.0.320: Show probe completion with exit code
-        ProgressEventType::ProbeComplete { probe_id, exit_code, timing_ms } => {
+        ProgressEventType::ProbeComplete {
+            probe_id,
+            exit_code,
+            timing_ms,
+        } => {
             if show_internal {
                 // Show probe result if it failed or took long
                 if *exit_code != 0 || *timing_ms > 1000 {
@@ -405,13 +409,7 @@ fn maybe_show_checkpoint(state: &mut StreamingState) {
             _ => "Still processing... please wait.",
         };
 
-        println!(
-            "{}[{}s]{} {}",
-            colors::DIM,
-            elapsed,
-            colors::RESET,
-            message
-        );
+        println!("{}[{}s]{} {}", colors::DIM, elapsed, colors::RESET, message);
         state.last_checkpoint_secs = expected_checkpoint;
     }
 }

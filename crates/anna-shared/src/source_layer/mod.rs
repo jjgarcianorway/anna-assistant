@@ -24,12 +24,10 @@ pub use providers::{
     ManProvider, SourceContent, SourceRequest, SourceType,
 };
 pub use research::{
-    CitationBuilder, CitedAnswer, Citation, ResearchConstraints, ResearchPlan, ResearchResult,
+    Citation, CitationBuilder, CitedAnswer, ResearchConstraints, ResearchPlan, ResearchResult,
 };
 pub use stats_ui::{
     CleanStats, ConfirmDialog, DialogChoice, DialogQuestion, DialogResult, OutputMode,
     ProgressIndicator,
 };
-pub use trace::{
-    DebugSummary, RequestTrace, TraceEvent, TraceFileManager, TraceStage,
-};
+pub use trace::{DebugSummary, RequestTrace, TraceEvent, TraceFileManager, TraceStage};

@@ -227,8 +227,8 @@ impl WikiCache {
             updated_at: self.index_updated,
         };
 
-        let content =
-            serde_json::to_string_pretty(&index).map_err(|e| CacheError::SerializeError(e.to_string()))?;
+        let content = serde_json::to_string_pretty(&index)
+            .map_err(|e| CacheError::SerializeError(e.to_string()))?;
 
         fs::write(self.cache_dir.join("index.json"), content)
             .map_err(|e| CacheError::IoError(e.to_string()))?;
@@ -250,8 +250,8 @@ impl WikiCache {
         let filename = sanitize_filename(&page.title);
         let path = self.cache_dir.join(format!("{}.json", filename));
 
-        let content =
-            serde_json::to_string_pretty(page).map_err(|e| CacheError::SerializeError(e.to_string()))?;
+        let content = serde_json::to_string_pretty(page)
+            .map_err(|e| CacheError::SerializeError(e.to_string()))?;
 
         fs::write(&path, content).map_err(|e| CacheError::IoError(e.to_string()))?;
 

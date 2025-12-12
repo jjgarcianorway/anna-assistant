@@ -196,7 +196,13 @@ impl SrcAction {
     }
 
     /// Create a change action.
-    pub fn change(title: &str, command: &str, why: &str, expected: &str, rollback: Option<&str>) -> Self {
+    pub fn change(
+        title: &str,
+        command: &str,
+        why: &str,
+        expected: &str,
+        rollback: Option<&str>,
+    ) -> Self {
         Self {
             action_type: SrcActionType::Change,
             title: title.to_string(),
@@ -222,7 +228,10 @@ impl SrcAction {
         }
 
         // Probe and Change need commands
-        if matches!(self.action_type, SrcActionType::Probe | SrcActionType::Change) {
+        if matches!(
+            self.action_type,
+            SrcActionType::Probe | SrcActionType::Change
+        ) {
             if self.command.is_none() {
                 errors.push(format!("{:?} action needs a command", self.action_type));
             }
@@ -285,7 +294,10 @@ impl SrcCitation {
             errors.push("citation ref cannot be empty".to_string());
         }
         if self.snippet.len() > MAX_SNIPPET_CHARS {
-            errors.push(format!("citation snippet exceeds {} chars", MAX_SNIPPET_CHARS));
+            errors.push(format!(
+                "citation snippet exceeds {} chars",
+                MAX_SNIPPET_CHARS
+            ));
         }
 
         if errors.is_empty() {
@@ -366,7 +378,11 @@ impl SpecialistResponseV1 {
 
         // Validate actions count
         if self.actions.len() > MAX_ACTIONS {
-            errors.push(format!("too many actions: {} > {}", self.actions.len(), MAX_ACTIONS));
+            errors.push(format!(
+                "too many actions: {} > {}",
+                self.actions.len(),
+                MAX_ACTIONS
+            ));
         }
 
         // Validate each action
@@ -380,7 +396,11 @@ impl SpecialistResponseV1 {
 
         // Validate citations count
         if self.citations.len() > MAX_CITATIONS {
-            errors.push(format!("too many citations: {} > {}", self.citations.len(), MAX_CITATIONS));
+            errors.push(format!(
+                "too many citations: {} > {}",
+                self.citations.len(),
+                MAX_CITATIONS
+            ));
         }
 
         // Validate each citation
@@ -425,8 +445,14 @@ mod tests {
 
     #[test]
     fn test_src_department_parse() {
-        assert_eq!(SrcDepartment::from_str_loose("Performance"), Some(SrcDepartment::Performance));
-        assert_eq!(SrcDepartment::from_str_loose("hardware"), Some(SrcDepartment::Hardware));
+        assert_eq!(
+            SrcDepartment::from_str_loose("Performance"),
+            Some(SrcDepartment::Performance)
+        );
+        assert_eq!(
+            SrcDepartment::from_str_loose("hardware"),
+            Some(SrcDepartment::Hardware)
+        );
         assert_eq!(SrcDepartment::from_str_loose("bogus"), None);
     }
 

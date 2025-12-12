@@ -7,14 +7,14 @@
 //! - User-friendly error messages (no "Failed to parse" exposed)
 //! - Everything grounded in probes and knowledge citations
 
-pub mod schema;
 pub mod parser;
 pub mod prompt;
+pub mod schema;
 pub mod synthesize;
 
-pub use schema::*;
 pub use parser::*;
 pub use prompt::*;
+pub use schema::*;
 pub use synthesize::*;
 
 /// Maximum retry attempts for parsing

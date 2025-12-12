@@ -28,7 +28,10 @@ pub fn get_store() -> &'static std::sync::RwLock<RecipeStoreV2> {
         if store.is_empty() {
             recipe_templates::initialize_store(&mut store);
             let _ = store.save();
-            info!("Initialized recipe store with {} generic templates", store.len());
+            info!(
+                "Initialized recipe store with {} generic templates",
+                store.len()
+            );
         }
         // v0.0.412: Run GC on startup
         store.gc();
@@ -130,7 +133,8 @@ fn extract_missing_params(query: &str, recipe: &LearnedRecipe) -> Vec<String> {
 
 /// Check if recipe has defaults for all required params
 fn has_default_params(recipe: &LearnedRecipe) -> bool {
-    recipe.parameters
+    recipe
+        .parameters
         .iter()
         .filter(|p| p.required)
         .all(|p| p.default.is_some())
@@ -144,7 +148,15 @@ pub fn extract_param_value(query: &str, param_name: &str, hint: &str) -> Option<
     match param_name {
         "service_name" | "service" => {
             // Look for word before "service" or known service names
-            let services = ["nginx", "sshd", "httpd", "docker", "mysql", "postgresql", "redis"];
+            let services = [
+                "nginx",
+                "sshd",
+                "httpd",
+                "docker",
+                "mysql",
+                "postgresql",
+                "redis",
+            ];
             for word in &words {
                 let w = word.trim_matches(|c: char| !c.is_alphanumeric());
                 if services.contains(&w) {
@@ -160,7 +172,10 @@ pub fn extract_param_value(query: &str, param_name: &str, hint: &str) -> Option<
         }
         "package_name" | "package" => {
             // Word after "install", "remove", "is X installed"
-            if let Some(pos) = words.iter().position(|&w| w == "installed" || w == "install") {
+            if let Some(pos) = words
+                .iter()
+                .position(|&w| w == "installed" || w == "install")
+            {
                 if words.len() > pos + 1 {
                     return Some(words[pos + 1].to_string());
                 }
@@ -204,7 +219,9 @@ pub fn execute_learned_recipe(
 
     // Extract parameters from query
     for param in &recipe.parameters {
-        if let Some(value) = extract_param_value(&query.to_lowercase(), &param.name, &param.extraction_hint) {
+        if let Some(value) =
+            extract_param_value(&query.to_lowercase(), &param.name, &param.extraction_hint)
+        {
             ctx.params.insert(param.name.clone(), value);
         } else if let Some(default) = &param.default {
             ctx.params.insert(param.name.clone(), default.clone());
@@ -320,7 +337,8 @@ pub fn list_recipes() -> Vec<RecipeSummary> {
         Err(_) => return vec![],
     };
 
-    store.recipes
+    store
+        .recipes
         .values()
         .map(|r| RecipeSummary {
             id: r.id.clone(),

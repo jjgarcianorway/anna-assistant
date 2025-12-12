@@ -22,10 +22,19 @@ pub fn answer_timezone_info(
     for line in probe.stdout.lines() {
         let line = line.trim();
         if line.starts_with("Time zone:") {
-            timezone = line.strip_prefix("Time zone:").unwrap_or("").trim().to_string();
+            timezone = line
+                .strip_prefix("Time zone:")
+                .unwrap_or("")
+                .trim()
+                .to_string();
         } else if line.starts_with("Local time:") {
-            local_time = line.strip_prefix("Local time:").unwrap_or("").trim().to_string();
-        } else if line.starts_with("NTP service:") || line.starts_with("System clock synchronized:") {
+            local_time = line
+                .strip_prefix("Local time:")
+                .unwrap_or("")
+                .trim()
+                .to_string();
+        } else if line.starts_with("NTP service:") || line.starts_with("System clock synchronized:")
+        {
             ntp_status = line.to_string();
         }
     }

@@ -20,7 +20,10 @@ const COLLECTION_INTERVAL_SECS: u64 = 300; // 5 minutes
 pub fn start_collector(store: Arc<RwLock<TelemetryStore>>) {
     tokio::spawn(async move {
         let mut ticker = interval(Duration::from_secs(COLLECTION_INTERVAL_SECS));
-        info!("Telemetry collector started (interval: {}s)", COLLECTION_INTERVAL_SECS);
+        info!(
+            "Telemetry collector started (interval: {}s)",
+            COLLECTION_INTERVAL_SECS
+        );
 
         loop {
             ticker.tick().await;
@@ -98,8 +101,14 @@ async fn collect_cpu_usage() -> anyhow::Result<f32> {
         Some((busy, total))
     };
 
-    let cpu1 = stat1.lines().find(|l| l.starts_with("cpu ")).and_then(parse_cpu_line);
-    let cpu2 = stat2.lines().find(|l| l.starts_with("cpu ")).and_then(parse_cpu_line);
+    let cpu1 = stat1
+        .lines()
+        .find(|l| l.starts_with("cpu "))
+        .and_then(parse_cpu_line);
+    let cpu2 = stat2
+        .lines()
+        .find(|l| l.starts_with("cpu "))
+        .and_then(parse_cpu_line);
 
     match (cpu1, cpu2) {
         (Some((busy1, total1)), Some((busy2, total2))) => {
@@ -148,9 +157,7 @@ fn parse_meminfo_value(line: &str) -> Option<u64> {
 
 /// Collect disk usage for root filesystem
 async fn collect_disk() -> anyhow::Result<(u64, u64)> {
-    let output = Command::new("df")
-        .args(["-B1", "/"])
-        .output()?;
+    let output = Command::new("df").args(["-B1", "/"]).output()?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     for line in stdout.lines().skip(1) {

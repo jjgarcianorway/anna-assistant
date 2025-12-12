@@ -8,23 +8,23 @@
 //!
 //! This is about correctness, not intelligence.
 
-pub mod intent;
 pub mod answer_plan;
+pub mod canary_tests;
+pub mod diagnosis;
 pub mod evidence_bind;
 pub mod filters;
-pub mod diagnosis;
+pub mod intent;
 pub mod stats;
-pub mod canary_tests;
 
-pub use intent::{
-    QuestionIntent, IntentCategory, Subject, Scope, Timeframe, Precision,
-    AnswerConstraints, ClarificationRequest, IntentBuilder,
-};
-pub use answer_plan::{AnswerPlan, AnswerField, AnswerShape, ShapeEnforcer};
-pub use evidence_bind::{EvidenceBinding, BoundClaim, BindingResult};
+pub use answer_plan::{AnswerField, AnswerPlan, AnswerShape, ShapeEnforcer};
+pub use diagnosis::{ConclusionState, DiagnosisConclusion};
+pub use evidence_bind::{BindingResult, BoundClaim, EvidenceBinding};
 pub use filters::{AnswerFilter, FilterResult, LeakageType};
-pub use diagnosis::{DiagnosisConclusion, ConclusionState};
-pub use stats::{IntentQualityStats, IntentOutcome};
+pub use intent::{
+    AnswerConstraints, ClarificationRequest, IntentBuilder, IntentCategory, Precision,
+    QuestionIntent, Scope, Subject, Timeframe,
+};
+pub use stats::{IntentOutcome, IntentQualityStats};
 
 /// Version of the question contract.
 pub const CONTRACT_VERSION: &str = "1";

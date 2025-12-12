@@ -8,18 +8,18 @@
 //!
 //! Priority: Probes first, docs second. Docs interpret, not invent.
 
-pub mod types;
+pub mod help_extractor;
 pub mod index;
 pub mod man_parser;
-pub mod help_extractor;
-pub mod wiki_reader;
 pub mod query;
 pub mod recipe_integration;
 pub mod translator_policy;
+pub mod types;
+pub mod wiki_reader;
 
-pub use types::*;
 pub use index::*;
 pub use query::*;
+pub use types::*;
 
 /// Maximum snippet size for storage (bytes)
 pub const MAX_SNIPPET_SIZE: usize = 2000;

@@ -87,11 +87,11 @@ impl RecipeStats {
     /// Get confidence multiplier based on maturity
     pub fn maturity_multiplier(&self) -> f32 {
         match self.success_count {
-            0 => 0.7,     // Untested
-            1..=2 => 0.8, // New
-            3..=5 => 0.9, // Young
+            0 => 0.7,       // Untested
+            1..=2 => 0.8,   // New
+            3..=5 => 0.9,   // Young
             6..=10 => 0.95, // Maturing
-            _ => 1.0,     // Mature
+            _ => 1.0,       // Mature
         }
     }
 

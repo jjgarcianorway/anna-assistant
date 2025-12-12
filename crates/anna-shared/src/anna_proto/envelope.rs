@@ -292,7 +292,10 @@ pub enum ActionPayload {
     /// Ask user payload.
     AskUser { question: String },
     /// Propose change payload.
-    ProposeChange { description: String, command: String },
+    ProposeChange {
+        description: String,
+        command: String,
+    },
     /// Install helper payload.
     InstallHelper { helper_name: String },
     /// Generic/unknown payload.
@@ -409,18 +412,16 @@ mod tests {
 
     #[test]
     fn test_model_role_timeout() {
-        assert!(ModelRole::Translator.default_timeout_ms() < ModelRole::Junior.default_timeout_ms());
+        assert!(
+            ModelRole::Translator.default_timeout_ms() < ModelRole::Junior.default_timeout_ms()
+        );
         assert!(ModelRole::Junior.default_timeout_ms() < ModelRole::Senior.default_timeout_ms());
     }
 
     #[test]
     fn test_envelope_success() {
-        let envelope = ModelResultEnvelope::success(
-            ModelRole::Junior,
-            "DSK-001",
-            "Boot time is 15s",
-            0.85,
-        );
+        let envelope =
+            ModelResultEnvelope::success(ModelRole::Junior, "DSK-001", "Boot time is 15s", 0.85);
 
         assert!(envelope.ok);
         assert_eq!(envelope.role, ModelRole::Junior);
@@ -475,7 +476,10 @@ mod tests {
     #[test]
     fn test_envelope_serialization() {
         let envelope = ModelResultEnvelope::success(ModelRole::Junior, "DSK-001", "Test", 0.9)
-            .with_claim(Claim::with_support("Boot is slow", vec!["ev_boot".to_string()]))
+            .with_claim(Claim::with_support(
+                "Boot is slow",
+                vec!["ev_boot".to_string()],
+            ))
             .with_evidence(EvidenceRef::probe("ev_boot", "Boot analysis"));
 
         let json = serde_json::to_string(&envelope).unwrap();

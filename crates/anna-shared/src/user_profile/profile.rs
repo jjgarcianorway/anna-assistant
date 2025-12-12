@@ -138,7 +138,8 @@ impl UserProfile {
 
     /// v0.0.236: Get topic trend insight (if any significant trend detected)
     pub fn topic_trend(&self) -> Option<TopicTrendInsight> {
-        self.pattern_history.topic_trend_insight(&self.topic_interests)
+        self.pattern_history
+            .topic_trend_insight(&self.topic_interests)
     }
 
     /// v0.0.236: Cleanup old pattern data
@@ -153,17 +154,53 @@ impl UserProfile {
         // Common tools to track
         let tools = [
             // Editors
-            "vim", "nvim", "neovim", "nano", "emacs", "helix", "micro", "code", "vscode",
+            "vim",
+            "nvim",
+            "neovim",
+            "nano",
+            "emacs",
+            "helix",
+            "micro",
+            "code",
+            "vscode",
             // Shells
-            "bash", "zsh", "fish", // Version control
-            "git", "github", "gitlab", // Package managers
-            "pacman", "apt", "dnf", "yum", "brew", "npm", "cargo", "pip",
+            "bash",
+            "zsh",
+            "fish", // Version control
+            "git",
+            "github",
+            "gitlab", // Package managers
+            "pacman",
+            "apt",
+            "dnf",
+            "yum",
+            "brew",
+            "npm",
+            "cargo",
+            "pip",
             // System tools
-            "systemctl", "journalctl", "htop", "top", "docker", "podman",
+            "systemctl",
+            "journalctl",
+            "htop",
+            "top",
+            "docker",
+            "podman",
             // Network tools
-            "ssh", "curl", "wget", "ping", "traceroute", "netstat", "ss",
+            "ssh",
+            "curl",
+            "wget",
+            "ping",
+            "traceroute",
+            "netstat",
+            "ss",
             // File tools
-            "rsync", "tar", "zip", "grep", "find", "awk", "sed",
+            "rsync",
+            "tar",
+            "zip",
+            "grep",
+            "find",
+            "awk",
+            "sed",
         ];
 
         for tool in tools {

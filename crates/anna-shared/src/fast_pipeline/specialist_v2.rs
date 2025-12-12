@@ -209,7 +209,10 @@ impl SpecialistOutputV2 {
         let mut issues = Vec::new();
 
         // Check answer validation
-        if let ValidationResult::Invalid { issues: answer_issues } = self.answer.validate() {
+        if let ValidationResult::Invalid {
+            issues: answer_issues,
+        } = self.answer.validate()
+        {
             issues.extend(answer_issues);
         }
 
@@ -293,27 +296,23 @@ impl SpecialistParser {
                 // Validate
                 match output.validate() {
                     ValidationResult::Valid => ParseResult::Success(output),
-                    ValidationResult::Invalid { issues } => {
-                        ParseResult::Invalid { output, issues }
-                    }
+                    ValidationResult::Invalid { issues } => ParseResult::Invalid { output, issues },
                 }
             }
             Err(e) => {
                 // Try to extract JSON from mixed content
                 if let Some(json_str) = Self::extract_json(trimmed) {
                     match serde_json::from_str::<SpecialistOutputV2>(&json_str) {
-                        Ok(output) => {
-                            match output.validate() {
-                                ValidationResult::Valid => ParseResult::Success(output),
-                                ValidationResult::Invalid { issues } => {
-                                    ParseResult::Invalid { output, issues }
-                                }
+                        Ok(output) => match output.validate() {
+                            ValidationResult::Valid => ParseResult::Success(output),
+                            ValidationResult::Invalid { issues } => {
+                                ParseResult::Invalid { output, issues }
                             }
-                        }
+                        },
                         Err(_) => ParseResult::ParseError {
                             message: e.to_string(),
                             raw_output: truncate_string(trimmed, 500),
-                        }
+                        },
                     }
                 } else {
                     ParseResult::ParseError {
@@ -379,10 +378,7 @@ pub enum ParseResult {
         issues: Vec<String>,
     },
     /// Parse error.
-    ParseError {
-        message: String,
-        raw_output: String,
-    },
+    ParseError { message: String, raw_output: String },
     /// Empty output.
     Empty,
 }

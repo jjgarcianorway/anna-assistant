@@ -143,9 +143,7 @@ fn analyze_recipe_gaps(store: &RecipeStore) -> Vec<LearningSuggestion> {
         std::collections::HashMap::new();
 
     for recipe in store.recipes.values() {
-        *category_counts
-            .entry(recipe.category.clone())
-            .or_default() += 1;
+        *category_counts.entry(recipe.category.clone()).or_default() += 1;
     }
 
     // Find categories with few recipes
@@ -227,10 +225,7 @@ fn analyze_health_learning(store: &TelemetryStore) -> Vec<LearningSuggestion> {
     // Check for anomalies
     let anomalies = store.recent_anomalies();
     if !anomalies.is_empty() {
-        let categories: Vec<_> = anomalies
-            .iter()
-            .map(|a| a.category.to_string())
-            .collect();
+        let categories: Vec<_> = anomalies.iter().map(|a| a.category.to_string()).collect();
         let unique: std::collections::HashSet<_> = categories.into_iter().collect();
 
         suggestions.push(LearningSuggestion {

@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::helpers::{reliability_color, truncate, format_outcome};
+    use super::super::helpers::{format_outcome, reliability_color, truncate};
     use anna_shared::transcript::StageOutcome;
     use anna_shared::ui::colors;
 

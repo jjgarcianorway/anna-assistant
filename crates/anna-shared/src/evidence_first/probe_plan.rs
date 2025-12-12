@@ -3,8 +3,8 @@
 //! Anna builds a ProbePlan at runtime by selecting primitives based on
 //! ticket intent and domain keywords.
 
+use super::citations::{Citation, CitationStore, EvidenceId};
 use super::primitives::{Domain, PrimitiveLibrary, ProbePrimitive};
-use super::citations::{CitationStore, Citation, EvidenceId};
 use super::sources::KnowledgeSource;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -46,10 +46,8 @@ impl ProbePlan {
             }
             if !self.selected_primitives.contains(&primitive.id.to_string()) {
                 self.selected_primitives.push(primitive.id.to_string());
-                self.selection_reasons.insert(
-                    primitive.id.to_string(),
-                    format!("matched keywords"),
-                );
+                self.selection_reasons
+                    .insert(primitive.id.to_string(), format!("matched keywords"));
             }
         }
     }
@@ -62,10 +60,8 @@ impl ProbePlan {
             }
             if !self.selected_primitives.contains(&primitive.id.to_string()) {
                 self.selected_primitives.push(primitive.id.to_string());
-                self.selection_reasons.insert(
-                    primitive.id.to_string(),
-                    format!("domain {:?}", domain),
-                );
+                self.selection_reasons
+                    .insert(primitive.id.to_string(), format!("domain {:?}", domain));
             }
         }
     }
@@ -76,7 +72,8 @@ impl ProbePlan {
             && !self.selected_primitives.contains(&id.to_string())
         {
             self.selected_primitives.push(id.to_string());
-            self.selection_reasons.insert(id.to_string(), reason.to_string());
+            self.selection_reasons
+                .insert(id.to_string(), reason.to_string());
         }
     }
 
@@ -402,7 +399,12 @@ fn parse_numeric(output: &str) -> Option<ParsedOutput> {
     // Extract numeric values from output
     let numbers: Vec<&str> = output
         .split_whitespace()
-        .filter(|s| s.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false))
+        .filter(|s| {
+            s.chars()
+                .next()
+                .map(|c| c.is_ascii_digit())
+                .unwrap_or(false)
+        })
         .take(5)
         .collect();
 
@@ -430,7 +432,9 @@ fn parse_json_output(output: &str) -> Option<ParsedOutput> {
                 if let Some(key_end) = trimmed[key_start + 1..].find('"') {
                     let key = &trimmed[key_start + 1..key_start + 1 + key_end];
                     if let Some(val_start) = trimmed.find(':') {
-                        let value = trimmed[val_start + 1..].trim().trim_matches(&['"', ','][..]);
+                        let value = trimmed[val_start + 1..]
+                            .trim()
+                            .trim_matches(&['"', ','][..]);
                         fields.insert(key.to_string(), value.to_string());
                     }
                 }
@@ -493,7 +497,9 @@ mod tests {
 
         plan.select_from_keywords(&["boot", "slow"], &library);
         assert!(!plan.is_empty());
-        assert!(plan.selected_primitives.contains(&"sys.boot.analyze".to_string()));
+        assert!(plan
+            .selected_primitives
+            .contains(&"sys.boot.analyze".to_string()));
     }
 
     #[test]
@@ -544,7 +550,10 @@ mod tests {
 
         assert_eq!(selection.primitive_id, "sys.boot.analyze");
         assert_eq!(selection.priority, 1);
-        assert_eq!(selection.parameters.get("service"), Some(&"nginx".to_string()));
+        assert_eq!(
+            selection.parameters.get("service"),
+            Some(&"nginx".to_string())
+        );
     }
 
     #[test]

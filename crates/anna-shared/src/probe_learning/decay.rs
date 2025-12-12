@@ -23,12 +23,14 @@ impl ProbeLearningStore {
 
         // Remove old successful patterns (older than 30 days)
         let old_pattern_count = self.successful_patterns.len();
-        self.successful_patterns.retain(|p| now - p.timestamp < PATTERN_MAX_AGE_SECS);
+        self.successful_patterns
+            .retain(|p| now - p.timestamp < PATTERN_MAX_AGE_SECS);
         let mut patterns_removed = old_pattern_count - self.successful_patterns.len();
 
         // Remove old negative patterns (older than 14 days)
         let old_negative_count = self.negative_patterns.len();
-        self.negative_patterns.retain(|p| now - p.timestamp < NEGATIVE_MAX_AGE_SECS);
+        self.negative_patterns
+            .retain(|p| now - p.timestamp < NEGATIVE_MAX_AGE_SECS);
         patterns_removed += old_negative_count - self.negative_patterns.len();
 
         // Decay keyword counts (reduce by 20%, remove if too low)
@@ -40,9 +42,8 @@ impl ProbeLearningStore {
             }
             stats.effective_probes.retain(|_, c| *c >= 1);
         }
-        self.keyword_probes.retain(|_, stats| {
-            stats.success_count >= 1 && !stats.effective_probes.is_empty()
-        });
+        self.keyword_probes
+            .retain(|_, stats| stats.success_count >= 1 && !stats.effective_probes.is_empty());
         let keywords_decayed = old_keyword_count - self.keyword_probes.len();
 
         let mut probes_decayed = 0;

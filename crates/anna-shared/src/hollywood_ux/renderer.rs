@@ -163,16 +163,13 @@ impl HollywoodRenderer {
             TranscriptOutcome::Cancelled => "Cancelled",
         };
 
-        let handler = transcript
-            .handled_by
-            .as_ref()
-            .map(|h| {
-                if let Some(ref dept) = transcript.department {
-                    format!("{} ({})", h, dept)
-                } else {
-                    h.clone()
-                }
-            });
+        let handler = transcript.handled_by.as_ref().map(|h| {
+            if let Some(ref dept) = transcript.department {
+                format!("{} ({})", h, dept)
+            } else {
+                h.clone()
+            }
+        });
 
         styles::status_footer(
             status,
@@ -196,7 +193,11 @@ impl HollywoodRenderer {
                 output.push_str(&format!(
                     "  {:30} -> exit={} ({}ms)\n",
                     styles::truncate(&probe.name, 30),
-                    if probe.status == ProbeStatus::Ok { "0" } else { "1" },
+                    if probe.status == ProbeStatus::Ok {
+                        "0"
+                    } else {
+                        "1"
+                    },
                     probe.duration_ms
                 ));
                 if !cmd.is_empty() && cmd != "-" {
@@ -220,7 +221,11 @@ impl HollywoodRenderer {
         // Debug JSON segments
         for segment in transcript.segments() {
             if segment.kind == SegmentKind::DebugJson {
-                let label = segment.meta.get("label").map(|s| s.as_str()).unwrap_or("json");
+                let label = segment
+                    .meta
+                    .get("label")
+                    .map(|s| s.as_str())
+                    .unwrap_or("json");
                 output.push_str(&format!("\n[debug] {}:\n", label));
                 // Truncate large JSON
                 let content = if segment.content.len() > 500 {
@@ -235,10 +240,7 @@ impl HollywoodRenderer {
 
         // Processing info
         output.push_str("\n[processing]\n");
-        output.push_str(&format!(
-            "  request_id: {}\n",
-            transcript.inner.request_id
-        ));
+        output.push_str(&format!("  request_id: {}\n", transcript.inner.request_id));
         output.push_str(&format!(
             "  duration: {}ms\n",
             transcript.processing_time_ms
@@ -265,7 +267,11 @@ impl HollywoodRenderer {
             .iter()
             .filter(|s| s.kind == SegmentKind::ProbeRun)
             .map(|s| {
-                let name = s.meta.get("probe_id").map(|s| s.as_str()).unwrap_or("probe");
+                let name = s
+                    .meta
+                    .get("probe_id")
+                    .map(|s| s.as_str())
+                    .unwrap_or("probe");
                 let status = s.meta.get("status").map(|s| s.as_str()).unwrap_or("ok");
                 let duration: u64 = s
                     .meta

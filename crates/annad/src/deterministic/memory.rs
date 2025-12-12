@@ -6,7 +6,10 @@ use super::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer memory usage query using parsed free output
-pub fn answer_memory_usage(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_memory_usage(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "free")?;
     let answer = crate::answers::answer_from_free_probe(probe)?;
     Some(DeterministicResult {
@@ -18,7 +21,10 @@ pub fn answer_memory_usage(probes: &[ProbeResult], route_class: &str) -> Option<
 }
 
 /// Answer memory free query using free probe
-pub fn answer_memory_free(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_memory_free(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "free")?;
     let answer = crate::answers::answer_from_free_probe_available(probe)?;
     Some(DeterministicResult {
@@ -42,7 +48,10 @@ pub fn answer_disk_usage(probes: &[ProbeResult], route_class: &str) -> Option<De
 }
 
 /// Answer service status query using parsed systemctl output
-pub fn answer_service_status(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
+pub fn answer_service_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
     // Try is-active probe first
     if let Some(probe) = find_probe(probes, "systemctl is-active") {
         let service_name = probe

@@ -49,7 +49,10 @@ impl DeltaItem {
                 prev_percent,
                 curr_percent,
             } => {
-                format!("[!] Memory high at {}% (was {}%)", curr_percent, prev_percent)
+                format!(
+                    "[!] Memory high at {}% (was {}%)",
+                    curr_percent, prev_percent
+                )
             }
             Self::MemoryIncreased {
                 prev_percent,

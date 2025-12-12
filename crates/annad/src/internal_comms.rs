@@ -16,14 +16,18 @@ pub fn staff_for_domain(domain: &SpecialistDomain) -> Actor {
         SpecialistDomain::Services => staff::hugo(),
         SpecialistDomain::Security => staff::elena(),
         SpecialistDomain::Packages => staff::marcus(),
-        SpecialistDomain::Boot => staff::tomas(),     // Boot issues handled by system
-        SpecialistDomain::Audio => staff::sofia(),    // Audio handled by desktop
-        SpecialistDomain::Display => staff::sofia(),  // Display handled by desktop
+        SpecialistDomain::Boot => staff::tomas(), // Boot issues handled by system
+        SpecialistDomain::Audio => staff::sofia(), // Audio handled by desktop
+        SpecialistDomain::Display => staff::sofia(), // Display handled by desktop
     }
 }
 
 /// Generate ticket opening message
-pub fn ticket_opened(ticket_id: &str, domain: &SpecialistDomain, summary: &str) -> TranscriptSegment {
+pub fn ticket_opened(
+    ticket_id: &str,
+    domain: &SpecialistDomain,
+    summary: &str,
+) -> TranscriptSegment {
     TranscriptSegment::internal_comms(
         Actor::anna(),
         &format!(
@@ -54,11 +58,8 @@ pub fn specialist_assigned(domain: &SpecialistDomain, ticket_id: &str) -> Transc
 
 /// Generate specialist acknowledgment
 pub fn specialist_ack(domain: &SpecialistDomain, action: &str) -> TranscriptSegment {
-    TranscriptSegment::internal_comms(
-        staff_for_domain(domain),
-        &format!("On it. {}", action),
-    )
-    .with_meta("event", "specialist_ack")
+    TranscriptSegment::internal_comms(staff_for_domain(domain), &format!("On it. {}", action))
+        .with_meta("event", "specialist_ack")
 }
 
 /// Generate probe started message
@@ -73,12 +74,19 @@ pub fn probe_started(probe_id: &str, domain: &SpecialistDomain) -> TranscriptSeg
 }
 
 /// Generate probe completed message
-pub fn probe_completed(probe_id: &str, domain: &SpecialistDomain, success: bool) -> TranscriptSegment {
+pub fn probe_completed(
+    probe_id: &str,
+    domain: &SpecialistDomain,
+    success: bool,
+) -> TranscriptSegment {
     let actor = staff_for_domain(domain);
     let status = if success { "Got data" } else { "No data" };
-    TranscriptSegment::internal_comms(actor, &format!("{} from {}.", status, probe_description(probe_id)))
-        .with_meta("probe_id", probe_id)
-        .with_meta("event", "probe_completed")
+    TranscriptSegment::internal_comms(
+        actor,
+        &format!("{} from {}.", status, probe_description(probe_id)),
+    )
+    .with_meta("probe_id", probe_id)
+    .with_meta("event", "probe_completed")
 }
 
 /// Generate evidence review message
@@ -121,8 +129,7 @@ pub fn escalation(from_domain: &SpecialistDomain, reason: &str) -> TranscriptSeg
 /// Generate answer ready message
 pub fn answer_ready(domain: &SpecialistDomain) -> TranscriptSegment {
     let actor = staff_for_domain(domain);
-    TranscriptSegment::internal_comms(actor, "Answer ready.")
-        .with_meta("event", "answer_ready")
+    TranscriptSegment::internal_comms(actor, "Answer ready.").with_meta("event", "answer_ready")
 }
 
 /// Generate error message
@@ -164,11 +171,8 @@ pub fn recipe_matched(recipe_name: &str, confidence: f32) -> TranscriptSegment {
 /// Generate fallback message
 pub fn fallback_to_direct(domain: &SpecialistDomain, reason: &str) -> TranscriptSegment {
     let actor = staff_for_domain(domain);
-    TranscriptSegment::internal_comms(
-        actor,
-        &format!("Switching to direct answer: {}", reason),
-    )
-    .with_meta("event", "fallback")
+    TranscriptSegment::internal_comms(actor, &format!("Switching to direct answer: {}", reason))
+        .with_meta("event", "fallback")
 }
 
 // Helper functions

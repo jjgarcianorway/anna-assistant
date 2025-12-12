@@ -19,5 +19,7 @@ pub use narration::{
     format_issues_list, narrate_escalation, narrate_review_result, narrate_team_action,
     narrate_ticket_assignment, status_indicator,
 };
-pub use person::{get_person, narrate_person_action, narrate_person_escalation, narrate_person_review};
+pub use person::{
+    get_person, narrate_person_action, narrate_person_escalation, narrate_person_review,
+};
 pub use roles::{reviewer_badge, team_role_name, team_tag};

@@ -61,12 +61,11 @@ fn test_parse_probe_result() {
     let probe = ProbeResult {
         command: "free -h".to_string(),
         exit_code: 0,
-        stdout:
-            r#"              total        used        free      shared  buff/cache   available
+        stdout: r#"              total        used        free      shared  buff/cache   available
 Mem:           15Gi       8.2Gi       1.5Gi       512Mi       5.8Gi       6.5Gi
 Swap:         4.0Gi       256Mi       3.8Gi
 "#
-            .to_string(),
+        .to_string(),
         stderr: String::new(),
         timing_ms: 10,
     };

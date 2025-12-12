@@ -172,11 +172,10 @@ fn parse_boot_time_into_snapshot(output: &str, snapshot: &mut SystemSnapshot) {
             parts[5].parse::<u32>(),
         ) {
             // Simple Unix timestamp calculation (approximate, ignores leap seconds)
-            let days_since_epoch = days_from_year(y) + days_from_month(mon, is_leap_year(y)) + d - 1;
-            let secs = (days_since_epoch as u64 * 86400)
-                + (h as u64 * 3600)
-                + (m as u64 * 60)
-                + s as u64;
+            let days_since_epoch =
+                days_from_year(y) + days_from_month(mon, is_leap_year(y)) + d - 1;
+            let secs =
+                (days_since_epoch as u64 * 86400) + (h as u64 * 3600) + (m as u64 * 60) + s as u64;
             snapshot.boot_time_secs = secs;
         }
     }

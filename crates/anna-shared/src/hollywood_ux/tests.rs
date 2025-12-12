@@ -19,7 +19,9 @@ fn test_simple_ram_query() {
     // Probe run
     let mut probe = TranscriptSegment::probe_run("proc_meminfo", "Read /proc/meminfo");
     probe.meta.insert("status".to_string(), "ok".to_string());
-    probe.meta.insert("duration_ms".to_string(), "3".to_string());
+    probe
+        .meta
+        .insert("duration_ms".to_string(), "3".to_string());
     t.add(probe);
 
     // Answer
@@ -43,7 +45,10 @@ fn test_simple_ram_query() {
     assert!(output.contains("Evidence:"), "Should have evidence");
     assert!(output.contains("/proc/meminfo"), "Should cite source");
     assert!(output.contains("98%"), "Should have confidence");
-    assert!(!output.contains("--- debug ---"), "Should not have debug in cinematic");
+    assert!(
+        !output.contains("--- debug ---"),
+        "Should not have debug in cinematic"
+    );
 
     // Verify cleanliness
     assert!(!output.contains("null"), "Should not have JSON nulls");
@@ -74,12 +79,16 @@ fn test_complex_boot_query() {
     // Probes
     let mut probe1 = TranscriptSegment::probe_run("systemd_boot_time", "systemd-analyze");
     probe1.meta.insert("status".to_string(), "ok".to_string());
-    probe1.meta.insert("duration_ms".to_string(), "132".to_string());
+    probe1
+        .meta
+        .insert("duration_ms".to_string(), "132".to_string());
     t.add(probe1);
 
     let mut probe2 = TranscriptSegment::probe_run("systemd_blame", "systemd-analyze blame");
     probe2.meta.insert("status".to_string(), "ok".to_string());
-    probe2.meta.insert("duration_ms".to_string(), "87".to_string());
+    probe2
+        .meta
+        .insert("duration_ms".to_string(), "87".to_string());
     t.add(probe2);
 
     // Answer
@@ -106,7 +115,10 @@ fn test_complex_boot_query() {
     let output = render_cinematic(&t);
 
     // Verify structure
-    assert!(output.contains("internal comms"), "Should have internal comms section");
+    assert!(
+        output.contains("internal comms"),
+        "Should have internal comms section"
+    );
     assert!(output.contains("Sofia"), "Should show Sofia");
     assert!(output.contains("Tomas"), "Should show Tomas");
     assert!(output.contains("[anna]"), "Should have answer section");
@@ -117,9 +129,18 @@ fn test_complex_boot_query() {
 
     // Now render debug mode
     let debug_output = render_debug(&t);
-    assert!(debug_output.contains("--- debug ---"), "Debug should have debug section");
-    assert!(debug_output.contains("[probes raw]"), "Debug should show raw probes");
-    assert!(debug_output.contains("request_id"), "Debug should show request ID");
+    assert!(
+        debug_output.contains("--- debug ---"),
+        "Debug should have debug section"
+    );
+    assert!(
+        debug_output.contains("[probes raw]"),
+        "Debug should show raw probes"
+    );
+    assert!(
+        debug_output.contains("request_id"),
+        "Debug should show request ID"
+    );
 }
 
 /// Test scenario 3: Parse error handling
@@ -138,7 +159,9 @@ fn test_parse_error_handling() {
     // Probe ran but parse failed
     let mut probe = TranscriptSegment::probe_run("disk_usage", "df -h");
     probe.meta.insert("status".to_string(), "ok".to_string());
-    probe.meta.insert("duration_ms".to_string(), "45".to_string());
+    probe
+        .meta
+        .insert("duration_ms".to_string(), "45".to_string());
     t.add(probe);
 
     // Set parse error
@@ -155,11 +178,16 @@ fn test_parse_error_handling() {
             || output.contains("Something went wrong"),
         "Should have gentle error message"
     );
-    assert!(output.contains("Evidence:"), "Should still show what was collected");
+    assert!(
+        output.contains("Evidence:"),
+        "Should still show what was collected"
+    );
 
     // Should NOT claim success
-    assert!(!output.contains("System Status") || output.contains("Parse Error"),
-        "Should not claim success");
+    assert!(
+        !output.contains("System Status") || output.contains("Parse Error"),
+        "Should not claim success"
+    );
 }
 
 /// Test visual consistency across modes
@@ -222,8 +250,14 @@ fn test_header_formatting() {
     assert!(lines.len() >= 3, "Should have separator, query, separator");
 
     // First and last lines should be separators
-    assert!(lines[0].chars().all(|c| c == '-'), "Top should be separator");
-    assert!(lines[2].chars().all(|c| c == '-'), "Bottom should be separator");
+    assert!(
+        lines[0].chars().all(|c| c == '-'),
+        "Top should be separator"
+    );
+    assert!(
+        lines[2].chars().all(|c| c == '-'),
+        "Bottom should be separator"
+    );
 
     // Middle should have query
     assert!(lines[1].contains("[you]"), "Should have user label");
@@ -288,7 +322,10 @@ fn test_internal_comms_formatting() {
 #[test]
 fn test_minimal_render() {
     let mut t = HollywoodTranscript::new("REQ-MIN-001", "minimal test");
-    t.add(TranscriptSegment::internal_comms(staff::sofia(), "Should not show"));
+    t.add(TranscriptSegment::internal_comms(
+        staff::sofia(),
+        "Should not show",
+    ));
     t.set_answer("Just the answer");
     t.finalize();
 
@@ -297,7 +334,10 @@ fn test_minimal_render() {
 
     assert!(output.contains("[you]"));
     assert!(output.contains("[anna]"));
-    assert!(!output.contains("internal comms"), "Minimal should not show internal comms");
+    assert!(
+        !output.contains("internal comms"),
+        "Minimal should not show internal comms"
+    );
 }
 
 /// Test streaming renderer states

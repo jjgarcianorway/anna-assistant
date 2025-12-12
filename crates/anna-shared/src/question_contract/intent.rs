@@ -80,9 +80,7 @@ impl QuestionIntent {
     pub fn is_field_allowed(&self, field: &str) -> bool {
         match &self.answer_constraints {
             None => true, // No constraints means all allowed
-            Some(c) => {
-                c.allow_extras || c.allowed_fields.iter().any(|f| f == field)
-            }
+            Some(c) => c.allow_extras || c.allowed_fields.iter().any(|f| f == field),
         }
     }
 }
@@ -195,11 +193,41 @@ impl Subject {
     /// Common fields for this subject.
     pub fn common_fields(&self) -> Vec<&'static str> {
         match self {
-            Self::Memory => vec!["total", "used", "free", "available", "cached", "swap_total", "swap_used"],
-            Self::Cpu => vec!["model", "cores", "threads", "frequency", "usage", "temperature"],
-            Self::Disk => vec!["total", "used", "free", "filesystem", "mount_point", "usage_percent"],
+            Self::Memory => vec![
+                "total",
+                "used",
+                "free",
+                "available",
+                "cached",
+                "swap_total",
+                "swap_used",
+            ],
+            Self::Cpu => vec![
+                "model",
+                "cores",
+                "threads",
+                "frequency",
+                "usage",
+                "temperature",
+            ],
+            Self::Disk => vec![
+                "total",
+                "used",
+                "free",
+                "filesystem",
+                "mount_point",
+                "usage_percent",
+            ],
             Self::Service => vec!["name", "status", "enabled", "active", "description"],
-            Self::Network => vec!["interface", "ip", "mac", "status", "speed", "gateway", "dns"],
+            Self::Network => vec![
+                "interface",
+                "ip",
+                "mac",
+                "status",
+                "speed",
+                "gateway",
+                "dns",
+            ],
             Self::Gpu => vec!["model", "driver", "memory", "temperature", "usage"],
             Self::Boot => vec!["time", "services", "kernel_time", "userspace_time"],
             Self::Packages => vec!["name", "version", "installed", "repository"],
@@ -412,7 +440,10 @@ impl IntentBuilder {
 
     /// Allow only specific fields.
     pub fn allow_fields(mut self, fields: Vec<&str>) -> Self {
-        let constraints = self.intent.answer_constraints.get_or_insert_with(Default::default);
+        let constraints = self
+            .intent
+            .answer_constraints
+            .get_or_insert_with(Default::default);
         constraints.allowed_fields = fields.into_iter().map(String::from).collect();
         constraints.allow_extras = false;
         self
@@ -426,14 +457,20 @@ impl IntentBuilder {
 
     /// Enable extras (for diagnosis/explanation only).
     pub fn allow_extras(mut self) -> Self {
-        let constraints = self.intent.answer_constraints.get_or_insert_with(Default::default);
+        let constraints = self
+            .intent
+            .answer_constraints
+            .get_or_insert_with(Default::default);
         constraints.allow_extras = true;
         self
     }
 
     /// Set units.
     pub fn units(mut self, units: Units) -> Self {
-        let constraints = self.intent.answer_constraints.get_or_insert_with(Default::default);
+        let constraints = self
+            .intent
+            .answer_constraints
+            .get_or_insert_with(Default::default);
         constraints.units = units;
         self
     }

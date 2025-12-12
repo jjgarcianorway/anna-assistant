@@ -110,7 +110,11 @@ enum AnswerStyle {
     Honest,
 }
 
-fn determine_style(intent: TranslatorIntent, status: &StrictStatus, confidence: f32) -> AnswerStyle {
+fn determine_style(
+    intent: TranslatorIntent,
+    status: &StrictStatus,
+    confidence: f32,
+) -> AnswerStyle {
     if *status == StrictStatus::Failed || confidence < 0.5 {
         return AnswerStyle::Honest;
     }
@@ -122,7 +126,11 @@ fn determine_style(intent: TranslatorIntent, status: &StrictStatus, confidence: 
     }
 }
 
-fn build_answer_text(response: &StrictSpecialistResponse, style: AnswerStyle, _show_evidence: bool) -> String {
+fn build_answer_text(
+    response: &StrictSpecialistResponse,
+    style: AnswerStyle,
+    _show_evidence: bool,
+) -> String {
     match style {
         AnswerStyle::Concise => {
             // Just the summary, clean and simple
@@ -159,7 +167,10 @@ fn build_answer_text(response: &StrictSpecialistResponse, style: AnswerStyle, _s
                     format!("I couldn't answer this. {}", response.summary)
                 }
                 StrictStatus::Partial => {
-                    format!("{}\n\n(Partial answer - some data was unavailable)", response.summary)
+                    format!(
+                        "{}\n\n(Partial answer - some data was unavailable)",
+                        response.summary
+                    )
                 }
                 StrictStatus::Ok => response.summary.clone(),
             }
@@ -219,8 +230,13 @@ mod tests {
 
     #[test]
     fn test_shape_concise_answer() {
-        let response = StrictSpecialistResponse::ok("DSK-001", "query_metric", "Available memory: 17.0 GiB", 0.95)
-            .with_evidence("memory_info", "MemAvailable: 17892232 kB");
+        let response = StrictSpecialistResponse::ok(
+            "DSK-001",
+            "query_metric",
+            "Available memory: 17.0 GiB",
+            0.95,
+        )
+        .with_evidence("memory_info", "MemAvailable: 17892232 kB");
 
         let shaped = shape_answer(&response, TranslatorIntent::QueryMetric, true, false);
 
@@ -231,7 +247,8 @@ mod tests {
 
     #[test]
     fn test_shape_failed_answer() {
-        let response = StrictSpecialistResponse::failed("DSK-001", "query_metric", "No probe data available");
+        let response =
+            StrictSpecialistResponse::failed("DSK-001", "query_metric", "No probe data available");
 
         let shaped = shape_answer(&response, TranslatorIntent::QueryMetric, false, false);
 
@@ -241,8 +258,13 @@ mod tests {
 
     #[test]
     fn test_quick_format() {
-        let response = StrictSpecialistResponse::ok("DSK-001", "check_status", "You have 0 failed services.", 0.95)
-            .with_evidence("failed_services", "No failed units");
+        let response = StrictSpecialistResponse::ok(
+            "DSK-001",
+            "check_status",
+            "You have 0 failed services.",
+            0.95,
+        )
+        .with_evidence("failed_services", "No failed units");
 
         let output = quick_format(&response);
         assert!(output.contains("0 failed services"));

@@ -6,8 +6,12 @@ use super::types::{DockerFeature, DockerRecipe};
 pub fn builtin_recipes() -> Vec<DockerRecipe> {
     vec![
         // Create compose file
-        DockerRecipe::new(DockerFeature::CreateCompose, "Create a docker-compose.yml file")
-            .with_answer(r#"To create a docker-compose.yml:
+        DockerRecipe::new(
+            DockerFeature::CreateCompose,
+            "Create a docker-compose.yml file",
+        )
+        .with_answer(
+            r#"To create a docker-compose.yml:
 
 **Basic template:**
 ```yaml
@@ -54,12 +58,16 @@ services:
 - `volumes:` - Mount volumes
 - `environment:` - Environment variables
 - `depends_on:` - Service dependencies
-- `restart:` - Restart policy (no, always, on-failure, unless-stopped)"#),
-
+- `restart:` - Restart policy (no, always, on-failure, unless-stopped)"#,
+        ),
         // Start services
-        DockerRecipe::new(DockerFeature::StartServices, "Start Docker Compose services")
-            .with_command("docker compose up -d")
-            .with_answer(r#"To start Docker Compose services:
+        DockerRecipe::new(
+            DockerFeature::StartServices,
+            "Start Docker Compose services",
+        )
+        .with_command("docker compose up -d")
+        .with_answer(
+            r#"To start Docker Compose services:
 
 **Start in background:**
 ```bash
@@ -96,12 +104,13 @@ docker compose up -d --scale web=3
 - `--build` - Build images before starting
 - `--force-recreate` - Recreate containers
 - `--no-deps` - Don't start linked services
-- `--remove-orphans` - Remove old containers"#),
-
+- `--remove-orphans` - Remove old containers"#,
+        ),
         // Stop services
         DockerRecipe::new(DockerFeature::StopServices, "Stop Docker Compose services")
             .with_command("docker compose down")
-            .with_answer(r#"To stop Docker Compose services:
+            .with_answer(
+                r#"To stop Docker Compose services:
 
 **Stop and remove containers:**
 ```bash
@@ -131,12 +140,13 @@ docker compose stop servicename
 **Remove everything (containers, volumes, images, networks):**
 ```bash
 docker compose down -v --rmi all --remove-orphans
-```"#),
-
+```"#,
+            ),
         // View logs
         DockerRecipe::new(DockerFeature::ViewLogs, "View Docker Compose logs")
             .with_command("docker compose logs")
-            .with_answer(r#"To view Docker Compose logs:
+            .with_answer(
+                r#"To view Docker Compose logs:
 
 **All services:**
 ```bash
@@ -172,12 +182,13 @@ docker compose logs --since "2024-01-01T00:00:00"
 **Combine options:**
 ```bash
 docker compose logs -f --tail=50 servicename
-```"#),
-
+```"#,
+            ),
         // List containers
         DockerRecipe::new(DockerFeature::ListContainers, "List Docker containers")
             .with_command("docker compose ps")
-            .with_answer(r#"To list Docker containers:
+            .with_answer(
+                r#"To list Docker containers:
 
 **Compose services:**
 ```bash
@@ -208,12 +219,13 @@ docker ps -f "status=exited"
 **Show resource usage:**
 ```bash
 docker stats
-```"#),
-
+```"#,
+            ),
         // Build images
         DockerRecipe::new(DockerFeature::BuildImages, "Build Docker images")
             .with_command("docker compose build")
-            .with_answer(r#"To build Docker images:
+            .with_answer(
+                r#"To build Docker images:
 
 **Build all services:**
 ```bash
@@ -249,12 +261,13 @@ services:
       dockerfile: Dockerfile
       args:
         - VERSION=1.0
-```"#),
-
+```"#,
+            ),
         // Pull images
         DockerRecipe::new(DockerFeature::PullImages, "Pull Docker images")
             .with_command("docker compose pull")
-            .with_answer(r#"To pull/update Docker images:
+            .with_answer(
+                r#"To pull/update Docker images:
 
 **Pull all images:**
 ```bash
@@ -280,12 +293,13 @@ docker compose pull --dry-run
 ```bash
 docker pull nginx:latest
 docker pull postgres:15
-```"#),
-
+```"#,
+            ),
         // Exec in container
         DockerRecipe::new(DockerFeature::ExecContainer, "Execute command in container")
             .with_command("docker compose exec servicename bash")
-            .with_answer(r#"To execute commands in containers:
+            .with_answer(
+                r#"To execute commands in containers:
 
 **Interactive shell:**
 ```bash
@@ -318,11 +332,11 @@ docker compose run servicename bash
 ```bash
 docker attach containername
 # Detach with Ctrl+P Ctrl+Q
-```"#),
-
+```"#,
+            ),
         // Cleanup
-        DockerRecipe::new(DockerFeature::Cleanup, "Cleanup Docker resources")
-            .with_answer(r#"To cleanup Docker resources:
+        DockerRecipe::new(DockerFeature::Cleanup, "Cleanup Docker resources").with_answer(
+            r#"To cleanup Docker resources:
 
 **Remove stopped containers:**
 ```bash
@@ -359,11 +373,11 @@ docker system df
 **For Compose project:**
 ```bash
 docker compose down -v --rmi all --remove-orphans
-```"#),
-
+```"#,
+        ),
         // Debug
-        DockerRecipe::new(DockerFeature::Debug, "Debug Docker issues")
-            .with_answer(r#"To debug Docker issues:
+        DockerRecipe::new(DockerFeature::Debug, "Debug Docker issues").with_answer(
+            r#"To debug Docker issues:
 
 1. **Check container status:**
 ```bash
@@ -408,6 +422,7 @@ docker run -it --entrypoint sh imagename
 8. **View events:**
 ```bash
 docker events --since 1h
-```"#),
+```"#,
+        ),
     ]
 }

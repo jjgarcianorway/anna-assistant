@@ -124,7 +124,11 @@ impl FallbackGenerator {
     }
 
     /// Generate fallback from collected evidence.
-    pub fn generate(&self, evidence: &[ProbeEvidence], failure_reason: &str) -> Option<FallbackAnswer> {
+    pub fn generate(
+        &self,
+        evidence: &[ProbeEvidence],
+        failure_reason: &str,
+    ) -> Option<FallbackAnswer> {
         if evidence.is_empty() {
             return None;
         }
