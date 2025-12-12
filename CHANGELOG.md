@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.473] - 2025-12-12
+
+### Added - Debug Configuration via Natural Language (Phase 49)
+
+**Debug Config Module:**
+- `debug_config.rs` for natural language debug settings
+- `DebugConfigChange` enum for debug configuration changes
+- Parse phrases like "enable debug", "debug full", "hide secrets"
+
+**Configuration Types:**
+- `SetLevel(DebugLevel)` - Set debug level (Off/Summary/Trace/Full)
+- `EnableLogFile(bool)` - Enable/disable debug log to file
+- `RedactIPs(bool)` - Enable/disable IP address redaction
+- `RedactEmails(bool)` - Enable/disable email redaction
+- `RedactSecrets(bool)` - Enable/disable secrets redaction
+- `MaxProbeLines(usize)` - Set max probe output lines
+
+**Functions:**
+- `detect_debug_config()` parses natural language to config changes
+- `apply_debug_change()` applies changes to DebugConfig
+- `format_debug_settings()` displays current debug settings
+- `is_show_debug_settings()` detects "show debug settings"
+- `parse_debug_level()` parses level from string
+
+**Supported Commands:**
+- Levels: "enable debug", "debug trace", "debug full", "disable debug"
+- Log file: "log debug to file", "disable debug log"
+- Redaction: "hide ips", "show emails", "redact secrets"
+
 ## [0.0.472] - 2025-12-12
 
 ### Added - Arch Wiki Local Caching (Phase 48)

@@ -423,5 +423,14 @@ Anna v0.0.369 focuses on:
 - [x] prune_stale() and prune_to_size()
 - [x] Content hash for change detection
 
+### Phase 49 - Debug Configuration via Natural Language ✓ (v0.0.473)
+- [x] debug_config.rs for NL debug settings
+- [x] DebugConfigChange enum (SetLevel, EnableLogFile, Redact*)
+- [x] detect_debug_config() parses natural language
+- [x] apply_debug_change() updates DebugConfig
+- [x] format_debug_settings() displays settings
+- [x] parse_debug_level() parses level strings
+
 ### Future
-- All ROADMAP.md Future items complete!
+- Phase 50: Risk Level Configuration via NL
+- Phase 51: Session Summary Display

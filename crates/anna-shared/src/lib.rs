@@ -60,6 +60,7 @@ pub mod config_types; // v0.0.264: Config types (ConfigTarget, ConfigIntent)
 pub mod context_memory; // v0.0.246
 pub mod cron_recipes; // v0.0.234
 pub mod database_recipes; // v0.0.461: Database backup/restore recipes
+pub mod debug_config; // v0.0.473: Debug configuration via natural language
 pub mod debug_mode; // v0.0.444: Debug levels, sanitization, reason codes
 pub mod kubernetes_recipes; // v0.0.459: Kubernetes pod/deployment recipes
 pub mod deterministic_probes; // v0.0.448: Intent → probes deterministic mapping
