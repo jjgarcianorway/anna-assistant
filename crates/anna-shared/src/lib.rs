@@ -32,6 +32,7 @@
 //! v0.0.440: Specialist Contract v1 - Strict JSON schema, retries, fallback summarizer.
 //! v0.0.441: ERA Pipeline - Universal Evidence → Reasoning → Answer architecture.
 //! v0.0.442: Ticket Integrity - Honest stats, clarification-first, package/system separation.
+//! v0.0.443: Source Layer - Citations, trace observability, clean inventories, honest stats/UI.
 
 pub mod advice;
 pub mod anna_proto; // v0.0.436: Unbreakable typed model communication protocol
@@ -41,6 +42,7 @@ pub mod deterministic_routing; // v0.0.439: Deterministic routing with intent-to
 pub mod specialist_contract_v1; // v0.0.440: Specialist Contract v1 - strict JSON, retries, fallback
 pub mod era_pipeline; // v0.0.441: ERA Pipeline - Evidence → Reasoning → Answer
 pub mod ticket_integrity; // v0.0.442: Honest stats, clarification-first, package/system separation
+pub mod source_layer; // v0.0.443: Source providers, citations, trace, inventories
 pub mod evidence_first; // v0.0.435: Evidence-first knowledge engine
 pub mod hardware_aware; // v0.0.434: Hardware-aware model selection and helper management
 pub mod background_worker; // v0.0.430: Background job system

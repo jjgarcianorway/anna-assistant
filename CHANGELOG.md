@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.443] - 2025-12-12
+
+### Added - Source Layer: Citations, Trace Observability, Clean Inventories
+
+**Goal:** Make Anna auditable, honest, and inspectable.
+LLMs are for orchestration, not truth generation.
+
+**Source Providers (`providers.rs`):**
+- `ManProvider`: Fetch and parse man pages (`man -P cat <cmd>`)
+- `HelpProvider`: Fetch `--help` / `-h` output
+- `ArchWikiProvider`: Offline-first Arch Wiki with caching
+- `LocalConfigProvider`: Read /etc and ~/.config files
+- `SourceType`: Man, Help, ArchWiki, LocalConfig, Probe
+- `commands_for_intent()`: Intent → canonical commands (no hardcoded case tables)
+
+**Research Plan and Citations (`research.rs`):**
+- `ResearchPlan`: Generated BEFORE specialist with required_facts, probes, sources
+- `SourceRequest`: Type + ID + query + required flag
+- `Citation`: [S1] man pacman(8), [E1] probe output
+- `CitedAnswer`: Answer with Sources (docs) and Evidence (this machine)
+- `CitationBuilder`: Build citations from fetched sources
+
+**Debug Trace (`trace.rs`):**
+- `TraceEvent`: Structured JSON event per pipeline stage
+- `TraceStage`: Query → Translator → Facts → Probes → Sources → Specialist → Renderer
+- `RequestTrace`: All events for a request with render() method
+- `TraceFileManager`: Write/read /var/lib/anna/debug/<request_id>.jsonl
+- `DebugSummary`: Short console output (request_id, intent, probes, sources, model, state)
+- Redaction: Tokens, API keys, passwords, SSH keys automatically redacted
+
+**Model Inventory (`inventory.rs`):**
+- `ModelRegistry`: /var/lib/anna/models/registry.json
+- `ModelEntry`: name, provider, installed, installed_by (anna/user), role, enabled
+- `ModelRole`: Translator, Junior, Senior, Disabled
+- `reconcile_with_ollama()`: Sync with `ollama list`, remove duplicates
+- `RegistrySummary`: Show translator/junior/senior names, enabled count
+
+**Helper Inventory (`inventory.rs`):**
+- `HelperRegistry`: /var/lib/anna/helpers/registry.json
+- `HelperEntry`: name, installed_by, install_method, install_evidence
+- `record_anna_install()`: Track when Anna installs something
+- Proper attribution: preexisting = user, Anna-installed = anna
+
+**Clean Stats and UI (`stats_ui.rs`):**
+- `CleanStats`: Breakdown by outcome (answered, parse_error, probe_error, etc.)
+- `OutputMode`: Normal, Plain (--plain), Json (--json), Fun (--fun for gamification)
+- `DialogQuestion`: Single question, enumerated choices, always Cancel
+- `ConfirmDialog`: Y/n confirmation with default
+- `ProgressIndicator`: [1/4] Step description (25%)
+- No XP/gamification by default (moved to --fun flag)
+
+**Acceptance Criteria:**
+- Guidance answers include Sources with citations
+- Fact answers include Evidence
+- `annactl trace <id>` shows exact LLM prompts/responses
+- Status shows full enabled model list with attribution, no duplicates
+- Stats match reality and show failures
+- Dialogs are single, clean, non-redundant
+
 ## [0.0.442] - 2025-12-12
 
 ### Fixed - Ticket Integrity: Honest Stats, Clarification-First, Package/System Separation
