@@ -269,6 +269,7 @@ pub mod query_scenarios;
 
 // v0.0.275: LLM-generated greeting context
 pub mod greeting_context;
+pub mod greeting_tips; // v0.0.468: Configuration tips in greetings
 
 // v0.0.280: System telemetry tracking
 pub mod system_telemetry;

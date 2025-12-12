@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.468] - 2025-12-12
+
+### Added - Tips in Greetings (Phase 44)
+
+**Configuration Tips System:**
+- `greeting_tips.rs` module for showing tips during greetings
+- Tips based on current user settings (suggest unused features)
+- Randomized selection with variety (different tips each greeting)
+- Non-intrusive (only shows roughly 1 in 3 greetings)
+
+**Tip Categories:**
+- Learning: learning mode on/off tips
+- Personality: formality, humor, technical depth tips
+- Safety: auto-confirm settings tips
+- Display: verbosity and internal comms tips
+- Notifications: email setup tips
+
+**Functions:**
+- `get_available_tips()` returns tips based on profile state
+- `select_tip()` chooses random tip from available
+- `should_show_tip()` probability-based display check
+- `format_tip_for_greeting()` formats tip with command hint
+- `get_random_greeting_tip()` convenience function for greetings
+
 ## [0.0.467] - 2025-12-12
 
 ### Added - Personality Configuration via Natural Language (Phase 43)

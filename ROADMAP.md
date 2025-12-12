@@ -381,5 +381,13 @@ Anna v0.0.369 focuses on:
 - [x] Supports: learning mode, verbosity, auto-confirm, internal comms
 - [x] Personality: formality, humor, technical depth
 
+### Phase 44 - Tips in Greetings ✓ (v0.0.468)
+- [x] greeting_tips.rs module for configuration tips
+- [x] Tips based on current user settings
+- [x] Randomized selection with variety
+- [x] Non-intrusive (1 in 3 greetings probability)
+- [x] Categories: Learning, Personality, Safety, Display, Notifications
+- [x] get_random_greeting_tip() convenience function
+
 ### Future
 - All ROADMAP.md Future items complete!
