@@ -126,6 +126,7 @@ pub mod model_registry;
 pub mod model_selector;
 pub mod narrator;
 pub mod network_recipes; // v0.0.462: Network troubleshooting recipes
+pub mod notification_config; // v0.0.470: Notification config via natural language
 pub mod package_recipes;
 pub mod parsers;
 pub mod pending;

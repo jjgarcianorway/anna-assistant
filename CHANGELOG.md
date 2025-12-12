@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.470] - 2025-12-12
+
+### Added - Notification Configuration via Natural Language (Phase 46)
+
+**Natural Language Notification Config:**
+- `notification_config.rs` module for notification settings
+- Parse phrases like "set my email to user@example.com"
+- Support for email, desktop, wall, and quiet hours configuration
+
+**Configuration Types:**
+- `NotifyConfigChange` enum for 7 notification settings
+- `detect_notify_config()` parses natural language
+- `apply_notify_change()` updates NotificationConfig
+- `format_notification_settings()` displays current settings
+- `is_show_notifications()` detects "show notification settings"
+
+**Supported Commands:**
+- Email: "set my email to X", "remove email"
+- Desktop: "enable desktop notifications", "disable desktop"
+- Wall: "enable wall messages", "disable broadcast"
+- Quiet hours: "set quiet hours 22:00 to 08:00", "clear quiet hours"
+
 ## [0.0.469] - 2025-12-12
 
 ### Added - Monitoring & Custom Alarms (Phase 45)

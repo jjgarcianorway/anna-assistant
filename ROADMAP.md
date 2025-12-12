@@ -398,5 +398,14 @@ Anna v0.0.369 focuses on:
 - [x] run_all_checks() for full system health
 - [x] format_monitor_results() for display
 
+### Phase 46 - Notification Configuration via Natural Language ✓ (v0.0.470)
+- [x] notification_config.rs for notification settings
+- [x] NotifyConfigChange enum for 7 setting types
+- [x] Email configuration via "set my email to X"
+- [x] Desktop notification toggle
+- [x] Wall broadcast toggle
+- [x] Quiet hours configuration
+- [x] format_notification_settings() for display
+
 ### Future
 - All ROADMAP.md Future items complete!
