@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.476] - 2025-12-12
+
+### Added - Unified Settings Display (Phase 52)
+
+**Settings Display Module:**
+- `settings_display.rs` for unified settings view
+- `AllSettings` struct combining all config types
+- `SettingsSection` enum for section filtering
+
+**Display Functions:**
+- `format_all_settings()` shows all settings organized by section
+- `format_settings_summary()` one-line compact summary
+- `is_all_settings_query()` detects "show all settings" queries
+- `get_settings_section()` identifies which section was requested
+
+**Sections:**
+- Preferences (learning mode, verbosity, personality)
+- Notifications (email, desktop, wall, quiet hours)
+- Debug (level, log file, redaction)
+- Risk (auto-confirm, warnings, protection)
+
+**Supported Queries:**
+- "show all settings" / "all config"
+- "list all my settings"
+- "full settings"
+
 ## [0.0.475] - 2025-12-12
 
 ### Added - Session Summary Display (Phase 51)

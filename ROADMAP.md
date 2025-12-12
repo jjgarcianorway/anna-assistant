@@ -447,5 +447,14 @@ Anna v0.0.369 focuses on:
 - [x] is_session_query() detects session queries
 - [x] get_since_last_time() for greeting integration
 
+### Phase 52 - Unified Settings Display ✓ (v0.0.476)
+- [x] settings_display.rs for unified settings view
+- [x] AllSettings struct combining all config types
+- [x] format_all_settings() shows all sections
+- [x] format_settings_summary() compact summary
+- [x] is_all_settings_query() query detection
+- [x] get_settings_section() section filtering
+
 ### Future
-- All natural language configuration modules complete!
+- Phase 53: Learning Mode Explanations Enhancement
+- Phase 54: XP/Level Display Enhancement
