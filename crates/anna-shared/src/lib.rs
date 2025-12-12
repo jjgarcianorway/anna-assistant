@@ -212,6 +212,7 @@ pub mod ui_config; // v0.0.413: UI configuration (mode, spinner, etc.)
 pub mod update_ledger;
 pub mod user_alarms; // v0.0.456: Natural language alarms and reminders
 pub mod verify;
+pub mod webserver_recipes; // v0.0.460: Nginx/Apache configuration recipes
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -350,7 +350,13 @@ Anna v0.0.369 focuses on:
 - [x] Builtin recipes for all common kubectl operations
 - [x] Debugging recipes for CrashLoopBackOff, ImagePullBackOff
 
+### Phase 39 - Web Server Recipes ✓ (v0.0.460)
+- [x] WebServerFeature enum (15 features for Nginx/Apache)
+- [x] WebServerRecipe with config examples and commands
+- [x] Installation recipes for Arch, Debian, Fedora
+- [x] SSL/TLS with Let's Encrypt/Certbot
+- [x] Reverse proxy, load balancing, performance optimization
+
 ### Future
-- [ ] Nginx/Apache configuration recipes
 - [ ] Database backup/restore recipes
 - [ ] Network troubleshooting recipes

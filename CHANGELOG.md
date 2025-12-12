@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.460] - 2025-12-12
+
+### Added - Web Server Recipes (Phase 39)
+
+**Nginx/Apache Configuration per ROADMAP.md Future:**
+- Complete recipe system for Nginx and Apache
+- Query matching for natural language to web server commands
+- Configuration examples for common setups
+
+**WebServerFeature Enum (15 features):**
+- InstallNginx, InstallApache
+- CreateVirtualHost, EnableSite
+- ConfigureSsl (Let's Encrypt/Certbot)
+- ReverseProxy, LoadBalancing
+- ViewLogs, TestConfig, RestartServer, CheckStatus
+- ConfigureCaching, BasicAuth, ConfigureCors, OptimizePerformance
+
+**Builtin Recipes:**
+- Installation commands for Arch, Debian, Fedora
+- Virtual host/server block configurations
+- SSL/TLS with Let's Encrypt
+- Reverse proxy with proper headers
+- Load balancing with upstream directive
+- Performance optimization (gzip, caching, workers)
+
+**New Module:**
+- `anna_shared::webserver_recipes` - Web server recipe system
+- `WebServerFeature` enum with display names and keywords
+- `WebServerRecipe` builder pattern with config examples
+- `detect_feature()` and `match_query()` for query routing
+
 ## [0.0.459] - 2025-12-12
 
 ### Added - Kubernetes Recipes (Phase 38)
