@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.462] - 2025-12-12
+
+### Added - Network Troubleshooting Recipes (Phase 41)
+
+**Network Diagnostics per ROADMAP.md Future:**
+- Complete recipe system for network troubleshooting
+- Connectivity testing, DNS, routing, and firewall diagnostics
+- WiFi, VPN, and SSL certificate checks
+
+**NetworkFeature Enum (15 features):**
+- TestConnectivity, DnsLookup, TraceRoute
+- CheckPorts, InterfaceInfo, BandwidthTest
+- FirewallStatus, ListeningPorts
+- SslCertCheck, HttpTest
+- ArpTable, RoutingTable, NetworkStats
+- WifiDiagnostics, VpnStatus
+
+**Builtin Recipes:**
+- ping, dig, nslookup, traceroute, mtr
+- nmap, nc, netstat, ss
+- iptables, nftables, ufw, firewalld
+- openssl, curl, wget
+- iwconfig, nmcli for WiFi
+- wg show, openvpn for VPN
+
+**New Module:**
+- `anna_shared::network_recipes` - Network troubleshooting recipes
+- `NetworkFeature` enum with display names and keywords
+- `NetworkRecipe` builder pattern with tool requirements
+- `detect_feature()` and `match_query()` for query routing
+
 ## [0.0.461] - 2025-12-12
 
 ### Added - Database Recipes (Phase 40)

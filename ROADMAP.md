@@ -364,5 +364,13 @@ Anna v0.0.369 focuses on:
 - [x] User/permission management recipes
 - [x] Import/export data recipes
 
+### Phase 41 - Network Troubleshooting Recipes ✓ (v0.0.462)
+- [x] NetworkFeature enum (15 features for diagnostics)
+- [x] NetworkRecipe with tool requirements
+- [x] Connectivity, DNS, traceroute recipes
+- [x] Port scanning, firewall, listening ports
+- [x] SSL certificate, HTTP testing
+- [x] WiFi diagnostics and VPN status
+
 ### Future
-- [ ] Network troubleshooting recipes
+- All ROADMAP.md Future items complete!

@@ -125,6 +125,7 @@ pub mod long_task; // v0.0.455: Long-running task detection and handling
 pub mod model_registry;
 pub mod model_selector;
 pub mod narrator;
+pub mod network_recipes; // v0.0.462: Network troubleshooting recipes
 pub mod package_recipes;
 pub mod parsers;
 pub mod pending;
