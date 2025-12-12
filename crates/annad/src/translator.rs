@@ -1,4 +1,4 @@
-//! LLM-based translator for query classification (v0.0.374).
+//! LLM-based translator for query classification (v0.0.448).
 //!
 //! Converts user text to structured TranslatorTicket JSON.
 //! v0.0.74: Now includes AnswerContract for answer shaping.
@@ -9,8 +9,10 @@
 //! v0.0.327: Uses load_with_decay() for automatic learning decay.
 //! v0.0.333: Only uses learning when confidence is sufficient.
 //! v0.0.374: Filter out probe combinations known to fail for similar queries.
+//! v0.0.448: DETERMINISTIC PROBES FIRST - check intent-specific probe rules before LLM.
 
 use anna_shared::answer_contract::AnswerContract;
+use anna_shared::deterministic_probes::{deterministic_probes_for_query, is_concept_query};
 use anna_shared::probe_learning::{ProbeLearningStore, QueryCategory};
 use anna_shared::rpc::{QueryIntent, SpecialistDomain, TranslatorTicket};
 use serde::{Deserialize, Serialize};
@@ -361,6 +363,7 @@ fn filter_bad_combos(query: &str, probes: Vec<String>) -> Vec<String> {
 
 /// Parse translator LLM response into ticket (tolerant of missing/invalid fields)
 /// v0.0.374: Added query parameter for bad combo filtering
+/// v0.0.448: DETERMINISTIC PROBES OVERRIDE - use intent-specific probes if matched
 fn parse_translator_response(response: &str, query: &str) -> Result<TranslatorTicket, String> {
     // v0.0.290: Strip reasoning tags before parsing
     let cleaned = redact::strip_reasoning_tags(response);
@@ -387,9 +390,31 @@ fn parse_translator_response(response: &str, query: &str) -> Result<TranslatorTi
     let domain_str = output.domain.as_deref().unwrap_or("system");
     let confidence = output.confidence.unwrap_or(0.0).clamp(0.0, 1.0);
     let entities = output.entities.unwrap_or_default();
-    // v0.0.374: Filter valid probes, then filter out known bad combos
-    let valid_probes = filter_valid_probes(output.needs_probes.unwrap_or_default());
-    let needs_probes = filter_bad_combos(query, valid_probes);
+
+    // v0.0.448: DETERMINISTIC PROBES FIRST - check for intent-specific probe rules
+    // This overrides LLM probe selection for common, well-understood queries
+    let needs_probes = if let Some(deterministic) = deterministic_probes_for_query(query) {
+        info!(
+            "Translator: DETERMINISTIC probes for '{}': [{}]",
+            query,
+            deterministic.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(",")
+        );
+        deterministic.into_iter().map(String::from).collect()
+    } else {
+        // v0.0.374: Filter valid probes, then filter out known bad combos
+        let valid_probes = filter_valid_probes(output.needs_probes.unwrap_or_default());
+        filter_bad_combos(query, valid_probes)
+    };
+
+    // v0.0.448: Detect concept queries that should NOT be treated as package queries
+    // If this is a concept query (e.g., "do I have swap?"), clear any package-related entities
+    let entities = if is_concept_query(query) {
+        info!("Translator: detected concept query, not a package query: '{}'", query);
+        // Keep entities but mark them as concepts, not packages
+        entities
+    } else {
+        entities
+    };
 
     let ticket = TranslatorTicket {
         intent: parse_intent(intent_str),

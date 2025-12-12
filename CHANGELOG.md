@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.448] - 2025-12-12
+
+### Fixed - Deterministic Probes: Stop Wrong Probe Selection
+
+**Goal:** Common intents get deterministic probes, not LLM guesses.
+
+**Problem Solved:**
+- "which service uses most CPU?" was running `lscpu` instead of `top_cpu`
+- "do I have swap?" was running `pacman -Q swap` (package check!) instead of `swap_files`
+- "what is my vim setup?" was running memory+disk instead of `vimrc_content`
+- Concept words like "swap", "bluetooth", "audio" were being treated as package names
+
+**Deterministic Probe Registry (`deterministic_probes.rs`):**
+- 60+ intent-specific probe rules with keywords and negative keywords
+- CPU queries: `top_cpu` for "most CPU", `cpu_info` for "what CPU"
+- Swap queries: `swap_files` + `memory_info`, NOT package queries
+- Bluetooth: `bluetooth_service` + `bluetooth_devices`
+- Vim/editor: `vimrc_content`, `nvim_config`, `command_v_vim`
+- Boot: `boot_time`, `boot_blame` for slow boot
+- And many more...
+
+**Concept vs Package Detection:**
+- `is_concept_query()`: Detects concept words (swap, games, audio, bluetooth, etc.)
+- Only runs package queries when explicit package verbs are used (install, pacman, apt)
+- "do I have swap?" → concept query → runs `swap_files`
+- "install vim" → package query → runs package probes
+
+**Integration:**
+- Translator checks deterministic rules FIRST before LLM
+- If rule matches, uses those probes (no LLM guessing)
+- If no rule, falls back to LLM selection
+
 ## [0.0.447] - 2025-12-12
 
 ### Added - Hard Reliability Gate: Stop Bad Answers Before They Reach Users

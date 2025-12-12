@@ -36,7 +36,9 @@
 //! v0.0.444: Reliability Metrics - Canonical outcomes, honest stats, accurate inventories.
 //! v0.0.444: Debug Mode - 3-level debug output, sanitization, reason codes, routing transparency.
 //! v0.0.445: Hard Reliability Gate - No answer without evidence, no fake success.
+//! v0.0.448: Deterministic Probes - Intent-specific probe mapping, no LLM guessing.
 
+pub mod deterministic_probes; // v0.0.448: Intent → probes deterministic mapping
 pub mod reliability_gate; // v0.0.445: Hard reliability gate, claim/evidence model, deterministic-first
 pub mod reliability_metrics; // v0.0.444: Canonical outcomes, real reliability stats
 pub mod debug_mode; // v0.0.444: Debug levels, sanitization, reason codes
