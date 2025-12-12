@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.437] - 2025-12-12
+
+### Added - Question Contract: Fix Understanding and Answer Minimality
+
+**Goal:** Anna never answers a different question than asked. Anna never adds unrelated
+information unless explicitly allowed. Simple fact questions return simple answers.
+
+**QuestionIntent v1 (`intent.rs`):**
+- `QuestionIntent`: Typed contract for understanding what user is asking
+- `IntentCategory`: Fact, Status, Diagnosis, Explanation, ActionRequest
+- `Subject`: Memory, Cpu, Disk, Service, Network, Gpu, Boot, Audio, etc.
+- `Scope`: Single, List, Summary, Boolean
+- `AnswerConstraints`: max_items, allow_extras=false (default!), allowed_fields, units
+- `ClarificationRequest`: STOPS all execution until user clarifies
+
+**AnswerPlan & Shape Enforcement (`answer_plan.rs`):**
+- `AnswerPlan`: Builds from intent, enforces shape strictly
+- `ShapeEnforcer`: Discards ANY data not in allowed_fields
+- `DiscardReason`: NotAllowed, MaxItemsExceeded, WrongSubject, NoEvidence
+- Rule is ABSOLUTE: if intent allows only "free_ram", CPU/cache/total are dropped
+
+**Evidence Binding (`evidence_bind.rs`):**
+- `BoundClaim`: Every claim must map to evidence IDs
+- `BindingResult`: Valid, PartialBind, MismatchedEvidence, NoEvidence
+- If evidence doesn't map: "I collected data but cannot safely answer exactly what you asked"
+- Prevents hallucinated glue text
+
+**Help Text Leakage Filters (`filters.rs`):**
+- `LeakageType`: Tutorial, DebugSteps, Commands, Suggestions
+- For category=Fact/Status: NEVER output tutorials, debug steps, commands
+- Filters: "you can", "try running", code blocks, "you should", etc.
+- Example fix: "do I have failed services?" → "No failed services." (not debug tutorial)
+
+**Diagnosis Conclusions (`diagnosis.rs`):**
+- `ConclusionState`: Likely, Uncertain, NoIssueDetected
+- Diagnosis is incomplete without conclusion
+- If conclusion=Uncertain: NO confident language allowed
+- `ConclusionLanguageValidator`: Rejects "definitely", "certainly" for uncertain conclusions
+
+**Intent Quality Stats (`stats.rs`):**
+- `IntentOutcome`: Correct, Clarified, Misclassified, CorrectedByUser
+- `IntentQualityStats`: accuracy_rate, clarification_rate, misclassification_rate
+- `MisclassificationDetector`: Detects "that's not what I asked", subject mismatches
+- Do not hide this - this is how Anna improves
+
+**Canary Tests (`canary_tests.rs`):**
+- 10 fixed regression tests that BLOCK release:
+- "how much free ram" → single numeric only
+- "is zram enabled" → boolean only
+- "which service slowed boot" → list of services only
+- "what GPU driver" → driver name only, no hardware dump
+- Diagnosis must have conclusion, uncertain=no confident language
+
 ## [0.0.436] - 2025-12-12
 
 ### Added - Anna Protocol v1: Unbreakable Typed Communication
