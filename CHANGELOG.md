@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.472] - 2025-12-12
+
+### Added - Arch Wiki Local Caching (Phase 48)
+
+**Wiki Cache Module:**
+- `wiki_cache.rs` for local Arch Wiki page caching
+- `WikiCacheEntry` with metadata (cached_at, size, hash)
+- `WikiCacheIndex` for cache management
+
+**Cache Functions:**
+- `read_cached()` / `write_cached()` for page I/O
+- `get_cache_stats()` returns size, count, staleness
+- `essential_pages()` lists pages that should be cached
+- `missing_essential()` finds uncached essential pages
+
+**Cache Management:**
+- `prune_stale()` removes old entries (default 30 days)
+- `prune_to_size()` removes least accessed entries
+- Change detection via content hash
+- Access tracking for LRU eviction
+
 ## [0.0.471] - 2025-12-12
 
 ### Added - Facts Lifecycle Management (Phase 47)

@@ -218,6 +218,7 @@ pub mod user_alarms; // v0.0.456: Natural language alarms and reminders
 pub mod preference_config; // v0.0.467: Natural language preference configuration
 pub mod verify;
 pub mod webserver_recipes; // v0.0.460: Nginx/Apache configuration recipes
+pub mod wiki_cache; // v0.0.472: Arch Wiki local caching
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

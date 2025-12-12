@@ -415,5 +415,13 @@ Anna v0.0.369 focuses on:
 - [x] get_health() for facts statistics
 - [x] Health ratio check (< 30% stale = healthy)
 
+### Phase 48 - Arch Wiki Local Caching ✓ (v0.0.472)
+- [x] wiki_cache.rs for local caching
+- [x] WikiCacheEntry with metadata
+- [x] WikiCacheIndex for management
+- [x] essential_pages() and missing_essential()
+- [x] prune_stale() and prune_to_size()
+- [x] Content hash for change detection
+
 ### Future
 - All ROADMAP.md Future items complete!
