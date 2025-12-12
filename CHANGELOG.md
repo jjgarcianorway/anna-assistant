@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.439] - 2025-12-12
+
+### Added - Deterministic Routing: Fix "Sofia handles everything" Bug
+
+**Goal:** Make routing predictable with a small, stable taxonomy:
+Intent → Evidence requirements → Department → Probe bundle → (Optional) specialist.
+Hardcode the taxonomy and evidence model, not the answers.
+
+**Ticket Intent Schema (`intent_schema.rs`):**
+- `CanonicalIntent`: 35+ canonical intents (boot_perf, mem_status, gpu_info, etc.)
+- `Department`: Performance, Storage, Services, Network, Security, Hardware, Desktop
+- `TicketIntentSchema`: Structured translator output (JSON only, max 200 tokens, temp=0)
+- `RiskLevel`: read_only, safe_change, risky_change
+- `IntentSchemaParser`: Robust JSON parsing with validation
+
+**Deterministic Intent Map (`intent_map.rs`):**
+- `IntentMapping`: Maps intent → department + required/optional probes
+- `IntentMapTable`: Complete mapping table for all 35+ intents
+- Key mappings:
+  - `boot_perf` → Performance → [systemd_analyze, systemd_blame]
+  - `gpu_info` → Hardware → [lspci_gpu]
+  - `gpu_driver` → Hardware → [lspci_k_gpu, lsmod_gpu]
+  - `disk_usage` → Storage → [df_h]
+  - `mem_status` → Performance → [free_h]
+  - `svc_failed` → Services → [systemctl_failed]
+- `can_answer_from_probes`: Boolean flag per intent
+
+**Evidence Gating (`evidence_gate.rs`):**
+- `EvidenceGate`: Decides whether to call specialist
+- `GateDecision`: NeedMoreData, AnswerFromProbes, NeedSpecialist, NeedClarification
+- Rules:
+  - If required probes missing/failed: return NeedMoreData
+  - If probes provide direct factual answer: skip specialist
+  - Only call specialist when synthesis needed (why, root cause, recommendations)
+- `DirectAnswer`: Built from probe data for factual queries
+
+**Answer Tiers (`answer_tiers.rs`):**
+- `AnswerTier`: Facts → KeyItems → Synthesis
+- `TieredAnswer`: Progressive answer building
+- Tier builders: `build_boot_perf_tiers`, `build_mem_status_tiers`, etc.
+- Boot flow fix: 1) Boot time from systemd-analyze, 2) Top offenders from blame, 3) Specialist synthesis
+
+**Clarification Rules:**
+- `MAX_CLARIFICATION_LENGTH`: 120 chars max
+- `ClarificationBuilder`: Standard questions per intent
+- `needs_clarification()`: Only for genuinely ambiguous queries
+
+**Department Ownership (`department.rs`):**
+- `DepartmentRules`: Canonical ownership rules
+- `DepartmentOwnership`: Topics and keywords per department
+- `DepartmentConflict`: Logged when translator disagrees with mapping
+- `DeterministicRouter`: Enforces ownership, overrides translator if wrong
+- Override logging: "[route] Translator suggested Desktop but mapping says Performance, overridden."
+
+**Acceptance Criteria:**
+- Boot questions ALWAYS route to Performance (not Desktop)
+- GPU questions ALWAYS route to Hardware (not Storage)
+- Disk questions ALWAYS route to Storage
+- RAM/CPU load questions ALWAYS route to Performance
+- "Handled_by" reflects correct department ≥95% of the time
+
 ## [0.0.438] - 2025-12-12
 
 ### Added - Fast Pipeline: Hard Budgets, No Streaming, Reliability Stats

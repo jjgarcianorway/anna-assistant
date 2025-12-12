@@ -28,11 +28,13 @@
 //! v0.0.436: Anna Protocol v1 - Unbreakable typed JSON communication, no more parse errors.
 //! v0.0.437: Question Contract - Fix understanding and answer minimality.
 //! v0.0.438: Fast Pipeline - Hard budgets, no streaming for parsed calls, reliability stats.
+//! v0.0.439: Deterministic Routing - Fix "Sofia handles everything" with intent-to-department map.
 
 pub mod advice;
 pub mod anna_proto; // v0.0.436: Unbreakable typed model communication protocol
 pub mod question_contract; // v0.0.437: Question Contract - typed intent and answer shape enforcement
 pub mod fast_pipeline; // v0.0.438: Fast Pipeline - hard budgets, no streaming, reliability stats
+pub mod deterministic_routing; // v0.0.439: Deterministic routing with intent-to-department map
 pub mod evidence_first; // v0.0.435: Evidence-first knowledge engine
 pub mod hardware_aware; // v0.0.434: Hardware-aware model selection and helper management
 pub mod background_worker; // v0.0.430: Background job system
