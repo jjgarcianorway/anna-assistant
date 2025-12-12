@@ -116,6 +116,7 @@ pub mod knowledge_v2; // v0.0.422: Research-first knowledge layer
 pub mod knowledge_v4; // v0.0.424: Complete local knowledge engine with citations
 pub mod learned_recipes; // v0.0.416: Self-learning recipe schema
 pub mod learning_engine; // v0.0.427: Self-learning recipe engine with evidence-based matching
+pub mod learning_explanations; // v0.0.457: Learning mode command explanations
 pub mod ledger;
 pub mod llm_parse; // v0.0.407: Strict LLM JSON parsing with error handling
 pub mod long_task; // v0.0.455: Long-running task detection and handling

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.457] - 2025-12-12
+
+### Added - Knowledge & Citations (Phase 36)
+
+**Learning Mode Explanations per VISION.md:**
+- Explains why commands are being run
+- Explains how commands work
+- Explains what output means
+- Command flag descriptions
+
+**Built-in Command Explanations:**
+- df, free, lsblk - disk and memory
+- systemctl, journalctl - systemd services and logs
+- ip, lspci, lscpu - network and hardware
+- pacman - Arch package management
+- sensors, uname, cat - system utilities
+
+**Existing Citation Infrastructure:**
+- KnowledgeCache for Arch Wiki and man pages
+- Local citation storage and retrieval
+- Excerpt extraction by topic
+
+**New Module:**
+- `anna_shared::learning_explanations` - Learning mode output
+- `CommandExplainer` - Built-in command explanations
+- `LearningContext` - Explanation aggregator
+
 ## [0.0.456] - 2025-12-12
 
 ### Added - User Notifications & Alarms (Phase 35)

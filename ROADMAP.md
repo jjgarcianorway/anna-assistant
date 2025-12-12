@@ -332,11 +332,11 @@ Anna v0.0.369 focuses on:
 - [x] wall for terminal broadcasts (optional)
 - [x] Custom alarms via natural language ("notify me every Monday at 9 about storage")
 
-### Phase 36 - Knowledge & Citations
-- [ ] Citations from Arch Wiki, man pages, --help commands
-- [ ] Local cache of Arch Wiki pages linked from official docs
-- [ ] Learning mode explains why commands are run
-- [ ] Learning mode explains how commands work
+### Phase 36 - Knowledge & Citations ✓ (v0.0.457)
+- [x] Citations from Arch Wiki, man pages, --help commands
+- [x] Local cache of Arch Wiki pages linked from official docs
+- [x] Learning mode explains why commands are run
+- [x] Learning mode explains how commands work
 
 ### Phase 37 - Idle Time Learning
 - [ ] Senior specialists think strategically during idle time
