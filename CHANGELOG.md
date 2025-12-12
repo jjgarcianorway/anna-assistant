@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.467] - 2025-12-12
+
+### Added - Personality Configuration via Natural Language (Phase 43)
+
+**Natural Language Preference Parser:**
+- `detect_config_change()` parses phrases like "be more formal", "shorter answers"
+- Supports: learning mode, verbosity, auto-confirm, internal comms visibility
+- Personality traits: formality, humor, technical depth
+- All settings configurable via natural language per VISION.md
+
+**Configuration Types:**
+- `ConfigChange` enum for 7 configuration categories
+- `apply_config_change()` applies changes to UserProfile
+- `is_show_preferences()` detects "show my settings" requests
+- `format_preferences()` displays current settings cleanly
+
+**Phrase Recognition:**
+- Learning mode: "enable learning", "teach me", "no explanations"
+- Verbosity: "shorter answers", "more verbose", "be brief"
+- Auto-confirm: "don't ask", "confirm changes", "ask first"
+- Formality: "be casual", "be formal", "professional"
+- Humor: "no jokes", "be funny", "playful"
+- Technical: "simple answers", "expert mode", "beginner"
+
 ## [0.0.466] - 2025-12-12
 
 ### Added - Smart Helper Management (Phase 32)

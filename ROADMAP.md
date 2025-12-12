@@ -372,5 +372,14 @@ Anna v0.0.369 focuses on:
 - [x] SSL certificate, HTTP testing
 - [x] WiFi diagnostics and VPN status
 
+### Phase 43 - Personality Configuration via Natural Language ✓ (v0.0.467)
+- [x] ConfigChange enum for 7 preference categories
+- [x] detect_config_change() natural language parser
+- [x] is_show_preferences() query detection
+- [x] apply_config_change() updates UserProfile
+- [x] format_preferences() for display
+- [x] Supports: learning mode, verbosity, auto-confirm, internal comms
+- [x] Personality: formality, humor, technical depth
+
 ### Future
 - All ROADMAP.md Future items complete!
