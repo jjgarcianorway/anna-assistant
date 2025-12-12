@@ -1,8 +1,9 @@
 //! Helpers registry (v0.0.221).
+//! v0.0.466: Enhanced with smart management per Phase 32.
 
 use serde::{Deserialize, Serialize};
 
-use super::types::HelperPackage;
+use super::types::{HelperPackage, InstallSource};
 
 /// Registry of helper packages.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -94,5 +95,70 @@ impl HelpersRegistry {
     /// Clear all packages (for reset)
     pub fn clear(&mut self) {
         self.packages.clear();
+    }
+
+    /// v0.0.466: Record usage of a helper
+    pub fn record_usage(&mut self, id: &str) {
+        if let Some(pkg) = self.get_mut(id) {
+            pkg.record_usage();
+        }
+    }
+
+    /// v0.0.466: Register a helper as installed by Anna
+    pub fn register_anna_installed(&mut self, id: &str, name: &str) {
+        let mut pkg = HelperPackage::new(id, name);
+        pkg.install_source = InstallSource::Anna;
+        pkg.available = true;
+        self.register(pkg);
+    }
+
+    /// v0.0.466: Get only Anna-installed helpers (for removal on uninstall)
+    pub fn get_anna_removable(&self) -> Vec<&HelperPackage> {
+        self.packages
+            .iter()
+            .filter(|p| p.install_source == InstallSource::Anna && !p.required)
+            .collect()
+    }
+
+    /// v0.0.466: Remove all Anna-installed helpers (for uninstall)
+    /// Returns list of removed package IDs
+    pub fn remove_anna_installed(&mut self) -> Vec<String> {
+        let to_remove: Vec<String> = self
+            .packages
+            .iter()
+            .filter(|p| p.install_source == InstallSource::Anna && !p.required)
+            .map(|p| p.id.clone())
+            .collect();
+
+        self.packages.retain(|p| {
+            !(p.install_source == InstallSource::Anna && !p.required)
+        });
+
+        to_remove
+    }
+
+    /// v0.0.466: Check if a helper is useful given current hardware
+    /// Returns false if the helper requires hardware that isn't present
+    pub fn is_useful(&self, id: &str, available_hardware: &[&str]) -> bool {
+        if let Some(pkg) = self.get(id) {
+            if let Some(ref req) = pkg.hardware_requirement {
+                return available_hardware.iter().any(|h| h.eq_ignore_ascii_case(req));
+            }
+        }
+        true // No requirement = useful
+    }
+
+    /// v0.0.466: Get helpers that should be skipped (useless without hardware)
+    pub fn get_useless_helpers(&self, available_hardware: &[&str]) -> Vec<&HelperPackage> {
+        self.packages
+            .iter()
+            .filter(|p| {
+                if let Some(ref req) = p.hardware_requirement {
+                    !available_hardware.iter().any(|h| h.eq_ignore_ascii_case(req))
+                } else {
+                    false
+                }
+            })
+            .collect()
     }
 }

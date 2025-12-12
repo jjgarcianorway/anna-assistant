@@ -121,4 +121,91 @@ mod tests {
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed.get("test").unwrap().version, Some("1.0".to_string()));
     }
+
+    // v0.0.466: Phase 32 - Smart Helper Management tests
+
+    #[test]
+    fn test_register_anna_installed() {
+        let mut registry = HelpersRegistry::new();
+        registry.register_anna_installed("htop", "htop");
+
+        let pkg = registry.get("htop").unwrap();
+        assert_eq!(pkg.install_source, InstallSource::Anna);
+        assert!(pkg.available);
+    }
+
+    #[test]
+    fn test_remove_anna_installed() {
+        let mut registry = HelpersRegistry::new();
+
+        // Anna-installed, not required - should be removed
+        registry.register(
+            HelperPackage::new("anna-pkg", "Anna Package")
+                .with_source(InstallSource::Anna),
+        );
+        // Anna-installed, required - should stay
+        registry.register(
+            HelperPackage::new("anna-required", "Anna Required")
+                .with_source(InstallSource::Anna)
+                .required(),
+        );
+        // User-installed - should stay
+        registry.register(
+            HelperPackage::new("user-pkg", "User Package")
+                .with_source(InstallSource::User),
+        );
+
+        let removed = registry.remove_anna_installed();
+        assert_eq!(removed.len(), 1);
+        assert!(removed.contains(&"anna-pkg".to_string()));
+
+        assert!(registry.get("anna-pkg").is_none());
+        assert!(registry.get("anna-required").is_some());
+        assert!(registry.get("user-pkg").is_some());
+    }
+
+    #[test]
+    fn test_hardware_requirement() {
+        let mut registry = HelpersRegistry::new();
+
+        // ethtool requires ethernet
+        registry.register(
+            HelperPackage::new("ethtool", "Ethernet Tool")
+                .with_hardware_requirement("ethernet"),
+        );
+        // htop has no requirement
+        registry.register(HelperPackage::new("htop", "htop"));
+
+        // With ethernet hardware
+        assert!(registry.is_useful("ethtool", &["ethernet", "wifi"]));
+        assert!(registry.is_useful("htop", &["ethernet"]));
+
+        // Without ethernet hardware
+        assert!(!registry.is_useful("ethtool", &["wifi", "bluetooth"]));
+        assert!(registry.is_useful("htop", &["wifi"]));
+
+        // Get useless helpers
+        let useless = registry.get_useless_helpers(&["wifi"]);
+        assert_eq!(useless.len(), 1);
+        assert_eq!(useless[0].id, "ethtool");
+    }
+
+    #[test]
+    fn test_last_used_display() {
+        let pkg = HelperPackage::new("test", "Test");
+        assert_eq!(pkg.last_used_display(), "never");
+
+        // Can't easily test time-based display without mocking
+    }
+
+    #[test]
+    fn test_record_usage() {
+        let mut registry = HelpersRegistry::new();
+        registry.register(HelperPackage::new("test", "Test"));
+
+        assert!(registry.get("test").unwrap().last_used.is_none());
+
+        registry.record_usage("test");
+        assert!(registry.get("test").unwrap().last_used.is_some());
+    }
 }

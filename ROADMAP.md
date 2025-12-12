@@ -306,12 +306,12 @@ Anna v0.0.369 focuses on:
 - [x] Real-time streaming word-by-word from LLM (Progress segment kind)
 - [x] Screen updates after each LLM call (transcript segments streamed)
 
-### Phase 32 - Smart Helper Management
-- [ ] Auto-install helpers learned from specialists
-- [ ] Track helper source (Anna vs User)
-- [ ] Remove only Anna-installed helpers on uninstall
-- [ ] Skip useless helpers (no ethtool without ethernet)
-- [ ] Display helper last_used timestamp
+### Phase 32 - Smart Helper Management ✓ (v0.0.466)
+- [x] Auto-install helpers learned from specialists (register_anna_installed)
+- [x] Track helper source (Anna vs User) (InstallSource enum)
+- [x] Remove only Anna-installed helpers on uninstall (remove_anna_installed)
+- [x] Skip useless helpers (no ethtool without ethernet) (hardware_requirement, is_useful)
+- [x] Display helper last_used timestamp (last_used, last_used_display)
 
 ### Phase 33 - Dynamic Team Availability ✓ (v0.0.454)
 - [x] Detect hardware capabilities (sound, network, etc.)

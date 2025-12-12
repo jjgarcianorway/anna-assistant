@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.466] - 2025-12-12
+
+### Added - Smart Helper Management (Phase 32)
+
+**Helper Source Tracking:**
+- Track whether helpers installed by Anna or User (InstallSource enum)
+- `register_anna_installed()` to mark auto-installed helpers
+- `get_anna_removable()` for uninstall cleanup
+- `remove_anna_installed()` removes only Anna-installed non-required helpers
+
+**Hardware-Aware Helper Management:**
+- `hardware_requirement` field on HelperPackage
+- `is_useful()` checks if helper makes sense for current hardware
+- `get_useless_helpers()` finds helpers without required hardware
+- Skip ethtool without ethernet, etc.
+
+**Helper Usage Tracking:**
+- `last_used` timestamp field
+- `record_usage()` updates timestamp
+- `last_used_display()` formats for human readability ("3 hours ago")
+- `secs_since_use()` for programmatic access
+
+**Enhanced Tests:**
+- test_register_anna_installed
+- test_remove_anna_installed
+- test_hardware_requirement
+- test_last_used_display
+- test_record_usage
+
 ## [0.0.465] - 2025-12-12
 
 ### Added - Natural Language Dialog (Phase 31)
