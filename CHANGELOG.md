@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.441] - 2025-12-12
+
+### Added - ERA Pipeline: Universal Evidence → Reasoning → Answer Architecture
+
+**Goal:** Replace case-by-case specialist logic with a universal pipeline.
+Anna must NOT try to "answer" - she must: collect evidence, reason over it, answer ONLY what was asked.
+
+**ERA Pipeline (`pipeline.rs`):**
+- `PipelineStage`: Evidence → Reasoning → Answer (no skipping stages)
+- `EraPipeline`: State machine tracking case through all stages
+- `ExtractedIntent`: intent, required_facts, answer_type
+- `AnswerType`: Numeric, Boolean, List, Entity, Brief
+- `FactProbeTable`: Maps fact names → probe IDs
+- Rule: No stage may skip the previous one
+
+**EvidenceBundle (`evidence.rs`):**
+- `EvidenceBundle`: Structured evidence container
+- `FactValue`: Number, String, Bool, List, Null (typed, atomic)
+- Namespaced facts: `memory.free_gib`, `boot.total_time_s`, `gpu.model`
+- `ProbeError`: Track probe failures
+- Extractors: `extract_memory`, `extract_boot_time`, `extract_blame`, `extract_disk`
+- Rule: Missing facts MUST be listed in `missing` array
+
+**Specialist Contract v2 (`reasoning.rs`):**
+- Specialists NO LONGER answer users
+- `ReasoningOutput`: can_answer, reasoning, derived, confidence, requires
+- `DerivedValues`: root_cause, metric, other
+- `REASONING_SYSTEM_PROMPT`: Strict evidence-only reasoning
+- `ReasoningValidator`: Validates output against evidence
+- Rule: NO prose, NO commands, NO explanations to user
+
+**Translator Precision (`translator.rs`):**
+- `PrecisionTranslator`: Converts reasoning → user answer
+- Type rules:
+  - Numeric → "17.0 GiB" (number only)
+  - Boolean → "Yes." or "No." + 1 sentence max
+  - List → comma-separated items
+  - Entity → single name
+  - Brief → 2-3 sentences max
+- `DirectAnswerBuilder`: Skip reasoning for deterministic facts
+- Rule: Violations = BUG
+
+**Learning Without Hardcoding (`learning.rs`):**
+- Anna learns WHICH FACTS answer WHICH INTENTS (not answers)
+- `IntentFactMapping`: intent → required_facts → primary_fact
+- `IntentLearningStore`: Persistent mapping storage with seeds
+- `FastPathDecision`: UseFastPath, NeedReasoning, UnknownIntent
+- Rule: Next time, skip LLM, run known probes, assemble deterministically
+
+**Honest Metrics (`metrics.rs`):**
+- `ResolutionStatus`: Resolved, Partial, CannotAnswer, Failed, InProgress
+- `ResolutionCriteria`: can_answer + no_missing + answer_delivered
+- `HonestMetrics`: Only counts RESOLVED as success
+- `success_rate = resolved / total` (no fake 100%)
+- Rule: Everything else is NOT resolved
+
+**Acceptance Criteria:**
+- "CPU model" will NEVER appear in a "top CPU process" question
+- "Timeout parse error" disappears
+- Specialists can be slow without breaking UX
+- Anna scales to thousands of questions without hardcoding
+
 ## [0.0.440] - 2025-12-12
 
 ### Added - Specialist Contract v1: Eliminate Parse Errors Forever
