@@ -207,6 +207,7 @@ pub mod truth_ledger;
 pub mod ui;
 pub mod ui_config; // v0.0.413: UI configuration (mode, spinner, etc.)
 pub mod update_ledger;
+pub mod user_alarms; // v0.0.456: Natural language alarms and reminders
 pub mod verify;
 pub mod version;
 

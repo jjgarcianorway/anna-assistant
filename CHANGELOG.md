@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.456] - 2025-12-12
+
+### Added - User Notifications & Alarms (Phase 35)
+
+**Notification Infrastructure per VISION.md:**
+- Email notifications (via sendmail/msmtp)
+- Desktop notifications (notify-send/libnotify)
+- Wall messages (terminal broadcast)
+- Rate limiting per channel
+- Quiet hours support
+
+**Natural Language Alarms:**
+- "Remind me every Monday at 9 about storage"
+- "Alert me when disk is above 90%"
+- "Notify me daily about failed services"
+
+**Alarm Types:**
+- Daily recurring alarms
+- Weekly recurring alarms (specific day)
+- Monthly recurring alarms
+- Condition-based alerts (disk, memory, services)
+
+**New Module:**
+- `anna_shared::user_alarms` - Natural language alarm system
+- `UserAlarm` - Alarm definition with schedule
+- `AlarmStore` - Persistent alarm storage
+- `parse_alarm_request()` - NL parser for alarms
+
 ## [0.0.455] - 2025-12-12
 
 ### Added - Long-Running Task Handling (Phase 34)

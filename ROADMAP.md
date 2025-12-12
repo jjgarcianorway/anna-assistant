@@ -326,11 +326,11 @@ Anna v0.0.369 focuses on:
 - [ ] Email with chain of thoughts and conclusion (deferred to Phase 37)
 - [ ] Second email if internet research needed (deferred to Phase 37)
 
-### Phase 35 - User Notifications
-- [ ] Email notifications for long tasks
-- [ ] libnotify integration for desktop alerts
-- [ ] wall for terminal broadcasts (optional)
-- [ ] Custom alarms via natural language ("notify me every Monday at 9 about storage")
+### Phase 35 - User Notifications ✓ (v0.0.456)
+- [x] Email notifications for long tasks
+- [x] libnotify integration for desktop alerts
+- [x] wall for terminal broadcasts (optional)
+- [x] Custom alarms via natural language ("notify me every Monday at 9 about storage")
 
 ### Phase 36 - Knowledge & Citations
 - [ ] Citations from Arch Wiki, man pages, --help commands
