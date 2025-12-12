@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.435] - 2025-12-12
+
+### Added - Evidence-First Knowledge Engine
+
+**Goal:** Make Anna behave like a real IT department - evidence first, documentation second,
+LLM last. Every claim must have citations. Recipes require proof before promotion.
+
+**Knowledge Sources (`sources.rs`):**
+- `KnowledgeSource`: ManPage, HelpText, LocalDocs, ArchWiki, ProbeOutput
+- `ManPageSource`: Retrieves via `man -P cat`, extracts sections, search with windowing
+- `HelpTextSource`: Tries --help, -h, help subcommand variants
+- `LocalDocsSource`: Searches /usr/share/doc with ripgrep
+- `SourceError`: CommandFailed, NotFound, ReadFailed, Timeout
+
+**Citations (`citations.rs`):**
+- `EvidenceId`: Unique identifier (probe:id, man:cmd, wiki:page, help:cmd, doc:path)
+- `Citation`: Links claim to evidence with source label and excerpt (max 200 chars)
+- `CitationStore`: Holds all citations and raw evidence for audit
+- `verify_citation()`: Checks excerpt exists in raw content
+
+**Probe Primitives (`primitives.rs`):**
+- `ProbePrimitive`: Limited set of generic probes (not one-off scripts)
+- `Domain`: Boot, Services, Logs, Memory, Disk, Network, Hardware, Performance, Desktop, Packages, Security
+- `ParserId`: Raw, KeyValue, Table, Json, TimeDuration, Numeric
+- `Precondition`: CommandExists, FileExists, SystemdRunning, HelperInstalled
+- `PrimitiveLibrary`: 25+ built-in probes with keyword search
+- Key probes: sys.boot.analyze, sys.boot.blame, sys.services.failed, sys.mem.free, etc.
+
+**Probe Plan (`probe_plan.rs`):**
+- `ProbePlan`: Dynamic probe selection at runtime
+- `ProbeSelection`: Primitive + reason + priority + parameters
+- `ProbeExecutor`: Execute plans and collect evidence
+- `ProbeOutput`: Raw output, parsed fields, exit code, timing
+- `ParsedOutput`: TimeMeasurement, ItemList, KeyValue, Raw
+
+**Research Loop (`research.rs`):**
+- `ResearchPlan`: Keywords + domains + commands to research
+- `ResearchLoop`: Execute probes → retrieve docs → synthesize
+- `ResearchResult`: Outputs, docs, citations, findings
+- `Finding`: Claim + evidence IDs + confidence level (High/Medium/Unsupported)
+- Max 2 iterations, deterministic ordering
+
+**Recipe Templates (`recipes.rs`):**
+- `RecipeTemplate`: Parameterized solution pattern
+- `RecipeStep`: Instruction + optional command + confirmation requirement
+- `RecipeInstance`: Instantiated recipe with parameter substitution
+- `RecipeCandidate`: Awaiting promotion (tracks confirmations/failures)
+- `RecipePromoter`: Manages promotion after N=3 confirmations
+- Success rate tracking, failure recording
+
+**Wiki Cache (`wiki_cache.rs`):**
+- `WikiCache`: Local cache for Arch Wiki pages
+- `WikiPage`: Title, URL, content, sections, categories
+- `WikiSection`: Title, level, content extraction
+- `WikiSearchResult`: Hits with page/section/excerpt
+- `search_with_citations()`: Add wiki evidence to citation store
+- Essential pages list for pre-caching
+
+**Citation Enforcement (`enforcement.rs`):**
+- `Claim`: Factual, Documentation, Recommendation, Uncertainty
+- `EvidenceType`: Probe, Documentation, Any, None
+- `ClaimValidator`: Validates claims against citation store
+- `ValidationReport`: Supported vs unsupported claims
+- `extract_claims()`: Heuristic claim extraction from text
+- "No citations, no claims" policy
+
+**Acceptance Tests (`tests.rs`):**
+- Boot slow diagnosis workflow with citations
+- CPU temperature check
+- Recipe promotion after N confirmations
+- Research flow and iteration limits
+- Citation store verification
+- Primitive library coverage
+- Claim extraction and validation
+
 ## [0.0.434] - 2025-12-12
 
 ### Added - Hardware-Aware Model Selection and Helper Management

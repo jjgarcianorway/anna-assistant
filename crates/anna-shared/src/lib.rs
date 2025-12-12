@@ -24,8 +24,10 @@
 //! v0.0.432: Knowledge pipeline - Priority-ordered knowledge fetching and learning.
 //! v0.0.433: Robustness layer - Timeouts, failure handling, and truthful stats.
 //! v0.0.434: Hardware-aware model selection, local model management, and helper installation.
+//! v0.0.435: Evidence-first knowledge engine - citations, probe primitives, recipes with promotion.
 
 pub mod advice;
+pub mod evidence_first; // v0.0.435: Evidence-first knowledge engine
 pub mod hardware_aware; // v0.0.434: Hardware-aware model selection and helper management
 pub mod background_worker; // v0.0.430: Background job system
 pub mod hollywood_ux; // v0.0.431: Unified transcript and Hollywood terminal renderer
