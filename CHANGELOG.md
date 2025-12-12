@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.434] - 2025-12-12
+
+### Added - Hardware-Aware Model Selection and Helper Management
+
+**Goal:** Make Anna's use of local models and helpers disciplined, explainable, and minimal,
+while still powerful and fully aligned with the hardware she runs on.
+
+**Hardware Profiling (`profile.rs`):**
+- `HardwareProfile`: Complete system information (CPU, RAM, GPU, storage, OS)
+- `CapabilityTier`: Tiny (<= 8GB), Small (8-16GB), Medium (16-32GB), Large (> 32GB)
+- `CpuInfo`: Model name, core count, thread count, AVX2 support
+- `GpuInfo`: Discrete detection, vendor (NVIDIA/AMD/Intel), VRAM
+- GPU + RAM combination affects tier (need both to bump up)
+- Profile versioning for migration support
+
+**Model Catalog (`catalog.rs`):**
+- `ModelCatalog`: Static, versioned catalog of candidate models
+- `ModelEntry`: Name, role, min tier, min RAM, disk usage, priority
+- `ModelRole`: Translator (fast classification), Junior (responsive), Senior (deep reasoning)
+- `select_model()`: Pick best model given tier and available RAM
+- `prefer_small` option to select smaller models on capable hardware
+
+**Model Plan (`model_plan.rs`):**
+- `ModelPlan`: Concrete model assignments (translator, junior, senior)
+- `ModelPlanner`: Generate plans from hardware profile
+- Plan includes rationale explaining model choices
+- Validation detects tier/version mismatches
+- No duplicate model names in plan
+
+**Model Health (`model_health.rs`):**
+- `ModelHealth`: Track installation status per model
+- `ModelStatus`: Ok, Unverified, Missing, Broken, Installing
+- `InstalledBy`: Anna vs User tracking
+- `ModelVerifier`: List/verify/pull/remove via Ollama CLI
+- `sync_health()`: Detect removed models
+- `verify_all()`: Test models with minimal completion
+
+**Model Config (`model_config.rs`):**
+- `AutoInstallPolicy`: always, never, ask-per-model
+- `max_model_disk_gb`: Hard limit for model storage (default 25GB)
+- `PreferSmallSetting`: yes, no, auto (based on RAM)
+- Per-model decision tracking for ask-per-model policy
+- `InstallRequest`: Natural language prompt for user approval
+
+**Helper Catalog (`helpers.rs`):**
+- `HelperCatalog`: System tools (lm_sensors, smartmontools, nvme-cli, ethtool, hdparm, dmidecode, lshw)
+- `HelperEntry`: Packages per distro (Arch, Debian, Fedora)
+- `HelperManager`: Track installed helpers with Anna vs User attribution
+- `install()`/`uninstall()`: Distro-aware package management
+- Only Anna-installed helpers can be auto-removed
+
+**Helper Config (`helper_config.rs`):**
+- `HelperInstallPolicy`: always, never, ask-per-helper
+- `remove_on_uninstall`: Control cleanup behavior
+- `blocked_helpers`: User can block specific helpers
+- Per-helper decision tracking
+
+**Integration (`integration.rs`):**
+- `ProbeHelper`: Map probes to best commands given available helpers
+- Fallback commands when helpers not installed
+- `suggested_helpers()`: What to install for better probes
+- `SpecialistHelper`: Model availability checking with fallback
+- `HelperSuggestion`: Formatted install step for specialist response
+
+**Status Display (`status.rs`):**
+- `HardwareStatus`: Complete status structure
+- `SystemProfileSection`: RAM, CPU, GPU, tier
+- `LlmSection`: Provider, state, models with status
+- `HelperStatusSection`: Anna-installed vs user-installed
+- `ModelUsageStats`: Call counts, durations, errors per model
+- `HelperUsageStats`: Usage tracking per helper
+- `format()`: Formatted output for annactl status
+
+**Acceptance Tests (`tests.rs`):**
+- 26 comprehensive tests covering all scenarios
+- Fresh install generates coherent plan
+- Model removal detection and fallback
+- Helper policy enforcement
+- Status reflects real state (no fake 100%)
+- Usage stats tracking
+
 ## [0.0.433] - 2025-12-12
 
 ### Added - Robustness Layer: Timeouts, Failure Handling, and Truthful Stats
