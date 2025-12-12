@@ -273,6 +273,7 @@ pub mod greeting_tips; // v0.0.468: Configuration tips in greetings
 
 // v0.0.280: System telemetry tracking
 pub mod system_telemetry;
+pub mod system_monitors; // v0.0.469: Proactive system monitoring
 
 // v0.0.281: Proactive health alerts
 pub mod health_alerts;

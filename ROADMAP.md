@@ -389,5 +389,14 @@ Anna v0.0.369 focuses on:
 - [x] Categories: Learning, Personality, Safety, Display, Notifications
 - [x] get_random_greeting_tip() convenience function
 
+### Phase 45 - Monitoring & Custom Alarms ✓ (v0.0.469)
+- [x] system_monitors.rs for proactive monitoring
+- [x] CheckType enum for 5 metric types
+- [x] Platform-specific monitoring (reads /proc, uses df, systemctl)
+- [x] evaluate_condition() for alarm condition checking
+- [x] check_conditional_alarms() integrates with AlarmStore
+- [x] run_all_checks() for full system health
+- [x] format_monitor_results() for display
+
 ### Future
 - All ROADMAP.md Future items complete!

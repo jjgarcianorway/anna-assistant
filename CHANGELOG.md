@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.469] - 2025-12-12
+
+### Added - Monitoring & Custom Alarms (Phase 45)
+
+**System Monitoring Module:**
+- `system_monitors.rs` for proactive system monitoring
+- `CheckType` enum: DiskUsage, MemoryUsage, FailedServices, LoadAverage, SwapUsage
+- `MonitorResult` struct with current value, threshold, and alert status
+
+**Monitoring Functions:**
+- `check_disk_usage()` reads actual disk space from system
+- `check_memory_usage()` reads from /proc/meminfo
+- `check_failed_services()` queries systemctl
+- `check_load_average()` reads from /proc/loadavg
+- `check_swap_usage()` reads swap info from /proc/meminfo
+
+**Alarm Integration:**
+- `evaluate_condition()` checks AlarmCondition and returns MonitorResult
+- `check_conditional_alarms()` evaluates all conditional alarms in store
+- `run_all_checks()` performs full system health check
+- `format_monitor_results()` formats results for display
+
 ## [0.0.468] - 2025-12-12
 
 ### Added - Tips in Greetings (Phase 44)
