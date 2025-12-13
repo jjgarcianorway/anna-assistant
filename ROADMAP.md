@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.518 - Session History Tracker (Phase 94) ✓
+- [x] `session_history.rs` for tracking user sessions
+- [x] `SessionOutcome` / `SessionType` enums
+- [x] `SessionRecord` / `SessionHistoryTracker` system
+- [x] `start_session()` / `end_session()` lifecycle
+- [x] Session analytics (avg_duration, queries, tickets)
+
 ### v0.0.517 - Dependency Tracker (Phase 93) ✓
 - [x] `dependency_tracker.rs` for tracking software dependencies
 - [x] `DependencyType` / `DependencyStatus` enums

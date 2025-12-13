@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.518] - 2025-12-13
+
+### Added - Session History Tracker (Phase 94)
+
+**Session History Module:**
+- `session_history.rs` for tracking user session history
+- `SessionOutcome` enum (Completed, Abandoned, Error, Timeout, UserExit)
+- `SessionType` enum (Interactive, OneShot, Background, Scheduled)
+- `SessionRecord` / `SessionHistoryTracker` system
+
+**Core Functions:**
+- `start_session()` / `end_session()` - Session lifecycle
+- `record_query()` / `record_ticket()` - Track activity
+- `get()` / `latest()` / `recent()` - Session retrieval
+- `by_session_outcome()` / `by_session_type()` - Filtering
+- `avg_duration()` - Session analytics
+
+**Display Functions:**
+- `format_session_history()` - Full session list
+- `format_session_history_compact()` - Compact summary
+- `format_session_history_oneline()` - Single line status
+- `session_fun_fact()` - Fun facts
+- `is_session_query()` - Query detection
+
 ## [0.0.517] - 2025-12-13
 
 ### Added - Dependency Tracker (Phase 93)
