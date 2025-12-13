@@ -269,6 +269,7 @@ pub mod resource_usage_tracker; // v0.0.520: Resource usage tracker
 pub mod error_recovery_tracker; // v0.0.521: Error recovery tracker
 pub mod user_preference_learner; // v0.0.522: User preference learner
 pub mod task_priority_manager; // v0.0.523: Task priority manager
+pub mod anna_metrics_dashboard; // v0.0.524: Anna metrics dashboard (Phase 100!)
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
