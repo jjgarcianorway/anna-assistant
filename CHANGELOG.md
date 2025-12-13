@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.509] - 2025-12-13
+
+### Added - Idle Time Detector (Phase 85)
+
+**Idle Time Module:**
+- `idle_time_detector.rs` for idle detection
+- `IdleState` enum (Active, Idle, DeepIdle, Suspended, Unknown)
+- `ActivityLevel` enum (High, Medium, Low, Minimal)
+- `IdleConfig` with thresholds, quiet hours, background work toggle
+- `IdlePeriod` / `IdleTimeTracker` comprehensive tracker
+
+**Core Functions:**
+- `record_activity()` - Reset idle timer
+- `check_idle()` - Update and return current state
+- `can_do_background_work()` - Check if work allowed
+- `is_quiet_hours()` - Check quiet hours
+- `record_task_completed()` - Track background tasks
+- `avg_idle_duration()` / `longest_idle()` - Statistics
+
+**Display Functions:**
+- `format_idle_tracker()` - Full idle history
+- `format_idle_tracker_compact()` - Compact summary
+- `format_idle_tracker_oneline()` - Single line status
+- `idle_fun_fact()` - Fun facts
+- `is_idle_query()` - Query detection
+
 ## [0.0.508] - 2025-12-13
 
 ### Added - Email Notification System (Phase 84)

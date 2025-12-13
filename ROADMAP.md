@@ -843,5 +843,18 @@ Anna v0.0.369 focuses on:
 - [x] format_email_tracker() / compact / oneline
 - [x] email_fun_fact() / is_email_notification_query()
 
+### Phase 85 - Idle Time Detector ✓ (v0.0.509)
+- [x] idle_time_detector.rs for idle detection
+- [x] IdleState enum (Active, Idle, DeepIdle, Suspended, Unknown)
+- [x] ActivityLevel enum (High, Medium, Low, Minimal)
+- [x] IdleConfig with thresholds, quiet hours
+- [x] IdlePeriod / IdleTimeTracker comprehensive tracker
+- [x] record_activity() / check_idle() - State management
+- [x] can_do_background_work() / is_quiet_hours()
+- [x] record_task_completed() - Background task tracking
+- [x] avg_idle_duration() / longest_idle()
+- [x] format_idle_tracker() / compact / oneline
+- [x] idle_fun_fact() / is_idle_query()
+
 ### Future
 - All VISION.md features implemented!
