@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.523] - 2025-12-13
+
+### Added - Task Priority Manager (Phase 99)
+
+**Task Priority Manager Module:**
+- `task_priority_manager.rs` for managing and prioritizing tasks
+- `TaskPriority` enum (Low, Normal, High, Urgent, Critical)
+- `TaskState` enum (Pending, InProgress, Blocked, Completed, Cancelled)
+- `ManagedTask` / `TaskPriorityManager` system
+
+**Core Functions:**
+- `add()` - Add task with priority
+- `start()` / `complete()` - Task lifecycle
+- `block()` / `cancel()` - State transitions
+- `get()` / `next()` - Task retrieval
+- `pending()` - Get tasks sorted by priority
+- `in_progress()` / `blocked()` - State filtering
+
+**Display Functions:**
+- `format_task_manager()` - Full task list
+- `format_task_manager_compact()` - Compact summary
+- `format_task_manager_oneline()` - Single line status
+- `task_manager_fun_fact()` - Fun facts
+- `is_task_manager_query()` - Query detection
+
 ## [0.0.522] - 2025-12-13
 
 ### Added - User Preference Learner (Phase 98)

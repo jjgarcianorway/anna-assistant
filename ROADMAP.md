@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.523 - Task Priority Manager (Phase 99) ✓
+- [x] `task_priority_manager.rs` for managing task priority
+- [x] `TaskPriority` / `TaskState` enums
+- [x] `ManagedTask` / `TaskPriorityManager` system
+- [x] `add()` / `start()` / `complete()` lifecycle
+- [x] Priority-sorted pending queue
+
 ### v0.0.522 - User Preference Learner (Phase 98) ✓
 - [x] `user_preference_learner.rs` for learning user preferences
 - [x] `PreferenceCategory` / `LearnConfidence` enums
