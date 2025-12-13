@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.496] - 2025-12-13
+
+### Added - Anna Progress Report (Phase 72)
+
+**Progress Report Module:**
+- `anna_progress_report.rs` for progress tracking
+- `TimePeriod` enum (Day, Week, Month, AllTime)
+- `Trend` enum (Up, Down, Stable)
+- `ProgressMetric` with trend tracking
+- `Milestone` with progress tracking
+- `PeriodSnapshot` for period comparisons
+- `ProgressReport` comprehensive container
+
+**Core Functions:**
+- `add_metric()` / `add_milestone()` / `add_highlight()`
+- `achieved_milestones()` / `pending_milestones()`
+- `calculate_trend()` / `calculate_change_percent()`
+- `progress_bar()` - ASCII progress visualization
+- `default_milestones()` - 10 standard milestones
+- `progress_summary_message()` - Natural language summary
+
+**Display Functions:**
+- `format_progress_report()` - Full report with sections
+- `format_progress_report_compact()` - Compact summary
+- `format_progress_report_oneline()` - Single line status
+- `is_progress_query()` - Query detection
+
 ## [0.0.495] - 2025-12-13
 
 ### Added - Team Performance Display (Phase 71)
