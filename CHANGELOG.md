@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.543] - 2025-12-13
+
+### Added - Risk Level Config (Phase 119)
+
+**Risk Level Config Module:**
+- `risk_level_config.rs` for confirmation skipping per VISION.md
+- `RiskLevel` enum (None, Low, Medium, High, Critical) with ordering
+- `ActionCategory` enum (ReadOnly, ConfigChange, FileDelete, etc.)
+- `ConfirmationMode` enum (Never, OnlyHigh, Normal, Always)
+- `RiskLevelConfig` for comprehensive risk management
+
+**Core Functions:**
+- `requires_confirmation()` - Check if risk level needs confirmation
+- `risk_for_category()` - Get default risk for action category
+- `needs_confirmation()` - Full check including root/delete overrides
+- `apply_change()` - Natural language risk configuration
+- `permissive()` / `strict()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Skip all confirmations" / "Always confirm"
+- "Only confirm high risk" / "Skip low risk"
+- "Auto approve low/medium"
+- "Require/skip root confirmation"
+- "Require/skip delete confirmation"
+
 ## [0.0.542] - 2025-12-13
 
 ### Added - Personality Config (Phase 118)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.543 - Risk Level Config (Phase 119) ✓
+- [x] `risk_level_config.rs` for confirmation skipping
+- [x] `RiskLevel` / `ActionCategory` / `ConfirmationMode` enums
+- [x] `RiskLevelConfig` with natural language parser
+- [x] Risk ordering and category defaults
+- [x] Root/delete special confirmation handling
+
 ### v0.0.542 - Personality Config (Phase 118) ✓
 - [x] `personality_config.rs` for personality settings
 - [x] `FormalityLevel` / `FriendlinessLevel` / `HumorLevel` enums
