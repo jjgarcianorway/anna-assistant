@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.545 - Escalation Policy Config (Phase 121) ✓
+- [x] `escalation_policy_config.rs` for escalation policy
+- [x] `EscalationTrigger` / `EscalationPriority` / `EscalationMode` enums
+- [x] `EscalationPolicyConfig` with natural language parser
+- [x] Lenient/strict/manual presets
+- [x] Confidence threshold and auto-escalation controls
+
 ### v0.0.544 - Learning Mode Config (Phase 120) ✓
 - [x] `learning_mode_config.rs` for learning mode
 - [x] `LearningModeLevel` / `ExplanationDepth` enums

@@ -290,6 +290,7 @@ pub mod tips_system; // v0.0.541: Tips system
 pub mod personality_config; // v0.0.542: Personality config
 pub mod risk_level_config; // v0.0.543: Risk level config
 pub mod learning_mode_config; // v0.0.544: Learning mode config
+pub mod escalation_policy_config; // v0.0.545: Escalation policy config
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

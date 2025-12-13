@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.545] - 2025-12-13
+
+### Added - Escalation Policy Config (Phase 121)
+
+**Escalation Policy Config Module:**
+- `escalation_policy_config.rs` for escalation policy per VISION.md
+- `EscalationTrigger` enum (LowConfidence, HighRisk, SecurityRelated, etc.)
+- `EscalationPriority` enum (Normal, High, Critical, Immediate)
+- `EscalationMode` enum (Automatic, SemiAutomatic, Manual, Disabled)
+- `EscalationNotify` enum for notification preferences
+- `EscalationPolicyConfig` for comprehensive escalation settings
+
+**Core Functions:**
+- `should_escalate_confidence()` - Check if confidence triggers escalation
+- `should_escalate_security()` / `should_escalate_high_risk()` - Auto-escalation checks
+- `needs_user_confirmation()` - Check if user consent needed before escalating
+- `priority_for()` - Get priority for trigger type
+- `should_notify()` - Check if user should be notified
+- `apply_change()` - Natural language policy configuration
+- `lenient()` / `strict()` / `manual()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Automatic/semi-automatic/manual escalation"
+- "Lenient/strict escalation policy"
+- "Always escalate security/high risk"
+- "Don't escalate security/high risk"
+- "Always notify" / "Don't notify"
+
 ## [0.0.544] - 2025-12-13
 
 ### Added - Learning Mode Config (Phase 120)
