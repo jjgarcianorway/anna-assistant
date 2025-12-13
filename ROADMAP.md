@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.521 - Error Recovery Tracker (Phase 97) ✓
+- [x] `error_recovery_tracker.rs` for tracking error recovery
+- [x] `ErrorCategory` / `RecoveryOutcome` enums
+- [x] `ErrorRecoveryRecord` / `ErrorRecoveryTracker` system
+- [x] `strategy_rate()` / `best_strategies()` analytics
+- [x] Overall recovery rate tracking
+
 ### v0.0.520 - Resource Usage Tracker (Phase 96) ✓
 - [x] `resource_usage_tracker.rs` for tracking system resources
 - [x] `ResourceType` / `UsageLevel` enums

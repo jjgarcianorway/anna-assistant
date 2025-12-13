@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.521] - 2025-12-13
+
+### Added - Error Recovery Tracker (Phase 97)
+
+**Error Recovery Tracker Module:**
+- `error_recovery_tracker.rs` for tracking error recovery attempts
+- `ErrorCategory` enum (System, Network, Permission, NotFound, etc.)
+- `RecoveryOutcome` enum (Success, PartialSuccess, Failed, Skipped, Manual)
+- `ErrorRecoveryRecord` / `ErrorRecoveryTracker` system
+
+**Core Functions:**
+- `record()` - Record error recovery attempt
+- `get()` - Get record by ID
+- `by_err_category()` / `by_rec_outcome()` - Filtering
+- `successful()` / `failed()` - Get by outcome
+- `strategy_rate()` / `best_strategies()` - Strategy analytics
+- `recovery_rate()` - Overall recovery rate
+
+**Display Functions:**
+- `format_error_recovery_tracker()` - Full recovery list
+- `format_error_recovery_tracker_compact()` - Compact summary
+- `format_error_recovery_tracker_oneline()` - Single line status
+- `error_recovery_fun_fact()` - Fun facts
+- `is_error_recovery_query()` - Query detection
+
 ## [0.0.520] - 2025-12-13
 
 ### Added - Resource Usage Tracker (Phase 96)
