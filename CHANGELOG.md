@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.504] - 2025-12-13
+
+### Added - Package Installation Tracker (Phase 80)
+
+**Package Tracker Module:**
+- `package_install_tracker.rs` for package tracking
+- `InstalledBy` enum (Anna, User, System, Unknown)
+- `PackageManager` enum (Pacman, Apt, Dnf, Flatpak, etc.)
+- `PackageRecord` struct for individual packages
+- `PackageTracker` comprehensive tracker
+
+**Core Functions:**
+- `record_install()` / `record_removal()` - Package management
+- `anna_installed()` / `user_installed()` - Filter by installer
+- `by_package_manager()` - Filter by manager
+- `installed()` / `removed()` / `recent()` - Query packages
+
+**Display Functions:**
+- `format_package_tracker()` - Full package history
+- `format_package_tracker_compact()` - Compact summary
+- `format_package_tracker_oneline()` - Single line status
+- `package_fun_fact()` - Fun facts
+- `is_package_tracker_query()` - Query detection
+
 ## [0.0.503] - 2025-12-13
 
 ### Added - Backup History Tracking (Phase 79)
