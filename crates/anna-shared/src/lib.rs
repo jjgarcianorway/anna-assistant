@@ -307,6 +307,7 @@ pub mod settings_export; // v0.0.558: Settings export/import
 pub mod settings_cli; // v0.0.559: Settings CLI interface
 pub mod settings_watcher; // v0.0.560: Settings watcher
 pub mod settings_diff; // v0.0.561: Settings diff
+pub mod settings_presets; // v0.0.562: Settings presets
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

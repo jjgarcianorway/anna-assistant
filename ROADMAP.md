@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.562 - Settings Presets (Phase 138) ✓
+- [x] `settings_presets.rs` for pre-configured profiles
+- [x] `PresetCategory` / `SettingsPreset` / `PresetManager`
+- [x] 12 built-in presets (Beginner, Expert, Paranoid, etc)
+- [x] `find()` / `by_category()` / `add()` / `remove()`
+- [x] Natural language preset matching
+
 ### v0.0.561 - Settings Diff (Phase 137) ✓
 - [x] `settings_diff.rs` for comparing settings
 - [x] `DiffType` / `DiffEntry` / `SettingsDiff` / `SettingsDiffer`

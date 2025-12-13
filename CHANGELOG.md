@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.562] - 2025-12-13
+
+### Added - Settings Presets (Phase 138)
+
+**Settings Presets Module:**
+- `settings_presets.rs` for pre-configured settings profiles
+- `PresetCategory` enum (Experience, Security, Performance, Privacy, UseCase)
+- `SettingsPreset` struct with id, name, description, settings
+- `PresetManager` for managing built-in and custom presets
+
+**Built-in Presets (12):**
+- Experience: Beginner, Intermediate, Expert
+- Security: Paranoid, Balanced Security
+- Performance: Speed, Quality
+- Privacy: Maximum Privacy, Convenience
+- Use Case: Server Admin, Developer, Desktop User
+
+**Core Functions:**
+- `find()` / `find_by_name()` - Find presets
+- `by_category()` - Filter by category
+- `add()` / `remove()` - Manage custom presets
+- `find_preset_natural()` - Natural language preset matching
+- `apply_preset()` - Apply preset to settings
+
 ## [0.0.561] - 2025-12-13
 
 ### Added - Settings Diff (Phase 137)
