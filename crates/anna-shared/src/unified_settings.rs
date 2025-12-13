@@ -17,7 +17,7 @@ use crate::update_config::UpdateConfig;
 use crate::verbosity_config::VerbosityConfig;
 
 /// Settings category for routing
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SettingsCategory {
     Personality,
     Risk,

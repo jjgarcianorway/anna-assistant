@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.559 - Settings CLI Interface (Phase 135) ✓
+- [x] `settings_cli.rs` for natural language commands
+- [x] `SettingsCommand` / `ParseResult` / `SettingsParser`
+- [x] `parse()` / `execute_command()` / `is_settings_command()`
+- [x] Show/Reset/Change/Export/Import/Validate commands
+- [x] Help and category listing
+
 ### v0.0.558 - Settings Export/Import (Phase 134) ✓
 - [x] `settings_export.rs` for exporting/importing settings
 - [x] `ExportFormat` / `ExportOptions` / `ExportMetadata`

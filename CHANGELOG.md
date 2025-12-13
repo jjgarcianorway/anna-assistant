@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.559] - 2025-12-13
+
+### Added - Settings CLI Interface (Phase 135)
+
+**Settings CLI Module:**
+- `settings_cli.rs` for natural language settings commands
+- `SettingsCommand` enum (Show, Change, Reset, Export, Import, Validate, Help)
+- `ParseResult` with confidence scores and alternatives
+- `SettingsParser` for natural language parsing
+
+**Core Functions:**
+- `parse()` - Parse natural language into settings command
+- `execute_command()` - Execute parsed command on settings
+- `is_settings_command()` - Detect settings-related input
+- `format_help()` / `format_categories()` - Help output
+
+**Supported Commands:**
+- "show settings" / "show personality" - Display settings
+- "reset settings" / "reset privacy" - Reset to defaults
+- "enable learning mode" - Change settings naturally
+- "export settings" / "import from file" - Export/import
+- "validate settings" - Check for issues
+
 ## [0.0.558] - 2025-12-13
 
 ### Added - Settings Export/Import (Phase 134)
