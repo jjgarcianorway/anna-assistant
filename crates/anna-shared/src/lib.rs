@@ -265,6 +265,7 @@ pub mod hardware_capability; // v0.0.516: Hardware capability detector
 pub mod dependency_tracker; // v0.0.517: Dependency tracker
 pub mod session_history; // v0.0.518: Session history tracker
 pub mod query_pattern_analyzer; // v0.0.519: Query pattern analyzer
+pub mod resource_usage_tracker; // v0.0.520: Resource usage tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

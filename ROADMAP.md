@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.520 - Resource Usage Tracker (Phase 96) ✓
+- [x] `resource_usage_tracker.rs` for tracking system resources
+- [x] `ResourceType` / `UsageLevel` enums
+- [x] `UsageSample` / `ResourceUsageTracker` system
+- [x] `record()` / `current()` / `peak()` / `average()` tracking
+- [x] Critical/High usage detection
+
 ### v0.0.519 - Query Pattern Analyzer (Phase 95) ✓
 - [x] `query_pattern_analyzer.rs` for analyzing query patterns
 - [x] `PatternCategory` / `ConfidenceLevel` enums

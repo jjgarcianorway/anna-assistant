@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.520] - 2025-12-13
+
+### Added - Resource Usage Tracker (Phase 96)
+
+**Resource Usage Tracker Module:**
+- `resource_usage_tracker.rs` for tracking system resource usage
+- `ResourceType` enum (Cpu, Memory, Disk, Network, Gpu, Swap)
+- `UsageLevel` enum (Low, Normal, Elevated, High, Critical)
+- `UsageSample` / `ResourceUsageTracker` system
+
+**Core Functions:**
+- `record()` - Record resource usage sample
+- `current()` / `peak()` - Get current/peak values
+- `average()` - Get average for resource
+- `by_res_type()` / `by_usage_level()` - Filtering
+- `critical()` / `high()` - Get critical/high samples
+
+**Display Functions:**
+- `format_resource_tracker()` - Full usage display
+- `format_resource_tracker_compact()` - Compact summary
+- `format_resource_tracker_oneline()` - Single line status
+- `resource_fun_fact()` - Fun facts
+- `is_resource_query()` - Query detection
+
 ## [0.0.519] - 2025-12-13
 
 ### Added - Query Pattern Analyzer (Phase 95)
