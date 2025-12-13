@@ -262,6 +262,7 @@ pub mod dialogue_renderer; // v0.0.513: Dialogue renderer
 pub mod alarm_scheduler; // v0.0.514: Alarm scheduler
 pub mod strategic_thinking; // v0.0.515: Strategic thinking tracker
 pub mod hardware_capability; // v0.0.516: Hardware capability detector
+pub mod dependency_tracker; // v0.0.517: Dependency tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

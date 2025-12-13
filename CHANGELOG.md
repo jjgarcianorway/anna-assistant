@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.517] - 2025-12-13
+
+### Added - Dependency Tracker (Phase 93)
+
+**Dependency Tracker Module:**
+- `dependency_tracker.rs` for tracking software dependencies
+- `DependencyType` enum (Runtime, Build, Optional, Recommended, etc.)
+- `DependencyStatus` enum (Installed, Missing, Outdated, Orphaned)
+- `DependencyRecord` / `DependencyTracker` system
+
+**Core Functions:**
+- `add()` / `deps_for()` - Dependency management
+- `reverse_deps()` - Find what depends on a package
+- `has_missing()` - Check for missing dependencies
+- `safe_to_remove()` - Check if package can be safely removed
+- `orphaned()` / `missing()` / `outdated()` - Status filtering
+- `update_status()` - Update dependency status
+
+**Display Functions:**
+- `format_dependency_tracker()` - Full dependency list
+- `format_dependency_tracker_compact()` - Compact summary
+- `format_dependency_tracker_oneline()` - Single line status
+- `dependency_fun_fact()` - Fun facts
+- `is_dependency_query()` - Query detection
+
 ## [0.0.516] - 2025-12-13
 
 ### Added - Hardware Capability Detector (Phase 92)

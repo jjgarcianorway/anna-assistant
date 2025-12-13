@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.517 - Dependency Tracker (Phase 93) ✓
+- [x] `dependency_tracker.rs` for tracking software dependencies
+- [x] `DependencyType` / `DependencyStatus` enums
+- [x] `DependencyRecord` / `DependencyTracker` system
+- [x] `reverse_deps()` / `safe_to_remove()` for safe package removal
+- [x] Tracks broken packages with missing deps
+
 ### v0.0.516 - Hardware Capability Detector (Phase 92) ✓
 - [x] `hardware_capability.rs` for detecting what hardware exists
 - [x] `HardwareCategory` / `HardwareStatus` enums
