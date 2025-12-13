@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.548 - Timeout Config (Phase 124) ✓
+- [x] `timeout_config.rs` for timeout settings
+- [x] `TimeoutScope` / `TimeoutAction` / `TimeoutProfile` enums
+- [x] `TimeoutConfig` with natural language parser
+- [x] Fast/patient/unlimited presets
+- [x] Scope-specific timeout values
+
 ### v0.0.547 - Confirmation Behavior Config (Phase 123) ✓
 - [x] `confirmation_behavior_config.rs` for confirmation behavior
 - [x] `ConfirmationStyle` / `TimeoutBehavior` / `ConfirmableAction` enums

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.548] - 2025-12-13
+
+### Added - Timeout Config (Phase 124)
+
+**Timeout Config Module:**
+- `timeout_config.rs` for timeout settings per VISION.md
+- `TimeoutScope` enum (Command, LlmCall, Confirmation, Research, etc.)
+- `TimeoutAction` enum (Cancel, Warn, Extend, Escalate, Background)
+- `TimeoutProfile` enum (Fast, Normal, Patient, Unlimited)
+- `TimeoutConfig` for comprehensive timeout settings
+
+**Core Functions:**
+- `timeout_for()` / `timeout_seconds()` - Get timeout for scope
+- `is_unlimited()` / `is_fast()` - Check profile
+- `should_show_countdown()` - Check countdown display
+- `apply_change()` - Natural language timeout configuration
+- `fast()` / `patient()` / `unlimited()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Fast/strict/quick timeouts"
+- "Patient/take your time/no rush"
+- "Unlimited/no timeout/wait forever"
+- "Show/hide countdown"
+- "Auto extend" / "Strict timer"
+
 ## [0.0.547] - 2025-12-13
 
 ### Added - Confirmation Behavior Config (Phase 123)
