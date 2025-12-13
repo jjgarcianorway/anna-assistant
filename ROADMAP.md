@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.563 - Settings History (Phase 139) ✓
+- [x] `settings_history.rs` for change tracking
+- [x] `HistoryEntry` / `SettingsHistory` with undo/redo
+- [x] `record()` / `undo()` / `redo()` / `recent()`
+- [x] Full settings snapshots for reliable restoration
+- [x] Human-readable age formatting
+
 ### v0.0.562 - Settings Presets (Phase 138) ✓
 - [x] `settings_presets.rs` for pre-configured profiles
 - [x] `PresetCategory` / `SettingsPreset` / `PresetManager`

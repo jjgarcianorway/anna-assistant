@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.563] - 2025-12-13
+
+### Added - Settings History (Phase 139)
+
+**Settings History Module:**
+- `settings_history.rs` for tracking settings changes over time
+- `HistoryEntry` struct with timestamp, description, before/after snapshots
+- `SettingsHistory` manager with undo/redo support
+- Configurable max history size (default: 100)
+
+**Core Functions:**
+- `record()` / `record_with_category()` - Record changes
+- `undo()` / `redo()` - Navigate history
+- `can_undo()` / `can_redo()` - Check navigation availability
+- `recent()` / `by_category()` - Query history entries
+- `format_history()` - Display history with age formatting
+
+**Features:**
+- Full settings snapshots for reliable undo/redo
+- Automatic truncation of future entries on new change
+- Human-readable age formatting (seconds, minutes, hours, days)
+- Category-specific history filtering
+
 ## [0.0.562] - 2025-12-13
 
 ### Added - Settings Presets (Phase 138)
