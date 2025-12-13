@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.511] - 2025-12-13
+
+### Added - Specialist Roster (Phase 87)
+
+**Specialist Roster Module:**
+- `specialist_roster.rs` for team management
+- `SpecialistLevel` enum (Junior, Senior, Lead)
+- `Department` enum (Desktop, Network, Security, etc.)
+- `SpecialistProfile` with name, skills, tickets resolved
+- `SpecialistRoster` comprehensive team tracker
+
+**Core Functions:**
+- `add()` / `get()` / `get_by_name()` - Specialist management
+- `record_resolution()` - Track tickets per specialist
+- `set_available()` - Availability management
+- `by_dept()` / `by_lvl()` - Filtering
+- `juniors()` / `seniors()` - Level filtering
+- `top_performer()` - Performance tracking
+- `SPECIALIST_NAMES` - Diverse human names
+- `get_specialist_name()` - Get name by department/level
+
+**Display Functions:**
+- `format_specialist_roster()` - Full roster display
+- `format_roster_compact()` - Compact summary
+- `format_roster_oneline()` - Single line status
+- `roster_fun_fact()` - Fun facts
+- `is_specialist_roster_query()` - Query detection
+
 ## [0.0.510] - 2025-12-13
 
 ### Added - Ticket Resolution Stats (Phase 86)

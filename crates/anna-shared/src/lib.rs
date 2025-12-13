@@ -256,6 +256,7 @@ pub mod helper_tracker; // v0.0.507: Helper tool tracker
 pub mod email_notification; // v0.0.508: Email notification system
 pub mod idle_time_detector; // v0.0.509: Idle time detector
 pub mod ticket_resolution_stats; // v0.0.510: Ticket resolution stats
+pub mod specialist_roster; // v0.0.511: Specialist roster
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

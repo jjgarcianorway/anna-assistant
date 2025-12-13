@@ -868,5 +868,17 @@ Anna v0.0.369 focuses on:
 - [x] format_resolution_stats() / compact / oneline
 - [x] resolution_fun_fact() / is_resolution_stats_query()
 
+### Phase 87 - Specialist Roster ✓ (v0.0.511)
+- [x] specialist_roster.rs for team management
+- [x] SpecialistLevel enum (Junior, Senior, Lead)
+- [x] Department enum (Desktop, Network, Security, etc.)
+- [x] SpecialistProfile / SpecialistRoster tracker
+- [x] add() / get() / get_by_name() - Management
+- [x] record_resolution() / set_available()
+- [x] by_dept() / by_lvl() / juniors() / seniors()
+- [x] top_performer() / SPECIALIST_NAMES
+- [x] format_specialist_roster() / compact / oneline
+- [x] roster_fun_fact() / is_specialist_roster_query()
+
 ### Future
 - All VISION.md features implemented!
