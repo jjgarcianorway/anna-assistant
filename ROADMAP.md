@@ -918,5 +918,17 @@ Anna v0.0.369 focuses on:
 - [x] format_alarm_scheduler() / compact / oneline
 - [x] alarm_fun_fact() / is_alarm_query()
 
+### Phase 91 - Strategic Thinking Tracker ✓ (v0.0.515)
+- [x] strategic_thinking.rs for idle-time analysis
+- [x] ThinkingStatus enum (Pending, InProgress, Paused, etc.)
+- [x] ThinkingCategory / ThinkingPriority enums
+- [x] ThinkingTask / StrategicThinkingTracker tracker
+- [x] start() / pause() / resume() - Interruptible workflow
+- [x] complete() - Findings and recommendations
+- [x] pending() / paused() / completed() - Filtering
+- [x] high_priority() / resume_point tracking
+- [x] format_strategic_tracker() / compact / oneline
+- [x] strategic_fun_fact() / is_strategic_query()
+
 ### Future
 - All VISION.md features implemented!

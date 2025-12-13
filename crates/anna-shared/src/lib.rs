@@ -260,6 +260,7 @@ pub mod specialist_roster; // v0.0.511: Specialist roster
 pub mod llm_assignment; // v0.0.512: LLM assignment tracker
 pub mod dialogue_renderer; // v0.0.513: Dialogue renderer
 pub mod alarm_scheduler; // v0.0.514: Alarm scheduler
+pub mod strategic_thinking; // v0.0.515: Strategic thinking tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

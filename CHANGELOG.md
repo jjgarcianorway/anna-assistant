@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.515] - 2025-12-13
+
+### Added - Strategic Thinking Tracker (Phase 91)
+
+**Strategic Thinking Module:**
+- `strategic_thinking.rs` for idle-time analysis
+- `ThinkingStatus` enum (Pending, InProgress, Paused, Completed, Abandoned)
+- `ThinkingCategory` enum (Optimization, Security, Maintenance, etc.)
+- `ThinkingPriority` enum (Low, Medium, High, Critical)
+- `ThinkingTask` / `StrategicThinkingTracker` tracker
+
+**Core Functions:**
+- `add()` / `get()` - Task management
+- `start()` / `pause()` / `resume()` - Interruptible workflow
+- `complete()` - Record findings and recommendations
+- `pending()` / `paused()` / `completed()` - Status filtering
+- `high_priority()` - Priority filtering
+- Tracks resume_point for interrupted tasks
+
+**Display Functions:**
+- `format_strategic_tracker()` - Full task list
+- `format_strategic_tracker_compact()` - Compact summary
+- `format_strategic_tracker_oneline()` - Single line status
+- `strategic_fun_fact()` - Fun facts
+- `is_strategic_query()` - Query detection
+
 ## [0.0.514] - 2025-12-13
 
 ### Added - Alarm Scheduler (Phase 90)
