@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.531 - LLM Model Registry (Phase 107) ✓
+- [x] `llm_model_registry.rs` for installed LLM models
+- [x] `ModelCapability` / `ModelStatus` / `InstalledBy` enums
+- [x] `ModelRecord` / `LlmModelRegistry` system
+- [x] Specialist assignment and usage tracking
+- [x] VRAM and disk resource tracking
+
 ### v0.0.530 - Knowledge Citation Tracker (Phase 106) ✓
 - [x] `knowledge_citation.rs` for authoritative sources
 - [x] `CitationSource` / `CitationReliability` enums

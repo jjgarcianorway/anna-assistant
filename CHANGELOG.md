@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.531] - 2025-12-13
+
+### Added - LLM Model Registry (Phase 107)
+
+**LLM Model Registry Module:**
+- `llm_model_registry.rs` for tracking installed LLM models per VISION.md
+- `ModelCapability` enum (Light, Standard, Heavy, Multimodal)
+- `ModelStatus` enum (Available, Downloading, Installing, Ready, Failed, Removed)
+- `InstalledBy` enum (User, Anna, System)
+- `ModelRecord` / `LlmModelRegistry` system
+
+**Core Functions:**
+- `register()` - Register model
+- `get()` / `get_mut()` - Model retrieval
+- `install()` - Install with tracking
+- `assign()` / `unassign()` - Specialist assignment
+- `record_use()` - Track usage with avg response time
+- `ready()` / `by_capability()` / `installed_by_anna()` - Filtering
+- `best_for()` - Find fastest model for capability
+- `total_vram_gb()` / `total_disk_gb()` - Resource tracking
+
+**Display Functions:**
+- `format_model()` / `format_model_compact()` / `format_model_oneline()`
+- `format_registry_summary()` - Full registry overview
+- `model_fun_fact()` - Fun facts
+- `is_model_query()` - Query detection
+
 ## [0.0.530] - 2025-12-13
 
 ### Added - Knowledge Citation Tracker (Phase 106)
