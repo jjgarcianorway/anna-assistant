@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.484] - 2025-12-13
+
+### Added - Quick Status Summary (Phase 60)
+
+**Quick Status Module:**
+- `quick_status.rs` for at-a-glance system status
+- HealthLevel enum (Good, Warning, Critical, Unknown)
+- StatusItem struct for individual status entries
+- QuickStatus struct for overall system summary
+
+**Status Helpers:**
+- `memory_status()` - Memory usage health check
+- `disk_status()` - Disk usage health check
+- `cpu_status()` - CPU load health check
+- `service_status()` - Service state health check
+
+**Display Functions:**
+- `format_quick_status_oneline()` - One-line summary
+- `format_quick_status_compact()` - Compact view (issues only)
+- `format_quick_status_full()` - Full status display
+
+**Query Detection:**
+- `is_quick_status_query()` - Detect status check requests
+- Patterns: "quick status", "health check", "any problems"
+
 ## [0.0.483] - 2025-12-13
 
 ### Added - Command Shortcuts (Phase 59)
