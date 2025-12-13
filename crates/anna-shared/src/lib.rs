@@ -297,6 +297,7 @@ pub mod timeout_config; // v0.0.548: Timeout config
 pub mod output_style_config; // v0.0.549: Output style config
 pub mod privacy_config; // v0.0.550: Privacy config
 pub mod backup_config; // v0.0.551: Backup config
+pub mod update_config; // v0.0.552: Update config
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.552] - 2025-12-13
+
+### Added - Update Config (Phase 128)
+
+**Update Config Module:**
+- `update_config.rs` for update settings per VISION.md
+- `UpdateCheckFrequency` enum (Never, Daily, Startup, Hourly, Manual)
+- `UpdateChannel` enum (Stable, Beta, Nightly)
+- `UpdateAction` enum (Notify, Download, AutoInstall)
+- `UpdateConfig` for comprehensive update settings
+
+**Core Functions:**
+- `is_auto_update()` / `is_auto_check()` - Check update modes
+- `check_interval_seconds()` - Get check interval
+- `should_notify_available()` - Check notification settings
+- `apply_change()` - Natural language update configuration
+- `conservative()` / `automatic()` / `bleeding_edge()` - Presets
+
+**Supported Natural Language Changes:**
+- "Conservative/manual update"
+- "Automatic/auto update"
+- "Bleeding edge/nightly/latest"
+- "Stable/beta channel"
+- "Check hourly/daily/on startup"
+- "Notify me" / "Silent update"
+
 ## [0.0.551] - 2025-12-13
 
 ### Added - Backup Config (Phase 127)

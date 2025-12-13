@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.552 - Update Config (Phase 128) ✓
+- [x] `update_config.rs` for update settings
+- [x] `UpdateCheckFrequency` / `UpdateChannel` / `UpdateAction` enums
+- [x] `UpdateConfig` with natural language parser
+- [x] Conservative/automatic/bleeding_edge presets
+- [x] Check frequency and notification controls
+
 ### v0.0.551 - Backup Config (Phase 127) ✓
 - [x] `backup_config.rs` for backup settings
 - [x] `BackupFrequency` / `BackupType` / `BackupTarget` / `CompressionLevel` enums
