@@ -292,6 +292,7 @@ pub mod risk_level_config; // v0.0.543: Risk level config
 pub mod learning_mode_config; // v0.0.544: Learning mode config
 pub mod escalation_policy_config; // v0.0.545: Escalation policy config
 pub mod verbosity_config; // v0.0.546: Verbosity config
+pub mod confirmation_behavior_config; // v0.0.547: Confirmation behavior config
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

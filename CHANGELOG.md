@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.547] - 2025-12-13
+
+### Added - Confirmation Behavior Config (Phase 123)
+
+**Confirmation Behavior Config Module:**
+- `confirmation_behavior_config.rs` for confirmation behavior per VISION.md
+- `ConfirmationStyle` enum (Inline, Prompt, Dialog, Silent)
+- `TimeoutBehavior` enum (Deny, Approve, AskAgain)
+- `ConfirmableAction` enum for action types requiring confirmation
+- `ConfirmationBehaviorConfig` for comprehensive confirmation settings
+
+**Core Functions:**
+- `needs_confirmation()` - Check if action needs confirmation
+- `is_auto_confirm_safe()` / `is_silent()` - Check modes
+- `should_show_preview()` / `should_remember()` - Check behavior flags
+- `apply_change()` - Natural language confirmation configuration
+- `strict()` / `lenient()` / `silent()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Strict/lenient/silent confirmation"
+- "Require yes" / "Quick confirm"
+- "Show/hide preview"
+- "Remember/forget choices"
+- "Always confirm root/delete"
+
 ## [0.0.546] - 2025-12-13
 
 ### Added - Verbosity Config (Phase 122)

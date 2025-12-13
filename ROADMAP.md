@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.547 - Confirmation Behavior Config (Phase 123) ✓
+- [x] `confirmation_behavior_config.rs` for confirmation behavior
+- [x] `ConfirmationStyle` / `TimeoutBehavior` / `ConfirmableAction` enums
+- [x] `ConfirmationBehaviorConfig` with natural language parser
+- [x] Strict/lenient/silent presets
+- [x] Action-specific confirmation requirements
+
 ### v0.0.546 - Verbosity Config (Phase 122) ✓
 - [x] `verbosity_config.rs` for verbosity and detail level
 - [x] `VerbosityLevel` / `DetailLevel` / `OutputContext` enums
