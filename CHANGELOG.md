@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.522] - 2025-12-13
+
+### Added - User Preference Learner (Phase 98)
+
+**User Preference Learner Module:**
+- `user_preference_learner.rs` for learning user preferences
+- `PreferenceCategory` enum (Communication, Technical, Schedule, etc.)
+- `LearnConfidence` enum (Low, Medium, High, Confirmed)
+- `LearnedPreference` / `UserPreferenceLearner` system
+
+**Core Functions:**
+- `learn()` - Learn preference from observation
+- `confirm()` - User confirms a preference
+- `get()` - Get preference by key
+- `by_pref_category()` - Filter by category
+- `high_confidence()` / `confirmed()` - Get reliable preferences
+- Confidence increases with repeated observations
+
+**Display Functions:**
+- `format_preference_learner()` - Full preference list
+- `format_preference_learner_compact()` - Compact summary
+- `format_preference_learner_oneline()` - Single line status
+- `preference_learner_fun_fact()` - Fun facts
+- `is_preference_learner_query()` - Query detection
+
 ## [0.0.521] - 2025-12-13
 
 ### Added - Error Recovery Tracker (Phase 97)

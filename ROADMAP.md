@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.522 - User Preference Learner (Phase 98) ✓
+- [x] `user_preference_learner.rs` for learning user preferences
+- [x] `PreferenceCategory` / `LearnConfidence` enums
+- [x] `LearnedPreference` / `UserPreferenceLearner` system
+- [x] `learn()` / `confirm()` adaptive learning
+- [x] Confidence increases with repeated observations
+
 ### v0.0.521 - Error Recovery Tracker (Phase 97) ✓
 - [x] `error_recovery_tracker.rs` for tracking error recovery
 - [x] `ErrorCategory` / `RecoveryOutcome` enums

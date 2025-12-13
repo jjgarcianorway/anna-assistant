@@ -267,6 +267,7 @@ pub mod session_history; // v0.0.518: Session history tracker
 pub mod query_pattern_analyzer; // v0.0.519: Query pattern analyzer
 pub mod resource_usage_tracker; // v0.0.520: Resource usage tracker
 pub mod error_recovery_tracker; // v0.0.521: Error recovery tracker
+pub mod user_preference_learner; // v0.0.522: User preference learner
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
