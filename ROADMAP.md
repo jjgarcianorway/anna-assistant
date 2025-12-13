@@ -484,5 +484,17 @@ Anna v0.0.369 focuses on:
 - [x] generate_fun_fact() random facts
 - [x] is_fun_stats_query() query detection
 
+### Phase 56 - Capabilities Display ✓ (v0.0.480)
+- [x] capabilities_display.rs for "what can you do?" queries
+- [x] CapabilityCategory enum (9 categories)
+- [x] Examples and descriptions for each category
+- [x] format_capabilities() full display
+- [x] format_capabilities_compact() one-line
+- [x] format_capability_category() single category
+- [x] format_capabilities_with_teams() with team count
+- [x] is_capabilities_query() query detection
+- [x] parse_capability_category() parse from query
+- [x] capability_facts() and random_capability_fact()
+
 ### Future
 - All VISION.md features implemented!

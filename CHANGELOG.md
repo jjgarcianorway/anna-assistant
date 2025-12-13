@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.480] - 2025-12-13
+
+### Added - Capabilities Display (Phase 56)
+
+**Capabilities Module:**
+- `capabilities_display.rs` for "what can you do?" queries
+- `CapabilityCategory` enum (9 categories)
+- Examples and descriptions for each category
+
+**Categories:**
+- System Information (RAM, CPU, disk, health)
+- Package Management (install, update, remove)
+- Service Management (start, stop, restart, logs)
+- Configuration (edit configs, git, shell, editors)
+- Network (IPs, connectivity, ports)
+- Storage (disk usage, mounts, large files)
+- Hardware (GPU, temperature, devices)
+- Learning (learning mode, recipes, explanations)
+- Statistics (XP, level, streaks, history)
+
+**Functions:**
+- `format_capabilities()` - Full capabilities display
+- `format_capabilities_compact()` - One-line summary
+- `format_capability_category()` - Single category details
+- `format_capabilities_with_teams()` - With team count
+- `is_capabilities_query()` - Detect "help", "what can you do"
+- `parse_capability_category()` - Parse category from query
+- `capability_facts()` / `random_capability_fact()` - Fun facts
+
 ## [0.0.479] - 2025-12-13
 
 ### Added - Fun Statistics Display (Phase 55)

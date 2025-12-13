@@ -225,6 +225,7 @@ pub mod webserver_recipes; // v0.0.460: Nginx/Apache configuration recipes
 pub mod wiki_cache; // v0.0.472: Arch Wiki local caching
 pub mod xp_display; // v0.0.478: XP/Level RPG-style progression display
 pub mod fun_stats_display; // v0.0.479: Fun statistics display
+pub mod capabilities_display; // v0.0.480: Capabilities display
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
