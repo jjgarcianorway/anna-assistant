@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.508] - 2025-12-13
+
+### Added - Email Notification System (Phase 84)
+
+**Email Notification Module:**
+- `email_notification.rs` for email tracking
+- `NotificationStatus` enum (Pending, Sent, Failed, Cancelled, Queued)
+- `NotificationType` enum (TaskComplete, TaskFailed, ResearchResult, etc.)
+- `EmailConfig` struct with consent, daily limits, DND hours
+- `NotificationRecord` / `EmailNotificationTracker`
+
+**Core Functions:**
+- `configure()` - Setup email with consent
+- `is_configured()` - Check consent status
+- `record()` / `update_status()` - Notification management
+- `daily_limit_reached()` / `reset_daily()` - Rate limiting
+- `pending()` / `sent()` / `failed()` - Status filtering
+- `success_rate()` - Delivery metrics
+
+**Display Functions:**
+- `format_email_tracker()` - Full notification history
+- `format_email_tracker_compact()` - Compact summary
+- `format_email_tracker_oneline()` - Single line status
+- `email_fun_fact()` - Fun facts
+- `is_email_notification_query()` - Query detection
+
 ## [0.0.507] - 2025-12-13
 
 ### Added - Helper Tracker (Phase 83)

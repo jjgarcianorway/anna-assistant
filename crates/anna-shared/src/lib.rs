@@ -253,6 +253,7 @@ pub mod package_install_tracker; // v0.0.504: Package installation tracker
 pub mod service_management_tracker; // v0.0.505: Service management tracker
 pub mod config_change_tracker; // v0.0.506: Config change tracker
 pub mod helper_tracker; // v0.0.507: Helper tool tracker
+pub mod email_notification; // v0.0.508: Email notification system
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
