@@ -661,5 +661,17 @@ Anna v0.0.369 focuses on:
 - [x] ticket_history_fun_fact()
 - [x] is_ticket_history_query()
 
+### Phase 70 - Error Summary Display ✓ (v0.0.494)
+- [x] error_summary_display.rs for error tracking
+- [x] ErrorSeverity enum (Critical, Error, Warning, Info)
+- [x] ErrorCategory enum (9 categories)
+- [x] ErrorEntry with duplicate detection
+- [x] ErrorSummary storage and query
+- [x] unacknowledged() / critical() / by_severity()
+- [x] acknowledge() / acknowledge_all()
+- [x] has_active_critical() / categorize_error()
+- [x] format_error_summary() / compact / oneline
+- [x] error_health_message() / is_error_summary_query()
+
 ### Future
 - All VISION.md features implemented!

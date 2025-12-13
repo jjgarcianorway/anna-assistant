@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.494] - 2025-12-13
+
+### Added - Error Summary Display (Phase 70)
+
+**Error Summary Module:**
+- `error_summary_display.rs` for error/warning tracking
+- `ErrorSeverity` enum (Critical, Error, Warning, Info)
+- `ErrorCategory` enum (9 categories)
+- `ErrorEntry` struct with full error details
+- `ErrorSummary` for storage and query
+
+**Core Functions:**
+- `add()` - Add error with duplicate detection
+- `unacknowledged()` / `critical()` - Filter errors
+- `by_severity()` / `by_category()` - Filtering
+- `acknowledge()` / `acknowledge_all()` - Mark as reviewed
+- `has_active_critical()` - Check for urgent issues
+- `categorize_error()` - Auto-categorize error messages
+
+**Display Functions:**
+- `format_error_summary()` - Full display with breakdown
+- `format_error_summary_compact()` - Compact for greetings
+- `format_error_summary_oneline()` - Single line status
+- `format_error_timestamp()` - Human-readable timestamps
+- `error_health_message()` - System health assessment
+- `is_error_summary_query()` - Query detection
+
 ## [0.0.493] - 2025-12-13
 
 ### Added - Ticket History Display (Phase 69)
