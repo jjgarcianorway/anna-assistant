@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.533 - Notification Tracker (Phase 109) ✓
+- [x] `notification_tracker.rs` for user notifications
+- [x] `NotificationChannel` / `NotificationPriority` / `DeliveryStatus` enums
+- [x] `NotificationRecord` / `NotificationTracker` system
+- [x] Anti-spam cooldown with `should_suppress()`
+- [x] Email, libnotify, wall, terminal channels
+
 ### v0.0.532 - Helper Install Tracker (Phase 108) ✓
 - [x] `helper_install_tracker.rs` for helper tools
 - [x] `HelperInstaller` / `HelperCategory` / `HelperStatus` enums

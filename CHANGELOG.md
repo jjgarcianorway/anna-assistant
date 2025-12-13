@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.533] - 2025-12-13
+
+### Added - Notification Tracker (Phase 109)
+
+**Notification Tracker Module:**
+- `notification_tracker.rs` for tracking notifications per VISION.md
+- `NotificationChannel` enum (Email, Libnotify, Wall, Terminal, Log)
+- `NotificationPriority` enum (Low, Normal, High, Urgent)
+- `DeliveryStatus` enum (Pending, Sent, Delivered, Failed, Suppressed)
+- `NotificationRecord` / `NotificationTracker` system
+
+**Core Functions:**
+- `create()` - Create notification with auto ID
+- `get()` / `get_mut()` - Notification retrieval
+- `mark_sent()` / `mark_delivered()` / `mark_failed()` - Lifecycle
+- `suppress()` - Anti-spam suppression
+- `set_email()` - Store user email (with permission)
+- `should_suppress()` - Anti-spam cooldown check
+- `pending()` / `by_channel()` / `for_ticket()` - Filtering
+- `recent()` - Get recent notifications
+
+**Display Functions:**
+- `format_notification()` / `format_notification_compact()` / `format_notification_oneline()`
+- `format_tracker_summary()` - Full notification overview
+- `notification_fun_fact()` - Fun facts
+- `is_notification_query()` - Query detection
+
 ## [0.0.532] - 2025-12-13
 
 ### Added - Helper Install Tracker (Phase 108)
