@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.502] - 2025-12-13
+
+### Added - Specialist Conversation Display (Phase 78)
+
+**Conversation Module:**
+- `specialist_conversation.rs` for conversation tracking
+- `Speaker` enum (Anna, Junior, Senior, User)
+- `MessageType` enum (Query, Response, Clarification, etc.)
+- `ConversationMessage` struct for individual messages
+- `Conversation` struct for conversation threads
+- `ConversationHistory` comprehensive tracker
+
+**Core Functions:**
+- `add_message()` / `resolve()` - Conversation management
+- `participants()` / `messages_by_speaker()` - Analysis
+- `recent()` / `active()` / `resolved()` - Query history
+- `avg_messages_per_conversation()` / `avg_resolution_secs()`
+- `most_active_specialist()` / `most_active_department()`
+
+**Display Functions:**
+- `format_conversation()` - Fly-on-the-wall style display
+- `format_conversation_history()` - Full history display
+- `format_conversation_history_compact()` - Compact summary
+- `format_conversation_history_oneline()` - Single line status
+- `conversation_fun_fact()` - Fun facts
+- `is_conversation_query()` - Query detection
+
 ## [0.0.501] - 2025-12-13
 
 ### Added - Command Execution Logging (Phase 77)

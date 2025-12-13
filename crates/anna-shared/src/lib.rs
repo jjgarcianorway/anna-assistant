@@ -247,6 +247,7 @@ pub mod system_health_score; // v0.0.498: System health score
 pub mod knowledge_base_stats; // v0.0.499: Knowledge base stats
 pub mod boot_time_tracking; // v0.0.500: Boot time tracking
 pub mod command_execution_log; // v0.0.501: Command execution logging
+pub mod specialist_conversation; // v0.0.502: Specialist conversation display
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

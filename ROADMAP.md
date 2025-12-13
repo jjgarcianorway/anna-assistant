@@ -764,5 +764,17 @@ Anna v0.0.369 focuses on:
 - [x] format_execution_log() / compact / oneline
 - [x] execution_fun_fact() / is_execution_log_query()
 
+### Phase 78 - Specialist Conversation Display ✓ (v0.0.502)
+- [x] specialist_conversation.rs for conversation tracking
+- [x] Speaker enum (Anna, Junior, Senior, User)
+- [x] MessageType enum (Query, Response, etc.)
+- [x] ConversationMessage / Conversation / ConversationHistory
+- [x] add_message() / resolve() - Conversation management
+- [x] participants() / messages_by_speaker() - Analysis
+- [x] avg_messages_per_conversation() / avg_resolution_secs()
+- [x] format_conversation() - Fly-on-the-wall style
+- [x] format_conversation_history() / compact / oneline
+- [x] conversation_fun_fact() / is_conversation_query()
+
 ### Future
 - All VISION.md features implemented!
