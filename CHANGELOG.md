@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.501] - 2025-12-13
+
+### Added - Command Execution Logging (Phase 77)
+
+**Execution Log Module:**
+- `command_execution_log.rs` for command tracking
+- `ExecStatus` enum (Success, Failed, Timeout, Cancelled, Pending)
+- `CommandRisk` enum (ReadOnly, LowRisk, MediumRisk, HighRisk, Critical)
+- `ExecutionRecord` struct for individual executions
+- `ExecutionLog` comprehensive tracker
+
+**Core Functions:**
+- `record()` - Record command execution
+- `recent()` / `by_status()` / `by_ticket()` - Query executions
+- `failed()` / `elevated()` / `high_risk()` - Filter executions
+- `success_rate()` / `average_duration_ms()` - Statistics
+- `most_used()` / `most_failed()` - Command patterns
+
+**Risk Classification:**
+- `classify_risk()` - Determine command risk level
+- `extract_command_pattern()` - Extract command name
+
+**Display Functions:**
+- `format_execution_log()` - Full execution log display
+- `format_execution_log_compact()` - Compact summary
+- `format_execution_log_oneline()` - Single line status
+- `execution_fun_fact()` - Fun facts about executions
+- `is_execution_log_query()` - Query detection
+
 ## [0.0.500] - 2025-12-13
 
 ### Added - Boot Time Tracking (Phase 76)

@@ -752,5 +752,17 @@ Anna v0.0.369 focuses on:
 - [x] boot_time_greeting() / boot_time_fun_fact()
 - [x] is_boot_time_query() - Query detection
 
+### Phase 77 - Command Execution Logging ✓ (v0.0.501)
+- [x] command_execution_log.rs for command tracking
+- [x] ExecStatus enum (Success, Failed, Timeout, etc.)
+- [x] CommandRisk enum (ReadOnly to Critical)
+- [x] ExecutionRecord struct with full execution details
+- [x] ExecutionLog comprehensive tracker
+- [x] classify_risk() - Risk classification
+- [x] most_used() / most_failed() - Command patterns
+- [x] success_rate() / average_duration_ms()
+- [x] format_execution_log() / compact / oneline
+- [x] execution_fun_fact() / is_execution_log_query()
+
 ### Future
 - All VISION.md features implemented!
