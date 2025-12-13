@@ -609,5 +609,18 @@ Anna v0.0.369 focuses on:
 - [x] format_expert_stats/compact() - Display
 - [x] expert_stats_fun_fact() - Fun facts
 
+### Phase 66 - Recipe Statistics Display ✓ (v0.0.490)
+- [x] recipe_stats_display.rs for recipe statistics
+- [x] RecipeCategory enum (11 categories)
+- [x] RecipeOriginType enum (Seed, Learned, etc.)
+- [x] RecipeStats per-recipe tracking
+- [x] RecipeStatsTracker comprehensive tracker
+- [x] register() / record_use() - Track recipes
+- [x] most_used() / recipes_by_category()
+- [x] most_reliable() / recently_learned()
+- [x] top_category() - Popular category
+- [x] format_recipe_stats/compact() - Display
+- [x] recipe_stats_fun_fact() - Fun facts
+
 ### Future
 - All VISION.md features implemented!

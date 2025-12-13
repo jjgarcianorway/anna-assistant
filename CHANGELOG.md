@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.490] - 2025-12-13
+
+### Added - Recipe Statistics Display (Phase 66)
+
+**Recipe Stats Display Module:**
+- `recipe_stats_display.rs` for recipe statistics
+- `RecipeCategory` enum (11 categories)
+- `RecipeOriginType` enum (Seed, Learned, UserTaught, Imported)
+- `RecipeStats` per-recipe tracking
+- `RecipeStatsTracker` comprehensive tracker
+
+**Core Functions:**
+- `register()` - Register recipe with category/origin
+- `record_use()` - Track usage with success/confidence
+- `most_used()` - Get most popular recipes
+- `recipes_by_category()` - Filter by category
+- `most_reliable()` - Highest success rate recipes
+- `recently_learned()` - New learned recipes
+- `top_category()` - Most popular category
+
+**Display Functions:**
+- `format_recipe_stats()` - Full stats display
+- `format_recipe_stats_compact()` - Compact summary
+- `recipe_stats_fun_fact()` - Fun facts
+- `is_recipe_stats_query()` - Query detection
+
 ## [0.0.489] - 2025-12-13
 
 ### Added - Expert Ticket Statistics (Phase 65)
