@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.479] - 2025-12-13
+
+### Added - Fun Statistics Display (Phase 55)
+
+**Fun Statistics Module:**
+- `fun_stats_display.rs` for VISION.md Fun Statistics display
+- `FunStats` struct with all interesting statistics
+- Installation date and days active tracking
+- Most consulted team with count
+- Lucky team with success rate
+- Anna solo successes and percentage
+- Longest/shortest reply times
+- Current and best streak tracking
+
+**Display Functions:**
+- `FunStats::from_aggregated()` - Create from event data
+- `format_fun_stats()` - Full display with sections
+- `format_fun_stats_compact()` - One-line for greetings
+- `format_fun_stats_category()` - Filter by category
+- `generate_fun_fact()` - Random interesting fact
+- `format_install_date()` - Human-readable dates
+
+**Categories:**
+- History (install date, days active, total requests)
+- Teams (most consulted, lucky team)
+- Independence (solo answers, recipes learned)
+- Times (longest/shortest reply)
+- Streaks (current and best)
+
+**Query Detection:**
+- `is_fun_stats_query()` - Detect "fun stats", "interesting facts" queries
+- `FunStatsCategory::parse()` - Parse category from string
+
 ## [0.0.478] - 2025-12-12
 
 ### Added - XP/Level Display Enhancement (Phase 54)
