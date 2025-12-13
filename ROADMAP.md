@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.546 - Verbosity Config (Phase 122) ✓
+- [x] `verbosity_config.rs` for verbosity and detail level
+- [x] `VerbosityLevel` / `DetailLevel` / `OutputContext` enums
+- [x] `VerbosityConfig` with natural language parser
+- [x] Minimal/verbose/debug presets
+- [x] Context-specific detail levels
+
 ### v0.0.545 - Escalation Policy Config (Phase 121) ✓
 - [x] `escalation_policy_config.rs` for escalation policy
 - [x] `EscalationTrigger` / `EscalationPriority` / `EscalationMode` enums

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.546] - 2025-12-13
+
+### Added - Verbosity Config (Phase 122)
+
+**Verbosity Config Module:**
+- `verbosity_config.rs` for verbosity and detail level per VISION.md
+- `VerbosityLevel` enum (Minimal, Normal, Detailed, Verbose, Debug)
+- `DetailLevel` enum (Summary, Standard, Full, Exhaustive)
+- `OutputContext` enum for context-specific detail levels
+- `VerbosityConfig` for comprehensive verbosity settings
+
+**Core Functions:**
+- `is_minimal()` / `is_verbose()` / `is_debug()` - Check verbosity level
+- `detail_for()` - Get detail level for specific context
+- `should_show()` - Check if section should be shown
+- `apply_change()` - Natural language verbosity configuration
+- `minimal()` / `verbose()` / `debug()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Minimal/brief/short output"
+- "Verbose/detailed/more detail"
+- "Debug/maximum detail"
+- "Show/hide citations/timestamps/confidence"
+- "Show/hide progress"
+
 ## [0.0.545] - 2025-12-13
 
 ### Added - Escalation Policy Config (Phase 121)
