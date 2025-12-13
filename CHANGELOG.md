@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.538] - 2025-12-13
+
+### Added - Response Time Tracker (Phase 114)
+
+**Response Time Tracker Module:**
+- `response_time_tracker.rs` for tracking response times per VISION.md
+- `ResponseType` enum (Direct, Recipe, Specialist, Escalated, Research, Clarification)
+- `ComplexityLevel` enum (Simple, Moderate, Complex, VeryComplex)
+- `ResponseTimeRecord` / `ResponseTimeTracker` system
+
+**Core Functions:**
+- `record()` / `record_full()` - Record response time
+- `shortest_reply()` / `longest_reply()` - Word count extremes
+- `shortest_time()` / `longest_time()` - Time extremes
+- `average_time_ms()` / `average_word_count()` - Averages
+- `percentile_time()` - Percentile calculations
+- `time_distribution()` - Full distribution stats
+
+**Display Functions:**
+- `format_response_time()` - Format single record
+- `format_tracker_summary()` - Full tracker overview
+- `response_time_fun_fact()` - Fun facts
+- `is_response_time_query()` - Query detection
+
 ## [0.0.537] - 2025-12-13
 
 ### Added - Query History Tracker (Phase 113)

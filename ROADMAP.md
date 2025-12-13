@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.538 - Response Time Tracker (Phase 114) ✓
+- [x] `response_time_tracker.rs` for response time tracking
+- [x] `ResponseType` / `ComplexityLevel` enums
+- [x] `ResponseTimeRecord` / `ResponseTimeTracker` system
+- [x] Shortest/longest reply detection for fun stats
+- [x] Percentile calculations and distribution stats
+
 ### v0.0.537 - Query History Tracker (Phase 113) ✓
 - [x] `query_history_tracker.rs` for user query tracking
 - [x] `QueryCategory` / `QueryOutcome` enums
