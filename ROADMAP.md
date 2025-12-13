@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.551 - Backup Config (Phase 127) ✓
+- [x] `backup_config.rs` for backup settings
+- [x] `BackupFrequency` / `BackupType` / `BackupTarget` / `CompressionLevel` enums
+- [x] `BackupConfig` with natural language parser
+- [x] Minimal/comprehensive/manual_only presets
+- [x] Encryption and verification controls
+
 ### v0.0.550 - Privacy Config (Phase 126) ✓
 - [x] `privacy_config.rs` for privacy settings
 - [x] `DataCollectionLevel` / `LogRetention` / `SensitiveDataHandling` enums

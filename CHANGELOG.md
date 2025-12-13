@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.551] - 2025-12-13
+
+### Added - Backup Config (Phase 127)
+
+**Backup Config Module:**
+- `backup_config.rs` for backup settings per VISION.md
+- `BackupFrequency` enum (Manual, Hourly, Daily, Weekly, Monthly)
+- `BackupType` enum (Incremental, Full, Differential, Snapshot)
+- `BackupTarget` enum (Local, Network, Cloud, External)
+- `CompressionLevel` enum (None, Fast, Balanced, Maximum)
+- `BackupConfig` for comprehensive backup settings
+
+**Core Functions:**
+- `is_automatic()` / `interval_hours()` - Check backup schedule
+- `should_encrypt()` / `should_verify()` - Check security settings
+- `apply_change()` - Natural language backup configuration
+- `minimal()` / `comprehensive()` / `manual_only()` - Presets
+
+**Supported Natural Language Changes:**
+- "Minimal/comprehensive/full backup"
+- "Manual backup/no automatic"
+- "Backup hourly/daily/weekly"
+- "Encrypt/secure backup"
+- "Verify/check backup"
+- "Notify when complete"
+
 ## [0.0.550] - 2025-12-13
 
 ### Added - Privacy Config (Phase 126)
