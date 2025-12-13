@@ -856,5 +856,17 @@ Anna v0.0.369 focuses on:
 - [x] format_idle_tracker() / compact / oneline
 - [x] idle_fun_fact() / is_idle_query()
 
+### Phase 86 - Ticket Resolution Stats ✓ (v0.0.510)
+- [x] ticket_resolution_stats.rs for resolution tracking
+- [x] Resolver enum (Anna, Junior, Senior, Escalated, User)
+- [x] ResolutionMethod enum (Recipe, Specialist, DirectAnswer, etc.)
+- [x] ResolutionRecord / TicketResolutionStats tracker
+- [x] record() / anna_rate() - Core tracking
+- [x] by_res() / by_res_method() - Filtering
+- [x] avg_resolution_time() / fastest / slowest
+- [x] anna_improving() - Learning progress detection
+- [x] format_resolution_stats() / compact / oneline
+- [x] resolution_fun_fact() / is_resolution_stats_query()
+
 ### Future
 - All VISION.md features implemented!

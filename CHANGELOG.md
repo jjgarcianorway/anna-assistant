@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.510] - 2025-12-13
+
+### Added - Ticket Resolution Stats (Phase 86)
+
+**Resolution Stats Module:**
+- `ticket_resolution_stats.rs` for resolution tracking
+- `Resolver` enum (Anna, Junior, Senior, Escalated, User, Unknown)
+- `ResolutionMethod` enum (Recipe, Specialist, DirectAnswer, etc.)
+- `ResolutionRecord` / `TicketResolutionStats` comprehensive tracker
+
+**Core Functions:**
+- `record()` - Record a resolution
+- `anna_rate()` - Get Anna's resolution percentage
+- `by_res()` / `by_res_method()` - Filtering
+- `avg_resolution_time()` / `fastest_resolution()` / `slowest_resolution()`
+- `anna_improving()` - Check if Anna is getting better over time
+- `recipes_learned` - Track recipes learned from resolutions
+
+**Display Functions:**
+- `format_resolution_stats()` - Full resolution history
+- `format_resolution_stats_compact()` - Compact summary
+- `format_resolution_stats_oneline()` - Single line status
+- `resolution_fun_fact()` - Fun facts
+- `is_resolution_stats_query()` - Query detection
+
 ## [0.0.509] - 2025-12-13
 
 ### Added - Idle Time Detector (Phase 85)
