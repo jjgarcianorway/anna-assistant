@@ -648,5 +648,18 @@ Anna v0.0.369 focuses on:
 - [x] format_duration_secs() - Human readable
 - [x] uptime_fun_fact() / is_uptime_query()
 
+### Phase 69 - Ticket History Display ✓ (v0.0.493)
+- [x] ticket_history_display.rs for past ticket viewing
+- [x] TicketOutcome enum (6 states)
+- [x] HistoricalTicket struct with details
+- [x] TicketHistory storage and query
+- [x] add() / recent() / by_outcome()
+- [x] by_department() / open_tickets()
+- [x] success_rate() / most_active_department()
+- [x] format_ticket_history() / compact / oneline
+- [x] format_timestamp() / format_duration()
+- [x] ticket_history_fun_fact()
+- [x] is_ticket_history_query()
+
 ### Future
 - All VISION.md features implemented!

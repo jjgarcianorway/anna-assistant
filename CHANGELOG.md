@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.493] - 2025-12-13
+
+### Added - Ticket History Display (Phase 69)
+
+**Ticket History Module:**
+- `ticket_history_display.rs` for viewing past ticket history
+- `TicketOutcome` enum (Resolved, Escalated, Cancelled, Failed, InProgress, AwaitingInput)
+- `HistoricalTicket` struct with full ticket details
+- `TicketHistory` for storage and query
+
+**Core Functions:**
+- `add()` - Add ticket to history
+- `recent()` - Get recent tickets
+- `by_outcome()` / `by_department()` - Filter tickets
+- `open_tickets()` - Get in-progress tickets
+- `success_rate()` - Calculate resolution rate
+- `most_active_department()` - Busiest department
+
+**Display Functions:**
+- `format_ticket_history()` - Full history display
+- `format_ticket_history_compact()` - Compact summary
+- `format_ticket_history_oneline()` - Single line status
+- `format_timestamp()` - Human-readable timestamps
+- `format_duration()` - Duration formatting
+- `ticket_history_fun_fact()` - Fun facts
+- `is_ticket_history_query()` - Query detection
+
 ## [0.0.492] - 2025-12-13
 
 ### Added - Uptime Tracking (Phase 68)
