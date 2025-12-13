@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.542] - 2025-12-13
+
+### Added - Personality Config (Phase 118)
+
+**Personality Config Module:**
+- `personality_config.rs` for natural language personality settings per VISION.md
+- `FormalityLevel` enum (Casual, Professional, Formal, Technical)
+- `FriendlinessLevel` enum (Reserved, Balanced, Friendly, Enthusiastic)
+- `HumorLevel` / `VerbosityLevel` / `ExplanationStyle` enums
+- `PersonalityConfig` struct for full personality state
+
+**Core Functions:**
+- `apply_change()` - Parse and apply natural language personality changes
+- `greeting_style()` - Get appropriate greeting for current personality
+- `should_explain()` - Check if explanations should be included
+- Builder pattern: `with_formality()`, `with_friendliness()`, etc.
+
+**Supported Natural Language Changes:**
+- "Be more formal" / "Be casual"
+- "Be friendlier" / "Be enthusiastic"
+- "Be concise" / "More detail"
+- "Use emoji" / "No emoji"
+- "Step by step" / "Educational mode"
+
 ## [0.0.541] - 2025-12-13
 
 ### Added - Tips System (Phase 117)

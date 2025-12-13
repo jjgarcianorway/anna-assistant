@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.542 - Personality Config (Phase 118) ✓
+- [x] `personality_config.rs` for personality settings
+- [x] `FormalityLevel` / `FriendlinessLevel` / `HumorLevel` enums
+- [x] `PersonalityConfig` with natural language parser
+- [x] `apply_change()` for natural language commands
+- [x] Greeting style based on personality
+
 ### v0.0.541 - Tips System (Phase 117) ✓
 - [x] `tips_system.rs` for greeting tips
 - [x] `TipCategory` / `TipPriority` enums
