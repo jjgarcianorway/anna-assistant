@@ -713,5 +713,18 @@ Anna v0.0.369 focuses on:
 - [x] format_activity_summary() / compact / oneline
 - [x] activity_insight() / is_activity_query()
 
+### Phase 74 - System Health Score ✓ (v0.0.498)
+- [x] system_health_score.rs for unified health
+- [x] HealthGrade enum (A-F) with descriptions
+- [x] HealthCategory enum (8 categories with weights)
+- [x] HealthMetric with recommendations
+- [x] SystemHealthScore unified tracker
+- [x] cpu_health() / memory_health() / disk_health()
+- [x] services_health() / network_health() / daemon_health()
+- [x] calculate_overall() with weighted scores
+- [x] health_bar() - ASCII visualization
+- [x] format_health_score() / compact / oneline
+- [x] health_summary_message() / is_health_query()
+
 ### Future
 - All VISION.md features implemented!

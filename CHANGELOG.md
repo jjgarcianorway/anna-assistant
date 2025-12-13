@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.498] - 2025-12-13
+
+### Added - System Health Score (Phase 74)
+
+**System Health Module:**
+- `system_health_score.rs` for unified health assessment
+- `HealthGrade` enum (A, B, C, D, F) with descriptions
+- `HealthCategory` enum (8 categories with weights)
+- `HealthMetric` individual component health
+- `SystemHealthScore` unified tracker
+
+**Health Functions:**
+- `cpu_health()` / `memory_health()` / `disk_health()`
+- `services_health()` / `network_health()` / `daemon_health()`
+- `add_metric()` / `calculate_overall()`
+- `issues()` / `critical()` / `is_healthy()`
+
+**Display Functions:**
+- `format_health_score()` - Full display with recommendations
+- `format_health_score_compact()` - Compact summary
+- `format_health_score_oneline()` - Single line status
+- `health_bar()` - ASCII health visualization
+- `health_summary_message()` - Natural language summary
+- `is_health_query()` - Query detection
+
 ## [0.0.497] - 2025-12-13
 
 ### Added - User Activity Summary (Phase 73)
