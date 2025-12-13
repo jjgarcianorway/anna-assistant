@@ -880,5 +880,18 @@ Anna v0.0.369 focuses on:
 - [x] format_specialist_roster() / compact / oneline
 - [x] roster_fun_fact() / is_specialist_roster_query()
 
+### Phase 88 - LLM Assignment Tracker ✓ (v0.0.512)
+- [x] llm_assignment.rs for model assignment tracking
+- [x] ModelTier enum (Light, Standard, Heavy, DeepThinking)
+- [x] AssignmentReason enum (Default, HardwareLimit, etc.)
+- [x] LlmAssignment / LlmAssignmentTracker tracker
+- [x] assign() / get_assignment() - Assignment management
+- [x] add_available_model() / set_recommended_tier()
+- [x] by_llm_model() / by_model_tier() - Filtering
+- [x] models_in_use() / most_used_model()
+- [x] COMMON_MODELS / get_model_tier()
+- [x] format_llm_tracker() / compact / oneline
+- [x] llm_fun_fact() / is_llm_query()
+
 ### Future
 - All VISION.md features implemented!

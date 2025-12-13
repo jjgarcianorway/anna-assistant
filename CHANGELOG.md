@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.512] - 2025-12-13
+
+### Added - LLM Assignment Tracker (Phase 88)
+
+**LLM Assignment Module:**
+- `llm_assignment.rs` for model assignment tracking
+- `ModelTier` enum (Light, Standard, Heavy, DeepThinking)
+- `AssignmentReason` enum (Default, HardwareLimit, etc.)
+- `LlmAssignment` / `LlmAssignmentTracker` tracker
+
+**Core Functions:**
+- `assign()` - Assign model to specialist
+- `get_assignment()` - Get current assignment
+- `add_available_model()` / `is_model_available()`
+- `set_recommended_tier()` - Hardware-based recommendation
+- `by_llm_model()` / `by_model_tier()` - Filtering
+- `models_in_use()` / `most_used_model()`
+- `COMMON_MODELS` - Common model/tier mappings
+- `get_model_tier()` - Auto-detect tier from model name
+
+**Display Functions:**
+- `format_llm_tracker()` - Full assignment display
+- `format_llm_tracker_compact()` - Compact summary
+- `format_llm_tracker_oneline()` - Single line status
+- `llm_fun_fact()` - Fun facts
+- `is_llm_query()` - Query detection
+
 ## [0.0.511] - 2025-12-13
 
 ### Added - Specialist Roster (Phase 87)
