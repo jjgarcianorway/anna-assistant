@@ -776,5 +776,16 @@ Anna v0.0.369 focuses on:
 - [x] format_conversation_history() / compact / oneline
 - [x] conversation_fun_fact() / is_conversation_query()
 
+### Phase 79 - Backup History Tracking ✓ (v0.0.503)
+- [x] backup_history.rs for backup tracking
+- [x] BackupStatus enum (Active, Restored, Expired, Deleted)
+- [x] BackupType enum (ConfigFile, SystemFile, etc.)
+- [x] BackupRecord / BackupHistory comprehensive tracker
+- [x] mark_restored() / mark_deleted() - Status changes
+- [x] by_backup_type() / for_file() / for_change() - Queries
+- [x] expire_old() / active_size_bytes() - Maintenance
+- [x] format_backup_history() / compact / oneline
+- [x] backup_fun_fact() / is_backup_query()
+
 ### Future
 - All VISION.md features implemented!

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.503] - 2025-12-13
+
+### Added - Backup History Tracking (Phase 79)
+
+**Backup Module:**
+- `backup_history.rs` for backup tracking
+- `BackupStatus` enum (Active, Restored, Expired, Deleted)
+- `BackupType` enum (ConfigFile, SystemFile, UserFile, etc.)
+- `BackupRecord` struct for individual backups
+- `BackupHistory` comprehensive tracker
+
+**Core Functions:**
+- `add()` / `get()` / `get_mut()` - Backup management
+- `mark_restored()` / `mark_deleted()` - Status changes
+- `active()` / `recent()` - Query backups
+- `by_backup_type()` / `for_file()` / `for_change()`
+- `expire_old()` - Automatic expiration
+- `active_size_bytes()` - Size calculations
+
+**Display Functions:**
+- `format_size()` - Human-readable sizes
+- `format_backup_history()` - Full display
+- `format_backup_history_compact()` - Compact summary
+- `format_backup_history_oneline()` - Single line status
+- `backup_fun_fact()` - Fun facts
+- `is_backup_query()` - Query detection
+
 ## [0.0.502] - 2025-12-13
 
 ### Added - Specialist Conversation Display (Phase 78)
