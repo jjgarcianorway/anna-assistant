@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.519 - Query Pattern Analyzer (Phase 95) ✓
+- [x] `query_pattern_analyzer.rs` for analyzing query patterns
+- [x] `PatternCategory` / `ConfidenceLevel` enums
+- [x] `QueryPattern` / `QueryPatternAnalyzer` system
+- [x] `record_match()` / `most_used()` for pattern analytics
+- [x] `COMMON_PATTERNS` constant
+
 ### v0.0.518 - Session History Tracker (Phase 94) ✓
 - [x] `session_history.rs` for tracking user sessions
 - [x] `SessionOutcome` / `SessionType` enums

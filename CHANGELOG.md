@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.519] - 2025-12-13
+
+### Added - Query Pattern Analyzer (Phase 95)
+
+**Query Pattern Analyzer Module:**
+- `query_pattern_analyzer.rs` for analyzing query patterns
+- `PatternCategory` enum (Question, Command, Status, Config, etc.)
+- `ConfidenceLevel` enum (Low, Medium, High, Certain)
+- `QueryPattern` / `QueryPatternAnalyzer` system
+
+**Core Functions:**
+- `add_pattern()` / `get()` - Pattern management
+- `record_match()` - Track pattern matches
+- `add_example()` - Add example queries
+- `by_pat_category()` / `high_confidence()` - Filtering
+- `most_used()` - Get frequently matched patterns
+- `overall_success_rate()` - Analytics
+
+**Display Functions:**
+- `format_pattern_analyzer()` - Full pattern list
+- `format_pattern_analyzer_compact()` - Compact summary
+- `format_pattern_analyzer_oneline()` - Single line status
+- `pattern_fun_fact()` - Fun facts
+- `is_pattern_query()` - Query detection
+- `COMMON_PATTERNS` constant
+
 ## [0.0.518] - 2025-12-13
 
 ### Added - Session History Tracker (Phase 94)
