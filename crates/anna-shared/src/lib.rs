@@ -285,6 +285,7 @@ pub mod display_mode_manager; // v0.0.536: Display mode manager
 pub mod query_history_tracker; // v0.0.537: Query history tracker
 pub mod response_time_tracker; // v0.0.538: Response time tracker
 pub mod team_consultation_tracker; // v0.0.539: Team consultation tracker
+pub mod installation_tracker; // v0.0.540: Installation date tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

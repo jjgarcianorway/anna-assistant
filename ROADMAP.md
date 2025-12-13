@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.540 - Installation Date Tracker (Phase 116) ✓
+- [x] `installation_tracker.rs` for installation tracking
+- [x] `InstallMethod` / `InstallStatus` enums
+- [x] `InstallationInfo` struct with duration calculations
+- [x] Anniversary and milestone detection
+- [x] Human-readable uptime strings
+
 ### v0.0.539 - Team Consultation Tracker (Phase 115) ✓
 - [x] `team_consultation_tracker.rs` for team consultations
 - [x] `TeamDepartment` / `ConsultationOutcome` enums
