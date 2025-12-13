@@ -622,5 +622,18 @@ Anna v0.0.369 focuses on:
 - [x] format_recipe_stats/compact() - Display
 - [x] recipe_stats_fun_fact() - Fun facts
 
+### Phase 67 - Aggregated Stats Dashboard ✓ (v0.0.491)
+- [x] stats_dashboard.rs for unified view
+- [x] DashboardSection enum (8 sections)
+- [x] StatMetric with name, value, trend
+- [x] StatTrend enum (Up, Down, Stable)
+- [x] StatsDashboard with health score
+- [x] DashboardBuilder for easy construction
+- [x] with_summary/resolutions/interactions/etc
+- [x] format_dashboard() - Full display
+- [x] format_dashboard_compact/oneline()
+- [x] generate_health_bar() - ASCII indicator
+- [x] is_dashboard_query() / detect_section()
+
 ### Future
 - All VISION.md features implemented!

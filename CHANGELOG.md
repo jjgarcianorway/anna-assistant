@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.491] - 2025-12-13
+
+### Added - Aggregated Stats Dashboard (Phase 67)
+
+**Stats Dashboard Module:**
+- `stats_dashboard.rs` for unified statistics view
+- `DashboardSection` enum (8 sections)
+- `StatMetric` with name, value, trend
+- `StatTrend` enum (Up, Down, Stable)
+- `StatsDashboard` container with health score
+- `DashboardBuilder` for easy construction
+
+**Builder Methods:**
+- `with_summary()` - Add summary metrics
+- `with_resolutions()` - Resolution time stats
+- `with_interactions()` - Interaction stats
+- `with_experts()` - Expert performance stats
+- `with_recipes()` - Recipe statistics
+- `with_responses()` - Response length stats
+
+**Display Functions:**
+- `format_dashboard()` - Full dashboard display
+- `format_dashboard_compact()` - Compact summary
+- `format_dashboard_oneline()` - Single line status
+- `generate_health_bar()` - ASCII health indicator
+- `is_dashboard_query()` / `detect_section()`
+
 ## [0.0.490] - 2025-12-13
 
 ### Added - Recipe Statistics Display (Phase 66)
