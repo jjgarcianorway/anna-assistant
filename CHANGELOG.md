@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.554] - 2025-12-13
+
+### Added - Unified Settings Manager (Phase 130)
+
+**Unified Settings Module:**
+- `unified_settings.rs` aggregates all 12 configuration modules per VISION.md
+- `SettingsCategory` enum for routing to appropriate config module
+- `UnifiedSettings` struct containing all config modules as fields
+- Single entry point for all natural language settings changes
+
+**Core Functions:**
+- `categorize_request()` - Detect which category a request belongs to
+- `apply_change()` - Route changes to correct config module
+- `reset_all()` / `reset_category()` - Reset settings to defaults
+- `format_settings_summary()` - Display all settings overview
+- `is_settings_query()` - Detect settings-related queries
+
+**Aggregated Configuration Modules (12 categories):**
+- Personality, Risk, Learning, Escalation
+- Verbosity, Confirmation, Timeout, Output Style
+- Privacy, Backup, Update, Model
+
 ## [0.0.553] - 2025-12-13
 
 ### Added - Model Config (Phase 129)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.554 - Unified Settings Manager (Phase 130) ✓
+- [x] `unified_settings.rs` aggregates all 12 config modules
+- [x] `SettingsCategory` enum for routing
+- [x] `UnifiedSettings` struct with all configs
+- [x] `categorize_request()` / `apply_change()` / `reset_all()`
+- [x] `format_settings_summary()` / `is_settings_query()`
+
 ### v0.0.553 - Model Config (Phase 129) ✓
 - [x] `model_config.rs` for LLM model settings
 - [x] `ModelSizePreference` / `QualitySpeedBalance` / `ModelManagement` enums

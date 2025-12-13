@@ -299,6 +299,7 @@ pub mod privacy_config; // v0.0.550: Privacy config
 pub mod backup_config; // v0.0.551: Backup config
 pub mod update_config; // v0.0.552: Update config
 pub mod model_config; // v0.0.553: Model config
+pub mod unified_settings; // v0.0.554: Unified settings manager
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
