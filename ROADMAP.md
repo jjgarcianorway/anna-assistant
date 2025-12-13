@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.553 - Model Config (Phase 129) ✓
+- [x] `model_config.rs` for LLM model settings
+- [x] `ModelSizePreference` / `QualitySpeedBalance` / `ModelManagement` enums
+- [x] `ModelConfig` with natural language parser
+- [x] Fast/quality/minimal presets
+- [x] GPU and auto-download controls
+
 ### v0.0.552 - Update Config (Phase 128) ✓
 - [x] `update_config.rs` for update settings
 - [x] `UpdateCheckFrequency` / `UpdateChannel` / `UpdateAction` enums

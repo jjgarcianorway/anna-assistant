@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.553] - 2025-12-13
+
+### Added - Model Config (Phase 129)
+
+**Model Config Module:**
+- `model_config.rs` for LLM model settings per VISION.md
+- `ModelSizePreference` enum (Tiny, Small, Medium, Large, Largest)
+- `QualitySpeedBalance` enum (Speed, Balanced, Quality)
+- `ModelManagement` enum (Automatic, Manual, Conservative)
+- `ModelConfig` for comprehensive model settings
+
+**Core Functions:**
+- `is_gpu_enabled()` / `is_auto_download()` - Check feature flags
+- `should_use_senior()` / `max_memory_gb()` - Check model preferences
+- `apply_change()` - Natural language model configuration
+- `fast()` / `quality()` / `minimal()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Fast/quick model" / "Quality/best answer"
+- "Minimal/conserve resources"
+- "Tiny/small/large model"
+- "Enable/disable GPU"
+- "Auto download" / "No download"
+- "Use senior/junior models"
+
 ## [0.0.552] - 2025-12-13
 
 ### Added - Update Config (Phase 128)
