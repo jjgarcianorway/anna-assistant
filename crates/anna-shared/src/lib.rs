@@ -274,6 +274,7 @@ pub mod workflow_automation; // v0.0.525: Workflow automation tracker
 pub mod context_memory_store; // v0.0.526: Context memory store
 pub mod skill_proficiency; // v0.0.527: Skill proficiency tracker
 pub mod team_specialist_roster; // v0.0.528: Team specialist roster
+pub mod escalation_tracker; // v0.0.529: Escalation tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

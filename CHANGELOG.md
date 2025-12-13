@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.529] - 2025-12-13
+
+### Added - Escalation Tracker (Phase 105)
+
+**Escalation Tracker Module:**
+- `escalation_tracker.rs` for tracking junior-to-senior escalations per VISION.md
+- `EscalationReason` enum (LowConfidence, ComplexQuery, MultiDepartment, SecurityConcern, HighRisk, UserRequest, TimeOut, Unknown)
+- `EscalationOutcome` enum (Pending, ResolvedBySenior, ReturnedToJunior, EscalatedHigher, Abandoned)
+- `EscalationRecord` / `EscalationTracker` system
+
+**Core Functions:**
+- `escalate()` - Create new escalation
+- `resolve()` - Complete escalation with outcome
+- `get()` - Get by ID
+- `pending()` - Get pending escalations
+- `by_reason()` / `by_department()` - Filtering
+
+**Analytics:**
+- `escalation_rate()` - Rate vs total tickets
+- `senior_resolution_rate()` - % resolved by senior
+- `avg_resolution_ms()` - Average resolution time
+- `reason_stats()` - Stats by escalation reason
+
+**Display Functions:**
+- `format_escalation()` / `format_escalation_compact()` / `format_escalation_oneline()`
+- `format_tracker_summary()` - Full escalation overview
+- `escalation_fun_fact()` - Fun facts
+- `is_escalation_query()` - Query detection
+
 ## [0.0.528] - 2025-12-13
 
 ### Added - Team Specialist Roster (Phase 104)

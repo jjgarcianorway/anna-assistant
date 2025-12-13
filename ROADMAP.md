@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.529 - Escalation Tracker (Phase 105) ✓
+- [x] `escalation_tracker.rs` for junior-to-senior escalations
+- [x] `EscalationReason` / `EscalationOutcome` enums
+- [x] `EscalationRecord` / `EscalationTracker` system
+- [x] `escalate()` / `resolve()` with full analytics
+- [x] Senior resolution rate and reason stats
+
 ### v0.0.528 - Team Specialist Roster (Phase 104) ✓
 - [x] `team_specialist_roster.rs` for IT department roster
 - [x] `SeniorityLevel` / `Department` / `AvailabilityStatus` enums
