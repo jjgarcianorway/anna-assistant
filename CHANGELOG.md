@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.534] - 2025-12-13
+
+### Added - Long Task Manager (Phase 110)
+
+**Long Task Manager Module:**
+- `long_task_manager.rs` for long-running tasks per VISION.md
+- `LongTaskStatus` enum (Queued, WaitingIdle, Running, Paused, Completed, Failed, Cancelled)
+- `LongTaskType` enum (Research, Installation, Backup, Download, Analysis, Compilation, Custom)
+- `LongTaskRecord` / `LongTaskManager` system
+
+**Core Functions:**
+- `create()` - Create long task with auto ID
+- `get()` / `get_mut()` - Task retrieval
+- `wait_for_idle()` - Queue for idle-time execution
+- `start()` / `pause()` / `resume()` - Lifecycle control
+- `update_progress()` - Progress tracking (0-100%)
+- `add_thought()` - Build chain of thought
+- `complete()` / `fail()` / `cancel()` - Completion states
+- `enable_email()` - Email when done
+- `active()` / `waiting_for_idle()` / `pending_emails()` - Filtering
+
+**Display Functions:**
+- `format_long_task()` / `format_long_task_compact()` / `format_long_task_oneline()`
+- `format_manager_summary()` - Full task overview
+- `long_task_fun_fact()` - Fun facts
+- `is_long_task_query()` - Query detection
+
 ## [0.0.533] - 2025-12-13
 
 ### Added - Notification Tracker (Phase 109)

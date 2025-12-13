@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.534 - Long Task Manager (Phase 110) ✓
+- [x] `long_task_manager.rs` for long-running tasks
+- [x] `LongTaskStatus` / `LongTaskType` enums
+- [x] `LongTaskRecord` / `LongTaskManager` system
+- [x] Idle-time execution with `wait_for_idle()`
+- [x] Chain of thought and email notification
+
 ### v0.0.533 - Notification Tracker (Phase 109) ✓
 - [x] `notification_tracker.rs` for user notifications
 - [x] `NotificationChannel` / `NotificationPriority` / `DeliveryStatus` enums
