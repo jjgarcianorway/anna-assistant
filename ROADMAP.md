@@ -496,5 +496,16 @@ Anna v0.0.369 focuses on:
 - [x] parse_capability_category() parse from query
 - [x] capability_facts() and random_capability_fact()
 
+### Phase 57 - Query Type Router ✓ (v0.0.481)
+- [x] query_type_router.rs consolidates query detection
+- [x] QueryType enum for all informational queries
+- [x] QueryType::detect() from natural language
+- [x] route_query() central routing function
+- [x] should_handle_locally() skip specialist check
+- [x] suggest_display() display function suggestion
+- [x] is_status_query() status detection
+- [x] extract_help_context() for "help with X"
+- [x] is_informational() pure info check
+
 ### Future
 - All VISION.md features implemented!

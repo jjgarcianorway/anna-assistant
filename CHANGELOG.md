@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.481] - 2025-12-13
+
+### Added - Query Type Router (Phase 57)
+
+**Query Routing Module:**
+- `query_type_router.rs` consolidates all query detection
+- `QueryType` enum for all informational query types
+- Central routing for display modules
+
+**Query Types:**
+- Capabilities (what can you do?)
+- FunStats (fun statistics)
+- XpLevel (XP and level)
+- Session (session summary)
+- Settings (all settings)
+- Status (system status)
+- ContextualHelp (help with X)
+- Other (needs specialist)
+
+**Functions:**
+- `QueryType::detect()` - Detect query type from natural language
+- `route_query()` - Route query to appropriate handler
+- `should_handle_locally()` - Check if query can skip specialists
+- `suggest_display()` - Get display function suggestion
+- `is_informational()` - Check if pure informational query
+
+**Helper Detection:**
+- `is_status_query()` - Status query detection
+- `extract_help_context()` - Extract context from "help with X"
+
 ## [0.0.480] - 2025-12-13
 
 ### Added - Capabilities Display (Phase 56)
