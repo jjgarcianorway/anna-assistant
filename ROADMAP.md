@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.549 - Output Style Config (Phase 125) ✓
+- [x] `output_style_config.rs` for output styling
+- [x] `ColorScheme` / `ThemeStyle` / `AnimationStyle` / `BorderStyle` enums
+- [x] `OutputStyleConfig` with natural language parser
+- [x] Hollywood/minimal/hacker/professional/no_color presets
+- [x] Color, animation, and compact mode toggles
+
 ### v0.0.548 - Timeout Config (Phase 124) ✓
 - [x] `timeout_config.rs` for timeout settings
 - [x] `TimeoutScope` / `TimeoutAction` / `TimeoutProfile` enums

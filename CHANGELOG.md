@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.549] - 2025-12-13
+
+### Added - Output Style Config (Phase 125)
+
+**Output Style Config Module:**
+- `output_style_config.rs` for output style per VISION.md
+- `ColorScheme` enum (TrueColor, Ansi256, Ansi16, NoColor)
+- `ThemeStyle` enum (Hollywood, Minimal, Classic, Hacker, Professional)
+- `AnimationStyle` enum (Spinner, Progress, Dots, None)
+- `BorderStyle` enum (Rounded, Sharp, Double, Ascii, None)
+- `OutputStyleConfig` for comprehensive styling
+
+**Core Functions:**
+- `has_color()` / `has_animation()` / `is_compact()` - Check styles
+- `effective_width()` - Get width respecting terminal
+- `apply_change()` - Natural language style configuration
+- `minimal()` / `hacker()` / `professional()` / `no_color()` - Presets
+
+**Supported Natural Language Changes:**
+- "Hollywood/minimal/hacker/professional style"
+- "No color/monochrome/plain"
+- "Enable/disable color"
+- "Enable/disable animation"
+- "Compact/spacious mode"
+
 ## [0.0.548] - 2025-12-13
 
 ### Added - Timeout Config (Phase 124)
