@@ -282,6 +282,7 @@ pub mod notification_tracker; // v0.0.533: Notification tracker
 pub mod long_task_manager; // v0.0.534: Long task manager
 pub mod greeting_generator; // v0.0.535: Greeting generator
 pub mod display_mode_manager; // v0.0.536: Display mode manager
+pub mod query_history_tracker; // v0.0.537: Query history tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

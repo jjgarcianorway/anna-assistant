@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.537] - 2025-12-13
+
+### Added - Query History Tracker (Phase 113)
+
+**Query History Tracker Module:**
+- `query_history_tracker.rs` for tracking user queries per VISION.md
+- `QueryCategory` enum (System, Network, Storage, Audio, Video, Desktop, Security, Package, Service, Editor, Shell, Hardware, Configuration, General, Custom)
+- `QueryOutcome` enum (Pending, Resolved, Escalated, Failed, Deferred)
+- `QueryRecord` / `QueryHistoryTracker` system
+
+**Core Functions:**
+- `record()` - Record new query with auto ID
+- `resolve()` / `escalate()` / `fail()` - Set outcome
+- `repeated_queries()` - Get queries asked more than once
+- `category_stats()` / `most_asked_topic()` - Topic analytics
+- `by_category()` / `by_outcome()` - Filtering
+- `average_response_time_ms()` - Performance stats
+
+**Display Functions:**
+- `format_query()` - Format single query record
+- `format_tracker_summary()` - Full tracker overview
+- `query_history_fun_fact()` - Fun facts
+- `is_history_query()` - Query detection
+
 ## [0.0.536] - 2025-12-13
 
 ### Added - Display Mode Manager (Phase 112)

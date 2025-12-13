@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.537 - Query History Tracker (Phase 113) ✓
+- [x] `query_history_tracker.rs` for user query tracking
+- [x] `QueryCategory` / `QueryOutcome` enums
+- [x] `QueryRecord` / `QueryHistoryTracker` system
+- [x] Repeated questions detection for fun stats
+- [x] Topic most asked about analytics
+
 ### v0.0.536 - Display Mode Manager (Phase 112) ✓
 - [x] `display_mode_manager.rs` for debug vs fly-on-the-wall display
 - [x] `DisplayMode` enum (FlyOnTheWall, Debug, Minimal, Verbose)
