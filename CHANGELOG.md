@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.555] - 2025-12-13
+
+### Added - Settings Persistence (Phase 131)
+
+**Settings Persistence Module:**
+- `settings_persistence.rs` for saving/loading unified settings per VISION.md
+- `SettingsError` enum for IO, Serde, path, backup, restore errors
+- `SettingsFormat` enum (Json, Toml)
+- `SettingsPersistence` struct wrapping UnifiedSettings
+
+**Core Functions:**
+- `load()` / `save()` - Load/save settings to disk
+- `create_backup()` / `restore_latest()` / `restore_from()` - Backup management
+- `list_backups()` - List available backup files
+- `export_to()` / `import_from()` - Export/import settings
+- `apply_change()` - Apply change with auto-save support
+
+**Features:**
+- Auto-save on change (configurable)
+- Automatic backup before save
+- Maximum backup count (default: 5)
+- Support for JSON and TOML formats
+- Old backup cleanup
+
 ## [0.0.554] - 2025-12-13
 
 ### Added - Unified Settings Manager (Phase 130)

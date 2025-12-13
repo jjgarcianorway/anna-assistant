@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.555 - Settings Persistence (Phase 131) ✓
+- [x] `settings_persistence.rs` for disk storage
+- [x] `SettingsError` / `SettingsFormat` enums
+- [x] `SettingsPersistence` struct with auto-save
+- [x] `load()` / `save()` / `create_backup()` / `restore_latest()`
+- [x] Export/import and backup management
+
 ### v0.0.554 - Unified Settings Manager (Phase 130) ✓
 - [x] `unified_settings.rs` aggregates all 12 config modules
 - [x] `SettingsCategory` enum for routing
