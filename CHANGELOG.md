@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.550] - 2025-12-13
+
+### Added - Privacy Config (Phase 126)
+
+**Privacy Config Module:**
+- `privacy_config.rs` for privacy settings per VISION.md
+- `DataCollectionLevel` enum (None, Minimal, Standard, Full)
+- `LogRetention` enum (Session, Day, Week, Month, Forever)
+- `SensitiveDataHandling` enum (Redact, Mask, Hash, Allow)
+- `PrivacyConfig` for comprehensive privacy settings
+
+**Core Functions:**
+- `is_maximum_privacy()` / `should_store_history()` - Check modes
+- `should_anonymize()` / `retention_days()` - Privacy helpers
+- `apply_change()` - Natural language privacy configuration
+- `maximum()` / `balanced()` / `convenience()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Maximum privacy/most private/paranoid"
+- "Balanced/moderate privacy"
+- "Convenience/remember everything"
+- "Store history" / "No history/forget"
+- "Anonymize" / "Clear on exit"
+- "Enable/disable telemetry"
+
 ## [0.0.549] - 2025-12-13
 
 ### Added - Output Style Config (Phase 125)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.550 - Privacy Config (Phase 126) ✓
+- [x] `privacy_config.rs` for privacy settings
+- [x] `DataCollectionLevel` / `LogRetention` / `SensitiveDataHandling` enums
+- [x] `PrivacyConfig` with natural language parser
+- [x] Maximum/balanced/convenience presets
+- [x] History storage and anonymization controls
+
 ### v0.0.549 - Output Style Config (Phase 125) ✓
 - [x] `output_style_config.rs` for output styling
 - [x] `ColorScheme` / `ThemeStyle` / `AnimationStyle` / `BorderStyle` enums
