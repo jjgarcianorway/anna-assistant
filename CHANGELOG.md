@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.505] - 2025-12-13
+
+### Added - Service Management Tracker (Phase 81)
+
+**Service Tracker Module:**
+- `service_management_tracker.rs` for service tracking
+- `ServiceOperation` enum (Start, Stop, Restart, Reload, etc.)
+- `OperationResult` enum (Success, Failed, Skipped, Pending)
+- `ServiceRecord` struct for individual operations
+- `ServiceTracker` comprehensive tracker
+
+**Core Functions:**
+- `record()` - Record service operation
+- `by_operation_type()` / `for_service()` - Filtering
+- `failed()` / `successful()` - Status filtering
+- `success_rate()` / `most_managed()` / `most_common_op()`
+
+**Display Functions:**
+- `format_service_tracker()` - Full service history
+- `format_service_tracker_compact()` - Compact summary
+- `format_service_tracker_oneline()` - Single line status
+- `service_fun_fact()` - Fun facts
+- `is_service_tracker_query()` - Query detection
+
 ## [0.0.504] - 2025-12-13
 
 ### Added - Package Installation Tracker (Phase 80)
