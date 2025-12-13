@@ -507,5 +507,15 @@ Anna v0.0.369 focuses on:
 - [x] extract_help_context() for "help with X"
 - [x] is_informational() pure info check
 
+### Phase 58 - Contextual Tips System ✓ (v0.0.482)
+- [x] contextual_tips.rs for context-aware tips
+- [x] TipContext for topic/command tracking
+- [x] Topic detection from queries (8 categories)
+- [x] get_contextual_tips() returns relevant tips
+- [x] Tips with related actions
+- [x] Learning mode tips
+- [x] General fallback tips
+- [x] format_tip() with action hints
+
 ### Future
 - All VISION.md features implemented!

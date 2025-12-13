@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.482] - 2025-12-13
+
+### Added - Contextual Tips System (Phase 58)
+
+**Contextual Tips Module:**
+- `contextual_tips.rs` provides tips based on user context
+- `TipContext` tracks topics, commands, and learning mode
+- Topic detection from natural language queries
+
+**Topic Categories:**
+- Editor (vim, nano, emacs)
+- Containers (docker, kubernetes)
+- Git and SSH
+- Services (systemd)
+- Network and Storage
+- Packages and Scheduling
+- Security (permissions, firewall)
+
+**Functions:**
+- `TipContext::from_query()` - Extract context from query
+- `get_contextual_tips()` - Get tips for current context
+- `select_tip()` - Pick a tip from available tips
+- `format_tip()` - Format tip for display
+- `get_tip_for_query()` - One-liner to get a tip
+- `should_show_tip()` - Probability-based display check
+
+**Features:**
+- Tips include related actions when applicable
+- Learning mode adds learning-specific tips
+- General tips as fallback when no topic detected
+- Multiple topic detection for complex queries
+
 ## [0.0.481] - 2025-12-13
 
 ### Added - Query Type Router (Phase 57)
