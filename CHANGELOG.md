@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.507] - 2025-12-13
+
+### Added - Helper Tracker (Phase 83)
+
+**Helper Tracker Module:**
+- `helper_tracker.rs` for tracking helper tools
+- `InstallerSource` enum (Anna, User, System, Unknown)
+- `HelperPurpose` enum (SystemInfo, NetworkDiag, DiskUtil, etc.)
+- `HelperRecord` struct for individual helpers
+- `HelperTracker` comprehensive tracker
+
+**Core Functions:**
+- `register()` / `record_usage()` - Helper management
+- `mark_unavailable()` - Availability tracking
+- `anna_installed()` / `user_installed()` - Source filtering
+- `removable_on_uninstall()` - VISION.md requirement
+- `most_used()` / `most_common_purpose()`
+- `detect_purpose()` - Auto-detect helper purpose
+
+**Display Functions:**
+- `format_helper_tracker()` - Full helper list
+- `format_helper_tracker_compact()` - Compact summary
+- `format_helper_tracker_oneline()` - Single line status
+- `helper_fun_fact()` - Fun facts
+- `is_helper_query()` - Query detection
+
 ## [0.0.506] - 2025-12-13
 
 ### Added - Config Change Tracker (Phase 82)

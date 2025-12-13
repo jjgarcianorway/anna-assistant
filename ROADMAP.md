@@ -819,5 +819,17 @@ Anna v0.0.369 focuses on:
 - [x] format_config_tracker() / compact / oneline
 - [x] config_fun_fact() / is_config_tracker_query()
 
+### Phase 83 - Helper Tracker ✓ (v0.0.507)
+- [x] helper_tracker.rs for helper tool tracking
+- [x] InstallerSource enum (Anna, User, System, Unknown)
+- [x] HelperPurpose enum (SystemInfo, NetworkDiag, DiskUtil, etc.)
+- [x] HelperRecord / HelperTracker comprehensive tracker
+- [x] register() / record_usage() / mark_unavailable()
+- [x] anna_installed() / user_installed() - Source filtering
+- [x] removable_on_uninstall() - VISION.md feature
+- [x] detect_purpose() - Auto-detect helper purpose
+- [x] format_helper_tracker() / compact / oneline
+- [x] helper_fun_fact() / is_helper_query()
+
 ### Future
 - All VISION.md features implemented!
