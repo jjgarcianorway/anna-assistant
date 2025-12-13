@@ -893,5 +893,17 @@ Anna v0.0.369 focuses on:
 - [x] format_llm_tracker() / compact / oneline
 - [x] llm_fun_fact() / is_llm_query()
 
+### Phase 89 - Dialogue Renderer ✓ (v0.0.513)
+- [x] dialogue_renderer.rs for fly-on-the-wall display
+- [x] Speaker enum (Anna, User, Junior, Senior, Lead, System)
+- [x] DialogueMood enum (Neutral, Confident, Uncertain, etc.)
+- [x] DialogueTurn / Dialogue conversation model
+- [x] anna_says() / user_says() / specialist_says()
+- [x] internal_turns() / external_turns() - Filtering
+- [x] Color codes per speaker type
+- [x] render_dialogue() / render_dialogue_plain()
+- [x] render_dialogue_compact()
+- [x] is_dialogue_query() / dialogue_fun_fact()
+
 ### Future
 - All VISION.md features implemented!

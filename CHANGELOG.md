@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.513] - 2025-12-13
+
+### Added - Dialogue Renderer (Phase 89)
+
+**Dialogue Renderer Module:**
+- `dialogue_renderer.rs` for fly-on-the-wall display
+- `Speaker` enum (Anna, User, Junior, Senior, Lead, System)
+- `DialogueMood` enum (Neutral, Confident, Uncertain, etc.)
+- `DialogueTurn` / `Dialogue` conversation model
+
+**Core Functions:**
+- `anna_says()` / `user_says()` - Add turns
+- `specialist_says()` - Add internal communication
+- `internal_turns()` / `external_turns()` - Filtering
+- Color codes for each speaker type
+
+**Render Functions:**
+- `render_dialogue()` - Full colored render
+- `render_dialogue_plain()` - Plain text render
+- `render_dialogue_compact()` - Single line summary
+- `is_dialogue_query()` - Query detection
+- `dialogue_fun_fact()` - Fun facts
+
 ## [0.0.512] - 2025-12-13
 
 ### Added - LLM Assignment Tracker (Phase 88)
