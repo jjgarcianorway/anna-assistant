@@ -726,5 +726,18 @@ Anna v0.0.369 focuses on:
 - [x] format_health_score() / compact / oneline
 - [x] health_summary_message() / is_health_query()
 
+### Phase 75 - Knowledge Base Stats ✓ (v0.0.499)
+- [x] knowledge_base_stats.rs for knowledge tracking
+- [x] KnowledgeType enum (Recipe, Fact, WikiPage, ManPage, etc.)
+- [x] KnowledgeSource enum (Seed, Specialist, User, ArchWiki, etc.)
+- [x] KnowledgeEntry struct with usage tracking
+- [x] KnowledgeBaseStats comprehensive tracker
+- [x] add_entry() / record_use() / mark_stale() / refresh()
+- [x] by_type() / by_source() / by_topic() - Filtering
+- [x] stale() / recently_acquired() / most_used() - Queries
+- [x] acquisition_rate() / usage_rate() - Statistics
+- [x] format_knowledge_stats() / compact / oneline
+- [x] knowledge_fun_fact() / is_knowledge_query()
+
 ### Future
 - All VISION.md features implemented!

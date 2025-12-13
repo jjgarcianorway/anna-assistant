@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.499] - 2025-12-13
+
+### Added - Knowledge Base Stats (Phase 75)
+
+**Knowledge Base Module:**
+- `knowledge_base_stats.rs` for knowledge acquisition tracking
+- `KnowledgeType` enum (Recipe, Fact, WikiPage, ManPage, HelpCache, UserTaught)
+- `KnowledgeSource` enum (Seed, Specialist, User, ArchWiki, ManPages, HelpCommands, Imported)
+- `KnowledgeEntry` struct with usage tracking
+- `KnowledgeBaseStats` comprehensive tracker
+
+**Core Functions:**
+- `add_entry()` - Add knowledge with type and source
+- `record_use()` - Track knowledge usage
+- `mark_stale()` / `refresh()` - Lifecycle management
+- `by_type()` / `by_source()` / `by_topic()` - Filtering
+- `stale()` / `recently_acquired()` / `most_used()` - Queries
+- `acquisition_rate()` / `usage_rate()` - Statistics
+
+**Display Functions:**
+- `format_knowledge_stats()` - Full breakdown by type/source
+- `format_knowledge_stats_compact()` - Compact summary
+- `format_knowledge_stats_oneline()` - Single line status
+- `knowledge_fun_fact()` - Fun knowledge facts
+- `is_knowledge_query()` - Query detection
+
 ## [0.0.498] - 2025-12-13
 
 ### Added - System Health Score (Phase 74)
