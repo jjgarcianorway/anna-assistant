@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.536 - Display Mode Manager (Phase 112) ✓
+- [x] `display_mode_manager.rs` for debug vs fly-on-the-wall display
+- [x] `DisplayMode` enum (FlyOnTheWall, Debug, Minimal, Verbose)
+- [x] `OutputSection` enum (Greeting, InternalComms, etc.)
+- [x] `VisibilityRule` / `DisplayModeManager` system
+- [x] Section visibility per mode with rules
+
 ### v0.0.535 - Greeting Generator (Phase 111) ✓
 - [x] `greeting_generator.rs` for personalized greetings
 - [x] `TimeOfDay` / `InsightType` enums

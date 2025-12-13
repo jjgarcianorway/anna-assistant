@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.536] - 2025-12-13
+
+### Added - Display Mode Manager (Phase 112)
+
+**Display Mode Manager Module:**
+- `display_mode_manager.rs` for debug vs fly-on-the-wall display per VISION.md
+- `DisplayMode` enum (FlyOnTheWall, Debug, Minimal, Verbose)
+- `OutputSection` enum (Greeting, InternalComms, SpecialistDialog, ProbeResult, Citation, Answer, Error, Warning, Progress, DebugInfo)
+- `VisibilityRule` / `DisplayModeManager` system
+
+**Core Functions:**
+- `DisplayMode::show_internal_comms()` - Show internal team dialog
+- `DisplayMode::show_technical()` - Show JSON/technical details
+- `DisplayMode::show_spinner()` - Show spinner animations
+- `DisplayMode::stream_output()` - Stream word-by-word
+- `set_mode()` / `mode()` - Get/set current mode
+- `toggle_debug()` - Toggle between debug and fly-on-the-wall
+- `is_visible()` - Check section visibility by mode
+- `use_true_color()` / `hollywood_style()` - Display settings
+
+**Display Functions:**
+- `format_display_mode()` - Format mode for display
+- `format_manager_summary()` - Full manager overview
+- `display_fun_fact()` - Fun facts
+- `is_display_query()` - Query detection
+
 ## [0.0.535] - 2025-12-13
 
 ### Added - Greeting Generator (Phase 111)
