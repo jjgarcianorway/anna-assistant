@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.506] - 2025-12-13
+
+### Added - Config Change Tracker (Phase 82)
+
+**Config Tracker Module:**
+- `config_change_tracker.rs` for config tracking
+- `ChangeType` enum (Add, Modify, Delete, Replace, etc.)
+- `ConfigCategory` enum (Shell, Editor, Git, System, etc.)
+- `ConfigChangeRecord` struct for individual changes
+- `ConfigChangeTracker` comprehensive tracker
+
+**Core Functions:**
+- `record()` / `mark_rolled_back()` - Change management
+- `for_file()` / `by_config_category()` / `by_change_type()`
+- `rolled_back()` / `active()` - Status filtering
+- `most_changed_file()` / `most_common_category()`
+- `detect_category()` - Auto-detect config category
+
+**Display Functions:**
+- `format_config_tracker()` - Full change history
+- `format_config_tracker_compact()` - Compact summary
+- `format_config_tracker_oneline()` - Single line status
+- `config_fun_fact()` - Fun facts
+- `is_config_tracker_query()` - Query detection
+
 ## [0.0.505] - 2025-12-13
 
 ### Added - Service Management Tracker (Phase 81)

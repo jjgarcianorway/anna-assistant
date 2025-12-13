@@ -808,5 +808,16 @@ Anna v0.0.369 focuses on:
 - [x] format_service_tracker() / compact / oneline
 - [x] service_fun_fact() / is_service_tracker_query()
 
+### Phase 82 - Config Change Tracker ✓ (v0.0.506)
+- [x] config_change_tracker.rs for config file change tracking
+- [x] ChangeType enum (Add, Modify, Delete, Replace, Append, Comment, Uncomment)
+- [x] ConfigCategory enum (Shell, Editor, Git, System, Service, etc.)
+- [x] ConfigChangeRecord / ConfigChangeTracker comprehensive tracker
+- [x] detect_category() - Auto-detect config category from path
+- [x] mark_rolled_back() / for_file() / by_config_category()
+- [x] rolled_back() / active() / most_changed_file()
+- [x] format_config_tracker() / compact / oneline
+- [x] config_fun_fact() / is_config_tracker_query()
+
 ### Future
 - All VISION.md features implemented!
