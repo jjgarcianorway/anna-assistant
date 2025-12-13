@@ -541,5 +541,18 @@ Anna v0.0.369 focuses on:
 - [x] format_quick_status_full() - Full display
 - [x] is_quick_status_query() - Query detection
 
+### Phase 61 - Repeated Questions Detection ✓ (v0.0.485)
+- [x] repeated_questions.rs for tracking similar questions
+- [x] RecordedQuestion struct with variants, count, timestamps
+- [x] QuestionHistory for storing and querying
+- [x] normalize_question() - Remove filler words
+- [x] calculate_similarity() - Jaccard-like similarity
+- [x] detect_category() - Topic categorization
+- [x] record() with similarity grouping
+- [x] get_repeated(), top_repeated(), by_category()
+- [x] unresolved_repeated() - Pending questions
+- [x] format_repeated_questions/compact() - Display
+- [x] is_repeated_questions_query() - Query detection
+
 ### Future
 - All VISION.md features implemented!

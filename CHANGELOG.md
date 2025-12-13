@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.485] - 2025-12-13
+
+### Added - Repeated Questions Detection (Phase 61)
+
+**Repeated Questions Module:**
+- `repeated_questions.rs` for tracking similar questions
+- `RecordedQuestion` struct with variants, count, timestamps
+- `QuestionHistory` for storing and querying questions
+
+**Core Functions:**
+- `normalize_question()` - Remove filler words for comparison
+- `calculate_similarity()` - Jaccard-like word similarity
+- `detect_category()` - Categorize by topic keywords
+
+**History Operations:**
+- `record()` - Record question with similarity grouping
+- `get_repeated()` - Get questions asked multiple times
+- `top_repeated()` - Get most frequently asked
+- `by_category()` - Filter by category
+- `unresolved_repeated()` - Get pending repeated questions
+
+**Display Functions:**
+- `format_repeated_questions()` - Full display with variants
+- `format_repeated_compact()` - Compact summary
+- `is_repeated_questions_query()` - Query detection
+
 ## [0.0.484] - 2025-12-13
 
 ### Added - Quick Status Summary (Phase 60)
