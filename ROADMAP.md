@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.560 - Settings Watcher (Phase 136) ✓
+- [x] `settings_watcher.rs` for file change watching
+- [x] `SettingsEventType` / `SettingsEvent` / `WatcherConfig`
+- [x] `check()` / `emit()` / `start()` / `stop()`
+- [x] Event history and callback listener system
+- [x] Thread-safe running flag
+
 ### v0.0.559 - Settings CLI Interface (Phase 135) ✓
 - [x] `settings_cli.rs` for natural language commands
 - [x] `SettingsCommand` / `ParseResult` / `SettingsParser`

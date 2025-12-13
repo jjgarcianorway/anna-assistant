@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.560] - 2025-12-13
+
+### Added - Settings Watcher (Phase 136)
+
+**Settings Watcher Module:**
+- `settings_watcher.rs` for watching settings file changes
+- `SettingsEventType` enum (Created, Modified, Deleted, Reloaded, CategoryChanged)
+- `SettingsEvent` struct with timestamp and description
+- `WatcherConfig` for check interval, auto-reload settings
+- `SettingsWatcher` for polling file changes
+
+**Core Functions:**
+- `check()` - Single poll for file changes
+- `emit()` / `emit_category_change()` - Manual event emission
+- `start()` / `stop()` / `is_running()` - Watcher state control
+- `history()` / `recent_events()` / `clear_history()` - Event management
+- `has_changed_since()` - Check for changes since timestamp
+
+**Features:**
+- Configurable check interval
+- Auto-reload on change option
+- Event history with max limit
+- Callback-based listener system
+- Thread-safe running flag
+
 ## [0.0.559] - 2025-12-13
 
 ### Added - Settings CLI Interface (Phase 135)
