@@ -231,6 +231,7 @@ pub mod contextual_tips; // v0.0.482: Contextual tips system
 pub mod command_shortcuts; // v0.0.483: Command shortcuts
 pub mod quick_status; // v0.0.484: Quick status summary
 pub mod repeated_questions; // v0.0.485: Repeated questions detection
+pub mod response_length; // v0.0.486: Response length tracking
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

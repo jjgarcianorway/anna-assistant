@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.486] - 2025-12-13
+
+### Added - Response Length Tracking (Phase 62)
+
+**Response Length Module:**
+- `response_length.rs` for tracking response lengths
+- `RecordedResponse` struct with char/word/line counts
+- `ResponseLengthTracker` for statistics
+
+**Core Functions:**
+- `record()` - Track response with automatic stats
+- `record_with_category()` - Track with topic category
+- `average_chars()` / `average_words()` - Averages
+- `length_range()` - Min/max range
+
+**Statistics:**
+- Longest/shortest by chars and words
+- Total chars/words across all responses
+- Recent responses (last 10)
+
+**Display Functions:**
+- `format_response_lengths()` - Full stats display
+- `format_response_lengths_compact()` - Compact summary
+- `response_length_fun_fact()` - Fun facts about lengths
+- `is_response_length_query()` - Query detection
+
 ## [0.0.485] - 2025-12-13
 
 ### Added - Repeated Questions Detection (Phase 61)
