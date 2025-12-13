@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.528] - 2025-12-13
+
+### Added - Team Specialist Roster (Phase 104)
+
+**Team Specialist Roster Module:**
+- `team_specialist_roster.rs` for managing IT department roster (per VISION.md)
+- `SeniorityLevel` enum (Junior, Senior)
+- `Department` enum (Desktop, Network, Security, Storage, Audio, Video, System, Database, DevOps, Support)
+- `AvailabilityStatus` enum (Available, Busy, OnTicket, Unavailable)
+- `Specialist` / `TeamSpecialistRoster` system
+
+**Core Functions:**
+- `add()` - Add specialist to roster
+- `get()` / `get_mut()` - Specialist retrieval
+- `by_department()` - Filter by department
+- `find_available()` - Find available specialist (prefers junior)
+- `find_senior()` - Find senior for escalation
+- `top_performers()` - Get best performers
+- `assign_ticket()` / `complete_ticket()` - Ticket lifecycle
+
+**Display Functions:**
+- `format_specialist()` / `format_specialist_compact()` / `format_specialist_oneline()`
+- `format_roster_summary()` - Full roster overview
+- `roster_fun_fact()` - Fun facts
+- `is_roster_query()` - Query detection
+
 ## [0.0.527] - 2025-12-13
 
 ### Added - Skill Proficiency Tracker (Phase 103)

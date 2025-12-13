@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.528 - Team Specialist Roster (Phase 104) ✓
+- [x] `team_specialist_roster.rs` for IT department roster
+- [x] `SeniorityLevel` / `Department` / `AvailabilityStatus` enums
+- [x] `Specialist` / `TeamSpecialistRoster` system
+- [x] `find_available()` / `find_senior()` for escalation
+- [x] Ticket assignment with stats tracking
+
 ### v0.0.527 - Skill Proficiency Tracker (Phase 103) ✓
 - [x] `skill_proficiency.rs` for tracking Anna's learned skills
 - [x] `SkillDomain` / `ProficiencyLevel` enums
