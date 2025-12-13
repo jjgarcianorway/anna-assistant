@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.514] - 2025-12-13
+
+### Added - Alarm Scheduler (Phase 90)
+
+**Alarm Scheduler Module:**
+- `alarm_scheduler.rs` for recurring notifications
+- `AlarmFrequency` enum (Once, Daily, Weekly, Monthly, Hourly, Custom)
+- `DayOfWeek` enum with name/short accessors
+- `AlarmStatus` enum (Active, Paused, Triggered, Expired, Cancelled)
+- `AlarmRecord` / `AlarmScheduler` comprehensive system
+
+**Core Functions:**
+- `add()` / `get()` - Alarm management
+- `trigger()` - Trigger alarm and update stats
+- `pause()` / `resume()` / `cancel()` - Status control
+- `active()` / `due_at()` - Query alarms
+- `by_alarm_topic()` / `by_alarm_frequency()` - Filtering
+- `parse_day_of_week()` - Natural language day parsing
+
+**Display Functions:**
+- `format_alarm_scheduler()` - Full alarm list
+- `format_alarm_scheduler_compact()` - Compact summary
+- `format_alarm_scheduler_oneline()` - Single line status
+- `alarm_fun_fact()` - Fun facts
+- `is_alarm_query()` - Query detection
+
 ## [0.0.513] - 2025-12-13
 
 ### Added - Dialogue Renderer (Phase 89)

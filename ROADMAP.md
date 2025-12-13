@@ -905,5 +905,18 @@ Anna v0.0.369 focuses on:
 - [x] render_dialogue_compact()
 - [x] is_dialogue_query() / dialogue_fun_fact()
 
+### Phase 90 - Alarm Scheduler ✓ (v0.0.514)
+- [x] alarm_scheduler.rs for recurring notifications
+- [x] AlarmFrequency enum (Once, Daily, Weekly, etc.)
+- [x] DayOfWeek enum with name/short
+- [x] AlarmStatus enum (Active, Paused, Triggered, etc.)
+- [x] AlarmRecord / AlarmScheduler comprehensive system
+- [x] add() / get() / trigger() - Management
+- [x] pause() / resume() / cancel() - Status control
+- [x] active() / due_at() - Query alarms
+- [x] parse_day_of_week() - NL day parsing
+- [x] format_alarm_scheduler() / compact / oneline
+- [x] alarm_fun_fact() / is_alarm_query()
+
 ### Future
 - All VISION.md features implemented!
