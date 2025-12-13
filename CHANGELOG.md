@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.532] - 2025-12-13
+
+### Added - Helper Install Tracker (Phase 108)
+
+**Helper Install Tracker Module:**
+- `helper_install_tracker.rs` for tracking helper tools per VISION.md
+- `HelperInstaller` enum (User, Anna, System)
+- `HelperCategory` enum (SystemInfo, NetworkDiag, DiskUtils, HardwareProbe, AudioVideo, Security, DevTools, Monitoring)
+- `HelperStatus` enum (NotInstalled, Installing, Installed, Failed, Removed)
+- `HelperRecord` / `HelperInstallTracker` system
+
+**Core Functions:**
+- `register()` - Register helper
+- `get()` / `get_mut()` - Helper retrieval
+- `install()` / `remove()` - Installation lifecycle
+- `record_use()` - Track usage
+- `installed()` / `installed_by_anna()` - Filtering
+- `to_remove_on_uninstall()` - Anna-installed helpers to remove
+- `would_be_useless()` - Check hardware requirements
+- `by_category()` / `most_used()` - Analytics
+
+**Display Functions:**
+- `format_helper()` / `format_helper_compact()` / `format_helper_oneline()`
+- `format_tracker_summary()` - Full helper overview
+- `helper_fun_fact()` - Fun facts
+- `is_helper_query()` - Query detection
+
 ## [0.0.531] - 2025-12-13
 
 ### Added - LLM Model Registry (Phase 107)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.532 - Helper Install Tracker (Phase 108) ✓
+- [x] `helper_install_tracker.rs` for helper tools
+- [x] `HelperInstaller` / `HelperCategory` / `HelperStatus` enums
+- [x] `HelperRecord` / `HelperInstallTracker` system
+- [x] Track Anna vs user installations
+- [x] `would_be_useless()` hardware check
+
 ### v0.0.531 - LLM Model Registry (Phase 107) ✓
 - [x] `llm_model_registry.rs` for installed LLM models
 - [x] `ModelCapability` / `ModelStatus` / `InstalledBy` enums

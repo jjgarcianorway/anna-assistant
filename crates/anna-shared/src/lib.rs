@@ -277,6 +277,7 @@ pub mod team_specialist_roster; // v0.0.528: Team specialist roster
 pub mod escalation_tracker; // v0.0.529: Escalation tracker
 pub mod knowledge_citation; // v0.0.530: Knowledge citation tracker
 pub mod llm_model_registry; // v0.0.531: LLM model registry
+pub mod helper_install_tracker; // v0.0.532: Helper install tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
