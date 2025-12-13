@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.544] - 2025-12-13
+
+### Added - Learning Mode Config (Phase 120)
+
+**Learning Mode Config Module:**
+- `learning_mode_config.rs` for learning mode per VISION.md
+- `LearningModeLevel` enum (Off, Basic, Intermediate, Advanced, Expert)
+- `ExplanationDepth` enum (None, WhatItDoes, WhyItWorks, HowItWorks, DeepDive)
+- `ExplanationTopic` enum for topic filtering
+- `LearningModeConfig` for comprehensive learning settings
+
+**Core Functions:**
+- `is_enabled()` / `enable()` / `disable()` - Toggle learning mode
+- `should_explain_command()` / `should_explain_config()` - Check explanations
+- `should_explain_why()` - Check if "why" explanations enabled
+- `apply_change()` - Natural language configuration
+- `basic()` / `intermediate()` / `advanced()` - Preset configurations
+
+**Supported Natural Language Changes:**
+- "Enable learning mode" / "Teach me"
+- "Basic/intermediate/advanced learning"
+- "Explain why" / "Show references"
+- "Show wiki links"
+
 ## [0.0.543] - 2025-12-13
 
 ### Added - Risk Level Config (Phase 119)

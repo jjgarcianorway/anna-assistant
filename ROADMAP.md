@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.544 - Learning Mode Config (Phase 120) ✓
+- [x] `learning_mode_config.rs` for learning mode
+- [x] `LearningModeLevel` / `ExplanationDepth` enums
+- [x] `LearningModeConfig` with natural language parser
+- [x] Basic/intermediate/advanced presets
+- [x] Command and config explanation toggles
+
 ### v0.0.543 - Risk Level Config (Phase 119) ✓
 - [x] `risk_level_config.rs` for confirmation skipping
 - [x] `RiskLevel` / `ActionCategory` / `ConfirmationMode` enums
