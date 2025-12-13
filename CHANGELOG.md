@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.497] - 2025-12-13
+
+### Added - User Activity Summary (Phase 73)
+
+**User Activity Module:**
+- `user_activity_summary.rs` for usage pattern tracking
+- `TimeOfDay` enum (Morning, Afternoon, Evening, Night)
+- `DayOfWeek` enum with display names
+- `ActivityRecord` for individual interactions
+- `UserActivitySummary` comprehensive tracker
+
+**Core Functions:**
+- `record()` - Record activity with time context
+- `most_active_time()` / `most_active_day()` - Find patterns
+- `top_topic()` / `top_activity_type()` - Popular topics
+- `days_active()` / `avg_interactions_per_day()` - Usage stats
+- `detect_topic()` - Auto-categorize queries (8 topics)
+
+**Display Functions:**
+- `format_activity_summary()` - Full breakdown by time/day
+- `format_activity_summary_compact()` - Compact summary
+- `format_activity_summary_oneline()` - Single line status
+- `activity_insight()` - Smart usage insights
+- `is_activity_query()` - Query detection
+
 ## [0.0.496] - 2025-12-13
 
 ### Added - Anna Progress Report (Phase 72)

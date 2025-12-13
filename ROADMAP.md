@@ -700,5 +700,18 @@ Anna v0.0.369 focuses on:
 - [x] format_progress_report() / compact / oneline
 - [x] is_progress_query() / progress_summary_message()
 
+### Phase 73 - User Activity Summary ✓ (v0.0.497)
+- [x] user_activity_summary.rs for usage patterns
+- [x] TimeOfDay enum (Morning, Afternoon, Evening, Night)
+- [x] DayOfWeek enum with display names
+- [x] ActivityRecord for interactions
+- [x] UserActivitySummary comprehensive tracker
+- [x] most_active_time() / most_active_day()
+- [x] top_topic() / top_activity_type()
+- [x] days_active() / avg_interactions_per_day()
+- [x] detect_topic() - 8 topic categories
+- [x] format_activity_summary() / compact / oneline
+- [x] activity_insight() / is_activity_query()
+
 ### Future
 - All VISION.md features implemented!
