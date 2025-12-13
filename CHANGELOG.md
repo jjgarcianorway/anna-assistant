@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.492] - 2025-12-13
+
+### Added - Uptime Tracking (Phase 68)
+
+**Uptime Tracker Module:**
+- `uptime_tracker.rs` for tracking uptime and availability
+- `UptimeRecord` struct for session tracking
+- `UptimeTracker` comprehensive statistics
+
+**Core Functions:**
+- `start_session()` / `end_session()` - Session management
+- `current_session_duration()` - Active session time
+- `days_since_install()` - Installation age
+- `total_uptime_hours/days()` - Total uptime
+- `avg_session_duration()` - Average session
+- `uptime_percentage()` - Overall availability
+- `clean_shutdown_rate()` - Stability metric
+
+**Display Functions:**
+- `format_uptime()` - Full stats display
+- `format_uptime_compact()` - Compact summary
+- `format_uptime_oneline()` - Single line
+- `format_duration_secs()` - Human-readable
+- `uptime_fun_fact()` - Fun facts
+- `is_uptime_query()` - Query detection
+
 ## [0.0.491] - 2025-12-13
 
 ### Added - Aggregated Stats Dashboard (Phase 67)

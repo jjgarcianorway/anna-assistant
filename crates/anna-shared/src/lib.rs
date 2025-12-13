@@ -237,6 +237,7 @@ pub mod interaction_counter; // v0.0.488: Interaction counter
 pub mod expert_stats; // v0.0.489: Expert ticket statistics
 pub mod recipe_stats_display; // v0.0.490: Recipe statistics display
 pub mod stats_dashboard; // v0.0.491: Aggregated stats dashboard
+pub mod uptime_tracker; // v0.0.492: Uptime tracking
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
