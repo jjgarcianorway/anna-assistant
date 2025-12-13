@@ -233,6 +233,7 @@ pub mod quick_status; // v0.0.484: Quick status summary
 pub mod repeated_questions; // v0.0.485: Repeated questions detection
 pub mod response_length; // v0.0.486: Response length tracking
 pub mod resolution_time; // v0.0.487: Resolution time tracking
+pub mod interaction_counter; // v0.0.488: Interaction counter
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

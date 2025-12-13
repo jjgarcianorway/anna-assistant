@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.488] - 2025-12-13
+
+### Added - Interaction Counter (Phase 64)
+
+**Interaction Counter Module:**
+- `interaction_counter.rs` for tracking specialist interactions
+- `InteractionRecord` struct with from/to/type/ticket
+- `InteractionType` enum (Dispatch, Response, Escalation, etc.)
+- `SpecialistStats` per-specialist statistics
+- `InteractionCounter` for comprehensive tracking
+
+**Core Functions:**
+- `record()` - Track interaction with full metadata
+- `record_anna_solo()` - Track Anna self-resolutions
+- `average_per_ticket()` - Avg interactions per ticket
+- `most_consulted()` / `least_consulted()` - Specialist rankings
+- `fastest_responder()` - Quickest specialist
+- `anna_solo_rate()` - Anna independence rate
+
+**Display Functions:**
+- `format_interactions()` - Full stats display
+- `format_interactions_compact()` - Compact summary
+- `interaction_fun_fact()` - Fun facts
+- `is_interaction_query()` - Query detection
+
 ## [0.0.487] - 2025-12-13
 
 ### Added - Resolution Time Tracking (Phase 63)
