@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.526 - Context Memory Store (Phase 102) ✓
+- [x] `context_memory_store.rs` for storing conversational context
+- [x] `MemoryType` / `MemoryImportance` enums
+- [x] `MemoryEntry` / `ContextMemoryStore` system
+- [x] `store()` / `retrieve()` / `search()` / `prune()`
+- [x] Automatic cleanup of low-priority memories
+
 ### v0.0.525 - Workflow Automation Tracker (Phase 101) ✓
 - [x] `workflow_automation.rs` for automated workflows
 - [x] `WorkflowTrigger` / `WorkflowStatus` enums

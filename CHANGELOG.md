@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.526] - 2025-12-13
+
+### Added - Context Memory Store (Phase 102)
+
+**Context Memory Store Module:**
+- `context_memory_store.rs` for storing conversational context
+- `MemoryType` enum (ShortTerm, LongTerm, Working, Episodic, Semantic)
+- `MemoryImportance` enum (Low, Normal, High, Critical)
+- `MemoryEntry` / `ContextMemoryStore` system
+
+**Core Functions:**
+- `store()` - Store a memory
+- `retrieve()` - Retrieve and update access count
+- `get()` / `search()` - Memory retrieval
+- `delete()` - Remove memory
+- `prune()` - Automatic cleanup of low-priority memories
+- `by_mem_type()` / `important()` - Filtering
+
+**Display Functions:**
+- `format_memory_store()` - Full memory list
+- `format_memory_store_compact()` - Compact summary
+- `format_memory_store_oneline()` - Single line status
+- `memory_fun_fact()` - Fun facts
+- `is_memory_query()` - Query detection
+
 ## [0.0.525] - 2025-12-13
 
 ### Added - Workflow Automation Tracker (Phase 101)
