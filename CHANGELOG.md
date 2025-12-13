@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.516] - 2025-12-13
+
+### Added - Hardware Capability Detector (Phase 92)
+
+**Hardware Capability Module:**
+- `hardware_capability.rs` for detecting what hardware exists
+- `HardwareCategory` enum (Network, Audio, Video, Storage, etc.)
+- `HardwareStatus` enum (Detected, NotDetected, Disabled, Error, Unknown)
+- `HardwareCapability` / `HardwareCapabilityTracker` system
+- Per VISION.md: "Never install useless helpers (no ethtool if no ethernet)"
+
+**Core Functions:**
+- `register()` / `get()` - Capability management
+- `update_status()` - Update capability status with timestamp
+- `has()` - Check if capability detected
+- `is_helper_useful()` - Check if helper relevant to detected hardware
+- `useless_helpers()` - Filter out helpers for non-existent hardware
+- `by_hw_category()` / `detected()` / `not_detected()` - Status filtering
+
+**Display Functions:**
+- `format_hardware_tracker()` - Full capability list
+- `format_hardware_tracker_compact()` - Compact summary
+- `format_hardware_tracker_oneline()` - Single line status
+- `hardware_fun_fact()` - Fun facts
+- `is_hardware_query()` - Query detection
+- `get_relevant_helpers()` - Get helpers for capability
+
+**Common Capabilities:**
+- `COMMON_CAPABILITIES` constant mapping hardware to helpers
+- ethernet → ethtool, mii-tool
+- wifi → iwconfig, iw, nmcli
+- bluetooth → bluetoothctl, hcitool
+- sound → alsamixer, pulseaudio, pipewire
+- nvidia_gpu → nvidia-smi, nvtop
+- amd_gpu → radeontop
+- battery → acpi, upower
+- nvme → nvme-cli
+- sata → smartctl, hdparm
+
 ## [0.0.515] - 2025-12-13
 
 ### Added - Strategic Thinking Tracker (Phase 91)

@@ -28,6 +28,61 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.516 - Hardware Capability Detector (Phase 92) ✓
+- [x] `hardware_capability.rs` for detecting what hardware exists
+- [x] `HardwareCategory` / `HardwareStatus` enums
+- [x] `HardwareCapability` / `HardwareCapabilityTracker` system
+- [x] `is_helper_useful()` / `useless_helpers()` for smart helper installation
+- [x] `COMMON_CAPABILITIES` constant mapping hardware to helpers
+- [x] Per VISION.md: "Never install useless helpers"
+
+### v0.0.515 - Strategic Thinking Tracker (Phase 91) ✓
+- [x] `strategic_thinking.rs` for idle-time analysis
+- [x] `ThinkingStatus` / `ThinkingCategory` / `ThinkingPriority` enums
+- [x] `ThinkingTask` / `StrategicThinkingTracker` system
+- [x] `start()` / `pause()` / `resume()` interruptible workflow
+- [x] Tracks resume_point for interrupted tasks
+
+### v0.0.514 - Alarm Scheduler (Phase 90) ✓
+- [x] `alarm_scheduler.rs` for recurring notifications
+- [x] `AlarmFrequency` / `DayOfWeek` / `AlarmStatus` enums
+- [x] `AlarmRecord` / `AlarmScheduler` system
+- [x] Natural language alarm parsing
+
+### v0.0.513 - Dialogue Renderer (Phase 89) ✓
+- [x] `dialogue_renderer.rs` for fly-on-the-wall display
+- [x] `Speaker` / `DialogueMood` enums
+- [x] Specialist dialogue formatting
+
+### v0.0.512 - LLM Assignment Tracker (Phase 88) ✓
+- [x] `llm_assignment.rs` for model-to-specialist mapping
+- [x] `ModelTier` enum (Light, Standard, Heavy, DeepThinking)
+- [x] `COMMON_MODELS` constant
+
+### v0.0.511 - Specialist Roster (Phase 87) ✓
+- [x] `specialist_roster.rs` with diverse human names
+- [x] `SPECIALIST_NAMES` constant with 20 diverse names
+
+### v0.0.510 - Ticket Resolution Stats (Phase 86) ✓
+- [x] `ticket_resolution_stats.rs` for Anna vs specialist tracking
+- [x] `Resolver` / `ResolutionMethod` enums
+
+### v0.0.509 - Idle Time Detector (Phase 85) ✓
+- [x] `idle_time_detector.rs` for background research
+- [x] `IdleState` enum (Active, Idle, DeepIdle)
+
+### v0.0.508 - Email Notification System (Phase 84) ✓
+- [x] `email_notification.rs` for long-running task notifications
+- [x] `EmailConfig` with consent, daily limits, DND hours
+
+### v0.0.507 - Helper Tracker (Phase 83) ✓
+- [x] `helper_tracker.rs` tracking helpers Anna vs user installed
+- [x] `InstalledBy` enum (Anna, User, System)
+
+### v0.0.506 - Config Change Tracker (Phase 82) ✓
+- [x] `config_change_tracker.rs` for configuration changes
+- [x] `ConfigScope` / `ChangeType` enums
+
 ### v0.0.337-363 - Centralized UI System (Phase 28) ✓
 - [x] `anna_shared::ui::printing` module with consistent helpers
 - [x] print_header, print_title, print_footer, print_hr
