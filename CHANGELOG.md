@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.535] - 2025-12-13
+
+### Added - Greeting Generator (Phase 111)
+
+**Greeting Generator Module:**
+- `greeting_generator.rs` for personalized greetings per VISION.md
+- `TimeOfDay` enum (Morning, Afternoon, Evening, Night)
+- `InsightType` enum (TimeSinceLastVisit, BootTimeChange, UsagePattern, PendingTickets, SystemHealth, NewFeature, Tip, Warning, Error)
+- `GreetingInsight` / `GreetingContext` / `GreetingGenerator` system
+
+**Core Functions:**
+- `TimeOfDay::from_hour()` - Get time from hour (0-23)
+- `greeting_prefix()` - Time-appropriate greeting
+- `GreetingContext::new()` - Create context with username and hour
+- `add_insight()` / `add_error()` / `add_warning()` - Add content
+- `sorted_insights()` - Priority-sorted insights
+- `generate()` - Generate full greeting with insights
+
+**Display Functions:**
+- `format_insight()` - Format single insight
+- `format_context_summary()` - Context overview
+- `greeting_fun_fact()` - Fun facts
+- `is_greeting_query()` - Query detection
+
 ## [0.0.534] - 2025-12-13
 
 ### Added - Long Task Manager (Phase 110)

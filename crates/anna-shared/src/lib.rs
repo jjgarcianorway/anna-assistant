@@ -280,6 +280,7 @@ pub mod llm_model_registry; // v0.0.531: LLM model registry
 pub mod helper_install_tracker; // v0.0.532: Helper install tracker
 pub mod notification_tracker; // v0.0.533: Notification tracker
 pub mod long_task_manager; // v0.0.534: Long task manager
+pub mod greeting_generator; // v0.0.535: Greeting generator
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

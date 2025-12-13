@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.535 - Greeting Generator (Phase 111) ✓
+- [x] `greeting_generator.rs` for personalized greetings
+- [x] `TimeOfDay` / `InsightType` enums
+- [x] `GreetingInsight` / `GreetingContext` / `GreetingGenerator` system
+- [x] Time-appropriate greetings with insights
+- [x] Error/warning announcements in REPL greeting
+
 ### v0.0.534 - Long Task Manager (Phase 110) ✓
 - [x] `long_task_manager.rs` for long-running tasks
 - [x] `LongTaskStatus` / `LongTaskType` enums
