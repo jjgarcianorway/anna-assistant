@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.530 - Knowledge Citation Tracker (Phase 106) ✓
+- [x] `knowledge_citation.rs` for authoritative sources
+- [x] `CitationSource` / `CitationReliability` enums
+- [x] `CitationRecord` / `KnowledgeCitationTracker` system
+- [x] Track Arch Wiki, man pages, --help, official docs
+- [x] Usage tracking and source stats
+
 ### v0.0.529 - Escalation Tracker (Phase 105) ✓
 - [x] `escalation_tracker.rs` for junior-to-senior escalations
 - [x] `EscalationReason` / `EscalationOutcome` enums

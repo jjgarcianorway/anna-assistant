@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.530] - 2025-12-13
+
+### Added - Knowledge Citation Tracker (Phase 106)
+
+**Knowledge Citation Tracker Module:**
+- `knowledge_citation.rs` for tracking authoritative sources per VISION.md
+- `CitationSource` enum (ArchWiki, ManPage, HelpCommand, InfoPage, OfficialDocs, LocalWiki, ConfigFile)
+- `CitationReliability` enum (Unverified, Trusted, Verified, Authoritative)
+- `CitationRecord` / `KnowledgeCitationTracker` system
+
+**Core Functions:**
+- `add()` - Add citation with auto ID
+- `get()` / `get_mut()` - Citation retrieval
+- `record_use()` - Track usage
+- `by_source()` / `search()` / `for_ticket()` - Filtering
+- `most_used()` / `authoritative()` - Analytics
+- `as_reference()` - Format as reference string
+
+**Display Functions:**
+- `format_citation()` / `format_citation_compact()` / `format_citation_oneline()`
+- `format_tracker_summary()` - Full citation overview
+- `citation_fun_fact()` - Fun facts
+- `is_citation_query()` - Query detection
+
 ## [0.0.529] - 2025-12-13
 
 ### Added - Escalation Tracker (Phase 105)
