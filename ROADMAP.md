@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.558 - Settings Export/Import (Phase 134) ✓
+- [x] `settings_export.rs` for exporting/importing settings
+- [x] `ExportFormat` / `ExportOptions` / `ExportMetadata`
+- [x] `export_string()` / `import_string()` / `import_and_merge()`
+- [x] Multi-format support (JSON, TOML, compact)
+- [x] Automatic format detection
+
 ### v0.0.557 - Settings Validation (Phase 133) ✓
 - [x] `settings_validation.rs` for conflict detection
 - [x] `ValidationSeverity` / `ValidationCategory` / `ValidationIssue`

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.558] - 2025-12-13
+
+### Added - Settings Export/Import (Phase 134)
+
+**Settings Export Module:**
+- `settings_export.rs` for exporting/importing settings
+- `ExportFormat` enum (Json, Toml, JsonCompact)
+- `ExportOptions` for format, metadata, obfuscation
+- `ExportMetadata` with timestamp, version, description
+- `SettingsExport` struct wrapping settings with metadata
+
+**Core Functions:**
+- `export_string()` / `export_file()` - Export settings
+- `import_string()` / `import_file()` - Import settings
+- `import_and_merge()` - Merge with existing settings
+- `detect_format()` - Auto-detect format from path
+- `default_filename()` - Generate timestamped filename
+
+**Features:**
+- Multiple format support (JSON, TOML, compact JSON)
+- Optional metadata inclusion
+- Automatic format detection
+- Merge mode for importing
+
 ## [0.0.557] - 2025-12-13
 
 ### Added - Settings Validation (Phase 133)
