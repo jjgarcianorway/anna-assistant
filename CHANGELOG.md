@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.541] - 2025-12-13
+
+### Added - Tips System (Phase 117)
+
+**Tips System Module:**
+- `tips_system.rs` for greeting tips per VISION.md
+- `TipCategory` enum (Personality, LearningMode, RiskLevel, Verbosity, DisplayMode, etc.)
+- `TipPriority` enum (Low, Normal, High, Featured)
+- `Tip` / `TipsSystem` for tip management
+
+**Core Functions:**
+- `next_tip()` - Get next tip (rotates through least-shown)
+- `tip_from_category()` - Get tip from specific category
+- `add_tip()` - Add custom tips
+- `set_enabled()` / `set_max_daily()` - Configuration
+- `remaining_today()` - Daily tip limit tracking
+
+**Default Tips:**
+- Personality customization
+- Learning mode explanation
+- Risk level configuration
+- Debug mode toggle
+- Notification settings
+- Stats command hint
+- Citation importance
+- Idle time research
+- Custom alarms
+
 ## [0.0.540] - 2025-12-13
 
 ### Added - Installation Date Tracker (Phase 116)

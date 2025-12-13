@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.541 - Tips System (Phase 117) ✓
+- [x] `tips_system.rs` for greeting tips
+- [x] `TipCategory` / `TipPriority` enums
+- [x] `Tip` / `TipsSystem` with rotation
+- [x] 10 default tips for configuration options
+- [x] Daily tip limit with automatic rotation
+
 ### v0.0.540 - Installation Date Tracker (Phase 116) ✓
 - [x] `installation_tracker.rs` for installation tracking
 - [x] `InstallMethod` / `InstallStatus` enums
