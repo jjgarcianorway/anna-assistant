@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.557 - Settings Validation (Phase 133) ✓
+- [x] `settings_validation.rs` for conflict detection
+- [x] `ValidationSeverity` / `ValidationCategory` / `ValidationIssue`
+- [x] `validate()` / `check_conflicts()` / `check_security_issues()`
+- [x] Strict mode and suggestion system
+- [x] Formatted validation reports
+
 ### v0.0.556 - Settings Migration (Phase 132) ✓
 - [x] `settings_migration.rs` for version migrations
 - [x] `MigrationStatus` / `MigrationResult` / `VersionedSettings`

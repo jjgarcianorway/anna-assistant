@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.557] - 2025-12-13
+
+### Added - Settings Validation (Phase 133)
+
+**Settings Validation Module:**
+- `settings_validation.rs` for validating settings and detecting conflicts
+- `ValidationSeverity` enum (Info, Warning, Error)
+- `ValidationCategory` enum (Conflict, Missing, Invalid, Performance, Security, Deprecated)
+- `ValidationIssue` struct with suggestions
+- `ValidationResult` for collecting and reporting issues
+
+**Core Functions:**
+- `validate()` - Validate settings against rules
+- `check_conflicts()` - Detect conflicting settings
+- `check_performance_issues()` - Find performance concerns
+- `check_security_issues()` - Find security concerns
+- `validate_settings()` - Quick validation helper
+
+**Features:**
+- Strict mode (warnings become errors)
+- Skip performance/security checks options
+- Suggestion system for fixes
+- Formatted validation reports
+
 ## [0.0.556] - 2025-12-13
 
 ### Added - Settings Migration (Phase 132)
