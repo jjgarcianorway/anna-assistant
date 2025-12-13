@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.556] - 2025-12-13
+
+### Added - Settings Migration (Phase 132)
+
+**Settings Migration Module:**
+- `settings_migration.rs` for migrating settings between versions
+- `MigrationStatus` enum (UpToDate, Migrated, Failed, UnknownVersion)
+- `MigrationResult` struct with changes and warnings
+- `VersionedSettings` struct with schema version tracking
+
+**Core Functions:**
+- `migrate()` - Migrate settings to current schema version
+- `migrate_legacy()` - Migrate from pre-versioned settings
+- `needs_migration()` - Check if migration is needed
+- `migration_path()` - Get migration path description
+- `migrate_and_save()` - Migrate and persist changes
+
+**Features:**
+- Schema version tracking (CURRENT_SCHEMA_VERSION)
+- Migration history recording
+- Dry run mode for testing migrations
+- Automatic backup before migration
+- Legacy format support
+
 ## [0.0.555] - 2025-12-13
 
 ### Added - Settings Persistence (Phase 131)

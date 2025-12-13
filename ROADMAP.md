@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.556 - Settings Migration (Phase 132) ✓
+- [x] `settings_migration.rs` for version migrations
+- [x] `MigrationStatus` / `MigrationResult` / `VersionedSettings`
+- [x] `migrate()` / `migrate_legacy()` / `needs_migration()`
+- [x] Schema version tracking and history
+- [x] Dry run mode and automatic backup
+
 ### v0.0.555 - Settings Persistence (Phase 131) ✓
 - [x] `settings_persistence.rs` for disk storage
 - [x] `SettingsError` / `SettingsFormat` enums
