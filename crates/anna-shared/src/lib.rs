@@ -228,6 +228,7 @@ pub mod fun_stats_display; // v0.0.479: Fun statistics display
 pub mod capabilities_display; // v0.0.480: Capabilities display
 pub mod query_type_router; // v0.0.481: Query type router
 pub mod contextual_tips; // v0.0.482: Contextual tips system
+pub mod command_shortcuts; // v0.0.483: Command shortcuts
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

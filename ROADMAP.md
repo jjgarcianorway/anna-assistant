@@ -517,5 +517,15 @@ Anna v0.0.369 focuses on:
 - [x] General fallback tips
 - [x] format_tip() with action hints
 
+### Phase 59 - Command Shortcuts ✓ (v0.0.483)
+- [x] command_shortcuts.rs for quick aliases
+- [x] 25+ built-in shortcuts (8 categories)
+- [x] expand_shortcut() expands short to full
+- [x] is_shortcut() detection
+- [x] shortcuts_by_category() filtering
+- [x] format_shortcuts() display
+- [x] is_shortcuts_query() query detection
+- [x] Case-insensitive matching
+
 ### Future
 - All VISION.md features implemented!

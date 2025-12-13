@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.483] - 2025-12-13
+
+### Added - Command Shortcuts (Phase 59)
+
+**Command Shortcuts Module:**
+- `command_shortcuts.rs` for quick command aliases
+- 25+ built-in shortcuts for common operations
+- Case-insensitive matching
+
+**Shortcut Categories:**
+- System (mem, cpu, uptime, health)
+- Storage (du, df, mounts, big)
+- Network (ip, ports, netstat, ping)
+- Process (top5, ps, hogs)
+- Service (services, failed, logs)
+- Package (updates, upgrade, orphans)
+- Docker (dps, dimages, dclean)
+- Git (gs, gl, gd)
+
+**Functions:**
+- `expand_shortcut()` - Expand short form to full query
+- `is_shortcut()` - Check if input is a shortcut
+- `shortcuts_by_category()` - Get shortcuts by category
+- `format_shortcuts()` - Display all shortcuts
+- `format_category_shortcuts()` - Display category shortcuts
+- `is_shortcuts_query()` - Detect "show shortcuts" queries
+
 ## [0.0.482] - 2025-12-13
 
 ### Added - Contextual Tips System (Phase 58)
