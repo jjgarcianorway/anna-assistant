@@ -673,5 +673,18 @@ Anna v0.0.369 focuses on:
 - [x] format_error_summary() / compact / oneline
 - [x] error_health_message() / is_error_summary_query()
 
+### Phase 71 - Team Performance Display ✓ (v0.0.495)
+- [x] team_performance_display.rs for team metrics
+- [x] TeamId enum (8 IT teams)
+- [x] TeamMetrics with comprehensive stats
+- [x] TeamPerformance tracker
+- [x] record_ticket() / record_escalation()
+- [x] success_rate() / escalation_rate() / avg_resolution_ms()
+- [x] by_activity() / by_success_rate() / by_speed()
+- [x] most_active() / best_performing() / fastest()
+- [x] team_grade() - A+ to F grading
+- [x] format_team_performance() / compact / oneline
+- [x] team_performance_fun_fact() / is_team_performance_query()
+
 ### Future
 - All VISION.md features implemented!

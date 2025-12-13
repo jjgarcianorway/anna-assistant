@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.495] - 2025-12-13
+
+### Added - Team Performance Display (Phase 71)
+
+**Team Performance Module:**
+- `team_performance_display.rs` for team metrics tracking
+- `TeamId` enum for 8 IT teams
+- `TeamMetrics` struct with comprehensive stats
+- `TeamPerformance` tracker for all teams
+
+**Core Functions:**
+- `record_ticket()` - Record ticket with resolution details
+- `record_escalation()` - Track escalations
+- `success_rate()` / `escalation_rate()` - Calculate rates
+- `avg_resolution_ms()` - Average resolution time
+- `by_activity()` / `by_success_rate()` / `by_speed()` - Sorting
+- `most_active()` / `best_performing()` / `fastest()` - Rankings
+- `team_grade()` - A+ to F performance grading
+
+**Display Functions:**
+- `format_team_performance()` - Full display with breakdown
+- `format_team_performance_compact()` - Compact for greetings
+- `format_team_performance_oneline()` - Single line status
+- `format_duration_ms()` - Duration formatting
+- `team_performance_fun_fact()` - Fun facts
+- `is_team_performance_query()` - Query detection
+
 ## [0.0.494] - 2025-12-13
 
 ### Added - Error Summary Display (Phase 70)

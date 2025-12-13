@@ -240,6 +240,7 @@ pub mod stats_dashboard; // v0.0.491: Aggregated stats dashboard
 pub mod uptime_tracker; // v0.0.492: Uptime tracking
 pub mod ticket_history_display; // v0.0.493: Ticket history display
 pub mod error_summary_display; // v0.0.494: Error summary display
+pub mod team_performance_display; // v0.0.495: Team performance display
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
