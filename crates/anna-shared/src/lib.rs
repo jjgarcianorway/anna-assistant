@@ -245,6 +245,7 @@ pub mod anna_progress_report; // v0.0.496: Anna progress report
 pub mod user_activity_summary; // v0.0.497: User activity summary
 pub mod system_health_score; // v0.0.498: System health score
 pub mod knowledge_base_stats; // v0.0.499: Knowledge base stats
+pub mod boot_time_tracking; // v0.0.500: Boot time tracking
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -739,5 +739,18 @@ Anna v0.0.369 focuses on:
 - [x] format_knowledge_stats() / compact / oneline
 - [x] knowledge_fun_fact() / is_knowledge_query()
 
+### Phase 76 - Boot Time Tracking ✓ (v0.0.500)
+- [x] boot_time_tracking.rs for boot analysis
+- [x] BootRecord struct with kernel/userspace times
+- [x] SlowService struct for problem services
+- [x] BootTrend enum (Faster, Slower, Stable)
+- [x] BootTimeTracker comprehensive tracker
+- [x] parse_systemd_analyze() - Parse systemd output
+- [x] change_from_previous() / trend() / average_boot_secs()
+- [x] top_slow_services() - Problem service detection
+- [x] format_boot_stats() / compact / oneline
+- [x] boot_time_greeting() / boot_time_fun_fact()
+- [x] is_boot_time_query() - Query detection
+
 ### Future
 - All VISION.md features implemented!

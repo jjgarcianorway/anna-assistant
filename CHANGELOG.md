@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.500] - 2025-12-13
+
+### Added - Boot Time Tracking (Phase 76)
+
+**Boot Time Module:**
+- `boot_time_tracking.rs` for boot time analysis
+- `BootRecord` struct for individual boot events
+- `SlowService` struct for tracking slow services
+- `BootTrend` enum (Faster, Slower, Stable)
+- `BootTimeTracker` comprehensive tracker
+
+**Core Functions:**
+- `record()` - Record boot with kernel/userspace times
+- `change_from_previous()` - Compare to previous boot
+- `trend()` - Analyze trend over recent boots
+- `average_boot_secs()` - Average boot time
+- `top_slow_services()` - Services that slow boot
+
+**Parser Functions:**
+- `parse_systemd_analyze()` - Parse systemd-analyze output
+- `parse_time_value()` - Parse time strings (5.6s, 500ms, 1min)
+
+**Display Functions:**
+- `format_boot_stats()` - Full boot statistics display
+- `format_boot_stats_compact()` - Compact summary
+- `format_boot_stats_oneline()` - Single line status
+- `boot_time_greeting()` - Greeting message about changes
+- `boot_time_fun_fact()` - Fun facts about boot
+- `is_boot_time_query()` - Query detection
+
 ## [0.0.499] - 2025-12-13
 
 ### Added - Knowledge Base Stats (Phase 75)
