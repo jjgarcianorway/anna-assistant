@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.525] - 2025-12-13
+
+### Added - Workflow Automation Tracker (Phase 101)
+
+**Workflow Automation Module:**
+- `workflow_automation.rs` for tracking automated workflows
+- `WorkflowTrigger` enum (Manual, Scheduled, Event, Condition, Webhook)
+- `WorkflowStatus` enum (Active, Paused, Running, Completed, Failed)
+- `WorkflowStep` / `WorkflowRecord` / `WorkflowAutomationTracker` system
+
+**Core Functions:**
+- `create()` - Create workflow
+- `add_step()` - Add step to workflow
+- `run()` / `complete()` - Workflow execution
+- `get()` / `active()` - Workflow retrieval
+- `by_wf_trigger()` - Filter by trigger type
+- `success_rate()` - Analytics
+
+**Display Functions:**
+- `format_workflow_tracker()` - Full workflow list
+- `format_workflow_tracker_compact()` - Compact summary
+- `format_workflow_tracker_oneline()` - Single line status
+- `workflow_fun_fact()` - Fun facts
+- `is_workflow_query()` - Query detection
+
 ## [0.0.524] - 2025-12-13
 
 ### Added - Anna Metrics Dashboard (Phase 100!) 🎉

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.525 - Workflow Automation Tracker (Phase 101) ✓
+- [x] `workflow_automation.rs` for automated workflows
+- [x] `WorkflowTrigger` / `WorkflowStatus` enums
+- [x] `WorkflowStep` / `WorkflowRecord` / `WorkflowAutomationTracker` system
+- [x] Multi-step workflow execution
+- [x] Success rate tracking
+
 ### v0.0.524 - Anna Metrics Dashboard (Phase 100!) 🎉
 - [x] `anna_metrics_dashboard.rs` - Comprehensive dashboard
 - [x] `DashboardSection` / `HealthStatus` enums
