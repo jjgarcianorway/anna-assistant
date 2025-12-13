@@ -595,5 +595,19 @@ Anna v0.0.369 focuses on:
 - [x] format_interactions/compact() - Display
 - [x] interaction_fun_fact() - Fun facts
 
+### Phase 65 - Expert Ticket Statistics ✓ (v0.0.489)
+- [x] expert_stats.rs for tickets per expert
+- [x] ExpertLevel enum (Junior, Senior)
+- [x] Expert struct with id, name, department
+- [x] ExpertStatistics per-expert tracking
+- [x] ExpertStatsTracker comprehensive tracker
+- [x] register_expert() / record_closed()
+- [x] record_escalation() / record_anna_solo()
+- [x] top_performers() - Rankings
+- [x] by_department() / by_level() - Filtering
+- [x] most_reliable() / fastest_responder()
+- [x] format_expert_stats/compact() - Display
+- [x] expert_stats_fun_fact() - Fun facts
+
 ### Future
 - All VISION.md features implemented!

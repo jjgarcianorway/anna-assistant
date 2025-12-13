@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.489] - 2025-12-13
+
+### Added - Expert Ticket Statistics (Phase 65)
+
+**Expert Stats Module:**
+- `expert_stats.rs` for tracking tickets per expert
+- `ExpertLevel` enum (Junior, Senior)
+- `Expert` struct with id, name, department, level
+- `ExpertStatistics` per-expert tracking
+- `ExpertStatsTracker` comprehensive tracker
+
+**Core Functions:**
+- `register_expert()` - Register experts
+- `record_closed()` - Track closed tickets with confidence
+- `record_escalation()` - Track escalations
+- `record_anna_solo()` - Track Anna self-resolutions
+- `top_performers()` - Ranking by tickets closed
+- `by_department()` / `by_level()` - Filtering
+- `most_reliable()` / `fastest_responder()`
+
+**Display Functions:**
+- `format_expert_stats()` - Full stats display
+- `format_expert_stats_compact()` - Compact summary
+- `expert_stats_fun_fact()` - Fun facts
+- `is_expert_stats_query()` - Query detection
+
 ## [0.0.488] - 2025-12-13
 
 ### Added - Interaction Counter (Phase 64)
