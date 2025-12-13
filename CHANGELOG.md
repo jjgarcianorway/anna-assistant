@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.527] - 2025-12-13
+
+### Added - Skill Proficiency Tracker (Phase 103)
+
+**Skill Proficiency Module:**
+- `skill_proficiency.rs` for tracking Anna's learned skills
+- `SkillDomain` enum (SystemAdmin, Networking, Security, Storage, Audio, Video, Desktop, Scripting, Troubleshooting, UserSupport)
+- `ProficiencyLevel` enum (Novice, Beginner, Intermediate, Advanced, Expert, Master)
+- `SkillRecord` / `SkillProficiencyTracker` system
+
+**Core Functions:**
+- `learn()` - Learn a new skill
+- `use_skill()` - Record skill usage with success/failure
+- `get()` - Get skill by name
+- `by_domain()` / `by_level()` - Filtering
+- `top_skills()` - Get highest XP skills
+- `needs_practice()` - Find skills with low success rate
+
+**XP & Leveling:**
+- XP thresholds for each proficiency level
+- XP gain on success (scales with level)
+- XP loss on failure (learning from mistakes)
+- `xp_to_next_level()` tracking
+
+**Display Functions:**
+- `format_skill()` / `format_skill_compact()` / `format_skill_oneline()`
+- `format_tracker_summary()` - Full proficiency overview
+- `skill_fun_fact()` - Fun facts about skill learning
+- `is_skill_query()` - Query detection
+
 ## [0.0.526] - 2025-12-13
 
 ### Added - Context Memory Store (Phase 102)

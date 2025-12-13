@@ -272,6 +272,7 @@ pub mod task_priority_manager; // v0.0.523: Task priority manager
 pub mod anna_metrics_dashboard; // v0.0.524: Anna metrics dashboard (Phase 100!)
 pub mod workflow_automation; // v0.0.525: Workflow automation tracker
 pub mod context_memory_store; // v0.0.526: Context memory store
+pub mod skill_proficiency; // v0.0.527: Skill proficiency tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
