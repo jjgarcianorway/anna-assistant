@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.487] - 2025-12-13
+
+### Added - Resolution Time Tracking (Phase 63)
+
+**Resolution Time Module:**
+- `resolution_time.rs` for tracking resolution times
+- `ResolutionRecord` struct with timing and metadata
+- `ResolutionTimeTracker` for comprehensive statistics
+
+**Core Functions:**
+- `record()` / `record_simple()` - Track resolutions
+- `average_ms()` - Average resolution time
+- `success_rate()` / `escalation_rate()` - Rates
+- `fastest_category()` / `slowest_category()` - By category
+
+**Statistics:**
+- Fastest/slowest resolutions
+- Per-category stats (count, total, avg, range)
+- Recent resolutions (last 20)
+
+**Display Functions:**
+- `format_resolution_times()` - Full stats display
+- `format_resolution_times_compact()` - Compact summary
+- `format_duration_ms()` - Human-readable durations
+- `resolution_time_fun_fact()` - Fun facts
+- `is_resolution_time_query()` - Query detection
+
 ## [0.0.486] - 2025-12-13
 
 ### Added - Response Length Tracking (Phase 62)
