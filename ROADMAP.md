@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.561 - Settings Diff (Phase 137) ✓
+- [x] `settings_diff.rs` for comparing settings
+- [x] `DiffType` / `DiffEntry` / `SettingsDiff` / `SettingsDiffer`
+- [x] `diff()` / `is_identical()` / `has_changes()` / `changes_only()`
+- [x] Field-level comparison for all 12 categories
+- [x] Git-style diff output format
+
 ### v0.0.560 - Settings Watcher (Phase 136) ✓
 - [x] `settings_watcher.rs` for file change watching
 - [x] `SettingsEventType` / `SettingsEvent` / `WatcherConfig`

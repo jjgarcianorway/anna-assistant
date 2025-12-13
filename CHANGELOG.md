@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.561] - 2025-12-13
+
+### Added - Settings Diff (Phase 137)
+
+**Settings Diff Module:**
+- `settings_diff.rs` for comparing two settings objects
+- `DiffType` enum (Added, Removed, Changed, Unchanged)
+- `DiffEntry` struct with category, field, old/new values
+- `SettingsDiff` result with entries and changed categories
+- `SettingsDiffer` for configurable comparison
+
+**Core Functions:**
+- `diff()` - Compare two settings objects
+- `is_identical()` / `has_changes()` - Check diff result
+- `changes_only()` / `change_count()` - Get changes
+- `category_changes()` - Get changes for specific category
+- `format_diff()` - Format diff for display
+
+**Features:**
+- Field-level comparison for all 12 categories
+- Optional inclusion of unchanged fields
+- Filter by specific categories
+- Git-style diff output format
+
 ## [0.0.560] - 2025-12-13
 
 ### Added - Settings Watcher (Phase 136)
