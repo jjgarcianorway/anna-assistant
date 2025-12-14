@@ -339,6 +339,7 @@ pub mod settings_middleware; // v0.0.590: Settings middleware
 pub mod settings_observer; // v0.0.591: Settings observer
 pub mod settings_snapshot; // v0.0.592: Settings snapshot
 pub mod settings_lock; // v0.0.593: Settings lock
+pub mod settings_encryption; // v0.0.594: Settings encryption
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

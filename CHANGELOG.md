@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.594] - 2025-12-14
+
+### Added - Settings Encryption (Phase 170)
+
+**Settings Encryption Module:**
+- `settings_encryption.rs` for encrypting settings
+- `EncryptionAlgorithm` enum (Aes256Gcm, ChaCha20, XChaCha20)
+- `EncryptionStatus` enum (Plain, Encrypted, Decrypted, Error)
+- `EncryptedValue` / `KeyInfo` structs
+- `EncryptionManager`
+
+**Core Functions:**
+- `add_key()` / `set_active_key()` - Key management
+- `store()` / `get()` / `remove()` - Value operations
+- `require()` / `is_required()` - Category requirements
+- `is_encrypted()` - Check encryption status
+
+**Features:**
+- Multiple encryption algorithms
+- Key rotation support
+- Category-based encryption requirements
+- Key expiration
+- Active key tracking
+
 ## [0.0.593] - 2025-12-14
 
 ### Added - Settings Lock (Phase 169)

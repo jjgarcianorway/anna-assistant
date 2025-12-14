@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.594 - Settings Encryption (Phase 170) ✓
+- [x] `settings_encryption.rs` for encrypting settings
+- [x] `EncryptionAlgorithm` / `EncryptionStatus` / `EncryptedValue`
+- [x] `KeyInfo` / `EncryptionManager`
+- [x] `add_key()` / `store()` / `get()` / `require()`
+- [x] Multiple algorithms with key rotation
+
 ### v0.0.593 - Settings Lock (Phase 169) ✓
 - [x] `settings_lock.rs` for locking settings
 - [x] `LockType` / `LockScope` / `LockEntry`
