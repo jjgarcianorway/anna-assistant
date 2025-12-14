@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.631] - 2025-12-14
+
+### Added - Settings Provider (Phase 207)
+
+**Settings Provider Module:**
+- `settings_provider.rs` for provider abstraction
+- `ProviderType` enum (Local, Remote, Cloud, Hybrid, Custom)
+- `ProviderCapability` enum (Read, Write, Delete, List, Watch, Sync)
+- `ProviderInfo` / `ProviderStatus` / `ProviderStats` structs
+- `SettingsProviderRegistry` for managing providers
+
+**Core Functions:**
+- `register()` / `unregister()` - Provider management
+- `capability()` / `has_capability()` - Capability control
+- `mark_available()` / `mark_unavailable()` - Status updates
+- `list_by_capability()` - Capability-based listing
+- `avg_latency_ms()` - Performance metrics
+
+**Features:**
+- Multiple provider types
+- Capability-based access control
+- Health and availability tracking
+- Latency statistics
+- Priority-based selection
+
 ## [0.0.630] - 2025-12-14
 
 ### Added - Settings Connector (Phase 206)
