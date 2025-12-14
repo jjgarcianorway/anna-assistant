@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.635] - 2025-12-14
+
+### Added - Settings Broadcaster (Phase 211)
+
+**Settings Broadcaster Module:**
+- `settings_broadcaster.rs` for multi-listener broadcasts
+- `BroadcastChannel` enum (Default, System, Application, Priority, Debug)
+- `BroadcastMode` enum (Sync, Async, FireAndForget, Queued)
+- `BroadcasterConfig` / `BroadcastMessage` / `ListenerInfo` / `BroadcasterStats` structs
+- `SettingsBroadcaster` for managing broadcasts
+
+**Core Functions:**
+- `add_listener()` / `remove_listener()` - Listener management
+- `get_listener()` / `get_listener_mut()` - Listener access
+- `broadcast()` - Send to all listeners
+- `enqueue()` / `flush()` - Message queueing
+- `list_by_channel()` - Channel-based listing
+
+**Features:**
+- Multiple broadcast channels
+- Configurable broadcast modes
+- Message queueing
+- Per-listener message tracking
+- Delivery efficiency metrics
+
 ## [0.0.634] - 2025-12-14
 
 ### Added - Settings Publisher (Phase 210)

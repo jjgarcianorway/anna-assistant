@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.635 - Settings Broadcaster (Phase 211) ✓
+- [x] `settings_broadcaster.rs` for multi-listener broadcasts
+- [x] `BroadcastChannel` / `BroadcastMode`
+- [x] `BroadcasterConfig` / `BroadcastMessage` / `ListenerInfo` / `BroadcasterStats`
+- [x] `SettingsBroadcaster` for managing broadcasts
+- [x] Message queueing with fan-out delivery
+
 ### v0.0.634 - Settings Publisher (Phase 210) ✓
 - [x] `settings_publisher.rs` for change events
 - [x] `PublisherType` / `PublicationScope`
