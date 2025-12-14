@@ -28,6 +28,14 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.564 - Settings Sync (Phase 140) ✓
+- [x] `settings_sync.rs` for multi-device sync
+- [x] `SyncStatus` / `SyncProvider` / `ConflictResolution`
+- [x] `SyncConfig` / `SyncManager` structs
+- [x] `push()` / `pull()` / `sync()` / `check_remote()`
+- [x] File-based and Git-based sync support
+- [x] Configurable sync intervals and conflict resolution
+
 ### v0.0.563 - Settings History (Phase 139) ✓
 - [x] `settings_history.rs` for change tracking
 - [x] `HistoryEntry` / `SettingsHistory` with undo/redo

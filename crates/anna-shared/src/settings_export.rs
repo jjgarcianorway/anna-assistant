@@ -275,7 +275,7 @@ impl SettingsImporter {
     pub fn import_and_merge(
         &self,
         content: &str,
-        existing: &UnifiedSettings,
+        _existing: &UnifiedSettings,
     ) -> SettingsResult<UnifiedSettings> {
         let imported = self.import_string(content)?;
 

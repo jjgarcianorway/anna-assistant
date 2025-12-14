@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.564] - 2025-12-14
+
+### Added - Settings Sync (Phase 140)
+
+**Settings Sync Module:**
+- `settings_sync.rs` for synchronizing settings across multiple instances
+- `SyncStatus` enum (Synced, LocalAhead, RemoteAhead, Conflict, etc.)
+- `SyncProvider` enum (None, File, Git, Custom)
+- `ConflictResolution` enum (KeepLocal, AcceptRemote, MergeRemoteWins, etc.)
+- `SyncConfig` for sync configuration
+- `SyncManager` for push/pull/sync operations
+
+**Core Functions:**
+- `push()` - Push local settings to remote
+- `pull()` - Pull settings from remote
+- `sync()` - Auto-sync based on status
+- `check_remote()` - Check for remote changes
+- `is_sync_due()` - Check if auto-sync is needed
+- `mark_local_changed()` - Mark local as modified
+
+**Features:**
+- File-based sync (Dropbox, Syncthing, etc.)
+- Git-based sync support (placeholder)
+- Configurable sync intervals
+- Conflict resolution strategies
+- Last sync timestamp tracking
+
 ## [0.0.563] - 2025-12-13
 
 ### Added - Settings History (Phase 139)
