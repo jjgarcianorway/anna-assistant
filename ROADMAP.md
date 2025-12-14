@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.625 - Settings Gateway (Phase 201) ✓
+- [x] `settings_gateway.rs` for unified access
+- [x] `GatewayMode` / `RequestType`
+- [x] `GatewayRequest` / `GatewayResponse` / `GatewayStats`
+- [x] `SettingsGateway` for access control
+- [x] Mode-based request processing
+
 ### v0.0.624 - Settings Catalog (Phase 200) ✓
 - [x] `settings_catalog.rs` for documentation
 - [x] `CatalogSection` / `DocLevel`

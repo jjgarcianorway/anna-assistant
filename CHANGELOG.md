@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.625] - 2025-12-14
+
+### Added - Settings Gateway (Phase 201)
+
+**Settings Gateway Module:**
+- `settings_gateway.rs` for unified settings access
+- `GatewayMode` enum (Open, Restricted, Locked, Maintenance)
+- `RequestType` enum (Read, Write, Delete, List, Admin)
+- `GatewayRequest` / `GatewayResponse` / `GatewayStats` structs
+- `SettingsGateway` for managing access control
+
+**Core Functions:**
+- `process()` - Process incoming requests
+- `set_mode()` / `mode()` - Mode control
+- `is_read_only()` - Request classification
+- `allowed()` / `denied()` - Response builders
+- `allow_rate()` - Statistics
+
+**Features:**
+- Multiple access modes
+- Request type tracking
+- Mode-based access control
+- Statistics by request type
+- Allow rate monitoring
+
 ## [0.0.624] - 2025-12-14
 
 ### Added - Settings Catalog (Phase 200)
