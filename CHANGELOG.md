@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.630] - 2025-12-14
+
+### Added - Settings Connector (Phase 206)
+
+**Settings Connector Module:**
+- `settings_connector.rs` for external providers
+- `ConnectorProtocol` enum (Http, Https, UnixSocket, Tcp, File)
+- `ConnectionState` enum (Disconnected, Connecting, Connected, Reconnecting, Failed)
+- `ConnectorConfig` / `ConnectionInfo` / `ConnectorStats` structs
+- `SettingsConnector` for managing connections
+
+**Core Functions:**
+- `register()` / `unregister()` - Connector management
+- `connect()` / `disconnect()` - Connection control
+- `get_connection()` / `get_stats()` - Status access
+- `record_request()` - Request tracking
+- `success_rate()` - Performance metrics
+
+**Features:**
+- Multiple protocols
+- Connection state tracking
+- Timeout and retry configuration
+- Per-connector statistics
+- Activity tracking
+
 ## [0.0.629] - 2025-12-14
 
 ### Added - Settings Bridge (Phase 205)

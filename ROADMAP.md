@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.630 - Settings Connector (Phase 206) ✓
+- [x] `settings_connector.rs` for external providers
+- [x] `ConnectorProtocol` / `ConnectionState`
+- [x] `ConnectorConfig` / `ConnectionInfo` / `ConnectorStats`
+- [x] `SettingsConnector` for managing connections
+- [x] Multi-protocol with timeout/retry
+
 ### v0.0.629 - Settings Bridge (Phase 205) ✓
 - [x] `settings_bridge.rs` for system connections
 - [x] `BridgeDirection` / `BridgeState`
