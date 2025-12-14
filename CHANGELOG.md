@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.581] - 2025-12-14
+
+### Added - Settings Events (Phase 157)
+
+**Settings Events Module:**
+- `settings_events.rs` for pub/sub event system
+- `SettingsEventType` enum (Changed, Reset, Imported, Exported, ProfileSwitched, etc.)
+- `EventPriority` enum (Low, Normal, High, Critical)
+- `SettingsEvent` struct with builder pattern
+- `EventFilter` for subscription filtering
+- `Subscriber` / `SettingsEventBus` for event management
+
+**Core Functions:**
+- `publish()` / `publish_change()` - Publish events
+- `subscribe()` / `unsubscribe()` - Manage subscriptions
+- `query()` / `recent()` / `get()` - Query events
+- `EventFilter::matches()` - Filter matching
+
+**Features:**
+- Full pub/sub event system
+- Priority-based events
+- Flexible filtering by type, category, priority, source
+- Subscriber event counting
+- Event history with cleanup
+
 ## [0.0.580] - 2025-12-14
 
 ### Added - Settings API (Phase 156)

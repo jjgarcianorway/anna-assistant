@@ -326,6 +326,7 @@ pub mod settings_analytics; // v0.0.577: Settings analytics
 pub mod settings_recommendations; // v0.0.578: Settings recommendations
 pub mod settings_dashboard; // v0.0.579: Settings dashboard
 pub mod settings_api; // v0.0.580: Settings API
+pub mod settings_events; // v0.0.581: Settings events
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

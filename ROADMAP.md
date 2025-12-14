@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.581 - Settings Events (Phase 157) ✓
+- [x] `settings_events.rs` for pub/sub event system
+- [x] `SettingsEventType` / `EventPriority` / `SettingsEvent`
+- [x] `EventFilter` / `Subscriber` / `SettingsEventBus`
+- [x] `publish()` / `subscribe()` / `query()` / `unsubscribe()`
+- [x] Priority-based events with filtering
+
 ### v0.0.580 - Settings API (Phase 156) ✓
 - [x] `settings_api.rs` for unified API access
 - [x] `ApiOperation` / `ApiStatus` / `ApiRequest` / `ApiResponse`
