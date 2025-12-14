@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.572] - 2025-12-14
+
+### Added - Settings Wizard (Phase 148)
+
+**Settings Wizard Module:**
+- `settings_wizard.rs` for guided interactive configuration
+- `WizardStepType` enum (Welcome, SingleChoice, MultipleChoice, TextInput, etc.)
+- `WizardChoice` for choice options with descriptions
+- `WizardStep` for wizard steps with choices and defaults
+- `WizardState` enum (NotStarted, InProgress, Completed, Cancelled)
+- `SettingsWizard` and `WizardManager` for wizard management
+
+**Core Functions:**
+- `start()` / `next()` / `back()` / `cancel()` - Navigation
+- `answer()` / `get_answer()` - Collect and retrieve answers
+- `current()` / `progress()` - State tracking
+- `add_step()` / `add_choice()` - Build wizards
+
+**Features:**
+- Built-in wizards (Quick Setup, Privacy Setup)
+- Step-by-step guided configuration
+- Progress tracking
+- Navigation (forward, back, cancel)
+- Skip conditions for conditional steps
+
 ## [0.0.571] - 2025-12-14
 
 ### Added - Settings Hooks (Phase 147)

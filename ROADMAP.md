@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.572 - Settings Wizard (Phase 148) ✓
+- [x] `settings_wizard.rs` for guided configuration
+- [x] `WizardStepType` / `WizardChoice` / `WizardStep`
+- [x] `WizardState` / `SettingsWizard` / `WizardManager`
+- [x] `start()` / `next()` / `back()` / `answer()`
+- [x] Built-in wizards (Quick Setup, Privacy Setup)
+
 ### v0.0.571 - Settings Hooks (Phase 147) ✓
 - [x] `settings_hooks.rs` for callbacks on changes
 - [x] `HookTrigger` / `HookResult` / `HookPriority` enums
