@@ -318,6 +318,7 @@ pub mod settings_templates; // v0.0.569: Settings templates
 pub mod settings_constraints; // v0.0.570: Settings constraints
 pub mod settings_hooks; // v0.0.571: Settings hooks
 pub mod settings_wizard; // v0.0.572: Settings wizard
+pub mod settings_audit; // v0.0.573: Settings audit
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

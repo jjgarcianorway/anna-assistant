@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.573] - 2025-12-14
+
+### Added - Settings Audit (Phase 149)
+
+**Settings Audit Module:**
+- `settings_audit.rs` for compliance and security tracking
+- `AuditEventType` enum (Load, Save, Change, Reset, ProfileSwitch, etc.)
+- `AuditSeverity` enum (Info, Notice, Warning, Security, Critical)
+- `AuditEntry` for individual audit events
+- `AuditFilter` for querying audit log
+- `AuditLog` for managing audit entries
+
+**Core Functions:**
+- `log()` / `log_change()` / `log_security()` - Log events
+- `filter()` / `recent()` / `security_events()` - Query log
+- `changes_for()` / `count_by_severity()` - Analysis
+- `set_session()` - Session tracking
+
+**Features:**
+- Security event tracking
+- Category and field level tracking
+- Old/new value recording
+- Session ID tracking
+- Flexible filtering
+- Max entry limit with auto-trim
+
 ## [0.0.572] - 2025-12-14
 
 ### Added - Settings Wizard (Phase 148)

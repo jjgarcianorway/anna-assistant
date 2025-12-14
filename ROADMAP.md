@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.573 - Settings Audit (Phase 149) ✓
+- [x] `settings_audit.rs` for compliance tracking
+- [x] `AuditEventType` / `AuditSeverity` enums
+- [x] `AuditEntry` / `AuditFilter` / `AuditLog`
+- [x] `log()` / `log_change()` / `log_security()`
+- [x] Security events and session tracking
+
 ### v0.0.572 - Settings Wizard (Phase 148) ✓
 - [x] `settings_wizard.rs` for guided configuration
 - [x] `WizardStepType` / `WizardChoice` / `WizardStep`
