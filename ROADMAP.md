@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.584 - Settings Metrics (Phase 160) ✓
+- [x] `settings_metrics.rs` for metrics collection
+- [x] `MetricKind` / `MetricUnit` / `MetricValue` / `Metric`
+- [x] `SettingsMetrics` collection
+- [x] `register()` / `increment()` / `set()` / `record()`
+- [x] Default metrics with uptime tracking
+
 ### v0.0.583 - Settings Diagnostics (Phase 159) ✓
 - [x] `settings_diagnostics.rs` for health checking
 - [x] `DiagnosticSeverity` / `DiagnosticType` / `DiagnosticIssue`

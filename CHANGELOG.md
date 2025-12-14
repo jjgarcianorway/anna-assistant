@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.584] - 2025-12-14
+
+### Added - Settings Metrics (Phase 160)
+
+**Settings Metrics Module:**
+- `settings_metrics.rs` for metrics collection
+- `MetricKind` enum (Counter, Gauge, Histogram, Timer)
+- `MetricUnit` enum (Count, Bytes, Milliseconds, Percent, None)
+- `MetricValue` / `Metric` structs
+- `SettingsMetrics` collection
+
+**Core Functions:**
+- `register()` - Register new metric
+- `increment()` / `set()` / `record()` - Update metrics
+- `get()` / `all()` / `by_kind()` / `by_category()` - Query metrics
+- `uptime()` - Get collection uptime
+
+**Features:**
+- Counter, gauge, and timer metrics
+- Default metrics for changes, reads, exports, imports
+- Min/max tracking for gauges
+- Category-based filtering
+- Uptime tracking
+
 ## [0.0.583] - 2025-12-14
 
 ### Added - Settings Diagnostics (Phase 159)
