@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.639 - Settings Notifier (Phase 215) ✓
+- [x] `settings_notifier.rs` for change alerts
+- [x] `NotifyChannel` / `NotifyPriority`
+- [x] `NotifierConfig` / `Notification` / `NotifierStats`
+- [x] `SettingsNotifier` / `SettingsNotifierRegistry`
+- [x] Priority-based filtering with debounce
+
 ### v0.0.638 - Settings Tracker (Phase 214) ✓
 - [x] `settings_tracker.rs` for usage tracking
 - [x] `TrackType` / `TrackLevel`

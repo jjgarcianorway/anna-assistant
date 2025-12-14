@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.639] - 2025-12-14
+
+### Added - Settings Notifier (Phase 215)
+
+**Settings Notifier Module:**
+- `settings_notifier.rs` for change alerts
+- `NotifyChannel` enum (Internal, Log, Event, Callback, External)
+- `NotifyPriority` enum (Low, Normal, High, Urgent, Critical)
+- `NotifierConfig` / `Notification` / `NotifierStats` structs
+- `SettingsNotifier` / `SettingsNotifierRegistry` for managing notifiers
+
+**Core Functions:**
+- `register()` / `unregister()` - Notifier management
+- `queue()` / `flush()` - Notification handling
+- `enable()` / `disable()` - Notifier control
+- `list_by_channel()` / `list_enabled()` - Notifier listing
+- `record_sent()` / `record_suppressed()` - Stats tracking
+
+**Features:**
+- Multiple notification channels
+- Priority-based filtering
+- Debounce configuration
+- Per-notifier statistics
+- Suppression rate metrics
+
 ## [0.0.638] - 2025-12-14
 
 ### Added - Settings Tracker (Phase 214)
