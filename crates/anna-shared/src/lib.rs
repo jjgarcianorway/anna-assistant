@@ -359,6 +359,7 @@ pub mod settings_task_scheduler; // v0.0.610: Settings task scheduler
 pub mod settings_queue; // v0.0.611: Settings queue
 pub mod settings_worker; // v0.0.612: Settings worker
 pub mod settings_executor; // v0.0.613: Settings executor
+pub mod settings_pipeline; // v0.0.614: Settings pipeline
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

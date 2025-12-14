@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.614] - 2025-12-14
+
+### Added - Settings Pipeline (Phase 190)
+
+**Settings Pipeline Module:**
+- `settings_pipeline.rs` for pipeline processing
+- `PipelineStage` enum (Validate, Transform, Apply, Verify, Notify, Cleanup)
+- `PipelineStatus` enum (Ready, Running, Paused, Completed, Failed)
+- `StageResult` / `PipelineRun` structs
+- `SettingsPipeline` for managing pipelines
+
+**Core Functions:**
+- `create_run()` / `get_run()` / `get_run_mut()` - Run management
+- `start()` / `set_stage()` / `add_result()` / `complete()` - Run lifecycle
+- `archive()` / `history()` - History management
+- `is_success()` / `total_duration()` - Status checks
+- `active_count()` / `success_count()` - Statistics
+
+**Features:**
+- Multi-stage processing
+- Stage result tracking
+- Run history
+- Duration tracking
+- Success rate monitoring
+
 ## [0.0.613] - 2025-12-14
 
 ### Added - Settings Executor (Phase 189)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.614 - Settings Pipeline (Phase 190) ✓
+- [x] `settings_pipeline.rs` for pipeline processing
+- [x] `PipelineStage` / `PipelineStatus`
+- [x] `StageResult` / `PipelineRun`
+- [x] `SettingsPipeline` for managing pipelines
+- [x] Multi-stage processing with history
+
 ### v0.0.613 - Settings Executor (Phase 189) ✓
 - [x] `settings_executor.rs` for executing operations
 - [x] `ExecutionStatus` / `ExecutionType`
