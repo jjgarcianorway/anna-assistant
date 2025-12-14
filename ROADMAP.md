@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.646 - Settings Parser (Phase 222) ✓
+- [x] `settings_parser.rs` for multi-format parsing
+- [x] `ParseSource` / `ParseMode`
+- [x] `ParserConfig` / `ParseError` / `ParseResult` / `ParserStats`
+- [x] `SettingsParser` / `SettingsParserRegistry`
+- [x] Multi-format parsing with error tracking
+
 ### v0.0.645 - Settings Normalizer (Phase 221) ✓
 - [x] `settings_normalizer.rs` for value standardization
 - [x] `NormalizationType` / `NormalizationRule`

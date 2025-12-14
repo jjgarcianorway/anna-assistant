@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.646] - 2025-12-14
+
+### Added - Settings Parser (Phase 222)
+
+**Settings Parser Module:**
+- `settings_parser.rs` for multi-format parsing
+- `ParseSource` enum (Json, Toml, Yaml, Ini, Env)
+- `ParseMode` enum (Strict, Lenient, Permissive, ValidateOnly)
+- `ParserConfig` / `ParseError` / `ParseResult` / `ParserStats` structs
+- `SettingsParser` / `SettingsParserRegistry` for managing parsers
+
+**Core Functions:**
+- `register()` / `unregister()` - Parser management
+- `parse()` - Parse input strings
+- `do_parse()` - Internal parsing logic
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple input formats
+- Mode-based strictness
+- Error collection
+- Location tracking
+- Per-parser statistics
+
 ## [0.0.645] - 2025-12-14
 
 ### Added - Settings Normalizer (Phase 221)
