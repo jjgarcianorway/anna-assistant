@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.602] - 2025-12-14
+
+### Added - Settings Serializer (Phase 178)
+
+**Settings Serializer Module:**
+- `settings_serializer.rs` for multi-format serialization
+- `SerializationFormat` enum (Json, Toml, Yaml, Binary, JsonPretty)
+- `SerializeResult` enum (Success, FormatError, EncodingError, SizeExceeded, Unknown)
+- `SerializeOptions` / `SerializedData` / `SerializationStats` structs
+- `SettingsSerializer` with per-category format support
+
+**Core Functions:**
+- `set_default()` / `format_for()` - Format management
+- `set_category_format()` - Per-category formats
+- `record()` / `stats()` - Statistics tracking
+- `as_string()` / `checksum()` - Data operations
+
+**Features:**
+- Multiple serialization formats
+- Per-category format preferences
+- Compression support
+- Size limits
+- Serialization statistics
+
 ## [0.0.601] - 2025-12-14
 
 ### Added - Settings Comparator (Phase 177)
