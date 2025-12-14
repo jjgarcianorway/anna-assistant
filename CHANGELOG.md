@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.612] - 2025-12-14
+
+### Added - Settings Worker (Phase 188)
+
+**Settings Worker Module:**
+- `settings_worker.rs` for worker pool management
+- `WorkerState` enum (Idle, Busy, Paused, Stopped, Error)
+- `WorkerType` enum (Reader, Writer, Syncer, Backup, General)
+- `WorkerConfig` / `Worker` structs
+- `WorkerPool` for managing workers
+
+**Core Functions:**
+- `assign()` / `complete()` / `fail()` - Task handling
+- `pause()` / `resume()` / `stop()` - State control
+- `is_available()` / `success_rate()` - Status checks
+- `add()` / `remove()` / `get()` - Pool management
+- `available()` / `available_by_type()` - Worker selection
+
+**Features:**
+- Multiple worker types
+- Concurrent task limits
+- Success rate tracking
+- Type-based worker selection
+- Configurable timeouts
+
 ## [0.0.611] - 2025-12-14
 
 ### Added - Settings Queue (Phase 187)

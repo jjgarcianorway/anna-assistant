@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.612 - Settings Worker (Phase 188) ✓
+- [x] `settings_worker.rs` for worker pool management
+- [x] `WorkerState` / `WorkerType` / `WorkerConfig`
+- [x] `Worker` with lifecycle management
+- [x] `WorkerPool` for managing workers
+- [x] Type-based worker selection with success tracking
+
 ### v0.0.611 - Settings Queue (Phase 187) ✓
 - [x] `settings_queue.rs` for queue management
 - [x] `QueuePriority` / `QueueItemStatus` / `QueueOperation`
