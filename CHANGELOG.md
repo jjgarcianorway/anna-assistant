@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.596] - 2025-12-14
+
+### Added - Settings Query (Phase 172)
+
+**Settings Query Module:**
+- `settings_query.rs` for query DSL
+- `QueryOperator` enum (Eq, Ne, Gt, Gte, Lt, Lte, Contains, StartsWith, EndsWith, Matches)
+- `QueryCondition` / `SettingsQuery` / `QueryResult` structs
+- `QueryExecutor` for history tracking
+
+**Core Functions:**
+- `category()` / `where_field()` / `select_field()` - Query building
+- `limit()` / `offset()` / `order_by()` / `desc()` - Pagination
+- `matches_category()` / `matches()` - Condition matching
+- `record()` / `recent()` / `clear_history()` - History operations
+
+**Features:**
+- SQL-like query syntax
+- Multiple operators for filtering
+- Regex matching support
+- Query history tracking
+- Formatted query output
+
 ## [0.0.595] - 2025-12-14
 
 ### Added - Settings Inheritance (Phase 171)

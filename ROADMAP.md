@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.596 - Settings Query (Phase 172) ✓
+- [x] `settings_query.rs` for query DSL
+- [x] `QueryOperator` / `QueryCondition` / `SettingsQuery`
+- [x] `QueryResult` / `QueryExecutor`
+- [x] `category()` / `where_field()` / `select_field()`
+- [x] SQL-like query syntax with regex support
+
 ### v0.0.595 - Settings Inheritance (Phase 171) ✓
 - [x] `settings_inheritance.rs` for profile inheritance
 - [x] `InheritanceMode` / `InheritanceRule` / `InheritanceEntry`
