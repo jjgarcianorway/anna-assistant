@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.601 - Settings Comparator (Phase 177) ✓
+- [x] `settings_comparator.rs` for comparing settings
+- [x] `DiffType` / `CompareMode` / `DiffEntry`
+- [x] `CompareResult` / `CompareOptions`
+- [x] `SettingsComparator`
+- [x] Multiple comparison modes with history
+
 ### v0.0.600 - Settings Aggregator (Phase 176) ✓ 🎉 MILESTONE
 - [x] `settings_aggregator.rs` for aggregation/summarization
 - [x] `AggregationType` / `AggregationScope` / `AggregationDef`

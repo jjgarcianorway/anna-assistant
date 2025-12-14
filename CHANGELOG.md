@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.601] - 2025-12-14
+
+### Added - Settings Comparator (Phase 177)
+
+**Settings Comparator Module:**
+- `settings_comparator.rs` for comparing settings
+- `DiffType` enum (Added, Removed, Modified, Unchanged, TypeChanged)
+- `CompareMode` enum (Full, ChangesOnly, AdditionsOnly, RemovalsOnly, SummaryOnly)
+- `DiffEntry` / `CompareResult` / `CompareOptions` structs
+- `SettingsComparator` with history tracking
+
+**Core Functions:**
+- `added()` / `removed()` / `modified()` - Create diff entries
+- `add()` / `total_changes()` / `has_changes()` - Result operations
+- `changes_only()` / `by_category()` - Filtering
+- `record()` / `recent()` - History management
+
+**Features:**
+- Multiple diff types
+- Comparison modes
+- Category filtering
+- Key ignore list
+- Comparison history
+
 ## [0.0.600] - 2025-12-14
 
 ### Added - Settings Aggregator (Phase 176) 🎉 MILESTONE
