@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.622 - Settings Registry (Phase 198) ✓
+- [x] `settings_registry.rs` for central catalog
+- [x] `EntryType` / `EntryVisibility`
+- [x] `RegistryEntry` / `LookupResult`
+- [x] `SettingsRegistry` for managing definitions
+- [x] Lookup hit rate tracking
+
 ### v0.0.621 - Settings Manager (Phase 197) ✓
 - [x] `settings_manager.rs` for unified management
 - [x] `ManagerMode` / `ManagerStatus`

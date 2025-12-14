@@ -367,6 +367,7 @@ pub mod settings_coordinator; // v0.0.618: Settings coordinator
 pub mod settings_controller; // v0.0.619: Settings controller
 pub mod settings_service; // v0.0.620: Settings service
 pub mod settings_manager; // v0.0.621: Settings manager
+pub mod settings_registry; // v0.0.622: Settings registry
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

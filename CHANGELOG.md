@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.622] - 2025-12-14
+
+### Added - Settings Registry (Phase 198)
+
+**Settings Registry Module:**
+- `settings_registry.rs` for central settings catalog
+- `EntryType` enum (String, Integer, Boolean, Float, Enum, List)
+- `EntryVisibility` enum (Public, Internal, Hidden, Deprecated)
+- `RegistryEntry` / `LookupResult` structs
+- `SettingsRegistry` for managing settings definitions
+
+**Core Functions:**
+- `register()` / `unregister()` - Entry management
+- `lookup()` / `get()` - Entry retrieval
+- `list_by_category()` / `list_public()` - Filtered listings
+- `is_public()` / `is_deprecated()` - Visibility checks
+- `count()` / `lookup_count()` / `hit_rate()` - Statistics
+
+**Features:**
+- Multiple entry types
+- Visibility levels
+- Default values
+- Allowed values for enums
+- Lookup hit rate tracking
+
 ## [0.0.621] - 2025-12-14
 
 ### Added - Settings Manager (Phase 197)
