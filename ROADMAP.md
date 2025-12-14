@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.593 - Settings Lock (Phase 169) ✓
+- [x] `settings_lock.rs` for locking settings
+- [x] `LockType` / `LockScope` / `LockEntry`
+- [x] `SettingsLockManager`
+- [x] `lock()` / `unlock()` / `check()` / `lock_permanent()`
+- [x] Scoped and expiring locks
+
 ### v0.0.592 - Settings Snapshot (Phase 168) ✓
 - [x] `settings_snapshot.rs` for point-in-time snapshots
 - [x] `SnapshotType` / `SnapshotStatus` / `SettingsSnapshot`

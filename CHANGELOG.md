@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.593] - 2025-12-14
+
+### Added - Settings Lock (Phase 169)
+
+**Settings Lock Module:**
+- `settings_lock.rs` for locking settings
+- `LockType` enum (ReadOnly, Full, AdminOnly, Temporary)
+- `LockScope` enum (Global, Category, Key)
+- `LockEntry` / `LockCheckResult`
+- `SettingsLockManager`
+
+**Core Functions:**
+- `lock()` / `unlock()` / `remove()` - Manage locks
+- `check()` - Check if locked
+- `lock_permanent()` / `unlock_permanent()` - Permanent locks
+- `clean_expired()` - Auto cleanup
+
+**Features:**
+- Scoped locking (global, category, key)
+- Lock expiration
+- Admin-only locks
+- Permanent locks
+- Lock ownership tracking
+
 ## [0.0.592] - 2025-12-14
 
 ### Added - Settings Snapshot (Phase 168)
