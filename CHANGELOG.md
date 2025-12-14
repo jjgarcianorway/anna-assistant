@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.632] - 2025-12-14
+
+### Added - Settings Consumer (Phase 208)
+
+**Settings Consumer Module:**
+- `settings_consumer.rs` for client abstraction
+- `ConsumerType` enum (Application, Service, Module, Plugin, External)
+- `ConsumerState` enum (Inactive, Active, Suspended, Error, Terminated)
+- `ConsumerInfo` / `ConsumerSession` / `ConsumerStats` structs
+- `SettingsConsumerRegistry` for managing consumers
+
+**Core Functions:**
+- `register()` / `unregister()` - Consumer management
+- `subscribe()` / `is_subscribed()` - Category subscriptions
+- `suspend()` / `resume()` / `terminate()` - Session control
+- `record_activity()` - Activity tracking
+- `list_subscribed()` - Subscription-based listing
+
+**Features:**
+- Multiple consumer types
+- Session state management
+- Category subscriptions
+- Activity tracking
+- Per-consumer statistics
+
 ## [0.0.631] - 2025-12-14
 
 ### Added - Settings Provider (Phase 207)

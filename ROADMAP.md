@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.632 - Settings Consumer (Phase 208) ✓
+- [x] `settings_consumer.rs` for client abstraction
+- [x] `ConsumerType` / `ConsumerState`
+- [x] `ConsumerInfo` / `ConsumerSession` / `ConsumerStats`
+- [x] `SettingsConsumerRegistry` for managing consumers
+- [x] Category subscriptions with session control
+
 ### v0.0.631 - Settings Provider (Phase 207) ✓
 - [x] `settings_provider.rs` for provider abstraction
 - [x] `ProviderType` / `ProviderCapability`
