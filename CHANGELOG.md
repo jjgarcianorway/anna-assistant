@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.626] - 2025-12-14
+
+### Added - Settings Proxy (Phase 202)
+
+**Settings Proxy Module:**
+- `settings_proxy.rs` for caching and transformation
+- `ProxyBehavior` enum (Passthrough, Cache, Transform, Intercept)
+- `CacheStatus` enum (Hit, Miss, Stale, Bypass)
+- `CacheEntry` / `ProxyOperation` / `ProxyStats` structs
+- `SettingsProxy` for managing cached access
+
+**Core Functions:**
+- `get_cached()` / `put_cached()` - Cache operations
+- `invalidate()` / `clear_cache()` - Cache management
+- `is_expired()` - TTL checking
+- `cache_hit_rate()` - Performance metrics
+- `set_behavior()` / `behavior()` - Mode control
+
+**Features:**
+- Multiple proxy behaviors
+- TTL-based cache expiration
+- Cache size limits
+- Hit rate tracking
+- Automatic eviction
+
 ## [0.0.625] - 2025-12-14
 
 ### Added - Settings Gateway (Phase 201)
