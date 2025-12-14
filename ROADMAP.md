@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.597 - Settings Validator Chain (Phase 173) ✓
+- [x] `settings_validator_chain.rs` for chainable validation
+- [x] `ValidatorType` / `ValidationResult` / `ValidationError`
+- [x] `ValidatorDef` / `ValidationChain` / `ChainResult`
+- [x] `ValidatorChainManager`
+- [x] Priority-based ordering with stop-on-fail
+
 ### v0.0.596 - Settings Query (Phase 172) ✓
 - [x] `settings_query.rs` for query DSL
 - [x] `QueryOperator` / `QueryCondition` / `SettingsQuery`

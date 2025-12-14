@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.597] - 2025-12-14
+
+### Added - Settings Validator Chain (Phase 173)
+
+**Settings Validator Chain Module:**
+- `settings_validator_chain.rs` for chainable validation
+- `ValidatorType` enum (Required, Type, Range, Pattern, Custom, Dependency, Unique)
+- `ValidationResult` enum (Pass, Fail, Warn, Skip)
+- `ValidationError` / `ValidatorDef` / `ValidationOutput` structs
+- `ValidationChain` / `ChainResult` / `ValidatorChainManager`
+
+**Core Functions:**
+- `add()` / `remove()` / `enable()` / `disable()` - Manage validators
+- `for_category()` - Get validators for category
+- `add_chain()` / `get_chain()` / `set_default()` - Chain management
+- `all_errors()` / `is_valid()` - Result checking
+
+**Features:**
+- Priority-based validator ordering
+- Stop on first failure option
+- Named validation chains
+- Error suggestions
+- Per-category filtering
+
 ## [0.0.596] - 2025-12-14
 
 ### Added - Settings Query (Phase 172)

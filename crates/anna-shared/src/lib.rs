@@ -342,6 +342,7 @@ pub mod settings_lock; // v0.0.593: Settings lock
 pub mod settings_encryption; // v0.0.594: Settings encryption
 pub mod settings_inheritance; // v0.0.595: Settings inheritance
 pub mod settings_query; // v0.0.596: Settings query
+pub mod settings_validator_chain; // v0.0.597: Settings validator chain
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
