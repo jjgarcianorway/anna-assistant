@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.615] - 2025-12-14
+
+### Added - Settings Processor (Phase 191)
+
+**Settings Processor Module:**
+- `settings_processor.rs` for processing settings changes
+- `ProcessorMode` enum (Sync, Async, Batch, Streaming)
+- `ProcessorState` enum (Idle, Processing, Paused, Error, Shutdown)
+- `ProcessingJob` / `ProcessingResult` structs
+- `SettingsProcessor` for managing processing
+
+**Core Functions:**
+- `submit()` / `get_pending()` / `complete()` - Job handling
+- `start()` / `pause()` / `resume()` / `shutdown()` - Lifecycle control
+- `is_create()` / `is_update()` / `is_delete()` - Job type detection
+- `set_mode()` / `mode()` / `state()` - Configuration
+- `pending_count()` / `total_processed()` - Statistics
+
+**Features:**
+- Multiple processing modes
+- Job type detection
+- Lifecycle management
+- Result tracking
+- Configurable modes
+
 ## [0.0.614] - 2025-12-14
 
 ### Added - Settings Pipeline (Phase 190)

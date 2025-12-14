@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.615 - Settings Processor (Phase 191) ✓
+- [x] `settings_processor.rs` for processing changes
+- [x] `ProcessorMode` / `ProcessorState`
+- [x] `ProcessingJob` / `ProcessingResult`
+- [x] `SettingsProcessor` for managing processing
+- [x] Multiple modes with job type detection
+
 ### v0.0.614 - Settings Pipeline (Phase 190) ✓
 - [x] `settings_pipeline.rs` for pipeline processing
 - [x] `PipelineStage` / `PipelineStatus`
