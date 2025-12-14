@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.600] - 2025-12-14
+
+### Added - Settings Aggregator (Phase 176) 🎉 MILESTONE
+
+**Settings Aggregator Module:**
+- `settings_aggregator.rs` for aggregation and summarization
+- `AggregationType` enum (Count, Sum, Average, Min, Max, List, GroupBy)
+- `AggregationScope` enum (All, Category, Categories, Pattern)
+- `AggregationDef` / `AggValue` / `AggregationResult` structs
+- `SettingsSummary` / `SettingsAggregator`
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Manage aggregations
+- `store_result()` / `get_result()` - Result caching
+- `add_category()` - Summary building
+- `list_ids()` - List all aggregations
+
+**Features:**
+- Multiple aggregation types
+- Scope-based filtering
+- Result caching
+- Settings summary
+- Per-category breakdown
+
 ## [0.0.599] - 2025-12-14
 
 ### Added - Settings Resolver (Phase 175)

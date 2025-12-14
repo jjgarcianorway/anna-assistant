@@ -345,6 +345,7 @@ pub mod settings_query; // v0.0.596: Settings query
 pub mod settings_validator_chain; // v0.0.597: Settings validator chain
 pub mod settings_transformer; // v0.0.598: Settings transformer
 pub mod settings_resolver; // v0.0.599: Settings resolver
+pub mod settings_aggregator; // v0.0.600: Settings aggregator
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

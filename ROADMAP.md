@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.600 - Settings Aggregator (Phase 176) ✓ 🎉 MILESTONE
+- [x] `settings_aggregator.rs` for aggregation/summarization
+- [x] `AggregationType` / `AggregationScope` / `AggregationDef`
+- [x] `AggValue` / `AggregationResult` / `SettingsSummary`
+- [x] `SettingsAggregator`
+- [x] Multiple aggregation types with result caching
+
 ### v0.0.599 - Settings Resolver (Phase 175) ✓
 - [x] `settings_resolver.rs` for conflict resolution
 - [x] `ConflictType` / `ResolutionStrategy` / `Conflict`
