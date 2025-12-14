@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.587 - Settings Transactions (Phase 163) ✓
+- [x] `settings_transactions.rs` for atomic operations
+- [x] `TransactionState` / `OperationType` / `TransactionOp`
+- [x] `SettingsTransaction` / `TransactionManager`
+- [x] `begin()` / `commit()` / `rollback()`
+- [x] Transaction history and rollback support
+
 ### v0.0.586 - Settings Cache (Phase 162) ✓
 - [x] `settings_cache.rs` for caching settings values
 - [x] `CacheState` / `EvictionPolicy` / `CacheEntry` / `CacheStats`

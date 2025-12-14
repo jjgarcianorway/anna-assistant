@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.587] - 2025-12-14
+
+### Added - Settings Transactions (Phase 163)
+
+**Settings Transactions Module:**
+- `settings_transactions.rs` for atomic operations
+- `TransactionState` enum (Pending, Active, Committed, RolledBack, Failed)
+- `OperationType` enum (Set, Delete, Reset, Update)
+- `TransactionOp` / `SettingsTransaction` structs
+- `TransactionManager` for managing transactions
+
+**Core Functions:**
+- `begin()` / `commit()` / `rollback()` - Transaction lifecycle
+- `set()` / `delete()` / `reset()` - Add operations
+- `with_prev()` - Store previous value for rollback
+- History tracking
+
+**Features:**
+- Atomic settings changes
+- Rollback support
+- Transaction history
+- Operation tracking
+- Error handling with state preservation
+
 ## [0.0.586] - 2025-12-14
 
 ### Added - Settings Cache (Phase 162)
