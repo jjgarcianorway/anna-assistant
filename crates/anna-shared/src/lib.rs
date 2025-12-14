@@ -310,6 +310,7 @@ pub mod settings_diff; // v0.0.561: Settings diff
 pub mod settings_presets; // v0.0.562: Settings presets
 pub mod settings_history; // v0.0.563: Settings history
 pub mod settings_sync; // v0.0.564: Settings sync
+pub mod settings_profiles; // v0.0.565: Settings profiles
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

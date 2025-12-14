@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.565] - 2025-12-14
+
+### Added - Settings Profiles (Phase 141)
+
+**Settings Profiles Module:**
+- `settings_profiles.rs` for named settings configurations
+- `ProfileMeta` struct with name, description, timestamps, tags
+- `SettingsProfile` struct combining metadata and settings
+- `ProfileManager` for managing multiple profiles
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Profile CRUD operations
+- `switch_to()` - Switch active profile
+- `duplicate()` - Clone an existing profile
+- `rename()` / `set_description()` - Update profile metadata
+- `find_by_name()` / `find_by_tag()` - Search profiles
+
+**Features:**
+- Multiple named profiles for different use cases
+- Active profile tracking with switch functionality
+- Default profile designation
+- Profile tags for organization
+- Profile duplication with metadata copy
+
 ## [0.0.564] - 2025-12-14
 
 ### Added - Settings Sync (Phase 140)

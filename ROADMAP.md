@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.565 - Settings Profiles (Phase 141) ✓
+- [x] `settings_profiles.rs` for named configurations
+- [x] `ProfileMeta` / `SettingsProfile` / `ProfileManager`
+- [x] `add()` / `remove()` / `switch_to()` / `duplicate()`
+- [x] Profile tagging and search
+- [x] Active/default profile tracking
+
 ### v0.0.564 - Settings Sync (Phase 140) ✓
 - [x] `settings_sync.rs` for multi-device sync
 - [x] `SyncStatus` / `SyncProvider` / `ConflictResolution`
