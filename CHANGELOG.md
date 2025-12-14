@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.610] - 2025-12-14
+
+### Added - Settings Task Scheduler (Phase 186)
+
+**Settings Task Scheduler Module:**
+- `settings_task_scheduler.rs` for advanced task scheduling
+- `TaskFrequency` enum (Once, Minutely, Hourly, Daily, Weekly, Monthly)
+- `TaskType` enum (Backup, Sync, Validation, Report, Cleanup, Custom)
+- `TaskState` enum (Pending, Running, Completed, Failed, Cancelled)
+- `TaskDefinition` / `TaskInstance` structs
+- `SettingsTaskScheduler` for managing scheduled tasks
+
+**Core Functions:**
+- `add_definition()` / `remove_definition()` / `get_definition()` - Definition management
+- `schedule()` / `pending()` / `running()` - Instance management
+- `start()` / `complete()` / `fail()` / `cancel()` - State transitions
+- `definition_count()` / `instance_count()` - Statistics
+
+**Features:**
+- Multiple task frequencies
+- Task priority support
+- State machine lifecycle
+- Instance history tracking
+- Category filtering
+
 ## [0.0.609] - 2025-12-14
 
 ### Added - Settings Reporter (Phase 185)

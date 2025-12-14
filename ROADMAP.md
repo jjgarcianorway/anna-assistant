@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.610 - Settings Task Scheduler (Phase 186) ✓
+- [x] `settings_task_scheduler.rs` for advanced task scheduling
+- [x] `TaskFrequency` / `TaskType` / `TaskState`
+- [x] `TaskDefinition` / `TaskInstance`
+- [x] `SettingsTaskScheduler`
+- [x] Multiple frequencies with state machine lifecycle
+
 ### v0.0.609 - Settings Reporter (Phase 185) ✓
 - [x] `settings_reporter.rs` for generating reports
 - [x] `ReportType` / `ReportFormat` / `ReportSection`
