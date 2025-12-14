@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.643] - 2025-12-14
+
+### Added - Settings Sanitizer (Phase 219)
+
+**Settings Sanitizer Module:**
+- `settings_sanitizer.rs` for value sanitization
+- `SanitizationType` enum (Trim, NormalizeCase, RemoveSpecial, Escape, Full)
+- `CaseNormalization` enum (None, Lower, Upper, Title)
+- `SanitizerConfig` / `SanitizationResult` / `SanitizerStats` structs
+- `SettingsSanitizer` / `SettingsSanitizerRegistry` for managing sanitizers
+
+**Core Functions:**
+- `register()` / `unregister()` - Sanitizer management
+- `sanitize()` - Clean and normalize values
+- `add_operation()` - Track applied operations
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple sanitization types
+- Case normalization options
+- Operation tracking
+- Change detection
+- Per-sanitizer statistics
+
 ## [0.0.642] - 2025-12-14
 
 ### Added - Settings Analyzer (Phase 218)

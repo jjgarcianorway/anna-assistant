@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.643 - Settings Sanitizer (Phase 219) ✓
+- [x] `settings_sanitizer.rs` for value sanitization
+- [x] `SanitizationType` / `CaseNormalization`
+- [x] `SanitizerConfig` / `SanitizationResult` / `SanitizerStats`
+- [x] `SettingsSanitizer` / `SettingsSanitizerRegistry`
+- [x] Trim, case normalization, change tracking
+
 ### v0.0.642 - Settings Analyzer (Phase 218) ✓
 - [x] `settings_analyzer.rs` for pattern analysis
 - [x] `AnalysisType` / `AnalysisScope`
