@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.642 - Settings Analyzer (Phase 218) ✓
+- [x] `settings_analyzer.rs` for pattern analysis
+- [x] `AnalysisType` / `AnalysisScope`
+- [x] `AnalyzerConfig` / `AnalysisInsight` / `AnalysisResult` / `AnalyzerStats`
+- [x] `SettingsAnalyzer` / `SettingsAnalyzerRegistry`
+- [x] Pattern and anomaly detection with insights
+
 ### v0.0.641 - Settings Inspector (Phase 217) ✓
 - [x] `settings_inspector.rs` for structure analysis
 - [x] `InspectionType` / `InspectionDepth`

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.642] - 2025-12-14
+
+### Added - Settings Analyzer (Phase 218)
+
+**Settings Analyzer Module:**
+- `settings_analyzer.rs` for pattern analysis
+- `AnalysisType` enum (Pattern, Anomaly, Trend, Correlation, Impact)
+- `AnalysisScope` enum (Category, CrossCategory, SystemWide, Historical)
+- `AnalyzerConfig` / `AnalysisInsight` / `AnalysisResult` / `AnalyzerStats` structs
+- `SettingsAnalyzer` / `SettingsAnalyzerRegistry` for managing analyzers
+
+**Core Functions:**
+- `register()` / `unregister()` - Analyzer management
+- `analyze()` - Run analyses
+- `add_insight()` - Record insights
+- `high_confidence_insights()` - Filter insights
+- `results()` / `stats()` - Data access
+
+**Features:**
+- Multiple analysis types
+- Configurable scope
+- Confidence-based filtering
+- Recommendation support
+- Per-analyzer statistics
+
 ## [0.0.641] - 2025-12-14
 
 ### Added - Settings Inspector (Phase 217)
