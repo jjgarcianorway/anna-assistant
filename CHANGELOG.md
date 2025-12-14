@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.609] - 2025-12-14
+
+### Added - Settings Reporter (Phase 185)
+
+**Settings Reporter Module:**
+- `settings_reporter.rs` for generating reports
+- `ReportType` enum (Summary, Detailed, Change, Usage, Compliance)
+- `ReportFormat` enum (Text, Markdown, Html, Json, Csv)
+- `ReportSection` / `ReportConfig` / `Report` structs
+- `SettingsReporter` with report storage
+
+**Core Functions:**
+- `add_config()` / `remove_config()` / `get_config()` - Config management
+- `store()` / `reports()` / `recent()` - Report storage
+- `add_section()` / `render()` - Report building
+- `section_count()` - Report metrics
+
+**Features:**
+- Multiple report types
+- Multiple output formats
+- Ordered sections
+- Report history
+- Metadata inclusion
+
 ## [0.0.608] - 2025-12-14
 
 ### Added - Settings Monitor (Phase 184)

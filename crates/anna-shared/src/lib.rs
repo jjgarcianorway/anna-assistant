@@ -354,6 +354,7 @@ pub mod settings_linker; // v0.0.605: Settings linker
 pub mod settings_bundler; // v0.0.606: Settings bundler
 pub mod settings_deployer; // v0.0.607: Settings deployer
 pub mod settings_monitor; // v0.0.608: Settings monitor
+pub mod settings_reporter; // v0.0.609: Settings reporter
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.609 - Settings Reporter (Phase 185) ✓
+- [x] `settings_reporter.rs` for generating reports
+- [x] `ReportType` / `ReportFormat` / `ReportSection`
+- [x] `ReportConfig` / `Report`
+- [x] `SettingsReporter`
+- [x] Multiple types/formats with history
+
 ### v0.0.608 - Settings Monitor (Phase 184) ✓
 - [x] `settings_monitor.rs` for monitoring settings
 - [x] `MonitorType` / `AlertSeverity` / `MonitorConfig`
