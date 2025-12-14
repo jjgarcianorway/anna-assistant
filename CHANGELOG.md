@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.589] - 2025-12-14
+
+### Added - Settings Throttling (Phase 165)
+
+**Settings Throttling Module:**
+- `settings_throttling.rs` for rate limiting
+- `ThrottleAction` enum (Read, Write, Export, Import, Sync, Any)
+- `ThrottleResult` enum (Allowed, Limited, Blocked)
+- `RateLimit` / `ThrottleStats` structs
+- `SettingsThrottler` manager
+
+**Core Functions:**
+- `check()` - Check and record request
+- `would_limit()` - Check without recording
+- `set_limit()` / `get_limit()` - Configure limits
+- `block()` / `unblock()` - Block actions
+
+**Features:**
+- Per-action rate limits
+- Burst allowance
+- Action blocking
+- Request tracking
+- Statistics per action
+
 ## [0.0.588] - 2025-12-14
 
 ### Added - Settings Versioning (Phase 164)

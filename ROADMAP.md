@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.589 - Settings Throttling (Phase 165) ✓
+- [x] `settings_throttling.rs` for rate limiting
+- [x] `ThrottleAction` / `ThrottleResult` / `RateLimit`
+- [x] `SettingsThrottler` manager
+- [x] `check()` / `would_limit()` / `block()` / `unblock()`
+- [x] Per-action rate limits with burst
+
 ### v0.0.588 - Settings Versioning (Phase 164) ✓
 - [x] `settings_versioning.rs` for version control
 - [x] `ChangeType` / `VersionChange` / `SettingsVersion`
