@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.604 - Settings Compiler (Phase 180) ✓
+- [x] `settings_compiler.rs` for compiling settings
+- [x] `CompileStage` / `CompileStatus` / `CompileDiag`
+- [x] `CompileOptions` / `CompileOutput`
+- [x] `SettingsCompiler`
+- [x] Multi-stage compilation with history
+
 ### v0.0.603 - Settings Router (Phase 179) ✓
 - [x] `settings_router.rs` for routing settings operations
 - [x] `RouteType` / `RouteAction` / `RouteDef`
