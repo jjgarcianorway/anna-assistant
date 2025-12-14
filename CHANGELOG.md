@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.628] - 2025-12-14
+
+### Added - Settings Adapter (Phase 204)
+
+**Settings Adapter Module:**
+- `settings_adapter.rs` for multi-source integration
+- `AdapterType` enum (File, Environment, Memory, Remote, Database)
+- `AdapterStatus` enum (Connected, Disconnected, Connecting, Error, Disabled)
+- `AdapterConfig` / `AdapterInstance` / `AdapterStats` structs
+- `SettingsAdapterRegistry` for managing adapters
+
+**Core Functions:**
+- `register()` / `unregister()` - Adapter management
+- `connect()` / `disconnect()` - Connection control
+- `get()` / `get_mut()` - Adapter access
+- `list_available()` - Available adapter listing
+- `record_read()` / `record_write()` - Operation tracking
+
+**Features:**
+- Multiple adapter types
+- Priority-based ordering
+- Read-only mode support
+- Connection status tracking
+- Per-adapter statistics
+
 ## [0.0.627] - 2025-12-14
 
 ### Added - Settings Facade (Phase 203)
