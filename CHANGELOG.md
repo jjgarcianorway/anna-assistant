@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.618] - 2025-12-14
+
+### Added - Settings Coordinator (Phase 194)
+
+**Settings Coordinator Module:**
+- `settings_coordinator.rs` for coordinating operations
+- `CoordinatorState` enum (Initializing, Ready, Coordinating, Paused, Shutdown)
+- `ComponentType` enum (Queue, Worker, Executor, Pipeline, Handler, Dispatcher)
+- `ComponentStatus` enum (Unknown, Healthy, Degraded, Unhealthy, Offline)
+- `ComponentInfo` / `CoordinationTask` structs
+- `SettingsCoordinator` for managing coordination
+
+**Core Functions:**
+- `start()` / `pause()` / `resume()` / `shutdown()` - Lifecycle control
+- `register_component()` / `update_component()` / `get_component()` - Component management
+- `start_task()` / `complete_task()` - Task coordination
+- `component_count()` / `healthy_count()` - Statistics
+- `is_healthy()` / `is_complete()` - Status checks
+
+**Features:**
+- Component health tracking
+- Task coordination
+- Lifecycle management
+- Multi-component orchestration
+- Health monitoring
+
 ## [0.0.617] - 2025-12-14
 
 ### Added - Settings Dispatcher (Phase 193)
