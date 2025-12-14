@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.580] - 2025-12-14
+
+### Added - Settings API (Phase 156)
+
+**Settings API Module:**
+- `settings_api.rs` for unified API access
+- `ApiOperation` enum (Get, Set, Reset, List, Search, Validate, Export, Import)
+- `ApiStatus` enum (Success, Error, Partial, Pending)
+- `ApiRequest` / `ApiResponse` structs
+- `SettingValue` for setting representation
+- `SettingsApi` handler with request history
+
+**Core Functions:**
+- `handle()` - Handle API requests
+- `ApiRequest::get()` / `set()` / `list()` / `search()` - Request builders
+- `ApiResponse::success()` / `error()` - Response builders
+- `history()` / `recent()` / `clear_history()` - History management
+
+**Features:**
+- Request/response pattern with request IDs
+- Full CRUD operations on settings
+- Search and validate support
+- Export/import via API
+- Request history tracking
+
 ## [0.0.579] - 2025-12-14
 
 ### Added - Settings Dashboard (Phase 155)

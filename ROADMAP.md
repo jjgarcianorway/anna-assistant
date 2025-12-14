@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.580 - Settings API (Phase 156) ✓
+- [x] `settings_api.rs` for unified API access
+- [x] `ApiOperation` / `ApiStatus` / `ApiRequest` / `ApiResponse`
+- [x] `SettingValue` / `SettingsApi`
+- [x] `handle()` / `get()` / `set()` / `list()` / `search()`
+- [x] Request/response pattern with history
+
 ### v0.0.579 - Settings Dashboard (Phase 155) ✓
 - [x] `settings_dashboard.rs` for unified overview
 - [x] `DashboardSection` / `HealthLevel` / `QuickAction`
