@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.637 - Settings Poller (Phase 213) ✓
+- [x] `settings_poller.rs` for polling-based change detection
+- [x] `WatcherType` / `WatchInterval`
+- [x] `WatcherConfig` / `WatchEvent` / `WatcherStats`
+- [x] `Watcher` / `SettingsWatcherRegistry`
+- [x] Configurable polling intervals with change detection
+
 ### v0.0.636 - Settings Listener (Phase 212) ✓
 - [x] `settings_listener.rs` for event listening
 - [x] `ListenerType` / `ListenerState`

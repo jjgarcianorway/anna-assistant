@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.637] - 2025-12-14
+
+### Added - Settings Poller (Phase 213)
+
+**Settings Poller Module:**
+- `settings_poller.rs` for polling-based change detection
+- `WatcherType` enum (Polling, EventBased, Hybrid, Lazy, Eager)
+- `WatchInterval` enum (Immediate, Fast, Normal, Slow, Custom)
+- `WatcherConfig` / `WatchEvent` / `WatcherStats` structs
+- `Watcher` / `SettingsWatcherRegistry` for managing watchers
+
+**Core Functions:**
+- `register()` / `unregister()` - Watcher management
+- `get()` / `get_mut()` - Watcher access
+- `activate()` / `deactivate()` - Watcher control
+- `record_poll()` / `record_event()` - Tracking
+- `list_by_type()` / `list_active()` - Watcher listing
+
+**Features:**
+- Multiple watcher types
+- Configurable poll intervals
+- Change detection
+- Per-watcher statistics
+- Change rate metrics
+
 ## [0.0.636] - 2025-12-14
 
 ### Added - Settings Listener (Phase 212)
