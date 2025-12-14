@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.590 - Settings Middleware (Phase 166) ✓
+- [x] `settings_middleware.rs` for operation pipeline
+- [x] `MiddlewarePriority` / `MiddlewareAction` / `MiddlewareContext`
+- [x] `Middleware` / `MiddlewarePipeline`
+- [x] `add()` / `remove()` / `enable()` / `disable()`
+- [x] Priority-based middleware ordering
+
 ### v0.0.589 - Settings Throttling (Phase 165) ✓
 - [x] `settings_throttling.rs` for rate limiting
 - [x] `ThrottleAction` / `ThrottleResult` / `RateLimit`

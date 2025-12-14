@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.590] - 2025-12-14
+
+### Added - Settings Middleware (Phase 166)
+
+**Settings Middleware Module:**
+- `settings_middleware.rs` for operation pipeline
+- `MiddlewarePriority` enum (Critical, High, Normal, Low)
+- `MiddlewareAction` enum (Continue, Skip, Abort, Modify)
+- `MiddlewareContext` / `MiddlewareResult` / `Middleware` structs
+- `MiddlewarePipeline` manager
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Manage middleware
+- `enable()` / `disable()` - Toggle middleware
+- `applicable()` - Get matching middleware
+- Priority-based ordering
+
+**Features:**
+- Operation filtering
+- Category filtering
+- Context metadata
+- Abort with reason
+- Priority sorting
+
 ## [0.0.589] - 2025-12-14
 
 ### Added - Settings Throttling (Phase 165)
