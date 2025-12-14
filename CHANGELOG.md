@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.617] - 2025-12-14
+
+### Added - Settings Dispatcher (Phase 193)
+
+**Settings Dispatcher Module:**
+- `settings_dispatcher.rs` for dispatching operations
+- `DispatchPriority` enum (Urgent, High, Normal, Low, Deferred)
+- `DispatchStatus` enum (Queued, Dispatched, Delivered, Failed, Rejected)
+- `DispatchMessage` / `DispatchResult` structs
+- `SettingsDispatcher` for managing dispatch queue
+
+**Core Functions:**
+- `enqueue()` / `dequeue()` - Queue operations
+- `mark_dispatched()` / `mark_delivered()` / `mark_failed()` - Status updates
+- `complete()` / `results()` - Result handling
+- `queue_len()` / `total_dispatched()` / `total_delivered()` - Statistics
+- `delivery_rate()` - Performance tracking
+
+**Features:**
+- Priority-based ordering
+- Message lifecycle tracking
+- Delivery rate monitoring
+- Result history
+- Target routing
+
 ## [0.0.616] - 2025-12-14
 
 ### Added - Settings Handler (Phase 192)
