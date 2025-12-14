@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.574 - Settings Orchestrator (Phase 150) ✓
+- [x] `settings_orchestrator.rs` for unified coordination
+- [x] `OrchestratorState` / `OperationResult`
+- [x] `SettingsOrchestrator` / `OrchestratorStatus`
+- [x] `change_setting()` / `switch_profile()` / `apply_template()`
+- [x] Unified hooks, audit, notifications, constraints
+
 ### v0.0.573 - Settings Audit (Phase 149) ✓
 - [x] `settings_audit.rs` for compliance tracking
 - [x] `AuditEventType` / `AuditSeverity` enums

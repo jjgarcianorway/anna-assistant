@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.574] - 2025-12-14
+
+### Added - Settings Orchestrator (Phase 150)
+
+**Settings Orchestrator Module:**
+- `settings_orchestrator.rs` for unified settings coordination
+- `OrchestratorState` enum (Uninitialized, Initializing, Ready, Busy, Error)
+- `OperationResult` for operation outcomes with warnings/errors
+- `SettingsOrchestrator` unified coordinator
+- `OrchestratorStatus` for status summary
+
+**Core Functions:**
+- `initialize()` / `set_session()` - Setup
+- `change_setting()` - Change with hooks, audit, notifications
+- `switch_profile()` / `apply_template()` - Profile/template operations
+- `run_scheduled()` - Execute pending schedules
+- `status_summary()` - Get subsystem status
+
+**Features:**
+- Unified coordination of all settings subsystems
+- Automatic hook triggering for all operations
+- Automatic audit logging
+- Automatic notification sending
+- Constraint validation on changes
+- Session tracking across operations
+
 ## [0.0.573] - 2025-12-14
 
 ### Added - Settings Audit (Phase 149)
