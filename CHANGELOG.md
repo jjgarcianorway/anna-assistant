@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.607] - 2025-12-14
+
+### Added - Settings Deployer (Phase 183)
+
+**Settings Deployer Module:**
+- `settings_deployer.rs` for deploying settings
+- `DeployTarget` enum (Local, Remote, Profile, Application, Service)
+- `DeployStatus` enum (Pending, InProgress, Completed, Failed, RolledBack)
+- `DeployConfig` / `DeployResult` / `DeployHistory` structs
+- `SettingsDeployer` with history tracking
+
+**Core Functions:**
+- `add_config()` / `remove_config()` / `get_config()` - Config management
+- `record()` / `history()` - Deployment history
+- `success_rate()` - Performance tracking
+- `dry_run()` / `backup()` - Safety options
+
+**Features:**
+- Multiple deploy targets
+- Dry run mode
+- Backup before deploy
+- Deployment history
+- Success rate tracking
+
 ## [0.0.606] - 2025-12-14
 
 ### Added - Settings Bundler (Phase 182)
