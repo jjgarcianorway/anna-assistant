@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.569] - 2025-12-14
+
+### Added - Settings Templates (Phase 145)
+
+**Settings Templates Module:**
+- `settings_templates.rs` for reusable settings configurations
+- `TemplateScope` enum (Full, Partial, Single)
+- `TemplateUseCase` enum (Development, Production, Presentation, Learning, etc.)
+- `TemplateMeta` struct for template metadata
+- `SettingsTemplate` struct with settings snapshot
+- `TemplateManager` for managing templates
+
+**Core Functions:**
+- `add()` / `add_partial()` - Create templates
+- `remove()` / `get()` - Manage templates
+- `find_by_name()` / `find_by_use_case()` / `find_by_tag()` - Search templates
+- `apply()` - Apply template to current settings
+- `most_used()` - Get frequently used templates
+
+**Features:**
+- Built-in templates (Development, Production, Presentation, Learning)
+- Full and partial template support
+- Category-specific templates
+- Tag-based template search
+- Usage tracking
+- Builtin vs user template distinction
+
 ## [0.0.568] - 2025-12-14
 
 ### Added - Settings Scheduler (Phase 144)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.569 - Settings Templates (Phase 145) ✓
+- [x] `settings_templates.rs` for reusable configurations
+- [x] `TemplateScope` / `TemplateUseCase` / `TemplateMeta`
+- [x] `SettingsTemplate` / `TemplateManager`
+- [x] `add()` / `apply()` / `find_by_name()` / `find_by_tag()`
+- [x] Built-in templates (Development, Production, Presentation, Learning)
+
 ### v0.0.568 - Settings Scheduler (Phase 144) ✓
 - [x] `settings_scheduler.rs` for scheduling changes
 - [x] `ScheduleTrigger` / `ScheduleEvent` / `ScheduledAction`
