@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.591] - 2025-12-14
+
+### Added - Settings Observer (Phase 167)
+
+**Settings Observer Module:**
+- `settings_observer.rs` for change observation
+- `ObserverEvent` enum (BeforeChange, AfterChange, OnError, OnReset, OnLoad, OnSave)
+- `Notification` / `Observer` structs
+- `ObserverManager` for managing observers
+
+**Core Functions:**
+- `register()` / `unregister()` - Manage observers
+- `notify()` - Send notifications
+- `matching()` - Find matching observers
+- `enable()` / `disable()` - Toggle observers
+
+**Features:**
+- Event filtering
+- Category filtering
+- Notification history
+- Notification count tracking
+- Watch all events option
+
 ## [0.0.590] - 2025-12-14
 
 ### Added - Settings Middleware (Phase 166)

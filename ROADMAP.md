@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.591 - Settings Observer (Phase 167) ✓
+- [x] `settings_observer.rs` for change observation
+- [x] `ObserverEvent` / `Notification` / `Observer`
+- [x] `ObserverManager`
+- [x] `register()` / `unregister()` / `notify()` / `matching()`
+- [x] Event and category filtering
+
 ### v0.0.590 - Settings Middleware (Phase 166) ✓
 - [x] `settings_middleware.rs` for operation pipeline
 - [x] `MiddlewarePriority` / `MiddlewareAction` / `MiddlewareContext`
