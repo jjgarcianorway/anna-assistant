@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.582] - 2025-12-14
+
+### Added - Settings Permissions (Phase 158)
+
+**Settings Permissions Module:**
+- `settings_permissions.rs` for access control
+- `PermissionLevel` enum (None, Read, Write, Admin)
+- `PermissionAction` enum (View, Modify, Reset, Export, Import, ManagePermissions)
+- `PermissionResult` enum (Allowed, Denied, RequiresElevation)
+- `CategoryPermission` / `PermissionRole` / `PermissionManager`
+
+**Core Functions:**
+- `check()` - Check permission for category and action
+- `add_role()` / `remove_role()` - Manage roles
+- `set_active_role()` / `active_role()` - Role selection
+- `lock_category()` / `unlock_category()` - Category locks
+
+**Features:**
+- Role-based access control
+- Built-in roles (Viewer, Editor, Admin)
+- Category-level permission overrides
+- Global category locking
+- Permission checking with results
+
 ## [0.0.581] - 2025-12-14
 
 ### Added - Settings Events (Phase 157)

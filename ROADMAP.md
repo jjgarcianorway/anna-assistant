@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.582 - Settings Permissions (Phase 158) ✓
+- [x] `settings_permissions.rs` for access control
+- [x] `PermissionLevel` / `PermissionAction` / `PermissionResult`
+- [x] `CategoryPermission` / `PermissionRole` / `PermissionManager`
+- [x] `check()` / `add_role()` / `set_active_role()` / `lock_category()`
+- [x] Role-based access with built-in roles
+
 ### v0.0.581 - Settings Events (Phase 157) ✓
 - [x] `settings_events.rs` for pub/sub event system
 - [x] `SettingsEventType` / `EventPriority` / `SettingsEvent`
