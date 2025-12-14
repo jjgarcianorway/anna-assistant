@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.577 - Settings Analytics (Phase 153) ✓
+- [x] `settings_analytics.rs` for usage tracking
+- [x] `AnalyticsPeriod` / `MetricType` / `AnalyticsEvent`
+- [x] `CategoryStats` / `AnalyticsSummary` / `SettingsAnalytics`
+- [x] `record()` / `summary()` / `events_for_period()`
+- [x] Per-category tracking and activity scoring
+
 ### v0.0.576 - Settings Restore (Phase 152) ✓
 - [x] `settings_restore.rs` for restoring from backups
 - [x] `RestoreMode` / `RestoreStatus` / `RestoreValidation`

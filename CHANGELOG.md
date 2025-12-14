@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.577] - 2025-12-14
+
+### Added - Settings Analytics (Phase 153)
+
+**Settings Analytics Module:**
+- `settings_analytics.rs` for tracking usage patterns
+- `AnalyticsPeriod` enum (Day, Week, Month, AllTime)
+- `MetricType` enum (ChangeCount, AccessCount, RevertCount, ExportCount, ImportCount)
+- `AnalyticsEvent` for single analytics events
+- `CategoryStats` for per-category statistics
+- `AnalyticsSummary` for overall analytics
+- `SettingsAnalytics` for tracking settings usage
+
+**Core Functions:**
+- `record()` / `record_change()` / `record_access()` - Record events
+- `record_revert()` / `record_export()` / `record_import()` - Track operations
+- `summary()` / `category_stats()` - Get statistics
+- `events_for_period()` / `recent()` - Query event history
+
+**Features:**
+- Per-category usage tracking
+- Activity scoring (0-100)
+- Top settings tracking per category
+- Time-based event filtering
+- Configurable event retention
+
 ## [0.0.576] - 2025-12-14
 
 ### Added - Settings Restore (Phase 152)
