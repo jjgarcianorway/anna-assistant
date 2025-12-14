@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.619] - 2025-12-14
+
+### Added - Settings Controller (Phase 195)
+
+**Settings Controller Module:**
+- `settings_controller.rs` for controlling operations
+- `ControllerAction` enum (Get, Set, List, Reset, Apply, Rollback)
+- `ResponseStatus` enum (Success, Error, NotFound, Forbidden, Invalid)
+- `ControlRequest` / `ControlResponse` structs
+- `SettingsController` for managing control flow
+
+**Core Functions:**
+- `submit()` / `get_pending()` / `respond()` - Request handling
+- `success()` / `error()` / `not_found()` - Response builders
+- `with_data()` / `with_duration()` - Response enrichment
+- `is_success()` / `success_rate()` - Status checks
+- `pending_count()` / `total_requests()` - Statistics
+
+**Features:**
+- Multiple actions
+- Response status codes
+- Request/response pattern
+- Success rate tracking
+- History management
+
 ## [0.0.618] - 2025-12-14
 
 ### Added - Settings Coordinator (Phase 194)

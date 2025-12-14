@@ -364,6 +364,7 @@ pub mod settings_processor; // v0.0.615: Settings processor
 pub mod settings_handler; // v0.0.616: Settings handler
 pub mod settings_dispatcher; // v0.0.617: Settings dispatcher
 pub mod settings_coordinator; // v0.0.618: Settings coordinator
+pub mod settings_controller; // v0.0.619: Settings controller
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
