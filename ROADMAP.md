@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.586 - Settings Cache (Phase 162) ✓
+- [x] `settings_cache.rs` for caching settings values
+- [x] `CacheState` / `EvictionPolicy` / `CacheEntry` / `CacheStats`
+- [x] `SettingsCache` manager
+- [x] `get()` / `put()` / `remove()` / `invalidate_category()`
+- [x] Multiple eviction policies (LRU, LFU, FIFO, TTL)
+
 ### v0.0.585 - Settings Logging (Phase 161) ✓
 - [x] `settings_logging.rs` for structured logging
 - [x] `LogLevel` / `LogTarget` / `LogEntry` / `LogFilter`

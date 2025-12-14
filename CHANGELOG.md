@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.586] - 2025-12-14
+
+### Added - Settings Cache (Phase 162)
+
+**Settings Cache Module:**
+- `settings_cache.rs` for caching settings values
+- `CacheState` enum (Valid, Stale, Expired, Loading)
+- `EvictionPolicy` enum (LRU, LFU, FIFO, TTL)
+- `CacheEntry` / `CacheStats` structs
+- `SettingsCache` manager
+
+**Core Functions:**
+- `get()` / `put()` / `remove()` - Cache operations
+- `invalidate_category()` / `mark_stale_category()` - Category operations
+- `clear_expired()` - Clean up expired entries
+- Automatic eviction based on policy
+
+**Features:**
+- Multiple eviction policies
+- TTL-based expiration
+- Category-based invalidation
+- Hit/miss statistics
+- Configurable max entries and size
+
 ## [0.0.585] - 2025-12-14
 
 ### Added - Settings Logging (Phase 161)
