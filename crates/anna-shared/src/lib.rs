@@ -372,6 +372,7 @@ pub mod settings_index; // v0.0.623: Settings index
 pub mod settings_catalog; // v0.0.624: Settings catalog
 pub mod settings_gateway; // v0.0.625: Settings gateway
 pub mod settings_proxy; // v0.0.626: Settings proxy
+pub mod settings_facade; // v0.0.627: Settings facade
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
