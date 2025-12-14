@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.641 - Settings Inspector (Phase 217) ✓
+- [x] `settings_inspector.rs` for structure analysis
+- [x] `InspectionType` / `InspectionDepth`
+- [x] `InspectorConfig` / `InspectionFinding` / `InspectionResult` / `InspectorStats`
+- [x] `SettingsInspector` / `SettingsInspectorRegistry`
+- [x] Multi-depth inspection with findings
+
 ### v0.0.640 - Settings Report Generator (Phase 216) ✓
 - [x] `settings_report_generator.rs` for status reports
 - [x] `ReportType` / `ReportFormat`

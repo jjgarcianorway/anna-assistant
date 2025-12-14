@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.641] - 2025-12-14
+
+### Added - Settings Inspector (Phase 217)
+
+**Settings Inspector Module:**
+- `settings_inspector.rs` for structure analysis
+- `InspectionType` enum (Structure, Value, Type, Dependency, Full)
+- `InspectionDepth` enum (Shallow, Normal, Deep, Complete)
+- `InspectorConfig` / `InspectionFinding` / `InspectionResult` / `InspectorStats` structs
+- `SettingsInspector` / `SettingsInspectorRegistry` for managing inspectors
+
+**Core Functions:**
+- `register()` / `unregister()` - Inspector management
+- `inspect()` - Run inspections
+- `add_finding()` - Record findings
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple inspection types
+- Configurable depth
+- Finding severity levels
+- Metadata and defaults options
+- Per-inspector statistics
+
 ## [0.0.640] - 2025-12-14
 
 ### Added - Settings Report Generator (Phase 216)
