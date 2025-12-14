@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.566 - Settings Search (Phase 142) ✓
+- [x] `settings_search.rs` for keyword search
+- [x] `MatchType` / `SearchResult` / `SearchResults`
+- [x] `SearchOptions` / `SettingsSearcher`
+- [x] `search()` / `sort_by_score()` / `by_category()`
+- [x] Relevance scoring and category filtering
+
 ### v0.0.565 - Settings Profiles (Phase 141) ✓
 - [x] `settings_profiles.rs` for named configurations
 - [x] `ProfileMeta` / `SettingsProfile` / `ProfileManager`

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.566] - 2025-12-14
+
+### Added - Settings Search (Phase 142)
+
+**Settings Search Module:**
+- `settings_search.rs` for searching settings by keywords
+- `MatchType` enum (FieldName, FieldValue, CategoryName, Description)
+- `SearchResult` / `SearchResults` for match results
+- `SearchOptions` for configurable search behavior
+- `SettingsSearcher` for performing searches
+
+**Core Functions:**
+- `search()` - Search settings by query
+- `matches()` - Check text against query
+- `sort_by_score()` - Sort results by relevance
+- `by_category()` / `by_match_type()` - Filter results
+- `format_search_results()` - Display search output
+
+**Features:**
+- Case-sensitive/insensitive search
+- Search in field names, values, descriptions
+- Filter by specific categories
+- Relevance scoring (0.0-1.0)
+- Configurable maximum results
+
 ## [0.0.565] - 2025-12-14
 
 ### Added - Settings Profiles (Phase 141)
