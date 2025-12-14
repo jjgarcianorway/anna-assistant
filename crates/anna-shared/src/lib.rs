@@ -383,6 +383,7 @@ pub mod settings_publisher; // v0.0.634: Settings publisher
 pub mod settings_broadcaster; // v0.0.635: Settings broadcaster
 pub mod settings_listener; // v0.0.636: Settings listener
 pub mod settings_poller; // v0.0.637: Settings poller
+pub mod settings_tracker; // v0.0.638: Settings tracker
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

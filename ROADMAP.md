@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.638 - Settings Tracker (Phase 214) ✓
+- [x] `settings_tracker.rs` for usage tracking
+- [x] `TrackType` / `TrackLevel`
+- [x] `TrackerConfig` / `TrackEvent` / `TrackerStats`
+- [x] `SettingsTracker` / `SettingsTrackerRegistry`
+- [x] Access pattern tracking with retention
+
 ### v0.0.637 - Settings Poller (Phase 213) ✓
 - [x] `settings_poller.rs` for polling-based change detection
 - [x] `WatcherType` / `WatchInterval`

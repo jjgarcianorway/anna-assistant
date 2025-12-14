@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.638] - 2025-12-14
+
+### Added - Settings Tracker (Phase 214)
+
+**Settings Tracker Module:**
+- `settings_tracker.rs` for usage tracking
+- `TrackType` enum (Read, Write, Access, Modify, Delete)
+- `TrackLevel` enum (None, Basic, Detailed, Full, Debug)
+- `TrackerConfig` / `TrackEvent` / `TrackerStats` structs
+- `SettingsTracker` / `SettingsTrackerRegistry` for managing trackers
+
+**Core Functions:**
+- `register()` / `unregister()` - Tracker management
+- `track()` - Record events
+- `enable()` / `disable()` - Tracker control
+- `list_by_type()` / `list_by_category()` - Event filtering
+- `events()` / `stats()` - Data access
+
+**Features:**
+- Multiple track types
+- Configurable track levels
+- Retention configuration
+- Per-tracker statistics
+- Read/write ratio metrics
+
 ## [0.0.637] - 2025-12-14
 
 ### Added - Settings Poller (Phase 213)
