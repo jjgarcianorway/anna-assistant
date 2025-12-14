@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.603] - 2025-12-14
+
+### Added - Settings Router (Phase 179)
+
+**Settings Router Module:**
+- `settings_router.rs` for routing settings operations
+- `RouteType` enum (Direct, Middleware, Proxy, Cached, Redirect)
+- `RouteAction` enum (Get, Set, Delete, List, Query)
+- `RouteDef` / `RouteMatch` / `RouteTable` structs
+- `SettingsRouter` / `RouteStats`
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Route management
+- `find()` / `best_match()` - Route matching
+- `route()` - Request routing with stats
+- `add_table()` / `set_default()` - Table management
+
+**Features:**
+- Priority-based routing
+- Per-category routes
+- Action filtering
+- Cache/redirect stats
+- Named route tables
+
 ## [0.0.602] - 2025-12-14
 
 ### Added - Settings Serializer (Phase 178)

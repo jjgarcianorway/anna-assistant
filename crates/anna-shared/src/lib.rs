@@ -348,6 +348,7 @@ pub mod settings_resolver; // v0.0.599: Settings resolver
 pub mod settings_aggregator; // v0.0.600: Settings aggregator
 pub mod settings_comparator; // v0.0.601: Settings comparator
 pub mod settings_serializer; // v0.0.602: Settings serializer
+pub mod settings_router; // v0.0.603: Settings router
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

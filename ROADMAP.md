@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.603 - Settings Router (Phase 179) ✓
+- [x] `settings_router.rs` for routing settings operations
+- [x] `RouteType` / `RouteAction` / `RouteDef`
+- [x] `RouteMatch` / `RouteTable` / `RouteStats`
+- [x] `SettingsRouter`
+- [x] Priority-based routing with stats
+
 ### v0.0.602 - Settings Serializer (Phase 178) ✓
 - [x] `settings_serializer.rs` for multi-format serialization
 - [x] `SerializationFormat` / `SerializeResult` / `SerializeOptions`
