@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.595] - 2025-12-14
+
+### Added - Settings Inheritance (Phase 171)
+
+**Settings Inheritance Module:**
+- `settings_inheritance.rs` for profile inheritance
+- `InheritanceMode` enum (Full, Selective, Override, Merge)
+- `InheritanceRule` / `InheritanceEntry` structs
+- `InheritanceManager`
+
+**Core Functions:**
+- `add()` / `get()` / `remove()` - Manage entries
+- `chain()` - Get inheritance chain
+- `children()` / `roots()` - Tree navigation
+- `depth()` - Calculate inheritance depth
+
+**Features:**
+- Parent-child relationships
+- Selective inheritance rules
+- Include/exclude key filters
+- Priority-based application
+- Tree structure support
+
 ## [0.0.594] - 2025-12-14
 
 ### Added - Settings Encryption (Phase 170)

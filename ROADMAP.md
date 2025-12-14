@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.595 - Settings Inheritance (Phase 171) ✓
+- [x] `settings_inheritance.rs` for profile inheritance
+- [x] `InheritanceMode` / `InheritanceRule` / `InheritanceEntry`
+- [x] `InheritanceManager`
+- [x] `add()` / `chain()` / `children()` / `roots()`
+- [x] Parent-child tree structure
+
 ### v0.0.594 - Settings Encryption (Phase 170) ✓
 - [x] `settings_encryption.rs` for encrypting settings
 - [x] `EncryptionAlgorithm` / `EncryptionStatus` / `EncryptedValue`
