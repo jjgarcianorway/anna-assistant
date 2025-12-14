@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.645] - 2025-12-14
+
+### Added - Settings Normalizer (Phase 221)
+
+**Settings Normalizer Module:**
+- `settings_normalizer.rs` for value standardization
+- `NormalizationType` enum (String, Path, Url, Number, Boolean)
+- `NormalizationRule` enum (None, Lowercase, Uppercase, Trim, Canonical)
+- `NormalizerConfig` / `NormalizationResult` / `NormalizerStats` structs
+- `SettingsNormalizer` / `SettingsNormalizerRegistry` for managing normalizers
+
+**Core Functions:**
+- `register()` / `unregister()` - Normalizer management
+- `normalize()` - Standardize values
+- `apply_rule()` - Apply normalization rules
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple normalization types
+- Configurable rules
+- Modification tracking
+- Enable/disable control
+- Per-normalizer statistics
+
 ## [0.0.644] - 2025-12-14
 
 ### Added - Settings Formatter (Phase 220)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.645 - Settings Normalizer (Phase 221) ✓
+- [x] `settings_normalizer.rs` for value standardization
+- [x] `NormalizationType` / `NormalizationRule`
+- [x] `NormalizerConfig` / `NormalizationResult` / `NormalizerStats`
+- [x] `SettingsNormalizer` / `SettingsNormalizerRegistry`
+- [x] Rule-based normalization with tracking
+
 ### v0.0.644 - Settings Formatter (Phase 220) ✓
 - [x] `settings_formatter.rs` for display formatting
 - [x] `FormatType` / `FormatStyle`

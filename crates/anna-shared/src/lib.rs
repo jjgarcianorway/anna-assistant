@@ -390,6 +390,7 @@ pub mod settings_inspector; // v0.0.641: Settings inspector
 pub mod settings_analyzer; // v0.0.642: Settings analyzer
 pub mod settings_sanitizer; // v0.0.643: Settings sanitizer
 pub mod settings_formatter; // v0.0.644: Settings formatter
+pub mod settings_normalizer; // v0.0.645: Settings normalizer
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
