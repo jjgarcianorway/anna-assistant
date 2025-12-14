@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.624] - 2025-12-14
+
+### Added - Settings Catalog (Phase 200)
+
+**Settings Catalog Module:**
+- `settings_catalog.rs` for comprehensive settings documentation
+- `CatalogSection` enum (Core, Preferences, System, Advanced, Experimental)
+- `DocLevel` enum (Basic, Detailed, Expert, Internal)
+- `CatalogItem` / `SearchResult` structs
+- `SettingsCatalog` for managing settings documentation
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Item management
+- `search()` - Full-text search across items
+- `list_by_section()` - Section-based listing
+- `example()` / `has_examples()` - Example management
+- `count()` / `search_count()` / `section_count()` - Statistics
+
+**Features:**
+- Multiple catalog sections
+- Documentation levels
+- Example values
+- Full-text search
+- Section-based organization
+
 ## [0.0.623] - 2025-12-14
 
 ### Added - Settings Index (Phase 199)

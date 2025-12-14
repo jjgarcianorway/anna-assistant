@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.624 - Settings Catalog (Phase 200) ✓
+- [x] `settings_catalog.rs` for documentation
+- [x] `CatalogSection` / `DocLevel`
+- [x] `CatalogItem` / `SearchResult`
+- [x] `SettingsCatalog` for managing docs
+- [x] Full-text search with section organization
+
 ### v0.0.623 - Settings Index (Phase 199) ✓
 - [x] `settings_index.rs` for fast lookups
 - [x] `IndexType` / `IndexStatus`

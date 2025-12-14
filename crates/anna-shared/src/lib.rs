@@ -369,6 +369,7 @@ pub mod settings_service; // v0.0.620: Settings service
 pub mod settings_manager; // v0.0.621: Settings manager
 pub mod settings_registry; // v0.0.622: Settings registry
 pub mod settings_index; // v0.0.623: Settings index
+pub mod settings_catalog; // v0.0.624: Settings catalog
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
