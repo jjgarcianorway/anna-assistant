@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.620 - Settings Service (Phase 196) ✓
+- [x] `settings_service.rs` for service layer
+- [x] `SettingsServiceState` / `ServiceEndpoint`
+- [x] `ServiceCall` / `ServiceResponse` / `ServiceStats`
+- [x] `SettingsService` for managing operations
+- [x] Per-endpoint and global statistics
+
 ### v0.0.619 - Settings Controller (Phase 195) ✓
 - [x] `settings_controller.rs` for controlling operations
 - [x] `ControllerAction` / `ResponseStatus`

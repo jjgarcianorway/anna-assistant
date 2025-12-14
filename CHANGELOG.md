@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.620] - 2025-12-14
+
+### Added - Settings Service (Phase 196)
+
+**Settings Service Module:**
+- `settings_service.rs` for service layer operations
+- `SettingsServiceState` enum (Starting, Running, Stopping, Stopped, Error)
+- `ServiceEndpoint` enum (Get, Set, Delete, List, Health, Stats)
+- `ServiceCall` / `ServiceResponse` / `ServiceStats` structs
+- `SettingsService` for managing service operations
+
+**Core Functions:**
+- `start()` / `stop()` / `set_error()` - Lifecycle control
+- `record_call()` / `endpoint_stats()` / `global_stats()` - Statistics
+- `success()` / `error()` / `with_data()` - Response builders
+- `is_running()` / `uptime()` - Status checks
+- `success_rate()` - Performance tracking
+
+**Features:**
+- Multiple endpoints
+- Per-endpoint statistics
+- Global statistics
+- Uptime tracking
+- Service lifecycle
+
 ## [0.0.619] - 2025-12-14
 
 ### Added - Settings Controller (Phase 195)
