@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.616] - 2025-12-14
+
+### Added - Settings Handler (Phase 192)
+
+**Settings Handler Module:**
+- `settings_handler.rs` for handling operations
+- `HandlerType` enum (Read, Write, Delete, Validate, Transform, Notify)
+- `HandlerStatus` enum (Ready, Busy, Disabled, Error)
+- `HandlerDef` / `HandlerInstance` structs
+- `SettingsHandlerRegistry` for managing handlers
+
+**Core Functions:**
+- `register()` / `unregister()` / `get_def()` - Definition management
+- `invoke()` / `complete()` / `error()` - Invocation handling
+- `disable()` / `enable()` - Status control
+- `find_by_type()` - Type-based lookup
+- `success_rate()` - Performance tracking
+
+**Features:**
+- Multiple handler types
+- Priority-based routing
+- Success rate tracking
+- Category filtering
+- Lifecycle management
+
 ## [0.0.615] - 2025-12-14
 
 ### Added - Settings Processor (Phase 191)
