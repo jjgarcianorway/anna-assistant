@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.621] - 2025-12-14
+
+### Added - Settings Manager (Phase 197)
+
+**Settings Manager Module:**
+- `settings_manager.rs` for unified settings management
+- `ManagerMode` enum (Normal, Maintenance, ReadOnly, Debug)
+- `ManagerStatus` enum (Initializing, Active, Degraded, Inactive, Error)
+- `SettingEntry` / `ManagerOperation` structs
+- `SettingsManager` for centralized settings control
+
+**Core Functions:**
+- `mode()` / `set_mode()` - Mode control
+- `status()` / `set_status()` - Status management
+- `get()` / `set()` / `delete()` - Settings CRUD
+- `list_by_category()` - Category filtering
+- `record()` / `history()` - Operation history
+- `count()` / `is_active()` - Statistics
+
+**Features:**
+- Multiple operation modes
+- Status tracking
+- Settings storage with HashMap
+- Operation history with limits
+- Read-only mode protection
+- Category-based listing
+
 ## [0.0.620] - 2025-12-14
 
 ### Added - Settings Service (Phase 196)

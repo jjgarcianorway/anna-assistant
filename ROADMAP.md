@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.621 - Settings Manager (Phase 197) ✓
+- [x] `settings_manager.rs` for unified management
+- [x] `ManagerMode` / `ManagerStatus`
+- [x] `SettingEntry` / `ManagerOperation`
+- [x] `SettingsManager` for centralized control
+- [x] Multiple modes with read-only protection
+
 ### v0.0.620 - Settings Service (Phase 196) ✓
 - [x] `settings_service.rs` for service layer
 - [x] `SettingsServiceState` / `ServiceEndpoint`
