@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.636 - Settings Listener (Phase 212) ✓
+- [x] `settings_listener.rs` for event listening
+- [x] `ListenerType` / `ListenerState`
+- [x] `ListenerConfig` / `ReceivedEvent` / `ListenerStats`
+- [x] `SettingsListener` / `SettingsListenerRegistry`
+- [x] State-based lifecycle with event buffering
+
 ### v0.0.635 - Settings Broadcaster (Phase 211) ✓
 - [x] `settings_broadcaster.rs` for multi-listener broadcasts
 - [x] `BroadcastChannel` / `BroadcastMode`

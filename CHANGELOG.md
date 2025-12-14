@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.636] - 2025-12-14
+
+### Added - Settings Listener (Phase 212)
+
+**Settings Listener Module:**
+- `settings_listener.rs` for event listening
+- `ListenerType` enum (Passive, Active, Reactive, Selective, Persistent)
+- `ListenerState` enum (Idle, Listening, Processing, Paused, Stopped)
+- `ListenerConfig` / `ReceivedEvent` / `ListenerStats` structs
+- `SettingsListener` / `SettingsListenerRegistry` for managing listeners
+
+**Core Functions:**
+- `register()` / `unregister()` - Listener management
+- `start()` / `stop()` / `pause()` / `resume()` - State control
+- `receive()` / `next()` - Event handling
+- `list_by_type()` / `list_listening()` - Listener listing
+- `clear()` - Buffer management
+
+**Features:**
+- Multiple listener types
+- State-based lifecycle
+- Event buffering with filtering
+- Auto-start configuration
+- Processing rate metrics
+
 ## [0.0.635] - 2025-12-14
 
 ### Added - Settings Broadcaster (Phase 211)
