@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.570 - Settings Constraints (Phase 146) ✓
+- [x] `settings_constraints.rs` for settings rules
+- [x] `ConstraintSeverity` / `ConstraintType` enums
+- [x] `ConstraintViolation` / `SettingsConstraint` / `ConstraintManager`
+- [x] `check()` / `add_constraint()` / `set_enabled()`
+- [x] Built-in constraints for common conflicts
+
 ### v0.0.569 - Settings Templates (Phase 145) ✓
 - [x] `settings_templates.rs` for reusable configurations
 - [x] `TemplateScope` / `TemplateUseCase` / `TemplateMeta`

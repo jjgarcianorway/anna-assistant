@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.570] - 2025-12-14
+
+### Added - Settings Constraints (Phase 146)
+
+**Settings Constraints Module:**
+- `settings_constraints.rs` for defining settings rules
+- `ConstraintSeverity` enum (Suggestion, Warning, Error, Critical)
+- `ConstraintType` enum (Range, Dependency, MutuallyExclusive, Requires, Conflicts)
+- `ConstraintViolation` for tracking rule violations
+- `SettingsConstraint` for defining rules
+- `ConstraintManager` for managing and checking constraints
+
+**Core Functions:**
+- `add_constraint()` / `remove()` - Manage constraints
+- `set_enabled()` / `enabled()` - Enable/disable constraints
+- `check()` - Check settings against all enabled constraints
+- `count_by_severity()` / `critical()` / `errors()` - Filter violations
+
+**Features:**
+- Built-in constraints for common conflicts
+- Severity levels from suggestion to critical
+- Category-based constraint targeting
+- Violation suggestions for fixes
+- Enable/disable individual constraints
+
 ## [0.0.569] - 2025-12-14
 
 ### Added - Settings Templates (Phase 145)

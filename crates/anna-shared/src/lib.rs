@@ -315,6 +315,7 @@ pub mod settings_search; // v0.0.566: Settings search
 pub mod settings_notifications; // v0.0.567: Settings notifications
 pub mod settings_scheduler; // v0.0.568: Settings scheduler
 pub mod settings_templates; // v0.0.569: Settings templates
+pub mod settings_constraints; // v0.0.570: Settings constraints
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
