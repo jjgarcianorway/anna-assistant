@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.605] - 2025-12-14
+
+### Added - Settings Linker (Phase 181)
+
+**Settings Linker Module:**
+- `settings_linker.rs` for linking settings
+- `LinkType` enum (Reference, Alias, Computed, Inherited, Sync)
+- `LinkStatus` enum (Active, Broken, Pending, Disabled)
+- `LinkDef` / `LinkResolution` / `LinkRegistry` structs
+- `SettingsLinker` with resolution caching
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Link management
+- `from_source()` / `to_target()` - Link queries
+- `broken()` - Find broken links
+- `cache_resolution()` / `get_cached()` - Caching
+
+**Features:**
+- Multiple link types
+- Link status tracking
+- Source/target lookup
+- Resolution caching
+- Broken link detection
+
 ## [0.0.604] - 2025-12-14
 
 ### Added - Settings Compiler (Phase 180)

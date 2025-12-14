@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.605 - Settings Linker (Phase 181) ✓
+- [x] `settings_linker.rs` for linking settings
+- [x] `LinkType` / `LinkStatus` / `LinkDef`
+- [x] `LinkResolution` / `LinkRegistry`
+- [x] `SettingsLinker`
+- [x] Multiple link types with caching
+
 ### v0.0.604 - Settings Compiler (Phase 180) ✓
 - [x] `settings_compiler.rs` for compiling settings
 - [x] `CompileStage` / `CompileStatus` / `CompileDiag`
