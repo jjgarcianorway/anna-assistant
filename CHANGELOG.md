@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.606] - 2025-12-14
+
+### Added - Settings Bundler (Phase 182)
+
+**Settings Bundler Module:**
+- `settings_bundler.rs` for bundling settings
+- `BundleFormat` enum (Json, Binary, Compressed, Encrypted)
+- `BundleStatus` enum (Created, Valid, Invalid, Expired)
+- `BundleMeta` / `BundleEntry` / `SettingsBundle` structs
+- `BundleManager` for managing bundles
+
+**Core Functions:**
+- `add()` / `remove()` / `get()` - Bundle management
+- `by_category()` - Filter by category
+- `mark_valid()` / `mark_invalid()` - Status control
+- `entry_count()` / `category_count()` - Statistics
+
+**Features:**
+- Multiple bundle formats
+- Bundle metadata
+- Category-based filtering
+- Status tracking
+- Valid/invalid marking
+
 ## [0.0.605] - 2025-12-14
 
 ### Added - Settings Linker (Phase 181)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.606 - Settings Bundler (Phase 182) ✓
+- [x] `settings_bundler.rs` for bundling settings
+- [x] `BundleFormat` / `BundleStatus` / `BundleMeta`
+- [x] `BundleEntry` / `SettingsBundle`
+- [x] `BundleManager`
+- [x] Multiple formats with status tracking
+
 ### v0.0.605 - Settings Linker (Phase 181) ✓
 - [x] `settings_linker.rs` for linking settings
 - [x] `LinkType` / `LinkStatus` / `LinkDef`
