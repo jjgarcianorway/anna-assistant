@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.585 - Settings Logging (Phase 161) ✓
+- [x] `settings_logging.rs` for structured logging
+- [x] `LogLevel` / `LogTarget` / `LogEntry` / `LogFilter`
+- [x] `SettingsLogger` manager
+- [x] `log()` / `trace()` / `debug()` / `info()` / `warn()` / `error()`
+- [x] Level filtering and text search
+
 ### v0.0.584 - Settings Metrics (Phase 160) ✓
 - [x] `settings_metrics.rs` for metrics collection
 - [x] `MetricKind` / `MetricUnit` / `MetricValue` / `Metric`

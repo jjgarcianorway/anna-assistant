@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.585] - 2025-12-14
+
+### Added - Settings Logging (Phase 161)
+
+**Settings Logging Module:**
+- `settings_logging.rs` for structured logging
+- `LogLevel` enum (Trace, Debug, Info, Warn, Error)
+- `LogTarget` enum (Core, Persistence, Validation, Migration, Backup, Sync, Api)
+- `LogEntry` / `LogFilter` structs
+- `SettingsLogger` manager
+
+**Core Functions:**
+- `log()` / `trace()` / `debug()` / `info()` / `warn()` / `error()` - Log entries
+- `query()` - Query with filters
+- `recent()` / `errors()` / `warnings_and_errors()` - Get filtered entries
+- `count()` / `error_count()` - Statistics
+
+**Features:**
+- Builder pattern for log entries
+- Level-based filtering
+- Target and category filtering
+- Text search in messages
+- Time range queries
+- Max entries limit with auto-cleanup
+
 ## [0.0.584] - 2025-12-14
 
 ### Added - Settings Metrics (Phase 160)
