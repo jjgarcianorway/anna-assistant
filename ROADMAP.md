@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.598 - Settings Transformer (Phase 174) ✓
+- [x] `settings_transformer.rs` for transformation pipeline
+- [x] `TransformType` / `TransformDirection` / `TransformDef`
+- [x] `TransformResult` / `TransformPipeline`
+- [x] `TransformerManager`
+- [x] Direction-aware transforms with parameters
+
 ### v0.0.597 - Settings Validator Chain (Phase 173) ✓
 - [x] `settings_validator_chain.rs` for chainable validation
 - [x] `ValidatorType` / `ValidationResult` / `ValidationError`

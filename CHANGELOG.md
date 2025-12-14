@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.598] - 2025-12-14
+
+### Added - Settings Transformer (Phase 174)
+
+**Settings Transformer Module:**
+- `settings_transformer.rs` for transformation pipeline
+- `TransformType` enum (Trim, Lower, Upper, Default, Replace, Clamp, Custom)
+- `TransformDirection` enum (Input, Output, Both)
+- `TransformDef` / `TransformResult` structs
+- `TransformPipeline` / `TransformerManager`
+
+**Core Functions:**
+- `add()` / `remove()` / `enable()` / `disable()` - Manage transforms
+- `for_category_dir()` - Get transforms for category/direction
+- `add_pipeline()` / `get_pipeline()` / `set_default()` - Pipeline management
+- `was_transformed()` - Check if value changed
+
+**Features:**
+- Priority-based transform ordering
+- Direction-aware transforms (input/output)
+- Named transform pipelines
+- Parameter support
+- Per-category filtering
+
 ## [0.0.597] - 2025-12-14
 
 ### Added - Settings Validator Chain (Phase 173)
