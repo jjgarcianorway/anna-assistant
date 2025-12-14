@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.629 - Settings Bridge (Phase 205) ✓
+- [x] `settings_bridge.rs` for system connections
+- [x] `BridgeDirection` / `BridgeState`
+- [x] `BridgeEndpoint` / `BridgeMapping` / `BridgeStats`
+- [x] `SettingsBridge` for managing connections
+- [x] Bidirectional sync with key mapping
+
 ### v0.0.628 - Settings Adapter (Phase 204) ✓
 - [x] `settings_adapter.rs` for multi-source
 - [x] `AdapterType` / `AdapterStatus`

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.629] - 2025-12-14
+
+### Added - Settings Bridge (Phase 205)
+
+**Settings Bridge Module:**
+- `settings_bridge.rs` for connecting settings systems
+- `BridgeDirection` enum (Unidirectional, Bidirectional, SourceOnly, TargetOnly)
+- `BridgeState` enum (Idle, Syncing, Active, Paused, Error)
+- `BridgeEndpoint` / `BridgeMapping` / `BridgeStats` structs
+- `SettingsBridge` for managing connections
+
+**Core Functions:**
+- `set_source()` / `set_target()` - Endpoint configuration
+- `add_mapping()` - Key mapping
+- `start()` / `pause()` / `stop()` - Lifecycle control
+- `sync()` - Synchronization
+- `connect()` / `disconnect()` - Endpoint control
+
+**Features:**
+- Multiple bridge directions
+- Key mapping with transforms
+- Endpoint connection tracking
+- Sync statistics
+- State management
+
 ## [0.0.628] - 2025-12-14
 
 ### Added - Settings Adapter (Phase 204)

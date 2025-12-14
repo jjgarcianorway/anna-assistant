@@ -374,6 +374,7 @@ pub mod settings_gateway; // v0.0.625: Settings gateway
 pub mod settings_proxy; // v0.0.626: Settings proxy
 pub mod settings_facade; // v0.0.627: Settings facade
 pub mod settings_adapter; // v0.0.628: Settings adapter
+pub mod settings_bridge; // v0.0.629: Settings bridge
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
