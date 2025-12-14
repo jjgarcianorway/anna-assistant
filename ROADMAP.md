@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.634 - Settings Publisher (Phase 210) ✓
+- [x] `settings_publisher.rs` for change events
+- [x] `PublisherType` / `PublicationScope`
+- [x] `PublisherConfig` / `PublicationEvent` / `PublisherStats`
+- [x] `SettingsPublisherRegistry` for managing publishers
+- [x] Event buffering with scoped publication
+
 ### v0.0.633 - Settings Subscriber (Phase 209) ✓
 - [x] `settings_subscriber.rs` for change notifications
 - [x] `SubscriptionType` / `DeliveryMode`

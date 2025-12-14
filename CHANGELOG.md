@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.634] - 2025-12-14
+
+### Added - Settings Publisher (Phase 210)
+
+**Settings Publisher Module:**
+- `settings_publisher.rs` for change events
+- `PublisherType` enum (System, Application, Service, Plugin, External)
+- `PublicationScope` enum (Local, Module, Application, System, Global)
+- `PublisherConfig` / `PublicationEvent` / `PublisherStats` structs
+- `SettingsPublisherRegistry` for managing publishers
+
+**Core Functions:**
+- `register()` / `unregister()` - Publisher management
+- `get()` / `get_mut()` - Publisher access
+- `enable()` / `disable()` - Publisher control
+- `queue()` / `flush()` - Event buffering
+- `list_by_type()` / `list_enabled()` - Publisher listing
+
+**Features:**
+- Multiple publisher types
+- Configurable publication scopes
+- Event buffering with size limits
+- Per-publisher statistics
+- Success rate tracking
+
 ## [0.0.633] - 2025-12-14
 
 ### Added - Settings Subscriber (Phase 209)

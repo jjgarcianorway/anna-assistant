@@ -379,6 +379,7 @@ pub mod settings_connector; // v0.0.630: Settings connector
 pub mod settings_provider; // v0.0.631: Settings provider
 pub mod settings_consumer; // v0.0.632: Settings consumer
 pub mod settings_subscriber; // v0.0.633: Settings subscriber
+pub mod settings_publisher; // v0.0.634: Settings publisher
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
