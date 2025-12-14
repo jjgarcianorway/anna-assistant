@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.644] - 2025-12-14
+
+### Added - Settings Formatter (Phase 220)
+
+**Settings Formatter Module:**
+- `settings_formatter.rs` for display formatting
+- `FormatType` enum (Plain, Json, Toml, Yaml, Table)
+- `FormatStyle` enum (Compact, Pretty, Minimal, Verbose)
+- `FormatterConfig` / `FormatResult` / `FormatterStats` structs
+- `SettingsFormatter` / `SettingsFormatterRegistry` for managing formatters
+
+**Core Functions:**
+- `register()` / `unregister()` - Formatter management
+- `format()` - Convert values to display formats
+- `apply_format()` - Apply format transformation
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple output formats
+- Style options
+- Indent configuration
+- Output size tracking
+- Per-formatter statistics
+
 ## [0.0.643] - 2025-12-14
 
 ### Added - Settings Sanitizer (Phase 219)
