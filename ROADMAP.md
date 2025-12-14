@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.599 - Settings Resolver (Phase 175) ✓
+- [x] `settings_resolver.rs` for conflict resolution
+- [x] `ConflictType` / `ResolutionStrategy` / `Conflict`
+- [x] `Resolution` / `Dependency` / `ResolverConfig`
+- [x] `SettingsResolver`
+- [x] Circular dependency detection
+
 ### v0.0.598 - Settings Transformer (Phase 174) ✓
 - [x] `settings_transformer.rs` for transformation pipeline
 - [x] `TransformType` / `TransformDirection` / `TransformDef`

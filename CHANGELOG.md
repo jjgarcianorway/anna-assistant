@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.599] - 2025-12-14
+
+### Added - Settings Resolver (Phase 175)
+
+**Settings Resolver Module:**
+- `settings_resolver.rs` for conflict resolution
+- `ConflictType` enum (ValueMismatch, TypeMismatch, DependencyMissing, CircularDep, MutualExclusion, VersionConflict)
+- `ResolutionStrategy` enum (First, Last, Priority, Merge, Fail, Ask)
+- `Conflict` / `Resolution` / `Dependency` structs
+- `ResolverConfig` / `SettingsResolver`
+
+**Core Functions:**
+- `add_dependency()` / `remove_dependency()` - Dependency management
+- `dependencies_for()` / `dependents_of()` - Query dependencies
+- `has_circular()` - Circular dependency detection
+- `record_conflict()` / `record_resolution()` - History tracking
+
+**Features:**
+- Multiple resolution strategies
+- Per-category strategy configuration
+- Circular dependency detection
+- Dependency tracking
+- Conflict/resolution history
+
 ## [0.0.598] - 2025-12-14
 
 ### Added - Settings Transformer (Phase 174)
