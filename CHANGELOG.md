@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.588] - 2025-12-14
+
+### Added - Settings Versioning (Phase 164)
+
+**Settings Versioning Module:**
+- `settings_versioning.rs` for version control
+- `ChangeType` enum (Added, Modified, Removed, Reset)
+- `VersionChange` / `SettingsVersion` structs
+- `VersionHistory` manager
+
+**Core Functions:**
+- `create()` - Create new version
+- `get()` / `current()` / `all()` / `recent()` - Query versions
+- `compare()` - Compare two versions
+- `find_by_message()` - Search history
+
+**Features:**
+- Full change history tracking
+- Version comparison
+- Change categorization
+- Message search
+- Configurable history size
+
 ## [0.0.587] - 2025-12-14
 
 ### Added - Settings Transactions (Phase 163)

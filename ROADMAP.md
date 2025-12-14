@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.588 - Settings Versioning (Phase 164) ✓
+- [x] `settings_versioning.rs` for version control
+- [x] `ChangeType` / `VersionChange` / `SettingsVersion`
+- [x] `VersionHistory` manager
+- [x] `create()` / `get()` / `compare()` / `find_by_message()`
+- [x] Full change history tracking
+
 ### v0.0.587 - Settings Transactions (Phase 163) ✓
 - [x] `settings_transactions.rs` for atomic operations
 - [x] `TransactionState` / `OperationType` / `TransactionOp`

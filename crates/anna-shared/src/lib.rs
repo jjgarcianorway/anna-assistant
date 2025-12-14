@@ -333,6 +333,7 @@ pub mod settings_metrics; // v0.0.584: Settings metrics
 pub mod settings_logging; // v0.0.585: Settings logging
 pub mod settings_cache; // v0.0.586: Settings cache
 pub mod settings_transactions; // v0.0.587: Settings transactions
+pub mod settings_versioning; // v0.0.588: Settings versioning
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
