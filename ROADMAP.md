@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.640 - Settings Report Generator (Phase 216) ✓
+- [x] `settings_report_generator.rs` for status reports
+- [x] `ReportType` / `ReportFormat`
+- [x] `ReporterConfig` / `ReportSection` / `Report` / `ReporterStats`
+- [x] `SettingsReporter` / `SettingsReporterRegistry`
+- [x] Multi-format report generation
+
 ### v0.0.639 - Settings Notifier (Phase 215) ✓
 - [x] `settings_notifier.rs` for change alerts
 - [x] `NotifyChannel` / `NotifyPriority`

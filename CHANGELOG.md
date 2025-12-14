@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.640] - 2025-12-14
+
+### Added - Settings Report Generator (Phase 216)
+
+**Settings Report Generator Module:**
+- `settings_report_generator.rs` for status reports
+- `ReportType` enum (Summary, Detailed, Health, Audit, Custom)
+- `ReportFormat` enum (Text, Json, Markdown, Html, Csv)
+- `ReporterConfig` / `ReportSection` / `Report` / `ReporterStats` structs
+- `SettingsReporter` / `SettingsReporterRegistry` for managing reporters
+
+**Core Functions:**
+- `register()` / `unregister()` - Reporter management
+- `generate()` - Create reports
+- `add_section()` / `add_item()` - Report building
+- `reports()` / `stats()` - Data access
+- `clear()` - Report cleanup
+
+**Features:**
+- Multiple report types
+- Multi-format output
+- Section-based organization
+- Timestamp and stats options
+- Per-reporter statistics
+
 ## [0.0.639] - 2025-12-14
 
 ### Added - Settings Notifier (Phase 215)
