@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.576] - 2025-12-14
+
+### Added - Settings Restore (Phase 152)
+
+**Settings Restore Module:**
+- `settings_restore.rs` for restoring from backups
+- `RestoreMode` enum (Full, Partial, Merge, Selective)
+- `RestoreStatus` enum (Pending, Validating, InProgress, Success, Failed, RolledBack)
+- `RestoreValidation` for backup validation
+- `RestorePoint` for pre-restore snapshots
+- `RestoreRecord` for restore operation tracking
+- `RestoreManager` for managing restores
+
+**Core Functions:**
+- `validate()` - Validate backup before restore
+- `create_restore_point()` - Snapshot before restore
+- `restore()` - Perform restore from backup
+- `rollback()` - Roll back to restore point
+- `history()` / `recent()` - Query restore history
+
+**Features:**
+- Pre-restore snapshot creation
+- Version compatibility checking
+- Multiple restore modes
+- Automatic rollback support
+- Restore history tracking
+
 ## [0.0.575] - 2025-12-14
 
 ### Added - Settings Backup Manager (Phase 151)

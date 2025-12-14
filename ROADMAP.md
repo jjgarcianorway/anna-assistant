@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.576 - Settings Restore (Phase 152) ✓
+- [x] `settings_restore.rs` for restoring from backups
+- [x] `RestoreMode` / `RestoreStatus` / `RestoreValidation`
+- [x] `RestorePoint` / `RestoreRecord` / `RestoreManager`
+- [x] `validate()` / `restore()` / `rollback()`
+- [x] Pre-restore snapshots and version checking
+
 ### v0.0.575 - Settings Backup Manager (Phase 151) ✓
 - [x] `settings_backup.rs` for automated backup/restore
 - [x] `BackupType` / `BackupStatus` / `BackupMeta`
