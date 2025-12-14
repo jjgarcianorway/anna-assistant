@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.578 - Settings Recommendations (Phase 154) ✓
+- [x] `settings_recommendations.rs` for intelligent recommendations
+- [x] `RecommendationPriority` / `RecommendationType` / `RecommendationStatus`
+- [x] `Recommendation` / `RecommendationEngine`
+- [x] `analyze()` / `active()` / `dismiss()` / `apply()`
+- [x] Security, privacy, usability, performance checks
+
 ### v0.0.577 - Settings Analytics (Phase 153) ✓
 - [x] `settings_analytics.rs` for usage tracking
 - [x] `AnalyticsPeriod` / `MetricType` / `AnalyticsEvent`

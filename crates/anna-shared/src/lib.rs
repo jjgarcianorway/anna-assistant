@@ -323,6 +323,7 @@ pub mod settings_orchestrator; // v0.0.574: Settings orchestrator
 pub mod settings_backup; // v0.0.575: Settings backup manager
 pub mod settings_restore; // v0.0.576: Settings restore
 pub mod settings_analytics; // v0.0.577: Settings analytics
+pub mod settings_recommendations; // v0.0.578: Settings recommendations
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

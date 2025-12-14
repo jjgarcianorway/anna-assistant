@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.578] - 2025-12-14
+
+### Added - Settings Recommendations (Phase 154)
+
+**Settings Recommendations Module:**
+- `settings_recommendations.rs` for intelligent recommendations
+- `RecommendationPriority` enum (Low, Medium, High, Critical)
+- `RecommendationType` enum (Security, Performance, Usability, Privacy, BestPractice)
+- `RecommendationStatus` enum (Active, Dismissed, Applied, Expired)
+- `Recommendation` struct with builder pattern
+- `RecommendationEngine` for generating recommendations
+
+**Core Functions:**
+- `analyze()` - Analyze settings and generate recommendations
+- `active()` / `by_type()` / `by_priority()` - Filter recommendations
+- `dismiss()` / `apply()` - Manage recommendation status
+- `active_count()` / `count_by_priority()` - Statistics
+
+**Features:**
+- Automatic security, privacy, usability, performance checks
+- Priority-based recommendations
+- Type-based categorization
+- Dismiss/apply tracking
+
 ## [0.0.577] - 2025-12-14
 
 ### Added - Settings Analytics (Phase 153)
