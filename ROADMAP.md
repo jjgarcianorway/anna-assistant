@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.623 - Settings Index (Phase 199) ✓
+- [x] `settings_index.rs` for fast lookups
+- [x] `IndexType` / `IndexStatus`
+- [x] `IndexEntry` / `IndexStats`
+- [x] `SettingsIndex` for indexed lookups
+- [x] Multi-pattern (category, tag) indexing
+
 ### v0.0.622 - Settings Registry (Phase 198) ✓
 - [x] `settings_registry.rs` for central catalog
 - [x] `EntryType` / `EntryVisibility`

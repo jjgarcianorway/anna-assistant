@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.623] - 2025-12-14
+
+### Added - Settings Index (Phase 199)
+
+**Settings Index Module:**
+- `settings_index.rs` for fast multi-pattern lookups
+- `IndexType` enum (Primary, Secondary, Category, Tag, FullText)
+- `IndexStatus` enum (Building, Ready, Stale, Rebuilding, Error)
+- `IndexEntry` / `IndexStats` structs
+- `SettingsIndex` for managing indexed lookups
+
+**Core Functions:**
+- `add()` / `remove()` - Entry management
+- `get()` / `get_by_category()` / `get_by_tag()` - Multi-pattern lookups
+- `tag()` / `has_tag()` - Tag operations
+- `count()` / `stats()` - Statistics
+- `is_ready()` / `mark_rebuild()` - Status management
+
+**Features:**
+- Multiple index types
+- Status tracking
+- Category-based indexing
+- Tag-based indexing
+- Query hit rate tracking
+
 ## [0.0.622] - 2025-12-14
 
 ### Added - Settings Registry (Phase 198)
