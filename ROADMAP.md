@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.568 - Settings Scheduler (Phase 144) ✓
+- [x] `settings_scheduler.rs` for scheduling changes
+- [x] `ScheduleTrigger` / `ScheduleEvent` / `ScheduledAction`
+- [x] `ScheduledChange` / `SettingsScheduler`
+- [x] `add()` / `remove()` / `pending()` / `on_event()`
+- [x] Time-based and event-based scheduling
+
 ### v0.0.567 - Settings Notifications (Phase 143) ✓
 - [x] `settings_notifications.rs` for change notifications
 - [x] `NotificationPriority` / `NotificationType` enums

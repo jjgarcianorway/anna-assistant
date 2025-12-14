@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.568] - 2025-12-14
+
+### Added - Settings Scheduler (Phase 144)
+
+**Settings Scheduler Module:**
+- `settings_scheduler.rs` for scheduling settings changes
+- `ScheduleTrigger` enum (AtTime, AfterDuration, DailyAt, Weekly, OnEvent)
+- `ScheduleEvent` enum (Startup, Shutdown, NetworkConnected, etc.)
+- `ScheduledAction` enum (SwitchProfile, ApplySettings, ChangeSetting, etc.)
+- `SettingsScheduler` for managing scheduled changes
+
+**Core Functions:**
+- `add()` / `add_once()` - Create schedules
+- `remove()` / `get()` - Manage schedules
+- `pending()` - Get ready-to-run schedules
+- `on_event()` - Handle event-based triggers
+- `set_enabled()` - Enable/disable schedules
+
+**Features:**
+- Time-based scheduling (specific time, daily, weekly)
+- Event-based triggers (startup, network, battery)
+- One-time and recurring schedules
+- Run tracking and history
+- Profile switching automation
+
 ## [0.0.567] - 2025-12-14
 
 ### Added - Settings Notifications (Phase 143)
