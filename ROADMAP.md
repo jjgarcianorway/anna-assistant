@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.583 - Settings Diagnostics (Phase 159) ✓
+- [x] `settings_diagnostics.rs` for health checking
+- [x] `DiagnosticSeverity` / `DiagnosticType` / `DiagnosticIssue`
+- [x] `DiagnosticReport` / `SettingsDiagnostics`
+- [x] `run()` / `quick_check()` / `health_score()` / `auto_fixable()`
+- [x] Configuration, security, performance checks
+
 ### v0.0.582 - Settings Permissions (Phase 158) ✓
 - [x] `settings_permissions.rs` for access control
 - [x] `PermissionLevel` / `PermissionAction` / `PermissionResult`

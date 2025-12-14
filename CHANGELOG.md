@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.583] - 2025-12-14
+
+### Added - Settings Diagnostics (Phase 159)
+
+**Settings Diagnostics Module:**
+- `settings_diagnostics.rs` for health checking
+- `DiagnosticSeverity` enum (Info, Warning, Error, Critical)
+- `DiagnosticType` enum (Configuration, Compatibility, Performance, Security, Validation, Dependency)
+- `DiagnosticIssue` / `DiagnosticReport` structs
+- `SettingsDiagnostics` runner
+
+**Core Functions:**
+- `run()` - Run full diagnostics
+- `quick_check()` - Quick health check
+- `health_score()` - Calculate health score (0-100)
+- `auto_fixable()` - Get auto-fixable issues
+
+**Features:**
+- Configuration, security, performance, compatibility checks
+- Health scoring with severity weighting
+- Auto-fixable issue detection
+- Duration tracking
+- Last report caching
+
 ## [0.0.582] - 2025-12-14
 
 ### Added - Settings Permissions (Phase 158)
