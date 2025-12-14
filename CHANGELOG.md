@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.579] - 2025-12-14
+
+### Added - Settings Dashboard (Phase 155)
+
+**Settings Dashboard Module:**
+- `settings_dashboard.rs` for unified settings overview
+- `DashboardSection` enum (Overview, RecentChanges, Recommendations, QuickActions, Health, Statistics)
+- `HealthLevel` enum (Excellent, Good, Fair, Poor, Critical)
+- `QuickAction` enum (ResetDefaults, Export, Import, Backup, Diagnostics, ApplyRecommended)
+- `CategorySummary` / `DashboardStats` / `RecentChange`
+- `SettingsDashboard` for dashboard management
+
+**Core Functions:**
+- `refresh()` - Refresh dashboard data
+- `add_change()` - Track recent changes
+- `categories()` / `stats()` / `recent_changes()` - Access data
+- `set_section_visible()` - Configure visible sections
+
+**Features:**
+- Per-category health tracking
+- Overall health scoring (0-100%)
+- Recent changes history
+- Customization percentage
+- Quick action support
+
 ## [0.0.578] - 2025-12-14
 
 ### Added - Settings Recommendations (Phase 154)

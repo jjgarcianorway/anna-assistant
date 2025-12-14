@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.579 - Settings Dashboard (Phase 155) ✓
+- [x] `settings_dashboard.rs` for unified overview
+- [x] `DashboardSection` / `HealthLevel` / `QuickAction`
+- [x] `CategorySummary` / `DashboardStats` / `RecentChange`
+- [x] `refresh()` / `add_change()` / `categories()` / `stats()`
+- [x] Health scoring and section visibility
+
 ### v0.0.578 - Settings Recommendations (Phase 154) ✓
 - [x] `settings_recommendations.rs` for intelligent recommendations
 - [x] `RecommendationPriority` / `RecommendationType` / `RecommendationStatus`
