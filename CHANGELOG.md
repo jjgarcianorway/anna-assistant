@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.571] - 2025-12-14
+
+### Added - Settings Hooks (Phase 147)
+
+**Settings Hooks Module:**
+- `settings_hooks.rs` for callbacks on settings changes
+- `HookTrigger` enum (BeforeChange, AfterChange, BeforeLoad, AfterLoad, etc.)
+- `HookResult` enum (Continue, Skip, Abort, Modify)
+- `HookPriority` enum (High, Normal, Low)
+- `HookContext` for execution context with values
+- `SettingsHook` and `HookManager` for managing hooks
+
+**Core Functions:**
+- `register()` / `unregister()` - Manage hooks
+- `set_enabled()` / `for_trigger()` - Enable/filter hooks
+- `fire()` - Execute hooks for a context
+- `should_fire()` - Check if hook should execute
+- `history()` / `recent()` - Execution history
+
+**Features:**
+- Priority-based hook ordering
+- Category-specific hooks
+- Execution history tracking
+- Built-in hooks (Log Changes, Validate Before Save, Notify Changes)
+- Before/after triggers for all operations
+
 ## [0.0.570] - 2025-12-14
 
 ### Added - Settings Constraints (Phase 146)

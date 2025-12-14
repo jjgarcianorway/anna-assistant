@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.571 - Settings Hooks (Phase 147) ✓
+- [x] `settings_hooks.rs` for callbacks on changes
+- [x] `HookTrigger` / `HookResult` / `HookPriority` enums
+- [x] `HookContext` / `SettingsHook` / `HookManager`
+- [x] `register()` / `fire()` / `should_fire()`
+- [x] Built-in hooks and execution history
+
 ### v0.0.570 - Settings Constraints (Phase 146) ✓
 - [x] `settings_constraints.rs` for settings rules
 - [x] `ConstraintSeverity` / `ConstraintType` enums
