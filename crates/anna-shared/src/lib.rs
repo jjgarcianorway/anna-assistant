@@ -312,6 +312,7 @@ pub mod settings_history; // v0.0.563: Settings history
 pub mod settings_sync; // v0.0.564: Settings sync
 pub mod settings_profiles; // v0.0.565: Settings profiles
 pub mod settings_search; // v0.0.566: Settings search
+pub mod settings_notifications; // v0.0.567: Settings notifications
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

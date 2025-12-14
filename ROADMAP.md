@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.567 - Settings Notifications (Phase 143) ✓
+- [x] `settings_notifications.rs` for change notifications
+- [x] `NotificationPriority` / `NotificationType` enums
+- [x] `SettingsNotification` / `NotificationManager`
+- [x] `notify()` / `mark_read()` / `dismiss()` / `unread()`
+- [x] Priority-based and category-specific notifications
+
 ### v0.0.566 - Settings Search (Phase 142) ✓
 - [x] `settings_search.rs` for keyword search
 - [x] `MatchType` / `SearchResult` / `SearchResults`

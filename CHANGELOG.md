@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.567] - 2025-12-14
+
+### Added - Settings Notifications (Phase 143)
+
+**Settings Notifications Module:**
+- `settings_notifications.rs` for notifying about settings changes
+- `NotificationPriority` enum (Low, Normal, High, Critical)
+- `NotificationType` enum (SettingChanged, ProfileSwitched, SyncCompleted, etc.)
+- `SettingsNotification` struct with read/dismiss state
+- `NotificationManager` for managing notifications
+
+**Core Functions:**
+- `notify()` / `notify_with_priority()` - Create notifications
+- `mark_read()` / `mark_all_read()` - Mark as read
+- `dismiss()` / `dismiss_all()` - Dismiss notifications
+- `unread()` / `unread_count()` - Get unread notifications
+- `setting_changed()` / `profile_switched()` / `sync_completed()` - Helpers
+
+**Features:**
+- Priority-based notifications
+- Read/unread tracking
+- Notification history with max limit
+- Category-specific notifications
+- Auto-dismiss support
+
 ## [0.0.566] - 2025-12-14
 
 ### Added - Settings Search (Phase 142)
