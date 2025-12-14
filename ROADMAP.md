@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.611 - Settings Queue (Phase 187) ✓
+- [x] `settings_queue.rs` for queue management
+- [x] `QueuePriority` / `QueueItemStatus` / `QueueOperation`
+- [x] `QueueItem` with retry support
+- [x] `SettingsQueue` with priority ordering
+- [x] Priority-based ordering with retries
+
 ### v0.0.610 - Settings Task Scheduler (Phase 186) ✓
 - [x] `settings_task_scheduler.rs` for advanced task scheduling
 - [x] `TaskFrequency` / `TaskType` / `TaskState`

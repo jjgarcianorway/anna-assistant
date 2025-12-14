@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.611] - 2025-12-14
+
+### Added - Settings Queue (Phase 187)
+
+**Settings Queue Module:**
+- `settings_queue.rs` for queue management
+- `QueuePriority` enum (Critical, High, Normal, Low, Background)
+- `QueueItemStatus` enum (Queued, Processing, Completed, Failed, Retrying)
+- `QueueOperation` enum (Read, Write, Update, Delete, Sync)
+- `QueueItem` struct with retry support
+- `SettingsQueue` with priority ordering
+
+**Core Functions:**
+- `enqueue()` / `dequeue()` / `peek()` - Queue operations
+- `mark_processing()` / `mark_completed()` / `mark_failed()` - Status updates
+- `retry()` / `can_retry()` - Retry support
+- `by_priority()` - Priority filtering
+- `processed_count()` / `failed_count()` - Statistics
+
+**Features:**
+- Priority-based ordering
+- Automatic retry support
+- Operation tracking
+- Category filtering
+- Payload support
+
 ## [0.0.610] - 2025-12-14
 
 ### Added - Settings Task Scheduler (Phase 186)
