@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.633] - 2025-12-14
+
+### Added - Settings Subscriber (Phase 209)
+
+**Settings Subscriber Module:**
+- `settings_subscriber.rs` for change notifications
+- `SubscriptionType` enum (All, Category, Key, Pattern, Filtered)
+- `DeliveryMode` enum (Immediate, Batched, Throttled, OnDemand)
+- `SubscriptionConfig` / `Subscription` / `SubscriberStats` structs
+- `SettingsSubscriberManager` for managing subscriptions
+
+**Core Functions:**
+- `subscribe()` / `unsubscribe()` - Subscription management
+- `get()` / `get_mut()` - Subscription access
+- `pause()` / `resume()` - Subscription control
+- `list_by_subscriber()` / `list_active()` - Subscription listing
+- `record_notification()` / `record_delivery()` - Tracking
+
+**Features:**
+- Multiple subscription types
+- Configurable delivery modes
+- Category and key filtering
+- Per-subscriber statistics
+- Delivery rate tracking
+
 ## [0.0.632] - 2025-12-14
 
 ### Added - Settings Consumer (Phase 208)

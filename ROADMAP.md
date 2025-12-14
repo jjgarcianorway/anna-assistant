@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.633 - Settings Subscriber (Phase 209) ✓
+- [x] `settings_subscriber.rs` for change notifications
+- [x] `SubscriptionType` / `DeliveryMode`
+- [x] `SubscriptionConfig` / `Subscription` / `SubscriberStats`
+- [x] `SettingsSubscriberManager` for managing subscriptions
+- [x] Flexible delivery modes with filtering
+
 ### v0.0.632 - Settings Consumer (Phase 208) ✓
 - [x] `settings_consumer.rs` for client abstraction
 - [x] `ConsumerType` / `ConsumerState`
