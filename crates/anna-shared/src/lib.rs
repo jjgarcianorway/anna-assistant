@@ -320,6 +320,7 @@ pub mod settings_hooks; // v0.0.571: Settings hooks
 pub mod settings_wizard; // v0.0.572: Settings wizard
 pub mod settings_audit; // v0.0.573: Settings audit
 pub mod settings_orchestrator; // v0.0.574: Settings orchestrator
+pub mod settings_backup; // v0.0.575: Settings backup manager
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

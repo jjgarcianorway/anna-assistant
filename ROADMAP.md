@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.575 - Settings Backup Manager (Phase 151) ✓
+- [x] `settings_backup.rs` for automated backup/restore
+- [x] `BackupType` / `BackupStatus` / `BackupMeta`
+- [x] `BackupConfig` / `BackupManager`
+- [x] `create_backup()` / `manual_backup()` / `pre_change_backup()`
+- [x] Scheduled backups and retention limits
+
 ### v0.0.574 - Settings Orchestrator (Phase 150) ✓
 - [x] `settings_orchestrator.rs` for unified coordination
 - [x] `OrchestratorState` / `OperationResult`

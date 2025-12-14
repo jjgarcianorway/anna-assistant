@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.575] - 2025-12-14
+
+### Added - Settings Backup Manager (Phase 151)
+
+**Settings Backup Module:**
+- `settings_backup.rs` for automated backup and restore
+- `BackupType` enum (Full, Incremental, PreChange, Scheduled, Manual)
+- `BackupStatus` enum (Success, Failed, InProgress, Corrupted, Expired)
+- `BackupMeta` for backup metadata with checksum
+- `BackupConfig` for backup configuration
+- `BackupManager` for managing backups
+
+**Core Functions:**
+- `create_backup()` / `manual_backup()` / `pre_change_backup()` - Create backups
+- `scheduled_backup()` / `is_backup_due()` - Scheduled backups
+- `get()` / `list()` / `valid_backups()` / `latest()` - Query backups
+- `delete()` / `cleanup_old_backups()` - Manage backups
+
+**Features:**
+- Automatic pre-change backups
+- Scheduled automatic backups
+- Maximum backup retention limit
+- Checksum verification
+- Human-readable age display
+- Total size tracking
+
 ## [0.0.574] - 2025-12-14
 
 ### Added - Settings Orchestrator (Phase 150)
