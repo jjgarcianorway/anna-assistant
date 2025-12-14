@@ -337,6 +337,7 @@ pub mod settings_versioning; // v0.0.588: Settings versioning
 pub mod settings_throttling; // v0.0.589: Settings throttling
 pub mod settings_middleware; // v0.0.590: Settings middleware
 pub mod settings_observer; // v0.0.591: Settings observer
+pub mod settings_snapshot; // v0.0.592: Settings snapshot
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

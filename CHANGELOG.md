@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.592] - 2025-12-14
+
+### Added - Settings Snapshot (Phase 168)
+
+**Settings Snapshot Module:**
+- `settings_snapshot.rs` for point-in-time snapshots
+- `SnapshotType` enum (Manual, Auto, PreChange, Scheduled)
+- `SnapshotStatus` enum (Active, Archived, Expired, Corrupted)
+- `SettingsSnapshot` struct
+- `SnapshotManager` for managing snapshots
+
+**Core Functions:**
+- `create()` / `get()` / `delete()` - Manage snapshots
+- `add_data()` / `get_data()` - Store category data
+- `archive()` / `finalize()` - Lifecycle operations
+- `clean_expired()` - Auto cleanup
+
+**Features:**
+- Per-category data storage
+- Hash-based integrity
+- Expiration support
+- Size tracking
+- Max snapshot limit
+
 ## [0.0.591] - 2025-12-14
 
 ### Added - Settings Observer (Phase 167)

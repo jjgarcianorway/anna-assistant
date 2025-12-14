@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.592 - Settings Snapshot (Phase 168) ✓
+- [x] `settings_snapshot.rs` for point-in-time snapshots
+- [x] `SnapshotType` / `SnapshotStatus` / `SettingsSnapshot`
+- [x] `SnapshotManager`
+- [x] `create()` / `get()` / `delete()` / `clean_expired()`
+- [x] Per-category data storage with integrity
+
 ### v0.0.591 - Settings Observer (Phase 167) ✓
 - [x] `settings_observer.rs` for change observation
 - [x] `ObserverEvent` / `Notification` / `Observer`
