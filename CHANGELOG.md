@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.738] - 2025-12-15
+
+### Added - Settings Confederation (Phase 314)
+
+**Settings Confederation Module:**
+- `settings_confederation.rs` for loose union for settings governance
+- `ConfederationType` enum (Sovereign, Economic, Military, Political)
+- `ConfederationStatus` enum (Forming, Functional, Strained, Dissolved)
+- `ConfederationConfig` / `ConfederationArticle` / `ConfederationMember` / `ConfederationStats` structs
+- `SettingsConfederation` / `ConfederationRegistry` for managing confederations
+
+**Core Functions:**
+- `register()` / `unregister()` - Confederation management
+- `add_article()` - Add articles
+- `make_voluntary()` / `make_mandatory()` - Voluntary management
+- `add_member()` - Add members
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple confederation types
+- Status tracking
+- Clause numbering
+- Member support
+- Voluntary rate calculation
+
 ## [0.0.737] - 2025-12-15
 
 ### Added - Settings Federation (Phase 313)
