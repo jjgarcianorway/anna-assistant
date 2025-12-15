@@ -423,6 +423,7 @@ pub mod settings_filter; // v0.0.674: Settings filter
 pub mod settings_sorter; // v0.0.675: Settings sorter
 pub mod settings_grouper; // v0.0.676: Settings grouper
 pub mod settings_reducer; // v0.0.677: Settings reducer
+pub mod settings_partitioner; // v0.0.678: Settings partitioner
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

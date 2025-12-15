@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.678] - 2025-12-15
+
+### Added - Settings Partitioner (Phase 254)
+
+**Settings Partitioner Module:**
+- `settings_partitioner.rs` for partitioning settings into distinct subsets
+- `PartitionStrategy` enum (ByPredicate, ByCount, ByPercentage, ByHash)
+- `PredicateType` enum (IsNumeric, IsNonEmpty, KeyContains, ValueContains)
+- `PartitionerConfig` / `Partition` / `PartitionResult` / `PartitionerStats` structs
+- `SettingsPartitioner` / `PartitionerRegistry` for managing partitioners
+
+**Core Functions:**
+- `register()` / `unregister()` - Partitioner management
+- `partition_by_numeric()` - Split by numeric/non-numeric
+- `partition_by_empty()` - Split by empty/non-empty
+- `partition_by_count()` - Split into N equal parts
+- `partition_by_key_pattern()` - Split by key pattern match
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple partition strategies
+- Predicate-based partitioning
+- Balanced partition distribution
+- Pattern matching support
+- Per-partition statistics
+
 ## [0.0.677] - 2025-12-15
 
 ### Added - Settings Reducer (Phase 253)
