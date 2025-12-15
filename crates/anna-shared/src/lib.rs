@@ -456,6 +456,7 @@ pub mod settings_journal; // v0.0.707: Settings journal
 pub mod settings_memo; // v0.0.708: Settings memo
 pub mod settings_digest; // v0.0.709: Settings digest
 pub mod settings_brief; // v0.0.710: Settings brief
+pub mod settings_summary; // v0.0.711: Settings summary
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

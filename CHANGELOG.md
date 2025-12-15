@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.711] - 2025-12-15
+
+### Added - Settings Summary (Phase 287)
+
+**Settings Summary Module:**
+- `settings_summary.rs` for comprehensive summary of settings state
+- `SummaryType` enum (Quick, Detailed, Comprehensive, Overview)
+- `SummaryDepth` enum (Shallow, Medium, Deep, Full)
+- `SummaryConfig` / `SummaryEntry` / `SummaryMetadata` / `SummaryStats` structs
+- `SettingsSummary` / `SummaryRegistry` for managing summaries
+
+**Core Functions:**
+- `register()` / `unregister()` - Summary management
+- `add_entry()` - Add entries
+- `add_metadata()` - Add metadata
+- `get_entry()` - Get entries
+- `stats()` - Access statistics
+
+**Features:**
+- Category organization
+- Important entry flags
+- Configurable depth
+- Metadata support
+- Category counting
+
 ## [0.0.710] - 2025-12-15
 
 ### Added - Settings Brief (Phase 286)
