@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.656 - Settings Splitter (Phase 232) ✓
+- [x] `settings_splitter.rs` for dividing settings into groups
+- [x] `SplitCriteria` / `SplitMode`
+- [x] `SplitterConfig` / `SplitGroup` / `SplitResult` / `SplitterStats`
+- [x] `SettingsSplitter` / `SettingsSplitterRegistry`
+- [x] Multi-criteria splitting with group limits
+
 ### v0.0.655 - Settings Merger (Phase 231) ✓
 - [x] `settings_merger.rs` for combining multiple settings sources
 - [x] `MergeStrategy` / `ConflictResolution`

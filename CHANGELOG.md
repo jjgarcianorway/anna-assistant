@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.656] - 2025-12-15
+
+### Added - Settings Splitter (Phase 232)
+
+**Settings Splitter Module:**
+- `settings_splitter.rs` for dividing settings into groups
+- `SplitCriteria` enum (ByCategory, ByPrefix, ByPattern, ByValueType, BySize)
+- `SplitMode` enum (Even, ByThreshold, ByCount, Custom)
+- `SplitterConfig` / `SplitGroup` / `SplitResult` / `SplitterStats` structs
+- `SettingsSplitter` / `SettingsSplitterRegistry` for managing splitters
+
+**Core Functions:**
+- `register()` / `unregister()` - Splitter management
+- `split()` - Divide settings by criteria
+- `split_into_n()` - Evenly divide into N groups
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple split criteria
+- Configurable split modes
+- Max group limits
+- Group tracking
+- Per-splitter statistics
+
 ## [0.0.655] - 2025-12-15
 
 ### Added - Settings Merger (Phase 231)

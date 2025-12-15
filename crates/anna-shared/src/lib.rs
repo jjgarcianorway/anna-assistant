@@ -401,6 +401,7 @@ pub mod settings_binder; // v0.0.652: Settings binder
 pub mod settings_extractor; // v0.0.653: Settings extractor
 pub mod settings_injector; // v0.0.654: Settings injector
 pub mod settings_merger; // v0.0.655: Settings merger
+pub mod settings_splitter; // v0.0.656: Settings splitter
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
