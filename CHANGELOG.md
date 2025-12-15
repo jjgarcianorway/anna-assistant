@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.694] - 2025-12-15
+
+### Added - Settings Diary (Phase 270)
+
+**Settings Diary Module:**
+- `settings_diary.rs` for daily diary of settings activities
+- `DiaryEntryType` enum (Note, Change, Alert, Milestone)
+- `DiaryImportance` enum (Low, Normal, High, Critical)
+- `DiaryConfig` / `DiaryEntry` / `DailyPage` / `DiaryStats` structs
+- `SettingsDiary` / `DiaryRegistry` for managing diaries
+
+**Core Functions:**
+- `register()` / `unregister()` - Diary management
+- `add_note()` - Add general notes
+- `add_change()` - Record changes
+- `add_alert()` - Add alerts
+- `get_page()` - Get daily page
+- `stats()` - Access statistics
+
+**Features:**
+- Daily page organization
+- Entry tagging
+- Importance levels
+- Auto-summarization
+- Retention policy
+
 ## [0.0.693] - 2025-12-15
 
 ### Added - Settings Ledger (Phase 269)
