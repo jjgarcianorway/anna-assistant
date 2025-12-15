@@ -508,6 +508,7 @@ pub mod settings_tract; // v0.0.759: Settings tract
 pub mod settings_acre; // v0.0.760: Settings acre
 pub mod settings_hectare; // v0.0.761: Settings hectare
 pub mod settings_field; // v0.0.762: Settings field
+pub mod settings_meadow; // v0.0.763: Settings meadow
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

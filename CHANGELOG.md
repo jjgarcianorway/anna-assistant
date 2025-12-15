@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.763] - 2025-12-15
+
+### Added - Settings Meadow (Phase 339)
+
+**Settings Meadow Module:**
+- `settings_meadow.rs` for grassland meadow for settings grazing
+- `MeadowType` enum (Hay, Water, Alpine, Wildflower)
+- `MeadowStatus` enum (Resting, Grazing, Mowing, Recovering)
+- `MeadowConfig` / `MeadowGrass` / `MeadowKeeper` / `MeadowStats` structs
+- `SettingsMeadow` / `MeadowRegistry` for managing meadows
+
+**Core Functions:**
+- `register()` / `unregister()` - Meadow management
+- `add_grass()` - Add grasses
+- `make_lush()` / `make_sparse()` - Lush management
+- `add_keeper()` - Add keepers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple meadow types
+- Status tracking
+- Sward numbering
+- Keeper support
+- Lush rate calculation
+
 ## [0.0.762] - 2025-12-15
 
 ### Added - Settings Field (Phase 338)
