@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.756] - 2025-12-15
+
+### Added - Settings Lot (Phase 332)
+
+**Settings Lot Module:**
+- `settings_lot.rs` for land lot for settings property
+- `LotType` enum (Residential, Commercial, Industrial, Agricultural)
+- `LotStatus` enum (Vacant, Improved, Subdivided, Consolidated)
+- `LotConfig` / `LotDeed` / `LotAssessor` / `LotStats` structs
+- `SettingsLot` / `LotRegistry` for managing lots
+
+**Core Functions:**
+- `register()` / `unregister()` - Lot management
+- `add_deed()` - Add deeds
+- `make_registered()` / `make_unregistered()` - Registered management
+- `add_assessor()` - Add assessors
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple lot types
+- Status tracking
+- Parcel numbering
+- Assessor support
+- Registered rate calculation
+
 ## [0.0.755] - 2025-12-15
 
 ### Added - Settings Block (Phase 331)
