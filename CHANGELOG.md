@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.734] - 2025-12-15
+
+### Added - Settings Entente (Phase 310)
+
+**Settings Entente Module:**
+- `settings_entente.rs` for informal understanding for settings governance
+- `EntenteType` enum (Cordiale, Strategic, Commercial, Cultural)
+- `EntenteStatus` enum (Informal, Formalized, Active, Dissolved)
+- `EntenteConfig` / `EntenteUnderstanding` / `EntentePartner` / `EntenteStats` structs
+- `SettingsEntente` / `EntenteRegistry` for managing ententes
+
+**Core Functions:**
+- `register()` / `unregister()` - Entente management
+- `add_understanding()` - Add understandings
+- `make_tacit()` / `make_explicit()` - Tacit management
+- `add_partner()` - Add partners
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple entente types
+- Status tracking
+- Point numbering
+- Partner support
+- Tacit rate calculation
+
 ## [0.0.733] - 2025-12-15
 
 ### Added - Settings Convention (Phase 309)
