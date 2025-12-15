@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.737] - 2025-12-15
+
+### Added - Settings Federation (Phase 313)
+
+**Settings Federation Module:**
+- `settings_federation.rs` for federal union for settings governance
+- `FederationType` enum (Symmetric, Asymmetric, Cooperative, Dual)
+- `FederationStatus` enum (Constituting, Established, Reforming, Dissolving)
+- `FederationConfig` / `FederationArticle` / `FederationState` / `FederationStats` structs
+- `SettingsFederation` / `FederationRegistry` for managing federations
+
+**Core Functions:**
+- `register()` / `unregister()` - Federation management
+- `add_article()` - Add articles
+- `make_constitutional()` / `make_statutory()` - Constitutional management
+- `add_state()` - Add states
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple federation types
+- Status tracking
+- Section numbering
+- State support
+- Constitutional rate calculation
+
 ## [0.0.736] - 2025-12-15
 
 ### Added - Settings Coalition (Phase 312)
