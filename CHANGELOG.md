@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.699] - 2025-12-15
+
+### Added - Settings Catalog V2 (Phase 275)
+
+**Settings Catalog V2 Module:**
+- `settings_catalog_v2.rs` for product catalog of available settings
+- `CatalogType` enum (Standard, Premium, Custom, Archive)
+- `CatalogStatus` enum (Draft, Published, Deprecated, Archived)
+- `CatalogConfig` / `CatalogProduct` / `CatalogEntry` / `CatalogStats` structs
+- `SettingsCatalogV2` / `CatalogRegistryV2` for managing catalogs
+
+**Core Functions:**
+- `register()` / `unregister()` - Catalog management
+- `add_product()` - Add products
+- `add_entry()` - Add entries
+- `publish()` / `deprecate()` - Lifecycle management
+- `stats()` - Access statistics
+
+**Features:**
+- Product availability tracking
+- Category organization
+- Catalog lifecycle states
+- Entry notes
+- Availability rate calculation
+
 ## [0.0.698] - 2025-12-15
 
 ### Added - Settings Portfolio (Phase 274)
