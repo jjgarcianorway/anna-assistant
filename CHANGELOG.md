@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.691] - 2025-12-15
+
+### Added - Settings Auditor (Phase 267)
+
+**Settings Auditor Module:**
+- `settings_auditor.rs` for auditing settings changes and access
+- `AuditEventType` enum (Read, Write, Delete, Create)
+- `AuditSeverity` enum (Low, Medium, High, Critical)
+- `AuditorConfig` / `AuditEvent` / `AuditTrail` / `AuditorStats` structs
+- `SettingsAuditor` / `AuditorRegistry` for managing auditors
+
+**Core Functions:**
+- `register()` / `unregister()` - Auditor management
+- `log_read()` - Log read access
+- `log_write()` - Log write changes
+- `log_create()` - Log new settings
+- `log_delete()` - Log deletions
+- `stats()` / `trail()` - Access statistics and history
+
+**Features:**
+- Comprehensive event logging
+- Severity levels
+- Event filtering
+- Max events limit
+- Read/write tracking
+
 ## [0.0.690] - 2025-12-15
 
 ### Added - Settings Combiner (Phase 266)
