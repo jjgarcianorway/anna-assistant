@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.745] - 2025-12-15
+
+### Added - Settings Territory (Phase 321)
+
+**Settings Territory Module:**
+- `settings_territory.rs` for controlled territory for settings administration
+- `TerritoryType` enum (Sovereign, Occupied, Trust, Dependent)
+- `TerritoryStatus` enum (Administered, Autonomous, Contested, Ceded)
+- `TerritoryConfig` / `TerritoryOrdinance` / `TerritoryAdministrator` / `TerritoryStats` structs
+- `SettingsTerritory` / `TerritoryRegistry` for managing territories
+
+**Core Functions:**
+- `register()` / `unregister()` - Territory management
+- `add_ordinance()` - Add ordinances
+- `make_enforced()` / `make_suspended()` - Enforcement management
+- `add_administrator()` - Add administrators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple territory types
+- Status tracking
+- District numbering
+- Administrator support
+- Enforcement rate calculation
+
 ## [0.0.744] - 2025-12-15
 
 ### Added - Settings Realm (Phase 320)
