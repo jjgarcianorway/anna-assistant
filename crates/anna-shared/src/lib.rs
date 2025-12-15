@@ -472,6 +472,7 @@ pub mod settings_statute; // v0.0.723: Settings statute
 pub mod settings_charter; // v0.0.724: Settings charter
 pub mod settings_constitution; // v0.0.725: Settings constitution
 pub mod settings_covenant; // v0.0.726: Settings covenant
+pub mod settings_treaty; // v0.0.727: Settings treaty
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

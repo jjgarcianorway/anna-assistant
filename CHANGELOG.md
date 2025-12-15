@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.727] - 2025-12-15
+
+### Added - Settings Treaty (Phase 303)
+
+**Settings Treaty Module:**
+- `settings_treaty.rs` for international agreement for settings governance
+- `TreatyType` enum (Bilateral, Multilateral, Framework, Protocol)
+- `TreatyStatus` enum (Negotiating, Signed, Ratified, Terminated)
+- `TreatyConfig` / `TreatyProvision` / `TreatySignatory` / `TreatyStats` structs
+- `SettingsTreaty` / `TreatyRegistry` for managing treaties
+
+**Core Functions:**
+- `register()` / `unregister()` - Treaty management
+- `add_provision()` - Add provisions
+- `enter_force()` / `terminate()` - Force management
+- `add_signatory()` - Add signatories
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple treaty types
+- Status tracking
+- Article numbering
+- Signatory support
+- In force rate calculation
+
 ## [0.0.726] - 2025-12-15
 
 ### Added - Settings Covenant (Phase 302)
