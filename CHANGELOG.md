@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.770] - 2025-12-15
+
+### Added - Settings Greenhouse (Phase 346)
+
+**Settings Greenhouse Module:**
+- `settings_greenhouse.rs` for controlled greenhouse for settings cultivation
+- `GreenhouseType` enum (Commercial, Hobby, Research, Tropical)
+- `GreenhouseStatus` enum (Active, Heating, Cooling, Maintenance)
+- `GreenhouseConfig` / `GreenhouseCrop` / `GreenhouseGrower` / `GreenhouseStats` structs
+- `SettingsGreenhouse` / `GreenhouseRegistry` for managing greenhouses
+
+**Core Functions:**
+- `register()` / `unregister()` - Greenhouse management
+- `add_crop()` - Add crops
+- `make_flourishing()` / `make_struggling()` - Flourishing management
+- `add_grower()` - Add growers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple greenhouse types
+- Status tracking
+- Zone numbering
+- Grower support
+- Flourishing rate calculation
+
 ## [0.0.769] - 2025-12-15
 
 ### Added - Settings Nursery (Phase 345)
