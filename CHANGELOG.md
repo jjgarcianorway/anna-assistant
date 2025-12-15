@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.729] - 2025-12-15
+
+### Added - Settings Compact (Phase 305)
+
+**Settings Compact Module:**
+- `settings_compact.rs` for formal compact for settings governance
+- `CompactType` enum (Interstate, Federal, Regional, Municipal)
+- `CompactStatus` enum (Proposed, Negotiating, Enacted, Suspended)
+- `CompactConfig` / `CompactTerm` / `CompactMember` / `CompactStats` structs
+- `SettingsCompact` / `CompactRegistry` for managing compacts
+
+**Core Functions:**
+- `register()` / `unregister()` - Compact management
+- `add_term()` - Add terms
+- `make_binding()` / `make_non_binding()` - Binding management
+- `add_member()` - Add members
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple compact types
+- Status tracking
+- Article numbering
+- Member support
+- Binding rate calculation
+
 ## [0.0.728] - 2025-12-15
 
 ### Added - Settings Protocol (Phase 304)
