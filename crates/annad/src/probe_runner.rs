@@ -21,10 +21,11 @@ use crate::translator;
 ///   1. Translator probe IDs: "free", "cpu_info" → mapped via translator::probe_id_to_command
 ///   2. Direct shell commands: "lscpu", "free -b" → executed as-is if they look like commands
 ///   3. Unknown: returns None and logs warning
+/// v0.0.797: Now uses probe_id_to_command_dynamic for dynamic probe support (command_v_<tool>)
 fn resolve_probe_command(probe_spec: &str) -> Option<String> {
-    // First: try translator's probe ID mapping
-    if let Some(cmd) = translator::probe_id_to_command(probe_spec) {
-        return Some(cmd.to_string());
+    // First: try translator's probe ID mapping (now supports dynamic probes)
+    if let Some(cmd) = translator::probe_id_to_command_dynamic(probe_spec) {
+        return Some(cmd);
     }
 
     // Second: check if it looks like a direct shell command (from probe_spine)

@@ -159,6 +159,7 @@ pub fn extract_tool_name_from_command_v(cmd: &str) -> Option<String> {
 
 /// Extract package name from "pacman -Q <name>" command
 /// v0.0.409: Returns None instead of "unknown" fallback
+/// v0.0.797: Fixed to reject file descriptor redirections (e.g., "2" from "pacman -Q 2>/dev/null")
 pub fn extract_package_name_from_pacman(cmd: &str) -> Option<String> {
     // Find -Q or -Qi and take the next word
     let cmd_lower = cmd.to_lowercase();
@@ -171,8 +172,14 @@ pub fn extract_package_name_from_pacman(cmd: &str) -> Option<String> {
                 .chars()
                 .take_while(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
                 .collect();
-            if !name.is_empty() {
-                return Some(name);
+            // v0.0.797: Reject single-digit names followed by redirection (e.g., "2" from "2>/dev/null")
+            // Valid package names must be at least 2 characters long
+            if !name.is_empty() && name.len() >= 2 {
+                // Also reject if the name is followed by '>' (file descriptor redirection)
+                let after_name = &trimmed[name.len()..];
+                if !after_name.starts_with('>') {
+                    return Some(name);
+                }
             }
         }
     }

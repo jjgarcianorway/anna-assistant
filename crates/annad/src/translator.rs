@@ -36,7 +36,10 @@ pub struct TranslatorResult {
 }
 
 // Re-export probe registry for backwards compatibility
-pub use crate::probe_registry::{filter_valid_probes, probe_id_to_command, PROBE_IDS};
+// v0.0.797: Added probe_id_to_command_dynamic for dynamic probe support
+pub use crate::probe_registry::{
+    filter_valid_probes, probe_id_to_command, probe_id_to_command_dynamic, PROBE_IDS,
+};
 
 // Re-export fallback translator for backwards compatibility
 pub use crate::translator_fallback::translate_fallback;

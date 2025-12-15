@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.798] - 2025-12-15
+
+### Fixed - Swap Query Misclassification
+
+**Bug Fix:**
+- "do I have swap" was being classified as `InstalledToolCheck` instead of `SwapInfo`
+- The query matched "do i have" pattern but "swap" wasn't in the hardware exclusion list
+- Result: "**swap** package is not installed" (wrong answer)
+
+**Fix:**
+- Added "swap" to hardware keyword exclusion list in `classify_hardware()`
+- Now "do I have swap" correctly routes to `SwapInfo` → checks actual swap configuration
+
+**Result:**
+- "do I have swap" now reports actual swap status (from `free` command output)
+- No more false "swap package is not installed" messages
+
+## [0.0.797] - 2025-12-15
+
+### Fixed - Tool Installation Check Parsing Bug
+
+**Critical Bug Fix:**
+- Fixed "is nano installed" returning "2 is installed (version 25.01-1)" instead of checking for nano
+- The bug was caused by:
+  1. `installed_packages` probe ran `pacman -Q 2>/dev/null` which lists all packages
+  2. Parser extracted "2" from "2>/dev/null" as the package name
+  3. Output showed first package (7zip) version as "2's" version
+
+**Root Cause Fixes:**
+- `extract_package_name_from_pacman()`: Now rejects file descriptor patterns (e.g., "2" from "2>/dev/null")
+- `classify_tool_check_query()`: New function to properly handle "is X installed" queries
+- `probe_id_to_command_dynamic()`: New function for dynamic probe generation (command_v_<tool>)
+
+**New Query Handling:**
+- "is nano installed" → generates `command_v_nano` probe → runs `sh -lc 'command -v nano'`
+- "do I have vim" → generates `command_v_vim` probe → runs `sh -lc 'command -v vim'`
+- Supports any tool name, not just predefined editors
+
+**Result:**
+- Tool check queries now correctly identify whether a specific tool is installed
+- No more false positives from package listing output
+
 ## [0.0.796] - 2025-12-15
 
 ### Improved - Query Classification and Formatting Skip

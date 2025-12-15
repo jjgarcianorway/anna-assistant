@@ -52,6 +52,10 @@ pub fn translate_fallback(query: &str) -> TranslatorTicket {
     if let Some(ticket) = classify_service_query(&stripped, query) {
         return ticket;
     }
+    // v0.0.797: Tool check must come BEFORE package query to handle "is X installed"
+    if let Some(ticket) = classify_tool_check_query(&stripped, query) {
+        return ticket;
+    }
     if let Some(ticket) = classify_package_query(&stripped, query) {
         return ticket;
     }
@@ -538,7 +542,98 @@ fn classify_service_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
     None
 }
 
+/// v0.0.797: Classify "is X installed" / "do I have X" tool check queries
+/// Extracts the tool name and generates the correct command_v_<tool> probe
+fn classify_tool_check_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
+    // Match patterns like "is nano installed", "do I have vim", "is docker running"
+    // Exclude hardware queries (cpu, ram, memory, gpu, disk, storage, space)
+    let hardware_keywords = [
+        "cpu", "ram", "memory", "gpu", "disk", "storage", "space", "core", "drive",
+    ];
+    let is_hardware = hardware_keywords.iter().any(|k| q.contains(k));
+    if is_hardware {
+        return None;
+    }
+
+    // Extract tool name from various patterns
+    let tool_name = extract_tool_name_from_query(q)?;
+
+    // Generate the command_v_<tool> probe
+    let probe_id = format!("command_v_{}", tool_name);
+
+    // Check if this is a known tool with a registered probe, or generate dynamic command
+    let probes = vec![probe_id];
+
+    Some(TranslatorTicket {
+        intent: anna_shared::rpc::QueryIntent::Question,
+        domain: SpecialistDomain::System,
+        entities: vec![tool_name.to_string()],
+        needs_probes: probes,
+        clarification_question: None,
+        confidence: 0.9,
+        answer_contract: Some(AnswerContract::from_query(orig)),
+    })
+}
+
+/// v0.0.797: Extract tool name from queries like "is nano installed", "do I have vim"
+fn extract_tool_name_from_query(q: &str) -> Option<String> {
+    // Pattern: "is <tool> installed"
+    if let Some(pos) = q.find("is ") {
+        let rest = &q[pos + 3..];
+        if rest.contains(" installed") {
+            let tool = rest.split(" installed").next()?.trim();
+            if !tool.is_empty() && tool.len() < 30 && !tool.contains(' ') {
+                return Some(tool.to_string());
+            }
+        }
+    }
+
+    // Pattern: "do i have <tool>" or "do you have <tool>"
+    if q.contains("do i have ") || q.contains("do you have ") {
+        let pattern = if q.contains("do i have ") {
+            "do i have "
+        } else {
+            "do you have "
+        };
+        if let Some(pos) = q.find(pattern) {
+            let rest = &q[pos + pattern.len()..];
+            let tool = rest.split_whitespace().next()?;
+            if !tool.is_empty() && tool.len() < 30 {
+                return Some(tool.to_string());
+            }
+        }
+    }
+
+    // Pattern: "have i got <tool>"
+    if let Some(pos) = q.find("have i got ") {
+        let rest = &q[pos + 11..];
+        let tool = rest.split_whitespace().next()?;
+        if !tool.is_empty() && tool.len() < 30 {
+            return Some(tool.to_string());
+        }
+    }
+
+    // Pattern: "<tool> installed?"
+    if q.ends_with(" installed") || q.ends_with(" installed?") {
+        let words: Vec<&str> = q.split_whitespace().collect();
+        if words.len() >= 2 {
+            let tool_idx = words.len() - 2; // Second to last word (before "installed")
+            // Skip "is" if present
+            if words.get(tool_idx - 1) != Some(&"is") {
+                return Some(words[tool_idx].to_string());
+            }
+        }
+    }
+
+    None
+}
+
 fn classify_package_query(q: &str, orig: &str) -> Option<TranslatorTicket> {
+    // v0.0.797: Skip if this looks like a specific tool check (handled by classify_tool_check_query)
+    if q.contains("is ") && q.contains(" installed") && !q.contains("package") {
+        return None;
+    }
+
     if q.contains("package")
         || q.contains("install")
         || q.contains("pacman")
