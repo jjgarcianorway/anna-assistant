@@ -438,6 +438,7 @@ pub mod settings_comparer; // v0.0.689: Settings comparer
 pub mod settings_combiner; // v0.0.690: Settings combiner
 pub mod settings_auditor; // v0.0.691: Settings auditor
 pub mod settings_chronicle; // v0.0.692: Settings chronicle
+pub mod settings_ledger; // v0.0.693: Settings ledger
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

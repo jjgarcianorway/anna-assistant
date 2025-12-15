@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.693] - 2025-12-15
+
+### Added - Settings Ledger (Phase 269)
+
+**Settings Ledger Module:**
+- `settings_ledger.rs` for immutable settings records
+- `LedgerEntryType` enum (Set, Update, Delete, Import)
+- `LedgerStatus` enum (Active, Archived, Sealed, Pending)
+- `LedgerConfig` / `LedgerEntry` / `LedgerPage` / `LedgerStats` structs
+- `SettingsLedger` / `LedgerRegistry` for managing ledgers
+
+**Core Functions:**
+- `register()` / `unregister()` - Ledger management
+- `record_set()` - Record new values
+- `record_update()` - Record updates
+- `record_delete()` - Record deletions
+- `get_entry()` - Retrieve by sequence
+- `stats()` - Access statistics
+
+**Features:**
+- Immutable audit trail
+- Page-based storage
+- Sequence numbering
+- Hash generation
+- Sealable pages
+
 ## [0.0.692] - 2025-12-15
 
 ### Added - Settings Chronicle (Phase 268)
