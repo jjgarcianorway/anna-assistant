@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.675] - 2025-12-15
+
+### Added - Settings Sorter (Phase 251)
+
+**Settings Sorter Module:**
+- `settings_sorter.rs` for sorting settings by various criteria
+- `SortOrder` enum (Ascending, Descending, Natural, Reverse)
+- `SortField` enum (Key, Value, KeyLength, ValueLength)
+- `SorterConfig` / `SortCriteria` / `SortResult` / `SorterStats` structs
+- `SettingsSorter` / `SorterRegistry` for managing sorters
+
+**Core Functions:**
+- `register()` / `unregister()` - Sorter management
+- `sort_by_key()` - Sort by key
+- `sort_by_value()` - Sort by value
+- `sort_with_criteria()` - Sort with custom criteria
+- `sort_descending()` - Sort in descending order
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple sort orders
+- Multiple sort fields
+- Stable and unstable sorting
+- Case-insensitive sorting
+- Multi-field sort criteria with priorities
+
 ## [0.0.674] - 2025-12-15
 
 ### Added - Settings Filter (Phase 250)
