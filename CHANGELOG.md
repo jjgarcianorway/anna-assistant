@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.714] - 2025-12-15
+
+### Added - Settings Dispatch (Phase 290)
+
+**Settings Dispatch Module:**
+- `settings_dispatch.rs` for dispatching settings changes to targets
+- `DispatchType` enum (Immediate, Scheduled, Batch, Conditional)
+- `DispatchStatus` enum (Pending, InProgress, Completed, Failed)
+- `DispatchConfig` / `DispatchItem` / `DispatchMetadata` / `DispatchStats` structs
+- `SettingsDispatch` / `DispatchRegistry` for managing dispatches
+
+**Core Functions:**
+- `register()` / `unregister()` - Dispatch management
+- `add_item()` - Add items
+- `start()` / `complete()` / `fail()` - Lifecycle management
+- `add_metadata()` - Add metadata
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple dispatch types
+- Status tracking
+- Retry count support
+- Attempt counting
+- Success rate calculation
+
 ## [0.0.713] - 2025-12-15
 
 ### Added - Settings Notice (Phase 289)
