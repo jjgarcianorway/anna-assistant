@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.752] - 2025-12-15
+
+### Added - Settings Ward (Phase 328)
+
+**Settings Ward Module:**
+- `settings_ward.rs` for electoral ward for settings representation
+- `WardType` enum (Electoral, Hospital, Prison, Administrative)
+- `WardStatus` enum (Created, Active, Redrawn, Abolished)
+- `WardConfig` / `WardMotion` / `WardDelegate` / `WardStats` structs
+- `SettingsWard` / `WardRegistry` for managing wards
+
+**Core Functions:**
+- `register()` / `unregister()` - Ward management
+- `add_motion()` - Add motions
+- `make_passed()` / `make_failed()` - Passed management
+- `add_delegate()` - Add delegates
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple ward types
+- Status tracking
+- Precinct numbering
+- Delegate support
+- Passed rate calculation
+
 ## [0.0.751] - 2025-12-15
 
 ### Added - Settings Borough (Phase 327)

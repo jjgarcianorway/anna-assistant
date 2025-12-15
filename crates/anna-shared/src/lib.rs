@@ -497,6 +497,7 @@ pub mod settings_district; // v0.0.748: Settings district
 pub mod settings_county; // v0.0.749: Settings county
 pub mod settings_municipality; // v0.0.750: Settings municipality
 pub mod settings_borough; // v0.0.751: Settings borough
+pub mod settings_ward; // v0.0.752: Settings ward
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
