@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.701] - 2025-12-15
+
+### Added - Settings Anthology (Phase 277)
+
+**Settings Anthology Module:**
+- `settings_anthology.rs` for curated anthology of settings collections
+- `AnthologyType` enum (BestOf, Complete, Themed, Historical)
+- `AnthologyStatus` enum (Curating, Complete, Published, Archived)
+- `AnthologyConfig` / `AnthologyWork` / `AnthologyPiece` / `AnthologyStats` structs
+- `SettingsAnthology` / `AnthologyRegistry` for managing anthologies
+
+**Core Functions:**
+- `register()` / `unregister()` - Anthology management
+- `add_work()` - Add works
+- `add_piece()` - Add pieces
+- `complete()` / `publish()` - Lifecycle management
+- `stats()` - Access statistics
+
+**Features:**
+- Work curation
+- Featured work tracking
+- Author attribution
+- Ordered pieces
+- Theme support
+
 ## [0.0.700] - 2025-12-15
 
 ### Added - Settings Compendium (Phase 276) - MILESTONE!
