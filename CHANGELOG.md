@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.717] - 2025-12-15
+
+### Added - Settings Circular (Phase 293)
+
+**Settings Circular Module:**
+- `settings_circular.rs` for circular notices distributed to all
+- `CircularType` enum (Policy, Information, Directive, Advisory)
+- `CircularScope` enum (All, Department, Team, Individual)
+- `CircularConfig` / `CircularNotice` / `CircularAttachment` / `CircularStats` structs
+- `SettingsCircular` / `CircularRegistry` for managing circulars
+
+**Core Functions:**
+- `register()` / `unregister()` - Circular management
+- `add_notice()` - Add notices
+- `deactivate()` - Deactivate notices
+- `add_attachment()` - Add attachments
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple circular types
+- Scope-based distribution
+- Active status tracking
+- Reference numbers
+- Effective dates
+
 ## [0.0.716] - 2025-12-15
 
 ### Added - Settings Missive (Phase 292)
