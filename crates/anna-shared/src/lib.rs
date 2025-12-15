@@ -499,6 +499,7 @@ pub mod settings_municipality; // v0.0.750: Settings municipality
 pub mod settings_borough; // v0.0.751: Settings borough
 pub mod settings_ward; // v0.0.752: Settings ward
 pub mod settings_precinct; // v0.0.753: Settings precinct
+pub mod settings_neighborhood; // v0.0.754: Settings neighborhood
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

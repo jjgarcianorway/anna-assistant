@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.754] - 2025-12-15
+
+### Added - Settings Neighborhood (Phase 330)
+
+**Settings Neighborhood Module:**
+- `settings_neighborhood.rs` for residential neighborhood for settings community
+- `NeighborhoodType` enum (Residential, Commercial, Industrial, MixedUse)
+- `NeighborhoodStatus` enum (Planned, Developing, Established, Revitalized)
+- `NeighborhoodConfig` / `NeighborhoodInitiative` / `NeighborhoodOrganizer` / `NeighborhoodStats` structs
+- `SettingsNeighborhood` / `NeighborhoodRegistry` for managing neighborhoods
+
+**Core Functions:**
+- `register()` / `unregister()` - Neighborhood management
+- `add_initiative()` - Add initiatives
+- `make_approved()` / `make_rejected()` - Approved management
+- `add_organizer()` - Add organizers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple neighborhood types
+- Status tracking
+- Block numbering
+- Organizer support
+- Approved rate calculation
+
 ## [0.0.753] - 2025-12-15
 
 ### Added - Settings Precinct (Phase 329)
