@@ -414,6 +414,7 @@ pub mod settings_validator_hub; // v0.0.665: Settings validator hub
 pub mod settings_transform; // v0.0.666: Settings transform
 pub mod settings_normalization; // v0.0.667: Settings normalization
 pub mod settings_denormalization; // v0.0.668: Settings denormalization
+pub mod settings_indexer; // v0.0.669: Settings indexer
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

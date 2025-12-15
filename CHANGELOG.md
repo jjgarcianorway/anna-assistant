@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.669] - 2025-12-15
+
+### Added - Settings Indexer (Phase 245)
+
+**Settings Indexer Module:**
+- `settings_indexer.rs` for indexing settings for fast lookup
+- `IndexType` enum (Hash, BTree, FullText, Prefix, Inverted)
+- `IndexStatus` enum (Ready, Building, Stale, Error)
+- `IndexerConfig` / `IndexEntry` / `IndexLookupResult` / `IndexerStats` structs
+- `SettingsIndexer` / `IndexerRegistry` for managing indexers
+
+**Core Functions:**
+- `register()` / `unregister()` - Indexer management
+- `index()` - Build index from settings
+- `lookup()` - Exact key lookup
+- `search_prefix()` - Prefix-based search
+- `search_term()` - Full-text term search
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple index types
+- Fast hash-based lookup
+- Prefix matching
+- Full-text term search
+- Index status tracking
+- Per-indexer statistics
+
 ## [0.0.668] - 2025-12-15
 
 ### Added - Settings Denormalization (Phase 244)
