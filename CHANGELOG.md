@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.708] - 2025-12-15
+
+### Added - Settings Memo (Phase 284)
+
+**Settings Memo Module:**
+- `settings_memo.rs` for internal memos of settings communication
+- `MemoType` enum (Internal, External, Confidential, Broadcast)
+- `MemoStatus` enum (Draft, Sent, Read, Archived)
+- `MemoConfig` / `MemoMessage` / `MemoAttachment` / `MemoStats` structs
+- `SettingsMemo` / `MemoRegistry` for managing memos
+
+**Core Functions:**
+- `register()` / `unregister()` - Memo management
+- `add_message()` - Add messages
+- `send()` / `mark_read()` - Message lifecycle
+- `add_attachment()` - Add attachments
+- `stats()` - Access statistics
+
+**Features:**
+- From/To addressing
+- Message status tracking
+- Attachment support
+- Acknowledgment settings
+- Read rate tracking
+
 ## [0.0.707] - 2025-12-15
 
 ### Added - Settings Journal (Phase 283)

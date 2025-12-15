@@ -453,6 +453,7 @@ pub mod settings_gazette; // v0.0.704: Settings gazette
 pub mod settings_almanac; // v0.0.705: Settings almanac
 pub mod settings_bulletin; // v0.0.706: Settings bulletin
 pub mod settings_journal; // v0.0.707: Settings journal
+pub mod settings_memo; // v0.0.708: Settings memo
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
