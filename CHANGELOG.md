@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.653] - 2025-12-15
+
+### Added - Settings Extractor (Phase 229)
+
+**Settings Extractor Module:**
+- `settings_extractor.rs` for pulling specific settings
+- `ExtractionType` enum (Key, Pattern, Category, Prefix, Suffix)
+- `ExtractionMode` enum (First, All, Last, Unique)
+- `ExtractorConfig` / `ExtractionResult` / `ExtractorStats` structs
+- `SettingsExtractor` / `SettingsExtractorRegistry` for managing extractors
+
+**Core Functions:**
+- `register()` / `unregister()` - Extractor management
+- `extract()` - Pull settings by selector
+- `matches_selector()` - Check key matching
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple extraction types
+- Mode-based extraction
+- Case sensitivity option
+- Match count tracking
+- Per-extractor statistics
+
 ## [0.0.652] - 2025-12-15
 
 ### Added - Settings Binder (Phase 228)

@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.653 - Settings Extractor (Phase 229) ✓
+- [x] `settings_extractor.rs` for pulling specific settings
+- [x] `ExtractionType` / `ExtractionMode`
+- [x] `ExtractorConfig` / `ExtractionResult` / `ExtractorStats`
+- [x] `SettingsExtractor` / `SettingsExtractorRegistry`
+- [x] Pattern-based extraction with modes
+
 ### v0.0.652 - Settings Binder (Phase 228) ✓
 - [x] `settings_binder.rs` for runtime binding
 - [x] `BindingType` / `BindingState`
