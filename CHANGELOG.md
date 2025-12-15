@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.755] - 2025-12-15
+
+### Added - Settings Block (Phase 331)
+
+**Settings Block Module:**
+- `settings_block.rs` for city block for settings subdivision
+- `BlockType` enum (Residential, Commercial, Industrial, Civic)
+- `BlockStatus` enum (Surveyed, Developed, Subdivided, Consolidated)
+- `BlockConfig` / `BlockPlat` / `BlockSurveyor` / `BlockStats` structs
+- `SettingsBlock` / `BlockRegistry` for managing blocks
+
+**Core Functions:**
+- `register()` / `unregister()` - Block management
+- `add_plat()` - Add plats
+- `make_recorded()` / `make_pending()` - Recorded management
+- `add_surveyor()` - Add surveyors
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple block types
+- Status tracking
+- Lot numbering
+- Surveyor support
+- Recorded rate calculation
+
 ## [0.0.754] - 2025-12-15
 
 ### Added - Settings Neighborhood (Phase 330)
