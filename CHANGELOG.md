@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.779] - 2025-12-15
+
+### Added - Settings Apiary (Phase 355)
+
+**Settings Apiary Module:**
+- `settings_apiary.rs` for bee apiary for settings apiculture
+- `ApiaryType` enum (Honey, Pollination, Queen, Research)
+- `ApiaryStatus` enum (Active, Swarming, Harvesting, Wintering)
+- `ApiaryConfig` / `ApiaryHive` / `ApiaryBeekeeper` / `ApiaryStats` structs
+- `SettingsApiary` / `ApiaryRegistry` for managing apiaries
+
+**Core Functions:**
+- `register()` / `unregister()` - Apiary management
+- `add_hive()` - Add hives
+- `make_productive()` / `make_dormant()` - Productivity management
+- `add_beekeeper()` - Add beekeepers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple apiary types
+- Status tracking
+- Stand numbering
+- Beekeeper support
+- Productivity rate calculation
+
 ## [0.0.778] - 2025-12-15
 
 ### Added - Settings Aviary (Phase 354)

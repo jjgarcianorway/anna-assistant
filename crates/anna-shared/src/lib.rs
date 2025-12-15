@@ -524,6 +524,7 @@ pub mod settings_aquarium; // v0.0.775: Settings aquarium
 pub mod settings_vivarium; // v0.0.776: Settings vivarium
 pub mod settings_terrarium; // v0.0.777: Settings terrarium
 pub mod settings_aviary; // v0.0.778: Settings aviary
+pub mod settings_apiary; // v0.0.779: Settings apiary
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
