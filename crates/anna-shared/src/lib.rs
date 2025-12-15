@@ -484,6 +484,7 @@ pub mod settings_alliance; // v0.0.735: Settings alliance
 pub mod settings_coalition; // v0.0.736: Settings coalition
 pub mod settings_federation; // v0.0.737: Settings federation
 pub mod settings_confederation; // v0.0.738: Settings confederation
+pub mod settings_union; // v0.0.739: Settings union
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

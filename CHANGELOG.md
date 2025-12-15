@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.739] - 2025-12-15
+
+### Added - Settings Union (Phase 315)
+
+**Settings Union Module:**
+- `settings_union.rs` for political union for settings integration
+- `UnionType` enum (Full, Customs, Monetary, Personal)
+- `UnionStatus` enum (Proposed, Ratified, Integrated, Dissolved)
+- `UnionConfig` / `UnionProvision` / `UnionMember` / `UnionStats` structs
+- `SettingsUnion` / `UnionRegistry` for managing unions
+
+**Core Functions:**
+- `register()` / `unregister()` - Union management
+- `add_provision()` - Add provisions
+- `make_binding()` / `make_advisory()` - Binding management
+- `add_member()` - Add members
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple union types
+- Status tracking
+- Section numbering
+- Member support
+- Binding rate calculation
+
 ## [0.0.738] - 2025-12-15
 
 ### Added - Settings Confederation (Phase 314)
