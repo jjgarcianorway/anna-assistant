@@ -34,14 +34,21 @@ pub fn classify_network(q: &str) -> Option<QueryClass> {
     }
 
     // v0.0.125: Listening ports
+    // v0.0.789: Added "using port" pattern for queries like "what's using port 3000"
     if q.contains("listening port")
         || q.contains("open port")
         || q.contains("port listen")
         || q.contains("network port")
         || q.contains("what ports")
+        || q.contains("using port")
+        || q.contains("on port")
         || q.trim() == "ss"
         || q.trim() == "netstat"
         || (q.contains("port") && q.contains("open"))
+        || (q.contains("port") && q.contains("3000"))
+        || (q.contains("port") && q.contains("8080"))
+        || (q.contains("port") && q.contains("80"))
+        || (q.contains("port") && q.contains("443"))
     {
         return Some(QueryClass::ListeningPorts);
     }

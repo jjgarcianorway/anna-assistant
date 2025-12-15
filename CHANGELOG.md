@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.789] - 2025-12-15
+
+### Fixed - Network Port Query Classification
+
+**ListeningPorts Pattern Expansion:**
+- Added "using port" pattern to match queries like "what's using port 3000"
+- Added "on port" pattern for queries like "what's listening on port 8080"
+- Added common port number patterns (3000, 8080, 80, 443) for better matching
+- Fixes timeout issues for port-related queries by routing to deterministic handler
+
 ## [0.0.788] - 2025-12-15
 
 ### Fixed - Query Classification Bug
