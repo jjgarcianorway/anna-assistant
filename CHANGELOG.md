@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.709] - 2025-12-15
+
+### Added - Settings Digest (Phase 285)
+
+**Settings Digest Module:**
+- `settings_digest.rs` for condensed digest of settings summaries
+- `DigestType` enum (Daily, Weekly, Monthly, Custom)
+- `DigestFormat` enum (Summary, Detailed, Highlights, Full)
+- `DigestConfig` / `DigestSection` / `DigestItem` / `DigestStats` structs
+- `SettingsDigest` / `DigestRegistry` for managing digests
+
+**Core Functions:**
+- `register()` / `unregister()` - Digest management
+- `add_section()` - Add sections
+- `add_item()` - Add items
+- `get_section()` - Get sections
+- `stats()` - Access statistics
+
+**Features:**
+- Section-based organization
+- Item highlighting
+- Multiple formats
+- Ordered sections
+- Section summaries
+
 ## [0.0.708] - 2025-12-15
 
 ### Added - Settings Memo (Phase 284)
