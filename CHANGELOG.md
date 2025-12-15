@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.712] - 2025-12-15
+
+### Added - Settings Report (Phase 288)
+
+**Settings Report Module:**
+- `settings_report.rs` for formal reports on settings changes and status
+- `ReportType` enum (Status, Change, Audit, Compliance)
+- `ReportFrequency` enum (OnDemand, Daily, Weekly, Monthly)
+- `ReportConfig` / `ReportSection` / `ReportAppendix` / `ReportStats` structs
+- `SettingsReport` / `ReportRegistry` for managing reports
+
+**Core Functions:**
+- `register()` / `unregister()` - Report management
+- `add_section()` - Add sections
+- `add_appendix()` - Add appendices
+- `get_section()` - Get sections
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple report types
+- Configurable frequency
+- Critical section flags
+- Appendix support
+- Ordered sections
+
 ## [0.0.711] - 2025-12-15
 
 ### Added - Settings Summary (Phase 287)
