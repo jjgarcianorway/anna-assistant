@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.764] - 2025-12-15
+
+### Added - Settings Pasture (Phase 340)
+
+**Settings Pasture Module:**
+- `settings_pasture.rs` for grazing pasture for settings livestock
+- `PastureType` enum (Permanent, Rotational, Intensive, Rough)
+- `PastureStatus` enum (Open, Grazed, Rested, Improved)
+- `PastureConfig` / `PastureHerd` / `PastureHerder` / `PastureStats` structs
+- `SettingsPasture` / `PastureRegistry` for managing pastures
+
+**Core Functions:**
+- `register()` / `unregister()` - Pasture management
+- `add_herd()` - Add herds
+- `make_thriving()` / `make_struggling()` - Thriving management
+- `add_herder()` - Add herders
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple pasture types
+- Status tracking
+- Paddock numbering
+- Herder support
+- Thriving rate calculation
+
 ## [0.0.763] - 2025-12-15
 
 ### Added - Settings Meadow (Phase 339)
