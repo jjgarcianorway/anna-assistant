@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.662] - 2025-12-15
+
+### Added - Settings Patcher (Phase 238)
+
+**Settings Patcher Module:**
+- `settings_patcher.rs` for applying incremental changes
+- `PatchOperation` enum (Add, Remove, Replace, Copy, Move)
+- `PatchMode` enum (Strict, Lenient, DryRun, Atomic)
+- `PatcherConfig` / `PatchEntry` / `PatchResult` / `PatcherStats` structs
+- `SettingsPatcher` / `SettingsPatcherRegistry` for managing patchers
+
+**Core Functions:**
+- `register()` / `unregister()` - Patcher management
+- `apply()` - Apply patches to settings
+- `add()` / `remove()` / `replace()` - Patch entry builders
+- `copy()` / `move_key()` - Key operations
+- `results()` / `stats()` - Data access
+
+**Features:**
+- Multiple patch operations
+- Strict/lenient/atomic modes
+- Dry run support
+- Rollback on failure
+- Operation statistics
+
 ## [0.0.661] - 2025-12-15
 
 ### Added - Settings Differ (Phase 237)

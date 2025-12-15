@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.662 - Settings Patcher (Phase 238) ✓
+- [x] `settings_patcher.rs` for applying incremental changes
+- [x] `PatchOperation` / `PatchMode`
+- [x] `PatcherConfig` / `PatchEntry` / `PatchResult` / `PatcherStats`
+- [x] `SettingsPatcher` / `SettingsPatcherRegistry`
+- [x] Add/remove/replace/copy/move with atomic rollback
+
 ### v0.0.661 - Settings Differ (Phase 237) ✓
 - [x] `settings_differ.rs` for comparing settings configurations
 - [x] `DiffType` / `DiffMode`
