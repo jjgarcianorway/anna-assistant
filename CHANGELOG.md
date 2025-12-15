@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.733] - 2025-12-15
+
+### Added - Settings Convention (Phase 309)
+
+**Settings Convention Module:**
+- `settings_convention.rs` for formal convention for settings governance
+- `ConventionType` enum (International, Constitutional, Trade, Technical)
+- `ConventionStatus` enum (Draft, Adopted, InForce, Superseded)
+- `ConventionConfig` / `ConventionArticle` / `ConventionParty` / `ConventionStats` structs
+- `SettingsConvention` / `ConventionRegistry` for managing conventions
+
+**Core Functions:**
+- `register()` / `unregister()` - Convention management
+- `add_article()` - Add articles
+- `make_binding()` / `make_advisory()` - Binding management
+- `add_party()` - Add parties
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple convention types
+- Status tracking
+- Article numbering
+- Party support
+- Binding rate calculation
+
 ## [0.0.732] - 2025-12-15
 
 ### Added - Settings Concordat (Phase 308)

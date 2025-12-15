@@ -478,6 +478,7 @@ pub mod settings_compact; // v0.0.729: Settings compact
 pub mod settings_accord; // v0.0.730: Settings accord
 pub mod settings_pact; // v0.0.731: Settings pact
 pub mod settings_concordat; // v0.0.732: Settings concordat
+pub mod settings_convention; // v0.0.733: Settings convention
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
