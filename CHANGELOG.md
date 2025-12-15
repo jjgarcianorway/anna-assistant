@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.692] - 2025-12-15
+
+### Added - Settings Chronicle (Phase 268)
+
+**Settings Chronicle Module:**
+- `settings_chronicle.rs` for chronicling settings changes over time
+- `ChronicleEvent` enum (Changed, Added, Removed, Accessed)
+- `ChronicleMode` enum (All, WritesOnly, Specific, Pattern)
+- `ChronicleConfig` / `ChronicleRecord` / `ChronicleHistory` / `ChronicleStats` structs
+- `SettingsChronicle` / `ChronicleRegistry` for managing chronicles
+
+**Core Functions:**
+- `register()` / `unregister()` - Chronicle management
+- `track_change()` - Record changes
+- `track_add()` - Record additions
+- `track_remove()` - Record removals
+- `track_access()` - Record reads
+- `stats()` / `history()` - Access statistics and history
+
+**Features:**
+- Comprehensive change recording
+- Pattern-based tracking
+- Per-key history
+- Max history limit
+- Write-only mode
+
 ## [0.0.691] - 2025-12-15
 
 ### Added - Settings Auditor (Phase 267)
