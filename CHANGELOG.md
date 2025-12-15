@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.688] - 2025-12-15
+
+### Added - Settings Validator (Phase 264)
+
+**Settings Validator Module:**
+- `settings_validator.rs` for validating settings against rules and constraints
+- `ValidationType` enum (Required, TypeCheck, Range, Pattern)
+- `ValidationSeverity` enum (Info, Warning, Error, Critical)
+- `ValidatorConfig` / `ValidationRule` / `ValidationIssue` / `ValidationResult` / `ValidatorStats` structs
+- `SettingsValidator` / `ValidatorRegistry` for managing validators
+
+**Core Functions:**
+- `register()` / `unregister()` - Validator management
+- `add_rule()` / `remove_rule()` - Rule management
+- `validate()` - Validate all settings
+- `validate_key()` - Validate single key
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple validation types
+- Configurable severity levels
+- Type checking (int, float, bool, url, email)
+- Pattern matching
+- Stop-on-error mode
+
 ## [0.0.687] - 2025-12-15
 
 ### Added - Settings Matcher (Phase 263)
