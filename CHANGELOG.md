@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.666] - 2025-12-15
+
+### Added - Settings Transform (Phase 242)
+
+**Settings Transform Module:**
+- `settings_transform.rs` for transforming settings between formats
+- `TransformType` enum (Map, Filter, Reduce, Flatten, Group)
+- `TransformDirection` enum (Forward, Reverse, Bidirectional)
+- `TransformerConfig` / `TransformRule` / `TransformResult` / `TransformerStats` structs
+- `SettingsTransformer` / `TransformerRegistry` for managing transformers
+
+**Core Functions:**
+- `register()` / `unregister()` - Transformer management
+- `add_rule()` / `remove_rule()` - Rule management
+- `transform()` - Apply transformation rules
+- `stats()` - Access statistics
+
+**Features:**
+- Pattern-based transformations
+- Multiple transform types
+- Bidirectional support
+- Original preservation
+- Per-transformer statistics
+
 ## [0.0.665] - 2025-12-15
 
 ### Added - Settings Validator Hub (Phase 241)

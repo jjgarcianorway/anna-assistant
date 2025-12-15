@@ -411,6 +411,7 @@ pub mod settings_patcher; // v0.0.662: Settings patcher
 pub mod settings_graph; // v0.0.663: Settings graph
 pub mod settings_resolution; // v0.0.664: Settings resolution
 pub mod settings_validator_hub; // v0.0.665: Settings validator hub
+pub mod settings_transform; // v0.0.666: Settings transform
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
