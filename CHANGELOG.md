@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.689] - 2025-12-15
+
+### Added - Settings Comparer (Phase 265)
+
+**Settings Comparer Module:**
+- `settings_comparer.rs` for comparing two settings collections
+- `CompareMode` enum (Full, KeysOnly, ValuesOnly, StructureOnly)
+- `DiffType` enum (Added, Removed, Changed, Unchanged)
+- `ComparerConfig` / `DiffEntry` / `CompareResult` / `ComparerStats` structs
+- `SettingsComparer` / `ComparerRegistry` for managing comparers
+
+**Core Functions:**
+- `register()` / `unregister()` - Comparer management
+- `compare()` - Full comparison of two collections
+- `compare_keys()` - Compare keys only
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple compare modes
+- Case-insensitive comparison
+- Whitespace normalization
+- Change detection (+/-/~)
+- Summary generation
+
 ## [0.0.688] - 2025-12-15
 
 ### Added - Settings Validator (Phase 264)

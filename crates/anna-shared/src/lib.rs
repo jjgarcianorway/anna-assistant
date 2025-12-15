@@ -434,6 +434,7 @@ pub mod settings_finder; // v0.0.685: Settings finder
 pub mod settings_counter; // v0.0.686: Settings counter
 pub mod settings_matcher; // v0.0.687: Settings matcher
 pub mod settings_validator; // v0.0.688: Settings validator
+pub mod settings_comparer; // v0.0.689: Settings comparer
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
