@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.682] - 2025-12-15
+
+### Added - Settings Collector (Phase 258)
+
+**Settings Collector Module:**
+- `settings_collector.rs` for collecting settings from multiple sources
+- `CollectMode` enum (Merge, Union, Intersect, Append)
+- `SourcePriority` enum (Low, Normal, High, Critical)
+- `CollectorConfig` / `SettingsSource` / `CollectResult` / `CollectorStats` structs
+- `SettingsCollector` / `CollectorRegistry` for managing collectors
+
+**Core Functions:**
+- `register()` / `unregister()` - Collector management
+- `add_source()` / `clear_sources()` - Source management
+- `collect()` - Collect from all sources
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple collect modes
+- Source priorities
+- Conflict detection
+- Key deduplication
+- Per-collection statistics
+
 ## [0.0.681] - 2025-12-15
 
 ### Added - Settings Iterator (Phase 257)
