@@ -529,6 +529,7 @@ pub mod settings_butterfly; // v0.0.780: Settings butterfly
 pub mod settings_sanctuary; // v0.0.781: Settings sanctuary
 pub mod settings_reserve; // v0.0.782: Settings reserve
 pub mod settings_refuge; // v0.0.783: Settings refuge
+pub mod settings_haven; // v0.0.784: Settings haven
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

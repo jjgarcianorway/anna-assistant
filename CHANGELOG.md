@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.784] - 2025-12-15
+
+### Added - Settings Haven (Phase 360)
+
+**Settings Haven Module:**
+- `settings_haven.rs` for safe haven for settings protection
+- `HavenType` enum (Safe, Secure, Protected, Peaceful)
+- `HavenStatus` enum (Open, Sheltering, Guarding, Welcoming)
+- `HavenConfig` / `HavenGuest` / `HavenKeeper` / `HavenStats` structs
+- `SettingsHaven` / `HavenRegistry` for managing havens
+
+**Core Functions:**
+- `register()` / `unregister()` - Haven management
+- `add_guest()` - Add guests
+- `make_comfortable()` / `make_restless()` - Comfort management
+- `add_keeper()` - Add keepers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple haven types
+- Status tracking
+- Room numbering
+- Keeper support
+- Comfort rate calculation
+
 ## [0.0.783] - 2025-12-15
 
 ### Added - Settings Refuge (Phase 359)
