@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.749] - 2025-12-15
+
+### Added - Settings County (Phase 325)
+
+**Settings County Module:**
+- `settings_county.rs` for county level for settings governance
+- `CountyType` enum (Metropolitan, Rural, Historic, Administrative)
+- `CountyStatus` enum (Established, Active, Merged, Abolished)
+- `CountyConfig` / `CountyOrdinance` / `CountyCommissioner` / `CountyStats` structs
+- `SettingsCounty` / `CountyRegistry` for managing counties
+
+**Core Functions:**
+- `register()` / `unregister()` - County management
+- `add_ordinance()` - Add ordinances
+- `make_enacted()` / `make_repealed()` - Enacted management
+- `add_commissioner()` - Add commissioners
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple county types
+- Status tracking
+- Township numbering
+- Commissioner support
+- Enacted rate calculation
+
 ## [0.0.748] - 2025-12-15
 
 ### Added - Settings District (Phase 324)
