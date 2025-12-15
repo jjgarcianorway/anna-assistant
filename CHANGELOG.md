@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.670] - 2025-12-15
+
+### Added - Settings Query Engine (Phase 246)
+
+**Settings Query Engine Module:**
+- `settings_query_engine.rs` for complex settings queries
+- `QueryType` enum (Select, Filter, Aggregate, Join, Union)
+- `QueryOperator` enum (Eq, Ne, Gt, Lt, Contains, StartsWith)
+- `QueryEngineConfig` / `QueryCondition` / `Query` / `QueryResult` / `QueryEngineStats` structs
+- `SettingsQueryEngine` / `QueryEngineRegistry` for managing engines
+
+**Core Functions:**
+- `register()` / `unregister()` - Engine management
+- `execute()` - Execute query against settings
+- `select_all()` - Select all settings
+- `select_where_key_starts()` - Filter by key prefix
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple query types
+- Various operators
+- Pagination (limit/offset)
+- Case insensitivity
+- Per-engine statistics
+
 ## [0.0.669] - 2025-12-15
 
 ### Added - Settings Indexer (Phase 245)

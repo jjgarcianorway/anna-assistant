@@ -415,6 +415,7 @@ pub mod settings_transform; // v0.0.666: Settings transform
 pub mod settings_normalization; // v0.0.667: Settings normalization
 pub mod settings_denormalization; // v0.0.668: Settings denormalization
 pub mod settings_indexer; // v0.0.669: Settings indexer
+pub mod settings_query_engine; // v0.0.670: Settings query engine
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
