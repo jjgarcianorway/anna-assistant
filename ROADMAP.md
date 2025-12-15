@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.651 - Settings Mapper (Phase 227) ✓
+- [x] `settings_mapper.rs` for key transformations
+- [x] `MappingType` / `MappingDirection`
+- [x] `MappingRule` / `MapperConfig` / `MappingResult` / `MapperStats`
+- [x] `SettingsMapper` / `SettingsMapperRegistry`
+- [x] Rule-based key transformation with direction
+
 ### v0.0.650 - Settings Converter (Phase 226) ✓
 - [x] `settings_converter.rs` for format transformation
 - [x] `SourceFormat` / `TargetFormat`

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.651] - 2025-12-15
+
+### Added - Settings Mapper (Phase 227)
+
+**Settings Mapper Module:**
+- `settings_mapper.rs` for key transformations
+- `MappingType` enum (Direct, Rename, Transform, Merge, Split)
+- `MappingDirection` enum (Forward, Reverse, Bidirectional)
+- `MappingRule` / `MapperConfig` / `MappingResult` / `MapperStats` structs
+- `SettingsMapper` / `SettingsMapperRegistry` for managing mappers
+
+**Core Functions:**
+- `register()` / `unregister()` - Mapper management
+- `add_rule()` - Add mapping rules
+- `map()` - Apply key transformations
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple mapping types
+- Directional mapping
+- Case sensitivity option
+- Unmapped key handling
+- Per-mapper statistics
+
 ## [0.0.650] - 2025-12-15
 
 ### Added - Settings Converter (Phase 226)
