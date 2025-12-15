@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.767] - 2025-12-15
+
+### Added - Settings Vineyard (Phase 343)
+
+**Settings Vineyard Module:**
+- `settings_vineyard.rs` for grape vineyard for settings viticulture
+- `VineyardType` enum (RedWine, WhiteWine, TableGrape, Raisin)
+- `VineyardStatus` enum (Pruned, Budding, Ripening, Vintage)
+- `VineyardConfig` / `VineyardVine` / `VineyardVintner` / `VineyardStats` structs
+- `SettingsVineyard` / `VineyardRegistry` for managing vineyards
+
+**Core Functions:**
+- `register()` / `unregister()` - Vineyard management
+- `add_vine()` - Add vines
+- `make_bearing()` / `make_dormant()` - Bearing management
+- `add_vintner()` - Add vintners
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple vineyard types
+- Status tracking
+- Terrace numbering
+- Vintner support
+- Bearing rate calculation
+
 ## [0.0.766] - 2025-12-15
 
 ### Added - Settings Orchard (Phase 342)
