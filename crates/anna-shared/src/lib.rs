@@ -432,6 +432,7 @@ pub mod settings_zipper; // v0.0.683: Settings zipper
 pub mod settings_scanner; // v0.0.684: Settings scanner
 pub mod settings_finder; // v0.0.685: Settings finder
 pub mod settings_counter; // v0.0.686: Settings counter
+pub mod settings_matcher; // v0.0.687: Settings matcher
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

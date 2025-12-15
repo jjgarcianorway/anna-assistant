@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.687] - 2025-12-15
+
+### Added - Settings Matcher (Phase 263)
+
+**Settings Matcher Module:**
+- `settings_matcher.rs` for matching settings against patterns and rules
+- `MatchType` enum (Exact, Prefix, Suffix, Contains)
+- `MatchTarget` enum (Key, Value, Both, Either)
+- `MatcherConfig` / `MatchRule` / `MatchItem` / `MatchResult` / `MatcherStats` structs
+- `SettingsMatcher` / `MatcherRegistry` for managing matchers
+
+**Core Functions:**
+- `register()` / `unregister()` - Matcher management
+- `add_rule()` / `remove_rule()` - Rule management
+- `match_pattern()` - Match against single pattern
+- `match_rules()` - Match against multiple rules
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple match types
+- Flexible match targets
+- Case-insensitive matching
+- Inverted matching
+- Rule-based matching
+
 ## [0.0.686] - 2025-12-15
 
 ### Added - Settings Counter (Phase 262)
