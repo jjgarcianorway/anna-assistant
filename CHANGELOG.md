@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.725] - 2025-12-15
+
+### Added - Settings Constitution (Phase 301)
+
+**Settings Constitution Module:**
+- `settings_constitution.rs` for supreme law for settings governance
+- `ConstitutionType` enum (Written, Unwritten, Codified, Uncodified)
+- `ConstitutionBranch` enum (Executive, Legislative, Judicial, Administrative)
+- `ConstitutionConfig` / `ConstitutionArticle` / `ConstitutionClause` / `ConstitutionStats` structs
+- `SettingsConstitution` / `ConstitutionRegistry` for managing constitutions
+
+**Core Functions:**
+- `register()` / `unregister()` - Constitution management
+- `add_article()` - Add articles
+- `ratify()` / `repeal()` - Ratification management
+- `add_clause()` - Add clauses
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple constitution types
+- Branch organization
+- Ratification tracking
+- Article numbering
+- Clause support
+
 ## [0.0.724] - 2025-12-15
 
 ### Added - Settings Charter (Phase 300)

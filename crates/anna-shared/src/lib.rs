@@ -470,6 +470,7 @@ pub mod settings_mandate; // v0.0.721: Settings mandate
 pub mod settings_ordinance; // v0.0.722: Settings ordinance
 pub mod settings_statute; // v0.0.723: Settings statute
 pub mod settings_charter; // v0.0.724: Settings charter
+pub mod settings_constitution; // v0.0.725: Settings constitution
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
