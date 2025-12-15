@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.769] - 2025-12-15
+
+### Added - Settings Nursery (Phase 345)
+
+**Settings Nursery Module:**
+- `settings_nursery.rs` for plant nursery for settings propagation
+- `NurseryType` enum (Retail, Wholesale, Specialty, Research)
+- `NurseryStatus` enum (Seeding, Growing, Ready, Dormant)
+- `NurseryConfig` / `NurserySeedling` / `NurseryPropagator` / `NurseryStats` structs
+- `SettingsNursery` / `NurseryRegistry` for managing nurseries
+
+**Core Functions:**
+- `register()` / `unregister()` - Nursery management
+- `add_seedling()` - Add seedlings
+- `make_viable()` / `make_unviable()` - Viability management
+- `add_propagator()` - Add propagators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple nursery types
+- Status tracking
+- Tray numbering
+- Propagator support
+- Viability rate calculation
+
 ## [0.0.768] - 2025-12-15
 
 ### Added - Settings Garden (Phase 344)
