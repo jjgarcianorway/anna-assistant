@@ -389,11 +389,13 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.790**
+Current: **v0.0.791**
 
 Recent highlights:
+- **Failed services detection** - "show me failed services" now works instantly
 - **Natural language config** - change settings with phrases like "enable learning mode"
 - **Editor configuration** - "enable syntax highlighting in vim" with Safe Change Engine
+- **Port queries** - "what's using port 3000" works deterministically
 - **9 IT departments** with named staff (Sofia, Michael, Kari, Hugo, Lars...)
 - **RPG progression system** with XP, levels, and titles
 - **Internal comms** - watch the IT team discuss your request
