@@ -419,6 +419,7 @@ pub mod settings_query_engine; // v0.0.670: Settings query engine
 pub mod settings_aggregation; // v0.0.671: Settings aggregation
 pub mod settings_projector; // v0.0.672: Settings projector
 pub mod settings_selector; // v0.0.673: Settings selector
+pub mod settings_filter; // v0.0.674: Settings filter
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.674] - 2025-12-15
+
+### Added - Settings Filter (Phase 250)
+
+**Settings Filter Module:**
+- `settings_filter.rs` for filtering settings with predicates
+- `FilterType` enum (Include, Exclude, AllowList, BlockList)
+- `FilterPredicate` enum (IsEmpty, IsNotEmpty, IsNumeric, IsBoolean, HasValue)
+- `FilterConfig` / `FilterRule` / `FilterResult` / `FilterStats` structs
+- `SettingsFilter` / `FilterRegistry` for managing filters
+
+**Core Functions:**
+- `register()` / `unregister()` - Filter management
+- `filter_by()` - Filter by predicate
+- `filter()` - Apply filter rules
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple filter types
+- Built-in predicates
+- Pattern-based filtering
+- Chainable rules
+- Per-filter statistics
+
 ## [0.0.673] - 2025-12-15
 
 ### Added - Settings Selector (Phase 249)
