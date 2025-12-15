@@ -506,6 +506,7 @@ pub mod settings_parcel; // v0.0.757: Settings parcel
 pub mod settings_plot; // v0.0.758: Settings plot
 pub mod settings_tract; // v0.0.759: Settings tract
 pub mod settings_acre; // v0.0.760: Settings acre
+pub mod settings_hectare; // v0.0.761: Settings hectare
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

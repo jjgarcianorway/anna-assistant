@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.761] - 2025-12-15
+
+### Added - Settings Hectare (Phase 337)
+
+**Settings Hectare Module:**
+- `settings_hectare.rs` for land hectare for settings metric area
+- `HectareType` enum (Standard, Cadastral, Agricultural, Forest)
+- `HectareStatus` enum (Surveyed, Registered, Contested, Confirmed)
+- `HectareConfig` / `HectareRecord` / `HectareInspector` / `HectareStats` structs
+- `SettingsHectare` / `HectareRegistry` for managing hectares
+
+**Core Functions:**
+- `register()` / `unregister()` - Hectare management
+- `add_record()` - Add records
+- `make_confirmed()` / `make_unconfirmed()` - Confirmed management
+- `add_inspector()` - Add inspectors
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple hectare types
+- Status tracking
+- Grid reference numbering
+- Inspector support
+- Confirmed rate calculation
+
 ## [0.0.760] - 2025-12-15
 
 ### Added - Settings Acre (Phase 336)
