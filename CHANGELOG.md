@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.724] - 2025-12-15
+
+### Added - Settings Charter (Phase 300)
+
+**Settings Charter Module:**
+- `settings_charter.rs` for foundational charter for settings governance
+- `CharterType` enum (Founding, Corporate, Municipal, Royal)
+- `CharterStatus` enum (Draft, Ratified, Amended, Revoked)
+- `CharterConfig` / `CharterProvision` / `CharterAmendment` / `CharterStats` structs
+- `SettingsCharter` / `CharterRegistry` for managing charters
+
+**Core Functions:**
+- `register()` / `unregister()` - Charter management
+- `add_provision()` - Add provisions
+- `activate()` / `deactivate()` - Activation management
+- `add_amendment()` - Add amendments
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple charter types
+- Status tracking
+- Provision sections
+- Amendment support
+- Active rate calculation
+
 ## [0.0.723] - 2025-12-15
 
 ### Added - Settings Statute (Phase 299)
