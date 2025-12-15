@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.753] - 2025-12-15
+
+### Added - Settings Precinct (Phase 329)
+
+**Settings Precinct Module:**
+- `settings_precinct.rs` for voting precinct for settings participation
+- `PrecinctType` enum (Voting, Police, Fire, School)
+- `PrecinctStatus` enum (Designated, Active, Consolidated, Dissolved)
+- `PrecinctConfig` / `PrecinctBallot` / `PrecinctCaptain` / `PrecinctStats` structs
+- `SettingsPrecinct` / `PrecinctRegistry` for managing precincts
+
+**Core Functions:**
+- `register()` / `unregister()` - Precinct management
+- `add_ballot()` - Add ballots
+- `make_certified()` / `make_contested()` - Certified management
+- `add_captain()` - Add captains
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple precinct types
+- Status tracking
+- District numbering
+- Captain support
+- Certified rate calculation
+
 ## [0.0.752] - 2025-12-15
 
 ### Added - Settings Ward (Phase 328)
