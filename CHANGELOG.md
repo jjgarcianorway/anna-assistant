@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.740] - 2025-12-15
+
+### Added - Settings Bloc (Phase 316)
+
+**Settings Bloc Module:**
+- `settings_bloc.rs` for regional bloc for settings coordination
+- `BlocType` enum (Trading, Voting, Power, Regional)
+- `BlocStatus` enum (Forming, Active, Dominant, Fragmented)
+- `BlocConfig` / `BlocPolicy` / `BlocMember` / `BlocStats` structs
+- `SettingsBloc` / `BlocRegistry` for managing blocs
+
+**Core Functions:**
+- `register()` / `unregister()` - Bloc management
+- `add_policy()` - Add policies
+- `make_coordinated()` / `make_independent()` - Coordination management
+- `add_member()` - Add members
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple bloc types
+- Status tracking
+- Priority numbering
+- Member support
+- Coordination rate calculation
+
 ## [0.0.739] - 2025-12-15
 
 ### Added - Settings Union (Phase 315)
