@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.743] - 2025-12-15
+
+### Added - Settings Domain (Phase 319)
+
+**Settings Domain Module:**
+- `settings_domain.rs` for sovereign domain for settings jurisdiction
+- `DomainType` enum (Public, Private, Royal, Eminent)
+- `DomainStatus` enum (Claimed, Recognized, Consolidated, Disputed)
+- `DomainConfig` / `DomainRight` / `DomainHolder` / `DomainStats` structs
+- `SettingsDomain` / `DomainRegistry` for managing domains
+
+**Core Functions:**
+- `register()` / `unregister()` - Domain management
+- `add_right()` - Add rights
+- `make_exclusive()` / `make_shared()` - Exclusivity management
+- `add_holder()` - Add holders
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple domain types
+- Status tracking
+- Priority numbering
+- Holder support
+- Exclusive rate calculation
+
 ## [0.0.742] - 2025-12-15
 
 ### Added - Settings Zone (Phase 318)

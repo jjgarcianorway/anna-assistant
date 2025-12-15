@@ -488,6 +488,7 @@ pub mod settings_union; // v0.0.739: Settings union
 pub mod settings_bloc; // v0.0.740: Settings bloc
 pub mod settings_sphere; // v0.0.741: Settings sphere
 pub mod settings_zone; // v0.0.742: Settings zone
+pub mod settings_domain; // v0.0.743: Settings domain
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
