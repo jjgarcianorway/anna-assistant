@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.660 - Settings Versioner (Phase 236) ✓
+- [x] `settings_versioner.rs` for tracking settings version history
+- [x] `VersionScheme` / `BumpType`
+- [x] `VersionerConfig` / `SettingsVersion` / `VersionResult` / `VersionerStats`
+- [x] `SettingsVersioner` / `SettingsVersionerRegistry`
+- [x] Semantic versioning with history tracking
+
 ### v0.0.659 - Settings Restorer (Phase 235) ✓
 - [x] `settings_restorer.rs` for recovering settings from archives
 - [x] `RestoreMode` / `RestoreStrategy`

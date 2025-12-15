@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.660] - 2025-12-15
+
+### Added - Settings Versioner (Phase 236)
+
+**Settings Versioner Module:**
+- `settings_versioner.rs` for tracking settings version history
+- `VersionScheme` enum (Semantic, Sequential, DateBased, HashBased)
+- `BumpType` enum (Major, Minor, Patch, Auto)
+- `VersionerConfig` / `SettingsVersion` / `VersionResult` / `VersionerStats` structs
+- `SettingsVersioner` / `SettingsVersionerRegistry` for managing versioners
+
+**Core Functions:**
+- `register()` / `unregister()` - Versioner management
+- `bump()` - Increment version
+- `bump_with_description()` - Bump with change note
+- `set_version()` - Set specific version
+- `history()` / `stats()` - Data access
+
+**Features:**
+- Semantic versioning support
+- Version history tracking
+- Bump type statistics
+- Description annotations
+- Max history limit
+
 ## [0.0.659] - 2025-12-15
 
 ### Added - Settings Restorer (Phase 235)
