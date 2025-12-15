@@ -502,6 +502,7 @@ pub mod settings_precinct; // v0.0.753: Settings precinct
 pub mod settings_neighborhood; // v0.0.754: Settings neighborhood
 pub mod settings_block; // v0.0.755: Settings block
 pub mod settings_lot; // v0.0.756: Settings lot
+pub mod settings_parcel; // v0.0.757: Settings parcel
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

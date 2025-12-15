@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.757] - 2025-12-15
+
+### Added - Settings Parcel (Phase 333)
+
+**Settings Parcel Module:**
+- `settings_parcel.rs` for land parcel for settings ownership
+- `ParcelType` enum (FeeSimple, Leasehold, Easement, RightOfWay)
+- `ParcelStatus` enum (Platted, Conveyed, Encumbered, Cleared)
+- `ParcelConfig` / `ParcelTitle` / `ParcelExaminer` / `ParcelStats` structs
+- `SettingsParcel` / `ParcelRegistry` for managing parcels
+
+**Core Functions:**
+- `register()` / `unregister()` - Parcel management
+- `add_title()` - Add titles
+- `make_cleared()` / `make_clouded()` - Cleared management
+- `add_examiner()` - Add examiners
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple parcel types
+- Status tracking
+- Section numbering
+- Examiner support
+- Cleared rate calculation
+
 ## [0.0.756] - 2025-12-15
 
 ### Added - Settings Lot (Phase 332)
