@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.681] - 2025-12-15
+
+### Added - Settings Iterator (Phase 257)
+
+**Settings Iterator Module:**
+- `settings_iterator.rs` for iterating over settings with various strategies
+- `IterationOrder` enum (Natural, Alphabetical, ReverseAlphabetical, ByValueLength)
+- `IterationFilter` enum (None, NonEmpty, Numeric, Boolean)
+- `IteratorConfig` / `IterationItem` / `IterationResult` / `IteratorStats` structs
+- `SettingsIterator` / `IteratorRegistry` for managing iterators
+
+**Core Functions:**
+- `register()` / `unregister()` - Iterator management
+- `iterate()` - Iterate with ordering and filtering
+- `for_each()` - Iterate with callback
+- `iterate_batched()` - Iterate in batches
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple iteration orders
+- Built-in filters
+- Skip and take support
+- Batch iteration
+- Per-iteration statistics
+
 ## [0.0.680] - 2025-12-15
 
 ### Added - Settings Expander (Phase 256)
