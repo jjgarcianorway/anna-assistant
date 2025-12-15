@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.671] - 2025-12-15
+
+### Added - Settings Aggregation (Phase 247)
+
+**Settings Aggregation Module:**
+- `settings_aggregation.rs` for aggregating settings values
+- `AggregateFunction` enum (Count, Sum, Avg, Min, Max)
+- `GroupByType` enum (Prefix, Suffix, Value, Pattern)
+- `AggregatorConfig` / `AggregateEntry` / `AggregationResult` / `AggregatorStats` structs
+- `SettingsAggregator` / `AggregatorRegistry` for managing aggregators
+
+**Core Functions:**
+- `register()` / `unregister()` - Aggregator management
+- `count()` - Count by group
+- `aggregate()` - Apply aggregate function
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple aggregate functions
+- Group by key prefix/suffix
+- Sorted results
+- Per-aggregator statistics
+
 ## [0.0.670] - 2025-12-15
 
 ### Added - Settings Query Engine (Phase 246)
