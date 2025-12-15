@@ -495,6 +495,7 @@ pub mod settings_province; // v0.0.746: Settings province
 pub mod settings_region; // v0.0.747: Settings region
 pub mod settings_district; // v0.0.748: Settings district
 pub mod settings_county; // v0.0.749: Settings county
+pub mod settings_municipality; // v0.0.750: Settings municipality
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

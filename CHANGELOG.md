@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.750] - 2025-12-15
+
+### Added - Settings Municipality (Phase 326)
+
+**Settings Municipality Module:**
+- `settings_municipality.rs` for municipal corporation for settings self-governance
+- `MunicipalityType` enum (City, Town, Village, Township)
+- `MunicipalityStatus` enum (Incorporated, Chartered, Consolidated, Dissolved)
+- `MunicipalityConfig` / `MunicipalityCode` / `MunicipalityCouncilor` / `MunicipalityStats` structs
+- `SettingsMunicipality` / `MunicipalityRegistry` for managing municipalities
+
+**Core Functions:**
+- `register()` / `unregister()` - Municipality management
+- `add_code()` - Add codes
+- `make_in_force()` / `make_suspended()` - In force management
+- `add_councilor()` - Add councilors
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple municipality types
+- Status tracking
+- Chapter numbering
+- Councilor support
+- In force rate calculation
+
 ## [0.0.749] - 2025-12-15
 
 ### Added - Settings County (Phase 325)
