@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.728] - 2025-12-15
+
+### Added - Settings Protocol (Phase 304)
+
+**Settings Protocol Module:**
+- `settings_protocol.rs` for formal protocol for settings governance
+- `ProtocolType` enum (Amendment, Optional, Supplementary, Implementation)
+- `ProtocolStatus` enum (Draft, Open, Active, Closed)
+- `ProtocolConfig` / `ProtocolClause` / `ProtocolParty` / `ProtocolStats` structs
+- `SettingsProtocol` / `ProtocolRegistry` for managing protocols
+
+**Core Functions:**
+- `register()` / `unregister()` - Protocol management
+- `add_clause()` - Add clauses
+- `adopt()` / `reject()` - Adoption management
+- `add_party()` - Add parties
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple protocol types
+- Status tracking
+- Section numbering
+- Party support
+- Adoption rate calculation
+
 ## [0.0.727] - 2025-12-15
 
 ### Added - Settings Treaty (Phase 303)
