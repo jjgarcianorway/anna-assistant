@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.781] - 2025-12-15
+
+### Added - Settings Sanctuary (Phase 357)
+
+**Settings Sanctuary Module:**
+- `settings_sanctuary.rs` for wildlife sanctuary for settings conservation
+- `SanctuaryType` enum (Wildlife, Marine, Bird, Forest)
+- `SanctuaryStatus` enum (Protected, Monitored, Rehabilitating, Expanding)
+- `SanctuaryConfig` / `SanctuaryResident` / `SanctuaryWarden` / `SanctuaryStats` structs
+- `SettingsSanctuary` / `SanctuaryRegistry` for managing sanctuaries
+
+**Core Functions:**
+- `register()` / `unregister()` - Sanctuary management
+- `add_resident()` - Add residents
+- `make_thriving()` / `make_recovering()` - Thriving management
+- `add_warden()` - Add wardens
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple sanctuary types
+- Status tracking
+- Habitat numbering
+- Warden support
+- Thriving rate calculation
+
 ## [0.0.780] - 2025-12-15
 
 ### Added - Settings Butterfly (Phase 356)
