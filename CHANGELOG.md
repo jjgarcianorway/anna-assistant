@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.765] - 2025-12-15
+
+### Added - Settings Grove (Phase 341)
+
+**Settings Grove Module:**
+- `settings_grove.rs` for tree grove for settings forestry
+- `GroveType` enum (Oak, Olive, Citrus, Sacred)
+- `GroveStatus` enum (Planted, Maturing, Productive, Resting)
+- `GroveConfig` / `GroveTree` / `GroveTender` / `GroveStats` structs
+- `SettingsGrove` / `GroveRegistry` for managing groves
+
+**Core Functions:**
+- `register()` / `unregister()` - Grove management
+- `add_tree()` - Add trees
+- `make_healthy()` / `make_diseased()` - Health management
+- `add_tender()` - Add tenders
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple grove types
+- Status tracking
+- Row numbering
+- Tender support
+- Healthy rate calculation
+
 ## [0.0.764] - 2025-12-15
 
 ### Added - Settings Pasture (Phase 340)

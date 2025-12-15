@@ -510,6 +510,7 @@ pub mod settings_hectare; // v0.0.761: Settings hectare
 pub mod settings_field; // v0.0.762: Settings field
 pub mod settings_meadow; // v0.0.763: Settings meadow
 pub mod settings_pasture; // v0.0.764: Settings pasture
+pub mod settings_grove; // v0.0.765: Settings grove
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
