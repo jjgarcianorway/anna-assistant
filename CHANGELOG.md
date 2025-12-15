@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.774] - 2025-12-15
+
+### Added - Settings Herbarium (Phase 350)
+
+**Settings Herbarium Module:**
+- `settings_herbarium.rs` for plant herbarium for settings taxonomy
+- `HerbariumType` enum (University, Museum, National, Private)
+- `HerbariumStatus` enum (Active, Cataloging, Digitizing, Archiving)
+- `HerbariumConfig` / `HerbariumSpecimen` / `HerbariumTaxonomist` / `HerbariumStats` structs
+- `SettingsHerbarium` / `HerbariumRegistry` for managing herbariums
+
+**Core Functions:**
+- `register()` / `unregister()` - Herbarium management
+- `add_specimen()` - Add specimens
+- `make_mounted()` / `make_unmounted()` - Mount management
+- `add_taxonomist()` - Add taxonomists
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple herbarium types
+- Status tracking
+- Cabinet numbering
+- Taxonomist support
+- Mount rate calculation
+
 ## [0.0.773] - 2025-12-15
 
 ### Added - Settings Botanical (Phase 349)
