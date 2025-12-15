@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.683] - 2025-12-15
+
+### Added - Settings Zipper (Phase 259)
+
+**Settings Zipper Module:**
+- `settings_zipper.rs` for zipping and unzipping settings collections
+- `ZipMode` enum (ByKey, ByPosition, Cartesian, WithDefault)
+- `UnzipMode` enum (ByPrefix, Alternating, ByIndex)
+- `ZipperConfig` / `ZippedPair` / `ZipResult` / `UnzipResult` / `ZipperStats` structs
+- `SettingsZipper` / `ZipperRegistry` for managing zippers
+
+**Core Functions:**
+- `register()` / `unregister()` - Zipper management
+- `zip_by_key()` - Zip collections by matching keys
+- `zip_by_position()` - Zip by position in collection
+- `unzip_by_prefix()` - Split by key prefix
+- `unzip_alternating()` - Split alternating entries
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple zip modes
+- Multiple unzip modes
+- Default value for missing pairs
+- Match rate tracking
+- Balanced split detection
+
 ## [0.0.682] - 2025-12-15
 
 ### Added - Settings Collector (Phase 258)
