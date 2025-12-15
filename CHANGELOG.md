@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.792] - 2025-12-15
+
+### Fixed - Port Query Direct Answer
+
+**Direct Probe Answer for Port Queries:**
+- Added `try_port_answer` function to `probe_direct.rs` for instant port query responses
+- Queries like "open ports", "what's using port 3000", "listening ports" now bypass LLM
+- Parses `ss -tulpn` output and formats a clean answer with port numbers and process names
+- Fixes timeout issue where port queries would hang waiting for LLM response
+
+**Root Cause:**
+- Port queries were correctly classified and probes ran successfully
+- However, `probe_direct.rs` had no handler for port-related queries
+- This caused queries to fall through to LLM specialist which timed out
+- Now port data is formatted directly from probe output
+
+**Example usage:**
+- `annactl "open ports"` - instant response with listening ports list
+- `annactl "what's using port 3000"` - instant response
+- `annactl "show listening ports"` - instant response
+
 ## [0.0.791] - 2025-12-15
 
 ### Added - Failed Services Query Classification

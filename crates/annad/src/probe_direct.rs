@@ -47,6 +47,11 @@ pub fn try_direct_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAn
         return Some(r);
     }
 
+    // v0.0.792: Port/listening queries
+    if let Some(r) = try_port_answer(&q, probes) {
+        return Some(r);
+    }
+
     // Bluetooth queries
     if let Some(r) = try_bluetooth_answer(&q, probes) {
         return Some(r);
@@ -390,6 +395,84 @@ fn try_network_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswe
     None
 }
 
+/// v0.0.792: Port/listening answer
+fn try_port_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerResult> {
+    if !query.contains("port") && !query.contains("listen") && !query.contains("ss") && !query.contains("netstat") {
+        return None;
+    }
+
+    for probe in probes {
+        let cmd = probe.command.to_lowercase();
+        if cmd.contains("ss") || cmd.contains("netstat") {
+            if probe.exit_code != 0 {
+                continue;
+            }
+
+            let output = probe.stdout.trim();
+            if output.is_empty() {
+                return Some(DirectAnswerResult {
+                    answer: "**No listening ports** found on this system.".to_string(),
+                    confidence: 95,
+                });
+            }
+
+            // Parse ss -tulpn output
+            let lines: Vec<&str> = output.lines().collect();
+            let port_count = lines.len().saturating_sub(1); // Subtract header
+
+            if port_count == 0 {
+                return Some(DirectAnswerResult {
+                    answer: "**No listening ports** found on this system.".to_string(),
+                    confidence: 95,
+                });
+            }
+
+            // Format the answer with port information
+            let mut answer = format!("**Listening Ports ({}):**\n", port_count);
+
+            // Parse and format each listening port
+            for line in lines.iter().skip(1).take(20) {
+                // Skip header line
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 5 {
+                    let proto = parts[0]; // tcp/udp
+                    let local_addr = parts[4]; // Local Address:Port
+                    let process = if parts.len() >= 7 {
+                        // Extract process name from users:(("name",...))
+                        parts[6..].join(" ")
+                    } else {
+                        String::new()
+                    };
+
+                    if process.is_empty() {
+                        answer.push_str(&format!("- {} {}\n", proto, local_addr));
+                    } else {
+                        // Extract process name from users:(("name",pid=...))
+                        let proc_name = process
+                            .split("((\"")
+                            .nth(1)
+                            .and_then(|s| s.split('"').next())
+                            .unwrap_or(&process);
+                        answer.push_str(&format!("- {} {} ({})\n", proto, local_addr, proc_name));
+                    }
+                }
+            }
+
+            if port_count > 20 {
+                answer.push_str(&format!("\n...and {} more\n", port_count - 20));
+            }
+
+            info!("v0.0.792: Direct port answer");
+            return Some(DirectAnswerResult {
+                answer,
+                confidence: 95,
+            });
+        }
+    }
+
+    None
+}
+
 /// Bluetooth answer
 fn try_bluetooth_answer(query: &str, probes: &[ProbeResult]) -> Option<DirectAnswerResult> {
     if !query.contains("bluetooth") {
@@ -622,5 +705,27 @@ mod tests {
             extract_service_name("check nginx service"),
             Some("nginx".to_string())
         );
+    }
+
+    #[test]
+    fn test_port_answer() {
+        let probe = make_probe(
+            "ss -tulpn",
+            "Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process\ntcp   LISTEN 0      128    127.0.0.1:8080  0.0.0.0:*     users:((\"node\",pid=1234,fd=3))",
+        );
+        let result = try_direct_answer("open ports", &[probe]).unwrap();
+        assert!(result.answer.contains("Listening Ports"));
+        assert!(result.answer.contains("8080"));
+    }
+
+    #[test]
+    fn test_port_answer_what_ports() {
+        let probe = make_probe(
+            "ss -tulpn",
+            "Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process\ntcp   LISTEN 0      128    0.0.0.0:3000  0.0.0.0:*",
+        );
+        let result = try_direct_answer("what's using port 3000", &[probe]).unwrap();
+        assert!(result.answer.contains("Listening Ports"));
+        assert!(result.answer.contains("3000"));
     }
 }

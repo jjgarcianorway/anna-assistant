@@ -295,3 +295,28 @@ mod tests {
         assert!(route.can_answer_deterministically());
     }
 }
+
+#[test]
+fn test_classify_listening_ports() {
+    use crate::query_classify::classify_query;
+    use crate::router::QueryClass;
+    
+    // "open ports" should be classified as ListeningPorts
+    assert_eq!(classify_query("open ports"), QueryClass::ListeningPorts);
+    assert_eq!(classify_query("what ports are open"), QueryClass::ListeningPorts);
+    assert_eq!(classify_query("what's using port 3000"), QueryClass::ListeningPorts);
+}
+
+#[test]
+fn test_listening_ports_can_answer_deterministically() {
+    use crate::router;
+    
+    let route = router::get_route("open ports");
+    println!("Query: 'open ports'");
+    println!("  class: {:?}", route.class);
+    println!("  can_answer_deterministically: {}", route.can_answer_deterministically());
+    println!("  probes: {:?}", route.probes);
+    
+    assert_eq!(route.class, router::QueryClass::ListeningPorts);
+    assert!(route.can_answer_deterministically(), "ListeningPorts should be able to answer deterministically");
+}
