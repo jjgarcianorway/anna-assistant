@@ -493,6 +493,7 @@ pub mod settings_realm; // v0.0.744: Settings realm
 pub mod settings_territory; // v0.0.745: Settings territory
 pub mod settings_province; // v0.0.746: Settings province
 pub mod settings_region; // v0.0.747: Settings region
+pub mod settings_district; // v0.0.748: Settings district
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

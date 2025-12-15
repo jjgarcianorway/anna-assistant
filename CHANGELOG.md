@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.748] - 2025-12-15
+
+### Added - Settings District (Phase 324)
+
+**Settings District Module:**
+- `settings_district.rs` for local district for settings administration
+- `DistrictType` enum (Urban, Rural, Industrial, Commercial)
+- `DistrictStatus` enum (Planned, Operational, Developing, Restructuring)
+- `DistrictConfig` / `DistrictBylaw` / `DistrictOfficial` / `DistrictStats` structs
+- `SettingsDistrict` / `DistrictRegistry` for managing districts
+
+**Core Functions:**
+- `register()` / `unregister()` - District management
+- `add_bylaw()` - Add bylaws
+- `make_active()` / `make_inactive()` - Active management
+- `add_official()` - Add officials
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple district types
+- Status tracking
+- Ward numbering
+- Official support
+- Active rate calculation
+
 ## [0.0.747] - 2025-12-15
 
 ### Added - Settings Region (Phase 323)
