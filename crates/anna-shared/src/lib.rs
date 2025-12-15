@@ -409,6 +409,7 @@ pub mod settings_versioner; // v0.0.660: Settings versioner
 pub mod settings_differ; // v0.0.661: Settings differ
 pub mod settings_patcher; // v0.0.662: Settings patcher
 pub mod settings_graph; // v0.0.663: Settings graph
+pub mod settings_resolution; // v0.0.664: Settings resolution
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

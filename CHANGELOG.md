@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.664] - 2025-12-15
+
+### Added - Settings Resolution (Phase 240)
+
+**Settings Resolution Module:**
+- `settings_resolution.rs` for resolving settings with reference following
+- `ResolutionStrategy` enum (Direct, Reference, Computed, Cached, Default)
+- `ResolutionStatus` enum (Resolved, Pending, Failed, Circular, NotFound)
+- `ResolverConfig` / `ResolutionResult` / `ResolutionRequest` / `ResolverStats` structs
+- `SettingsResolver` / `SettingsResolverRegistry` for managing resolvers
+
+**Core Functions:**
+- `register()` / `unregister()` - Resolver management
+- `set()` / `set_reference()` - Define values and references
+- `resolve()` - Resolve key with reference following
+- `resolve_request()` - Resolve with defaults
+- `clear_cache()` - Clear resolution cache
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple resolution strategies
+- Reference chain following
+- Circular reference detection
+- Result caching
+- Default value support
+- Per-resolver statistics
+
 ## [0.0.663] - 2025-12-15
 
 ### Added - Settings Graph (Phase 239)
