@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.655] - 2025-12-15
+
+### Added - Settings Merger (Phase 231)
+
+**Settings Merger Module:**
+- `settings_merger.rs` for combining multiple settings sources
+- `MergeStrategy` enum (FirstWins, LastWins, PriorityWins, Combine, Union)
+- `ConflictResolution` enum (UseStrategy, Skip, Fail, Prompt)
+- `MergerConfig` / `MergeSource` / `MergeResult` / `MergerStats` structs
+- `SettingsMerger` / `SettingsMergerRegistry` for managing mergers
+
+**Core Functions:**
+- `register()` / `unregister()` - Merger management
+- `merge()` - Combine multiple sources
+- `merge_maps()` - Merge two hashmaps directly
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple merge strategies
+- Conflict resolution modes
+- Priority-based merging
+- Source tracking
+- Per-merger statistics
+
 ## [0.0.654] - 2025-12-15
 
 ### Added - Settings Injector (Phase 230)

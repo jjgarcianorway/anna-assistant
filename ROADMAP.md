@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.655 - Settings Merger (Phase 231) ✓
+- [x] `settings_merger.rs` for combining multiple settings sources
+- [x] `MergeStrategy` / `ConflictResolution`
+- [x] `MergerConfig` / `MergeSource` / `MergeResult` / `MergerStats`
+- [x] `SettingsMerger` / `SettingsMergerRegistry`
+- [x] Priority-based merging with conflict resolution
+
 ### v0.0.654 - Settings Injector (Phase 230) ✓
 - [x] `settings_injector.rs` for inserting settings into configurations
 - [x] `InjectionType` / `InjectionStrategy`
