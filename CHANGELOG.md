@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.771] - 2025-12-15
+
+### Added - Settings Conservatory (Phase 347)
+
+**Settings Conservatory Module:**
+- `settings_conservatory.rs` for glass conservatory for settings preservation
+- `ConservatoryType` enum (Victorian, Modern, LeanTo, Edwardian)
+- `ConservatoryStatus` enum (Open, Closed, Ventilating, Renovation)
+- `ConservatoryConfig` / `ConservatorySpecimen` / `ConservatoryCurator` / `ConservatoryStats` structs
+- `SettingsConservatory` / `ConservatoryRegistry` for managing conservatories
+
+**Core Functions:**
+- `register()` / `unregister()` - Conservatory management
+- `add_specimen()` - Add specimens
+- `make_preserved()` / `make_damaged()` - Preservation management
+- `add_curator()` - Add curators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple conservatory types
+- Status tracking
+- Section numbering
+- Curator support
+- Preservation rate calculation
+
 ## [0.0.770] - 2025-12-15
 
 ### Added - Settings Greenhouse (Phase 346)
