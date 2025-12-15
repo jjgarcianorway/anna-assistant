@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.730] - 2025-12-15
+
+### Added - Settings Accord (Phase 306)
+
+**Settings Accord Module:**
+- `settings_accord.rs` for formal accord for settings governance
+- `AccordType` enum (Peace, Trade, Framework, Settlement)
+- `AccordStatus` enum (Preliminary, Final, Implemented, Voided)
+- `AccordConfig` / `AccordProvision` / `AccordSignatory` / `AccordStats` structs
+- `SettingsAccord` / `AccordRegistry` for managing accords
+
+**Core Functions:**
+- `register()` / `unregister()` - Accord management
+- `add_provision()` - Add provisions
+- `agree()` / `disagree()` - Agreement management
+- `add_signatory()` - Add signatories
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple accord types
+- Status tracking
+- Section numbering
+- Signatory support
+- Agreement rate calculation
+
 ## [0.0.729] - 2025-12-15
 
 ### Added - Settings Compact (Phase 305)
