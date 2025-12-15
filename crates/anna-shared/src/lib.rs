@@ -417,6 +417,7 @@ pub mod settings_denormalization; // v0.0.668: Settings denormalization
 pub mod settings_indexer; // v0.0.669: Settings indexer
 pub mod settings_query_engine; // v0.0.670: Settings query engine
 pub mod settings_aggregation; // v0.0.671: Settings aggregation
+pub mod settings_projector; // v0.0.672: Settings projector
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

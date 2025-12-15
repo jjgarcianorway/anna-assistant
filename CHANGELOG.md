@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.672] - 2025-12-15
+
+### Added - Settings Projector (Phase 248)
+
+**Settings Projector Module:**
+- `settings_projector.rs` for projecting settings to custom views
+- `ProjectionType` enum (Include, Exclude, Rename, Compute)
+- `FieldMapping` struct for field transformations
+- `ProjectorConfig` / `ProjectionResult` / `ProjectorStats` structs
+- `SettingsProjector` / `ProjectorRegistry` for managing projectors
+
+**Core Functions:**
+- `register()` / `unregister()` - Projector management
+- `project_include()` - Include specific fields
+- `project_exclude()` - Exclude specific fields
+- `project()` - Apply field mappings
+- `stats()` - Access statistics
+
+**Features:**
+- Include/exclude projections
+- Field renaming
+- Custom field mappings
+- Per-projector statistics
+
 ## [0.0.671] - 2025-12-15
 
 ### Added - Settings Aggregation (Phase 247)
