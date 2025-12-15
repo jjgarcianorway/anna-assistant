@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.746] - 2025-12-15
+
+### Added - Settings Province (Phase 322)
+
+**Settings Province Module:**
+- `settings_province.rs` for administrative province for settings governance
+- `ProvinceType` enum (Autonomous, Imperial, Colonial, Federal)
+- `ProvinceStatus` enum (Established, Developing, Integrated, Reorganizing)
+- `ProvinceConfig` / `ProvinceEdict` / `ProvinceGovernor` / `ProvinceStats` structs
+- `SettingsProvince` / `ProvinceRegistry` for managing provinces
+
+**Core Functions:**
+- `register()` / `unregister()` - Province management
+- `add_edict()` - Add edicts
+- `make_provincial()` / `make_local()` - Provincial management
+- `add_governor()` - Add governors
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple province types
+- Status tracking
+- Prefecture numbering
+- Governor support
+- Provincial rate calculation
+
 ## [0.0.745] - 2025-12-15
 
 ### Added - Settings Territory (Phase 321)
