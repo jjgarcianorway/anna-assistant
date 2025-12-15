@@ -527,6 +527,7 @@ pub mod settings_aviary; // v0.0.778: Settings aviary
 pub mod settings_apiary; // v0.0.779: Settings apiary
 pub mod settings_butterfly; // v0.0.780: Settings butterfly
 pub mod settings_sanctuary; // v0.0.781: Settings sanctuary
+pub mod settings_reserve; // v0.0.782: Settings reserve
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

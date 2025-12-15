@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.782] - 2025-12-15
+
+### Added - Settings Reserve (Phase 358)
+
+**Settings Reserve Module:**
+- `settings_reserve.rs` for nature reserve for settings preservation
+- `ReserveType` enum (Nature, Game, Forest, Marine)
+- `ReserveStatus` enum (Protected, Managed, Restored, Conserved)
+- `ReserveConfig` / `ReserveSpecies` / `ReserveRanger` / `ReserveStats` structs
+- `SettingsReserve` / `ReserveRegistry` for managing reserves
+
+**Core Functions:**
+- `register()` / `unregister()` - Reserve management
+- `add_species()` - Add species
+- `make_thriving()` / `make_endangered()` - Thriving management
+- `add_ranger()` - Add rangers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple reserve types
+- Status tracking
+- Territory numbering
+- Ranger support
+- Thriving rate calculation
+
 ## [0.0.781] - 2025-12-15
 
 ### Added - Settings Sanctuary (Phase 357)
