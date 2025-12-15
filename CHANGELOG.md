@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.758] - 2025-12-15
+
+### Added - Settings Plot (Phase 334)
+
+**Settings Plot Module:**
+- `settings_plot.rs` for land plot for settings allocation
+- `PlotType` enum (Garden, Building, Cemetery, Allotment)
+- `PlotStatus` enum (Allocated, Cultivated, Fallow, Reserved)
+- `PlotConfig` / `PlotSurvey` / `PlotSteward` / `PlotStats` structs
+- `SettingsPlot` / `PlotRegistry` for managing plots
+
+**Core Functions:**
+- `register()` / `unregister()` - Plot management
+- `add_survey()` - Add surveys
+- `make_verified()` / `make_unverified()` - Verified management
+- `add_steward()` - Add stewards
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple plot types
+- Status tracking
+- Row numbering
+- Steward support
+- Verified rate calculation
+
 ## [0.0.757] - 2025-12-15
 
 ### Added - Settings Parcel (Phase 333)
