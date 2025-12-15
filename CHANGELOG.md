@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.716] - 2025-12-15
+
+### Added - Settings Missive (Phase 292)
+
+**Settings Missive Module:**
+- `settings_missive.rs` for formal letters about settings changes
+- `MissiveType` enum (Formal, Informal, Personal, Business)
+- `MissiveDelivery` enum (Standard, Express, Priority, Certified)
+- `MissiveConfig` / `MissiveLetter` / `MissiveEnclosure` / `MissiveStats` structs
+- `SettingsMissive` / `MissiveRegistry` for managing missives
+
+**Core Functions:**
+- `register()` / `unregister()` - Missive management
+- `add_letter()` - Add letters
+- `deliver()` - Mark letters delivered
+- `add_enclosure()` - Add enclosures
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple missive types
+- Delivery methods
+- Delivery tracking
+- From/to addressing
+- Enclosure support
+
 ## [0.0.715] - 2025-12-15
 
 ### Added - Settings Communique (Phase 291)
