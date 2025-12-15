@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.661 - Settings Differ (Phase 237) ✓
+- [x] `settings_differ.rs` for comparing settings configurations
+- [x] `DiffType` / `DiffMode`
+- [x] `DifferConfig` / `DiffEntry` / `DiffResult` / `DifferStats`
+- [x] `SettingsDiffer` / `SettingsDifferRegistry`
+- [x] Added/removed/modified detection with filtering
+
 ### v0.0.660 - Settings Versioner (Phase 236) ✓
 - [x] `settings_versioner.rs` for tracking settings version history
 - [x] `VersionScheme` / `BumpType`

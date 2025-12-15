@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.661] - 2025-12-15
+
+### Added - Settings Differ (Phase 237)
+
+**Settings Differ Module:**
+- `settings_differ.rs` for comparing settings configurations
+- `DiffType` enum (Added, Removed, Modified, Unchanged)
+- `DiffMode` enum (All, AdditionsOnly, RemovalsOnly, ModificationsOnly)
+- `DifferConfig` / `DiffEntry` / `DiffResult` / `DifferStats` structs
+- `SettingsDiffer` / `SettingsDifferRegistry` for managing differs
+
+**Core Functions:**
+- `register()` / `unregister()` - Differ management
+- `diff()` - Compare two settings maps
+- `get_by_type()` - Filter entries by diff type
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple diff modes
+- Added/removed/modified detection
+- Case-sensitive comparison option
+- Change statistics
+- Entry type filtering
+
 ## [0.0.660] - 2025-12-15
 
 ### Added - Settings Versioner (Phase 236)

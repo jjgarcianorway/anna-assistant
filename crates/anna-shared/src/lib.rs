@@ -406,6 +406,7 @@ pub mod settings_cloner; // v0.0.657: Settings cloner
 pub mod settings_archiver; // v0.0.658: Settings archiver
 pub mod settings_restorer; // v0.0.659: Settings restorer
 pub mod settings_versioner; // v0.0.660: Settings versioner
+pub mod settings_differ; // v0.0.661: Settings differ
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
