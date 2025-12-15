@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.654 - Settings Injector (Phase 230) ✓
+- [x] `settings_injector.rs` for inserting settings into configurations
+- [x] `InjectionType` / `InjectionStrategy`
+- [x] `InjectorConfig` / `InjectionResult` / `InjectorStats`
+- [x] `SettingsInjector` / `SettingsInjectorRegistry`
+- [x] Multi-strategy injection with conflict handling
+
 ### v0.0.653 - Settings Extractor (Phase 229) ✓
 - [x] `settings_extractor.rs` for pulling specific settings
 - [x] `ExtractionType` / `ExtractionMode`

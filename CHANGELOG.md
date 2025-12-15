@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.654] - 2025-12-15
+
+### Added - Settings Injector (Phase 230)
+
+**Settings Injector Module:**
+- `settings_injector.rs` for inserting settings
+- `InjectionType` enum (Insert, Update, Upsert, Replace, Append)
+- `InjectionStrategy` enum (FailOnConflict, SkipOnConflict, OverwriteOnConflict, MergeOnConflict)
+- `InjectorConfig` / `InjectionResult` / `InjectorStats` structs
+- `SettingsInjector` / `SettingsInjectorRegistry` for managing injectors
+
+**Core Functions:**
+- `register()` / `unregister()` - Injector management
+- `inject()` - Insert settings into target
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple injection types
+- Conflict resolution strategies
+- Dry run mode
+- Insert/update tracking
+- Per-injector statistics
+
 ## [0.0.653] - 2025-12-15
 
 ### Added - Settings Extractor (Phase 229)

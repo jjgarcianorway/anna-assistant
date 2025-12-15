@@ -399,6 +399,7 @@ pub mod settings_converter; // v0.0.650: Settings converter
 pub mod settings_mapper; // v0.0.651: Settings mapper
 pub mod settings_binder; // v0.0.652: Settings binder
 pub mod settings_extractor; // v0.0.653: Settings extractor
+pub mod settings_injector; // v0.0.654: Settings injector
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
