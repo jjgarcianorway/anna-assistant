@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.775] - 2025-12-15
+
+### Added - Settings Aquarium (Phase 351)
+
+**Settings Aquarium Module:**
+- `settings_aquarium.rs` for aquatic aquarium for settings marine life
+- `AquariumType` enum (Freshwater, Saltwater, Reef, Brackish)
+- `AquariumStatus` enum (Cycling, Stable, Stocking, Maintenance)
+- `AquariumConfig` / `AquariumInhabitant` / `AquariumAquarist` / `AquariumStats` structs
+- `SettingsAquarium` / `AquariumRegistry` for managing aquariums
+
+**Core Functions:**
+- `register()` / `unregister()` - Aquarium management
+- `add_inhabitant()` - Add inhabitants
+- `make_healthy()` / `make_sick()` - Health management
+- `add_aquarist()` - Add aquarists
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple aquarium types
+- Status tracking
+- Tank numbering
+- Aquarist support
+- Health rate calculation
+
 ## [0.0.774] - 2025-12-15
 
 ### Added - Settings Herbarium (Phase 350)
