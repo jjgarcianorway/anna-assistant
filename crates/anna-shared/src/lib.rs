@@ -521,6 +521,7 @@ pub mod settings_arboretum; // v0.0.772: Settings arboretum
 pub mod settings_botanical; // v0.0.773: Settings botanical
 pub mod settings_herbarium; // v0.0.774: Settings herbarium
 pub mod settings_aquarium; // v0.0.775: Settings aquarium
+pub mod settings_vivarium; // v0.0.776: Settings vivarium
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

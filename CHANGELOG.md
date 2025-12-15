@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.776] - 2025-12-15
+
+### Added - Settings Vivarium (Phase 352)
+
+**Settings Vivarium Module:**
+- `settings_vivarium.rs` for living vivarium for settings animal habitat
+- `VivariumType` enum (Reptile, Amphibian, Invertebrate, Mixed)
+- `VivariumStatus` enum (Setup, Established, Breeding, Resting)
+- `VivariumConfig` / `VivariumCreature` / `VivariumKeeper` / `VivariumStats` structs
+- `SettingsVivarium` / `VivariumRegistry` for managing vivariums
+
+**Core Functions:**
+- `register()` / `unregister()` - Vivarium management
+- `add_creature()` - Add creatures
+- `make_thriving()` / `make_struggling()` - Thriving management
+- `add_keeper()` - Add keepers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple vivarium types
+- Status tracking
+- Enclosure numbering
+- Keeper support
+- Thriving rate calculation
+
 ## [0.0.775] - 2025-12-15
 
 ### Added - Settings Aquarium (Phase 351)
