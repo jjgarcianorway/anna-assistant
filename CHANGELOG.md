@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.760] - 2025-12-15
+
+### Added - Settings Acre (Phase 336)
+
+**Settings Acre Module:**
+- `settings_acre.rs` for land acre for settings measurement
+- `AcreType` enum (Survey, Statute, Irish, Scottish)
+- `AcreStatus` enum (Measured, Verified, Disputed, Certified)
+- `AcreConfig` / `AcreMeasurement` / `AcreSurveyor` / `AcreStats` structs
+- `SettingsAcre` / `AcreRegistry` for managing acres
+
+**Core Functions:**
+- `register()` / `unregister()` - Acre management
+- `add_measurement()` - Add measurements
+- `make_certified()` / `make_uncertified()` - Certified management
+- `add_surveyor()` - Add surveyors
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple acre types
+- Status tracking
+- Chain numbering
+- Surveyor support
+- Certified rate calculation
+
 ## [0.0.759] - 2025-12-15
 
 ### Added - Settings Tract (Phase 335)
