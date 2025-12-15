@@ -338,6 +338,24 @@ pub fn is_config_request(query: &str) -> bool {
         return true;
     }
 
+    // v0.0.790: Direct pattern matching for common settings commands
+    // These patterns are unambiguous and don't need the secondary check
+    let direct_patterns = [
+        "show internal",
+        "hide internal",
+        "show comms",
+        "hide comms",
+        "fly on wall",
+        "see the team",
+        "internal comms",
+        "learning mode",
+        "auto confirm",
+        "auto-confirm",
+    ];
+    if direct_patterns.iter().any(|&p| q.contains(p)) {
+        return true;
+    }
+
     // Check for common config-related keywords
     let config_indicators = [
         "enable",
@@ -353,15 +371,12 @@ pub fn is_config_request(query: &str) -> bool {
         "show me",
         "hide",
         "verbose",
-        "learning mode",
         "formal",
         "casual",
         "humor",
         "jokes",
         "technical",
         "confirm",
-        "internal comms",
-        "fly on wall",
     ];
 
     config_indicators.iter().any(|&ind| q.contains(ind))

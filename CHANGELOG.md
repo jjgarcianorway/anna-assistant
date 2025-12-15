@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.790] - 2025-12-15
+
+### Added - Natural Language Config in One-Shot Mode
+
+**Configuration via Natural Language:**
+- Config commands now work in one-shot mode (`annactl "enable learning mode"`)
+- Previously only worked in REPL mode, now instant response without daemon
+- Added direct pattern matching for common settings commands
+- Patterns: "show internal comms", "hide internal", "learning mode", "auto confirm", etc.
+
+**Example usage:**
+- `annactl "enable learning mode"` - instant response
+- `annactl "make Anna more casual"` - instant response
+- `annactl "show internal comms"` - instant response
+- `annactl "my email is user@example.com"` - instant response
+
 ## [0.0.789] - 2025-12-15
 
 ### Fixed - Network Port Query Classification

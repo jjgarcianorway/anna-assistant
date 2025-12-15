@@ -4,7 +4,9 @@
 //! v0.0.344: Use print_title() for header display.
 //! v0.0.349: Use print_step() for action steps.
 //! v0.0.356: Uninstall uses centralized UI helpers.
+//! v0.0.790: Added config handling for one-shot mode.
 
+use anna_shared::config_parser::is_config_request;
 use anna_shared::probe_learning::ProbeLearningStore;
 use anna_shared::rpc::params::ClaimFeedbackParams;
 use anna_shared::rpc::{RpcMethod, ServiceDeskResult};
@@ -22,6 +24,7 @@ use crate::display::{print_stats_display, print_status_display, show_bootstrap_p
 use crate::live_request::send_request_with_progress;
 use crate::transcript_render;
 
+use super::config::{try_handle_config, ConfigResult};
 use super::feedback::handle_feedback_request;
 
 // v0.0.97: Change management (handle_proposed_change still needed for config changes)
@@ -87,7 +90,16 @@ pub async fn send_request(prompt: &str) -> Result<ServiceDeskResult> {
 }
 
 /// Handle a single request (one-shot mode)
+/// v0.0.790: Added config handling for one-shot mode (no daemon needed for settings changes)
 pub async fn handle_request(prompt: &str) -> Result<()> {
+    // v0.0.790: Try config commands first (fast path, no daemon needed)
+    if is_config_request(prompt) {
+        if let ConfigResult::Handled = try_handle_config(prompt) {
+            println!();
+            return Ok(());
+        }
+    }
+
     let mut client = AnnadClient::connect().await?;
     let status = client.status().await?;
 
