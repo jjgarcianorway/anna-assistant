@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.706] - 2025-12-15
+
+### Added - Settings Bulletin (Phase 282)
+
+**Settings Bulletin Module:**
+- `settings_bulletin.rs` for bulletin board of settings updates
+- `BulletinType` enum (News, Alert, Update, Archive)
+- `BulletinPriority` enum (Low, Normal, High, Urgent)
+- `BulletinConfig` / `BulletinPost` / `BulletinItem` / `BulletinStats` structs
+- `SettingsBulletin` / `BulletinRegistry` for managing bulletins
+
+**Core Functions:**
+- `register()` / `unregister()` - Bulletin management
+- `add_post()` - Add posts
+- `add_item()` - Add items
+- `get_pinned()` - Get pinned posts
+- `stats()` - Access statistics
+
+**Features:**
+- Post pinning
+- Priority levels
+- Auto expire settings
+- Post dates
+- High priority tracking
+
 ## [0.0.705] - 2025-12-15
 
 ### Added - Settings Almanac (Phase 281)

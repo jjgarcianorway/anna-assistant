@@ -451,6 +451,7 @@ pub mod settings_archive_v2; // v0.0.702: Settings archive v2
 pub mod settings_repertoire; // v0.0.703: Settings repertoire
 pub mod settings_gazette; // v0.0.704: Settings gazette
 pub mod settings_almanac; // v0.0.705: Settings almanac
+pub mod settings_bulletin; // v0.0.706: Settings bulletin
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
