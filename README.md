@@ -389,16 +389,18 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.787**
+Current: **v0.0.790**
 
 Recent highlights:
+- **Natural language config** - change settings with phrases like "enable learning mode"
+- **Editor configuration** - "enable syntax highlighting in vim" with Safe Change Engine
 - **9 IT departments** with named staff (Sofia, Michael, Kari, Hugo, Lars...)
 - **RPG progression system** with XP, levels, and titles
 - **Internal comms** - watch the IT team discuss your request
 - **Fast path answers** - instant responses for system health queries
 - **Recipe learning** - Anna learns from successful interactions
 - **Hollywood-style UI** - true color, professional, cinematic mode
-- **Auto-update** with integrity verification
+- **Auto-update** with integrity verification (checks every 60s)
 - **Hardware-aware model selection** - adapts to your system
 - **Evidence-based answers** - every claim backed by data
 
