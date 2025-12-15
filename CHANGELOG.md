@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.780] - 2025-12-15
+
+### Added - Settings Butterfly (Phase 356)
+
+**Settings Butterfly Module:**
+- `settings_butterfly.rs` for butterfly house for settings lepidopterology
+- `ButterflyType` enum (Tropical, Native, Monarch, Conservation)
+- `ButterflyStatus` enum (Active, Emerging, Breeding, Migrating)
+- `ButterflyConfig` / `ButterflySpecimen` / `ButterflyCurator` / `ButterflyStats` structs
+- `SettingsButterfly` / `ButterflyRegistry` for managing butterflies
+
+**Core Functions:**
+- `register()` / `unregister()` - Butterfly management
+- `add_specimen()` - Add specimens
+- `make_flying()` / `make_resting()` - Flight management
+- `add_curator()` - Add curators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple butterfly types
+- Status tracking
+- Zone numbering
+- Curator support
+- Flight rate calculation
+
 ## [0.0.779] - 2025-12-15
 
 ### Added - Settings Apiary (Phase 355)
