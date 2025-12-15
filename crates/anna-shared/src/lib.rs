@@ -395,6 +395,7 @@ pub mod settings_parser; // v0.0.646: Settings parser
 pub mod settings_renderer; // v0.0.647: Settings renderer
 pub mod settings_encoder; // v0.0.648: Settings encoder
 pub mod settings_decoder; // v0.0.649: Settings decoder
+pub mod settings_converter; // v0.0.650: Settings converter
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

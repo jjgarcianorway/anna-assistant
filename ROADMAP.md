@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.650 - Settings Converter (Phase 226) ✓
+- [x] `settings_converter.rs` for format transformation
+- [x] `SourceFormat` / `TargetFormat`
+- [x] `ConverterConfig` / `ConversionResult` / `ConverterStats`
+- [x] `SettingsConverter` / `SettingsConverterRegistry`
+- [x] Multi-format bidirectional conversion
+
 ### v0.0.649 - Settings Decoder (Phase 225) ✓
 - [x] `settings_decoder.rs` for deserialization
 - [x] `DecodingFormat` / `DecodingMode`

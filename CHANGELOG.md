@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.650] - 2025-12-15
+
+### Added - Settings Converter (Phase 226)
+
+**Settings Converter Module:**
+- `settings_converter.rs` for format transformation
+- `SourceFormat` enum (Json, Toml, Yaml, Ini, Env)
+- `TargetFormat` enum (Json, Toml, Yaml, Ini, Env)
+- `ConverterConfig` / `ConversionResult` / `ConverterStats` structs
+- `SettingsConverter` / `SettingsConverterRegistry` for managing converters
+
+**Core Functions:**
+- `register()` / `unregister()` - Converter management
+- `convert()` - Transform between formats
+- `parse_source()` / `format_target()` - Internal conversion
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multi-format support
+- Pretty output option
+- Comment preservation option
+- Key count tracking
+- Per-converter statistics
+
 ## [0.0.649] - 2025-12-15
 
 ### Added - Settings Decoder (Phase 225)
