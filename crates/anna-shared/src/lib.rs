@@ -404,6 +404,7 @@ pub mod settings_merger; // v0.0.655: Settings merger
 pub mod settings_splitter; // v0.0.656: Settings splitter
 pub mod settings_cloner; // v0.0.657: Settings cloner
 pub mod settings_archiver; // v0.0.658: Settings archiver
+pub mod settings_restorer; // v0.0.659: Settings restorer
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.659] - 2025-12-15
+
+### Added - Settings Restorer (Phase 235)
+
+**Settings Restorer Module:**
+- `settings_restorer.rs` for recovering settings from archives
+- `RestoreMode` enum (Full, Selective, Merge, Override)
+- `RestoreStrategy` enum (LatestFirst, OldestFirst, ByPriority, Manual)
+- `RestorerConfig` / `RestoreSource` / `RestoreResult` / `RestorerStats` structs
+- `SettingsRestorer` / `SettingsRestorerRegistry` for managing restorers
+
+**Core Functions:**
+- `register()` / `unregister()` - Restorer management
+- `restore()` - Recover from archive data
+- `restore_from_source()` - Restore from source object
+- `restore_keys()` - Selective key restoration
+- `results()` / `stats()` - Data access
+
+**Features:**
+- Multiple restore modes
+- JSON and key=value format parsing
+- Selective key restoration
+- Success tracking
+- Per-restorer statistics
+
 ## [0.0.658] - 2025-12-15
 
 ### Added - Settings Archiver (Phase 234)

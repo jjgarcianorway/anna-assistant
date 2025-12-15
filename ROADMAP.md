@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.659 - Settings Restorer (Phase 235) ✓
+- [x] `settings_restorer.rs` for recovering settings from archives
+- [x] `RestoreMode` / `RestoreStrategy`
+- [x] `RestorerConfig` / `RestoreSource` / `RestoreResult` / `RestorerStats`
+- [x] `SettingsRestorer` / `SettingsRestorerRegistry`
+- [x] Multiple formats with selective restoration
+
 ### v0.0.658 - Settings Archiver (Phase 234) ✓
 - [x] `settings_archiver.rs` for backing up settings configurations
 - [x] `ArchiveFormat` / `ArchiveType`
