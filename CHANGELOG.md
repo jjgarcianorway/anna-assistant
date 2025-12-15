@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.762] - 2025-12-15
+
+### Added - Settings Field (Phase 338)
+
+**Settings Field Module:**
+- `settings_field.rs` for agricultural field for settings cultivation
+- `FieldType` enum (Arable, Pastoral, Fallow, Orchard)
+- `FieldStatus` enum (Prepared, Planted, Growing, Harvested)
+- `FieldConfig` / `FieldCrop` / `FieldFarmer` / `FieldStats` structs
+- `SettingsField` / `FieldRegistry` for managing fields
+
+**Core Functions:**
+- `register()` / `unregister()` - Field management
+- `add_crop()` - Add crops
+- `make_yielded()` / `make_barren()` - Yield management
+- `add_farmer()` - Add farmers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple field types
+- Status tracking
+- Furrow numbering
+- Farmer support
+- Yield rate calculation
+
 ## [0.0.761] - 2025-12-15
 
 ### Added - Settings Hectare (Phase 337)
