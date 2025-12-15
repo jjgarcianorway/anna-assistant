@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.788] - 2025-12-15
+
+### Fixed - Query Classification Bug
+
+**ConfigureEditor vs ManageService Conflict:**
+- Fixed bug where "enable syntax highlighting in vim" was misclassified as ManageService
+- Queries containing editor keywords (vim, nvim, nano, emacs, syntax, highlight, etc.)
+  now correctly route to ConfigureEditor instead of ManageService
+- This fixes timeout issues for editor configuration queries
+
+## [0.0.787] - 2025-12-15
+
+### Changed - README Version Update
+- Updated README version from 0.0.373 to 0.0.787
+- Updated feature highlights to reflect current capabilities
+
 ## [0.0.786] - 2025-12-15
 
 ### Added - Settings Hideaway (Phase 362)

@@ -36,15 +36,43 @@ pub fn classify_services(q: &str) -> Option<QueryClass> {
     }
 
     // v0.0.99: Manage service - "restart docker", "start sshd", "stop nginx"
+    // v0.0.788: Don't match "enable/disable" when it's about editor config (syntax, highlighting, etc.)
+    let is_editor_config = q.contains("syntax")
+        || q.contains("highlight")
+        || q.contains("line number")
+        || q.contains("word wrap")
+        || q.contains("auto indent")
+        || q.contains("tab size")
+        || q.contains("color scheme")
+        || q.contains("theme")
+        || q.contains("vim")
+        || q.contains("nvim")
+        || q.contains("nano")
+        || q.contains("emacs");
+
     let service_verbs = [
-        "start ", "stop ", "restart ", "enable ", "disable ", "reload ",
+        "start ", "stop ", "restart ", "reload ",
     ];
+    // "enable " and "disable " handled separately to avoid editor config conflicts
+    let enable_disable_verbs = ["enable ", "disable "];
+
     for verb in &service_verbs {
         if q.starts_with(verb) {
             return Some(QueryClass::ManageService);
         }
     }
-    if (q.contains("can you") || q.contains("please") || q.contains("could you"))
+
+    // Only match "enable/disable" as service management if NOT editor config
+    if !is_editor_config {
+        for verb in &enable_disable_verbs {
+            if q.starts_with(verb) {
+                return Some(QueryClass::ManageService);
+            }
+        }
+    }
+    // v0.0.788: Also exclude editor config from polite service requests
+    if !is_editor_config
+        && (q.contains("can you") || q.contains("please") || q.contains("could you"))
         && (q.contains("start ")
             || q.contains("stop ")
             || q.contains("restart ")

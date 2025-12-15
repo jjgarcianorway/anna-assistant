@@ -389,18 +389,18 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.373**
+Current: **v0.0.787**
 
 Recent highlights:
-- **Smarter learning** with domain synonyms and semantic matching
-- **Centralized UI system** with consistent formatting across all displays
-- **Zero compiler warnings** for cleaner, more reliable code
-- **Enhanced greeting system** with personalized tips and status
-- **Improved error display** with actionable recovery hints
-- Real-time streaming output (watch Anna think!)
-- Idle-time tips and suggestions
-- Session history ("since last time")
-- Pattern tracking and trend detection
+- **9 IT departments** with named staff (Sofia, Michael, Kari, Hugo, Lars...)
+- **RPG progression system** with XP, levels, and titles
+- **Internal comms** - watch the IT team discuss your request
+- **Fast path answers** - instant responses for system health queries
+- **Recipe learning** - Anna learns from successful interactions
+- **Hollywood-style UI** - true color, professional, cinematic mode
+- **Auto-update** with integrity verification
+- **Hardware-aware model selection** - adapts to your system
+- **Evidence-based answers** - every claim backed by data
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.
 
