@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.735] - 2025-12-15
+
+### Added - Settings Alliance (Phase 311)
+
+**Settings Alliance Module:**
+- `settings_alliance.rs` for formal alliance for settings governance
+- `AllianceType` enum (Military, Economic, Political, Strategic)
+- `AllianceStatus` enum (Forming, Active, Strained, Dissolved)
+- `AllianceConfig` / `AllianceCommitment` / `AllianceMember` / `AllianceStats` structs
+- `SettingsAlliance` / `AllianceRegistry` for managing alliances
+
+**Core Functions:**
+- `register()` / `unregister()` - Alliance management
+- `add_commitment()` - Add commitments
+- `make_binding()` / `make_optional()` - Binding management
+- `add_member()` - Add members
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple alliance types
+- Status tracking
+- Article numbering
+- Member support
+- Binding rate calculation
+
 ## [0.0.734] - 2025-12-15
 
 ### Added - Settings Entente (Phase 310)
