@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.772] - 2025-12-15
+
+### Added - Settings Arboretum (Phase 348)
+
+**Settings Arboretum Module:**
+- `settings_arboretum.rs` for tree arboretum for settings dendrology
+- `ArboretumType` enum (Public, University, Memorial, Research)
+- `ArboretumStatus` enum (Open, Planting, Surveying, Closed)
+- `ArboretumConfig` / `ArboretumSpecimen` / `ArboretumDendrologist` / `ArboretumStats` structs
+- `SettingsArboretum` / `ArboretumRegistry` for managing arboretums
+
+**Core Functions:**
+- `register()` / `unregister()` - Arboretum management
+- `add_specimen()` - Add specimens
+- `make_cataloged()` / `make_uncataloged()` - Catalog management
+- `add_dendrologist()` - Add dendrologists
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple arboretum types
+- Status tracking
+- Plot numbering
+- Dendrologist support
+- Catalog rate calculation
+
 ## [0.0.771] - 2025-12-15
 
 ### Added - Settings Conservatory (Phase 347)
