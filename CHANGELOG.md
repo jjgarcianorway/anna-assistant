@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.759] - 2025-12-15
+
+### Added - Settings Tract (Phase 335)
+
+**Settings Tract Module:**
+- `settings_tract.rs` for land tract for settings territory
+- `TractType` enum (Residential, Commercial, Agricultural, Wilderness)
+- `TractStatus` enum (Surveyed, Developed, Preserved, Disputed)
+- `TractConfig` / `TractGrant` / `TractRanger` / `TractStats` structs
+- `SettingsTract` / `TractRegistry` for managing tracts
+
+**Core Functions:**
+- `register()` / `unregister()` - Tract management
+- `add_grant()` - Add grants
+- `make_patented()` / `make_pending()` - Patented management
+- `add_ranger()` - Add rangers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple tract types
+- Status tracking
+- Range numbering
+- Ranger support
+- Patented rate calculation
+
 ## [0.0.758] - 2025-12-15
 
 ### Added - Settings Plot (Phase 334)
