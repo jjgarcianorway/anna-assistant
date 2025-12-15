@@ -442,6 +442,7 @@ pub mod settings_ledger; // v0.0.693: Settings ledger
 pub mod settings_diary; // v0.0.694: Settings diary
 pub mod settings_folio; // v0.0.695: Settings folio
 pub mod settings_album; // v0.0.696: Settings album
+pub mod settings_dossier; // v0.0.697: Settings dossier
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

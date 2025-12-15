@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.697] - 2025-12-15
+
+### Added - Settings Dossier (Phase 273)
+
+**Settings Dossier Module:**
+- `settings_dossier.rs` for comprehensive dossier of settings information
+- `DossierType` enum (Standard, Confidential, Summary, Full)
+- `DossierClassification` enum (Public, Internal, Restricted, Secret)
+- `DossierConfig` / `DossierDocument` / `DossierEntry` / `DossierStats` structs
+- `SettingsDossier` / `DossierRegistry` for managing dossiers
+
+**Core Functions:**
+- `register()` / `unregister()` - Dossier management
+- `add_document()` - Add documents
+- `add_entry()` - Add entries
+- `get_entries()` - Get entries for document
+- `stats()` - Access statistics
+
+**Features:**
+- Document classification
+- Entry tracking
+- Security levels
+- Max document limits
+- Entry notes
+
 ## [0.0.696] - 2025-12-15
 
 ### Added - Settings Album (Phase 272)
