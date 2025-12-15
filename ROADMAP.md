@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.647 - Settings Renderer (Phase 223) ✓
+- [x] `settings_renderer.rs` for display output
+- [x] `RenderTarget` / `RenderTheme`
+- [x] `RendererConfig` / `RenderOutput` / `RendererStats`
+- [x] `SettingsRenderer` / `SettingsRendererRegistry`
+- [x] Multi-target rendering with themes
+
 ### v0.0.646 - Settings Parser (Phase 222) ✓
 - [x] `settings_parser.rs` for multi-format parsing
 - [x] `ParseSource` / `ParseMode`
