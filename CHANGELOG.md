@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.715] - 2025-12-15
+
+### Added - Settings Communique (Phase 291)
+
+**Settings Communique Module:**
+- `settings_communique.rs` for official communications about settings
+- `CommuniqueType` enum (Official, Informal, Urgent, Diplomatic)
+- `CommuniqueClassification` enum (Public, Internal, Confidential, Restricted)
+- `CommuniqueConfig` / `CommuniqueMessage` / `CommuniqueAttachment` / `CommuniqueStats` structs
+- `SettingsCommunique` / `CommuniqueRegistry` for managing communiques
+
+**Core Functions:**
+- `register()` / `unregister()` - Communique management
+- `add_message()` - Add messages
+- `mark_read()` - Mark messages read
+- `add_attachment()` - Add attachments
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple communique types
+- Classification levels
+- Read tracking
+- Sender/recipient support
+- Attachment support
+
 ## [0.0.714] - 2025-12-15
 
 ### Added - Settings Dispatch (Phase 290)
