@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.665] - 2025-12-15
+
+### Added - Settings Validator Hub (Phase 241)
+
+**Settings Validator Hub Module:**
+- `settings_validator_hub.rs` for coordinating multiple validators
+- `ValidatorType` enum (Schema, Range, Format, Custom, Composite)
+- `ValidationSeverity` enum (Error, Warning, Info, Hint)
+- `HubConfig` / `ValidationIssue` / `HubValidationResult` / `ValidatorEntry` / `HubStats` structs
+- `SettingsValidatorHub` / `ValidatorHubRegistry` for managing hubs
+
+**Core Functions:**
+- `register()` / `unregister()` - Validator management
+- `enable()` / `disable()` - Toggle validators
+- `validate()` - Run all enabled validators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple validator types
+- Severity-based issues
+- Suggested fixes
+- Fail-fast mode
+- Per-hub statistics
+
 ## [0.0.664] - 2025-12-15
 
 ### Added - Settings Resolution (Phase 240)
