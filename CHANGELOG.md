@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.684] - 2025-12-15
+
+### Added - Settings Scanner (Phase 260)
+
+**Settings Scanner Module:**
+- `settings_scanner.rs` for scanning settings for patterns and anomalies
+- `ScanType` enum (Pattern, Anomaly, Duplicate, Empty)
+- `ScanSeverity` enum (Info, Warning, Error, Critical)
+- `ScannerConfig` / `ScanFinding` / `ScanResult` / `ScannerStats` structs
+- `SettingsScanner` / `ScannerRegistry` for managing scanners
+
+**Core Functions:**
+- `register()` / `unregister()` - Scanner management
+- `scan_pattern()` - Scan for pattern matches
+- `scan_empty()` - Scan for empty values
+- `scan_duplicates()` - Scan for duplicate values
+- `scan_anomalies()` - Scan for unusual patterns
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple scan types
+- Severity levels
+- Case-insensitive matching
+- Sensitive data detection
+- Per-scan statistics
+
 ## [0.0.683] - 2025-12-15
 
 ### Added - Settings Zipper (Phase 259)

@@ -429,6 +429,7 @@ pub mod settings_expander; // v0.0.680: Settings expander
 pub mod settings_iterator; // v0.0.681: Settings iterator
 pub mod settings_collector; // v0.0.682: Settings collector
 pub mod settings_zipper; // v0.0.683: Settings zipper
+pub mod settings_scanner; // v0.0.684: Settings scanner
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
