@@ -476,6 +476,7 @@ pub mod settings_treaty; // v0.0.727: Settings treaty
 pub mod settings_protocol; // v0.0.728: Settings protocol
 pub mod settings_compact; // v0.0.729: Settings compact
 pub mod settings_accord; // v0.0.730: Settings accord
+pub mod settings_pact; // v0.0.731: Settings pact
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

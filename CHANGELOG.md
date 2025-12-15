@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.731] - 2025-12-15
+
+### Added - Settings Pact (Phase 307)
+
+**Settings Pact Module:**
+- `settings_pact.rs` for formal pact for settings governance
+- `PactType` enum (Defense, NonAggression, Alliance, Cooperation)
+- `PactStatus` enum (Proposed, Sealed, Honored, Broken)
+- `PactConfig` / `PactClause` / `PactParty` / `PactStats` structs
+- `SettingsPact` / `PactRegistry` for managing pacts
+
+**Core Functions:**
+- `register()` / `unregister()` - Pact management
+- `add_clause()` - Add clauses
+- `make_sacred()` / `make_profane()` - Sacred management
+- `add_party()` - Add parties
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple pact types
+- Status tracking
+- Article numbering
+- Party support
+- Sacred rate calculation
+
 ## [0.0.730] - 2025-12-15
 
 ### Added - Settings Accord (Phase 306)
