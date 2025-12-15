@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.732] - 2025-12-15
+
+### Added - Settings Concordat (Phase 308)
+
+**Settings Concordat Module:**
+- `settings_concordat.rs` for religious agreement for settings governance
+- `ConcordatType` enum (Papal, Diplomatic, Administrative, Cultural)
+- `ConcordatStatus` enum (Negotiating, Signed, Binding, Rescinded)
+- `ConcordatConfig` / `ConcordatArticle` / `ConcordatSignatory` / `ConcordatStats` structs
+- `SettingsConcordat` / `ConcordatRegistry` for managing concordats
+
+**Core Functions:**
+- `register()` / `unregister()` - Concordat management
+- `add_article()` - Add articles
+- `make_canonical()` / `make_non_canonical()` - Canonical management
+- `add_signatory()` - Add signatories
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple concordat types
+- Status tracking
+- Section numbering
+- Signatory support
+- Canonical rate calculation
+
 ## [0.0.731] - 2025-12-15
 
 ### Added - Settings Pact (Phase 307)
