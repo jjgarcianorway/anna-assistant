@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.685] - 2025-12-15
+
+### Added - Settings Finder (Phase 261)
+
+**Settings Finder Module:**
+- `settings_finder.rs` for finding settings by various criteria
+- `FindMode` enum (ExactKey, KeyPattern, ByValue, ValuePattern)
+- `FindLimit` enum (First, All, Max)
+- `FinderConfig` / `FoundItem` / `FindResult` / `FinderStats` structs
+- `SettingsFinder` / `FinderRegistry` for managing finders
+
+**Core Functions:**
+- `register()` / `unregister()` - Finder management
+- `find_exact()` - Find by exact key match
+- `find_by_key()` - Find by key pattern with scoring
+- `find_by_value()` - Find by value pattern with scoring
+- `find_by_exact_value()` - Find by exact value match
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple find modes
+- Configurable limits (first, all, max N)
+- Case-insensitive matching
+- Partial match scoring
+- Best match selection
+
 ## [0.0.684] - 2025-12-15
 
 ### Added - Settings Scanner (Phase 260)
