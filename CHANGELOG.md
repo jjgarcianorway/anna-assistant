@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.751] - 2025-12-15
+
+### Added - Settings Borough (Phase 327)
+
+**Settings Borough Module:**
+- `settings_borough.rs` for borough subdivision for settings local governance
+- `BoroughType` enum (Urban, Metropolitan, London, Municipal)
+- `BoroughStatus` enum (Established, Active, Reformed, Abolished)
+- `BoroughConfig` / `BoroughResolution` / `BoroughRepresentative` / `BoroughStats` structs
+- `SettingsBorough` / `BoroughRegistry` for managing boroughs
+
+**Core Functions:**
+- `register()` / `unregister()` - Borough management
+- `add_resolution()` - Add resolutions
+- `make_adopted()` / `make_rescinded()` - Adopted management
+- `add_representative()` - Add representatives
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple borough types
+- Status tracking
+- Section numbering
+- Representative support
+- Adopted rate calculation
+
 ## [0.0.750] - 2025-12-15
 
 ### Added - Settings Municipality (Phase 326)
