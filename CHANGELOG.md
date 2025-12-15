@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.766] - 2025-12-15
+
+### Added - Settings Orchard (Phase 342)
+
+**Settings Orchard Module:**
+- `settings_orchard.rs` for fruit orchard for settings horticulture
+- `OrchardType` enum (Apple, Cherry, Peach, Pear)
+- `OrchardStatus` enum (Dormant, Blooming, Fruiting, Harvesting)
+- `OrchardConfig` / `OrchardFruit` / `OrchardPicker` / `OrchardStats` structs
+- `SettingsOrchard` / `OrchardRegistry` for managing orchards
+
+**Core Functions:**
+- `register()` / `unregister()` - Orchard management
+- `add_fruit()` - Add fruits
+- `make_ripe()` / `make_unripe()` - Ripeness management
+- `add_picker()` - Add pickers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple orchard types
+- Status tracking
+- Branch numbering
+- Picker support
+- Ripe rate calculation
+
 ## [0.0.765] - 2025-12-15
 
 ### Added - Settings Grove (Phase 341)

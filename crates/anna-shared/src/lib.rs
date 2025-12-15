@@ -511,6 +511,7 @@ pub mod settings_field; // v0.0.762: Settings field
 pub mod settings_meadow; // v0.0.763: Settings meadow
 pub mod settings_pasture; // v0.0.764: Settings pasture
 pub mod settings_grove; // v0.0.765: Settings grove
+pub mod settings_orchard; // v0.0.766: Settings orchard
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
