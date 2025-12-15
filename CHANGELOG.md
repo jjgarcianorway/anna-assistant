@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.722] - 2025-12-15
+
+### Added - Settings Ordinance (Phase 298)
+
+**Settings Ordinance Module:**
+- `settings_ordinance.rs` for local ordinances for settings regulation
+- `OrdinanceType` enum (Municipal, Regional, Local, Zoning)
+- `OrdinanceJurisdiction` enum (City, County, District, Zone)
+- `OrdinanceConfig` / `OrdinanceProvision` / `OrdinanceAmendment` / `OrdinanceStats` structs
+- `SettingsOrdinance` / `OrdinanceRegistry` for managing ordinances
+
+**Core Functions:**
+- `register()` / `unregister()` - Ordinance management
+- `add_provision()` - Add provisions
+- `make_effective()` / `make_ineffective()` - Effectiveness management
+- `add_amendment()` - Add amendments
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple ordinance types
+- Jurisdiction levels
+- Effectiveness tracking
+- Section numbering
+- Amendment support
+
 ## [0.0.721] - 2025-12-15
 
 ### Added - Settings Mandate (Phase 297)
