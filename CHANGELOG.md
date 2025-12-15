@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.747] - 2025-12-15
+
+### Added - Settings Region (Phase 323)
+
+**Settings Region Module:**
+- `settings_region.rs` for geographic region for settings organization
+- `RegionType` enum (Administrative, Economic, Cultural, Geographic)
+- `RegionStatus` enum (Defined, Active, Expanding, Contracting)
+- `RegionConfig` / `RegionPolicy` / `RegionCoordinator` / `RegionStats` structs
+- `SettingsRegion` / `RegionRegistry` for managing regions
+
+**Core Functions:**
+- `register()` / `unregister()` - Region management
+- `add_policy()` - Add policies
+- `make_regional()` / `make_local()` - Regional management
+- `add_coordinator()` - Add coordinators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple region types
+- Status tracking
+- Sector numbering
+- Coordinator support
+- Regional rate calculation
+
 ## [0.0.746] - 2025-12-15
 
 ### Added - Settings Province (Phase 322)
