@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.667] - 2025-12-15
+
+### Added - Settings Normalization (Phase 243)
+
+**Settings Normalization Module:**
+- `settings_normalization.rs` for normalizing settings to canonical format
+- `NormalizationType` enum (Case, Whitespace, KeyFormat, ValueFormat, Full)
+- `CaseStyle` enum (Lower, Upper, Camel, Snake, Kebab)
+- `NormalizerConfig` / `NormalizationResult` / `NormalizerStats` structs
+- `SettingsNormalizer` / `NormalizerRegistry` for managing normalizers
+
+**Core Functions:**
+- `register()` / `unregister()` - Normalizer management
+- `normalize()` - Normalize settings to canonical format
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple normalization types
+- Case style conversion
+- Whitespace handling
+- Empty value removal
+- Per-normalizer statistics
+
 ## [0.0.666] - 2025-12-15
 
 ### Added - Settings Transform (Phase 242)
