@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.791] - 2025-12-15
+
+### Added - Failed Services Query Classification
+
+**Failed Services Pattern:**
+- Added "failed services" pattern to deterministic routing
+- Queries like "show me failed services", "failed services", "broken services" now work
+- Routes to ServiceStatus with `systemctl --failed` probe
+- Avoids LLM timeout for common service health queries
+
+**Example usage:**
+- `annactl "failed services"` - instant response
+- `annactl "show me failed services"` - instant response
+- `annactl "broken services"` - instant response
+
 ## [0.0.790] - 2025-12-15
 
 ### Added - Natural Language Config in One-Shot Mode

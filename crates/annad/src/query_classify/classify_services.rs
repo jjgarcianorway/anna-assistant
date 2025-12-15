@@ -7,7 +7,21 @@ use crate::router::QueryClass;
 /// Classify service queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_services(q: &str) -> Option<QueryClass> {
-    // v0.0.307: Running services - check first (more specific than ServiceStatus)
+    // v0.0.791: Failed services - check first (most specific)
+    // Queries like "failed services", "show me failed services", "broken services"
+    if q.contains("failed service")
+        || q.contains("broken service")
+        || q.contains("services failed")
+        || q.contains("services broken")
+        || q.contains("what service")  && q.contains("fail")
+        || q.contains("show") && q.contains("fail") && q.contains("service")
+        || q.trim() == "failed"
+        || q.trim() == "failures"
+    {
+        return Some(QueryClass::ServiceStatus);
+    }
+
+    // v0.0.307: Running services - check next (more specific than ServiceStatus)
     // Queries like "running services", "what services are running"
     if q.contains("running service")
         || q.contains("active service")
