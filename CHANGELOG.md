@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.777] - 2025-12-15
+
+### Added - Settings Terrarium (Phase 353)
+
+**Settings Terrarium Module:**
+- `settings_terrarium.rs` for enclosed terrarium for settings miniature ecosystem
+- `TerrariumType` enum (Desert, Tropical, Woodland, Moss)
+- `TerrariumStatus` enum (Building, Sealed, Mature, Renewing)
+- `TerrariumConfig` / `TerrariumPlant` / `TerrariumCreator` / `TerrariumStats` structs
+- `SettingsTerrarium` / `TerrariumRegistry` for managing terrariums
+
+**Core Functions:**
+- `register()` / `unregister()` - Terrarium management
+- `add_plant()` - Add plants
+- `make_established()` / `make_struggling()` - Establishment management
+- `add_creator()` - Add creators
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple terrarium types
+- Status tracking
+- Layer numbering
+- Creator support
+- Establishment rate calculation
+
 ## [0.0.776] - 2025-12-15
 
 ### Added - Settings Vivarium (Phase 352)
