@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.726] - 2025-12-15
+
+### Added - Settings Covenant (Phase 302)
+
+**Settings Covenant Module:**
+- `settings_covenant.rs` for binding agreement for settings governance
+- `CovenantType` enum (Mutual, Unilateral, Conditional, Unconditional)
+- `CovenantStatus` enum (Pending, Active, Fulfilled, Breached)
+- `CovenantConfig` / `CovenantTerm` / `CovenantObligation` / `CovenantStats` structs
+- `SettingsCovenant` / `CovenantRegistry` for managing covenants
+
+**Core Functions:**
+- `register()` / `unregister()` - Covenant management
+- `add_term()` - Add terms
+- `fulfill()` / `reset()` - Fulfillment management
+- `add_obligation()` - Add obligations
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple covenant types
+- Status tracking
+- Binding terms
+- Obligation support
+- Fulfillment rate calculation
+
 ## [0.0.725] - 2025-12-15
 
 ### Added - Settings Constitution (Phase 301)
