@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.657 - Settings Cloner (Phase 233) ✓
+- [x] `settings_cloner.rs` for duplicating settings configurations
+- [x] `CloneDepth` / `CloneMode`
+- [x] `ClonerConfig` / `CloneMod` / `CloneResult` / `ClonerStats`
+- [x] `SettingsCloner` / `SettingsClonerRegistry`
+- [x] Value transformations with key prefix/suffix support
+
 ### v0.0.656 - Settings Splitter (Phase 232) ✓
 - [x] `settings_splitter.rs` for dividing settings into groups
 - [x] `SplitCriteria` / `SplitMode`

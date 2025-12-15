@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.657] - 2025-12-15
+
+### Added - Settings Cloner (Phase 233)
+
+**Settings Cloner Module:**
+- `settings_cloner.rs` for duplicating settings configurations
+- `CloneDepth` enum (Shallow, Deep, Selective, Reference)
+- `CloneMode` enum (Exact, WithMods, Template, Incremental)
+- `ClonerConfig` / `CloneMod` / `CloneResult` / `ClonerStats` structs
+- `SettingsCloner` / `SettingsClonerRegistry` for managing cloners
+
+**Core Functions:**
+- `register()` / `unregister()` - Cloner management
+- `clone_settings()` - Duplicate settings
+- `clone_as()` - Clone with custom name prefix
+- `add_mod()` - Add value modifications
+- `results()` / `stats()` - Data access
+
+**Features:**
+- Multiple clone depths
+- Value transformations (uppercase, lowercase, trim, reverse)
+- Key prefix/suffix support
+- Selective cloning
+- Per-cloner statistics
+
 ## [0.0.656] - 2025-12-15
 
 ### Added - Settings Splitter (Phase 232)
