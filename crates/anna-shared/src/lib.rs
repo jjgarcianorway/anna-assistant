@@ -530,6 +530,7 @@ pub mod settings_sanctuary; // v0.0.781: Settings sanctuary
 pub mod settings_reserve; // v0.0.782: Settings reserve
 pub mod settings_refuge; // v0.0.783: Settings refuge
 pub mod settings_haven; // v0.0.784: Settings haven
+pub mod settings_retreat; // v0.0.785: Settings retreat
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

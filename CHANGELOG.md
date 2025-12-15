@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.785] - 2025-12-15
+
+### Added - Settings Retreat (Phase 361)
+
+**Settings Retreat Module:**
+- `settings_retreat.rs` for peaceful retreat for settings relaxation
+- `RetreatType` enum (Peaceful, Mountain, Coastal, Forest)
+- `RetreatStatus` enum (Open, Relaxing, Meditating, Rejuvenating)
+- `RetreatConfig` / `RetreatVisitor` / `RetreatGuide` / `RetreatStats` structs
+- `SettingsRetreat` / `RetreatRegistry` for managing retreats
+
+**Core Functions:**
+- `register()` / `unregister()` - Retreat management
+- `add_visitor()` - Add visitors
+- `make_relaxed()` / `make_stressed()` - Relaxation management
+- `add_guide()` - Add guides
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple retreat types
+- Status tracking
+- Cabin numbering
+- Guide support
+- Relaxation rate calculation
+
 ## [0.0.784] - 2025-12-15
 
 ### Added - Settings Haven (Phase 360)
