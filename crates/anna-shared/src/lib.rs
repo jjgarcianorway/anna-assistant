@@ -425,6 +425,7 @@ pub mod settings_grouper; // v0.0.676: Settings grouper
 pub mod settings_reducer; // v0.0.677: Settings reducer
 pub mod settings_partitioner; // v0.0.678: Settings partitioner
 pub mod settings_flattener; // v0.0.679: Settings flattener
+pub mod settings_expander; // v0.0.680: Settings expander
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

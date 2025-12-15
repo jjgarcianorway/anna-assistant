@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.680] - 2025-12-15
+
+### Added - Settings Expander (Phase 256)
+
+**Settings Expander Module:**
+- `settings_expander.rs` for expanding variables and templates in settings
+- `ExpandMode` enum (Environment, Reference, Template, All)
+- `VariableSyntax` enum (Shell, Mustache, Percent)
+- `ExpanderConfig` / `ExpandResult` / `ExpanderStats` structs
+- `SettingsExpander` / `ExpanderRegistry` for managing expanders
+
+**Core Functions:**
+- `register()` / `unregister()` - Expander management
+- `set_variable()` / `clear_variables()` - Variable management
+- `expand_env()` - Expand environment variables
+- `expand_vars()` - Expand custom variables
+- `expand_refs()` - Expand references to other settings
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple expand modes
+- Multiple variable syntaxes
+- Default value support
+- Reference expansion
+- Missing variable handling
+
 ## [0.0.679] - 2025-12-15
 
 ### Added - Settings Flattener (Phase 255)
