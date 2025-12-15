@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.744] - 2025-12-15
+
+### Added - Settings Realm (Phase 320)
+
+**Settings Realm Module:**
+- `settings_realm.rs` for royal realm for settings sovereignty
+- `RealmType` enum (Kingdom, Empire, Principality, Duchy)
+- `RealmStatus` enum (Rising, Prosperous, Stagnant, Declining)
+- `RealmConfig` / `RealmDecree` / `RealmVassal` / `RealmStats` structs
+- `SettingsRealm` / `RealmRegistry` for managing realms
+
+**Core Functions:**
+- `register()` / `unregister()` - Realm management
+- `add_decree()` - Add decrees
+- `make_royal()` / `make_common()` - Royal management
+- `add_vassal()` - Add vassals
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple realm types
+- Status tracking
+- Order numbering
+- Vassal support
+- Royal rate calculation
+
 ## [0.0.743] - 2025-12-15
 
 ### Added - Settings Domain (Phase 319)
