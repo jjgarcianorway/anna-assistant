@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.736] - 2025-12-15
+
+### Added - Settings Coalition (Phase 312)
+
+**Settings Coalition Module:**
+- `settings_coalition.rs` for temporary coalition for settings governance
+- `CoalitionType` enum (Governing, Opposition, Emergency, Issue)
+- `CoalitionStatus` enum (Forming, Stable, Unstable, Collapsed)
+- `CoalitionConfig` / `CoalitionAgreement` / `CoalitionPartner` / `CoalitionStats` structs
+- `SettingsCoalition` / `CoalitionRegistry` for managing coalitions
+
+**Core Functions:**
+- `register()` / `unregister()` - Coalition management
+- `add_agreement()` - Add agreements
+- `reach_consensus()` / `break_consensus()` - Consensus management
+- `add_partner()` - Add partners
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple coalition types
+- Status tracking
+- Priority ordering
+- Partner support
+- Consensus rate calculation
+
 ## [0.0.735] - 2025-12-15
 
 ### Added - Settings Alliance (Phase 311)

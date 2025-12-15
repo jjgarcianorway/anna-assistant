@@ -481,6 +481,7 @@ pub mod settings_concordat; // v0.0.732: Settings concordat
 pub mod settings_convention; // v0.0.733: Settings convention
 pub mod settings_entente; // v0.0.734: Settings entente
 pub mod settings_alliance; // v0.0.735: Settings alliance
+pub mod settings_coalition; // v0.0.736: Settings coalition
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
