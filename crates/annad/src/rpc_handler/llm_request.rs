@@ -590,33 +590,48 @@ async fn handle_llm_request_inner(
 /// v0.0.794: Check if a route class should skip LLM formatting
 /// Data-listing answers (ports, services, env vars, etc.) are already well-formatted
 /// and don't benefit from LLM rephrasing - they just need the raw data displayed
+/// v0.0.795: Fixed to use snake_case (QueryClass::to_string() format)
 fn should_skip_formatting(route_class: &str) -> bool {
     matches!(
         route_class,
         // Data listings that display raw system info
-        "ListeningPorts"
-            | "RunningServices"
-            | "EnvironmentVars"
-            | "MountedFilesystems"
-            | "UsbDevices"
-            | "LoggedInUsers"
-            | "NetworkInterfaces"
-            | "TopCpuProcesses"
-            | "TopMemoryProcesses"
+        "listening_ports"
+            | "running_services"
+            | "environment_vars"
+            | "mounted_filesystems"
+            | "usb_devices"
+            | "logged_in_users"
+            | "network_interfaces"
+            | "top_cpu_processes"
+            | "top_memory_processes"
             // Direct probe answers are already formatted
             | "probe_direct"
             // Knowledge index answers don't need reformatting
             | "knowledge_index"
             // Simple status queries
-            | "SystemArchitecture"
-            | "Hostname"
-            | "OsInfo"
-            | "KernelVersion"
-            | "CurrentUser"
-            | "LastBoot"
-            | "SystemUptime"
-            | "BatteryStatus"
-            | "SystemLoad"
-            | "TimezoneInfo"
+            | "system_architecture"
+            | "hostname"
+            | "os_info"
+            | "kernel_version"
+            | "current_user"
+            | "last_boot"
+            | "system_uptime"
+            | "battery_status"
+            | "system_load"
+            | "timezone_info"
+            // System info queries
+            | "cpu_info"
+            | "cpu_cores"
+            | "cpu_temp"
+            | "ram_info"
+            | "gpu_info"
+            | "disk_space"
+            | "disk_usage"
+            | "memory_usage"
+            | "memory_free"
+            | "swap_info"
+            | "process_tree"
+            | "dns_servers"
+            | "default_gateway"
     )
 }

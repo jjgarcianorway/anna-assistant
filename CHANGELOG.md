@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.795] - 2025-12-15
+
+### Fixed - Route Class Case Mismatch
+
+**Bug Fix:**
+- Fixed `should_skip_formatting()` to use snake_case route class names
+- QueryClass::to_string() returns "listening_ports", not "ListeningPorts"
+- v0.0.794's skip logic was checking PascalCase but receiving snake_case
+- This bug caused the formatting skip to never trigger
+
+**Result:**
+- Port queries now truly skip LLM formatting
+- Response time reduced from ~25 seconds to <1 second
+- Extended coverage to more query types (cpu_info, disk_space, memory_usage, etc.)
+
 ## [0.0.794] - 2025-12-15
 
 ### Performance - Skip LLM Formatting for Data Listings
