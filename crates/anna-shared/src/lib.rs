@@ -466,6 +466,7 @@ pub mod settings_circular; // v0.0.717: Settings circular
 pub mod settings_directive; // v0.0.718: Settings directive
 pub mod settings_edict; // v0.0.719: Settings edict
 pub mod settings_decree; // v0.0.720: Settings decree
+pub mod settings_mandate; // v0.0.721: Settings mandate
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

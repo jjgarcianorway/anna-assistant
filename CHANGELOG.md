@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.721] - 2025-12-15
+
+### Added - Settings Mandate (Phase 297)
+
+**Settings Mandate Module:**
+- `settings_mandate.rs` for authoritative mandates for settings compliance
+- `MandateType` enum (Legal, Regulatory, Corporate, Technical)
+- `MandateCompliance` enum (Required, Recommended, Optional, Exempt)
+- `MandateConfig` / `MandateRequirement` / `MandateEvidence` / `MandateStats` structs
+- `SettingsMandate` / `MandateRegistry` for managing mandates
+
+**Core Functions:**
+- `register()` / `unregister()` - Mandate management
+- `add_requirement()` - Add requirements
+- `fulfill()` / `unfulfill()` - Fulfillment management
+- `add_evidence()` - Add evidence
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple mandate types
+- Compliance levels
+- Fulfillment tracking
+- Evidence support
+- Required requirement counting
+
 ## [0.0.720] - 2025-12-15
 
 ### Added - Settings Decree (Phase 296)
