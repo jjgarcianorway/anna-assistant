@@ -445,6 +445,7 @@ pub mod settings_album; // v0.0.696: Settings album
 pub mod settings_dossier; // v0.0.697: Settings dossier
 pub mod settings_portfolio; // v0.0.698: Settings portfolio
 pub mod settings_catalog_v2; // v0.0.699: Settings catalog v2
+pub mod settings_compendium; // v0.0.700: Settings compendium (Milestone!)
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
