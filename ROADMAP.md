@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.658 - Settings Archiver (Phase 234) ✓
+- [x] `settings_archiver.rs` for backing up settings configurations
+- [x] `ArchiveFormat` / `ArchiveType`
+- [x] `ArchiverConfig` / `ArchiveMetadata` / `ArchiveResult` / `ArchiverStats`
+- [x] `SettingsArchiver` / `SettingsArchiverRegistry`
+- [x] Multiple formats with snapshot support
+
 ### v0.0.657 - Settings Cloner (Phase 233) ✓
 - [x] `settings_cloner.rs` for duplicating settings configurations
 - [x] `CloneDepth` / `CloneMode`

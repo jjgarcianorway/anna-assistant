@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.658] - 2025-12-15
+
+### Added - Settings Archiver (Phase 234)
+
+**Settings Archiver Module:**
+- `settings_archiver.rs` for backing up settings configurations
+- `ArchiveFormat` enum (Json, Toml, Binary, Compressed)
+- `ArchiveType` enum (Full, Incremental, Differential, Snapshot)
+- `ArchiverConfig` / `ArchiveMetadata` / `ArchiveResult` / `ArchiverStats` structs
+- `SettingsArchiver` / `SettingsArchiverRegistry` for managing archivers
+
+**Core Functions:**
+- `register()` / `unregister()` - Archiver management
+- `archive()` - Create settings backup
+- `snapshot()` - Create named snapshot
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple archive formats
+- Archive metadata tracking
+- Snapshot support with descriptions
+- Data size tracking
+- Per-archiver statistics
+
 ## [0.0.657] - 2025-12-15
 
 ### Added - Settings Cloner (Phase 233)
