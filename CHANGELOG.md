@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.703] - 2025-12-15
+
+### Added - Settings Repertoire (Phase 279)
+
+**Settings Repertoire Module:**
+- `settings_repertoire.rs` for performance repertoire of available settings
+- `RepertoireType` enum (Standard, Classic, Modern, Experimental)
+- `RepertoireStatus` enum (Rehearsing, Ready, Performing, Retired)
+- `RepertoireConfig` / `RepertoirePiece` / `RepertoireItem` / `RepertoireStats` structs
+- `SettingsRepertoire` / `RepertoireRegistry` for managing repertoires
+
+**Core Functions:**
+- `register()` / `unregister()` - Repertoire management
+- `add_piece()` - Add pieces
+- `add_item()` - Add items
+- `ready()` / `perform()` / `retire()` - Lifecycle
+- `stats()` - Access statistics
+
+**Features:**
+- Piece difficulty levels
+- Practice tracking
+- Performance notes
+- Season support
+- Composer attribution
+
 ## [0.0.702] - 2025-12-15
 
 ### Added - Settings Archive V2 (Phase 278)

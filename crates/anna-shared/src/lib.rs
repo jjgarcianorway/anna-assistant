@@ -448,6 +448,7 @@ pub mod settings_catalog_v2; // v0.0.699: Settings catalog v2
 pub mod settings_compendium; // v0.0.700: Settings compendium (Milestone!)
 pub mod settings_anthology; // v0.0.701: Settings anthology
 pub mod settings_archive_v2; // v0.0.702: Settings archive v2
+pub mod settings_repertoire; // v0.0.703: Settings repertoire
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
