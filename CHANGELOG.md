@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.705] - 2025-12-15
+
+### Added - Settings Almanac (Phase 281)
+
+**Settings Almanac Module:**
+- `settings_almanac.rs` for yearly almanac of settings information
+- `AlmanacType` enum (Annual, Seasonal, Technical, Historical)
+- `AlmanacEdition` enum (Current, Previous, Special, Commemorative)
+- `AlmanacConfig` / `AlmanacChapter` / `AlmanacEntry` / `AlmanacStats` structs
+- `SettingsAlmanac` / `AlmanacRegistry` for managing almanacs
+
+**Core Functions:**
+- `register()` / `unregister()` - Almanac management
+- `add_chapter()` - Add chapters
+- `add_entry()` - Add entries
+- `set_edition()` - Set edition type
+- `stats()` - Access statistics
+
+**Features:**
+- Chapter-based organization
+- Yearly periods
+- Entry highlighting
+- Edition management
+- Period tracking
+
 ## [0.0.704] - 2025-12-15
 
 ### Added - Settings Gazette (Phase 280)
