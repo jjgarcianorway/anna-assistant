@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.793] - 2025-12-15
+
+### Fixed - Port Query Deterministic Answer Bug
+
+**Root Cause Fix:**
+- Fixed `answer_listening_ports()` in `det/services.rs` to search for "ss" command
+- Previously searched for probe ID "listening_ports" which doesn't match stored command
+- The ProbeResult stores the actual command ("ss -tulpn"), not the probe ID
+- This was the actual root cause of port query timeouts - the v0.0.792 fix was incomplete
+
+**Technical details:**
+- `find_probe()` uses `command.starts_with(prefix)` to match probes
+- ProbeResult.command is set to the executed command, not the probe ID
+- Fixed by changing from `find_probe(probes, "listening_ports")` to `find_probe(probes, "ss")`
+
 ## [0.0.792] - 2025-12-15
 
 ### Fixed - Port Query Direct Answer

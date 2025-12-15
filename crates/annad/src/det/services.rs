@@ -8,11 +8,13 @@ use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
 /// Answer listening ports query using ss
+/// v0.0.793: Fixed to search for "ss" command instead of probe ID "listening_ports"
 pub fn answer_listening_ports(
     probes: &[ProbeResult],
     route_class: &str,
 ) -> Option<DeterministicResult> {
-    let probe = find_probe(probes, "listening_ports")?;
+    // v0.0.793: The probe result command field stores "ss -tulpn", not "listening_ports"
+    let probe = find_probe(probes, "ss")?;
     if probe.exit_code != 0 {
         return None;
     }
