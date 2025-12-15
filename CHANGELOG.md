@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.696] - 2025-12-15
+
+### Added - Settings Album (Phase 272)
+
+**Settings Album Module:**
+- `settings_album.rs` for collection album of settings snapshots
+- `AlbumType` enum (Standard, Collection, Archive, Snapshot)
+- `AlbumStatus` enum (Empty, Partial, Complete, Sealed)
+- `AlbumConfig` / `AlbumPage` / `AlbumItem` / `AlbumStats` structs
+- `SettingsAlbum` / `AlbumRegistry` for managing albums
+
+**Core Functions:**
+- `register()` / `unregister()` - Album management
+- `add_page()` - Add pages
+- `add_item()` - Add items to pages
+- `seal()` - Seal album
+- `stats()` - Access statistics
+
+**Features:**
+- Page-based organization
+- Timestamp tracking
+- Album sealing
+- Max page limits
+- Item labels
+
 ## [0.0.695] - 2025-12-15
 
 ### Added - Settings Folio (Phase 271)
