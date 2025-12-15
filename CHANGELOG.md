@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.786] - 2025-12-15
+
+### Added - Settings Hideaway (Phase 362)
+
+**Settings Hideaway Module:**
+- `settings_hideaway.rs` for secret hideaway for settings seclusion
+- `HideawayType` enum (Secret, Private, Remote, Hidden)
+- `HideawayStatus` enum (Secluded, Concealed, Sheltered, Isolated)
+- `HideawayConfig` / `HideawayOccupant` / `HideawayGuardian` / `HideawayStats` structs
+- `SettingsHideaway` / `HideawayRegistry` for managing hideaways
+
+**Core Functions:**
+- `register()` / `unregister()` - Hideaway management
+- `add_occupant()` - Add occupants
+- `make_hidden()` / `make_visible()` - Visibility management
+- `add_guardian()` - Add guardians
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple hideaway types
+- Status tracking
+- Nook numbering
+- Guardian support
+- Hidden rate calculation
+
 ## [0.0.785] - 2025-12-15
 
 ### Added - Settings Retreat (Phase 361)
