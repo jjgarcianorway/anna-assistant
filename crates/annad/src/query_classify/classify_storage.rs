@@ -88,11 +88,17 @@ pub fn classify_storage(q: &str) -> Option<QueryClass> {
     }
 
     // v0.0.122: Swap info
+    // v0.0.796: Added "have swap", "is swap", "any swap" patterns
     if q.contains("swap usage")
         || q.contains("swap space")
         || q.contains("show swap")
         || q.contains("how much swap")
         || q.contains("swap status")
+        || q.contains("have swap")
+        || q.contains("is swap")
+        || q.contains("any swap")
+        || q.contains("swap enabled")
+        || q.contains("swap active")
         || q.trim() == "swap"
     {
         return Some(QueryClass::SwapInfo);

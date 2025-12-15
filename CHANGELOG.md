@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.796] - 2025-12-15
+
+### Improved - Query Classification and Formatting Skip
+
+**Better Swap Query Classification:**
+- Added patterns: "have swap", "is swap", "any swap", "swap enabled", "swap active"
+- Query "do I have swap?" now correctly routes to SwapInfo
+
+**Extended Formatting Skip Coverage:**
+- Added installed_tool_check, package_count, package_updates
+- Added largest_folders, fstab_entries
+- Added network_connectivity, ip_routes, open_files
+- Added hardware_audio, pci_devices, block_devices
+
+**Result:**
+- More queries now respond instantly without LLM formatting
+- "is nano installed" - instant response
+- "do I have swap?" - instant response
+
 ## [0.0.795] - 2025-12-15
 
 ### Fixed - Route Class Case Mismatch

@@ -591,6 +591,7 @@ async fn handle_llm_request_inner(
 /// Data-listing answers (ports, services, env vars, etc.) are already well-formatted
 /// and don't benefit from LLM rephrasing - they just need the raw data displayed
 /// v0.0.795: Fixed to use snake_case (QueryClass::to_string() format)
+/// v0.0.796: Added more query types (installed_tool_check, swap_files, etc.)
 fn should_skip_formatting(route_class: &str) -> bool {
     matches!(
         route_class,
@@ -630,8 +631,24 @@ fn should_skip_formatting(route_class: &str) -> bool {
             | "memory_usage"
             | "memory_free"
             | "swap_info"
+            | "swap_files"
             | "process_tree"
             | "dns_servers"
             | "default_gateway"
+            // v0.0.796: Package and tool queries
+            | "installed_tool_check"
+            | "package_count"
+            | "package_updates"
+            // v0.0.796: Storage queries
+            | "largest_folders"
+            | "fstab_entries"
+            // v0.0.796: Network queries
+            | "network_connectivity"
+            | "ip_routes"
+            | "open_files"
+            // v0.0.796: Hardware queries
+            | "hardware_audio"
+            | "pci_devices"
+            | "block_devices"
     )
 }
