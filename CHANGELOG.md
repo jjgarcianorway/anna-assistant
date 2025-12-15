@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.679] - 2025-12-15
+
+### Added - Settings Flattener (Phase 255)
+
+**Settings Flattener Module:**
+- `settings_flattener.rs` for flattening nested settings structures
+- `FlattenMode` enum (DotNotation, Underscore, Bracket, Slash)
+- `DepthLimit` enum (Unlimited, Limited)
+- `FlattenerConfig` / `FlattenResult` / `FlattenerStats` structs
+- `SettingsFlattener` / `FlattenerRegistry` for managing flatteners
+
+**Core Functions:**
+- `register()` / `unregister()` - Flattener management
+- `flatten()` - Flatten nested keys
+- `flatten_with_prefix()` - Flatten with custom prefix
+- `unflatten()` - Convert back to nested representation
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple flatten modes
+- Configurable depth limits
+- Custom separators
+- Array preservation option
+- Depth tracking
+
 ## [0.0.678] - 2025-12-15
 
 ### Added - Settings Partitioner (Phase 254)
