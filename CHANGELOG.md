@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.741] - 2025-12-15
+
+### Added - Settings Sphere (Phase 317)
+
+**Settings Sphere Module:**
+- `settings_sphere.rs` for influence sphere for settings reach
+- `SphereType` enum (Influence, CoProsperity, Interest, Security)
+- `SphereStatus` enum (Expanding, Stable, Contested, Declining)
+- `SphereConfig` / `SphereInterest` / `SphereEntity` / `SphereStats` structs
+- `SettingsSphere` / `SphereRegistry` for managing spheres
+
+**Core Functions:**
+- `register()` / `unregister()` - Sphere management
+- `add_interest()` - Add interests
+- `make_core()` / `make_peripheral()` - Core management
+- `add_entity()` - Add entities
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple sphere types
+- Status tracking
+- Radius numbering
+- Entity support
+- Core rate calculation
+
 ## [0.0.740] - 2025-12-15
 
 ### Added - Settings Bloc (Phase 316)

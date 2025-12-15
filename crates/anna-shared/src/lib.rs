@@ -486,6 +486,7 @@ pub mod settings_federation; // v0.0.737: Settings federation
 pub mod settings_confederation; // v0.0.738: Settings confederation
 pub mod settings_union; // v0.0.739: Settings union
 pub mod settings_bloc; // v0.0.740: Settings bloc
+pub mod settings_sphere; // v0.0.741: Settings sphere
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
