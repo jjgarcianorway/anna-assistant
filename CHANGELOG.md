@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.690] - 2025-12-15
+
+### Added - Settings Combiner (Phase 266)
+
+**Settings Combiner Module:**
+- `settings_combiner.rs` for combining multiple settings collections
+- `CombineStrategy` enum (LeftWins, RightWins, KeepBoth, ErrorOnConflict)
+- `CombineDepth` enum (Shallow, Deep, Recursive, Flat)
+- `CombinerConfig` / `CombineConflict` / `CombineResult` / `CombinerStats` structs
+- `SettingsCombiner` / `CombinerRegistry` for managing combiners
+
+**Core Functions:**
+- `register()` / `unregister()` - Combiner management
+- `combine()` - Combine two collections
+- `combine_all()` - Combine multiple collections
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple combine strategies
+- Conflict resolution
+- Preserve empty option
+- Custom conflict suffix
+- Multi-collection support
+
 ## [0.0.689] - 2025-12-15
 
 ### Added - Settings Comparer (Phase 265)
