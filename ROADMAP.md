@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.652 - Settings Binder (Phase 228) ✓
+- [x] `settings_binder.rs` for runtime binding
+- [x] `BindingType` / `BindingState`
+- [x] `BindingDef` / `BinderConfig` / `BindingResult` / `BinderStats`
+- [x] `SettingsBinder` / `SettingsBinderRegistry`
+- [x] Binding lifecycle with state tracking
+
 ### v0.0.651 - Settings Mapper (Phase 227) ✓
 - [x] `settings_mapper.rs` for key transformations
 - [x] `MappingType` / `MappingDirection`

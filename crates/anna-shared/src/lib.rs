@@ -397,6 +397,7 @@ pub mod settings_encoder; // v0.0.648: Settings encoder
 pub mod settings_decoder; // v0.0.649: Settings decoder
 pub mod settings_converter; // v0.0.650: Settings converter
 pub mod settings_mapper; // v0.0.651: Settings mapper
+pub mod settings_binder; // v0.0.652: Settings binder
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

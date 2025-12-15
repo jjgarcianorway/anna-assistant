@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.652] - 2025-12-15
+
+### Added - Settings Binder (Phase 228)
+
+**Settings Binder Module:**
+- `settings_binder.rs` for runtime binding
+- `BindingType` enum (OneWay, TwoWay, OneTime, Lazy, Eager)
+- `BindingState` enum (Unbound, Bound, Pending, Error)
+- `BindingDef` / `BinderConfig` / `BindingResult` / `BinderStats` structs
+- `SettingsBinder` / `SettingsBinderRegistry` for managing binders
+
+**Core Functions:**
+- `register()` / `unregister()` - Binder management
+- `add_binding()` - Add binding definitions
+- `bind_all()` / `unbind_all()` - Binding lifecycle
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple binding types
+- State tracking
+- Auto-bind option
+- Validation on bind
+- Per-binder statistics
+
 ## [0.0.651] - 2025-12-15
 
 ### Added - Settings Mapper (Phase 227)
