@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.677] - 2025-12-15
+
+### Added - Settings Reducer (Phase 253)
+
+**Settings Reducer Module:**
+- `settings_reducer.rs` for reducing settings to aggregated values
+- `ReduceOp` enum (Count, Sum, Average, Min, Max, Concat)
+- `ReduceTarget` enum (Values, Keys, Both)
+- `ReducerConfig` / `ReducedValue` / `ReduceResult` / `ReducerStats` structs
+- `SettingsReducer` / `ReducerRegistry` for managing reducers
+
+**Core Functions:**
+- `register()` / `unregister()` - Reducer management
+- `count()` - Count entries
+- `sum()` - Sum numeric values
+- `average()` - Average numeric values
+- `min()` / `max()` - Find extremes
+- `concat()` - Concatenate values
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple reduction operations
+- Numeric value parsing
+- Configurable separators
+- Skip non-numeric handling
+- Per-operation statistics
+
 ## [0.0.676] - 2025-12-15
 
 ### Added - Settings Grouper (Phase 252)
