@@ -393,6 +393,7 @@ pub mod settings_formatter; // v0.0.644: Settings formatter
 pub mod settings_normalizer; // v0.0.645: Settings normalizer
 pub mod settings_parser; // v0.0.646: Settings parser
 pub mod settings_renderer; // v0.0.647: Settings renderer
+pub mod settings_encoder; // v0.0.648: Settings encoder
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.648] - 2025-12-15
+
+### Added - Settings Encoder (Phase 224)
+
+**Settings Encoder Module:**
+- `settings_encoder.rs` for serialization
+- `EncodingFormat` enum (Json, Toml, Yaml, Binary, Base64)
+- `EncodingOptions` enum (Compact, Pretty, Minified, Verbose)
+- `EncoderConfig` / `EncodeResult` / `EncoderStats` structs
+- `SettingsEncoder` / `SettingsEncoderRegistry` for managing encoders
+
+**Core Functions:**
+- `register()` / `unregister()` - Encoder management
+- `encode()` - Serialize settings
+- `do_encode()` - Internal encoding logic
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple output formats
+- Encoding options
+- Byte size tracking
+- Key sorting option
+- Per-encoder statistics
+
 ## [0.0.647] - 2025-12-15
 
 ### Added - Settings Renderer (Phase 223)

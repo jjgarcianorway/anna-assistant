@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.648 - Settings Encoder (Phase 224) ✓
+- [x] `settings_encoder.rs` for serialization
+- [x] `EncodingFormat` / `EncodingOptions`
+- [x] `EncoderConfig` / `EncodeResult` / `EncoderStats`
+- [x] `SettingsEncoder` / `SettingsEncoderRegistry`
+- [x] Multi-format encoding with options
+
 ### v0.0.647 - Settings Renderer (Phase 223) ✓
 - [x] `settings_renderer.rs` for display output
 - [x] `RenderTarget` / `RenderTheme`
