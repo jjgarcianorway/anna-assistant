@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.794] - 2025-12-15
+
+### Performance - Skip LLM Formatting for Data Listings
+
+**Instant Responses for Data-Listing Queries:**
+- Deterministic answers for data listings now skip LLM formatting step
+- Reduces port query response time from ~25 seconds to <1 second
+- Affected query types: ListeningPorts, RunningServices, EnvironmentVars,
+  MountedFilesystems, UsbDevices, LoggedInUsers, NetworkInterfaces,
+  TopCpuProcesses, TopMemoryProcesses, and simple status queries
+
+**Technical details:**
+- Added `should_skip_formatting()` function in `llm_request.rs`
+- Data listings like `ss -tulpn` output are already well-formatted
+- LLM rephrasing adds ~20-25 seconds latency without improving quality
+- Now these answers return instantly without LLM involvement
+
+**Result:**
+- `annactl "open ports"` - instant response (was 25+ seconds)
+- `annactl "running services"` - instant response
+- `annactl "who is logged in"` - instant response
+
 ## [0.0.793] - 2025-12-15
 
 ### Fixed - Port Query Deterministic Answer Bug

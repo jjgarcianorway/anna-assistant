@@ -454,7 +454,16 @@ async fn handle_llm_request_inner(
     };
 
     // Step 7.5: v0.0.276 - Format deterministic answers via translator LLM
-    if specialist_result.used_deterministic && !specialist_result.answer.is_empty() {
+    // v0.0.794: Skip formatting for data-listing answers (ports, services, etc.)
+    // These are already well-formatted and don't benefit from LLM rephrasing
+    let skip_formatting = specialist_result
+        .det_result
+        .as_ref()
+        .map(|det| should_skip_formatting(&det.route_class))
+        .unwrap_or(false);
+
+    if specialist_result.used_deterministic && !specialist_result.answer.is_empty() && !skip_formatting
+    {
         specialist_result.answer = crate::response_formatter::format_response(
             &translator_model,
             &specialist_result.answer,
@@ -462,6 +471,15 @@ async fn handle_llm_request_inner(
             8, // 8 second timeout for formatting
         )
         .await;
+    } else if skip_formatting {
+        info!(
+            "v0.0.794: Skipping LLM formatting for data listing (route_class={})",
+            specialist_result
+                .det_result
+                .as_ref()
+                .map(|d| d.route_class.as_str())
+                .unwrap_or("unknown")
+        );
     }
 
     // Step 8: Handle no answer case
@@ -567,4 +585,38 @@ async fn handle_llm_request_inner(
 
     // Return with theatre context
     wrap_with_theatre(id, result, Some(theatre))
+}
+
+/// v0.0.794: Check if a route class should skip LLM formatting
+/// Data-listing answers (ports, services, env vars, etc.) are already well-formatted
+/// and don't benefit from LLM rephrasing - they just need the raw data displayed
+fn should_skip_formatting(route_class: &str) -> bool {
+    matches!(
+        route_class,
+        // Data listings that display raw system info
+        "ListeningPorts"
+            | "RunningServices"
+            | "EnvironmentVars"
+            | "MountedFilesystems"
+            | "UsbDevices"
+            | "LoggedInUsers"
+            | "NetworkInterfaces"
+            | "TopCpuProcesses"
+            | "TopMemoryProcesses"
+            // Direct probe answers are already formatted
+            | "probe_direct"
+            // Knowledge index answers don't need reformatting
+            | "knowledge_index"
+            // Simple status queries
+            | "SystemArchitecture"
+            | "Hostname"
+            | "OsInfo"
+            | "KernelVersion"
+            | "CurrentUser"
+            | "LastBoot"
+            | "SystemUptime"
+            | "BatteryStatus"
+            | "SystemLoad"
+            | "TimezoneInfo"
+    )
 }

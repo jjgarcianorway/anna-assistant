@@ -320,3 +320,69 @@ fn test_listening_ports_can_answer_deterministically() {
     assert_eq!(route.class, router::QueryClass::ListeningPorts);
     assert!(route.can_answer_deterministically(), "ListeningPorts should be able to answer deterministically");
 }
+
+#[test]
+fn test_det_services_answer_listening_ports() {
+    use crate::det::answer_listening_ports;
+    use anna_shared::rpc::ProbeResult;
+    
+    // Simulate the probe result that probe_runner creates
+    // The command is "ss -tulpn", not "listening_ports"
+    let probes = vec![ProbeResult {
+        command: "ss -tulpn".to_string(),
+        exit_code: 0,
+        stdout: "Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port\ntcp   LISTEN 0      128    127.0.0.1:8080  0.0.0.0:*".to_string(),
+        stderr: String::new(),
+        timing_ms: 50,
+    }];
+    
+    let result = answer_listening_ports(&probes, "listening_ports");
+    assert!(result.is_some(), "Should find probe with command 'ss -tulpn' when searching for 'ss'");
+    let det = result.unwrap();
+    assert!(det.answer.contains("8080"), "Answer should contain port 8080");
+}
+
+#[test]
+fn test_full_deterministic_path_for_ports() {
+    use crate::deterministic;
+    use anna_shared::rpc::{
+        Capabilities, HardwareSummary, ProbeResult, RuntimeContext,
+    };
+    use std::collections::HashMap;
+
+    // Setup probe results as they would be from probe_runner
+    // Note: probe_runner stores the command, not the probe ID
+    let probe_results = vec![
+        ProbeResult {
+            command: "ip addr show".to_string(),  // network_addrs
+            exit_code: 0,
+            stdout: "1: lo: <LOOPBACK,UP,LOWER_UP>...".to_string(),
+            stderr: String::new(),
+            timing_ms: 50,
+        },
+        ProbeResult {
+            command: "ss -tulpn".to_string(),  // listening_ports
+            exit_code: 0,
+            stdout: "Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port\ntcp   LISTEN 0      128    127.0.0.1:8080  0.0.0.0:*".to_string(),
+            stderr: String::new(),
+            timing_ms: 50,
+        },
+    ];
+
+    let context = RuntimeContext {
+        version: "test".to_string(),
+        daemon_running: true,
+        capabilities: Capabilities::default(),
+        hardware: HardwareSummary::default(),
+        probes: HashMap::new(),
+    };
+
+    // This is what deterministic::try_answer does
+    let result = deterministic::try_answer("open ports", &context, &probe_results);
+
+    assert!(result.is_some(), "deterministic::try_answer should return Some for 'open ports'");
+    let det = result.unwrap();
+    assert!(det.parsed_data_count > 0, "Should have parsed data");
+    println!("Answer: {}", det.answer);
+    assert!(det.answer.contains("8080"), "Answer should mention port 8080");
+}
