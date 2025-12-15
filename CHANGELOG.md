@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.649] - 2025-12-15
+
+### Added - Settings Decoder (Phase 225)
+
+**Settings Decoder Module:**
+- `settings_decoder.rs` for deserialization
+- `DecodingFormat` enum (Json, Toml, Yaml, Binary, Base64)
+- `DecodingMode` enum (Strict, Lenient, Permissive, Recovery)
+- `DecoderConfig` / `DecodeError` / `DecodeResult` / `DecoderStats` structs
+- `SettingsDecoder` / `SettingsDecoderRegistry` for managing decoders
+
+**Core Functions:**
+- `register()` / `unregister()` - Decoder management
+- `decode()` - Deserialize settings
+- `do_decode()` - Internal decoding logic
+- `results()` / `stats()` - Data access
+- `clear()` - Result cleanup
+
+**Features:**
+- Multiple input formats
+- Mode-based strictness
+- Error collection
+- Position tracking
+- Per-decoder statistics
+
 ## [0.0.648] - 2025-12-15
 
 ### Added - Settings Encoder (Phase 224)

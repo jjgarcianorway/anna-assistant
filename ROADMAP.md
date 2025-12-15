@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.649 - Settings Decoder (Phase 225) ✓
+- [x] `settings_decoder.rs` for deserialization
+- [x] `DecodingFormat` / `DecodingMode`
+- [x] `DecoderConfig` / `DecodeError` / `DecodeResult` / `DecoderStats`
+- [x] `SettingsDecoder` / `SettingsDecoderRegistry`
+- [x] Multi-format decoding with error tracking
+
 ### v0.0.648 - Settings Encoder (Phase 224) ✓
 - [x] `settings_encoder.rs` for serialization
 - [x] `EncodingFormat` / `EncodingOptions`
