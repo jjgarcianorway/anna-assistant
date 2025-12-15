@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.719] - 2025-12-15
+
+### Added - Settings Edict (Phase 295)
+
+**Settings Edict Module:**
+- `settings_edict.rs` for formal edicts for settings enforcement
+- `EdictType` enum (Royal, Imperial, Sovereign, Administrative)
+- `EdictStatus` enum (Draft, Proclaimed, Active, Revoked)
+- `EdictConfig` / `EdictProclamation` / `EdictAnnotation` / `EdictStats` structs
+- `SettingsEdict` / `EdictRegistry` for managing edicts
+
+**Core Functions:**
+- `register()` / `unregister()` - Edict management
+- `add_proclamation()` - Add proclamations
+- `proclaim()` / `activate()` / `revoke()` - Lifecycle management
+- `add_annotation()` - Add annotations
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple edict types
+- Status lifecycle
+- Seal support
+- Annotation tracking
+- Active/revoked counting
+
 ## [0.0.718] - 2025-12-15
 
 ### Added - Settings Directive (Phase 294)
