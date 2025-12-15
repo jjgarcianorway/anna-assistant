@@ -518,6 +518,7 @@ pub mod settings_nursery; // v0.0.769: Settings nursery
 pub mod settings_greenhouse; // v0.0.770: Settings greenhouse
 pub mod settings_conservatory; // v0.0.771: Settings conservatory
 pub mod settings_arboretum; // v0.0.772: Settings arboretum
+pub mod settings_botanical; // v0.0.773: Settings botanical
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

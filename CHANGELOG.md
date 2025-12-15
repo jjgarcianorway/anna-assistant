@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.773] - 2025-12-15
+
+### Added - Settings Botanical (Phase 349)
+
+**Settings Botanical Module:**
+- `settings_botanical.rs` for botanical garden for settings plant science
+- `BotanicalType` enum (Display, Research, Conservation, Educational)
+- `BotanicalStatus` enum (Active, Expanding, Conserving, Restoration)
+- `BotanicalConfig` / `BotanicalCollection` / `BotanicalBotanist` / `BotanicalStats` structs
+- `SettingsBotanical` / `BotanicalRegistry` for managing botanicals
+
+**Core Functions:**
+- `register()` / `unregister()` - Botanical management
+- `add_collection()` - Add collections
+- `make_documented()` / `make_undocumented()` - Documentation management
+- `add_botanist()` - Add botanists
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple botanical types
+- Status tracking
+- Wing numbering
+- Botanist support
+- Documentation rate calculation
+
 ## [0.0.772] - 2025-12-15
 
 ### Added - Settings Arboretum (Phase 348)
