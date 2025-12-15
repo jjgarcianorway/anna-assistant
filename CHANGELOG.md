@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.720] - 2025-12-15
+
+### Added - Settings Decree (Phase 296)
+
+**Settings Decree Module:**
+- `settings_decree.rs` for official decrees for settings governance
+- `DecreeType` enum (Executive, Legislative, Judicial, Emergency)
+- `DecreeBinding` enum (Mandatory, Recommended, Voluntary, Advisory)
+- `DecreeConfig` / `DecreeRuling` / `DecreeClause` / `DecreeStats` structs
+- `SettingsDecree` / `DecreeRegistry` for managing decrees
+
+**Core Functions:**
+- `register()` / `unregister()` - Decree management
+- `add_ruling()` - Add rulings
+- `enact()` / `repeal()` - In-force management
+- `add_clause()` - Add clauses
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple decree types
+- Binding levels
+- In-force tracking
+- Clause support
+- Emergency decree counting
+
 ## [0.0.719] - 2025-12-15
 
 ### Added - Settings Edict (Phase 295)
