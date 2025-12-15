@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.718] - 2025-12-15
+
+### Added - Settings Directive (Phase 294)
+
+**Settings Directive Module:**
+- `settings_directive.rs` for authoritative directives for settings management
+- `DirectiveType` enum (Mandatory, Recommended, Advisory, Optional)
+- `DirectiveAuthority` enum (System, Admin, Policy, Executive)
+- `DirectiveConfig` / `DirectiveOrder` / `DirectiveSupplement` / `DirectiveStats` structs
+- `SettingsDirective` / `DirectiveRegistry` for managing directives
+
+**Core Functions:**
+- `register()` / `unregister()` - Directive management
+- `add_order()` - Add orders
+- `enforce()` - Enforce orders
+- `add_supplement()` - Add supplements
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple directive types
+- Authority levels
+- Enforcement tracking
+- Supplement support
+- Mandatory counting
+
 ## [0.0.717] - 2025-12-15
 
 ### Added - Settings Circular (Phase 293)

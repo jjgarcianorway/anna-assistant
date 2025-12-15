@@ -463,6 +463,7 @@ pub mod settings_dispatch; // v0.0.714: Settings dispatch
 pub mod settings_communique; // v0.0.715: Settings communique
 pub mod settings_missive; // v0.0.716: Settings missive
 pub mod settings_circular; // v0.0.717: Settings circular
+pub mod settings_directive; // v0.0.718: Settings directive
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
