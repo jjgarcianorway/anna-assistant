@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.702] - 2025-12-15
+
+### Added - Settings Archive V2 (Phase 278)
+
+**Settings Archive V2 Module:**
+- `settings_archive_v2.rs` for long-term archive of settings history
+- `ArchiveTypeV2` enum (Cold, Warm, Deep, Glacier)
+- `ArchiveRetention` enum (Days30, Days90, Year1, Indefinite)
+- `ArchiveConfigV2` / `ArchiveRecord` / `ArchiveBox` / `ArchiveStatsV2` structs
+- `SettingsArchiveV2` / `ArchiveRegistryV2` for managing archives
+
+**Core Functions:**
+- `register()` / `unregister()` - Archive management
+- `add_box()` - Add archive boxes
+- `archive_to_box()` - Archive records
+- `seal()` - Seal boxes
+- `stats()` - Access statistics
+
+**Features:**
+- Box-based organization
+- Record expiry dates
+- Sealed box protection
+- Retention policies
+- Archive type classification
+
 ## [0.0.701] - 2025-12-15
 
 ### Added - Settings Anthology (Phase 277)
