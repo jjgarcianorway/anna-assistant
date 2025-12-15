@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.698] - 2025-12-15
+
+### Added - Settings Portfolio (Phase 274)
+
+**Settings Portfolio Module:**
+- `settings_portfolio.rs` for investment portfolio of settings assets
+- `PortfolioType` enum (Standard, Growth, Balanced, Conservative)
+- `PortfolioStatus` enum (Active, Paused, Rebalancing, Closed)
+- `PortfolioConfig` / `PortfolioAsset` / `PortfolioHolding` / `PortfolioStats` structs
+- `SettingsPortfolio` / `PortfolioRegistry` for managing portfolios
+
+**Core Functions:**
+- `register()` / `unregister()` - Portfolio management
+- `add_asset()` - Add assets
+- `add_holding()` - Add holdings
+- `rebalance()` - Recalculate weights
+- `stats()` - Access statistics
+
+**Features:**
+- Asset weighting
+- Category tracking
+- Portfolio rebalancing
+- Holdings management
+- Value calculations
+
 ## [0.0.697] - 2025-12-15
 
 ### Added - Settings Dossier (Phase 273)
