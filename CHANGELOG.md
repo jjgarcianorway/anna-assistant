@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.723] - 2025-12-15
+
+### Added - Settings Statute (Phase 299)
+
+**Settings Statute Module:**
+- `settings_statute.rs` for written laws for settings governance
+- `StatuteType` enum (General, Criminal, Civil, Administrative)
+- `StatuteScope` enum (Federal, State, Local, International)
+- `StatuteConfig` / `StatuteArticle` / `StatuteSubsection` / `StatuteStats` structs
+- `SettingsStatute` / `StatuteRegistry` for managing statutes
+
+**Core Functions:**
+- `register()` / `unregister()` - Statute management
+- `add_article()` - Add articles
+- `enact()` / `repeal()` - Enactment management
+- `add_subsection()` - Add subsections
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple statute types
+- Scope levels
+- Enactment tracking
+- Article numbering
+- Subsection support
+
 ## [0.0.722] - 2025-12-15
 
 ### Added - Settings Ordinance (Phase 298)

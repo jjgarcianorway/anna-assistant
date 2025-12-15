@@ -468,6 +468,7 @@ pub mod settings_edict; // v0.0.719: Settings edict
 pub mod settings_decree; // v0.0.720: Settings decree
 pub mod settings_mandate; // v0.0.721: Settings mandate
 pub mod settings_ordinance; // v0.0.722: Settings ordinance
+pub mod settings_statute; // v0.0.723: Settings statute
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
