@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.704] - 2025-12-15
+
+### Added - Settings Gazette (Phase 280)
+
+**Settings Gazette Module:**
+- `settings_gazette.rs` for official gazette of settings announcements
+- `GazetteType` enum (Official, Weekly, Special, Extraordinary)
+- `GazetteStatus` enum (Draft, Review, Published, Superseded)
+- `GazetteConfig` / `GazetteNotice` / `GazetteEntry` / `GazetteStats` structs
+- `SettingsGazette` / `GazetteRegistry` for managing gazettes
+
+**Core Functions:**
+- `register()` / `unregister()` - Gazette management
+- `add_notice()` - Add notices
+- `add_entry()` - Add entries
+- `review()` / `publish()` / `supersede()` - Lifecycle
+- `stats()` - Access statistics
+
+**Features:**
+- Official notices
+- Urgent flagging
+- Effective dates
+- Issue numbering
+- Reference tracking
+
 ## [0.0.703] - 2025-12-15
 
 ### Added - Settings Repertoire (Phase 279)
