@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.783] - 2025-12-15
+
+### Added - Settings Refuge (Phase 359)
+
+**Settings Refuge Module:**
+- `settings_refuge.rs` for wildlife refuge for settings shelter
+- `RefugeType` enum (Wildlife, Bird, Fish, Mammal)
+- `RefugeStatus` enum (Active, Sheltering, Protecting, Recovering)
+- `RefugeConfig` / `RefugeInhabitant` / `RefugeWarden` / `RefugeStats` structs
+- `SettingsRefuge` / `RefugeRegistry` for managing refuges
+
+**Core Functions:**
+- `register()` / `unregister()` - Refuge management
+- `add_inhabitant()` - Add inhabitants
+- `make_safe()` / `make_vulnerable()` - Safety management
+- `add_warden()` - Add wardens
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple refuge types
+- Status tracking
+- Shelter numbering
+- Warden support
+- Safety rate calculation
+
 ## [0.0.782] - 2025-12-15
 
 ### Added - Settings Reserve (Phase 358)
