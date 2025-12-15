@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.668] - 2025-12-15
+
+### Added - Settings Denormalization (Phase 244)
+
+**Settings Denormalization Module:**
+- `settings_denormalization.rs` for denormalizing settings to target format
+- `DenormalizationType` enum (Expand, Unflatten, Prefix, Suffix, Full)
+- `TargetFormat` enum (Json, Yaml, Toml, Ini, Env)
+- `DenormalizerConfig` / `DenormalizationResult` / `DenormalizerStats` structs
+- `SettingsDenormalizer` / `DenormalizerRegistry` for managing denormalizers
+
+**Core Functions:**
+- `register()` / `unregister()` - Denormalizer management
+- `denormalize()` - Expand settings to target format
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple denormalization types
+- Key prefix/suffix support
+- Original key preservation
+- Per-denormalizer statistics
+
 ## [0.0.667] - 2025-12-15
 
 ### Added - Settings Normalization (Phase 243)
