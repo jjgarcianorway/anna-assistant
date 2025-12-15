@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.686] - 2025-12-15
+
+### Added - Settings Counter (Phase 262)
+
+**Settings Counter Module:**
+- `settings_counter.rs` for counting settings by various criteria
+- `CountType` enum (All, ByPrefix, ByValueType, ByLength)
+- `ValueType` enum (String, Numeric, Boolean, Empty)
+- `CounterConfig` / `CountEntry` / `CountResult` / `CounterStats` structs
+- `SettingsCounter` / `CounterRegistry` for managing counters
+
+**Core Functions:**
+- `register()` / `unregister()` - Counter management
+- `count_all()` - Count total settings
+- `count_by_prefix()` - Group and count by key prefix
+- `count_by_value_type()` - Count by detected value type
+- `count_by_length()` - Count by value length buckets
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple count types
+- Value type detection
+- Length bucketing
+- Percentage calculations
+- Configurable thresholds
+
 ## [0.0.685] - 2025-12-15
 
 ### Added - Settings Finder (Phase 261)
