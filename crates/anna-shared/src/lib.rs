@@ -440,6 +440,7 @@ pub mod settings_auditor; // v0.0.691: Settings auditor
 pub mod settings_chronicle; // v0.0.692: Settings chronicle
 pub mod settings_ledger; // v0.0.693: Settings ledger
 pub mod settings_diary; // v0.0.694: Settings diary
+pub mod settings_folio; // v0.0.695: Settings folio
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

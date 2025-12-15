@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.695] - 2025-12-15
+
+### Added - Settings Folio (Phase 271)
+
+**Settings Folio Module:**
+- `settings_folio.rs` for portfolio of settings collections
+- `FolioType` enum (Active, Archived, Template, Backup)
+- `FolioStatus` enum (Open, Closed, Locked, Pending)
+- `FolioConfig` / `FolioSection` / `FolioItem` / `FolioStats` structs
+- `SettingsFolio` / `FolioRegistry` for managing folios
+
+**Core Functions:**
+- `register()` / `unregister()` - Folio management
+- `add_section()` - Add sections
+- `add_setting()` - Add settings to sections
+- `lock()` / `close()` - Change status
+- `stats()` - Access statistics
+
+**Features:**
+- Section-based organization
+- Multiple folio types
+- Status management
+- Max section limits
+- Item notes
+
 ## [0.0.694] - 2025-12-15
 
 ### Added - Settings Diary (Phase 270)
