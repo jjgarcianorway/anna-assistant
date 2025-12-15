@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.778] - 2025-12-15
+
+### Added - Settings Aviary (Phase 354)
+
+**Settings Aviary Module:**
+- `settings_aviary.rs` for bird aviary for settings ornithology
+- `AviaryType` enum (Flight, Breeding, Display, Rescue)
+- `AviaryStatus` enum (Active, Nesting, Molting, Quarantine)
+- `AviaryConfig` / `AviaryBird` / `AviaryKeeper` / `AviaryStats` structs
+- `SettingsAviary` / `AviaryRegistry` for managing aviaries
+
+**Core Functions:**
+- `register()` / `unregister()` - Aviary management
+- `add_bird()` - Add birds
+- `make_flying()` / `make_grounded()` - Flight management
+- `add_keeper()` - Add keepers
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple aviary types
+- Status tracking
+- Perch numbering
+- Keeper support
+- Flight rate calculation
+
 ## [0.0.777] - 2025-12-15
 
 ### Added - Settings Terrarium (Phase 353)
