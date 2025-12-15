@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.663] - 2025-12-15
+
+### Added - Settings Graph (Phase 239)
+
+**Settings Graph Module:**
+- `settings_graph.rs` for modeling settings relationships
+- `LinkType` enum (Reference, Alias, Dependency, Override, Computed)
+- `LinkDirection` enum (Unidirectional, Bidirectional, Reverse)
+- `LinkerConfig` / `SettingsLink` / `LinkResult` / `LinkerStats` structs
+- `SettingsLinker` / `SettingsLinkerRegistry` for managing graphs
+
+**Core Functions:**
+- `register()` / `unregister()` - Graph management
+- `link()` / `link_with_type()` - Create relationships
+- `resolve()` - Resolve linked values
+- `links_for()` - Get all links for key
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple link types
+- Bidirectional relationships
+- Circular dependency prevention
+- Link resolution
+- Per-graph statistics
+
 ## [0.0.662] - 2025-12-15
 
 ### Added - Settings Patcher (Phase 238)

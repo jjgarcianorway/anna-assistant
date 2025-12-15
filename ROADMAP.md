@@ -28,6 +28,13 @@ Anna v0.0.369 focuses on:
 
 ## Completed
 
+### v0.0.663 - Settings Graph (Phase 239) ✓
+- [x] `settings_graph.rs` for modeling settings relationships
+- [x] `LinkType` / `LinkDirection`
+- [x] `LinkerConfig` / `SettingsLink` / `LinkResult` / `LinkerStats`
+- [x] `SettingsLinker` / `SettingsLinkerRegistry`
+- [x] Circular dependency prevention with link resolution
+
 ### v0.0.662 - Settings Patcher (Phase 238) ✓
 - [x] `settings_patcher.rs` for applying incremental changes
 - [x] `PatchOperation` / `PatchMode`
