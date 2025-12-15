@@ -421,6 +421,7 @@ pub mod settings_projector; // v0.0.672: Settings projector
 pub mod settings_selector; // v0.0.673: Settings selector
 pub mod settings_filter; // v0.0.674: Settings filter
 pub mod settings_sorter; // v0.0.675: Settings sorter
+pub mod settings_grouper; // v0.0.676: Settings grouper
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

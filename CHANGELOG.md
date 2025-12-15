@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.676] - 2025-12-15
+
+### Added - Settings Grouper (Phase 252)
+
+**Settings Grouper Module:**
+- `settings_grouper.rs` for grouping settings by various criteria
+- `GroupByField` enum (KeyPrefix, KeySuffix, Value, ValueType)
+- `ValueTypeClass` enum (String, Number, Boolean, Empty)
+- `GrouperConfig` / `SettingsGroup` / `GroupResult` / `GrouperStats` structs
+- `SettingsGrouper` / `GrouperRegistry` for managing groupers
+
+**Core Functions:**
+- `register()` / `unregister()` - Grouper management
+- `group_by_prefix()` - Group by key prefix
+- `group_by_suffix()` - Group by key suffix
+- `group_by_value_type()` - Group by value type
+- `group_by_value()` - Group by value
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple grouping strategies
+- Value type classification
+- Configurable delimiters
+- Group statistics tracking
+- Min group size filtering
+
 ## [0.0.675] - 2025-12-15
 
 ### Added - Settings Sorter (Phase 251)
