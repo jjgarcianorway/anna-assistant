@@ -513,6 +513,7 @@ pub mod settings_pasture; // v0.0.764: Settings pasture
 pub mod settings_grove; // v0.0.765: Settings grove
 pub mod settings_orchard; // v0.0.766: Settings orchard
 pub mod settings_vineyard; // v0.0.767: Settings vineyard
+pub mod settings_garden; // v0.0.768: Settings garden
 pub mod version;
 
 // v0.0.67: Service desk narrative modules

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.768] - 2025-12-15
+
+### Added - Settings Garden (Phase 344)
+
+**Settings Garden Module:**
+- `settings_garden.rs` for cultivated garden for settings horticulture
+- `GardenType` enum (Flower, Vegetable, Herb, Rock)
+- `GardenStatus` enum (Planned, Planted, Growing, Blooming)
+- `GardenConfig` / `GardenPlant` / `GardenGardener` / `GardenStats` structs
+- `SettingsGarden` / `GardenRegistry` for managing gardens
+
+**Core Functions:**
+- `register()` / `unregister()` - Garden management
+- `add_plant()` - Add plants
+- `make_thriving()` / `make_wilting()` - Thriving management
+- `add_gardener()` - Add gardeners
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple garden types
+- Status tracking
+- Bed numbering
+- Gardener support
+- Thriving rate calculation
+
 ## [0.0.767] - 2025-12-15
 
 ### Added - Settings Vineyard (Phase 343)
