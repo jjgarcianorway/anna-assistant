@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.713] - 2025-12-15
+
+### Added - Settings Notice (Phase 289)
+
+**Settings Notice Module:**
+- `settings_notice.rs` for official notices about settings changes
+- `NoticeType` enum (Information, Warning, Alert, Announcement)
+- `NoticePriority` enum (Low, Normal, High, Urgent)
+- `NoticeConfig` / `NoticeEntry` / `NoticeMetadata` / `NoticeStats` structs
+- `SettingsNotice` / `NoticeRegistry` for managing notices
+
+**Core Functions:**
+- `register()` / `unregister()` - Notice management
+- `add_entry()` - Add entries
+- `add_metadata()` - Add metadata
+- `acknowledge()` - Acknowledge notices
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple notice types
+- Priority levels
+- Acknowledgment tracking
+- Metadata support
+- Urgent notice counting
+
 ## [0.0.712] - 2025-12-15
 
 ### Added - Settings Report (Phase 288)

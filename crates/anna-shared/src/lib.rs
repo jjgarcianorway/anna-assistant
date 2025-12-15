@@ -458,6 +458,7 @@ pub mod settings_digest; // v0.0.709: Settings digest
 pub mod settings_brief; // v0.0.710: Settings brief
 pub mod settings_summary; // v0.0.711: Settings summary
 pub mod settings_report; // v0.0.712: Settings report
+pub mod settings_notice; // v0.0.713: Settings notice
 pub mod version;
 
 // v0.0.67: Service desk narrative modules
