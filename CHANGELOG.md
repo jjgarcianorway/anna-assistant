@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.673] - 2025-12-15
+
+### Added - Settings Selector (Phase 249)
+
+**Settings Selector Module:**
+- `settings_selector.rs` for selecting settings based on criteria
+- `SelectorType` enum (Pattern, ByValue, ByIndex, First, Last)
+- `MatchMode` enum (Exact, Prefix, Suffix, Contains, Regex)
+- `SelectorConfig` / `SelectionCriteria` / `SelectionResult` / `SelectorStats` structs
+- `SettingsSelector` / `SelectorRegistry` for managing selectors
+
+**Core Functions:**
+- `register()` / `unregister()` - Selector management
+- `select()` - Select by criteria
+- `select_first()` - Select first N entries
+- `select_by_prefix()` - Select by key prefix
+- `stats()` - Access statistics
+
+**Features:**
+- Multiple selector types
+- Flexible match modes
+- Case insensitivity
+- Selection rate tracking
+- Per-selector statistics
+
 ## [0.0.672] - 2025-12-15
 
 ### Added - Settings Projector (Phase 248)
