@@ -35,8 +35,9 @@ pub const PROBE_IDS: &[&str] = &[
     "vulkan_status",    // vulkaninfo --summary
     "glxinfo_renderer", // glxinfo | grep renderer
     // v0.0.395: Storage analysis probes (largest folders)
-    "largest_dirs", // du -h --max-depth=1 / | sort -rh | head -15
-    "largest_home", // du -h --max-depth=2 $HOME | sort -rh | head -15
+    // v0.0.814: Now drills down into subdirs (max-depth=2) to show actual large folders
+    "largest_dirs", // du -h --max-depth=2 /home /var /usr /opt | sort -rh | head -25
+    "largest_home", // du -h --max-depth=2 $HOME | sort -rh | head-20
     // v0.0.403: Service status probes
     "bluetooth_service", // systemctl status bluetooth.service
 ];
@@ -51,14 +52,17 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         "disk_usage" | "df" => Some("df -h"),
         // v0.0.399: Fast largest directories
         // v0.0.808: Use df for overview + fast first-level scan
-        // Strategy: df is instant, du on first level only with aggressive timeout
+        // v0.0.814: DRILL DOWN into large directories to show actual content folders
+        // User wants to know WHAT is using space, not just that /home is 313G
         "largest_dirs" => Some(
-            "echo '=== DISK USAGE ===' && df -h / 2>/dev/null | tail -1 && \
-             echo '=== TOP LEVEL ===' && \
-             (timeout 2 du -sh /* 2>/dev/null | sort -rh | head -10 || echo 'SCAN_PARTIAL')"
+            "echo '=== DISK OVERVIEW ===' && df -h / 2>/dev/null | tail -1 && \
+             echo '=== TOP 20 LARGEST FOLDERS ===' && \
+             (timeout 8 sh -c 'du -h --max-depth=2 /home /var /usr /opt 2>/dev/null | sort -rh | head -25' || echo 'SCAN_PARTIAL')"
         ),
+        // v0.0.814: Now scans deeper into home subdirs
         "largest_home" => Some(
-            "timeout 3 du -sh $HOME/* 2>/dev/null | sort -rh | head -10 || echo 'HOME_TIMEOUT'"
+            "echo '=== HOME DIRECTORY ===' && \
+             (timeout 5 du -h --max-depth=2 $HOME 2>/dev/null | sort -rh | head -20 || echo 'HOME_TIMEOUT')"
         ),
         "block_devices" => Some("lsblk"),
         "network_addrs" => Some("ip addr show"),

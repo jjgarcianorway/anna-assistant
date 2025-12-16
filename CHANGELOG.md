@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.814] - 2025-12-16
+
+### Fix - "Biggest folders" now shows actual content, not parent directories
+
+**Problem:**
+- "what are the top 20 biggest folders" returned `/home (313G)`, `/var (18G)`, `/usr (15G)`
+- This is useless - user already knows these are large
+- They want to know WHAT INSIDE these directories is consuming space
+
+**Fix:**
+- `largest_dirs` probe now uses `--max-depth=2` to drill into subdirectories
+- Scans `/home`, `/var`, `/usr`, `/opt` with depth 2 to find actual large folders
+- Now shows: `/home/user/Downloads (50G)`, `/home/user/.cache (30G)`, `/var/log/journal (5G)`
+- Increased timeout from 2s to 8s to allow deeper scan
+- `largest_home` also uses depth 2 to show subdirectories
+
+**Example output (before):**
+```
+home (313G), var (18G), usr (15G)
+```
+
+**Example output (after):**
+```
+/home/user (300G), /home/user/Downloads (50G), /home/user/.cache (30G),
+/var/lib/docker (10G), /var/log/journal (5G), /usr/lib (8G)
+```
+
 ## [0.0.813] - 2025-12-16
 
 ### Added - Knowledge Base Integration
