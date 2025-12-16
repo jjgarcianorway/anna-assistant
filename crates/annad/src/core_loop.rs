@@ -1,4 +1,4 @@
-//! Core request loop - the simple path (v0.0.811).
+//! Core request loop - the simple path (v0.0.812).
 //!
 //! This module implements the VISION.md core loop:
 //!
@@ -11,6 +11,8 @@
 //! This is intentionally simple. No 10 special-case handlers.
 //! The translator understands the query, recipes handle known patterns,
 //! specialists handle new problems and teach Anna.
+//!
+//! v0.0.812: Added IT Department with named specialists.
 
 use anna_shared::learning_engine::{
     AnswerKind, AnswerTemplate, LearnedRecipe, LogicType, RecipeLibrary, RecipeLogic,
@@ -22,6 +24,7 @@ use tracing::{info, warn};
 
 use crate::ollama;
 use crate::probes;
+use crate::specialists::{ITDepartment, SpecialistRole};
 use crate::state::SharedState;
 
 /// Result of the core loop
@@ -134,46 +137,101 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
 
     info!("No recipe found, asking specialist");
 
+    // Step 3: Get specialist from IT Department
+    let (junior_model, senior_model) = {
+        let s = state.read().await;
+        (
+            s.config.llm.translator_model.clone(), // Junior uses lighter model
+            s.config.llm.specialist_model.clone(), // Senior uses deeper model
+        )
+    };
+
+    let it_dept = ITDepartment::new(&junior_model, &senior_model);
+    let team = it_dept.get_team(&parsed.domain);
+
+    // Get the junior specialist first (per VISION.md escalation flow)
+    let (specialist, specialist_name) = match team {
+        Some(t) => (&t.junior, ITDepartment::display_name(&t.junior)),
+        None => {
+            // Fallback to system team if domain not found
+            let system_team = it_dept.get_team("system").unwrap();
+            (&system_team.junior, ITDepartment::display_name(&system_team.junior))
+        }
+    };
+
     comms.push(InternalComm {
         from: "Anna".to_string(),
         message: format!(
-            "No recipe for '{}', dispatching to {} specialist",
-            parsed.intent, parsed.domain
+            "No recipe for '{}', asking {} for help",
+            parsed.intent, specialist_name
         ),
         elapsed_ms: start.elapsed().as_millis() as u64,
     });
-
-    // Step 3: Ask specialist
-    let specialist_model = {
-        let s = state.read().await;
-        s.config.llm.specialist_model.clone()
-    };
 
     // Gather evidence first
     let evidence = gather_evidence(&parsed.probes).await;
 
     comms.push(InternalComm {
-        from: format!("{} Specialist", capitalize(&parsed.domain)),
-        message: format!("Gathered {} pieces of evidence", evidence.len()),
+        from: specialist_name.clone(),
+        message: format!("Gathered {} pieces of evidence, analyzing...", evidence.len()),
         elapsed_ms: start.elapsed().as_millis() as u64,
     });
 
-    // Specialist solves
-    let solution = ask_specialist(&specialist_model, query, &parsed, &evidence).await;
+    // Junior specialist attempts first
+    let mut solution = ask_specialist(&specialist.model, query, &parsed, &evidence, &specialist_name).await;
 
-    if solution.confidence < 0.5 {
-        warn!("Specialist low confidence: {}", solution.confidence);
+    // If junior has low confidence, escalate to senior
+    let mut final_specialist_name = specialist_name.clone();
+    if solution.confidence < 0.7 {
+        info!("Junior low confidence ({}), escalating to senior", solution.confidence);
+
+        // Get senior specialist
+        let (senior, senior_name) = match team {
+            Some(t) => (&t.senior, ITDepartment::display_name(&t.senior)),
+            None => {
+                let system_team = it_dept.get_team("system").unwrap();
+                (&system_team.senior, ITDepartment::display_name(&system_team.senior))
+            }
+        };
 
         comms.push(InternalComm {
-            from: format!("{} Specialist", capitalize(&parsed.domain)),
-            message: "Low confidence in my answer, might need more investigation".to_string(),
+            from: specialist_name.clone(),
+            message: format!(
+                "I'm not confident enough ({}%), escalating to {}",
+                (solution.confidence * 100.0) as u8,
+                senior_name
+            ),
+            elapsed_ms: start.elapsed().as_millis() as u64,
+        });
+
+        // Senior specialist takes over
+        solution = ask_specialist(&senior.model, query, &parsed, &evidence, &senior_name).await;
+        final_specialist_name = senior_name.clone();
+
+        comms.push(InternalComm {
+            from: senior_name,
+            message: format!(
+                "Analyzed the problem. Confidence: {}%",
+                (solution.confidence * 100.0) as u8
+            ),
+            elapsed_ms: start.elapsed().as_millis() as u64,
+        });
+    }
+
+    // If still low confidence after senior, return with warning
+    if solution.confidence < 0.5 {
+        warn!("Even senior has low confidence: {}", solution.confidence);
+
+        comms.push(InternalComm {
+            from: final_specialist_name.clone(),
+            message: "I'm not confident in this answer, might need more investigation".to_string(),
             elapsed_ms: start.elapsed().as_millis() as u64,
         });
 
         return CoreLoopResult {
             answer: solution.answer,
             source: AnswerSource::Specialist {
-                name: parsed.domain.clone(),
+                name: final_specialist_name,
                 learned: false,
             },
             recipe_id: None,
@@ -211,7 +269,7 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
     CoreLoopResult {
         answer: solution.answer,
         source: AnswerSource::Specialist {
-            name: parsed.domain.clone(),
+            name: final_specialist_name,
             learned,
         },
         recipe_id: None,
@@ -378,6 +436,7 @@ async fn ask_specialist(
     query: &str,
     parsed: &ParsedQuery,
     evidence: &HashMap<String, String>,
+    specialist_name: &str,
 ) -> SpecialistSolution {
     let evidence_str = evidence
         .iter()
@@ -386,7 +445,7 @@ async fn ask_specialist(
         .join("\n\n");
 
     let prompt = format!(
-        r#"You are a Linux {} specialist. Answer this query using the evidence provided.
+        r#"You are {}, a Linux {} specialist. Answer this query using the evidence provided.
 
 Query: "{}"
 
@@ -396,7 +455,7 @@ Evidence:
 Provide a clear, direct answer to the user's question.
 Then respond with JSON containing your answer and confidence:
 {{"answer": "your answer here", "confidence": 0.9, "explanation": "brief reasoning"}}"#,
-        parsed.domain, query, evidence_str
+        specialist_name, parsed.domain, query, evidence_str
     );
 
     let response = match ollama::chat_with_timeout(model, &prompt, 30).await {

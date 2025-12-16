@@ -23,6 +23,7 @@
 
 pub mod action_handlers;
 pub mod core_loop; // v0.0.811: Simple core request loop
+pub mod specialists; // v0.0.812: IT Department with named specialists
 pub mod answer_validator;
 pub mod answers;
 pub mod auto_select;

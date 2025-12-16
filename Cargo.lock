@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "anna-shared"
-version = "0.0.811"
+version = "0.0.812"
 dependencies = [
  "anyhow",
  "chrono",
@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.0.811"
+version = "0.0.812"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -55,7 +55,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.0.811"
+version = "0.0.812"
 dependencies = [
  "anna-shared",
  "anyhow",

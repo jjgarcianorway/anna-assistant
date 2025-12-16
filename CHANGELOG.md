@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.812] - 2025-12-16
+
+### Added - IT Department with Named Specialists
+
+**The IT department is now alive!** Per VISION.md, Anna has a full team of specialists
+with human names, organized by domain with Junior and Senior roles.
+
+**Specialist Teams:**
+| Domain | Junior | Senior |
+|--------|--------|--------|
+| System | Wei | Lin |
+| Network | Eva | Raj |
+| Storage | Tom | Amy |
+| Services | Leo | Maya |
+| Packages | Kai | Zara |
+| Desktop | Mia | Sofia |
+| Security | Alex | Chen |
+
+**Escalation Flow (per VISION.md):**
+1. Junior specialist attempts first (uses lighter model)
+2. If confidence < 70%, escalates to Senior (uses deeper model)
+3. Senior analyzes with more thorough reasoning
+4. High-confidence solutions become learned recipes
+
+**Internal Comms Example:**
+```
+Anna: No recipe for 'check_ram', asking Wei (Junior System) for help
+Wei (Junior System): Gathered 2 pieces of evidence, analyzing...
+Wei (Junior System): I'm not confident enough (65%), escalating to Lin (Senior System)
+Lin (Senior System): Analyzed the problem. Confidence: 92%
+Anna: Learning recipe 'check_ram-1734355200' for next time
+```
+
+**Files:**
+- `crates/annad/src/specialists.rs` - NEW: IT Department registry with all specialists
+- `crates/annad/src/core_loop.rs` - Updated to use named specialists with escalation
+- `crates/annad/src/lib.rs` - Added specialists module
+
 ## [0.0.811] - 2025-12-16
 
 ### Changed - Core Loop: The Beginning of Real Learning
