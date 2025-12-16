@@ -66,6 +66,13 @@ pub fn classify_config(q: &str) -> Option<QueryClass> {
     {
         return Some(QueryClass::ConfigureEditor);
     }
+    // v0.0.800: "what is my vim setup" - show current editor config
+    if (q.contains("what is my") || q.contains("what's my") || q.contains("show my") || q.contains("my current"))
+        && (q.contains("vim") || q.contains("nvim") || q.contains("nano") || q.contains("emacs") || q.contains("editor"))
+        && (q.contains("setup") || q.contains("config") || q.contains("setting"))
+    {
+        return Some(QueryClass::ConfigureEditor);
+    }
 
     // v0.0.99: Install package
     if q.starts_with("install ")

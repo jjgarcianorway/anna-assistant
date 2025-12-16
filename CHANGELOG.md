@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.800] - 2025-12-16
+
+### Fixed - "What is my vim setup?" Wrong Answer
+
+**Bug:**
+- Query "what is my vim setup?" returned generic system info instead of vim config
+- Translator probes overrode the deterministic route probes for ConfigureEditor
+
+**Fix:**
+- Added classification pattern for "what is my X setup" queries in `classify_config.rs`
+- ConfigureEditor now always uses deterministic route probes
+- Fixed in `enforce_probe_spine()` to prioritize det_route probes
+
+**Result:**
+- "what is my vim setup?" now detects installed editors and shows config options
+
 ## [0.0.799] - 2025-12-16
 
 ### Added - Boot Blame Query Support

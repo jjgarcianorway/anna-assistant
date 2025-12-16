@@ -122,6 +122,15 @@ pub fn enforce_probe_spine(
     det_route: &DeterministicRoute,
 ) {
     let route_class = det_route.class.to_string();
+
+    // v0.0.800: ConfigureEditor ALWAYS uses deterministic route probes
+    // Don't trust translator probes for editor detection
+    if route_class == "configure_editor" && !det_route.probes.is_empty() {
+        info!("v0.0.800: ConfigureEditor using deterministic route probes: {:?}", det_route.probes);
+        ticket.needs_probes = det_route.probes.clone();
+        return;
+    }
+
     let skip_spine_override = route_class == "configure_editor" && !ticket.needs_probes.is_empty();
 
     let spine_decision = enforce_minimum_probes(query, &ticket.needs_probes);
