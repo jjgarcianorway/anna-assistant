@@ -1,11 +1,11 @@
-//! Core request loop - the simple path (v0.0.812).
+//! Core request loop - the simple path (v0.0.813).
 //!
 //! This module implements the VISION.md core loop:
 //!
 //! ```text
 //! User Query → Translator → Check Recipes →
 //!   If found: Execute recipe → Answer
-//!   If not: Specialist solves → Anna learns → Answer
+//!   If not: Knowledge lookup → Specialist solves → Anna learns → Answer
 //! ```
 //!
 //! This is intentionally simple. No 10 special-case handlers.
@@ -13,7 +13,9 @@
 //! specialists handle new problems and teach Anna.
 //!
 //! v0.0.812: Added IT Department with named specialists.
+//! v0.0.813: Added knowledge lookup (Arch Wiki, man pages, --help).
 
+use anna_shared::doc_fetcher;
 use anna_shared::learning_engine::{
     AnswerKind, AnswerTemplate, LearnedRecipe, LogicType, RecipeLibrary, RecipeLogic,
     RecipeOrigin, RecipePattern, RecipeProbe,
@@ -173,12 +175,25 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
 
     comms.push(InternalComm {
         from: specialist_name.clone(),
-        message: format!("Gathered {} pieces of evidence, analyzing...", evidence.len()),
+        message: format!("Gathered {} pieces of evidence", evidence.len()),
         elapsed_ms: start.elapsed().as_millis() as u64,
     });
 
+    // Step 3.5: Look up knowledge sources (Arch Wiki, man pages, --help)
+    let knowledge_tags = extract_knowledge_tags(&parsed);
+    let knowledge = doc_fetcher::fetch_docs(&knowledge_tags, 3);
+
+    if !knowledge.is_empty() {
+        let sources: Vec<_> = knowledge.iter().map(|k| k.title.clone()).collect();
+        comms.push(InternalComm {
+            from: specialist_name.clone(),
+            message: format!("Found {} knowledge sources: {}", knowledge.len(), sources.join(", ")),
+            elapsed_ms: start.elapsed().as_millis() as u64,
+        });
+    }
+
     // Junior specialist attempts first
-    let mut solution = ask_specialist(&specialist.model, query, &parsed, &evidence, &specialist_name).await;
+    let mut solution = ask_specialist(&specialist.model, query, &parsed, &evidence, &knowledge, &specialist_name).await;
 
     // If junior has low confidence, escalate to senior
     let mut final_specialist_name = specialist_name.clone();
@@ -205,7 +220,7 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
         });
 
         // Senior specialist takes over
-        solution = ask_specialist(&senior.model, query, &parsed, &evidence, &senior_name).await;
+        solution = ask_specialist(&senior.model, query, &parsed, &evidence, &knowledge, &senior_name).await;
         final_specialist_name = senior_name.clone();
 
         comms.push(InternalComm {
@@ -422,6 +437,31 @@ async fn gather_evidence(probe_cmds: &[String]) -> HashMap<String, String> {
     evidence
 }
 
+/// Extract tags for knowledge lookup from parsed query
+fn extract_knowledge_tags(parsed: &ParsedQuery) -> Vec<String> {
+    let mut tags = vec![];
+
+    // Add intent keywords
+    for part in parsed.intent.split('_') {
+        if part.len() > 2 {
+            tags.push(part.to_string());
+        }
+    }
+
+    // Add domain as a tag
+    tags.push(parsed.domain.clone());
+
+    // Add any entities
+    for (_, value) in &parsed.entities {
+        tags.push(value.clone());
+    }
+
+    // Deduplicate
+    tags.sort();
+    tags.dedup();
+    tags
+}
+
 /// Solution from specialist
 #[derive(Debug)]
 struct SpecialistSolution {
@@ -436,6 +476,7 @@ async fn ask_specialist(
     query: &str,
     parsed: &ParsedQuery,
     evidence: &HashMap<String, String>,
+    knowledge: &[anna_shared::evidence_engine::DocSnippet],
     specialist_name: &str,
 ) -> SpecialistSolution {
     let evidence_str = evidence
@@ -444,18 +485,32 @@ async fn ask_specialist(
         .collect::<Vec<_>>()
         .join("\n\n");
 
+    // Format knowledge sources
+    let knowledge_str = if knowledge.is_empty() {
+        String::new()
+    } else {
+        let sections: Vec<String> = knowledge
+            .iter()
+            .map(|k| format!("## {} ({})\n{}", k.title, k.source, k.snippet))
+            .collect();
+        format!("\n\nKnowledge Sources:\n{}", sections.join("\n\n"))
+    };
+
     let prompt = format!(
-        r#"You are {}, a Linux {} specialist. Answer this query using the evidence provided.
+        r#"You are {}, a Linux {} specialist. Answer this query using the evidence and knowledge provided.
 
 Query: "{}"
 
 Evidence:
-{}
+{}{}
+
+IMPORTANT: If you use information from Knowledge Sources, cite them in your answer.
+Example: "According to the Arch Wiki, ..." or "The man page states..."
 
 Provide a clear, direct answer to the user's question.
 Then respond with JSON containing your answer and confidence:
 {{"answer": "your answer here", "confidence": 0.9, "explanation": "brief reasoning"}}"#,
-        specialist_name, parsed.domain, query, evidence_str
+        specialist_name, parsed.domain, query, evidence_str, knowledge_str
     );
 
     let response = match ollama::chat_with_timeout(model, &prompt, 30).await {

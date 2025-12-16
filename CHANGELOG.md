@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.813] - 2025-12-16
+
+### Added - Knowledge Base Integration
+
+**Specialists now consult documentation!** Per VISION.md, Anna treats documentation as the
+primary technical authority - Arch Wiki, man pages, and --help output.
+
+**Knowledge Flow:**
+1. Query is analyzed and knowledge tags extracted (intent keywords, domain, entities)
+2. `doc_fetcher` looks up relevant documentation:
+   - Local Arch Wiki cache (~/.anna/wiki-cache or /var/lib/anna/wiki-cache)
+   - Man pages for relevant commands
+   - --help output for discovered commands
+3. Knowledge is included in the specialist prompt with citations
+4. Specialists cite their sources: "According to the Arch Wiki..." or "The man page states..."
+
+**Example Internal Comms:**
+```
+Wei (Junior System): Found 2 knowledge sources: man systemctl, Arch Wiki: Systemd
+Wei (Junior System): According to the systemd man page, ...
+```
+
+**Files:**
+- `crates/annad/src/core_loop.rs` - Added knowledge lookup step between evidence and specialist
+
 ## [0.0.812] - 2025-12-16
 
 ### Added - IT Department with Named Specialists
