@@ -126,14 +126,15 @@ pub fn build_storage_route(class: QueryClass) -> Option<DeterministicRoute> {
         }),
 
         // v0.0.390: Largest folders - "top folders taking space"
-        // v0.0.806: Made deterministic - no LLM needed
+        // v0.0.809: Reverted to LLM path - du scan is inherently slow on large filesystems
+        // The LLM will explain this and offer alternatives
         QueryClass::LargestFolders => Some(DeterministicRoute {
             class,
             domain: SpecialistDomain::Storage,
             intent: QueryIntent::Question,
-            probes: vec!["largest_dirs".to_string(), "largest_home".to_string()],
+            probes: vec!["disk_usage".to_string()],
             capability: RouteCapability {
-                can_answer_deterministically: true,
+                can_answer_deterministically: false, // Requires slow scan
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Disk],
                 spine_probes: vec![],

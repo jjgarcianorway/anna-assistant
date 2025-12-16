@@ -347,10 +347,8 @@ pub fn try_answer(
         // v0.0.311: SystemUpdate - handled in llm_request.rs
         QueryClass::SystemUpdate => None,
         // v0.0.390: LargestFolders - "top folders taking space"
-        // v0.0.806: Made deterministic - no LLM needed
-        QueryClass::LargestFolders => {
-            det_extended::answer_largest_folders(probe_results, &route_class)
-        }
+        // v0.0.809: Reverted - du scan is inherently slow, let LLM explain
+        QueryClass::LargestFolders => None,
         // v0.0.801: DeviceType - laptop vs desktop via hostnamectl
         QueryClass::DeviceType => det::answer_device_type(probe_results, &route_class),
         // v0.0.802: WebcamStatus - webcam/camera detection

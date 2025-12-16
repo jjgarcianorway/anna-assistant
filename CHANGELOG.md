@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.809] - 2025-12-16
+
+### Changed - LargestFolders Back to LLM Path (Honest Fix)
+
+**The Problem:** Pretending `du` can be fast is a lie. On large filesystems (690GB+),
+scanning directories takes 30-60+ seconds minimum. No timeout hack fixes this.
+
+**The Honest Solution:** LargestFolders is no longer a "fast path" query.
+- Removed from `is_fast_path()`
+- Reverted to LLM handling
+- LLM will explain the limitation and offer alternatives
+
+**Reality check:** Some queries simply cannot be answered instantly:
+- "biggest 20 folders" requires scanning the entire filesystem
+- This is not a recipe problem - it's physics (disk I/O)
+- The LLM can explain this and suggest `ncdu` or running `du` manually
+
 ## [0.0.808] - 2025-12-16
 
 ### Fixed - Largest Folders Actually Fast Now

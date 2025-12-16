@@ -240,7 +240,7 @@ impl QueryClass {
                 | Self::DeviceType // v0.0.801
                 | Self::WebcamStatus // v0.0.802
                 | Self::ScreenResolution // v0.0.805
-                | Self::LargestFolders // v0.0.806
+                // v0.0.809: LargestFolders removed - requires slow du scan, can't be instant
         )
     }
 
