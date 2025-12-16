@@ -134,6 +134,8 @@ pub enum QueryClass {
     SystemUpdate,
     /// v0.0.801: Device type (laptop/desktop)
     DeviceType,
+    /// v0.0.802: Webcam/camera detection
+    WebcamStatus,
     Unknown,
 }
 
@@ -263,6 +265,7 @@ impl std::fmt::Display for QueryClass {
             Self::DesktopWallpaper => "desktop_wallpaper",
             Self::SystemUpdate => "system_update",
             Self::DeviceType => "device_type",
+            Self::WebcamStatus => "webcam_status",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)

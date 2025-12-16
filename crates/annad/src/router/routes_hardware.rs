@@ -1,4 +1,4 @@
-//! Hardware routes: CPU, GPU, audio, sensors (v0.0.321).
+//! Hardware routes: CPU, GPU, audio, sensors (v0.0.802).
 //!
 //! v0.0.321: Added HardwareAcceleration route for browser/video queries.
 
@@ -223,6 +223,20 @@ pub fn build_hardware_route(class: QueryClass) -> Option<DeterministicRoute> {
             domain: SpecialistDomain::System,
             intent: QueryIntent::Question,
             probes: vec!["loaded_firmware".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        }),
+
+        // v0.0.802: Webcam/camera status
+        QueryClass::WebcamStatus => Some(DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["webcam_devices".to_string()],
             capability: RouteCapability {
                 can_answer_deterministically: true,
                 evidence_required: true,

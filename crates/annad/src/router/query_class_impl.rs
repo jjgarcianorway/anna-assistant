@@ -128,6 +128,7 @@ impl QueryClass {
             "network_stats" => Some(Self::NetworkStats),
             "system_update" => Some(Self::SystemUpdate),
             "device_type" => Some(Self::DeviceType),
+            "webcam_status" => Some(Self::WebcamStatus),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -236,6 +237,7 @@ impl QueryClass {
                 | Self::NetworkStats
                 | Self::BootBlame // v0.0.799
                 | Self::DeviceType // v0.0.801
+                | Self::WebcamStatus // v0.0.802
         )
     }
 

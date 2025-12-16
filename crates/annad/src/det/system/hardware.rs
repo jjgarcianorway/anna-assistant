@@ -1,4 +1,4 @@
-//! Hardware-related answer functions (v0.0.187).
+//! Hardware-related answer functions (v0.0.802).
 
 use anna_shared::rpc::ProbeResult;
 
@@ -216,6 +216,84 @@ pub fn answer_usb_devices(
         answer,
         grounded: true,
         parsed_data_count: device_count,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// v0.0.802: Answer webcam/camera status query
+pub fn answer_webcam_status(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    let probe = find_probe(probes, "webcam_devices")?;
+    let output = probe.stdout.trim();
+
+    // Check for "NO_WEBCAM_FOUND" marker
+    if output.contains("NO_WEBCAM_FOUND") || output.is_empty() {
+        return Some(DeterministicResult {
+            answer: "**No webcam detected**. Check if camera is connected or drivers are loaded."
+                .to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    // Parse lsusb output for camera devices
+    let mut cameras: Vec<String> = Vec::new();
+
+    for line in output.lines() {
+        let line_lower = line.to_lowercase();
+        // lsusb format: Bus 001 Device 002: ID 0c45:636b Microdia Integrated Webcam
+        if line_lower.contains("webcam")
+            || line_lower.contains("camera")
+            || line_lower.contains("video")
+            || line_lower.contains("cam")
+        {
+            // Extract the device name part after the ID
+            if let Some(pos) = line.find(": ID ") {
+                let after_id = &line[pos + 5..];
+                if let Some(name_pos) = after_id.find(' ') {
+                    cameras.push(after_id[name_pos + 1..].trim().to_string());
+                } else {
+                    cameras.push(after_id.to_string());
+                }
+            } else {
+                cameras.push(line.to_string());
+            }
+        }
+    }
+
+    // Also check for /dev/video* entries
+    for line in output.lines() {
+        if line.starts_with("/dev/video") {
+            cameras.push(format!("Video device: {}", line.trim()));
+        }
+    }
+
+    if cameras.is_empty() {
+        return Some(DeterministicResult {
+            answer: "**No webcam detected**. The USB scan found no camera devices.".to_string(),
+            grounded: true,
+            parsed_data_count: 1,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let answer = if cameras.len() == 1 {
+        format!("**Webcam detected:** {}", cameras[0])
+    } else {
+        format!(
+            "**Webcams detected ({}):**\n  {}",
+            cameras.len(),
+            cameras.join("\n  ")
+        )
+    };
+
+    Some(DeterministicResult {
+        answer,
+        grounded: true,
+        parsed_data_count: cameras.len(),
         route_class: route_class.to_string(),
     })
 }

@@ -15,6 +15,7 @@ mod users;
 // Re-export all answer functions
 pub use hardware::{
     answer_battery_status, answer_swap_info, answer_system_load, answer_usb_devices,
+    answer_webcam_status,
 };
 pub use info::{answer_device_type, answer_hostname, answer_os_info};
 pub use network::{answer_mounted_filesystems, answer_network_connectivity};

@@ -1,4 +1,4 @@
-//! Query class router for deterministic answers (v0.0.801).
+//! Query class router for deterministic answers (v0.0.802).
 
 use anna_shared::rpc::{ProbeResult, RuntimeContext};
 
@@ -350,6 +350,8 @@ pub fn try_answer(
         QueryClass::LargestFolders => None,
         // v0.0.801: DeviceType - laptop vs desktop via hostnamectl
         QueryClass::DeviceType => det::answer_device_type(probe_results, &route_class),
+        // v0.0.802: WebcamStatus - webcam/camera detection
+        QueryClass::WebcamStatus => det::answer_webcam_status(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

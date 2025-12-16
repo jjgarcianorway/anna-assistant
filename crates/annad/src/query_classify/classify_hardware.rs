@@ -1,4 +1,4 @@
-//! Hardware query classification patterns (v0.0.174).
+//! Hardware query classification patterns (v0.0.802).
 //!
 //! CPU, GPU, memory, disk, audio, sensors, USB, PCI, Bluetooth.
 
@@ -127,6 +127,15 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
         || q.contains("full")
     {
         return Some(QueryClass::DiskSpace);
+    }
+
+    // v0.0.802: Webcam/camera detection - MUST come before USB devices
+    if q.contains("webcam")
+        || q.contains("camera")
+        || (q.contains("web") && q.contains("cam"))
+        || (q.contains("video") && q.contains("device"))
+    {
+        return Some(QueryClass::WebcamStatus);
     }
 
     // v0.0.124: USB devices

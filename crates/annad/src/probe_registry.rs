@@ -298,6 +298,13 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
         ),
         // v0.0.801: Device type detection (laptop/desktop)
         "hostnamectl" => Some("hostnamectl"),
+        // v0.0.802: Webcam/camera detection
+        "webcam_devices" => Some(
+            "lsusb 2>/dev/null | grep -iE 'webcam|camera|video|cam' || \
+             ls /dev/video* 2>/dev/null || \
+             v4l2-ctl --list-devices 2>/dev/null || \
+             echo 'NO_WEBCAM_FOUND'"
+        ),
         _ => None,
     }
 }

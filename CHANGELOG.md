@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.802] - 2025-12-16
+
+### Added - Webcam/Camera Detection Query
+
+**New Query Class: WebcamStatus**
+- Query "do I have a webcam?" now has deterministic answer path
+- Uses lsusb to detect camera devices + /dev/video* + v4l2-ctl
+- Shows camera name and model when detected
+
+**Classification Patterns:**
+- "webcam", "camera", "web cam", "video device"
+
+**Files Modified:**
+- `query_class.rs` - Added WebcamStatus variant
+- `query_class_impl.rs` - Added from_str parsing and is_fast_path
+- `classify_hardware.rs` - Added classification patterns (before USB)
+- `routes_hardware.rs` - Added route configuration
+- `probe_registry.rs` - Added webcam_devices probe
+- `det/system/hardware.rs` - Added `answer_webcam_status()` function
+- `deterministic/router.rs` - Added dispatch for WebcamStatus
+
+**Performance:**
+- Instant deterministic response (~200ms)
+- No LLM specialist needed
+
 ## [0.0.801] - 2025-12-16
 
 ### Added - Device Type Query Support
