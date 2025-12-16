@@ -1,4 +1,4 @@
-//! Hardware query classification patterns (v0.0.804).
+//! Hardware query classification patterns (v0.0.805).
 //!
 //! CPU, GPU, memory, disk, audio, sensors, USB, PCI, Bluetooth.
 
@@ -144,6 +144,22 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
         || (q.contains("video") && q.contains("device"))
     {
         return Some(QueryClass::WebcamStatus);
+    }
+
+    // v0.0.805: Screen/display/monitor resolution
+    if q.contains("resolution")
+        || q.contains("screen size")
+        || q.contains("display size")
+        || q.contains("monitor")
+        || q.contains("xrandr")
+        || (q.contains("how many") && q.contains("display"))
+        || (q.contains("what") && q.contains("screen"))
+        || (q.contains("my") && q.contains("display"))
+        || q.contains("brightness")
+        || q.contains("refresh rate")
+        || q.contains("hz") && (q.contains("screen") || q.contains("display") || q.contains("monitor"))
+    {
+        return Some(QueryClass::ScreenResolution);
     }
 
     // v0.0.124: USB devices

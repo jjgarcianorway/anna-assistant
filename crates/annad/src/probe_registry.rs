@@ -305,6 +305,14 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
              v4l2-ctl --list-devices 2>/dev/null || \
              echo 'NO_WEBCAM_FOUND'"
         ),
+        // v0.0.805: Screen/display resolution (xrandr with fallbacks for Wayland)
+        "xrandr" => Some(
+            "xrandr --query 2>/dev/null || \
+             wlr-randr 2>/dev/null || \
+             hyprctl monitors 2>/dev/null || \
+             cat /sys/class/drm/*/modes 2>/dev/null | head -5 || \
+             echo 'DISPLAY_INFO_NOT_AVAILABLE'"
+        ),
         _ => None,
     }
 }

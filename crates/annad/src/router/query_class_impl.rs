@@ -129,6 +129,7 @@ impl QueryClass {
             "system_update" => Some(Self::SystemUpdate),
             "device_type" => Some(Self::DeviceType),
             "webcam_status" => Some(Self::WebcamStatus),
+            "screen_resolution" => Some(Self::ScreenResolution),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -238,6 +239,7 @@ impl QueryClass {
                 | Self::BootBlame // v0.0.799
                 | Self::DeviceType // v0.0.801
                 | Self::WebcamStatus // v0.0.802
+                | Self::ScreenResolution // v0.0.805
         )
     }
 

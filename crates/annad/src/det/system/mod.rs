@@ -1,4 +1,4 @@
-//! System answer functions (v0.0.801).
+//! System answer functions (v0.0.805).
 //!
 //! Handles package updates, swap, timezone, uptime, users, battery, load, boot,
 //! hostname, OS info, network connectivity, filesystems, and USB devices.
@@ -14,8 +14,8 @@ mod users;
 
 // Re-export all answer functions
 pub use hardware::{
-    answer_battery_status, answer_swap_info, answer_system_load, answer_usb_devices,
-    answer_webcam_status,
+    answer_battery_status, answer_screen_resolution, answer_swap_info, answer_system_load,
+    answer_usb_devices, answer_webcam_status,
 };
 pub use info::{answer_device_type, answer_hostname, answer_os_info};
 pub use network::{answer_mounted_filesystems, answer_network_connectivity};

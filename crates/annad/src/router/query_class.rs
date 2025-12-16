@@ -136,6 +136,8 @@ pub enum QueryClass {
     DeviceType,
     /// v0.0.802: Webcam/camera detection
     WebcamStatus,
+    /// v0.0.805: Screen/display/monitor resolution
+    ScreenResolution,
     Unknown,
 }
 
@@ -266,6 +268,7 @@ impl std::fmt::Display for QueryClass {
             Self::SystemUpdate => "system_update",
             Self::DeviceType => "device_type",
             Self::WebcamStatus => "webcam_status",
+            Self::ScreenResolution => "screen_resolution",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)

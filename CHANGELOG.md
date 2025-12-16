@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.805] - 2025-12-16
+
+### Added - Screen/Display Resolution Query
+
+**New Query Class: ScreenResolution**
+- Query "what is my screen resolution?" now has deterministic answer path
+- Uses xrandr (Xorg) or wlr-randr/hyprctl (Wayland) to detect display info
+- Shows monitor names, resolutions, and primary display indicator
+- Supports multi-monitor setups
+
+**Classification Patterns:**
+- "resolution", "screen size", "display size", "monitor", "xrandr"
+- "how many displays", "what screen", "my display"
+- "brightness", "refresh rate", display/screen + "hz"
+
+**Files Modified:**
+- `query_class.rs` - Added ScreenResolution variant
+- `query_class_impl.rs` - Added from_str parsing and is_fast_path
+- `classify_hardware.rs` - Added classification patterns
+- `routes_hardware.rs` - Added route configuration
+- `probe_registry.rs` - Added xrandr probe with Wayland fallbacks
+- `det/system/hardware.rs` - Added `answer_screen_resolution()` function
+- `deterministic/router.rs` - Added dispatch for ScreenResolution
+
+**Performance:**
+- Instant deterministic response (~200ms)
+- No LLM specialist needed
+
 ## [0.0.804] - 2025-12-16
 
 ### Fixed - Query Classification Refinements

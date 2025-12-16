@@ -1,4 +1,4 @@
-//! Query class router for deterministic answers (v0.0.802).
+//! Query class router for deterministic answers (v0.0.805).
 
 use anna_shared::rpc::{ProbeResult, RuntimeContext};
 
@@ -352,6 +352,8 @@ pub fn try_answer(
         QueryClass::DeviceType => det::answer_device_type(probe_results, &route_class),
         // v0.0.802: WebcamStatus - webcam/camera detection
         QueryClass::WebcamStatus => det::answer_webcam_status(probe_results, &route_class),
+        // v0.0.805: ScreenResolution - screen/display/monitor info
+        QueryClass::ScreenResolution => det::answer_screen_resolution(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }
