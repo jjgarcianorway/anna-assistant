@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.801] - 2025-12-16
+
+### Added - Device Type Query Support
+
+**New Query Class: DeviceType**
+- Query "is this a laptop or a desktop?" now has deterministic answer path
+- Uses `hostnamectl` to detect chassis type (laptop, desktop, server, vm, etc.)
+- Fallback to battery detection if chassis info unavailable
+
+**Classification Patterns:**
+- "laptop" + "desktop", "device type", "is this" + "laptop/desktop"
+- "am i on" + "laptop/desktop", "chassis", "what type/kind" + "computer"
+
+**Files Modified:**
+- `query_class.rs` - Added DeviceType variant
+- `query_class_impl.rs` - Added from_str parsing and is_fast_path
+- `classify_system.rs` - Added classification patterns
+- `routes_system.rs` - Added route configuration with hostnamectl probe
+- `probe_registry.rs` - Added hostnamectl probe command
+- `det/system/info.rs` - Added `answer_device_type()` function
+- `deterministic/router.rs` - Added dispatch for DeviceType
+
+**Performance:**
+- Instant deterministic response (~100ms)
+- No LLM specialist needed
+
 ## [0.0.800] - 2025-12-16
 
 ### Fixed - "What is my vim setup?" Wrong Answer

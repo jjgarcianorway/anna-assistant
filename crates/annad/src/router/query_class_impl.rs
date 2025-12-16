@@ -127,6 +127,7 @@ impl QueryClass {
             "loaded_firmware" => Some(Self::LoadedFirmware),
             "network_stats" => Some(Self::NetworkStats),
             "system_update" => Some(Self::SystemUpdate),
+            "device_type" => Some(Self::DeviceType),
             "unknown" => Some(Self::Unknown),
             _ => None,
         }
@@ -234,6 +235,7 @@ impl QueryClass {
                 | Self::LoadedFirmware
                 | Self::NetworkStats
                 | Self::BootBlame // v0.0.799
+                | Self::DeviceType // v0.0.801
         )
     }
 

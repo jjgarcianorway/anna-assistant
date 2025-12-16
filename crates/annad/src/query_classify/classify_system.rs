@@ -239,6 +239,18 @@ pub fn classify_system(q: &str) -> Option<QueryClass> {
         return Some(QueryClass::InstalledDesktops);
     }
 
+    // v0.0.801: Device type - laptop vs desktop
+    if (q.contains("laptop") && q.contains("desktop"))
+        || q.contains("device type")
+        || (q.contains("is this") && (q.contains("laptop") || q.contains("desktop")))
+        || (q.contains("am i on") && (q.contains("laptop") || q.contains("desktop")))
+        || q.contains("chassis")
+        || (q.contains("what type") && q.contains("computer"))
+        || (q.contains("what kind") && q.contains("computer"))
+    {
+        return Some(QueryClass::DeviceType);
+    }
+
     // v0.0.131: Virtualization info
     if q.contains("virtualization")
         || q.contains("systemd-detect-virt")

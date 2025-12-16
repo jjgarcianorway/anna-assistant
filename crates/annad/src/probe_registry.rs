@@ -296,6 +296,8 @@ pub fn probe_id_to_command(id: &str) -> Option<&'static str> {
              echo \"XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP\" && \
              echo \"DESKTOP_SESSION=$DESKTOP_SESSION\""
         ),
+        // v0.0.801: Device type detection (laptop/desktop)
+        "hostnamectl" => Some("hostnamectl"),
         _ => None,
     }
 }

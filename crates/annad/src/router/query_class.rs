@@ -132,6 +132,8 @@ pub enum QueryClass {
     DesktopWallpaper,
     /// v0.0.311: System update request
     SystemUpdate,
+    /// v0.0.801: Device type (laptop/desktop)
+    DeviceType,
     Unknown,
 }
 
@@ -260,6 +262,7 @@ impl std::fmt::Display for QueryClass {
             Self::NetworkStats => "network_stats",
             Self::DesktopWallpaper => "desktop_wallpaper",
             Self::SystemUpdate => "system_update",
+            Self::DeviceType => "device_type",
             Self::Unknown => "unknown",
         };
         write!(f, "{}", s)

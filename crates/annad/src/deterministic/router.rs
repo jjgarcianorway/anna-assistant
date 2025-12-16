@@ -1,4 +1,4 @@
-//! Query class router for deterministic answers (v0.0.176).
+//! Query class router for deterministic answers (v0.0.801).
 
 use anna_shared::rpc::{ProbeResult, RuntimeContext};
 
@@ -348,6 +348,8 @@ pub fn try_answer(
         QueryClass::SystemUpdate => None,
         // v0.0.390: LargestFolders - needs LLM to format du output
         QueryClass::LargestFolders => None,
+        // v0.0.801: DeviceType - laptop vs desktop via hostnamectl
+        QueryClass::DeviceType => det::answer_device_type(probe_results, &route_class),
         QueryClass::Unknown => None,
     }
 }

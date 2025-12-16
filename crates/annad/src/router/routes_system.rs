@@ -269,6 +269,20 @@ pub fn build_system_route(class: QueryClass) -> Option<DeterministicRoute> {
             },
         }),
 
+        // v0.0.801: Device type - laptop vs desktop via hostnamectl
+        QueryClass::DeviceType => Some(DeterministicRoute {
+            class,
+            domain: SpecialistDomain::System,
+            intent: QueryIntent::Question,
+            probes: vec!["hostnamectl".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![],
+                spine_probes: vec![],
+            },
+        }),
+
         _ => None,
     }
 }
