@@ -111,7 +111,9 @@ pub fn classify_core(q: &str, stripped: &str) -> Option<QueryClass> {
     }
 
     // System slow (multi-probe diagnostic)
-    if q.contains("slow") || q.contains("sluggish") || q.contains("laggy") {
+    // v0.0.799: Exclude boot-related slow queries - handled by BootBlame in classify_system
+    let is_boot_slow = q.contains("boot") || q.contains("startup") || q.contains("bootup");
+    if (q.contains("slow") || q.contains("sluggish") || q.contains("laggy")) && !is_boot_slow {
         return Some(QueryClass::SystemSlow);
     }
 

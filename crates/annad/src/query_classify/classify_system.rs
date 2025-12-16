@@ -7,6 +7,19 @@ use crate::router::QueryClass;
 /// Classify system queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_system(q: &str) -> Option<QueryClass> {
+    // v0.0.799: Boot blame - "why is my boot slow?", "slow boot", "boot analysis"
+    // MUST come before BootTimeStatus to catch slow boot queries
+    if (q.contains("boot") && q.contains("slow"))
+        || (q.contains("slow") && q.contains("startup"))
+        || (q.contains("why") && q.contains("boot"))
+        || q.contains("boot blame")
+        || q.contains("boot analysis")
+        || (q.contains("boot") && q.contains("long"))
+        || (q.contains("takes") && q.contains("boot"))
+    {
+        return Some(QueryClass::BootBlame);
+    }
+
     // Boot time status
     if q.contains("boot time")
         || q.contains("bootup")

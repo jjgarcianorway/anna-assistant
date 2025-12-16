@@ -26,6 +26,7 @@ impl QueryClass {
             "service_status" => Some(Self::ServiceStatus),
             "system_health_summary" => Some(Self::SystemHealthSummary),
             "boot_time_status" => Some(Self::BootTimeStatus),
+            "boot_blame" => Some(Self::BootBlame),
             "installed_packages_overview" => Some(Self::InstalledPackagesOverview),
             "package_count" => Some(Self::PackageCount),
             "installed_tool_check" => Some(Self::InstalledToolCheck),
@@ -232,6 +233,7 @@ impl QueryClass {
                 | Self::SystemdMounts
                 | Self::LoadedFirmware
                 | Self::NetworkStats
+                | Self::BootBlame // v0.0.799
         )
     }
 

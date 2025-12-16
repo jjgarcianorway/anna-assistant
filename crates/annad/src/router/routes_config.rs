@@ -131,6 +131,20 @@ pub fn build_diagnostic_route(class: QueryClass) -> Option<DeterministicRoute> {
             },
         }),
 
+        // v0.0.799: Boot blame for "why is my boot slow?"
+        QueryClass::BootBlame => Some(DeterministicRoute {
+            class,
+            domain: SpecialistDomain::Boot,
+            intent: QueryIntent::Question,
+            probes: vec!["boot_time".to_string(), "boot_blame".to_string()],
+            capability: RouteCapability {
+                can_answer_deterministically: true,
+                evidence_required: true,
+                required_evidence: vec![EvidenceKind::BootTime],
+                spine_probes: vec![ProbeId::SystemdAnalyze],
+            },
+        }),
+
         QueryClass::SwapInfo => Some(DeterministicRoute {
             class,
             domain: SpecialistDomain::System,

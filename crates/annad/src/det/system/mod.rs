@@ -19,5 +19,5 @@ pub use hardware::{
 pub use info::{answer_hostname, answer_os_info};
 pub use network::{answer_mounted_filesystems, answer_network_connectivity};
 pub use packages::answer_package_updates;
-pub use time::{answer_last_boot, answer_system_uptime, answer_timezone_info};
+pub use time::{answer_boot_blame, answer_last_boot, answer_system_uptime, answer_timezone_info};
 pub use users::answer_logged_in_users;

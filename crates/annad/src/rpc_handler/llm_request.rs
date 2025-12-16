@@ -650,5 +650,8 @@ fn should_skip_formatting(route_class: &str) -> bool {
             | "hardware_audio"
             | "pci_devices"
             | "block_devices"
+            // v0.0.799: Boot queries
+            | "boot_blame"
+            | "boot_time_status"
     )
 }

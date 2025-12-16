@@ -80,6 +80,8 @@ pub fn try_answer(
         QueryClass::BootTimeStatus
         | QueryClass::InstalledPackagesOverview
         | QueryClass::AppAlternatives => None,
+        // v0.0.799: BootBlame - "why is my boot slow?"
+        QueryClass::BootBlame => det::answer_boot_blame(probe_results, &route_class),
         // v0.0.45: PackageCount - uses pacman_count probe
         QueryClass::PackageCount => answer_package_count(probe_results, &route_class),
         // v0.0.45: InstalledToolCheck - uses command_v probe

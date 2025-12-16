@@ -87,6 +87,72 @@ pub fn answer_system_uptime(
     })
 }
 
+/// v0.0.799: Answer boot blame query - "why is my boot slow?"
+/// Uses boot_time and boot_blame probes
+pub fn answer_boot_blame(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    // Get boot time from systemd-analyze (command prefix, not probe name)
+    // boot_time probe -> "systemd-analyze"
+    // boot_blame probe -> "systemd-analyze blame"
+    let boot_time_probe = find_probe(probes, "systemd-analyze")
+        .filter(|p| !p.command.contains("blame")); // Exclude blame variant
+    let boot_blame_probe = find_probe(probes, "systemd-analyze blame");
+
+    let mut answer = String::new();
+
+    // Parse boot time (e.g., "Startup finished in 2.5s (kernel) + 5.3s (userspace) = 7.8s")
+    if let Some(probe) = boot_time_probe {
+        if probe.exit_code == 0 {
+            let output = probe.stdout.trim();
+            if !output.is_empty() {
+                // Extract total time and components
+                if output.contains("Startup finished") {
+                    answer.push_str(&format!("**Boot Time Analysis**\n{}\n\n", output));
+                }
+            }
+        }
+    }
+
+    // Parse boot blame (slowest services)
+    if let Some(probe) = boot_blame_probe {
+        if probe.exit_code == 0 {
+            let output = probe.stdout.trim();
+            if !output.is_empty() {
+                answer.push_str("**Slowest Services (systemd-analyze blame)**\n");
+                // Parse each line: "XXXms service-name.service"
+                let mut count = 0;
+                for line in output.lines() {
+                    let line = line.trim();
+                    if line.is_empty() || count >= 10 {
+                        continue;
+                    }
+                    // Format: "1.234s service.service" or "123ms service.service"
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let time = parts[0];
+                        let service = parts[1];
+                        answer.push_str(&format!("- {} {}\n", time, service));
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    if answer.is_empty() {
+        return None;
+    }
+
+    Some(DeterministicResult {
+        answer: answer.trim().to_string(),
+        grounded: true,
+        parsed_data_count: 2,
+        route_class: route_class.to_string(),
+    })
+}
+
 /// Answer last boot query using who -b
 pub fn answer_last_boot(probes: &[ProbeResult], route_class: &str) -> Option<DeterministicResult> {
     let probe = find_probe(probes, "last_boot")?;

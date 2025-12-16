@@ -28,6 +28,7 @@ pub enum QueryClass {
     ServiceStatus,
     SystemHealthSummary,
     BootTimeStatus,
+    BootBlame, // v0.0.799: "why is my boot slow?", "slow boot analysis"
     InstalledPackagesOverview,
     PackageCount,
     InstalledToolCheck,
@@ -157,6 +158,7 @@ impl std::fmt::Display for QueryClass {
             Self::ServiceStatus => "service_status",
             Self::SystemHealthSummary => "system_health_summary",
             Self::BootTimeStatus => "boot_time_status",
+            Self::BootBlame => "boot_blame",
             Self::InstalledPackagesOverview => "installed_packages_overview",
             Self::PackageCount => "package_count",
             Self::InstalledToolCheck => "installed_tool_check",

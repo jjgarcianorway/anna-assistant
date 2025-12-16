@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.799] - 2025-12-16
+
+### Added - Boot Blame Query Support
+
+**New Query Class: BootBlame**
+- Query "why is my boot slow?" now has deterministic answer path
+- Uses `systemd-analyze` and `systemd-analyze blame` probes
+- Shows total boot time + top 10 slowest services
+
+**Classification Patterns:**
+- "boot" + "slow", "slow startup", "why boot", "boot blame"
+- "boot analysis", "boot" + "long", "takes" + "boot"
+
+**Fixes Applied:**
+- Excluded boot queries from `SystemSlow` classifier in `classify_core.rs`
+- Fixed `find_probe` to use command prefix ("systemd-analyze") not probe name
+- Added BootBlame to deterministic router dispatch
+
+**Performance:**
+- Skips LLM specialist entirely - instant response (~400ms)
+- No more "Parse error: Timeout" on boot queries
+
 ## [0.0.798] - 2025-12-15
 
 ### Fixed - Swap Query Misclassification
