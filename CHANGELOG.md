@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.808] - 2025-12-16
+
+### Fixed - Largest Folders Actually Fast Now
+
+**Problem:** `du` on large filesystems (690GB+) takes forever, causing timeouts.
+
+**Solution:** Use df (instant) + aggressive 2-second timeout on top-level du:
+- Shows disk usage overview (instant via `df`)
+- Shows top 10 largest directories at root level with 2s timeout
+- Shows home directory contents with 3s timeout
+- If scan times out, gives user the manual command to run
+
+**Changed:**
+- `probe_registry.rs` - New fast probe strategy
+- `storage.rs` - Updated parser for sectioned output
+
 ## [0.0.807] - 2025-12-16
 
 ### Improved - Classification Pattern Additions

@@ -290,22 +290,50 @@ pub fn answer_systemd_mounts(
 }
 
 /// v0.0.806: Answer largest folders query using du output
+/// v0.0.808: Updated with sectioned output (disk usage + top level + home)
 pub fn answer_largest_folders(
     probes: &[ProbeResult],
     route_class: &str,
 ) -> Option<DeterministicResult> {
-    // Try largest_dirs first, then largest_home
     let dirs_probe = find_probe(probes, "largest_dirs");
     let home_probe = find_probe(probes, "largest_home");
 
     let mut results: Vec<String> = Vec::new();
 
-    // Parse largest_dirs output
+    // Parse largest_dirs output (sectioned format)
     if let Some(probe) = dirs_probe {
         let output = probe.stdout.trim();
-        if !output.is_empty() && !output.contains("timed out") {
-            results.push("**System directories:**".to_string());
-            for line in output.lines().take(10) {
+        let mut in_disk_section = false;
+        let mut in_toplevel_section = false;
+
+        for line in output.lines() {
+            if line.contains("=== DISK USAGE ===") {
+                in_disk_section = true;
+                in_toplevel_section = false;
+                results.push("**Disk usage:**".to_string());
+                continue;
+            }
+            if line.contains("=== TOP LEVEL ===") {
+                in_disk_section = false;
+                in_toplevel_section = true;
+                if !results.is_empty() {
+                    results.push(String::new());
+                }
+                results.push("**Largest top-level directories:**".to_string());
+                continue;
+            }
+
+            if in_disk_section {
+                // df format: filesystem size used avail use% mount
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 5 {
+                    let used = parts[2];
+                    let avail = parts[3];
+                    let pct = parts[4];
+                    results.push(format!("  {} used, {} available ({})", used, avail, pct));
+                }
+            } else if in_toplevel_section && !line.contains("SCAN_PARTIAL") {
+                // du format: size path
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
                     let size = parts[0];
@@ -319,9 +347,9 @@ pub fn answer_largest_folders(
     // Parse largest_home output
     if let Some(probe) = home_probe {
         let output = probe.stdout.trim();
-        if !output.is_empty() && !output.contains("timed out") {
+        if !output.is_empty() && !output.contains("HOME_TIMEOUT") {
             if !results.is_empty() {
-                results.push(String::new()); // blank line separator
+                results.push(String::new());
             }
             results.push("**Home directory:**".to_string());
             for line in output.lines().take(10) {
@@ -332,12 +360,17 @@ pub fn answer_largest_folders(
                     results.push(format!("  {} - {}", size, path));
                 }
             }
+        } else if output.contains("HOME_TIMEOUT") {
+            if !results.is_empty() {
+                results.push(String::new());
+            }
+            results.push("**Home:** Scan timed out. Try `du -sh ~/* | sort -rh | head`".to_string());
         }
     }
 
     if results.is_empty() {
         return Some(DeterministicResult {
-            answer: "Could not scan directories. Try checking specific paths manually with `du -sh /path/*`".to_string(),
+            answer: "Could not scan. Try:\n  `df -h` - disk usage\n  `du -sh /* | sort -rh | head` - largest dirs".to_string(),
             grounded: true,
             parsed_data_count: 0,
             route_class: route_class.to_string(),
@@ -346,7 +379,7 @@ pub fn answer_largest_folders(
 
     let folder_count = results.iter().filter(|l| l.starts_with("  ")).count();
     Some(DeterministicResult {
-        answer: format!("**Largest folders ({}):**\n{}", folder_count, results.join("\n")),
+        answer: results.join("\n"),
         grounded: true,
         parsed_data_count: folder_count,
         route_class: route_class.to_string(),
