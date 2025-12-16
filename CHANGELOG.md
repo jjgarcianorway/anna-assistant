@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.810] - 2025-12-16
+
+### Added - Reusable Pattern Matching System
+
+**New `patterns.rs` module** with synonym groups for flexible query matching:
+- `SIZE_WORDS`: largest, biggest, top, most, heaviest, taking, using, consuming, eating, hogging
+- `STORAGE_WORDS`: disk, space, storage, drive, volume, filesystem, fs
+- `DIRECTORY_WORDS`: folder, folders, directory, directories, dir, dirs, path, paths
+- `PROCESS_WORDS`: process, processes, program, programs, app, apps, application, task, tasks
+- `MEMORY_WORDS`: memory, ram, mem, heap
+- `CPU_WORDS`: cpu, core, cores, thread, threads
+- `NETWORK_WORDS`: network, net, internet, wifi, ethernet, connection, connected, online
+
+**Helper functions:**
+- `contains_any()` - substring matching for any word in a group
+- `contains_any_word()` - **whole word** matching (prevents "processor" matching "process")
+- `matches_top_n_pattern()` - matches "top N folders", "biggest directories", etc.
+- `matches_what_is_doing()` - matches "what is using disk", "what's eating storage", etc.
+
+**Benefits:**
+- Queries like "top 20 folders", "biggest directories", "largest dirs", "folders eating disk"
+  all route to `LargestFolders` without hardcoding each variation
+- "processes using memory" vs "show processor info" now correctly distinguished
+- Future patterns can reuse these synonym groups
+
+**Bug fix:** "show processor info" was incorrectly matching `TopCpuProcesses` because
+"processor" contains "process" as a substring. Fixed with whole-word matching.
+
 ## [0.0.809] - 2025-12-16
 
 ### Changed - LargestFolders Back to LLM Path (Honest Fix)

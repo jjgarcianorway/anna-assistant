@@ -1,28 +1,35 @@
-//! Storage query classification patterns (v0.0.804).
+//! Storage query classification patterns (v0.0.810).
 //!
 //! Block devices, LVM, RAID, ZFS, mounts, fstab, swap.
+//!
+//! v0.0.810: Uses reusable patterns from patterns.rs for synonym matching.
 
+use super::patterns::{
+    contains_any, matches_top_n_pattern, matches_what_is_doing, DIRECTORY_WORDS, SIZE_WORDS,
+    STORAGE_WORDS,
+};
 use crate::router::QueryClass;
 
 /// Classify storage queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_storage(q: &str) -> Option<QueryClass> {
     // v0.0.390: Largest folders/directories queries
-    // "top 10 folders taking storage", "what's using my disk space"
-    if (q.contains("folder") || q.contains("director"))
-        && (q.contains("largest")
-            || q.contains("biggest")
-            || q.contains("top")
-            || q.contains("taking")
-            || q.contains("using"))
-    {
+    // v0.0.810: Now uses reusable patterns - matches ANY combination of:
+    //   - size words (largest, biggest, top, using, eating, hogging...)
+    //   - directory words (folder, folders, directory, directories, dir, dirs, path...)
+    // Examples that now work:
+    //   "top 10 folders", "biggest directories", "largest 20 dirs",
+    //   "what folders are taking space", "which dirs are using storage",
+    //   "folders eating disk", "directories hogging space"
+    if matches_top_n_pattern(q, DIRECTORY_WORDS) {
         return Some(QueryClass::LargestFolders);
     }
-    // Also catch "what is taking space", "what's using storage"
-    if (q.contains("what") || q.contains("which"))
-        && (q.contains("taking") || q.contains("using"))
-        && (q.contains("space") || q.contains("storage") || q.contains("disk"))
-    {
+    // Also catch "what is taking space", "what's using storage", "what's eating disk"
+    if matches_what_is_doing(q, SIZE_WORDS, STORAGE_WORDS) {
+        return Some(QueryClass::LargestFolders);
+    }
+    // Catch directory + storage combinations
+    if contains_any(q, DIRECTORY_WORDS) && contains_any(q, STORAGE_WORDS) {
         return Some(QueryClass::LargestFolders);
     }
 

@@ -1,7 +1,10 @@
-//! Hardware query classification patterns (v0.0.805).
+//! Hardware query classification patterns (v0.0.810).
 //!
 //! CPU, GPU, memory, disk, audio, sensors, USB, PCI, Bluetooth.
+//!
+//! v0.0.810: Uses reusable patterns from patterns.rs for synonym matching.
 
+use super::patterns::{contains_any, contains_any_word, CPU_WORDS, MEMORY_WORDS, PROCESS_WORDS, SIZE_WORDS};
 use crate::router::QueryClass;
 
 /// Classify hardware queries.
@@ -84,29 +87,37 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
     }
 
     // Top memory processes
-    if (q.contains("process") && (q.contains("memory") || q.contains("ram")))
+    // v0.0.810: Uses reusable patterns - matches combinations of:
+    //   - process words (process, processes, program, app, task...)
+    //   - memory words (memory, ram, mem, heap)
+    //   - size words (top, most, using, hogging, eating...)
+    // Examples: "processes using memory", "apps hogging ram", "top memory tasks"
+    // Note: uses contains_any_word for PROCESS_WORDS to avoid "processor" matching "process"
+    if (contains_any_word(q, PROCESS_WORDS) && contains_any(q, MEMORY_WORDS))
+        || (contains_any(q, SIZE_WORDS) && contains_any(q, MEMORY_WORDS))
         || q.contains("memory hog")
-        || q.contains("top memory")
-        || q.contains("most memory")
-        || q.contains("what's using memory")
-        || q.contains("what is using memory")
     {
         return Some(QueryClass::TopMemoryProcesses);
     }
 
     // Top CPU processes
-    // v0.0.806: Added "running processes" pattern - shows active processes by CPU
-    // Note: Use "processes" (plural) to avoid matching "processor"
-    if (q.contains("process") && q.contains("cpu") && !q.contains("processor"))
-        || q.contains("cpu hog")
-        || q.contains("top cpu")
-        || q.contains("most cpu")
-        || q.contains("what's using cpu")
-        || q.contains("what is using cpu")
+    // v0.0.810: Uses reusable patterns - matches combinations of:
+    //   - process words (process, processes, program, app, task...)
+    //   - cpu words (cpu, core...)
+    //   - size words (top, most, using, hogging...)
+    // Examples: "processes using cpu", "apps hogging cpu", "top cpu tasks",
+    //           "running processes", "active tasks", "list programs"
+    // Note: uses contains_any_word for PROCESS_WORDS to avoid "processor" matching "process"
+    if (contains_any_word(q, PROCESS_WORDS) && contains_any(q, CPU_WORDS))
+        || (contains_any(q, SIZE_WORDS) && contains_any(q, CPU_WORDS))
         || q.contains("running processes")
         || q.contains("active processes")
-        || (q.contains("list") && q.contains("processes"))
-        || (q.contains("show") && q.contains("processes") && !q.contains("tree"))
+        || q.contains("running programs")
+        || q.contains("active programs")
+        || q.contains("running tasks")
+        || q.contains("active tasks")
+        || (q.contains("list") && contains_any_word(q, PROCESS_WORDS))
+        || (q.contains("show") && contains_any_word(q, PROCESS_WORDS) && !q.contains("tree"))
     {
         return Some(QueryClass::TopCpuProcesses);
     }

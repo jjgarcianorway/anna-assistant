@@ -1,4 +1,4 @@
-//! Query classification patterns for deterministic routing (v0.0.174).
+//! Query classification patterns for deterministic routing (v0.0.810).
 //!
 //! This module contains the pattern matching logic that classifies user queries
 //! into known QueryClass categories for deterministic probe selection.
@@ -22,6 +22,7 @@ mod classify_services;
 mod classify_storage;
 mod classify_system;
 mod helpers;
+pub mod patterns;
 
 use crate::router::QueryClass;
 use helpers::strip_greetings;
