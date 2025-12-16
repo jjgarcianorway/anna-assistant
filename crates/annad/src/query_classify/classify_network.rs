@@ -1,4 +1,4 @@
-//! Network query classification patterns (v0.0.803).
+//! Network query classification patterns (v0.0.804).
 //!
 //! Interfaces, ports, DNS, gateway, connectivity, wireless, bonding.
 
@@ -7,8 +7,22 @@ use crate::router::QueryClass;
 /// Classify network queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_network(q: &str) -> Option<QueryClass> {
-    // v0.0.124: Network connectivity - MUST come before NetworkInterfaces
-    // v0.0.803: Added "network status" pattern and reordered
+    // Network interfaces - check for explicit interface keywords first
+    // v0.0.804: Moved before connectivity to fix "show network interfaces" classification
+    if q.contains("interface")
+        || q.contains("ip ")
+        || q.contains("ip?")
+        || q.contains("ips")
+        || (q.contains("show") && q.contains("network"))
+        || q.contains("ethernet")
+        || q.contains("wlan")
+    {
+        return Some(QueryClass::NetworkInterfaces);
+    }
+
+    // v0.0.124: Network connectivity
+    // v0.0.803: Added "network status" pattern
+    // v0.0.804: Added "network working" pattern, reordered after interface keywords
     if q.contains("am i online")
         || q.contains("internet connection")
         || q.contains("check internet")
@@ -17,21 +31,17 @@ pub fn classify_network(q: &str) -> Option<QueryClass> {
         || q.contains("connected to internet")
         || q.contains("online?")
         || q.contains("can i reach")
+        || (q.contains("network") && q.contains("working"))
+        || (q.contains("network") && q.contains("work"))
+        || (q.contains("internet") && q.contains("working"))
+        || (q.contains("connection") && q.contains("stable"))
         || (q.contains("ping") && !q.contains("pinging"))
     {
         return Some(QueryClass::NetworkConnectivity);
     }
 
-    // Network interfaces
-    if q.contains("network")
-        || q.contains("interface")
-        || q.contains("ip ")
-        || q.contains("ip?")
-        || q.contains("ips")
-        || q.contains("wifi")
-        || q.contains("ethernet")
-        || q.contains("wlan")
-    {
+    // General network queries go to NetworkInterfaces
+    if q.contains("network") || q.contains("wifi") {
         return Some(QueryClass::NetworkInterfaces);
     }
 

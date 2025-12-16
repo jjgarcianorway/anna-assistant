@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.804] - 2025-12-16
+
+### Fixed - Query Classification Refinements
+
+**Audio Troubleshooting Patterns:**
+- Added "audio working", "sound working", "no sound", "no audio" patterns to AudioDevices
+- Added "speakers work/sound" patterns for speaker troubleshooting
+- "is my audio working?" now correctly routes to AudioDevices
+
+**Network Classification Order:**
+- Moved interface keyword checks (interface, ip, show network, ethernet, wlan) BEFORE connectivity patterns
+- Prevents "show network interfaces" from matching "network" in connectivity check first
+- "show network interfaces" now correctly routes to NetworkInterfaces
+
+**Network Working Pattern:**
+- Added "network working" and "internet working" patterns to NetworkConnectivity
+- "is my network working?" now routes to NetworkConnectivity
+
+**Disk Full Investigation:**
+- Added "why is disk full" and "what is making disk full" patterns to LargestFolders
+- Requires "why" or "what" to distinguish from status check ("is storage full" stays DiskSpace)
+- Helps users understand what's consuming disk space
+
+**Files Modified:**
+- `classify_hardware.rs` - Added audio troubleshooting patterns, disk full with why/what check
+- `classify_network.rs` - Reordered interface checks first, added network/internet working patterns
+
 ## [0.0.803] - 2025-12-16
 
 ### Fixed - Query Classification Improvements

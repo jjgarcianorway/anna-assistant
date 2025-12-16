@@ -1,4 +1,4 @@
-//! Storage query classification patterns (v0.0.174).
+//! Storage query classification patterns (v0.0.804).
 //!
 //! Block devices, LVM, RAID, ZFS, mounts, fstab, swap.
 

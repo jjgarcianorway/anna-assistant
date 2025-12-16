@@ -1,4 +1,4 @@
-//! Hardware query classification patterns (v0.0.802).
+//! Hardware query classification patterns (v0.0.804).
 //!
 //! CPU, GPU, memory, disk, audio, sensors, USB, PCI, Bluetooth.
 
@@ -118,13 +118,21 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
         return Some(QueryClass::GpuInfo);
     }
 
+    // v0.0.804: "why is disk full" / "disk full" with question -> LargestFolders (user wants to know WHAT is taking space)
+    // But "is storage full" should stay as DiskSpace (checking status)
+    if (q.contains("disk") || q.contains("storage"))
+        && q.contains("full")
+        && (q.contains("why") || q.contains("what"))
+    {
+        return Some(QueryClass::LargestFolders);
+    }
+
     // Disk space
     if q.contains("disk")
         || q.contains("space")
         || q.contains("storage")
         || q.contains("filesystem")
         || q.contains("mount")
-        || q.contains("full")
     {
         return Some(QueryClass::DiskSpace);
     }
@@ -221,12 +229,20 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
     }
 
     // v0.0.135: Audio devices
+    // v0.0.804: Added audio/sound working patterns for troubleshooting queries
     if q.contains("audio device")
         || q.contains("sound card")
         || q.contains("audio sink")
         || q.contains("audio source")
         || q.trim() == "pactl"
         || q.trim() == "aplay -l"
+        || (q.contains("audio") && q.contains("working"))
+        || (q.contains("sound") && q.contains("working"))
+        || (q.contains("audio") && q.contains("work"))
+        || (q.contains("sound") && q.contains("work"))
+        || q.contains("no sound")
+        || q.contains("no audio")
+        || (q.contains("speakers") && (q.contains("work") || q.contains("sound")))
     {
         return Some(QueryClass::AudioDevices);
     }
