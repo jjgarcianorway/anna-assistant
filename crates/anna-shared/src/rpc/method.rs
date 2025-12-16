@@ -1,4 +1,4 @@
-//! RPC method enum and daemon info (v0.0.220).
+//! RPC method enum and daemon info (v0.0.811).
 
 use serde::{Deserialize, Serialize};
 

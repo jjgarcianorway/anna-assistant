@@ -22,6 +22,7 @@
 //! v0.0.404: JSON-only specialists + personality renderer.
 
 pub mod action_handlers;
+pub mod core_loop; // v0.0.811: Simple core request loop
 pub mod answer_validator;
 pub mod answers;
 pub mod auto_select;

@@ -1,20 +1,22 @@
-//! RPC request dispatcher (v0.0.200).
+//! RPC request dispatcher (v0.0.811).
 
 use anna_shared::rpc::params::{ClaimFeedbackParams, TruthLedgerQueryParams, WebSearchParams};
 use anna_shared::rpc::result::{
-    TruthLedgerClaimItem, TruthLedgerClaimsResult, TruthLedgerStatus, WebSearchItem,
-    WebSearchResult,
+    EvidenceBlock, ReliabilitySignals, ServiceDeskResult, TruthLedgerClaimItem,
+    TruthLedgerClaimsResult, TruthLedgerStatus, WebSearchItem, WebSearchResult,
 };
-use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse, SpecialistDomain};
+use anna_shared::transcript::Transcript;
 use anna_shared::truth_ledger::Veracity;
 
+use crate::core_loop;
 use crate::feedback_handler;
 use crate::handlers;
 use crate::state::{SharedState, TRUTH_LEDGER_PATH};
 use tracing::{info, warn};
 
 use super::handle_web_search;
-use super::llm_request::handle_llm_request; // New: Import from parent module
+use super::llm_request::handle_llm_request;
 
 /// Handle an RPC request
 pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcResponse {
@@ -22,7 +24,8 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
 
     match request.method {
         RpcMethod::Status => handlers::handle_status(state.clone(), id).await,
-        RpcMethod::Request => handle_llm_request(state.clone(), id, request.params).await,
+        // v0.0.811: Use core_loop for all requests (the simple learning path)
+        RpcMethod::Request => handle_core_query(state.clone(), id, request.params).await,
         RpcMethod::Reset => handlers::handle_reset(state.clone(), id).await,
         RpcMethod::Uninstall => handlers::handle_uninstall(state.clone(), id).await,
         RpcMethod::Autofix => handlers::handle_autofix(state.clone(), id).await,
@@ -48,7 +51,7 @@ pub async fn handle_request(state: SharedState, request: RpcRequest) -> RpcRespo
         RpcMethod::GetTruthLedgerClaims => {
             handle_get_truth_ledger_claims(state.clone(), id, request.params).await
         }
-        RpcMethod::WebSearch => super::handle_web_search(id, request.params).await, // Updated call
+        RpcMethod::WebSearch => super::handle_web_search(id, request.params).await,
     }
 }
 
@@ -200,4 +203,99 @@ async fn handle_get_truth_ledger_claims(
     };
 
     RpcResponse::success(id, serde_json::to_value(result).unwrap())
+}
+
+/// v0.0.811: Handle core query using simplified core loop
+/// Returns ServiceDeskResult for compatibility with existing client
+async fn handle_core_query(
+    state: SharedState,
+    id: String,
+    params: Option<serde_json::Value>,
+) -> RpcResponse {
+    // Extract query from params
+    let query = match params {
+        Some(p) => match p.get("prompt").and_then(|v| v.as_str()) {
+            Some(q) => q.to_string(),
+            None => return RpcResponse::error(id, -32602, "Missing 'prompt' parameter".to_string()),
+        },
+        None => return RpcResponse::error(id, -32602, "Missing params".to_string()),
+    };
+
+    info!("CoreQuery: \"{}\"", query);
+
+    // Use the new core loop
+    let core_result = core_loop::handle_query(state.clone(), &query).await;
+
+    // Determine domain from source
+    let domain = match &core_result.source {
+        core_loop::AnswerSource::Specialist { name, .. } => {
+            match name.as_str() {
+                "system" => SpecialistDomain::System,
+                "network" => SpecialistDomain::Network,
+                "storage" => SpecialistDomain::Storage,
+                "services" => SpecialistDomain::Services,
+                "packages" => SpecialistDomain::Packages,
+                "desktop" => SpecialistDomain::Desktop,
+                "security" => SpecialistDomain::Security,
+                _ => SpecialistDomain::System,
+            }
+        }
+        _ => SpecialistDomain::System,
+    };
+
+    // Determine staff assignment
+    let (staff_id, assigned_staff) = match &core_result.source {
+        core_loop::AnswerSource::Recipe => (Some("anna".to_string()), Some("Anna (from recipe)".to_string())),
+        core_loop::AnswerSource::Specialist { name, learned } => {
+            let suffix = if *learned { " (learned)" } else { "" };
+            (Some(format!("{}_specialist", name)), Some(format!("{} Specialist{}", capitalize(name), suffix)))
+        }
+        core_loop::AnswerSource::Failed => (None, None),
+    };
+
+    // Build transcript from internal comms (simplified for now)
+    let transcript = Transcript::default();
+
+    // Build ServiceDeskResult for compatibility
+    let result = ServiceDeskResult {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        case_number: core_result.recipe_id.clone().map(|_| format!("CN-{}", chrono::Utc::now().format("%Y%m%d%H%M%S"))),
+        assigned_staff,
+        staff_id,
+        answer: core_result.answer,
+        validated: core_result.reliability >= 80,
+        reliability_score: core_result.reliability,
+        reliability_signals: ReliabilitySignals {
+            translator_confident: true,
+            probe_coverage: true,
+            answer_grounded: core_result.reliability >= 60,
+            no_invention: core_result.reliability >= 70,
+            clarification_not_needed: true,
+        },
+        reliability_explanation: None,
+        domain,
+        evidence: EvidenceBlock::default(),
+        needs_clarification: false,
+        clarification_question: None,
+        clarification_request: None,
+        transcript,
+        execution_trace: None,
+        proposed_change: None,
+        proposed_changes: vec![],
+        feedback_request: None,
+    };
+
+    match serde_json::to_value(result) {
+        Ok(v) => RpcResponse::success(id, v),
+        Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
+    }
+}
+
+/// Capitalize first letter
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+    }
 }

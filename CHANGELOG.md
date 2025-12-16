@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.811] - 2025-12-16
+
+### Changed - Core Loop: The Beginning of Real Learning
+
+**The Big Pivot:** After 810 versions of hardcoded pattern matching that never truly learned,
+this release introduces the **core loop** - the foundation for Anna to actually learn from experience.
+
+**New `core_loop.rs` module** implementing VISION.md core request flow:
+```
+User Query → Translator → Check Recipes →
+  If found: Execute recipe → Answer
+  If not: Specialist solves → Anna learns → Answer
+```
+
+**Everything is natural language** - no new commands or flags. Just ask Anna anything:
+```
+annactl "how much RAM do I have?"
+```
+
+The core loop is now the DEFAULT handler for all requests. It replaces the complex
+658-line llm_request.rs with a simple, clear flow.
+
+**Core Loop Flow:**
+1. **Translator** - LLM converts natural language to `ParsedQuery` (intent, domain, probes)
+2. **Recipe Check** - Search `RecipeLibrary` for matching pattern
+3. **If Recipe Found** - Execute probes, render template, instant answer
+4. **If No Recipe** - Gather evidence, ask specialist LLM
+5. **Learning** - High-confidence (≥80%) solutions become new recipes
+
+**Why This Matters:**
+The old system had 5+ overlapping recipe systems that never actually learned.
+This is the clean restart: one loop, one recipe store, real learning.
+
+**Files:**
+- `crates/annad/src/core_loop.rs` - 520 lines of clear, simple request handling
+- `crates/annad/src/rpc_handler/dispatcher.rs` - Request now uses core_loop
+
 ## [0.0.810] - 2025-12-16
 
 ### Added - Reusable Pattern Matching System
