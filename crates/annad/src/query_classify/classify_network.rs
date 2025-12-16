@@ -1,4 +1,4 @@
-//! Network query classification patterns (v0.0.806).
+//! Network query classification patterns (v0.0.807).
 //!
 //! Interfaces, ports, DNS, gateway, connectivity, wireless, bonding.
 
@@ -9,10 +9,15 @@ use crate::router::QueryClass;
 pub fn classify_network(q: &str) -> Option<QueryClass> {
     // Network interfaces - check for explicit interface keywords first
     // v0.0.804: Moved before connectivity to fix "show network interfaces" classification
+    // v0.0.807: Added "my ip", "ip address", "what is my ip" patterns
     if q.contains("interface")
         || q.contains("ip ")
         || q.contains("ip?")
         || q.contains("ips")
+        || q.contains("my ip")
+        || q.contains("ip address")
+        || q.contains("what is my ip")
+        || q.contains("show ip")
         || (q.contains("show") && q.contains("network"))
         || q.contains("ethernet")
         || q.contains("wlan")

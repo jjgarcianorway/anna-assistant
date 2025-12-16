@@ -199,13 +199,20 @@ pub fn classify_system(q: &str) -> Option<QueryClass> {
     }
 
     // v0.0.122: Timezone info
+    // v0.0.807: Added more date/time patterns
     if q.contains("timezone")
         || q.contains("time zone")
         || q.contains("locale")
         || q.contains("what time is it")
+        || q.contains("what time")
         || q.contains("current time")
         || q.contains("system time")
         || q.contains("timedatectl")
+        || q.contains("what date")
+        || q.contains("current date")
+        || q.contains("today's date")
+        || q.trim() == "date"
+        || q.trim() == "time"
     {
         return Some(QueryClass::TimezoneInfo);
     }

@@ -134,11 +134,16 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
     }
 
     // Disk space
+    // v0.0.807: Added "df", "free space", "space left" patterns
     if q.contains("disk")
         || q.contains("space")
         || q.contains("storage")
         || q.contains("filesystem")
         || q.contains("mount")
+        || q.trim() == "df"
+        || q.contains("free space")
+        || q.contains("space left")
+        || q.contains("how full")
     {
         return Some(QueryClass::DiskSpace);
     }

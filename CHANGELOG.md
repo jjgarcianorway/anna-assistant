@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.807] - 2025-12-16
+
+### Improved - Classification Pattern Additions
+
+**Date/Time Patterns:**
+- Added "what time", "what date", "current date", "today's date"
+- Added standalone "date" and "time" queries → TimezoneInfo
+
+**IP Address Patterns:**
+- Added "my ip", "ip address", "what is my ip", "show ip" → NetworkInterfaces
+
+**Disk Space Patterns:**
+- Added standalone "df" command → DiskSpace
+- Added "free space", "space left", "how full" patterns
+
+**Files Modified:**
+- `classify_system.rs` - Date/time patterns
+- `classify_network.rs` - IP address patterns
+- `classify_hardware.rs` - Disk space patterns
+
 ## [0.0.806] - 2025-12-16
 
 ### Fixed - Largest Folders Now Deterministic (FAST!)
