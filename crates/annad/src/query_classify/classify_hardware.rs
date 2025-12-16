@@ -95,12 +95,18 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
     }
 
     // Top CPU processes
-    if (q.contains("process") && q.contains("cpu"))
+    // v0.0.806: Added "running processes" pattern - shows active processes by CPU
+    // Note: Use "processes" (plural) to avoid matching "processor"
+    if (q.contains("process") && q.contains("cpu") && !q.contains("processor"))
         || q.contains("cpu hog")
         || q.contains("top cpu")
         || q.contains("most cpu")
         || q.contains("what's using cpu")
         || q.contains("what is using cpu")
+        || q.contains("running processes")
+        || q.contains("active processes")
+        || (q.contains("list") && q.contains("processes"))
+        || (q.contains("show") && q.contains("processes") && !q.contains("tree"))
     {
         return Some(QueryClass::TopCpuProcesses);
     }

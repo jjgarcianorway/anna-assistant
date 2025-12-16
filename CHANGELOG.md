@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.806] - 2025-12-16
+
+### Fixed - Largest Folders Now Deterministic (FAST!)
+
+**LargestFolders Query - No More 40s Timeouts!**
+- "what are the biggest folders?" now returns instantly (~3s max)
+- No LLM specialist needed - deterministic du output parsing
+- Shows system directories and home directory separately
+- Fixed the embarrassing 40+ second timeout issue
+
+**Classification Improvements:**
+
+**Docker Patterns:**
+- Added standalone "docker" query → DockerContainers
+- Added "what containers" and "show container" patterns
+
+**Port/Process Patterns:**
+- Added "what process is using port X" → ListeningPorts
+- Added "what's on port 80" style queries
+
+**Running Processes:**
+- Added "running processes", "active processes" → TopCpuProcesses
+- Added "list processes", "show processes" patterns
+- Fixed: "show processor" still routes to CpuInfo (not TopCpuProcesses)
+
+**Files Modified:**
+- `classify_services.rs` - Docker patterns
+- `classify_network.rs` - Port/process patterns
+- `classify_hardware.rs` - Running processes patterns
+- `routes_storage.rs` - LargestFolders now deterministic
+- `query_class_impl.rs` - LargestFolders in is_fast_path
+- `det_extended/storage.rs` - Added answer_largest_folders()
+- `deterministic/router.rs` - LargestFolders dispatch
+
 ## [0.0.805] - 2025-12-16
 
 ### Added - Screen/Display Resolution Query

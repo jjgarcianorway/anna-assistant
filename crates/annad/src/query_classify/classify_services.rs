@@ -1,4 +1,4 @@
-//! Service query classification patterns (v0.0.174).
+//! Service query classification patterns (v0.0.806).
 //!
 //! Systemd services, docker, crontab, timers, sockets.
 
@@ -118,11 +118,15 @@ pub fn classify_services(q: &str) -> Option<QueryClass> {
     }
 
     // v0.0.129: Docker containers
+    // v0.0.806: Added standalone "docker" and "what containers" patterns
     if q.contains("docker container")
         || q.contains("docker ps")
         || q.contains("running container")
         || (q.contains("container") && q.contains("running"))
         || (q.contains("list") && q.contains("container"))
+        || q.trim() == "docker"
+        || (q.contains("what") && q.contains("container"))
+        || (q.contains("show") && q.contains("container"))
     {
         return Some(QueryClass::DockerContainers);
     }

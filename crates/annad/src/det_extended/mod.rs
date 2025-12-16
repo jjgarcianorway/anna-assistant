@@ -50,8 +50,8 @@ pub use services::{
 
 pub use storage::{
     answer_block_devices, answer_boot_loader, answer_fstab_entries, answer_installed_kernels,
-    answer_lvm_status, answer_mounted_filesystems, answer_raid_status, answer_swap_files,
-    answer_systemd_mounts, answer_zfs_status,
+    answer_largest_folders, answer_lvm_status, answer_mounted_filesystems, answer_raid_status,
+    answer_swap_files, answer_systemd_mounts, answer_zfs_status,
 };
 
 pub use system::{

@@ -1,4 +1,4 @@
-//! Storage routes: filesystems, block devices, mounts (v0.0.172).
+//! Storage routes: filesystems, block devices, mounts (v0.0.806).
 
 use anna_shared::probe_spine::{EvidenceKind, ProbeId, RouteCapability};
 use anna_shared::rpc::{QueryIntent, SpecialistDomain};
@@ -126,13 +126,14 @@ pub fn build_storage_route(class: QueryClass) -> Option<DeterministicRoute> {
         }),
 
         // v0.0.390: Largest folders - "top folders taking space"
+        // v0.0.806: Made deterministic - no LLM needed
         QueryClass::LargestFolders => Some(DeterministicRoute {
             class,
             domain: SpecialistDomain::Storage,
             intent: QueryIntent::Question,
             probes: vec!["largest_dirs".to_string(), "largest_home".to_string()],
             capability: RouteCapability {
-                can_answer_deterministically: false,
+                can_answer_deterministically: true,
                 evidence_required: true,
                 required_evidence: vec![EvidenceKind::Disk],
                 spine_probes: vec![],

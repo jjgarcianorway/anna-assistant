@@ -1,4 +1,4 @@
-//! Network query classification patterns (v0.0.804).
+//! Network query classification patterns (v0.0.806).
 //!
 //! Interfaces, ports, DNS, gateway, connectivity, wireless, bonding.
 
@@ -47,6 +47,7 @@ pub fn classify_network(q: &str) -> Option<QueryClass> {
 
     // v0.0.125: Listening ports
     // v0.0.789: Added "using port" pattern for queries like "what's using port 3000"
+    // v0.0.806: Added "what process" + port pattern for process-port queries
     if q.contains("listening port")
         || q.contains("open port")
         || q.contains("port listen")
@@ -61,6 +62,8 @@ pub fn classify_network(q: &str) -> Option<QueryClass> {
         || (q.contains("port") && q.contains("8080"))
         || (q.contains("port") && q.contains("80"))
         || (q.contains("port") && q.contains("443"))
+        || (q.contains("process") && q.contains("port"))
+        || (q.contains("what's on port") || q.contains("what is on port"))
     {
         return Some(QueryClass::ListeningPorts);
     }

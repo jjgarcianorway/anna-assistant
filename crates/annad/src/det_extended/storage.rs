@@ -1,4 +1,4 @@
-//! Storage answer functions (v0.0.175).
+//! Storage answer functions (v0.0.806).
 //!
 //! Block devices, ZFS, LVM, RAID, fstab, swap, mounted filesystems.
 
@@ -285,6 +285,70 @@ pub fn answer_systemd_mounts(
         answer,
         grounded: true,
         parsed_data_count: parsed,
+        route_class: route_class.to_string(),
+    })
+}
+
+/// v0.0.806: Answer largest folders query using du output
+pub fn answer_largest_folders(
+    probes: &[ProbeResult],
+    route_class: &str,
+) -> Option<DeterministicResult> {
+    // Try largest_dirs first, then largest_home
+    let dirs_probe = find_probe(probes, "largest_dirs");
+    let home_probe = find_probe(probes, "largest_home");
+
+    let mut results: Vec<String> = Vec::new();
+
+    // Parse largest_dirs output
+    if let Some(probe) = dirs_probe {
+        let output = probe.stdout.trim();
+        if !output.is_empty() && !output.contains("timed out") {
+            results.push("**System directories:**".to_string());
+            for line in output.lines().take(10) {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let size = parts[0];
+                    let path = parts[1..].join(" ");
+                    results.push(format!("  {} - {}", size, path));
+                }
+            }
+        }
+    }
+
+    // Parse largest_home output
+    if let Some(probe) = home_probe {
+        let output = probe.stdout.trim();
+        if !output.is_empty() && !output.contains("timed out") {
+            if !results.is_empty() {
+                results.push(String::new()); // blank line separator
+            }
+            results.push("**Home directory:**".to_string());
+            for line in output.lines().take(10) {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let size = parts[0];
+                    let path = parts[1..].join(" ");
+                    results.push(format!("  {} - {}", size, path));
+                }
+            }
+        }
+    }
+
+    if results.is_empty() {
+        return Some(DeterministicResult {
+            answer: "Could not scan directories. Try checking specific paths manually with `du -sh /path/*`".to_string(),
+            grounded: true,
+            parsed_data_count: 0,
+            route_class: route_class.to_string(),
+        });
+    }
+
+    let folder_count = results.iter().filter(|l| l.starts_with("  ")).count();
+    Some(DeterministicResult {
+        answer: format!("**Largest folders ({}):**\n{}", folder_count, results.join("\n")),
+        grounded: true,
+        parsed_data_count: folder_count,
         route_class: route_class.to_string(),
     })
 }
