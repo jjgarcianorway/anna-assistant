@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.816] - 2025-12-16
+
+### Fix - Don't learn recipes for dynamic queries
+
+**Critical bug fix!** The learning system was storing literal answers as recipes for
+queries that return different results each time (disk space, memory, processes).
+
+**Problem:**
+- User asked "biggest folders" → Specialist answered "home 313G, var 18G..."
+- Anna learned this as a recipe with the literal text "home 313G..."
+- Next time, Anna returned the stale cached answer instead of running fresh probes
+
+**Fix:**
+- Added `is_dynamic_domain()` and `is_dynamic_probe()` checks
+- Queries about storage, memory, performance, processes skip recipe learning
+- These always go to specialist with fresh probe data
+
+**Domains that skip learning:** storage, memory, performance, system, processes
+
+**Probes that skip learning:** largest_dirs, disk_usage, free, top_memory, top_cpu,
+running_services, failed_services, etc.
+
 ## [0.0.815] - 2025-12-16
 
 ### Added - Learning Stats Tracking

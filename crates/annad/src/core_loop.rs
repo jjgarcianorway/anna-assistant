@@ -1,4 +1,4 @@
-//! Core request loop - the simple path (v0.0.815).
+//! Core request loop - the simple path (v0.0.816).
 //!
 //! This module implements the VISION.md core loop:
 //!
@@ -15,6 +15,7 @@
 //! v0.0.812: Added IT Department with named specialists.
 //! v0.0.813: Added knowledge lookup (Arch Wiki, man pages, --help).
 //! v0.0.815: Added stats tracking for recipe hits vs LLM calls.
+//! v0.0.816: Don't learn recipes for dynamic queries (storage, memory, etc).
 
 use anna_shared::doc_fetcher;
 use anna_shared::learning_engine::{
@@ -265,7 +266,13 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
     }
 
     // Step 4: Learn recipe from successful solution
-    let learned = if solution.confidence >= 0.8 {
+    // v0.0.816: Only learn recipes for NON-DYNAMIC queries
+    // Dynamic queries (disk space, memory, processes) return different values each time
+    // so storing the literal answer as a recipe is wrong.
+    let is_dynamic_query = is_dynamic_domain(&parsed.domain) ||
+        parsed.probes.iter().any(|p| is_dynamic_probe(p));
+
+    let learned = if solution.confidence >= 0.8 && !is_dynamic_query {
         let recipe = create_recipe_from_solution(&parsed, &evidence, &solution);
         info!("Learning new recipe: {}", recipe.id);
 
@@ -286,6 +293,10 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
             }
         }
     } else {
+        if is_dynamic_query {
+            info!("Skipping recipe learning for dynamic query (domain={}, probes={:?})",
+                  parsed.domain, parsed.probes);
+        }
         false
     };
 
@@ -621,6 +632,28 @@ fn capitalize(s: &str) -> String {
         None => String::new(),
         Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
     }
+}
+
+/// v0.0.816: Check if domain produces dynamic (changing) results
+/// These queries should NOT be learned as recipes because the answer changes
+fn is_dynamic_domain(domain: &str) -> bool {
+    matches!(
+        domain.to_lowercase().as_str(),
+        "storage" | "memory" | "performance" | "system" | "processes"
+    )
+}
+
+/// v0.0.816: Check if probe produces dynamic (changing) results
+fn is_dynamic_probe(probe: &str) -> bool {
+    let dynamic_probes = [
+        "largest_dirs", "largest_home", "disk_usage", "df",
+        "free", "memory_info", "top_memory", "top_cpu",
+        "ps", "uptime", "load_average", "who",
+        "running_services", "failed_services",
+        "network_stats", "listening_ports",
+    ];
+
+    dynamic_probes.iter().any(|p| probe.contains(p))
 }
 
 #[cfg(test)]
