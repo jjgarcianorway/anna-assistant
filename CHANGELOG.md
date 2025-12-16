@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.815] - 2025-12-16
+
+### Added - Learning Stats Tracking
+
+**The core loop now tracks real learning metrics!** Per VISION.md, Anna now measures
+her recipe hit rate - the percentage of queries answered by learned recipes vs LLM.
+
+**Stats tracked:**
+- `total_requests` - every query processed
+- `recipe_hits` - queries answered instantly by learned recipes
+- Recipe hit rate = `recipe_hits / total_requests * 100`
+
+**Why this matters:**
+- Shows Anna is actually learning (hit rate should increase over time)
+- Identifies areas where more recipes are needed
+- Measures the effectiveness of the learning system
+
+**View stats:** `annactl status` shows these in the stats section.
+
+**Files:**
+- `crates/annad/src/core_loop.rs` - Added stats recording for recipe hits vs LLM calls
+
 ## [0.0.814] - 2025-12-16
 
 ### Fix - "Biggest folders" now shows actual content, not parent directories

@@ -1,4 +1,4 @@
-//! Core request loop - the simple path (v0.0.813).
+//! Core request loop - the simple path (v0.0.815).
 //!
 //! This module implements the VISION.md core loop:
 //!
@@ -14,6 +14,7 @@
 //!
 //! v0.0.812: Added IT Department with named specialists.
 //! v0.0.813: Added knowledge lookup (Arch Wiki, man pages, --help).
+//! v0.0.815: Added stats tracking for recipe hits vs LLM calls.
 
 use anna_shared::doc_fetcher;
 use anna_shared::learning_engine::{
@@ -123,9 +124,16 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
         // Execute recipe
         let answer = execute_recipe(&recipe, &parsed).await;
 
-        // Record success
+        // Record success and update stats
         library.record_success(&recipe.id);
         let _ = library.save(&recipe_path);
+
+        // v0.0.815: Record recipe hit in global stats
+        {
+            let mut s = state.write().await;
+            s.stats.record_request_received();
+            s.stats.record_recipe_hit();
+        }
 
         return CoreLoopResult {
             answer,
@@ -280,6 +288,13 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
     } else {
         false
     };
+
+    // v0.0.815: Record LLM usage in global stats (this path used specialist, not recipe)
+    {
+        let mut s = state.write().await;
+        s.stats.record_request_received();
+        // Note: NOT a recipe_hit - this went to LLM specialist
+    }
 
     CoreLoopResult {
         answer: solution.answer,
