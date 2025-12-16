@@ -1,4 +1,4 @@
-//! System query classification patterns (v0.0.309).
+//! System query classification patterns (v0.0.803).
 //!
 //! Uptime, load, boot, users, hostname, OS, architecture, locale, kernel, desktop.
 
@@ -21,7 +21,9 @@ pub fn classify_system(q: &str) -> Option<QueryClass> {
     }
 
     // Boot time status
+    // v0.0.803: Added "boot times" pattern for "what are my boot times?"
     if q.contains("boot time")
+        || q.contains("boot times")
         || q.contains("bootup")
         || q.contains("startup time")
         || q.contains("how long to boot")

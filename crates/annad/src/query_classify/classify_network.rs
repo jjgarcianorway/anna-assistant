@@ -1,4 +1,4 @@
-//! Network query classification patterns (v0.0.174).
+//! Network query classification patterns (v0.0.803).
 //!
 //! Interfaces, ports, DNS, gateway, connectivity, wireless, bonding.
 
@@ -7,6 +7,21 @@ use crate::router::QueryClass;
 /// Classify network queries.
 /// Returns Some if matched, None otherwise.
 pub fn classify_network(q: &str) -> Option<QueryClass> {
+    // v0.0.124: Network connectivity - MUST come before NetworkInterfaces
+    // v0.0.803: Added "network status" pattern and reordered
+    if q.contains("am i online")
+        || q.contains("internet connection")
+        || q.contains("check internet")
+        || q.contains("network connectivity")
+        || q.contains("network status")
+        || q.contains("connected to internet")
+        || q.contains("online?")
+        || q.contains("can i reach")
+        || (q.contains("ping") && !q.contains("pinging"))
+    {
+        return Some(QueryClass::NetworkConnectivity);
+    }
+
     // Network interfaces
     if q.contains("network")
         || q.contains("interface")
@@ -18,19 +33,6 @@ pub fn classify_network(q: &str) -> Option<QueryClass> {
         || q.contains("wlan")
     {
         return Some(QueryClass::NetworkInterfaces);
-    }
-
-    // v0.0.124: Network connectivity
-    if q.contains("am i online")
-        || q.contains("internet connection")
-        || q.contains("check internet")
-        || q.contains("network connectivity")
-        || q.contains("connected to internet")
-        || q.contains("online?")
-        || q.contains("can i reach")
-        || (q.contains("ping") && !q.contains("pinging"))
-    {
-        return Some(QueryClass::NetworkConnectivity);
     }
 
     // v0.0.125: Listening ports

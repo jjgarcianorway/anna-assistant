@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.803] - 2025-12-16
+
+### Fixed - Query Classification Improvements
+
+**Boot Times Pattern:**
+- Added "boot times" pattern (plural) to BootTimeStatus classifier
+- "what are my boot times?" now correctly routes to BootTimeStatus
+
+**Network Status Pattern:**
+- Added "network status" pattern to NetworkConnectivity classifier
+- Reordered NetworkConnectivity check BEFORE NetworkInterfaces
+- "what is my network status?" now routes to NetworkConnectivity instead of NetworkInterfaces
+
+**Files Modified:**
+- `classify_system.rs` - Added "boot times" pattern
+- `classify_network.rs` - Added "network status" pattern, reordered checks
+
 ## [0.0.802] - 2025-12-16
 
 ### Added - Webcam/Camera Detection Query
