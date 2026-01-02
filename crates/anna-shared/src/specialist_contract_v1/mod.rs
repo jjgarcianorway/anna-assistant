@@ -11,19 +11,24 @@
 pub mod fallback;
 pub mod retry;
 pub mod schema;
+pub mod ticket_resolution;
 pub mod ticket_state;
+pub mod ticket_state_machine;
+pub mod ticket_stats;
 pub mod ux;
 pub mod validator;
 
 // Re-export main types for convenience
 pub use fallback::{
-    FallbackContext, FallbackReason, FallbackResponse, FallbackSummarizer, ProbeEvidence,
+    AnswerTemplate, FallbackContext, FallbackReason, FallbackResponse, FallbackSummarizer,
+    ProbeEvidence,
 };
 pub use retry::{
     build_repair_prompt, AttemptResult, RetryAttempt, RetryConfig, RetryDecision, RetryState,
     RetrySummary, BACKOFF_1_MS, BACKOFF_2_MS, MAX_RETRIES, REPAIR_PROMPT_1, REPAIR_PROMPT_2,
     SPECIALIST_TIMEOUT_MS,
 };
+// Re-export schema types (now from schema/mod.rs which re-exports from submodules)
 pub use schema::{
     SpecialistResponseV1, SrcAction, SrcActionType, SrcAssessment, SrcCitation, SrcCitationSource,
     SrcDepartment, SrcRisk, MAX_ACTIONS, MAX_CITATIONS, MAX_SNIPPET_CHARS, MAX_SUMMARY_CHARS,

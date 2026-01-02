@@ -13,12 +13,20 @@
 //!
 //! ## Module Structure
 //! - `types`: Core data structures (ProbeEffectiveness, QueryCategory, etc.)
-//! - `store`: Persistent storage and main operations
+//! - `store`: Persistent storage and main operations (split into sub-modules)
+//!   - `store_core`: File I/O and persistence
+//!   - `store_feedback`: Feedback recording and pattern tracking
+//!   - `store_recommendations`: Probe suggestions and recommendations
+//!   - `store_stats`: Statistics, health, and quality tracking
 //! - `decay`: Learning decay for old data
 //! - `utils`: Keyword extraction, synonyms, semantic similarity
 
 mod decay;
 mod store;
+mod store_core;
+mod store_feedback;
+mod store_recommendations;
+mod store_stats;
 mod types;
 mod utils;
 

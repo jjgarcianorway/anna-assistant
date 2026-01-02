@@ -14,14 +14,24 @@
 
 pub mod executor;
 pub mod idle_learning;
+pub mod idle_learning_handlers;
+pub mod idle_learning_types;
 pub mod job;
+pub mod job_result;
+pub mod job_types;
 pub mod monitors;
+pub mod notification;
 pub mod notifications;
 pub mod scheduler;
 pub mod storage;
 
+pub use idle_learning::*;
+pub use idle_learning_types::*;
 pub use job::*;
+pub use job_result::*;
+pub use job_types::*;
 pub use monitors::*;
+pub use notification::*;
 pub use notifications::*;
 pub use scheduler::*;
 

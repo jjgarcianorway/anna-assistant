@@ -13,6 +13,7 @@
 //! - Work on 80-column terminals with minimal unicode
 
 pub mod renderer;
+pub mod renderer_helpers;
 pub mod storage;
 pub mod streaming;
 pub mod styles;
@@ -21,7 +22,11 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod renderer_tests;
+
 pub use renderer::*;
+pub use renderer_helpers::*;
 pub use storage::*;
 pub use streaming::*;
 pub use styles::*;

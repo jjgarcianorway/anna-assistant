@@ -1,0 +1,32 @@
+//! Settings API/interface modules (v0.0.578-592)
+
+#[path = "../settings_recommendations/mod.rs"]
+pub mod settings_recommendations;
+#[path = "../settings_dashboard/mod.rs"]
+pub mod settings_dashboard;
+#[path = "../settings_api/mod.rs"]
+pub mod settings_api;
+#[path = "../settings_events/mod.rs"]
+pub mod settings_events;
+#[path = "../settings_permissions/mod.rs"]
+pub mod settings_permissions;
+#[path = "../settings_diagnostics/mod.rs"]
+pub mod settings_diagnostics;
+#[path = "../settings_metrics/mod.rs"]
+pub mod settings_metrics;
+#[path = "../settings_logging/mod.rs"]
+pub mod settings_logging;
+#[path = "../settings_cache/mod.rs"]
+pub mod settings_cache;
+#[path = "../settings_transactions/mod.rs"]
+pub mod settings_transactions;
+#[path = "../settings_versioning/mod.rs"]
+pub mod settings_versioning;
+#[path = "../settings_throttling/mod.rs"]
+pub mod settings_throttling;
+#[path = "../settings_middleware/mod.rs"]
+pub mod settings_middleware;
+#[path = "../settings_observer.rs"]
+pub mod settings_observer;
+#[path = "../settings_snapshot/mod.rs"]
+pub mod settings_snapshot;

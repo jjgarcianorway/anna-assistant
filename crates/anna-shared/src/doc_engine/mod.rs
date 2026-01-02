@@ -11,11 +11,11 @@
 pub mod help_extractor;
 pub mod index;
 pub mod man_parser;
-pub mod query;
+pub mod query; // Now a module directory
 pub mod recipe_integration;
 pub mod translator_policy;
-pub mod types;
-pub mod wiki_reader;
+pub mod types; // Now a module directory
+pub mod wiki_reader; // Now a module directory
 
 pub use index::*;
 pub use query::*;

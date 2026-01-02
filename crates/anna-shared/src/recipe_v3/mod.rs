@@ -8,20 +8,32 @@
 //! - Full execution logging and stats tracking
 //! - Ticket-to-recipe builder with strict learning rules
 
-pub mod builder;
+pub mod builder_core;
 pub mod condition;
 pub mod executor;
 pub mod matcher;
-pub mod step;
+pub mod seed;
+pub mod step_execution;
+pub mod step_helpers;
+pub mod step_types;
 pub mod store;
+pub mod store_impl;
+pub mod store_query;
+pub mod store_types;
+pub mod ticket_extraction;
 pub mod types;
+pub mod types_enums;
+pub mod types_matcher;
+pub mod types_stats;
 
-pub use builder::*;
+pub use builder_core::*;
 pub use condition::*;
 pub use executor::*;
 pub use matcher::{MatchBreakdown, MatchQuery, MatchResult, RecipeMatcher as QueryMatcher};
-pub use step::*;
+pub use seed::*;
+pub use step_types::{RecipeStep, StepResult};
 pub use store::*;
+pub use ticket_extraction::*;
 pub use types::{
     ConfirmationPolicy, RecipeAuthor, RecipeDomain, RecipeMatcher, RecipeOrigin, RecipeRiskLevel,
     RecipeStats, RecipeV3,

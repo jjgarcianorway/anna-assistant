@@ -19,6 +19,8 @@ pub mod pack;
 pub mod retrieval;
 pub mod sources;
 pub mod store;
+pub mod store_metadata;
+pub mod store_trait;
 
 // Re-export main types
 pub use conversion::{recipe_to_knowledge_doc, should_convert_to_knowledge};
@@ -26,7 +28,8 @@ pub use index::KeywordIndex;
 pub use pack::{get_builtin_docs, search_builtin_pack, try_builtin_answer, PackEntry, ARCH_PACK};
 pub use retrieval::{RetrievalHit, RetrievalQuery};
 pub use sources::{KnowledgeDoc, KnowledgeSource, Provenance};
-pub use store::{KnowledgeStore, KnowledgeStoreTrait};
+pub use store::KnowledgeStore;
+pub use store_trait::KnowledgeStoreTrait;
 
 /// Performance budget: retrieval should be sub-50ms
 pub const RETRIEVAL_BUDGET_MS: u64 = 50;

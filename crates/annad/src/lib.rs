@@ -47,6 +47,7 @@ pub mod evidence_integration; // v0.0.410: Evidence pipeline integration
 pub mod fast_path_handler;
 pub mod feedback_handler; // v0.0.401: User feedback handler
 pub mod file_recipe_path; // v0.0.406: TOML-based authored recipes
+pub mod gpu_setup; // v0.0.817: Automatic GPU detection and CUDA setup
 pub mod greeting_generator;
 pub mod handlers;
 pub mod hardware;

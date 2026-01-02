@@ -6,27 +6,12 @@
 use super::index::KeywordIndex;
 use super::retrieval::{doc_matches_filters, RetrievalHit, RetrievalQuery};
 use super::sources::KnowledgeDoc;
-use serde::{Deserialize, Serialize};
+use super::store_metadata::StoreMetadata;
+use super::store_trait::KnowledgeStoreTrait;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufWriter, Write};
 use std::path::PathBuf;
-
-/// Knowledge store trait for pluggable implementations
-pub trait KnowledgeStoreTrait {
-    /// Insert or update a document
-    fn upsert(&mut self, doc: KnowledgeDoc) -> Result<(), String>;
-    /// Query for documents
-    fn query(&self, q: &RetrievalQuery) -> Vec<RetrievalHit>;
-    /// Get a document by ID
-    fn get(&self, id: &str) -> Option<&KnowledgeDoc>;
-    /// Remove a document
-    fn remove(&mut self, id: &str) -> Option<KnowledgeDoc>;
-    /// Get document count
-    fn len(&self) -> usize;
-    /// Check if empty
-    fn is_empty(&self) -> bool;
-}
 
 /// File-based knowledge store with keyword index
 #[derive(Debug, Default)]
@@ -41,14 +26,6 @@ pub struct KnowledgeStore {
     path: PathBuf,
     /// Dirty flag for persistence
     dirty: bool,
-}
-
-/// Wire format for store metadata
-#[derive(Debug, Serialize, Deserialize)]
-struct StoreMetadata {
-    version: u32,
-    seq: u64,
-    doc_count: usize,
 }
 
 impl KnowledgeStore {

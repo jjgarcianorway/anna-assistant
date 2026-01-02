@@ -8,7 +8,7 @@ mod meta;
 mod network;
 mod peripherals;
 mod security;
-mod services;
+pub mod services;
 mod storage;
 mod system;
 mod tickets;

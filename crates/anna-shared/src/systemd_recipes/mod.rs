@@ -4,7 +4,7 @@
 //! Covers common tasks like creating services, debugging, and hardening.
 
 mod matcher;
-mod recipes;
+pub mod recipes;
 #[cfg(test)]
 mod tests;
 mod types;

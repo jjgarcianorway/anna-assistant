@@ -2,7 +2,8 @@
 
 use super::clarification::{ClarificationProtocol, ClarificationRequest, ClarificationResponse};
 use super::fetcher::{FetchConfig, FetchResult, KnowledgeFetcher};
-use super::learning::{LearningLoop, LearningOutcome, RecipeStats};
+use super::learning::LearningLoop;
+use super::learning_types::{LearningOutcome, RecipeStats};
 use super::research::{ResearchOutcome, ResearchPattern, ResearchRequest};
 use super::sources::{Citation, KnowledgeSource, SourcePriority, SourceResult};
 use super::wiki_sync::WikiSyncer;

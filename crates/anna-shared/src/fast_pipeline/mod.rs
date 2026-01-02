@@ -11,27 +11,34 @@
 //! - Reality-based reliability stats
 
 pub mod budget;
+pub mod budget_tracker;
+pub mod budget_types;
 pub mod no_stream;
 pub mod parallel_probes;
 pub mod probe_fallback;
 pub mod progress;
+pub mod progress_pipeline;
+pub mod progress_renderer;
+pub mod progress_types;
 pub mod reliability_stats;
 pub mod retry;
 pub mod specialist_v2;
+pub mod specialist_v2_parser;
+pub mod specialist_v2_types;
 
 pub use budget::{
-    BudgetResult, BudgetTracker, Phase, PhaseBudget, TimeBudgets, JUNIOR_BUDGET_MS,
+    BudgetResult, BudgetSummary, BudgetTracker, Phase, PhaseBudget, TimeBudgets, JUNIOR_BUDGET_MS,
     PROBE_BUDGET_MS, RENDERER_BUDGET_MS, SENIOR_BUDGET_MS, TOTAL_BUDGET_MS, TRANSLATOR_BUDGET_MS,
 };
 pub use no_stream::{enforce_no_stream, CallPolicy, ModelCallConfig};
 pub use parallel_probes::{ParallelProbeEngine, ProbeBatch, ProbeCache};
 pub use probe_fallback::{FallbackAnswer, ProbeFallbackEngine, ProbeOnlyResult};
-pub use progress::{PhaseProgress, PhaseStatus, ProgressRenderer};
-pub use reliability_stats::{ReliabilityOutcome, ReliabilityStats};
+pub use progress::{PhaseProgress, PhaseStatus, PipelineProgress, ProgressRenderer};
+pub use reliability_stats::{ExecutionRecord, ReliabilityOutcome, ReliabilityStats, WindowedStats};
 pub use retry::{RetryConfig, RetryResult, RetryStrategy};
 pub use specialist_v2::{
-    AnswerPayload, SpecialistOutputV2, SpecialistParser, Verdict, MAX_NOTES_CHARS,
-    MAX_SPECIALIST_TOKENS, MAX_SUMMARY_CHARS,
+    AnswerPayload, ParseResult, SpecialistOutputV2, SpecialistParser, ValidationResult, Verdict,
+    MAX_ANSWER_FIELDS, MAX_NOTES_CHARS, MAX_SPECIALIST_TOKENS, MAX_SUMMARY_CHARS,
 };
 
 /// Pipeline version.

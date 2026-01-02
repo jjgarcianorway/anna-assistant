@@ -18,7 +18,17 @@
 pub mod answer_tiers;
 pub mod department;
 pub mod evidence_gate;
-pub mod intent_map;
+pub mod intent_mapping;
+mod intent_mappings_desktop;
+mod intent_mappings_hardware;
+mod intent_mappings_network;
+mod intent_mappings_performance;
+mod intent_mappings_security;
+mod intent_mappings_services;
+mod intent_mappings_storage;
+pub mod intent_map_table;
+#[cfg(test)]
+mod intent_map_tests;
 pub mod intent_schema;
 
 // Re-exports for convenience
@@ -31,7 +41,8 @@ pub use department::{
     DepartmentConflict, DepartmentOwnership, DepartmentRules, DeterministicRouter, RouteResult,
 };
 pub use evidence_gate::{DirectAnswer, EvidenceGate, EvidenceStatus, GateDecision, ProbeResult};
-pub use intent_map::{get_intent_map, IntentMapTable, IntentMapping};
+pub use intent_mapping::IntentMapping;
+pub use intent_map_table::{get_intent_map, IntentMapTable};
 pub use intent_schema::{
     CanonicalIntent, Department, IntentSchemaParser, ParseError, RiskLevel, TicketIntentSchema,
 };

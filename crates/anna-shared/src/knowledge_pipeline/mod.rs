@@ -10,16 +10,27 @@
 //! Successful research becomes reusable parametric recipes.
 
 mod clarification;
-mod fetcher;
+mod clarification_protocol;
+mod clarification_request;
+mod clarification_response;
+mod clarification_types;
+pub mod fetcher;
 mod learning;
+mod learning_helpers;
+mod learning_types;
 mod research;
 mod sources;
 mod tests;
 mod wiki_sync;
 
-pub use clarification::{ClarificationProtocol, ClarificationRequest, ClarificationResponse};
+pub use clarification::{
+    ClarificationOption, ClarificationProtocol, ClarificationRequest, ClarificationResponse,
+    ClarificationType,
+};
 pub use fetcher::{FetchConfig, FetchResult, KnowledgeFetcher};
-pub use learning::{LearningLoop, LearningOutcome, RecipeStats};
+pub use learning::LearningLoop;
+pub use learning_helpers::{extract_query_pattern, generate_pattern_id, STOP_WORDS};
+pub use learning_types::{LearnedPattern, LearningOutcome, RecipeStats};
 pub use research::{ResearchOutcome, ResearchPattern, ResearchRequest};
 pub use sources::{Citation, KnowledgeSource, SourcePriority, SourceResult};
 pub use wiki_sync::{SyncStatus, WikiSyncConfig, WikiSyncer};

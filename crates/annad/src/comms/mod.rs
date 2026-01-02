@@ -9,7 +9,9 @@
 
 pub mod dialogue_gen;
 mod generator;
-mod messages;
+mod sync_dispatch;
+mod sync_review;
+mod async_messages;
 mod routing;
 mod tests;
 

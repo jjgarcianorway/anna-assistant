@@ -10,74 +10,17 @@
 //!
 //! Violations = BUG.
 
-use super::evidence::{EvidenceBundle, FactValue};
+use super::evidence::EvidenceBundle;
 use super::pipeline::AnswerType;
-use super::reasoning::{DerivedValues, ReasoningOutput};
+use super::reasoning_types::ReasoningOutput;
+use super::translator_helpers::infer_unit;
+use super::translator_types::*;
 
-/// Maximum answer lengths by type.
-pub const MAX_NUMERIC_ANSWER: usize = 30;
-pub const MAX_BOOLEAN_ANSWER: usize = 80;
-pub const MAX_LIST_ITEMS: usize = 10;
-pub const MAX_ENTITY_ANSWER: usize = 100;
-pub const MAX_BRIEF_ANSWER: usize = 200;
-
-/// Translated answer.
-#[derive(Debug, Clone)]
-pub struct TranslatedAnswer {
-    /// The answer text.
-    pub text: String,
-    /// Answer type.
-    pub answer_type: AnswerType,
-    /// Confidence (inherited from reasoning).
-    pub confidence: f64,
-    /// Whether answer matches expected type.
-    pub type_match: bool,
-}
-
-impl TranslatedAnswer {
-    /// Create new answer.
-    pub fn new(text: &str, answer_type: AnswerType, confidence: f64) -> Self {
-        let type_match = validate_answer_type(text, answer_type);
-        Self {
-            text: text.to_string(),
-            answer_type,
-            confidence,
-            type_match,
-        }
-    }
-
-    /// Check if answer is valid.
-    pub fn is_valid(&self) -> bool {
-        self.type_match && !self.text.is_empty()
-    }
-}
-
-/// Validate answer matches expected type.
-fn validate_answer_type(text: &str, expected: AnswerType) -> bool {
-    match expected {
-        AnswerType::Numeric => {
-            // Should be primarily numeric
-            let has_number = text.chars().any(|c| c.is_ascii_digit());
-            let short_enough = text.len() <= MAX_NUMERIC_ANSWER;
-            has_number && short_enough
-        }
-        AnswerType::Boolean => {
-            let lower = text.to_lowercase();
-            let starts_with_yesno = lower.starts_with("yes") || lower.starts_with("no");
-            let short_enough = text.len() <= MAX_BOOLEAN_ANSWER;
-            starts_with_yesno && short_enough
-        }
-        AnswerType::List => {
-            // Lists should have commas, newlines, or bullet points
-            text.contains(',') || text.contains('\n') || text.contains('•') || text.contains('-')
-        }
-        AnswerType::Entity => {
-            // Entity should be concise
-            text.len() <= MAX_ENTITY_ANSWER && !text.contains('\n')
-        }
-        AnswerType::Brief => text.len() <= MAX_BRIEF_ANSWER,
-    }
-}
+// Re-export types
+pub use super::translator_types::{TranslatedAnswer, TranslationError};
+pub use super::translator_types::{
+    MAX_BOOLEAN_ANSWER, MAX_BRIEF_ANSWER, MAX_ENTITY_ANSWER, MAX_LIST_ITEMS, MAX_NUMERIC_ANSWER,
+};
 
 /// Precision translator.
 pub struct PrecisionTranslator {
@@ -281,113 +224,11 @@ impl Default for PrecisionTranslator {
     }
 }
 
-/// Translation error.
-#[derive(Debug, Clone)]
-pub enum TranslationError {
-    /// Cannot answer - requires more facts.
-    CannotAnswer { requires: Vec<String> },
-    /// Answer type mismatch.
-    TypeMismatch { expected: String, got: String },
-    /// No numeric value found.
-    NoNumericValue,
-    /// No boolean value found.
-    NoBooleanValue,
-    /// No list value found.
-    NoListValue,
-    /// No entity value found.
-    NoEntityValue,
-}
-
-impl TranslationError {
-    /// Get error message.
-    pub fn message(&self) -> String {
-        match self {
-            Self::CannotAnswer { requires } => {
-                format!("Cannot answer. Requires: {}", requires.join(", "))
-            }
-            Self::TypeMismatch { expected, got } => {
-                format!("Type mismatch: expected {}, got '{}'", expected, got)
-            }
-            Self::NoNumericValue => "No numeric value in evidence".to_string(),
-            Self::NoBooleanValue => "No boolean value in evidence".to_string(),
-            Self::NoListValue => "No list value in evidence".to_string(),
-            Self::NoEntityValue => "No entity value in evidence".to_string(),
-        }
-    }
-}
-
-/// Infer unit from fact name.
-fn infer_unit(fact_name: &str) -> &'static str {
-    let lower = fact_name.to_lowercase();
-    if lower.contains("gib") || lower.contains("_gib") {
-        " GiB"
-    } else if lower.contains("mib") || lower.contains("_mib") {
-        " MiB"
-    } else if lower.contains("pct") || lower.contains("percent") {
-        "%"
-    } else if lower.contains("_s") || lower.contains("time_s") || lower.contains("seconds") {
-        "s"
-    } else if lower.contains("_ms") {
-        "ms"
-    } else if lower.contains("temp") || lower.contains("_c") {
-        "°C"
-    } else if lower.contains("count") {
-        ""
-    } else {
-        ""
-    }
-}
-
-/// Direct answer builder for deterministic cases.
-pub struct DirectAnswerBuilder;
-
-impl DirectAnswerBuilder {
-    /// Build answer directly from evidence (no reasoning needed).
-    pub fn build(
-        fact_name: &str,
-        evidence: &EvidenceBundle,
-        answer_type: AnswerType,
-    ) -> Option<String> {
-        let value = evidence.get(fact_name)?;
-
-        match answer_type {
-            AnswerType::Numeric => {
-                let n = value.as_number()?;
-                let unit = infer_unit(fact_name);
-                if n.fract() == 0.0 {
-                    Some(format!("{}{}", n as i64, unit))
-                } else {
-                    Some(format!("{:.1}{}", n, unit))
-                }
-            }
-            AnswerType::Boolean => {
-                let b = value.as_bool()?;
-                Some(if b {
-                    "Yes.".to_string()
-                } else {
-                    "No.".to_string()
-                })
-            }
-            AnswerType::List => {
-                let list = value.as_list()?;
-                Some(
-                    list.iter()
-                        .take(MAX_LIST_ITEMS)
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                )
-            }
-            AnswerType::Entity => Some(value.as_string()?.to_string()),
-            AnswerType::Brief => Some(value.display()),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::era_pipeline::evidence::EvidenceBundleBuilder;
+    use crate::era_pipeline::ReasoningOutput;
 
     #[test]
     fn test_numeric_answer() {
@@ -476,28 +317,5 @@ mod tests {
         if let Err(TranslationError::CannotAnswer { requires }) = result {
             assert!(requires.contains(&"boot.blame".to_string()));
         }
-    }
-
-    #[test]
-    fn test_direct_answer_builder() {
-        let evidence = EvidenceBundleBuilder::new("DSK-0127")
-            .fact_number("memory.free_gib", 17.5)
-            .build();
-
-        let answer = DirectAnswerBuilder::build("memory.free_gib", &evidence, AnswerType::Numeric);
-        assert_eq!(answer, Some("17.5 GiB".to_string()));
-    }
-
-    #[test]
-    fn test_type_validation() {
-        assert!(validate_answer_type("17.0 GiB", AnswerType::Numeric));
-        assert!(!validate_answer_type("hello world", AnswerType::Numeric));
-
-        assert!(validate_answer_type("Yes.", AnswerType::Boolean));
-        assert!(validate_answer_type(
-            "No, it is not enabled.",
-            AnswerType::Boolean
-        ));
-        assert!(!validate_answer_type("Maybe", AnswerType::Boolean));
     }
 }

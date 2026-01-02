@@ -8,23 +8,44 @@
 //!
 //! This is about correctness, not intelligence.
 
+pub mod answer_field;
 pub mod answer_plan;
+pub mod answer_shape;
 pub mod canary_tests;
 pub mod diagnosis;
 pub mod evidence_bind;
+pub mod evidence_bind_engine;
+pub mod evidence_bind_types;
 pub mod filters;
+pub mod filters_strict;
+pub mod filters_types;
+pub mod formatters;
 pub mod intent;
+pub mod shape_enforcer;
 pub mod stats;
 
-pub use answer_plan::{AnswerField, AnswerPlan, AnswerShape, ShapeEnforcer};
-pub use diagnosis::{ConclusionState, DiagnosisConclusion};
-pub use evidence_bind::{BindingResult, BoundClaim, EvidenceBinding};
-pub use filters::{AnswerFilter, FilterResult, LeakageType};
+pub use answer_field::{AnswerField, AnswerValue};
+pub use answer_plan::{AnswerPlan, DiscardedItem, DiscardReason};
+pub use answer_shape::{AnswerShape, ShapeType};
+pub use shape_enforcer::{EnforcementResult, ShapeEnforcer, ShapeViolation};
+pub use diagnosis::{
+    ConclusionLanguageValidator, ConclusionState, ConclusionValidation, DiagnosisBuilder,
+    DiagnosisConclusion, LanguageValidation,
+};
+pub use evidence_bind::{
+    BindingResult, BindingViolation, BoundClaim, EvidenceBinding, EvidenceItem, UnboundClaim,
+};
+pub use filters::{
+    AnswerFilter, DetectedLeakage, FilterResult, LeakageType, StrictFilter, StrictFilterResult,
+};
 pub use intent::{
     AnswerConstraints, ClarificationRequest, IntentBuilder, IntentCategory, Precision,
-    QuestionIntent, Scope, Subject, Timeframe,
+    QuestionIntent, Scope, Subject, Timeframe, Units,
 };
-pub use stats::{IntentOutcome, IntentQualityStats};
+pub use stats::{
+    ConversationIntentTracker, IntentOutcome, IntentQualityStats, MisclassificationDetector,
+    MisclassificationSignal, TrackedIntent,
+};
 
 /// Version of the question contract.
 pub const CONTRACT_VERSION: &str = "1";

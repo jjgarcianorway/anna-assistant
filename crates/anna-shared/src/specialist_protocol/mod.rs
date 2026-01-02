@@ -13,18 +13,35 @@
 //! - No generic tutorials when user asked for current state
 
 pub mod fallback;
+pub mod fallback_extractors;
+pub mod fallback_responses;
+pub mod fallback_types;
 pub mod guardrails;
 pub mod outcome;
 pub mod parser;
 pub mod schema;
-pub mod validator;
+pub mod schema_actions;
+pub mod schema_evidence;
+pub mod schema_types;
+pub mod validation_checks;
+pub mod validation_core;
+pub mod validation_types;
 
-pub use fallback::*;
+#[cfg(test)]
+mod validation_tests;
+
+pub use fallback::{
+    debug_error_message, extract_facts_from_probes, generate_fallback, generate_failure_response,
+    generate_partial_response, truncate, user_friendly_error_message, ExtractedFact,
+    FallbackContext, FallbackReason,
+};
 pub use guardrails::*;
 pub use outcome::*;
 pub use parser::*;
 pub use schema::*;
-pub use validator::*;
+pub use validation_checks::*;
+pub use validation_core::*;
+pub use validation_types::*;
 
 /// Minimum confidence for learning recipes from a response
 pub const MIN_LEARN_CONFIDENCE: f32 = 0.8;
@@ -50,3 +67,15 @@ pub const MAX_RECOMMENDATIONS: usize = 5;
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests_acceptance.rs"]
+mod tests_acceptance;
+
+#[cfg(test)]
+#[path = "tests_classification.rs"]
+mod tests_classification;
+
+#[cfg(test)]
+#[path = "tests_validation.rs"]
+mod tests_validation;

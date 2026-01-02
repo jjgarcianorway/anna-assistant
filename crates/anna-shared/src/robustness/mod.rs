@@ -10,6 +10,9 @@
 mod contract;
 mod fallback;
 mod json_enforce;
+mod json_enforce_helpers;
+mod json_enforce_parser;
+mod json_enforce_types;
 mod lifecycle;
 mod outcome_messages;
 mod performance;

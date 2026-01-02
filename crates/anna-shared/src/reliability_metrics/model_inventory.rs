@@ -8,76 +8,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-/// Model ownership - who installed this model?
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ModelOwner {
-    /// User installed this model (pre-existing or manual pull)
-    User,
-    /// Anna installed this model (auto-pulled for operation)
-    Anna,
-    /// Unknown ownership (legacy or unclear)
-    Unknown,
-}
-
-/// A single model in the inventory.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelEntry {
-    /// Model name (e.g., "qwen2.5:7b")
-    pub name: String,
-    /// Normalized name for deduplication (lowercase, no tag variants)
-    pub normalized: String,
-    /// Owner (user/anna/unknown)
-    pub owner: ModelOwner,
-    /// Size in MB (if known)
-    pub size_mb: Option<u64>,
-    /// Quantization (if known)
-    pub quantization: Option<String>,
-    /// Last used timestamp (Unix ms)
-    pub last_used_ms: Option<u64>,
-    /// Is this configured for a role?
-    pub is_configured: bool,
-    /// Role it's configured for (if any)
-    pub configured_role: Option<String>,
-}
-
-impl ModelEntry {
-    /// Create a new model entry.
-    pub fn new(name: impl Into<String>, owner: ModelOwner) -> Self {
-        let name = name.into();
-        let normalized = normalize_model_name(&name);
-        Self {
-            name,
-            normalized,
-            owner,
-            size_mb: None,
-            quantization: None,
-            last_used_ms: None,
-            is_configured: false,
-            configured_role: None,
-        }
-    }
-
-    /// Set size.
-    pub fn with_size(mut self, size_mb: u64) -> Self {
-        self.size_mb = Some(size_mb);
-        self
-    }
-
-    /// Mark as configured for a role.
-    pub fn with_role(mut self, role: &str) -> Self {
-        self.is_configured = true;
-        self.configured_role = Some(role.to_string());
-        self
-    }
-}
-
-/// Normalize model name for deduplication.
-/// "qwen2.5:7b" and "qwen2.5:7b-instruct" are different
-/// but "qwen2.5:7b" and "QWEN2.5:7B" are the same.
-fn normalize_model_name(name: &str) -> String {
-    name.to_lowercase().trim().to_string()
-}
+// Re-export types from submodules
+pub use super::model_inventory_probes::{
+    default_probe_inventory, ProbeEntry, ProbeInventory,
+};
+pub use super::model_inventory_types::{
+    normalize_model_name, ConfiguredModels, ModelEntry, ModelOwner,
+};
 
 /// Accurate model inventory.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -90,14 +27,6 @@ pub struct ModelInventory {
 
     /// Anna-installed model names.
     pub anna_installed: HashSet<String>,
-}
-
-/// Models configured for specific roles.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ConfiguredModels {
-    pub translator: Option<String>,
-    pub junior: Option<String>,
-    pub senior: Option<String>,
 }
 
 impl ModelInventory {
@@ -292,131 +221,6 @@ impl ModelInventory {
     }
 }
 
-/// A probe in the inventory.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProbeEntry {
-    /// Probe ID (e.g., "df", "free", "systemctl_status")
-    pub id: String,
-    /// Human-readable description
-    pub description: String,
-    /// Command to run
-    pub command: String,
-    /// Is this probe available (command exists)?
-    pub available: bool,
-}
-
-/// Probe inventory.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ProbeInventory {
-    /// All probes by ID.
-    pub probes: HashMap<String, ProbeEntry>,
-}
-
-impl ProbeInventory {
-    /// Create empty inventory.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add a probe.
-    pub fn add(&mut self, id: &str, description: &str, command: &str, available: bool) {
-        self.probes.insert(
-            id.to_string(),
-            ProbeEntry {
-                id: id.to_string(),
-                description: description.to_string(),
-                command: command.to_string(),
-                available,
-            },
-        );
-    }
-
-    /// Get probe by ID.
-    pub fn get(&self, id: &str) -> Option<&ProbeEntry> {
-        self.probes.get(id)
-    }
-
-    /// Get available probes.
-    pub fn available(&self) -> Vec<&ProbeEntry> {
-        self.probes.values().filter(|p| p.available).collect()
-    }
-
-    /// Get unavailable probes.
-    pub fn unavailable(&self) -> Vec<&ProbeEntry> {
-        self.probes.values().filter(|p| !p.available).collect()
-    }
-
-    /// Format for display in annactl debug probes.
-    pub fn display(&self) -> String {
-        let mut out = String::new();
-        out.push_str("[probes]\n");
-
-        let mut probes: Vec<_> = self.probes.values().collect();
-        probes.sort_by(|a, b| a.id.cmp(&b.id));
-
-        for p in probes {
-            let status = if p.available { "✓" } else { "✗" };
-            out.push_str(&format!(
-                "  {} {} - {} ({})\n",
-                status, p.id, p.description, p.command
-            ));
-        }
-
-        let available = self.available().len();
-        let total = self.probes.len();
-        out.push_str(&format!("\n  {}/{} probes available\n", available, total));
-
-        out
-    }
-}
-
-/// Build default probe inventory with common probes.
-pub fn default_probe_inventory() -> ProbeInventory {
-    let mut inv = ProbeInventory::new();
-
-    // System info probes
-    inv.add("uname", "System information", "uname -a", true);
-    inv.add("hostname", "Hostname", "hostname", true);
-    inv.add("uptime", "System uptime", "uptime", true);
-
-    // Disk probes
-    inv.add("df", "Disk space usage", "df -h", true);
-    inv.add("du_home", "Home directory size", "du -sh ~", true);
-    inv.add("lsblk", "Block devices", "lsblk", true);
-
-    // Memory probes
-    inv.add("free", "Memory usage", "free -h", true);
-    inv.add("meminfo", "Memory info", "cat /proc/meminfo", true);
-
-    // Process probes
-    inv.add("ps_aux", "Running processes", "ps aux", true);
-    inv.add("top_snapshot", "Top processes", "top -bn1 | head -20", true);
-
-    // Network probes
-    inv.add("ip_addr", "IP addresses", "ip addr", true);
-    inv.add("ss_listen", "Listening ports", "ss -tlnp", true);
-
-    // Service probes
-    inv.add(
-        "systemctl_failed",
-        "Failed services",
-        "systemctl --failed --no-pager",
-        true,
-    );
-    inv.add(
-        "systemctl_list",
-        "All services",
-        "systemctl list-units --type=service --no-pager",
-        true,
-    );
-
-    // Package probes
-    inv.add("pacman_q", "Installed packages", "pacman -Q", true);
-    inv.add("which", "Find command", "which", true);
-
-    inv
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -461,14 +265,6 @@ mod tests {
         let missing = inv.configured_missing();
         assert_eq!(missing.len(), 1);
         assert_eq!(missing[0].0, "senior");
-    }
-
-    #[test]
-    fn test_probe_inventory() {
-        let inv = default_probe_inventory();
-        assert!(inv.probes.len() > 10);
-        assert!(inv.get("df").is_some());
-        assert!(inv.get("free").is_some());
     }
 
     #[test]

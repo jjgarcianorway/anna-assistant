@@ -14,12 +14,26 @@
 //! - Model inventory is deduplicated and shows ownership
 
 pub mod aggregate_stats;
+pub mod aggregate_stats_calc;
+pub mod aggregate_stats_display;
+pub mod aggregate_stats_types;
 pub mod canonical_outcome;
 pub mod model_inventory;
+pub mod model_inventory_probes;
+pub mod model_inventory_types;
 pub mod request_metrics;
+pub mod request_metrics_builder;
+pub mod request_metrics_store;
+pub mod request_metrics_types;
 
 #[cfg(test)]
 pub mod tests;
+
+#[cfg(test)]
+pub mod tests_outcomes;
+
+#[cfg(test)]
+pub mod tests_inventory;
 
 // Re-exports for convenience
 pub use aggregate_stats::{compute_stats, ReliabilityStats, TopicStats};

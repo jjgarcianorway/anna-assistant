@@ -15,13 +15,17 @@
 
 pub mod block;
 pub mod config;
+pub mod debug_block;
 pub mod reason_codes;
 pub mod redact;
 pub mod sanitize;
 pub mod trace;
+pub mod types;
 
 #[cfg(test)]
-pub mod tests;
+pub mod tests_basic;
+#[cfg(test)]
+pub mod tests_advanced;
 
 // Re-exports
 pub use block::{DebugBlock, ProbeDebugInfo, TranslatorDecision};
@@ -30,8 +34,8 @@ pub use reason_codes::ReasonCode;
 pub use redact::{is_sensitive_path, redact_journal_line, redact_proc_cmdline, Redactor};
 pub use sanitize::{SanitizeResult, Sanitizer};
 pub use trace::{
-    FailureDetail, GateResult, LlmTrace, ProbeTrace, TimeoutInfo, TimingTrace, TraceBlock,
-    TraceOutcome,
+    FailureDetail, GateCheck, GateResult, LlmTrace, ParseErrorInfo, ProbeTrace, PromptDigest,
+    RouteType, TimeoutInfo, TimingTrace, TraceBlock, TraceOutcome,
 };
 
 /// Version of the debug mode system.

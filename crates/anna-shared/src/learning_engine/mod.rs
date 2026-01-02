@@ -13,6 +13,9 @@
 //! - Honest metrics about recipe hit rates
 
 pub mod eligibility;
+mod eligibility_checks;
+mod eligibility_extraction;
+mod eligibility_types;
 pub mod evidence;
 pub mod executor;
 pub mod generator;

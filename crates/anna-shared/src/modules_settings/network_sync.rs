@@ -1,0 +1,30 @@
+//! Settings network/sync modules (v0.0.564-577)
+
+#[path = "../settings_sync/mod.rs"]
+pub mod settings_sync;
+#[path = "../settings_profiles/mod.rs"]
+pub mod settings_profiles;
+#[path = "../settings_search/mod.rs"]
+pub mod settings_search;
+#[path = "../settings_notifications/mod.rs"]
+pub mod settings_notifications;
+#[path = "../settings_scheduler/mod.rs"]
+pub mod settings_scheduler;
+#[path = "../settings_templates/mod.rs"]
+pub mod settings_templates;
+#[path = "../settings_constraints/mod.rs"]
+pub mod settings_constraints;
+#[path = "../settings_hooks/mod.rs"]
+pub mod settings_hooks;
+#[path = "../settings_wizard/mod.rs"]
+pub mod settings_wizard;
+#[path = "../settings_audit/mod.rs"]
+pub mod settings_audit;
+#[path = "../settings_orchestrator/mod.rs"]
+pub mod settings_orchestrator;
+#[path = "../settings_backup/mod.rs"]
+pub mod settings_backup;
+#[path = "../settings_restore/mod.rs"]
+pub mod settings_restore;
+#[path = "../settings_analytics/mod.rs"]
+pub mod settings_analytics;

@@ -8,25 +8,45 @@
 //! - Honest reflection in status and stats
 
 pub mod catalog;
+mod detection;
+mod hardware_profile;
 pub mod helper_config;
-pub mod helpers;
+pub mod helper_entry;
+pub mod helper_error;
+pub mod helper_manager;
+pub mod helper_state;
 pub mod integration;
 pub mod model_config;
 pub mod model_health;
 pub mod model_plan;
 pub mod profile;
 pub mod status;
-pub mod tests;
+mod types;
+
+#[cfg(test)]
+mod test_fixtures;
+#[cfg(test)]
+mod test_core;
+#[cfg(test)]
+mod test_integration;
 
 pub use catalog::{ModelCatalog, ModelEntry, ModelRole};
 pub use helper_config::{HelperConfig, HelperInstallPolicy};
-pub use helpers::{HelperCatalog, HelperEntry, HelperManager, HelperState};
-pub use integration::{ProbeHelper, SpecialistHelper};
+pub use helper_entry::{HelperCatalog, HelperEntry};
+pub use helper_error::HelperError;
+pub use helper_manager::HelperManager;
+pub use helper_state::{HelperInstalledBy, HelperState};
+pub use integration::{
+    HelperSuggestion, ModelAvailability, ProbeCommand, ProbeHelper, SpecialistHelper,
+};
 pub use model_config::{AutoInstallPolicy, ModelConfig};
 pub use model_health::{ModelHealth, ModelStatus, ModelVerifier};
 pub use model_plan::{ModelPlan, ModelPlanner};
-pub use profile::{CapabilityTier, CpuInfo, GpuInfo, GpuVendor, HardwareProfile, StorageInfo};
-pub use status::{HardwareStatus, HelperStatusSection, LlmSection};
+pub use profile::{CapabilityTier, CpuInfo, GpuInfo, GpuVendor, HardwareProfile, OsInfo, StorageInfo};
+pub use status::{
+    HardwareStatus, HelperStatusEntry, HelperStatusSection, HelperUsage, HelperUsageStats,
+    LlmSection, ModelError, ModelStatusEntry, ModelUsage, ModelUsageStats, SystemProfileSection,
+};
 
 /// Current catalog version.
 pub const CATALOG_VERSION: u32 = 1;

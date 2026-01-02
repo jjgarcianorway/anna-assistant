@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.817] - 2026-01-02
+
+### Added - Automatic GPU Setup
+
+**Anna now automatically configures GPU acceleration on startup!**
+
+When the daemon starts, it will:
+1. Detect NVIDIA GPU via `lspci`
+2. Check if `cuda` and `ollama-cuda` packages are installed
+3. Install them automatically if missing (`pacman -S --noconfirm cuda ollama-cuda`)
+4. Add `ollama` user to `video` and `render` groups if needed
+5. Restart Ollama to pick up GPU access
+
+**Why this matters:**
+- Without GPU, Ollama runs on CPU only (20-30 second responses)
+- With GPU, responses are 2-3 seconds
+- Users no longer need to manually configure GPU access
+- Anna self-heals this common misconfiguration
+
+**New module:** `gpu_setup.rs` handles all GPU detection and configuration.
+
 ## [0.0.816] - 2025-12-16
 
 ### Fix - Don't learn recipes for dynamic queries

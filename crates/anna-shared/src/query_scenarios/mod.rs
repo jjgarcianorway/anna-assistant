@@ -6,10 +6,18 @@
 //! - Difficulty (simple vs complex)
 //! - Whether recipe learning should apply
 
-mod corpus;
+pub mod corpus;
 mod stats;
 #[cfg(test)]
-mod tests;
+mod helpers;
+#[cfg(test)]
+mod corpus_tests;
+#[cfg(test)]
+mod routing_tests;
+#[cfg(test)]
+mod fast_path_tests;
+#[cfg(test)]
+mod recipe_learning_tests;
 
 pub use corpus::{Difficulty, ExpectedPath, QueryScenario, ScenarioCorpus};
 pub use stats::{ResolutionOutcome, ScenarioStats, TeamStats};

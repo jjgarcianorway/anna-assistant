@@ -5,37 +5,35 @@
 //! v0.0.254: LLM-powered natural dialogue for specialist chatter.
 //! v0.0.290: Integrated ticket verification loop for proper Junior->Senior escalation.
 //! v0.0.291: Extracted verification_stage for modularization.
+//! v0.0.291: Split into smaller modules (fast_path_stage, deterministic_handlers, formatting).
 
 use anna_shared::progress::RequestStage;
 use anna_shared::rpc::{RequestParams, RpcResponse};
 use anna_shared::status::LlmState;
 use anna_shared::trace::SpecialistOutcome;
-use anna_shared::transcript::TranscriptEvent;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::time::{timeout, Duration};
 use tracing::{info, warn};
 
-use crate::comms::{team_from_query_class, CommsGenerator};
-use crate::configure_editor::{handle_configure_editor, ConfigureEditorResult};
-use crate::configure_shell::{handle_configure_shell, ConfigureShellResult};
-use crate::desktop_wallpaper::{handle_desktop_wallpaper, DesktopWallpaperResult};
-use crate::fast_path_handler::{build_fast_path_result, try_fast_path_answer};
-use crate::probe_stage::{check_evidence_validity, execute_probe_stage};
 use crate::progress_tracker::ProgressTracker;
-use crate::recipe_fast_path;
 use crate::result_stage::wrap_with_theatre;
 use crate::router;
-use crate::routing_stage::{enforce_probe_spine, route_query};
-use crate::service_desk;
 use crate::specialist_stage::execute_specialist_stage;
 use crate::state::SharedState;
-use crate::system_update::{handle_system_update, SystemUpdateResult};
-use crate::theatre::TheatreContext;
 use crate::timeout_handler::make_timeout_response;
-use crate::triage;
 
+use super::deterministic_handlers::{try_all_deterministic_handlers, DeterministicHandlerResult};
+use super::fast_path_stage::try_handle_fast_path;
+use super::formatting::format_deterministic_answer;
 use super::helpers::save_progress;
+use super::probe_handler::{check_and_handle_evidence, execute_and_handle_probes};
+use super::request_helpers::{
+    create_no_data_response, extract_config, extract_fast_path_config, log_request_completion,
+    record_request_stats, save_truth_ledger,
+};
+use super::routing_handler::{handle_routing_stage, handle_team_comms};
+use super::triage_handler::check_and_handle_clarification;
 use super::verification_stage::{self, VerificationInput};
 
 /// Service desk pipeline with deterministic routing, triage, and fallback
@@ -103,35 +101,13 @@ async fn handle_llm_request_inner(
 
     // Get config, models, and hardware from state
     // v0.0.310: Allow requests when models are loading - deterministic answers work
-    let (
-        llm_config,
-        translator_model,
-        specialist_model,
-        hw_cores,
-        hw_ram_gb,
-        has_gpu,
-        debug_mode,
-        models_fully_ready,
-    ) = {
-        let state = state.read().await;
-        if !state.llm.state.can_handle_requests() {
-            return RpcResponse::error(id, -32002, format!("LLM not ready: {}", state.llm.state));
-        }
-        let models_ready = state.llm.state == LlmState::Ready;
-        (
-            state.config.llm.clone(),
-            state.config.llm.translator_model.clone(),
-            state.config.llm.specialist_model.clone(),
-            state.hardware.cpu_cores,
-            state.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0),
-            state.hardware.gpu.is_some(),
-            state.config.debug_mode(),
-            models_ready,
-        )
+    let config = match extract_config(&state, &id).await {
+        Ok(c) => c,
+        Err(response) => return response,
     };
 
     // v0.0.310: Log if serving while models are still loading
-    if !models_fully_ready {
+    if !config.models_fully_ready {
         info!("Serving request while models are loading (deterministic answers only)");
     }
 
@@ -149,45 +125,17 @@ async fn handle_llm_request_inner(
     // v0.0.266: progress_events.clear() moved to start of function to prevent context leaking
 
     // Step 0: Fast path check (v0.0.39) - answer health/status queries without LLM
-    let fast_path_config = {
-        let state = state.read().await;
-        (
-            state.config.daemon.fast_path_enabled,
-            state.config.daemon.snapshot_max_age_secs,
-        )
-    };
+    let fast_path_config = extract_fast_path_config(&state).await;
 
-    if fast_path_config.0 {
-        if let Some(result) = try_fast_path_answer(query, fast_path_config.1) {
-            info!(
-                "Fast path handled: class={}, reliability={}",
-                result.class, result.reliability
-            );
-
-            // Add fast path event to transcript
-            let elapsed = progress.elapsed_ms();
-            progress.transcript_mut().push(TranscriptEvent::fast_path(
-                elapsed,
-                true,
-                result.class.to_string(),
-                &result.trace_note,
-                false, // No probes needed if we had fresh snapshot
-            ));
-
-            // Build result and return immediately
-            let fast_result = build_fast_path_result(
-                request_id,
-                result.answer,
-                result.class,
-                result.reliability,
-                progress.take_transcript(),
-            );
-            // v0.0.291: Safe JSON serialization
-            return match serde_json::to_value(fast_result) {
-                Ok(v) => RpcResponse::success(id, v),
-                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-            };
-        }
+    if let Some(response) = try_handle_fast_path(
+        &id,
+        &request_id,
+        query,
+        fast_path_config.enabled,
+        fast_path_config.snapshot_max_age_secs,
+        &mut progress,
+    ) {
+        return response;
     }
 
     // Step 1: Deterministic routing (always runs)
@@ -197,48 +145,24 @@ async fn handle_llm_request_inner(
         det_route.class, det_route.domain, det_route.probes
     );
 
-    // Step 2: v0.0.167 - Route query through recipe check or LLM translator
-    // v0.0.318: Pass debug_mode for LLM call visibility
-    let routing_result = route_query(
+    // Step 2: Handle routing stage (recipe check + LLM translator)
+    let (recipe_response, ticket, routing_result) = handle_routing_stage(
         &state,
+        &id,
+        &request_id,
         query,
         &det_route,
-        &llm_config,
-        &translator_model,
-        hw_cores,
-        hw_ram_gb,
-        has_gpu,
-        debug_mode,
+        &config,
         &mut progress,
     )
     .await;
 
-    // Handle recipe direct answer
-    if let Some(ref recipe_result) = routing_result.recipe_result {
-        if recipe_fast_path::can_answer_directly(recipe_result) {
-            let recipe = recipe_result.recipe.as_ref().unwrap();
-            progress.add_translator_message(&format!(
-                "Recipe match: {} (score {})",
-                recipe.id, recipe_result.score
-            ));
-            // v0.0.305: Pass query for negative feedback learning
-            let result = recipe_fast_path::build_recipe_result(
-                request_id,
-                recipe,
-                &recipe_result.matched_tokens,
-                progress.take_transcript(),
-                query,
-            );
-            return wrap_with_theatre(id, result, None);
-        }
+    if let Some(response) = recipe_response {
+        return response;
     }
 
-    let mut ticket = routing_result.ticket;
-    let triage_result = routing_result.triage_result;
+    let triage_result = routing_result.triage_result.clone();
     let translator_timed_out = routing_result.translator_timed_out;
-
-    // Step 2.5: v0.0.167 - Enforce probe spine constraints
-    enforce_probe_spine(&mut ticket, query, &det_route);
 
     let classified_domain = ticket.domain;
     let ticket_probes_planned = ticket.needs_probes.len();
@@ -247,46 +171,31 @@ async fn handle_llm_request_inner(
         ticket.domain, ticket.intent, ticket.needs_probes, ticket.confidence
     ));
 
-    // v0.0.148: Create comms generator for fly-on-wall experience
-    // v0.0.254: Enhanced with LLM-powered dialogue
-    // v0.0.266: Use query class for team routing (ConfigureEditor -> Desktop team)
-    // v0.0.390: DISABLED LLM dialogue - small models produce nonsense. Using static messages.
-    let team = team_from_query_class(&det_route.class.to_string(), &classified_domain.to_string());
-    let mut comms = CommsGenerator::new(team, &request_id).with_query(query);
-    // .with_model(&translator_model) - v0.0.390: disabled, small models generate garbage
-
-    // v0.0.254: Anna dispatches to team and junior acknowledges (async for LLM dialogue)
-    comms.dispatch_async(&mut progress).await;
-    comms.junior_ack_async(&mut progress).await;
-    save_progress(&state, &progress).await;
+    // Step 2.5: Handle team communications
+    let mut comms = handle_team_comms(
+        &det_route.class.to_string(),
+        &classified_domain.to_string(),
+        &request_id,
+        query,
+        &mut progress,
+        &state,
+    )
+    .await;
 
     // Step 3: Check if immediate clarification needed (from triage)
-    if let Some(ref triage) = triage_result {
-        if triage.needs_immediate_clarification {
-            save_progress(&state, &progress).await;
-            let question = triage
-                .clarification_question
-                .clone()
-                .unwrap_or_else(|| triage::generate_heuristic_clarification(query));
-
-            // v0.0.290: Create theatre and notify for clarification request
-            let mut theatre = TheatreContext::new(query, classified_domain);
-            theatre.ticket.pending_question = Some(question.clone());
-            theatre.notify_needs_clarification();
-            let _ = theatre.save();
-
-            let result = service_desk::create_clarification_response(
-                request_id,
-                ticket,
-                &question,
-                progress.take_transcript(),
-            );
-            // v0.0.291: Safe JSON serialization
-            return match serde_json::to_value(result) {
-                Ok(v) => RpcResponse::success(id, v),
-                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-            };
-        }
+    if let Some(response) = check_and_handle_clarification(
+        &id,
+        &request_id,
+        query,
+        &routing_result,
+        &ticket,
+        classified_domain,
+        &state,
+        &mut progress,
+    )
+    .await
+    {
+        return response;
     }
 
     // Step 4: v0.0.167 - Run probes via probe_stage module
@@ -295,138 +204,57 @@ async fn handle_llm_request_inner(
         .map(|t| t.probe_cap_applied)
         .unwrap_or(false);
 
-    let probe_stage_result =
-        execute_probe_stage(&state, &ticket, &llm_config, &mut progress, &mut comms).await;
+    let (probe_results, probe_timeout) = execute_and_handle_probes(
+        &id,
+        &request_id,
+        &state,
+        &ticket,
+        &config,
+        &mut progress,
+        &mut comms,
+        classified_domain,
+    )
+    .await;
 
-    // Handle probe timeout
-    if probe_stage_result.timed_out {
-        let result = service_desk::create_timeout_response(
-            request_id,
-            "probes",
-            Some(ticket),
-            vec![],
-            progress.take_transcript(),
-            classified_domain,
-        );
-        // v0.0.291: Safe JSON serialization
-        return match serde_json::to_value(result) {
-            Ok(v) => RpcResponse::success(id, v),
-            Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-        };
+    if let Some(response) = probe_timeout {
+        return response;
     }
-
-    let probe_results = probe_stage_result.results;
 
     // Step 5: v0.45.7 Evidence enforcement - "no evidence, no claims" rule
-    let valid_evidence_count = check_evidence_validity(&probe_results);
-    if det_route.capability.evidence_required && valid_evidence_count == 0 {
-        info!("v0.45.7: No valid evidence collected but evidence required - returning deterministic failure");
+    if let Some(response) = check_and_handle_evidence(
+        &id,
+        &request_id,
+        &det_route,
+        &ticket,
+        &probe_results,
+        &mut progress,
+        classified_domain,
+        &state,
+    )
+    .await
+    {
+        return response;
+    }
+
+    // Step 5.5-5.8: Try all deterministic handlers (ConfigureEditor, DesktopWallpaper, etc.)
+    if let DeterministicHandlerResult::Handled(response) = try_all_deterministic_handlers(
+        &id,
+        &request_id,
+        &det_route.class,
+        query,
+        &ticket,
+        &probe_results,
+        progress.transcript_clone(),
+        classified_domain,
+    ) {
         save_progress(&state, &progress).await;
-        let required_evidence: Vec<String> = det_route
-            .capability
-            .required_evidence
-            .iter()
-            .map(|k| k.to_string())
-            .collect();
-        let result = service_desk::create_no_evidence_response(
-            request_id,
-            ticket,
-            probe_results,
-            progress.take_transcript(),
-            classified_domain,
-            &required_evidence,
-        );
-        // v0.0.291: Safe JSON serialization
-        return match serde_json::to_value(result) {
-            Ok(v) => RpcResponse::success(id, v),
-            Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-        };
-    }
-
-    // Step 5.5: v0.0.149 ConfigureEditor - extracted to separate module
-    if det_route.class == router::QueryClass::ConfigureEditor {
-        let editor_result = handle_configure_editor(
-            request_id.clone(),
-            query,
-            ticket.clone(),
-            &probe_results,
-            progress.transcript_clone(),
-            classified_domain,
-        );
-
-        if let ConfigureEditorResult::Handled(result) = editor_result {
-            save_progress(&state, &progress).await;
-            // v0.0.291: Safe JSON serialization
-            return match serde_json::to_value(result) {
-                Ok(v) => RpcResponse::success(id, v),
-                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-            };
-        }
-    }
-
-    // Step 5.6: v0.0.309 DesktopWallpaper - fast path for wallpaper queries
-    if det_route.class == router::QueryClass::DesktopWallpaper {
-        let wallpaper_result = handle_desktop_wallpaper(
-            request_id.clone(),
-            query,
-            ticket.clone(),
-            &probe_results,
-            progress.transcript_clone(),
-        );
-
-        if let DesktopWallpaperResult::Handled(result) = wallpaper_result {
-            save_progress(&state, &progress).await;
-            return match serde_json::to_value(result) {
-                Ok(v) => RpcResponse::success(id, v),
-                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-            };
-        }
-    }
-
-    // Step 5.7: v0.0.311 SystemUpdate - fast path for "update my system"
-    if det_route.class == router::QueryClass::SystemUpdate {
-        let update_result = handle_system_update(
-            request_id.clone(),
-            query,
-            ticket.clone(),
-            &probe_results,
-            progress.transcript_clone(),
-            classified_domain,
-        );
-
-        if let SystemUpdateResult::Handled(result) = update_result {
-            save_progress(&state, &progress).await;
-            return match serde_json::to_value(result) {
-                Ok(v) => RpcResponse::success(id, v),
-                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-            };
-        }
-    }
-
-    // Step 5.8: v0.0.311 ConfigureShell - fast path for shell config
-    if det_route.class == router::QueryClass::ConfigureShell {
-        let shell_result = handle_configure_shell(
-            request_id.clone(),
-            query,
-            ticket.clone(),
-            &probe_results,
-            progress.transcript_clone(),
-            classified_domain,
-        );
-
-        if let ConfigureShellResult::Handled(result) = shell_result {
-            save_progress(&state, &progress).await;
-            return match serde_json::to_value(result) {
-                Ok(v) => RpcResponse::success(id, v),
-                Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-            };
-        }
+        return response;
     }
 
     // Step 6: Build context with summarized probes
     let context = {
-        let state = state.read().await;
-        service_desk::build_context(&state.hardware, &probe_results)
+        let state_read = state.read().await;
+        super::request_helpers::build_context(&state_read.hardware, &probe_results)
     };
 
     // v0.0.148: Junior reviewing the data
@@ -444,9 +272,9 @@ async fn handle_llm_request_inner(
             &probe_results,
             &ticket,
             &det_route,
-            &llm_config,
-            &specialist_model,
-            debug_mode,
+            &config.llm_config,
+            &config.specialist_model,
+            config.debug_mode,
             &mut progress,
             truth_ledger_ref, // Pass truth_ledger_ref
         )
@@ -455,48 +283,26 @@ async fn handle_llm_request_inner(
 
     // Step 7.5: v0.0.276 - Format deterministic answers via translator LLM
     // v0.0.794: Skip formatting for data-listing answers (ports, services, etc.)
-    // These are already well-formatted and don't benefit from LLM rephrasing
-    let skip_formatting = specialist_result
-        .det_result
-        .as_ref()
-        .map(|det| should_skip_formatting(&det.route_class))
-        .unwrap_or(false);
-
-    if specialist_result.used_deterministic && !specialist_result.answer.is_empty() && !skip_formatting
-    {
-        specialist_result.answer = crate::response_formatter::format_response(
-            &translator_model,
-            &specialist_result.answer,
-            query,
-            8, // 8 second timeout for formatting
-        )
-        .await;
-    } else if skip_formatting {
-        info!(
-            "v0.0.794: Skipping LLM formatting for data listing (route_class={})",
-            specialist_result
-                .det_result
-                .as_ref()
-                .map(|d| d.route_class.as_str())
-                .unwrap_or("unknown")
-        );
-    }
+    specialist_result.answer = format_deterministic_answer(
+        specialist_result.answer,
+        specialist_result.used_deterministic,
+        specialist_result.det_result.as_ref(),
+        &config.translator_model,
+        query,
+    )
+    .await;
 
     // Step 8: Handle no answer case
     if specialist_result.answer.is_empty() {
         save_progress(&state, &progress).await;
-        let result = service_desk::create_no_data_response(
+        return create_no_data_response(
+            &id,
             request_id,
             ticket,
             probe_results,
-            progress.take_transcript(),
+            progress.transcript_clone(),
             classified_domain,
         );
-        // v0.0.291: Safe JSON serialization
-        return match serde_json::to_value(result) {
-            Ok(v) => RpcResponse::success(id, v),
-            Err(e) => RpcResponse::error(id, -32603, format!("Serialization error: {}", e)),
-        };
     }
 
     // Step 9: v0.0.297 - Run verification stage with LLM self-healing
@@ -511,8 +317,8 @@ async fn handle_llm_request_inner(
         translator_timed_out,
         ticket_probes_planned,
         probe_cap_warning,
-        supervisor_timeout_secs: llm_config.supervisor_timeout_secs,
-        model: &specialist_model,
+        supervisor_timeout_secs: config.llm_config.supervisor_timeout_secs,
+        model: &config.specialist_model,
     };
 
     // v0.0.298: run_verification returns VerificationResult with validated status
@@ -539,39 +345,26 @@ async fn handle_llm_request_inner(
 
     // Record total request latency
     let total_ms = request_start.elapsed().as_millis() as u64;
-    {
-        let mut state = state.write().await;
-        state.latency.total.add(total_ms);
-        let specialist_timeout = matches!(specialist_result.outcome, SpecialistOutcome::Timeout);
-        state.record_request(
-            specialist_result.used_deterministic,
-            translator_timed_out,
-            specialist_timeout,
-        );
-    }
+    let specialist_timeout = matches!(specialist_result.outcome, SpecialistOutcome::Timeout);
+    record_request_stats(
+        &state,
+        total_ms,
+        specialist_result.used_deterministic,
+        translator_timed_out,
+        specialist_timeout,
+    )
+    .await;
 
-    info!(
-        "Request completed: domain={}, reliability={}, deterministic={}, trace={}, latency={}ms",
-        result.domain,
+    log_request_completion(
+        &result.domain.to_string(),
         result.reliability_score,
         specialist_result.used_deterministic,
-        result
-            .execution_trace
-            .as_ref()
-            .map(|t| t.to_string())
-            .unwrap_or_default(),
-        total_ms
+        result.execution_trace.as_ref().map(|t| t.to_string()),
+        total_ms,
     );
 
     save_progress(&state, &progress).await;
-
-    // Save the truth ledger
-    {
-        let state = state.read().await;
-        if let Err(e) = state.truth_ledger.save(crate::state::TRUTH_LEDGER_PATH) {
-            warn!("Failed to save truth ledger: {}", e);
-        }
-    }
+    save_truth_ledger(&state).await;
 
     // v0.0.291: Handle theatre recording via extracted module
     let theatre = verification_stage::handle_theatre(
@@ -585,73 +378,4 @@ async fn handle_llm_request_inner(
 
     // Return with theatre context
     wrap_with_theatre(id, result, Some(theatre))
-}
-
-/// v0.0.794: Check if a route class should skip LLM formatting
-/// Data-listing answers (ports, services, env vars, etc.) are already well-formatted
-/// and don't benefit from LLM rephrasing - they just need the raw data displayed
-/// v0.0.795: Fixed to use snake_case (QueryClass::to_string() format)
-/// v0.0.796: Added more query types (installed_tool_check, swap_files, etc.)
-fn should_skip_formatting(route_class: &str) -> bool {
-    matches!(
-        route_class,
-        // Data listings that display raw system info
-        "listening_ports"
-            | "running_services"
-            | "environment_vars"
-            | "mounted_filesystems"
-            | "usb_devices"
-            | "logged_in_users"
-            | "network_interfaces"
-            | "top_cpu_processes"
-            | "top_memory_processes"
-            // Direct probe answers are already formatted
-            | "probe_direct"
-            // Knowledge index answers don't need reformatting
-            | "knowledge_index"
-            // Simple status queries
-            | "system_architecture"
-            | "hostname"
-            | "os_info"
-            | "kernel_version"
-            | "current_user"
-            | "last_boot"
-            | "system_uptime"
-            | "battery_status"
-            | "system_load"
-            | "timezone_info"
-            // System info queries
-            | "cpu_info"
-            | "cpu_cores"
-            | "cpu_temp"
-            | "ram_info"
-            | "gpu_info"
-            | "disk_space"
-            | "disk_usage"
-            | "memory_usage"
-            | "memory_free"
-            | "swap_info"
-            | "swap_files"
-            | "process_tree"
-            | "dns_servers"
-            | "default_gateway"
-            // v0.0.796: Package and tool queries
-            | "installed_tool_check"
-            | "package_count"
-            | "package_updates"
-            // v0.0.796: Storage queries
-            | "largest_folders"
-            | "fstab_entries"
-            // v0.0.796: Network queries
-            | "network_connectivity"
-            | "ip_routes"
-            | "open_files"
-            // v0.0.796: Hardware queries
-            | "hardware_audio"
-            | "pci_devices"
-            | "block_devices"
-            // v0.0.799: Boot queries
-            | "boot_blame"
-            | "boot_time_status"
-    )
 }

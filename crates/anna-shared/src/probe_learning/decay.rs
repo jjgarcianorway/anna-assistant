@@ -2,7 +2,7 @@
 //!
 //! Decay old learning data so recent experiences have more weight.
 
-use super::store::ProbeLearningStore;
+use super::store::{now_secs, ProbeLearningStore};
 use super::types::DecayResult;
 
 /// Time constants for decay
@@ -73,12 +73,4 @@ impl ProbeLearningStore {
             probes_decayed,
         }
     }
-}
-
-/// Get current Unix timestamp in seconds
-fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
 }

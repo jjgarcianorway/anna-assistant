@@ -13,7 +13,7 @@ mod debug;
 mod debug_trace;
 mod feedback;
 mod handlers;
-mod learning;
+pub mod learning;
 mod repl;
 
 // Re-export all handlers

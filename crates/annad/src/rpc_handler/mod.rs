@@ -12,9 +12,16 @@ use anyhow::Error;
 use serde_json;
 use tracing::{info, warn}; // For the dummy search_results type
 
+mod deterministic_handlers;
 mod dispatcher;
+mod fast_path_stage;
+mod formatting;
 mod helpers;
 mod llm_request;
+mod probe_handler;
+mod request_helpers;
+mod routing_handler;
+mod triage_handler;
 mod verification_stage;
 
 // Re-export main handler

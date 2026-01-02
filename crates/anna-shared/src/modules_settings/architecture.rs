@@ -1,0 +1,32 @@
+//! Settings architecture modules (v0.0.628-642)
+
+#[path = "../settings_adapter.rs"]
+pub mod settings_adapter;
+#[path = "../settings_bridge.rs"]
+pub mod settings_bridge;
+#[path = "../settings_connector.rs"]
+pub mod settings_connector;
+#[path = "../settings_provider.rs"]
+pub mod settings_provider;
+#[path = "../settings_consumer.rs"]
+pub mod settings_consumer;
+#[path = "../settings_subscriber.rs"]
+pub mod settings_subscriber;
+#[path = "../settings_publisher/mod.rs"]
+pub mod settings_publisher;
+#[path = "../settings_broadcaster/mod.rs"]
+pub mod settings_broadcaster;
+#[path = "../settings_listener/mod.rs"]
+pub mod settings_listener;
+#[path = "../settings_poller/mod.rs"]
+pub mod settings_poller;
+#[path = "../settings_tracker.rs"]
+pub mod settings_tracker;
+#[path = "../settings_notifier/mod.rs"]
+pub mod settings_notifier;
+#[path = "../settings_report_generator/mod.rs"]
+pub mod settings_report_generator;
+#[path = "../settings_inspector/mod.rs"]
+pub mod settings_inspector;
+#[path = "../settings_analyzer/mod.rs"]
+pub mod settings_analyzer;

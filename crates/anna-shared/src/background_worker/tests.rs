@@ -113,7 +113,7 @@ fn test_monitor_alert_workflow() {
 #[test]
 fn test_idle_learning_workflow() {
     // 1. Create manager with config
-    let config = idle_learning::IdleLearningConfig {
+    let config = IdleLearningConfig {
         enabled: true,
         cpu_threshold: 0.3,
         max_jobs_per_day: 5,
@@ -123,7 +123,7 @@ fn test_idle_learning_workflow() {
         min_idle_time_secs: 0, // No wait for test
     };
 
-    let mut state = idle_learning::IdleLearningState::default();
+    let mut state = IdleLearningState::default();
     state.idle_since = Some(
         std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -131,7 +131,7 @@ fn test_idle_learning_workflow() {
             .as_secs(),
     );
 
-    let manager = idle_learning::IdleLearningManager::with_state(config, state);
+    let manager = IdleLearningManager::with_state(config, state);
 
     // 2. Get next job (should be recipe consolidation)
     let job = manager.get_next_job();
@@ -140,16 +140,16 @@ fn test_idle_learning_workflow() {
     assert!(matches!(job.kind, JobKind::RecipeConsolidation));
 
     // 3. Test daily limits
-    let config2 = idle_learning::IdleLearningConfig {
+    let config2 = IdleLearningConfig {
         enabled: true,
         max_jobs_per_day: 2,
         ..Default::default()
     };
-    let mut state2 = idle_learning::IdleLearningState::default();
+    let mut state2 = IdleLearningState::default();
     state2.jobs_today = 2;
     state2.last_reset_date = idle_learning_current_date();
 
-    let mut manager2 = idle_learning::IdleLearningManager::with_state(config2, state2);
+    let mut manager2 = IdleLearningManager::with_state(config2, state2);
     // Should not run because at max
     assert!(!manager2.should_run());
 }
