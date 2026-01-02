@@ -24,16 +24,18 @@ mod deterministic_answerer {
 
         if q.contains("cpu") || q.contains("processor") || q.contains("core") {
             QueryType::CpuInfo
-        } else if q.contains("ram") || q.contains("memory") && !q.contains("process") {
-            QueryType::RamInfo
         } else if q.contains("gpu") || q.contains("graphics") || q.contains("vram") {
             QueryType::GpuInfo
+        // v0.0.818: TopMemoryProcesses MUST come before RamInfo to catch "memory hogs"
         } else if q.contains("process") && (q.contains("memory") || q.contains("ram"))
             || q.contains("memory hog")
+            || q.contains("memory hogs")
             || q.contains("top memory")
             || q.contains("most memory")
         {
             QueryType::TopMemoryProcesses
+        } else if q.contains("ram") || (q.contains("memory") && !q.contains("process")) {
+            QueryType::RamInfo
         } else if q.contains("disk")
             || q.contains("space")
             || q.contains("storage")

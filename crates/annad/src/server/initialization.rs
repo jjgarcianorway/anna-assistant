@@ -69,18 +69,32 @@ impl Server {
             ));
         }
 
-        // v0.0.817: Ensure GPU acceleration is configured before starting Ollama
+        // v0.0.818: Ensure GPU acceleration is configured before starting Ollama
         // This checks for NVIDIA GPU, installs cuda/ollama-cuda if needed,
         // and adds ollama user to video/render groups
+        // Track which packages were actually installed for proper uninstall
+        let cuda_was_installed = gpu_setup::is_cuda_installed();
+        let ollama_cuda_was_installed = gpu_setup::is_ollama_cuda_installed();
+
         match gpu_setup::ensure_gpu_acceleration() {
             Ok(true) => {
                 info!("GPU acceleration configured");
                 let mut state = self.state.write().await;
-                state.ledger.add(LedgerEntry::new(
-                    LedgerEntryKind::PackageInstalled,
-                    "ollama-cuda".to_string(),
-                    true,
-                ));
+                // v0.0.818: Track each package separately for proper uninstall
+                if !cuda_was_installed && gpu_setup::is_cuda_installed() {
+                    state.ledger.add(LedgerEntry::new(
+                        LedgerEntryKind::PackageInstalled,
+                        "cuda".to_string(),
+                        true,
+                    ));
+                }
+                if !ollama_cuda_was_installed && gpu_setup::is_ollama_cuda_installed() {
+                    state.ledger.add(LedgerEntry::new(
+                        LedgerEntryKind::PackageInstalled,
+                        "ollama-cuda".to_string(),
+                        true,
+                    ));
+                }
             }
             Ok(false) => {
                 info!("No GPU detected, using CPU-only mode");
@@ -279,7 +293,7 @@ impl Server {
         // Run benchmark on specialist model
         let _throughput = ollama::benchmark(&specialist_model).await.unwrap_or(0.0);
 
-        // Clean up unused models
+        // v0.0.818: Enhanced model cleanup - remove duplicates and unused models
         let installed = ollama::list_models().await.unwrap_or_default();
         let anna_pulled: Vec<String> = {
             let state_read = state.read().await;
@@ -292,19 +306,66 @@ impl Server {
                 .collect()
         };
 
+        // Group models by base name to detect duplicates
+        let mut model_groups: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for model in &installed {
-            let anna_owns = anna_pulled
-                .iter()
-                .any(|p| model.contains(p) || p.contains(model));
-            if !anna_owns {
-                continue;
-            }
+            // Extract base model name (before :)
+            let base = model.split(':').next().unwrap_or(model);
+            model_groups
+                .entry(base.to_string())
+                .or_default()
+                .push(model.clone());
+        }
+
+        // Keep only needed models and one version of each family
+        for model in &installed {
+            // Check if this exact model is needed
             let is_needed = required_models
                 .iter()
                 .any(|r| model.contains(r) || r.contains(model));
             if is_needed {
                 continue;
             }
+
+            // Check if Anna owns this model
+            let anna_owns = anna_pulled
+                .iter()
+                .any(|p| model.contains(p) || p.contains(model));
+
+            // v0.0.818: Clean up duplicates even if Anna doesn't own them
+            // Extract base name
+            let base = model.split(':').next().unwrap_or(model);
+            let variants = model_groups.get(base).map(|v| v.len()).unwrap_or(0);
+
+            // Only clean up if:
+            // 1. Anna owns it AND it's not needed, OR
+            // 2. It's a duplicate (multiple variants of same base) AND not needed
+            let should_cleanup = anna_owns || variants > 1;
+
+            if !should_cleanup {
+                continue;
+            }
+
+            // For duplicates, check if any variant is needed
+            if variants > 1 {
+                let any_variant_needed = model_groups
+                    .get(base)
+                    .map(|variants| {
+                        variants.iter().any(|v| {
+                            required_models
+                                .iter()
+                                .any(|r| v.contains(r) || r.contains(v))
+                        })
+                    })
+                    .unwrap_or(false);
+
+                // If a variant is needed, skip cleaning unless this is an extra duplicate
+                if any_variant_needed {
+                    continue;
+                }
+            }
+
             info!("Cleaning up unused model: {}", model);
             if let Ok(()) = ollama::delete_model(model).await {
                 let mut state_write = state.write().await;

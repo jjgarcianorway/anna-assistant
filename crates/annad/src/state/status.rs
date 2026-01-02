@@ -110,22 +110,38 @@ impl DaemonStateInner {
             },
         };
 
-        // Helpers info
+        // Helpers info - v0.0.818: Check ledger for Anna-installed packages
         let mut helpers_registry = load_helpers();
         for pkg in known_helpers().packages {
             if helpers_registry.get(&pkg.id).is_none() {
                 helpers_registry.register(pkg);
             }
         }
+
+        // Check ledger to see if Anna installed packages
+        let anna_installed_packages: Vec<String> = self
+            .ledger
+            .entries
+            .iter()
+            .filter(|e| matches!(e.kind, anna_shared::ledger::LedgerEntryKind::PackageInstalled))
+            .map(|e| e.target.clone())
+            .collect();
+
         if let Some(ollama_pkg) = helpers_registry.get_mut("ollama") {
             ollama_pkg.available = self.ollama.installed;
-            if ollama_pkg.install_source == InstallSource::Unknown && self.ollama.installed {
+            // v0.0.818: Check ledger for installation source
+            if anna_installed_packages.iter().any(|p| p.contains("ollama")) {
+                ollama_pkg.install_source = InstallSource::Anna;
+            } else if ollama_pkg.install_source == InstallSource::Unknown && self.ollama.installed {
                 ollama_pkg.install_source = InstallSource::User;
             }
         } else {
             let mut pkg = HelperPackage::new("ollama", "Ollama").required();
             pkg.available = self.ollama.installed;
-            pkg.install_source = if self.ollama.installed {
+            // v0.0.818: Check ledger for installation source
+            pkg.install_source = if anna_installed_packages.iter().any(|p| p.contains("ollama")) {
+                InstallSource::Anna
+            } else if self.ollama.installed {
                 InstallSource::User
             } else {
                 InstallSource::Unknown
@@ -157,15 +173,15 @@ impl DaemonStateInner {
             downloads: Vec::new(),
         };
 
-        // Config info - v0.0.449: Enhanced per VISION.md
+        // Config info - v0.0.818: Better defaults per VISION.md
         let config = ConfigInfo {
             debug_mode: self.config.debug_mode(),
             repl_clean_mode: !self.config.debug_mode(),
-            autonomy_level: 0, // Conservative default
+            autonomy_level: 50, // v0.0.818: Reasonable default - balanced autonomy
             auto_update: self.config.daemon.auto_update,
-            learning_mode: false, // TODO: Add to config when implemented
+            learning_mode: true, // v0.0.818: ON by default per VISION.md
             fast_path_enabled: self.config.daemon.fast_path_enabled,
-            internal_comms: false, // TODO: Add to config when implemented
+            internal_comms: true, // v0.0.818: ON by default for fly-on-wall experience
             request_timeout_secs: self.config.daemon.request_timeout_secs,
             update_check_interval_secs: self.config.daemon.update_interval,
         };

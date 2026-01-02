@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.818] - 2026-01-02
+
+### Fixed - Status Display and Better Defaults
+
+**Anna now tracks installations properly and has better defaults!**
+
+**Fixes:**
+1. **Ollama tracking**: Fixed Ollama showing as "installed by user" when Anna installed it. Now checks ledger for proper attribution.
+2. **Package tracking**: CUDA and ollama-cuda are now tracked separately in the ledger for proper uninstall.
+3. **Model cleanup**: Enhanced cleanup to remove unused and duplicate models more aggressively.
+
+**Better defaults per VISION.md:**
+1. **learning_mode**: Now ON by default (was OFF)
+2. **internal_comms**: Now ON by default (was OFF) - enables fly-on-wall IT department experience
+3. **autonomy_level**: Now 50/100 (was 0) - balanced autonomy
+
+**Query classification:**
+- Added "memory hogs" pattern (plural) for TopMemoryProcesses classification
+- Fixed test classifier ordering to properly catch memory hog queries
+
 ## [0.0.817] - 2026-01-02
 
 ### Added - Automatic GPU Setup

@@ -93,9 +93,11 @@ pub fn classify_hardware(q: &str) -> Option<QueryClass> {
     //   - size words (top, most, using, hogging, eating...)
     // Examples: "processes using memory", "apps hogging ram", "top memory tasks"
     // Note: uses contains_any_word for PROCESS_WORDS to avoid "processor" matching "process"
+    // v0.0.818: Added "memory hogs" pattern (plural)
     if (contains_any_word(q, PROCESS_WORDS) && contains_any(q, MEMORY_WORDS))
         || (contains_any(q, SIZE_WORDS) && contains_any(q, MEMORY_WORDS))
         || q.contains("memory hog")
+        || q.contains("memory hogs")
     {
         return Some(QueryClass::TopMemoryProcesses);
     }
