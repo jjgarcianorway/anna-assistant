@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.822] - 2026-01-05
+
+### Fixed - Non-Fatal Ollama Install
+
+**Daemon no longer crashes if Ollama install fails - continues startup so auto-update can run.**
+
+The daemon was crash-looping because Ollama install failure was fatal. Now:
+- Ollama install failure logs an error but doesn't crash
+- Daemon continues startup
+- Auto-update loop can run and download fixed version
+- Next restart will have the cleanup code
+
 ## [0.0.821] - 2026-01-05
 
 ### Fixed - Complete Manual Ollama Cleanup

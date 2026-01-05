@@ -59,14 +59,22 @@ impl Server {
             state.set_llm_phase("installing_ollama");
         }
 
+        // v0.0.822: Make Ollama install non-fatal so daemon can start and auto-update
         if !ollama::is_installed() {
-            ollama::install().await?;
-            let mut state = self.state.write().await;
-            state.ledger.add(LedgerEntry::new(
-                LedgerEntryKind::PackageInstalled,
-                "ollama".to_string(),
-                true,
-            ));
+            match ollama::install().await {
+                Ok(()) => {
+                    let mut state = self.state.write().await;
+                    state.ledger.add(LedgerEntry::new(
+                        LedgerEntryKind::PackageInstalled,
+                        "ollama".to_string(),
+                        true,
+                    ));
+                }
+                Err(e) => {
+                    error!("Failed to install Ollama (will retry): {}", e);
+                    // Don't crash - continue startup so auto-update can run
+                }
+            }
         }
 
         // v0.0.818: Ensure GPU acceleration is configured before starting Ollama
