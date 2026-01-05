@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.820] - 2026-01-05
+
+### Fixed - GPU Setup Handles Manual Ollama Installs
+
+**Anna now properly replaces manually installed Ollama with GPU-enabled version!**
+
+**The real problem:** Ollama was running on CPU only (20-30 second responses) because:
+1. Ollama was installed manually via curl script (not via pacman)
+2. `ollama-cuda` package conflicted with the manual binary
+3. GPU setup was failing silently with "conflicting files" error
+
+**The fix:**
+- Detect if ollama was installed manually (binary exists but not owned by pacman)
+- Remove the manual binary before installing `ollama-cuda` package
+- Also handle CPU-only `ollama` package that conflicts with `ollama-cuda`
+
+**Result:** Ollama will now use GPU (2-3 second responses instead of 20-30 seconds).
+
 ## [0.0.819] - 2026-01-05
 
 ### Fixed - Fast REPL Startup

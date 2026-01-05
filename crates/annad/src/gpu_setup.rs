@@ -82,9 +82,71 @@ pub fn ollama_has_gpu_groups() -> bool {
     }
 }
 
+/// Check if CPU-only ollama package is installed (conflicts with ollama-cuda)
+pub fn is_ollama_cpu_installed() -> bool {
+    let output = Command::new("pacman")
+        .args(["-Q", "ollama"])
+        .output();
+
+    match output {
+        Ok(o) => o.status.success(),
+        Err(_) => false,
+    }
+}
+
+/// Check if ollama binary was installed manually (not via pacman)
+pub fn is_ollama_manually_installed() -> bool {
+    // Check if /usr/bin/ollama exists but isn't owned by any package
+    let exists = std::path::Path::new("/usr/bin/ollama").exists();
+    if !exists {
+        return false;
+    }
+
+    let output = Command::new("pacman")
+        .args(["-Qo", "/usr/bin/ollama"])
+        .output();
+
+    match output {
+        Ok(o) => !o.status.success(), // If pacman can't find owner, it's manual
+        Err(_) => false,
+    }
+}
+
 /// Install CUDA and ollama-cuda packages
+/// v0.0.820: Handle conflict with CPU-only ollama package and manual installs
 pub fn install_cuda_packages() -> Result<(), String> {
     info!("Installing CUDA packages for GPU acceleration...");
+
+    // v0.0.820: Handle manually installed ollama (e.g., via curl script)
+    if is_ollama_manually_installed() {
+        info!("Detected manually installed ollama, removing to install packaged version...");
+
+        // Stop the service first
+        let _ = Command::new("systemctl")
+            .args(["stop", "ollama"])
+            .output();
+
+        // Remove the manual binary
+        if let Err(e) = std::fs::remove_file("/usr/bin/ollama") {
+            warn!("Failed to remove manual ollama binary: {}", e);
+        } else {
+            info!("Removed manually installed ollama binary");
+        }
+    }
+
+    // v0.0.820: Remove CPU-only ollama package if installed (conflicts with ollama-cuda)
+    if is_ollama_cpu_installed() && !is_ollama_cuda_installed() {
+        info!("Removing CPU-only ollama package to install ollama-cuda...");
+        let remove_output = Command::new("pacman")
+            .args(["-R", "--noconfirm", "ollama"])
+            .output()
+            .map_err(|e| format!("Failed to run pacman -R: {}", e))?;
+
+        if !remove_output.status.success() {
+            let stderr = String::from_utf8_lossy(&remove_output.stderr);
+            warn!("Failed to remove ollama package (may not be an issue): {}", stderr);
+        }
+    }
 
     // Install cuda and ollama-cuda
     let output = Command::new("pacman")
