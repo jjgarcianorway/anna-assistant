@@ -43,11 +43,16 @@ const MAX_TIPS_PER_SESSION: u32 = 3;
 
 /// Handle REPL mode - main interactive interface
 pub async fn handle_repl() -> Result<()> {
-    // Get daemon status for greeting
-    let status = match AnnadClient::connect().await {
-        Ok(mut client) => client.status().await.ok(),
-        Err(_) => None,
-    };
+    // v0.0.818: Get daemon status with short timeout to prevent slow startup
+    let status = tokio::time::timeout(
+        std::time::Duration::from_millis(500),
+        async {
+            match AnnadClient::connect().await {
+                Ok(mut client) => client.status().await.ok(),
+                Err(_) => None,
+            }
+        }
+    ).await.unwrap_or(None);
 
     // Theatre-style greeting with status awareness
     greeting::print_theatre_greeting(status.as_ref()).await;

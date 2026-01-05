@@ -186,16 +186,30 @@ pub async fn print_theatre_greeting(status: Option<&DaemonStatus>) {
 use crate::client::AnnadClient;
 /// v0.0.300: Deterministic greeting (fast, reliable)
 /// LLM-generated greetings were causing hangs and empty output.
+/// v0.0.818: Added 3-second timeout to prevent slow startup
 async fn try_llm_greeting(ctx: &GreetingContext) -> String {
     use anna_shared::greeting_context::GreetingResponse;
+    use std::time::Duration;
 
-    if let Ok(mut client) = AnnadClient::connect().await {
-        if let Ok(response) = client.generate_greeting(ctx).await {
-            if response.is_llm_generated {
-                return response.greeting;
+    // v0.0.818: Use a short timeout for greeting to prevent slow startup
+    // If LLM is slow, fall back to deterministic greeting immediately
+    let greeting_future = async {
+        if let Ok(mut client) = AnnadClient::connect().await {
+            if let Ok(response) = client.generate_greeting(ctx).await {
+                if response.is_llm_generated {
+                    return Some(response.greeting);
+                }
             }
         }
+        None
+    };
+
+    // 2 second timeout - if LLM is slow, use deterministic greeting
+    match tokio::time::timeout(Duration::from_secs(2), greeting_future).await {
+        Ok(Some(greeting)) => greeting,
+        Ok(None) | Err(_) => {
+            // Timeout or error - use fast deterministic greeting
+            GreetingResponse::fallback(ctx).greeting
+        }
     }
-    // Fallback to deterministic greeting
-    GreetingResponse::fallback(ctx).greeting
 }

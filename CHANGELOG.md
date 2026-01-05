@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.819] - 2026-01-05
+
+### Fixed - Fast REPL Startup
+
+**annactl without arguments now starts in ~2 seconds instead of hanging!**
+
+The problem was that REPL mode tried to:
+1. Get daemon status (could hang if daemon is busy)
+2. Generate LLM greeting (could take 30+ seconds if Ollama is slow)
+
+**Fix:**
+- Added 500ms timeout for initial daemon status check
+- Added 2 second timeout for LLM greeting generation
+- Falls back to fast deterministic greeting on timeout
+
+Startup time improved from 30+ seconds to ~2 seconds.
+
 ## [0.0.818] - 2026-01-02
 
 ### Fixed - Status Display and Better Defaults
