@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.821] - 2026-01-05
+
+### Fixed - Complete Manual Ollama Cleanup
+
+**Properly removes ALL files from manual Ollama install before installing pacman package.**
+
+The curl installer leaves files in multiple locations that ALL conflict with pacman:
+- `/usr/bin/ollama`
+- `/usr/lib/ollama/` (directory with .so files)
+- `/usr/lib/systemd/system/ollama.service`
+- `/usr/lib/sysusers.d/ollama.conf`
+- `/usr/lib/tmpfiles.d/ollama.conf`
+- `/usr/share/licenses/ollama/`
+- `/usr/share/ollama/`
+
+Now both `ollama::install()` and `gpu_setup::install_cuda_packages()` clean up all these files before attempting pacman install.
+
 ## [0.0.820] - 2026-01-05
 
 ### Fixed - GPU Setup Handles Manual Ollama Installs

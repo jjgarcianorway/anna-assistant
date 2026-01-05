@@ -112,26 +112,53 @@ pub fn is_ollama_manually_installed() -> bool {
     }
 }
 
+/// Clean up ALL manually installed Ollama files (from curl installer)
+/// v0.0.820: These files conflict with pacman packages
+fn cleanup_manual_ollama_files() {
+    use std::path::Path;
+
+    let paths = [
+        "/usr/bin/ollama",
+        "/usr/lib/ollama",
+        "/usr/lib/systemd/system/ollama.service",
+        "/usr/lib/sysusers.d/ollama.conf",
+        "/usr/lib/tmpfiles.d/ollama.conf",
+        "/usr/share/licenses/ollama",
+        "/usr/share/ollama",
+    ];
+
+    // Stop and kill ollama first
+    let _ = Command::new("systemctl").args(["stop", "ollama"]).output();
+    let _ = Command::new("pkill").args(["-9", "ollama"]).output();
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    for path in &paths {
+        let p = Path::new(path);
+        if p.exists() {
+            if p.is_dir() {
+                if let Err(e) = std::fs::remove_dir_all(p) {
+                    warn!("Failed to remove dir {}: {}", path, e);
+                } else {
+                    info!("Removed {}", path);
+                }
+            } else if let Err(e) = std::fs::remove_file(p) {
+                warn!("Failed to remove file {}: {}", path, e);
+            } else {
+                info!("Removed {}", path);
+            }
+        }
+    }
+}
+
 /// Install CUDA and ollama-cuda packages
 /// v0.0.820: Handle conflict with CPU-only ollama package and manual installs
 pub fn install_cuda_packages() -> Result<(), String> {
     info!("Installing CUDA packages for GPU acceleration...");
 
-    // v0.0.820: Handle manually installed ollama (e.g., via curl script)
+    // v0.0.820: Clean up ALL manual install files first (not just binary)
     if is_ollama_manually_installed() {
-        info!("Detected manually installed ollama, removing to install packaged version...");
-
-        // Stop the service first
-        let _ = Command::new("systemctl")
-            .args(["stop", "ollama"])
-            .output();
-
-        // Remove the manual binary
-        if let Err(e) = std::fs::remove_file("/usr/bin/ollama") {
-            warn!("Failed to remove manual ollama binary: {}", e);
-        } else {
-            info!("Removed manually installed ollama binary");
-        }
+        info!("Detected manually installed ollama, cleaning up...");
+        cleanup_manual_ollama_files();
     }
 
     // v0.0.820: Remove CPU-only ollama package if installed (conflicts with ollama-cuda)

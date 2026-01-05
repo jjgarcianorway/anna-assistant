@@ -65,11 +65,70 @@ pub fn is_installed() -> bool {
         .unwrap_or(false)
 }
 
+/// Clean up manually installed Ollama files that conflict with pacman packages
+/// v0.0.820: Required because curl installer leaves files that conflict with pacman
+fn cleanup_manual_ollama_install() {
+    use std::path::Path;
+
+    // Files/dirs left by the curl installer that conflict with pacman
+    let manual_install_paths = [
+        "/usr/bin/ollama",
+        "/usr/lib/ollama",
+        "/usr/lib/systemd/system/ollama.service",
+        "/usr/lib/sysusers.d/ollama.conf",
+        "/usr/lib/tmpfiles.d/ollama.conf",
+        "/usr/share/licenses/ollama",
+        "/usr/share/ollama",
+    ];
+
+    // Check if ollama binary exists but isn't owned by pacman (manual install)
+    let is_manual = Command::new("pacman")
+        .args(["-Qo", "/usr/bin/ollama"])
+        .output()
+        .map(|o| !o.status.success())
+        .unwrap_or(false);
+
+    if !is_manual && Path::new("/usr/bin/ollama").exists() {
+        // Owned by pacman, don't touch
+        return;
+    }
+
+    info!("Cleaning up manually installed Ollama files...");
+
+    // Stop service first
+    let _ = Command::new("systemctl").args(["stop", "ollama"]).output();
+    let _ = Command::new("pkill").args(["-9", "ollama"]).output();
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    for path in &manual_install_paths {
+        let p = Path::new(path);
+        if p.exists() {
+            if p.is_dir() {
+                if let Err(e) = std::fs::remove_dir_all(p) {
+                    warn!("Failed to remove {}: {}", path, e);
+                } else {
+                    info!("Removed {}", path);
+                }
+            } else if let Err(e) = std::fs::remove_file(p) {
+                warn!("Failed to remove {}: {}", path, e);
+            } else {
+                info!("Removed {}", path);
+            }
+        }
+    }
+}
+
 /// Install Ollama using the system package manager
+/// v0.0.820: Clean up manual install first, then install via pacman
 pub async fn install() -> Result<()> {
     info!("Installing Ollama...");
 
     let pkg_manager = detect_package_manager();
+
+    // v0.0.820: Clean up manual install files that conflict with pacman
+    if pkg_manager == Some("pacman") {
+        cleanup_manual_ollama_install();
+    }
 
     let result = match pkg_manager {
         Some("pacman") => {
