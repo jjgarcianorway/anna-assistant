@@ -176,8 +176,9 @@ pub fn install_cuda_packages() -> Result<(), String> {
     }
 
     // Install cuda and ollama-cuda
+    // v0.0.824: Use --overwrite to handle gcc/gcc-libs file conflicts
     let output = Command::new("pacman")
-        .args(["-S", "--noconfirm", "cuda", "ollama-cuda"])
+        .args(["-S", "--noconfirm", "--overwrite", "*", "cuda", "ollama-cuda"])
         .output()
         .map_err(|e| format!("Failed to run pacman: {}", e))?;
 

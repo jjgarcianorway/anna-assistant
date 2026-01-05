@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.824] - 2026-01-05
+
+### Fixed - Pacman File Conflict Handling
+
+**Use --overwrite flag for pacman installs to handle gcc/gcc-libs and other file conflicts.**
+
+The `cuda` package depends on `gcc` which has file conflicts with `gcc-libs` (man pages, include files).
+Similarly, `ollama` and `ollama-cuda` packages can have conflicts with leftover files.
+
+Now all pacman installs use `--overwrite '*'` to forcefully resolve file conflicts:
+- `pacman -S --noconfirm --overwrite '*' ollama`
+- `pacman -S --noconfirm --overwrite '*' cuda ollama-cuda`
+
+This fixes the daemon crash-loop on systems with pre-existing gcc-libs conflicts.
+
 ## [0.0.823] - 2026-01-05
 
 ### Fixed - Cleanup FIRST on Daemon Start

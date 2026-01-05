@@ -133,8 +133,9 @@ pub async fn install() -> Result<()> {
     let result = match pkg_manager {
         Some("pacman") => {
             info!("Using pacman to install Ollama");
+            // v0.0.824: Use --overwrite to handle any file conflicts
             Command::new("pacman")
-                .args(["-S", "--noconfirm", "ollama"])
+                .args(["-S", "--noconfirm", "--overwrite", "*", "ollama"])
                 .output()
         }
         Some("apt") => {
