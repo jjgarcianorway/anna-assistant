@@ -9,6 +9,8 @@ use anna_shared::{socket_path, state_dir};
 use anyhow::Result;
 use tracing::{error, info, warn};
 
+use std::process::Command as StdCommand;
+
 use crate::auto_select;
 use crate::gpu_setup;
 use crate::hardware::probe_hardware;
@@ -16,6 +18,64 @@ use crate::ollama;
 use crate::state::SharedState;
 
 use super::types::Server;
+
+/// v0.0.823: Clean up manually installed Ollama files FIRST before any install attempts
+/// This is critical for systems where curl-installed Ollama blocks pacman packages
+fn cleanup_manual_ollama_install() {
+    // Check if ollama binary exists but isn't owned by pacman (manual install)
+    let is_manual = {
+        let binary_exists = std::path::Path::new("/usr/bin/ollama").exists();
+        if !binary_exists {
+            // Also check for leftover lib files even if binary was deleted
+            std::path::Path::new("/usr/lib/ollama").exists()
+        } else {
+            StdCommand::new("pacman")
+                .args(["-Qo", "/usr/bin/ollama"])
+                .output()
+                .map(|o| !o.status.success())
+                .unwrap_or(false)
+        }
+    };
+
+    if !is_manual {
+        return;
+    }
+
+    info!("Cleaning up manually installed Ollama files...");
+
+    // Stop and kill ollama first
+    let _ = StdCommand::new("systemctl").args(["stop", "ollama"]).output();
+    let _ = StdCommand::new("pkill").args(["-9", "ollama"]).output();
+    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    // Remove all files that conflict with pacman
+    let paths = [
+        "/usr/bin/ollama",
+        "/usr/lib/ollama",
+        "/usr/lib/systemd/system/ollama.service",
+        "/usr/lib/sysusers.d/ollama.conf",
+        "/usr/lib/tmpfiles.d/ollama.conf",
+        "/usr/share/licenses/ollama",
+        "/usr/share/ollama",
+    ];
+
+    for path in &paths {
+        let p = std::path::Path::new(path);
+        if p.exists() {
+            if p.is_dir() {
+                if let Err(e) = std::fs::remove_dir_all(p) {
+                    warn!("Failed to remove dir {}: {}", path, e);
+                } else {
+                    info!("Removed {}", path);
+                }
+            } else if let Err(e) = std::fs::remove_file(p) {
+                warn!("Failed to remove file {}: {}", path, e);
+            } else {
+                info!("Removed {}", path);
+            }
+        }
+    }
+}
 
 impl Server {
     /// Create directories for state and socket file.
@@ -52,6 +112,10 @@ impl Server {
     /// Initialize the daemon: install Ollama, probe hardware, select models.
     pub(super) async fn initialize(&self) -> Result<()> {
         info!("Initializing daemon...");
+
+        // v0.0.823: FIRST cleanup any manual Ollama install files before anything else
+        // This prevents crashes from conflicting files blocking pacman install
+        cleanup_manual_ollama_install();
 
         // Phase: Installing Ollama
         {

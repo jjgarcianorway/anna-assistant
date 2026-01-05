@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.823] - 2026-01-05
+
+### Fixed - Cleanup FIRST on Daemon Start
+
+**Manual Ollama cleanup now runs FIRST thing on daemon initialization - before anything else.**
+
+The daemon now:
+1. Runs cleanup_manual_ollama_install() immediately on start
+2. Detects leftover /usr/lib/ollama/ even if binary was already deleted
+3. Cleans up ALL conflicting files before attempting any installs
+4. Then proceeds with normal initialization
+
+This ensures the cleanup happens even if previous attempts partially failed.
+
 ## [0.0.822] - 2026-01-05
 
 ### Fixed - Non-Fatal Ollama Install
