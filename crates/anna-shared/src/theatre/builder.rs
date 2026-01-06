@@ -1,5 +1,8 @@
-//! NarrativeBuilder for constructing narrative from pipeline events (v0.0.226).
+//! NarrativeBuilder for constructing narrative from pipeline events (v0.0.831).
+//!
+//! v0.0.226: Initial version.
 //! v0.0.451: Enhanced for fly-on-the-wall view per VISION.md.
+//! v0.0.831: Added push_segment() for custom segment injection.
 
 use crate::dialogue::{
     anna_after_review, anna_dispatch_greeting, junior_approval, junior_escalation_request,
@@ -149,5 +152,11 @@ impl NarrativeBuilder {
     /// Check if empty
     pub fn is_empty(&self) -> bool {
         self.segments.is_empty()
+    }
+
+    /// v0.0.831: Push a custom segment directly
+    /// Used by narrative builder to inject Message-based internal comms
+    pub fn push_segment(&mut self, segment: NarrativeSegment) {
+        self.segments.push(segment);
     }
 }

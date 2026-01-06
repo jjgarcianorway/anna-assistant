@@ -1,12 +1,15 @@
-//! RPC request dispatcher (v0.0.811).
+//! RPC request dispatcher (v0.0.830).
+//!
+//! v0.0.830: Fixed internal_comms - now properly converted to Transcript events.
 
+use anna_shared::progress::{ProgressEvent, RequestStage};
 use anna_shared::rpc::params::{ClaimFeedbackParams, TruthLedgerQueryParams, WebSearchParams};
 use anna_shared::rpc::result::{
     EvidenceBlock, ReliabilitySignals, ServiceDeskResult, TruthLedgerClaimItem,
     TruthLedgerClaimsResult, TruthLedgerStatus, WebSearchItem, WebSearchResult,
 };
 use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse, SpecialistDomain};
-use anna_shared::transcript::Transcript;
+use anna_shared::transcript::{Actor, Transcript, TranscriptEvent};
 use anna_shared::truth_ledger::Veracity;
 
 use crate::core_loop;
@@ -205,8 +208,9 @@ async fn handle_get_truth_ledger_claims(
     RpcResponse::success(id, serde_json::to_value(result).unwrap_or_default())
 }
 
-/// v0.0.811: Handle core query using simplified core loop
+/// v0.0.830: Handle core query using simplified core loop
 /// Returns ServiceDeskResult for compatibility with existing client
+/// v0.0.830: Now properly converts internal_comms to Transcript events and streams them
 async fn handle_core_query(
     state: SharedState,
     id: String,
@@ -223,8 +227,30 @@ async fn handle_core_query(
 
     info!("CoreQuery: \"{}\"", query);
 
+    // v0.0.830: Clear streaming events before new request
+    {
+        let state_write = state.write().await;
+        let mut streaming = state_write.streaming_events.lock().await;
+        streaming.clear();
+    }
+
     // Use the new core loop
     let core_result = core_loop::handle_query(state.clone(), &query).await;
+
+    // v0.0.830: Push internal comms as progress events for real-time display
+    {
+        let streaming_events = state.read().await.streaming_events.clone();
+        let mut streaming = streaming_events.lock().await;
+        for comm in &core_result.internal_comms {
+            let event = ProgressEvent::internal_comms(
+                RequestStage::Specialist,
+                comm.from.clone(),
+                comm.message.clone(),  // Clone to convert &String -> String -> DiagnosticText
+                comm.elapsed_ms,
+            );
+            streaming.push(event);
+        }
+    }
 
     // Determine domain from source
     let domain = match &core_result.source {
@@ -253,8 +279,33 @@ async fn handle_core_query(
         core_loop::AnswerSource::Failed => (None, None),
     };
 
-    // Build transcript from internal comms (simplified for now)
-    let transcript = Transcript::default();
+    // v0.0.830: Build transcript from internal comms (properly this time!)
+    let mut transcript = Transcript::new();
+    for comm in &core_result.internal_comms {
+        // Map "from" field to Actor enum variant
+        let from_actor = match comm.from.to_lowercase().as_str() {
+            "anna" => Actor::Anna,
+            "junior" => Actor::Junior,
+            "senior" => Actor::Senior,
+            "translator" => Actor::Translator,
+            "dispatcher" => Actor::Dispatcher,
+            "supervisor" => Actor::Supervisor,
+            _ if comm.from.contains("Specialist") => Actor::Specialist,
+            _ => Actor::Specialist, // Default to Specialist for named staff
+        };
+        let event = TranscriptEvent::message(
+            comm.elapsed_ms,
+            from_actor,
+            Actor::You,  // Messages are directed to the user
+            &comm.message,
+        );
+        transcript.push(event);
+    }
+    // Add the final answer
+    transcript.push(TranscriptEvent::final_answer(
+        core_result.elapsed_ms,
+        &core_result.answer,
+    ));
 
     // Build ServiceDeskResult for compatibility
     let result = ServiceDeskResult {

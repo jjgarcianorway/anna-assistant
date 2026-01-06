@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.831] - 2026-01-06
+
+### Fixed - Unified Staff Roster & Simplified CLI
+
+**Staff names are now consistent across all components.**
+
+Previously there were TWO separate staff systems:
+- `annad/specialists.rs`: Wei, Lin, Eva, Raj, Tom, Amy, Leo, Maya...
+- `anna-shared/roster/`: Michael, Sofia, Ana, Erik, Lars, Ines...
+
+This caused the theatre renderer to show different names than the internal comms!
+
+Now:
+- `specialists.rs` uses the unified roster from `anna-shared/roster/`
+- All staff names are consistent: Michael, Sofia, Kari, Mateo, etc.
+- Role titles come from the roster (e.g., "Network Engineer", "Performance Analyst")
+- Theatre renderer and core loop use the same staff data
+
+### Removed - CLI Flags
+
+**Internal comms are now ALWAYS shown - no flags needed!**
+
+Removed flags:
+- `--cinematic` - Was redundant, theatre mode is always on
+- `--debug` - Was rarely used
+- `--no-internal-comms` - Defeats the purpose of the IT department experience
+
+The whole point of Anna is the "fly on the wall" experience watching the IT team work.
+This should never be optional or hidden behind flags.
+
+### Staff Roster (unified)
+
+| Domain      | Junior                        | Senior                         |
+|-------------|-------------------------------|--------------------------------|
+| System      | Kari (Performance Analyst)    | Mateo (Performance Engineer)   |
+| Network     | Michael (Network Engineer)    | Ana (Network Architect)        |
+| Storage     | Lars (Storage Engineer)       | Ines (Storage Architect)       |
+| Services    | Hugo (Services Administrator) | Mina (Services Architect)      |
+| Desktop     | Sofia (Desktop Administrator) | Erik (Desktop Specialist)      |
+| Security    | Priya (Security Analyst)      | Oskar (Security Engineer)      |
+| Hardware    | Nora (Hardware Technician)    | Jon (Hardware Engineer)        |
+| Logs        | Daniel (Logs Analyst)         | Lea (Logs Engineer)            |
+
+## [0.0.830] - 2026-01-06
+
+### Fixed - Critical Issues from Audit
+
+**Major fixes addressing "nothing works" feedback from comprehensive audit.**
+
+#### 1. Internal Comms Now Work
+- `dispatcher.rs`: Internal comms from core_loop are now properly converted to `Transcript` events
+- `dispatcher.rs`: Internal comms are also pushed as `ProgressEvent::internal_comms` for real-time streaming
+- Users will now see the "fly on wall" IT department experience they expected
+
+#### 2. Improved Recipe Matching
+- `recipe_handler.rs`: Added synonym support (ram↔memory, disk↔storage, etc.)
+- `recipe_handler.rs`: Added fuzzy matching with prefix/suffix support
+- `recipe_handler.rs`: Intent normalization for better matching
+- Recipes are now much more likely to match similar queries
+
+#### 3. Better Specialist Prompts
+- `specialist_handler.rs`: Now uses structured prompts from `specialist_prompt.rs`
+- `specialist_handler.rs`: Domain-specific hints for each specialist type
+- `specialist_handler.rs`: Proper JSON schema input/output format
+- Specialists will give better, more grounded answers
+
+### Technical Details
+
+**Internal comms flow:**
+```
+core_loop generates InternalComm → dispatcher converts to:
+  1. Transcript events (for final response)
+  2. Progress events (for real-time streaming)
+```
+
+**Recipe matching improvements:**
+- Synonyms: 15 word groups (memory, storage, process, update, service, network, etc.)
+- Scoring: exact=10, synonym=8, prefix=5 points
+- Threshold: minimum 10 points to match (prevents false positives)
+- Intent bonus: 20 points for intent match
+
+**Prompt improvements:**
+- Uses `build_specialist_prompt(domain)` for domain-specific hints
+- Structured JSON input with probes, docs, metadata
+- Handles both old (answer: string) and new (answer: {short, detail}) response formats
+
 ## [0.0.826] - 2026-01-06
 
 ### Fixed - Deterministic Routing Priority

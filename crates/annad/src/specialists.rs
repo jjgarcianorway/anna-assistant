@@ -1,15 +1,23 @@
-//! IT Department Specialists (v0.0.812)
+//! IT Department Specialists (v0.0.831)
 //!
 //! Named specialists per VISION.md - the IT department living in your computer.
-//! Each domain has Junior and Senior specialists with human names.
+//! Uses the unified roster from anna-shared for consistent staff names across
+//! all components (daemon, CLI, theatre render).
+//!
+//! v0.0.812: Initial implementation with hardcoded names.
+//! v0.0.831: Unified with anna-shared roster system for consistent names.
 
+use anna_shared::roster::{person_for, Tier};
+use anna_shared::teams::Team;
 use std::collections::HashMap;
 
 /// A specialist in the IT department
 #[derive(Debug, Clone)]
 pub struct Specialist {
-    /// Human name (e.g., "Wei", "Sofia")
+    /// Human name (e.g., "Michael", "Sofia") - from unified roster
     pub name: String,
+    /// Role title (e.g., "Network Engineer")
+    pub role_title: String,
     /// Role: Junior or Senior
     pub role: SpecialistRole,
     /// Domain they handle
@@ -38,9 +46,6 @@ impl std::fmt::Display for SpecialistRole {
 pub struct ITDepartment {
     /// Specialists by domain, then by role
     specialists: HashMap<String, DomainTeam>,
-    /// Default models
-    junior_model: String,
-    senior_model: String,
 }
 
 /// A team for a specific domain
@@ -51,148 +56,51 @@ pub struct DomainTeam {
 }
 
 impl ITDepartment {
-    /// Create the IT department with all specialists
+    /// Create the IT department with all specialists from unified roster
+    /// v0.0.831: Now uses anna-shared roster for consistent names
     pub fn new(junior_model: &str, senior_model: &str) -> Self {
         let mut specialists = HashMap::new();
 
-        // System Team
-        specialists.insert(
-            "system".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Wei".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "system".to_string(),
-                    model: junior_model.to_string(),
-                },
-                senior: Specialist {
-                    name: "Lin".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "system".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
+        // Map domain strings to Team enum and create specialists from roster
+        let domain_team_map = [
+            ("system", Team::Performance),  // System/performance queries
+            ("network", Team::Network),
+            ("storage", Team::Storage),
+            ("services", Team::Services),
+            ("packages", Team::Services),   // Packages handled by Services team
+            ("desktop", Team::Desktop),
+            ("security", Team::Security),
+            ("hardware", Team::Hardware),
+            ("logs", Team::Logs),
+            ("performance", Team::Performance),
+        ];
 
-        // Network Team
-        specialists.insert(
-            "network".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Eva".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "network".to_string(),
-                    model: junior_model.to_string(),
-                },
-                senior: Specialist {
-                    name: "Raj".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "network".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
+        for (domain, team) in domain_team_map {
+            let junior_profile = person_for(team, Tier::Junior);
+            let senior_profile = person_for(team, Tier::Senior);
 
-        // Storage Team
-        specialists.insert(
-            "storage".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Tom".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "storage".to_string(),
-                    model: junior_model.to_string(),
+            specialists.insert(
+                domain.to_string(),
+                DomainTeam {
+                    junior: Specialist {
+                        name: junior_profile.display_name.to_string(),
+                        role_title: junior_profile.role_title.to_string(),
+                        role: SpecialistRole::Junior,
+                        domain: domain.to_string(),
+                        model: junior_model.to_string(),
+                    },
+                    senior: Specialist {
+                        name: senior_profile.display_name.to_string(),
+                        role_title: senior_profile.role_title.to_string(),
+                        role: SpecialistRole::Senior,
+                        domain: domain.to_string(),
+                        model: senior_model.to_string(),
+                    },
                 },
-                senior: Specialist {
-                    name: "Amy".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "storage".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
-
-        // Services Team
-        specialists.insert(
-            "services".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Leo".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "services".to_string(),
-                    model: junior_model.to_string(),
-                },
-                senior: Specialist {
-                    name: "Maya".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "services".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
-
-        // Packages Team
-        specialists.insert(
-            "packages".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Kai".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "packages".to_string(),
-                    model: junior_model.to_string(),
-                },
-                senior: Specialist {
-                    name: "Zara".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "packages".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
-
-        // Desktop Team
-        specialists.insert(
-            "desktop".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Mia".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "desktop".to_string(),
-                    model: junior_model.to_string(),
-                },
-                senior: Specialist {
-                    name: "Sofia".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "desktop".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
-
-        // Security Team
-        specialists.insert(
-            "security".to_string(),
-            DomainTeam {
-                junior: Specialist {
-                    name: "Alex".to_string(),
-                    role: SpecialistRole::Junior,
-                    domain: "security".to_string(),
-                    model: junior_model.to_string(),
-                },
-                senior: Specialist {
-                    name: "Chen".to_string(),
-                    role: SpecialistRole::Senior,
-                    domain: "security".to_string(),
-                    model: senior_model.to_string(),
-                },
-            },
-        );
-
-        Self {
-            specialists,
-            junior_model: junior_model.to_string(),
-            senior_model: senior_model.to_string(),
+            );
         }
+
+        Self { specialists }
     }
 
     /// Get the junior specialist for a domain
@@ -215,23 +123,10 @@ impl ITDepartment {
         self.specialists.keys().map(|s| s.as_str()).collect()
     }
 
-    /// Get specialist display name (e.g., "Wei (Junior System)")
+    /// Get specialist display name (e.g., "Kari (Performance Analyst)")
+    /// v0.0.831: Now uses role_title from roster for richer display
     pub fn display_name(specialist: &Specialist) -> String {
-        format!(
-            "{} ({} {})",
-            specialist.name,
-            specialist.role,
-            capitalize(&specialist.domain)
-        )
-    }
-}
-
-/// Capitalize first letter
-fn capitalize(s: &str) -> String {
-    let mut chars = s.chars();
-    match chars.next() {
-        None => String::new(),
-        Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+        format!("{} ({})", specialist.name, specialist.role_title)
     }
 }
 
@@ -243,20 +138,45 @@ mod tests {
     fn test_it_department_creation() {
         let dept = ITDepartment::new("qwen3-vl:4b", "qwen2.5:7b-instruct");
 
-        // Check system team
+        // Check system team - should use Performance team from roster (Kari/Mateo)
         let junior = dept.get_junior("system").unwrap();
-        assert_eq!(junior.name, "Wei");
+        assert_eq!(junior.name, "Kari");
         assert_eq!(junior.role, SpecialistRole::Junior);
 
         let senior = dept.get_senior("system").unwrap();
-        assert_eq!(senior.name, "Lin");
+        assert_eq!(senior.name, "Mateo");
         assert_eq!(senior.role, SpecialistRole::Senior);
+    }
+
+    #[test]
+    fn test_network_team_from_roster() {
+        let dept = ITDepartment::new("light", "deep");
+
+        // Network team should be Michael (Junior) and Ana (Senior)
+        let junior = dept.get_junior("network").unwrap();
+        assert_eq!(junior.name, "Michael");
+
+        let senior = dept.get_senior("network").unwrap();
+        assert_eq!(senior.name, "Ana");
+    }
+
+    #[test]
+    fn test_desktop_team_from_roster() {
+        let dept = ITDepartment::new("light", "deep");
+
+        // Desktop team should be Sofia (Junior) and Erik (Senior)
+        let junior = dept.get_junior("desktop").unwrap();
+        assert_eq!(junior.name, "Sofia");
+
+        let senior = dept.get_senior("desktop").unwrap();
+        assert_eq!(senior.name, "Erik");
     }
 
     #[test]
     fn test_display_name() {
         let specialist = Specialist {
-            name: "Wei".to_string(),
+            name: "Kari".to_string(),
+            role_title: "Performance Analyst".to_string(),
             role: SpecialistRole::Junior,
             domain: "system".to_string(),
             model: "test".to_string(),
@@ -264,7 +184,7 @@ mod tests {
 
         assert_eq!(
             ITDepartment::display_name(&specialist),
-            "Wei (Junior System)"
+            "Kari (Performance Analyst)"
         );
     }
 
@@ -277,7 +197,6 @@ mod tests {
         assert!(domains.contains(&"network"));
         assert!(domains.contains(&"storage"));
         assert!(domains.contains(&"services"));
-        assert!(domains.contains(&"packages"));
         assert!(domains.contains(&"desktop"));
         assert!(domains.contains(&"security"));
     }

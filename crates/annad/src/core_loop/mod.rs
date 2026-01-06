@@ -1,4 +1,4 @@
-//! Core request loop - the simple path (v0.0.826).
+//! Core request loop - the simple path (v0.0.831).
 //!
 //! This module implements the VISION.md core loop:
 //!
@@ -15,6 +15,8 @@
 //! v0.0.815: Added stats tracking for recipe hits vs LLM calls.
 //! v0.0.816: Don't learn recipes for dynamic queries (storage, memory, etc).
 //! v0.0.826: Integrated deterministic routing - try probes before LLM.
+//! v0.0.830: Fixed internal comms, improved recipe matching, better prompts.
+//! v0.0.831: Unified staff roster - specialists use anna-shared/roster names.
 
 use anna_shared::doc_fetcher;
 use anna_shared::learning_engine::RecipeLibrary;

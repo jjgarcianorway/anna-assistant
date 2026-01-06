@@ -5,6 +5,7 @@
 //! v0.0.328: Added query test option to learning command.
 //! v0.0.406: Added suggest-recipes command for recipe candidate analysis.
 //! v0.0.413: Hollywood IT department view with cinematic/debug modes.
+//! v0.0.831: Removed --cinematic/--debug/--no-internal-comms flags. Internal comms always on.
 
 mod change_commands;
 mod client;
@@ -24,7 +25,6 @@ mod status_display_v2;
 mod theatre_render;
 mod transcript_render;
 
-use anna_shared::transcript_segment::TranscriptMode;
 use anna_shared::ui_config::UiConfig;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -65,18 +65,6 @@ struct Cli {
     /// Natural language request (e.g., \"what's my disk usage?\")
     #[arg(trailing_var_arg = true)]
     request: Vec<String>,
-
-    /// Use cinematic mode (Hollywood IT department view)
-    #[arg(long, global = true)]
-    cinematic: bool,
-
-    /// Use debug mode (raw JSON, full errors)
-    #[arg(long, global = true)]
-    debug: bool,
-
-    /// Hide internal comms (IT department chatter)
-    #[arg(long, global = true)]
-    no_internal_comms: bool,
 }
 
 #[derive(Subcommand)]
@@ -143,16 +131,8 @@ enum Command {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Build UI config from CLI flags
-    let mode = if cli.debug {
-        Some(TranscriptMode::Debug)
-    } else if cli.cinematic {
-        Some(TranscriptMode::Cinematic)
-    } else {
-        None
-    };
-
-    let ui_config = UiConfig::load().with_cli_overrides(mode, cli.no_internal_comms);
+    // v0.0.831: Always use default UI config - internal comms always on, no flags needed
+    let ui_config = UiConfig::load();
 
     // Store config in thread-local for handlers to access
     set_ui_config(ui_config);
