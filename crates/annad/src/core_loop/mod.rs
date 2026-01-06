@@ -70,17 +70,39 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
         // Get the route with its probes
         let route = get_route(query);
 
+        // Run probes for this route
+        let probe_results = run_route_probes(&route.probes).await;
+
+        comms.push(InternalComm {
+            from: "Anna".to_string(),
+            message: format!("Ran {} probes", probe_results.len()),
+            elapsed_ms: start.elapsed().as_millis() as u64,
+        });
+
+        // v0.0.829: Handle SystemUpdate specially (needs proposed command)
+        if query_class == QueryClass::SystemUpdate {
+            if let Some(answer) = handle_system_update_deterministic(&probe_results) {
+                info!("Deterministic SystemUpdate answer");
+
+                {
+                    let mut s = state.write().await;
+                    s.stats.record_request_received();
+                    s.stats.record_recipe_hit();
+                }
+
+                return CoreLoopResult {
+                    answer,
+                    source: AnswerSource::Recipe,
+                    recipe_id: Some("det_SystemUpdate".to_string()),
+                    reliability: 90,
+                    elapsed_ms: start.elapsed().as_millis() as u64,
+                    internal_comms: comms,
+                };
+            }
+        }
+
+        // Try generic deterministic answer
         if route.can_answer_deterministically() {
-            // Run the probes from registry (distro-aware!)
-            let probe_results = run_route_probes(&route.probes).await;
-
-            comms.push(InternalComm {
-                from: "Anna".to_string(),
-                message: format!("Ran {} probes", probe_results.len()),
-                elapsed_ms: start.elapsed().as_millis() as u64,
-            });
-
-            // Try deterministic answer
             let context = build_runtime_context(&state).await;
             if let Some(det_result) = deterministic::try_answer(query, &context, &probe_results) {
                 info!("Deterministic answer for {:?}", query_class);
@@ -399,6 +421,53 @@ async fn run_route_probes(probe_names: &[String]) -> Vec<ProbeResult> {
     }
 
     results
+}
+
+/// v0.0.829: Handle SystemUpdate deterministically
+fn handle_system_update_deterministic(probe_results: &[ProbeResult]) -> Option<String> {
+    // Detect package manager
+    let (pkg_manager, update_cmd) = if std::path::Path::new("/usr/bin/pacman").exists() {
+        ("pacman", "sudo pacman -Syu --noconfirm")
+    } else if std::path::Path::new("/usr/bin/apt").exists() {
+        ("apt", "sudo apt update && sudo apt upgrade -y")
+    } else if std::path::Path::new("/usr/bin/dnf").exists() {
+        ("dnf", "sudo dnf upgrade -y")
+    } else if std::path::Path::new("/usr/bin/zypper").exists() {
+        ("zypper", "sudo zypper update -y")
+    } else {
+        return None; // Can't determine package manager
+    };
+
+    // Count available updates from probe results
+    let update_count = probe_results.iter()
+        .find(|r| r.command == "package_updates" || r.command.contains("checkupdates"))
+        .and_then(|r| {
+            if r.exit_code == 0 && !r.stdout.trim().is_empty() {
+                Some(r.stdout.lines().filter(|l| !l.trim().is_empty()).count())
+            } else {
+                Some(0)
+            }
+        });
+
+    match update_count {
+        Some(0) => Some("Your system is already up to date! No packages need updating.".to_string()),
+        Some(count) => Some(format!(
+            "I can update your system ({} package{} available).\n\n\
+             To update, run: `{}`\n\n\
+             This will download and install all available updates using {}.",
+            count,
+            if count == 1 { "" } else { "s" },
+            update_cmd,
+            pkg_manager
+        )),
+        None => Some(format!(
+            "I can update your system.\n\n\
+             To update, run: `{}`\n\n\
+             This will download and install all available updates using {}.",
+            update_cmd,
+            pkg_manager
+        )),
+    }
 }
 
 /// Build runtime context from state (v0.0.826)
