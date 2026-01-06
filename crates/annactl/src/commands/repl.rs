@@ -57,12 +57,8 @@ pub async fn handle_repl() -> Result<()> {
     // Theatre-style greeting with status awareness
     greeting::print_theatre_greeting(status.as_ref()).await;
 
-    // Check if LLM needs bootstrap
-    if let Some(ref st) = status {
-        if st.llm.state != LlmState::Ready {
-            show_bootstrap_progress().await?;
-        }
-    }
+    // v0.0.828: Don't block on bootstrap - daemon supports deterministic routing
+    // even when LLM is not ready. Send queries immediately.
 
     // v0.0.168: Get username for personalized prompt
     let username = std::env::var("USER").unwrap_or_else(|_| "you".to_string());
@@ -172,14 +168,9 @@ pub async fn handle_repl() -> Result<()> {
                     }
                 }
 
-                // Check LLM ready
-                if let Ok(mut client) = AnnadClient::connect().await {
-                    if let Ok(status) = client.status().await {
-                        if status.llm.state != LlmState::Ready {
-                            show_bootstrap_progress().await?;
-                        }
-                    }
-                }
+                // v0.0.828: Don't block on bootstrap - daemon supports deterministic routing
+                // even when LLM is not ready. Just send the query.
+                // (Previous code would block here if LLM not ready)
 
                 // v0.0.148: Use live progress display for fly-on-wall experience
                 println!();

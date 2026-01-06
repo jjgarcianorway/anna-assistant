@@ -103,10 +103,11 @@ pub async fn handle_request(prompt: &str) -> Result<()> {
     let mut client = AnnadClient::connect().await?;
     let status = client.status().await?;
 
-    if status.llm.state != LlmState::Ready {
-        drop(client);
-        show_bootstrap_progress().await?;
-    }
+    // v0.0.828: Don't block on bootstrap - daemon supports deterministic routing
+    // even when LLM is not ready. Send queries immediately.
+    // Only wait if we couldn't connect at all (handled by connect() error above)
+    // If LLM not ready but daemon is Running/Starting, send query anyway
+    // Daemon will use deterministic routing for known patterns
 
     // v0.0.148: Use live progress display for fly-on-wall experience
     println!();
