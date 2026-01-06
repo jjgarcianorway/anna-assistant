@@ -60,5 +60,5 @@ pub async fn handle_submit_feedback(
         learning_message,
     };
 
-    RpcResponse::success(id, serde_json::to_value(&result).unwrap())
+    RpcResponse::success(id, serde_json::to_value(&result).unwrap_or_default())
 }

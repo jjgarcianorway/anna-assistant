@@ -58,6 +58,7 @@ pub mod internal_comms; // v0.0.413: Event-driven IT department chatter
 pub mod learning_capture; // v0.0.401: Specialist learning capture
 pub mod learning_loop;
 pub mod ollama;
+pub mod ollama_models; // v0.0.825: Model management extracted from ollama.rs
 pub mod ollama_streaming;
 pub mod parsers;
 pub mod permissions;
@@ -113,3 +114,4 @@ pub mod update;
 pub mod update_loop;
 pub mod update_ops;
 pub mod verify_probes;
+pub mod watchdog; // v0.0.825: Daemon health monitoring and recovery

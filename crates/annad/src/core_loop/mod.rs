@@ -1,27 +1,30 @@
-//! Core request loop - the simple path (v0.0.816).
+//! Core request loop - the simple path (v0.0.826).
 //!
 //! This module implements the VISION.md core loop:
 //!
 //! ```text
-//! User Query → Translator → Check Recipes →
-//!   If found: Execute recipe → Answer
-//!   If not: Knowledge lookup → Specialist solves → Anna learns → Answer
+//! User Query → Deterministic Router → Check Known Patterns →
+//!   If known: Run probes → Deterministic answer
+//!   If not: Translator → Check Recipes →
+//!     If found: Execute recipe → Answer
+//!     If not: Knowledge lookup → Specialist solves → Anna learns → Answer
 //! ```
-//!
-//! This is intentionally simple. No 10 special-case handlers.
-//! The translator understands the query, recipes handle known patterns,
-//! specialists handle new problems and teach Anna.
 //!
 //! v0.0.812: Added IT Department with named specialists.
 //! v0.0.813: Added knowledge lookup (Arch Wiki, man pages, --help).
 //! v0.0.815: Added stats tracking for recipe hits vs LLM calls.
 //! v0.0.816: Don't learn recipes for dynamic queries (storage, memory, etc).
+//! v0.0.826: Integrated deterministic routing - try probes before LLM.
 
 use anna_shared::doc_fetcher;
 use anna_shared::learning_engine::RecipeLibrary;
+use anna_shared::rpc::{ProbeResult, RuntimeContext};
 use std::time::Instant;
 use tracing::{info, warn};
 
+use crate::deterministic;
+use crate::probe_registry;
+use crate::router::{classify_query, get_route, QueryClass};
 use crate::specialists::{ITDepartment, SpecialistRole};
 use crate::state::SharedState;
 
@@ -51,7 +54,63 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
 
     info!("Core loop: query=\"{}\"", query);
 
-    // Step 1: Translate query to structured form
+    // Step 0: Try deterministic routing FIRST (v0.0.826)
+    // This avoids slow LLM calls for known query patterns
+    let query_class = classify_query(query);
+
+    if query_class != QueryClass::Unknown {
+        info!("Deterministic routing: class={:?}", query_class);
+
+        comms.push(InternalComm {
+            from: "Anna".to_string(),
+            message: format!("Recognized pattern: {:?}", query_class),
+            elapsed_ms: start.elapsed().as_millis() as u64,
+        });
+
+        // Get the route with its probes
+        let route = get_route(query);
+
+        if route.can_answer_deterministically() {
+            // Run the probes from registry (distro-aware!)
+            let probe_results = run_route_probes(&route.probes).await;
+
+            comms.push(InternalComm {
+                from: "Anna".to_string(),
+                message: format!("Ran {} probes", probe_results.len()),
+                elapsed_ms: start.elapsed().as_millis() as u64,
+            });
+
+            // Try deterministic answer
+            let context = build_runtime_context(&state).await;
+            if let Some(det_result) = deterministic::try_answer(query, &context, &probe_results) {
+                info!("Deterministic answer for {:?}", query_class);
+
+                // Record stats
+                {
+                    let mut s = state.write().await;
+                    s.stats.record_request_received();
+                    s.stats.record_recipe_hit(); // Count deterministic as "fast path"
+                }
+
+                // Reliability based on whether we parsed data successfully
+                let reliability = if det_result.parsed_data_count > 0 { 90 } else { 70 };
+
+                return CoreLoopResult {
+                    answer: det_result.answer,
+                    source: AnswerSource::Recipe, // Deterministic = instant
+                    recipe_id: Some(format!("det_{:?}", query_class)),
+                    reliability,
+                    elapsed_ms: start.elapsed().as_millis() as u64,
+                    internal_comms: comms,
+                };
+            }
+        }
+
+        // Deterministic routing failed, fall through to LLM path
+        info!("Deterministic routing failed, falling back to LLM");
+    }
+
+    // Step 1: Translate query to structured form (LLM path)
     let translator_model = {
         let s = state.read().await;
         s.config.llm.translator_model.clone()
@@ -297,6 +356,83 @@ pub async fn handle_query(state: SharedState, query: &str) -> CoreLoopResult {
         reliability: (solution.confidence * 100.0) as u8,
         elapsed_ms: start.elapsed().as_millis() as u64,
         internal_comms: comms,
+    }
+}
+
+/// Run probes from the route (v0.0.826)
+async fn run_route_probes(probe_names: &[String]) -> Vec<ProbeResult> {
+    let mut results = Vec::new();
+
+    for probe_name in probe_names {
+        // Get the actual command from probe registry
+        if let Some(cmd) = probe_registry::probe_id_to_command(probe_name) {
+            let start = Instant::now();
+            match tokio::process::Command::new("sh")
+                .arg("-c")
+                .arg(cmd)
+                .output()
+                .await
+            {
+                Ok(output) => {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+                    results.push(ProbeResult {
+                        command: probe_name.clone(),
+                        stdout,
+                        stderr,
+                        exit_code: output.status.code().unwrap_or(-1),
+                        timing_ms: start.elapsed().as_millis() as u64,
+                    });
+                }
+                Err(e) => {
+                    warn!("Probe {} failed: {}", probe_name, e);
+                    results.push(ProbeResult {
+                        command: probe_name.clone(),
+                        stdout: String::new(),
+                        stderr: e.to_string(),
+                        exit_code: -1,
+                        timing_ms: start.elapsed().as_millis() as u64,
+                    });
+                }
+            }
+        }
+    }
+
+    results
+}
+
+/// Build runtime context from state (v0.0.826)
+async fn build_runtime_context(state: &SharedState) -> RuntimeContext {
+    use anna_shared::rpc::{Capabilities, HardwareSummary};
+    let s = state.read().await;
+
+    // Convert bytes to GB
+    let ram_gb = s.hardware.ram_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+
+    // Get GPU info if available
+    let (gpu, gpu_vram_gb) = match &s.hardware.gpu {
+        Some(g) => (
+            Some(format!("{} {}", g.vendor, g.model)),
+            Some(g.vram_bytes as f64 / (1024.0 * 1024.0 * 1024.0)),
+        ),
+        None => (None, None),
+    };
+
+    RuntimeContext {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        daemon_running: true,
+        capabilities: Capabilities::default(),
+        hardware: HardwareSummary {
+            cpu_model: s.hardware.cpu_model.clone(),
+            cpu_cores: s.hardware.cpu_cores,
+            ram_gb,
+            gpu,
+            gpu_vram_gb,
+            os_name: s.hardware.os_name.clone(),
+            kernel: s.hardware.kernel.clone(),
+            distro: s.hardware.distro.clone(),
+        },
+        probes: std::collections::HashMap::new(),
     }
 }
 

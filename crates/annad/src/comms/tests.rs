@@ -9,12 +9,15 @@ mod tests {
     use crate::comms::{team_from_domain, team_from_query_class, CommsGenerator};
     use crate::progress_tracker::ProgressTracker;
 
-    #[test]
-    fn test_comms_generator_creates_messages() {
+    /// v0.0.825: Use tokio::test for async Mutex support in ProgressTracker
+    #[tokio::test]
+    async fn test_comms_generator_creates_messages() {
         let gen = CommsGenerator::new(Team::Desktop, "test-case-123");
         let mut progress = ProgressTracker::new();
 
         gen.dispatch(&mut progress);
+        // Give spawned tasks a chance to run
+        tokio::task::yield_now().await;
         assert!(!progress.events().is_empty());
     }
 

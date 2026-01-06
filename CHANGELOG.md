@@ -7,6 +7,110 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.826] - 2026-01-06
+
+### Fixed - Deterministic Routing Priority
+
+**CRITICAL: Queries now use deterministic probes instead of LLM translator.**
+
+The core loop was bypassing deterministic routing entirely, sending ALL queries
+through the LLM translator. This caused:
+- Wrong package manager commands (apt/yum on Arch instead of pacman)
+- Slow responses for known query patterns
+- Unnecessary LLM calls for deterministic queries
+
+Now the flow is:
+1. Classify query using pattern matching
+2. If known pattern → run appropriate probes from registry → deterministic answer
+3. Only fall back to LLM translator for unknown queries
+
+Affected queries (now instant):
+- "any pending updates?" → uses `checkupdates` (Arch-aware)
+- "how much RAM?" → uses `free -h`
+- "disk usage?" → uses `df -h`
+- And 100+ other deterministic patterns
+
+### Technical Details
+
+- Added `classify_query()` call at start of core loop
+- Uses `get_route()` to get distro-aware probes
+- `probe_id_to_command()` maps probe IDs to actual shell commands
+- Multi-distro fallback in probe commands (pacman || apt || dnf)
+
+## [0.0.825] - 2026-01-06
+
+### Added - Daemon Watchdog
+
+**Automatic health monitoring and recovery for improved reliability.**
+
+- New `watchdog.rs` module monitors daemon health every 30 seconds
+- Checks: Ollama status, memory usage, daemon state
+- Auto-restarts Ollama if it crashes (configurable)
+- Can be disabled with `--no-watchdog` flag
+- Prevents restart loops with 60-second cooldown
+
+### Added - Integration Tests
+
+**Comprehensive daemon-client workflow testing.**
+
+- 13 new integration tests in `integration_tests.rs`
+- Tests for: status, stats, progress, daemon info, feedback, truth ledger
+- Concurrent request handling verification
+- Response time assertions (< 100ms for status)
+- Error handling for invalid params
+
+### Fixed - Translator JSON Parsing
+
+**Robust handling of malformed LLM JSON responses.**
+
+The translator was failing on valid queries when the LLM returned slightly malformed JSON like:
+```
+{"intent": "check_updates", "probes": ["cmd1", "cmd2"])"}
+```
+(Note the extra `)` before `}`)
+
+New `fix_common_json_errors()` function handles:
+- Extra parentheses before braces (`])"}` → `]}`)
+- Missing closing brackets (auto-balanced)
+- Trailing commas (`[1, 2,]` → `[1, 2]`)
+
+### Fixed - Async Mutex for Streaming Events
+
+**Replaced std::sync::Mutex with tokio::sync::Mutex in async code.**
+
+- `state/types.rs`: streaming_events now uses async-safe mutex
+- `progress_tracker.rs`: Full rewrite for async mutex compatibility
+- `handlers/status.rs`: Proper async lock handling
+- Prevents potential deadlocks in concurrent async contexts
+
+### Fixed - Pre-existing Test Failures
+
+- `test_query_classification_network`: Added `ends_with(" ip")` pattern
+- `test_pending_messages`: Unique test paths to avoid parallel test conflicts
+- `test_comms_generator_creates_messages`: Changed to `#[tokio::test]`
+
+### Changed - File Modularization
+
+**Split oversized files to comply with 400-line limit.**
+
+- `initialization.rs` (461→277 lines): Extracted `model_setup.rs` (185 lines)
+- `ollama.rs` (451→312 lines): Extracted `ollama_models.rs` (152 lines)
+
+### Changed - Error Handling
+
+**Replaced critical `.unwrap()` calls with `unwrap_or_default()`.**
+
+Files updated:
+- `rpc_handler/dispatcher.rs`
+- `rpc_handler/mod.rs`
+- `feedback_handler.rs`
+- `result_stage.rs`
+- `handlers/status.rs`
+
+### Changed - Documentation
+
+- Updated README.md version from v0.0.791 to v0.0.824
+
 ## [0.0.824] - 2026-01-05
 
 ### Fixed - Pacman File Conflict Handling

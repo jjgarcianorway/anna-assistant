@@ -179,7 +179,7 @@ pub fn wrap_with_theatre(
     // v0.0.322: Record probe usage for learning
     record_probe_learning(&result);
 
-    RpcResponse::success(id, serde_json::to_value(result).unwrap())
+    RpcResponse::success(id, serde_json::to_value(result).unwrap_or_default())
 }
 
 /// v0.0.322: Record probe usage and effectiveness for learning

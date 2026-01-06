@@ -1,8 +1,8 @@
 //! Core daemon state type definitions.
+//! v0.0.825: Use tokio::sync::Mutex for async-safe streaming events.
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Instant;
 
 use anna_shared::ledger::Ledger;
@@ -37,7 +37,8 @@ pub struct DaemonStateInner {
     /// Progress events for current/last request (for polling)
     pub progress_events: Vec<ProgressEvent>,
     /// v0.0.247: Live streaming events (shared with ProgressTracker for real-time access)
-    pub streaming_events: Arc<Mutex<Vec<ProgressEvent>>>,
+    /// v0.0.825: Use tokio::sync::Mutex for async-safe access
+    pub streaming_events: Arc<tokio::sync::Mutex<Vec<ProgressEvent>>>,
     /// Configuration loaded from file
     pub config: Config,
     /// Per-stage latency statistics
@@ -108,7 +109,7 @@ impl DaemonStateInner {
             last_error: None,
             probe_cache: HashMap::new(),
             progress_events: Vec::new(),
-            streaming_events: Arc::new(Mutex::new(Vec::new())),
+            streaming_events: Arc::new(tokio::sync::Mutex::new(Vec::new())),
             config: Config::load(),
             latency: PipelineLatency::default(),
             stats: GlobalStats::new(),

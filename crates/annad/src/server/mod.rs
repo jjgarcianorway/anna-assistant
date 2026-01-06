@@ -3,9 +3,11 @@
 //! v0.0.269: Intelligent model auto-selection with benchmarking.
 //! v0.0.281: Telemetry collector integration.
 //! v0.0.310: Non-blocking model pulls - daemon ready immediately.
+//! v0.0.825: Model setup extracted to model_setup.rs.
 
 mod background;
 mod initialization;
+mod model_setup;
 mod socket;
 mod types;
 

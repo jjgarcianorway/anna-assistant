@@ -46,6 +46,8 @@ mod deterministic_answerer {
             || q.contains("ip ")
             || q.contains("ip?")
             || q.contains("ips")
+            || q.ends_with(" ip")  // v0.0.825: Handle "show my ip" case
+            || q == "ip"           // v0.0.825: Handle bare "ip" query
         {
             QueryType::NetworkInterfaces
         } else {

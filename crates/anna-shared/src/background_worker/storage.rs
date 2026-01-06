@@ -228,9 +228,19 @@ impl std::error::Error for StorageError {}
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::atomic::{AtomicU32, Ordering};
 
-    fn test_path() -> String {
-        format!("/tmp/anna_storage_test_{}", std::process::id())
+    // v0.0.825: Use atomic counter for unique test paths to avoid parallel test conflicts
+    static TEST_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    fn test_path(suffix: &str) -> String {
+        let counter = TEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+        format!(
+            "/tmp/anna_storage_test_{}_{}_{}",
+            std::process::id(),
+            counter,
+            suffix
+        )
     }
 
     fn cleanup(path: &str) {
@@ -239,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_job_storage_roundtrip() {
-        let path = test_path();
+        let path = test_path("jobs");
         let storage = JobStorage::new(&path);
 
         let mut jobs = HashMap::new();
@@ -256,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_pending_messages() {
-        let path = test_path();
+        let path = test_path("messages");
         let storage = PendingMessageStorage::new(&path);
 
         let msg = PendingMessage::new("Test", "Body", "test");

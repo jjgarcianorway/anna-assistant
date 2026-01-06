@@ -80,7 +80,7 @@ pub async fn handle_web_search(id: String, params: Option<serde_json::Value>) ->
                 query: params.query,
                 results: web_search_results,
             };
-            RpcResponse::success(id, serde_json::to_value(result).unwrap())
+            RpcResponse::success(id, serde_json::to_value(result).unwrap_or_default())
         }
         Err(e) => RpcResponse::error(id, -32000, format!("Web search failed: {}", e)),
     }

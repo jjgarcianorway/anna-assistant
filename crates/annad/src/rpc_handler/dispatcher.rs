@@ -130,7 +130,7 @@ async fn handle_get_truth_ledger_status(state: SharedState, id: String) -> RpcRe
         claims_with_negative_feedback,
     };
 
-    RpcResponse::success(id, serde_json::to_value(status).unwrap())
+    RpcResponse::success(id, serde_json::to_value(status).unwrap_or_default())
 }
 
 async fn handle_get_truth_ledger_claims(
@@ -202,7 +202,7 @@ async fn handle_get_truth_ledger_claims(
         claims: filtered_claims,
     };
 
-    RpcResponse::success(id, serde_json::to_value(result).unwrap())
+    RpcResponse::success(id, serde_json::to_value(result).unwrap_or_default())
 }
 
 /// v0.0.811: Handle core query using simplified core loop
