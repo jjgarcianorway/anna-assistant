@@ -116,10 +116,24 @@ impl Ledger {
     }
 
     /// v0.0.267: Get list of models pulled by Anna
+    /// v0.0.831: Deduplicate and exclude deleted models
     pub fn models_pulled(&self) -> Vec<String> {
+        use std::collections::HashSet;
+
+        // Collect deleted models
+        let deleted: HashSet<String> = self.entries
+            .iter()
+            .filter(|e| e.kind == LedgerEntryKind::ModelDeleted)
+            .map(|e| e.target.clone())
+            .collect();
+
+        // Get unique pulled models that aren't deleted
+        let mut seen = HashSet::new();
         self.entries
             .iter()
             .filter(|e| e.kind == LedgerEntryKind::ModelPulled)
+            .filter(|e| !deleted.contains(&e.target))
+            .filter(|e| seen.insert(e.target.clone())) // Only first occurrence
             .map(|e| e.target.clone())
             .collect()
     }

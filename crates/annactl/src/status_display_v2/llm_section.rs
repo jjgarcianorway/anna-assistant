@@ -88,18 +88,26 @@ pub fn print_llm_section(status: &DaemonStatus) {
     );
 
     // v0.0.267: Show models downloaded by Anna from ledger
+    // v0.0.831: Improved display - deduplicated, better explanation
     if let Ok(ledger) = Ledger::load() {
         let models = ledger.models_pulled();
         if !models.is_empty() {
-            kv("models_by_anna", &format!("{}", models.len()));
-            for model in models.iter().take(5) {
+            // Only show if Anna actually pulled models (not zero)
+            println!(
+                "  {}models_pulled{}     {}  (by Anna for IT staff)",
+                colors::DIM,
+                colors::RESET,
+                models.len()
+            );
+            // Show only unique models, max 3
+            for model in models.iter().take(3) {
                 println!("    {}{}{}", colors::DIM, model, colors::RESET);
             }
-            if models.len() > 5 {
+            if models.len() > 3 {
                 println!(
-                    "    {}... and {} more{}",
+                    "    {}+ {} more{} (see 'ollama list')",
                     colors::DIM,
-                    models.len() - 5,
+                    models.len() - 3,
                     colors::RESET
                 );
             }

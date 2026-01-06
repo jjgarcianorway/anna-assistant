@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.832] - 2026-01-06
+
+### Fixed - LLM Status Display
+
+**No more duplicate models showing 34 times!**
+
+- `models_pulled()` now deduplicates entries
+- Excludes models that were later deleted
+- Shows max 3 models with "see ollama list" hint
+- Changed label from "models_by_anna" to "models_pulled (by Anna for IT staff)"
+
 ## [0.0.831] - 2026-01-06
 
 ### Fixed - Unified Staff Roster & Simplified CLI
