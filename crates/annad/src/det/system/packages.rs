@@ -5,12 +5,15 @@ use anna_shared::rpc::ProbeResult;
 use crate::deterministic::DeterministicResult;
 use crate::parsers::find_probe;
 
-/// Answer package updates query using checkupdates probe
+/// Answer package updates query using package_updates probe
 pub fn answer_package_updates(
     probes: &[ProbeResult],
     route_class: &str,
 ) -> Option<DeterministicResult> {
-    let probe = find_probe(probes, "checkupdates").or_else(|| find_probe(probes, "pacman"));
+    // v0.0.827: Look for "package_updates" probe (from route) or legacy names
+    let probe = find_probe(probes, "package_updates")
+        .or_else(|| find_probe(probes, "checkupdates"))
+        .or_else(|| find_probe(probes, "pacman"));
     let probe = probe?;
 
     let output = probe.stdout.trim();

@@ -389,7 +389,7 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.826**
+Current: **v0.0.827**
 
 Recent highlights:
 - **Failed services detection** - "show me failed services" now works instantly
