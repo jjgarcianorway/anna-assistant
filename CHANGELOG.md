@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.837] - 2026-01-07
+
+### Added
+- **Automatic hardware detection** - detects NVIDIA CUDA, AMD ROCm, Intel Arc GPUs and VRAM
+- **Smart model selection** - automatically picks the best model for your hardware:
+  - 16GB+ VRAM: qwen2.5:14b
+  - 8-16GB VRAM: qwen2.5:7b
+  - 4-8GB VRAM: qwen2.5:3b
+  - CPU-only: based on RAM
+- **Resource registry** - tracks models installed by Anna for clean uninstall
+- **GPU info in status** - `annactl status` now shows GPU type and VRAM
+- **CUDA/ROCm support** - installs ollama-cuda or ollama-rocm based on hardware
+
+### Changed
+- Daemon auto-upgrades to better model if hardware supports it
+- Model selection prefers larger models for better reasoning
+
 ## [0.0.836] - 2026-01-07
 
 ### Fixed

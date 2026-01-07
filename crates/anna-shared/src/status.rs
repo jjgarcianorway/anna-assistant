@@ -10,6 +10,8 @@ pub struct DaemonStatus {
     pub ollama_running: bool,
     pub model: Option<String>,
     pub uptime_secs: u64,
+    pub gpu: Option<String>,
+    pub vram_mb: Option<u64>,
 }
 
 /// Daemon state

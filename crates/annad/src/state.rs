@@ -43,6 +43,8 @@ pub struct StateInner {
     pub model: Option<String>,
     pub last_error: Option<String>,
     pub update: UpdateState,
+    pub gpu: Option<String>,
+    pub vram_mb: Option<u64>,
 }
 
 impl StateInner {
@@ -54,6 +56,8 @@ impl StateInner {
             model: None,
             last_error: None,
             update: UpdateState::default(),
+            gpu: None,
+            vram_mb: None,
         }
     }
 
@@ -68,6 +72,8 @@ impl StateInner {
             ollama_running: self.ollama_running,
             model: self.model.clone(),
             uptime_secs: self.uptime_secs(),
+            gpu: self.gpu.clone(),
+            vram_mb: self.vram_mb,
         }
     }
 }

@@ -134,6 +134,13 @@ async fn print_status() {
             if let Some(model) = &status.model {
                 println!("Model: {}", model);
             }
+            if let Some(gpu) = &status.gpu {
+                print!("GPU: ");
+                println_colored(gpu, CYAN);
+                if let Some(vram) = status.vram_mb {
+                    println!("VRAM: {} MB", vram);
+                }
+            }
         }
         Err(e) => {
             print_colored("Error: ", RED);
