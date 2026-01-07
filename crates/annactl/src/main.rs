@@ -1,6 +1,6 @@
 //! Anna CLI - simple REPL interface to ask questions about Arch Linux.
 
-use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, RpcResponse, StepType};
 use anna_shared::socket_path;
 use anna_shared::status::DaemonStatus;
 use anyhow::{anyhow, Result};
@@ -159,21 +159,11 @@ async fn handle_question(question: &str) {
             // Clear the "Thinking..." line
             print!("\r\x1b[K");
 
-            if result.success {
-                println_colored(&result.answer, GREEN);
-            } else {
-                println_colored(&result.answer, YELLOW);
-            }
+            // Display full dialogue for transparency
+            println!();
+            print_dialogue(&result);
 
-            if !result.commands_executed.is_empty() {
-                println!();
-                println_colored("Commands executed:", DIM);
-                for cmd in &result.commands_executed {
-                    print_colored("  $ ", DIM);
-                    println!("{}", cmd);
-                }
-            }
-
+            println!();
             println_colored(
                 &format!("({} iterations)", result.iterations),
                 DIM,
@@ -183,6 +173,83 @@ async fn handle_question(question: &str) {
             print!("\r\x1b[K");
             print_colored("Error: ", RED);
             println!("{}", e);
+        }
+    }
+}
+
+/// Print the full dialogue for transparency
+fn print_dialogue(result: &AskResult) {
+    for step in &result.dialogue {
+        match step.step_type {
+            StepType::UserQuestion => {
+                print_colored("USER: ", CYAN);
+                println!("{}", step.content);
+                println!();
+            }
+            StepType::AnnaToLlm => {
+                print_colored("ANNA → LLM: ", YELLOW);
+                println_colored("(asking for commands)", DIM);
+                // Show abbreviated prompt
+                let lines: Vec<&str> = step.content.lines().collect();
+                if lines.len() > 3 {
+                    println_colored(&format!("  {}", lines[0]), DIM);
+                    println_colored("  ...", DIM);
+                }
+                println!();
+            }
+            StepType::LlmCommands => {
+                print_colored("LLM → ANNA: ", YELLOW);
+                if step.content == "NONE" || step.content == "DONE" {
+                    println_colored(&step.content, DIM);
+                } else {
+                    println!("commands to run:");
+                    for line in step.content.lines() {
+                        let line = line.trim();
+                        if !line.is_empty() {
+                            print_colored("  $ ", DIM);
+                            println_colored(line, CYAN);
+                        }
+                    }
+                }
+                println!();
+            }
+            StepType::CommandExec => {
+                print_colored("EXEC: ", GREEN);
+                println!("{}", step.content);
+            }
+            StepType::CommandOutput => {
+                print_colored("OUTPUT: ", DIM);
+                // Truncate long output for display
+                let output = if step.content.len() > 500 {
+                    format!("{}...(truncated)", &step.content[..500])
+                } else {
+                    step.content.clone()
+                };
+                println!("{}", output);
+                println!();
+            }
+            StepType::ValidationPrompt => {
+                print_colored("ANNA → LLM: ", YELLOW);
+                println_colored("(validating output)", DIM);
+                println!();
+            }
+            StepType::ValidationResponse => {
+                print_colored("LLM → ANNA: ", YELLOW);
+                println!("{}", step.content);
+                println!();
+            }
+            StepType::FinalPrompt => {
+                print_colored("ANNA → LLM: ", YELLOW);
+                println_colored("(generating final answer)", DIM);
+                println!();
+            }
+            StepType::FinalAnswer => {
+                println_colored("═══════════════════════════════════════", DIM);
+                print_colored("ANSWER: ", GREEN);
+                println!();
+                println_colored(&step.content, GREEN);
+                println_colored("═══════════════════════════════════════", DIM);
+            }
         }
     }
 }

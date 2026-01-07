@@ -7,7 +7,7 @@
 //! 4. Output is sent back to LLM for validation
 //! 5. If valid answer, return to user; otherwise iterate
 
-use anna_shared::rpc::AskResult;
+use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anyhow::{anyhow, Result};
 use std::process::Command;
 use tracing::{info, warn};
@@ -27,6 +27,13 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
     let mut iterations = 0;
     let mut commands_executed = Vec::new();
     let mut last_output = String::new();
+    let mut dialogue = Vec::new();
+
+    // Record user's question
+    dialogue.push(DialogueStep {
+        step_type: StepType::UserQuestion,
+        content: question.to_string(),
+    });
 
     while iterations < MAX_ITERATIONS {
         iterations += 1;
@@ -73,8 +80,20 @@ Commands:"#,
             )
         };
 
+        // Record what we're asking the LLM
+        dialogue.push(DialogueStep {
+            step_type: StepType::AnnaToLlm,
+            content: command_prompt.clone(),
+        });
+
         let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
         let commands_response = commands_response.trim();
+
+        // Record LLM's response
+        dialogue.push(DialogueStep {
+            step_type: StepType::LlmCommands,
+            content: commands_response.to_string(),
+        });
 
         // Check for special responses
         if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
@@ -97,18 +116,37 @@ Commands:"#,
             // Security check - reject dangerous commands
             if is_dangerous_command(cmd) {
                 warn!("Rejected dangerous command: {}", cmd);
+                dialogue.push(DialogueStep {
+                    step_type: StepType::CommandExec,
+                    content: format!("{} [REJECTED - dangerous]", cmd),
+                });
                 continue;
             }
 
             info!("Executing: {}", cmd);
             commands_executed.push(cmd.to_string());
 
+            // Record command execution
+            dialogue.push(DialogueStep {
+                step_type: StepType::CommandExec,
+                content: cmd.to_string(),
+            });
+
             match execute_command(cmd) {
                 Ok(output) => {
+                    dialogue.push(DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: output.clone(),
+                    });
                     combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, output));
                 }
                 Err(e) => {
-                    combined_output.push_str(&format!("$ {}\nError: {}\n\n", cmd, e));
+                    let error_msg = format!("Error: {}", e);
+                    dialogue.push(DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: error_msg.clone(),
+                    });
+                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, error_msg));
                 }
             }
         }
@@ -130,7 +168,18 @@ Reply with ONLY one of:
                 question, last_output
             );
 
+            dialogue.push(DialogueStep {
+                step_type: StepType::ValidationPrompt,
+                content: validate_prompt.clone(),
+            });
+
             let validation = ollama::chat_with_timeout(model, &validate_prompt, 30).await?;
+
+            dialogue.push(DialogueStep {
+                step_type: StepType::ValidationResponse,
+                content: validation.trim().to_string(),
+            });
+
             if validation.trim().to_uppercase().starts_with("YES") {
                 break;
             }
@@ -159,13 +208,24 @@ Be direct and practical. Cite specific values from the output where relevant."#,
         )
     };
 
+    dialogue.push(DialogueStep {
+        step_type: StepType::FinalPrompt,
+        content: final_prompt.clone(),
+    });
+
     let final_answer = ollama::chat_with_timeout(model, &final_prompt, LLM_TIMEOUT_SECS).await?;
+
+    dialogue.push(DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: final_answer.trim().to_string(),
+    });
 
     Ok(AskResult {
         answer: final_answer.trim().to_string(),
         success: true,
         iterations,
         commands_executed,
+        dialogue,
     })
 }
 

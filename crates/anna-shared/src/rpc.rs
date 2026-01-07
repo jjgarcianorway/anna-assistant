@@ -84,4 +84,38 @@ pub struct AskResult {
     pub iterations: u32,
     /// Commands that were executed (for transparency)
     pub commands_executed: Vec<String>,
+    /// Full dialogue for transparency
+    pub dialogue: Vec<DialogueStep>,
+}
+
+/// A single step in the dialogue
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DialogueStep {
+    /// Type of step
+    pub step_type: StepType,
+    /// Content of this step
+    pub content: String,
+}
+
+/// Types of dialogue steps
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StepType {
+    /// User's original question
+    UserQuestion,
+    /// Prompt sent to LLM asking for commands
+    AnnaToLlm,
+    /// LLM's response with commands
+    LlmCommands,
+    /// Command being executed
+    CommandExec,
+    /// Output from command execution
+    CommandOutput,
+    /// Prompt sent to LLM for validation
+    ValidationPrompt,
+    /// LLM's validation response
+    ValidationResponse,
+    /// Final answer prompt sent to LLM
+    FinalPrompt,
+    /// Final answer from LLM
+    FinalAnswer,
 }

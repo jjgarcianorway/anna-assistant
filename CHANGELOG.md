@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.839] - 2026-01-07
+
+### Added
+- **Full dialogue transparency** - annactl now shows the complete conversation:
+  - USER: The original question
+  - ANNA → LLM: What Anna asks the LLM (for commands, validation, final answer)
+  - LLM → ANNA: What commands the LLM suggests
+  - EXEC: Commands being executed
+  - OUTPUT: Results from each command
+  - ANSWER: Final response to user
+- Makes troubleshooting easy by showing every step of the process
+
 ## [0.0.838] - 2026-01-07
 
 ### Changed
