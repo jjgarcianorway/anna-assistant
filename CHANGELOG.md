@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.835] - 2026-01-07
+
+### Fixed
+- `annactl status` now correctly shows daemon status instead of sending "status" as a question to the LLM
+- CLI properly handles built-in commands (status, help, --help, -h, --version, -v) before treating input as a question
+
+## [0.0.834] - 2026-01-07
+
+### Fixed
+- Model pull no longer blocks the async runtime (using `spawn_blocking`)
+- Daemon properly initializes when no models are available
+
 ## [0.0.833] - 2026-01-07
 
 ### Changed - Complete Architecture Simplification

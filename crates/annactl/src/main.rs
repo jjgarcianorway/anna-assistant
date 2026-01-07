@@ -246,9 +246,33 @@ async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() > 1 {
-        // Direct question mode
-        let question = args[1..].join(" ");
-        handle_question(&question).await;
+        let cmd = args[1..].join(" ");
+
+        // Handle built-in commands
+        match cmd.to_lowercase().as_str() {
+            "status" => {
+                print_status().await;
+            }
+            "help" | "--help" | "-h" => {
+                println!("Anna - Arch Linux Assistant");
+                println!();
+                println!("Usage:");
+                println!("  annactl                  Start interactive REPL");
+                println!("  annactl status           Show daemon status");
+                println!("  annactl <question>       Ask a question");
+                println!();
+                println!("Examples:");
+                println!("  annactl \"what's my disk usage?\"");
+                println!("  annactl how do I install neovim");
+            }
+            "--version" | "-v" => {
+                println!("annactl {}", anna_shared::VERSION);
+            }
+            _ => {
+                // It's a question
+                handle_question(&cmd).await;
+            }
+        }
     } else {
         // REPL mode
         run_repl().await?;
