@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.838] - 2026-01-07
+
+### Changed
+- Improved command generation prompt - LLM now more reliably generates commands for system queries
+- Added examples to prompt to guide command generation
+- Clearer instructions to prevent LLM from giving advice instead of commands
+
 ## [0.0.837] - 2026-01-07
 
 ### Added

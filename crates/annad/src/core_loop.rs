@@ -35,28 +35,38 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
         // Step 1: Ask LLM for commands to run
         let command_prompt = if iterations == 1 {
             format!(
-                r#"You are a helpful assistant for Arch Linux systems.
-The user asked: "{}"
+                r#"You are a system administrator assistant. The user needs information about THIS specific Arch Linux system.
 
-Generate ONLY shell commands (one per line) that will help answer this question.
-Do NOT include explanations. Output ONLY the commands, nothing else.
-Commands should be safe, read-only operations (no rm, no sudo unless necessary).
-If no commands are needed (simple factual question), output: NONE
+Question: "{}"
+
+Your task: Output shell commands that will retrieve the information needed to answer this question.
+
+RULES:
+1. Output ONLY commands, one per line
+2. No explanations, no markdown, no code blocks
+3. Commands must be safe (read-only, no destructive operations)
+4. For system info questions, ALWAYS output commands (uname, df, free, lspci, pacman, systemctl, etc.)
+5. Only output NONE if the question is purely theoretical (e.g., "what is Linux?")
+
+Examples:
+- "what kernel?" → uname -r
+- "disk space?" → df -h
+- "installed packages?" → pacman -Q | wc -l
+- "failed services?" → systemctl --failed
 
 Commands:"#,
                 question
             )
         } else {
             format!(
-                r#"You are a helpful assistant for Arch Linux systems.
-The user asked: "{}"
+                r#"Question: "{}"
 
-Previous commands returned:
+Previous command output:
 {}
 
-The output didn't fully answer the question. Generate additional commands to get more information.
-Output ONLY shell commands (one per line), nothing else.
-If you have enough information now, output: DONE
+Need more information to fully answer the question.
+Output additional commands (one per line, no explanations).
+If output above is sufficient, output: DONE
 
 Commands:"#,
                 question, last_output
