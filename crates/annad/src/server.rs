@@ -112,20 +112,27 @@ async fn initialize(state: SharedState) -> Result<()> {
 
     // Check what models are available
     let models = ollama::list_models().await.unwrap_or_default();
+    info!("Available models: {:?}", models);
 
-    // Use a small, fast model for command generation
-    let model = if models.iter().any(|m| m.contains("qwen")) {
-        models.iter().find(|m| m.contains("qwen")).unwrap().clone()
-    } else if models.iter().any(|m| m.contains("llama")) {
-        models.iter().find(|m| m.contains("llama")).unwrap().clone()
+    // Use any available model, prefer qwen/llama
+    let model = if let Some(m) = models.iter().find(|m| m.contains("qwen")) {
+        m.clone()
+    } else if let Some(m) = models.iter().find(|m| m.contains("llama")) {
+        m.clone()
+    } else if let Some(m) = models.iter().find(|m| m.contains("mistral")) {
+        m.clone()
+    } else if let Some(m) = models.iter().find(|m| m.contains("gemma")) {
+        m.clone()
     } else if !models.is_empty() {
         models[0].clone()
     } else {
-        // Pull a small model
-        info!("Pulling qwen2.5:3b model...");
+        // No models - need to pull one
+        info!("No models found, pulling qwen2.5:3b...");
         ollama::pull_model("qwen2.5:3b").await?;
         "qwen2.5:3b".to_string()
     };
+
+    info!("Using model: {}", model);
 
     // Update state
     {
@@ -135,7 +142,7 @@ async fn initialize(state: SharedState) -> Result<()> {
         state.state = DaemonState::Ready;
     }
 
-    info!("Initialization complete");
+    info!("Initialization complete - daemon ready");
     Ok(())
 }
 

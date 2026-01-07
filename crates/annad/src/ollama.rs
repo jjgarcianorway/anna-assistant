@@ -120,20 +120,30 @@ pub async fn list_models() -> Result<Vec<String>> {
     Ok(models)
 }
 
-/// Pull a model
+/// Pull a model (runs in blocking thread to not block async runtime)
 pub async fn pull_model(model: &str) -> Result<()> {
-    info!("Pulling model: {}", model);
+    info!("Pulling model: {} (this may take a few minutes)", model);
 
-    let output = ollama_cmd()
-        .args(["pull", model])
-        .output()?;
+    let model = model.to_string();
+    let result = tokio::task::spawn_blocking(move || {
+        let mut cmd = std::process::Command::new("ollama");
+        cmd.env("HOME", "/root");
+        cmd.env("OLLAMA_MODELS", "/var/lib/anna/models");
+        cmd.args(["pull", &model]);
+        cmd.output()
+    })
+    .await?;
 
-    if output.status.success() {
-        info!("Model {} pulled successfully", model);
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(anyhow!("Failed to pull model: {}", stderr))
+    match result {
+        Ok(output) if output.status.success() => {
+            info!("Model pulled successfully");
+            Ok(())
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(anyhow!("Failed to pull model: {}", stderr))
+        }
+        Err(e) => Err(anyhow!("Failed to run ollama pull: {}", e)),
     }
 }
 
