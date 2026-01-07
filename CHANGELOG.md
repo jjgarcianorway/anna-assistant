@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.843] - 2026-01-07
+
+### Improved
+- Disk usage commands now show full paths (not just top-level directories)
+- Commands exclude virtual filesystems (/proc, /sys, /dev)
+- LLM prompted to always add `2>/dev/null` to suppress errors
+- Better example for folder size queries
+
 ## [0.0.842] - 2026-01-07
 
 ### Fixed

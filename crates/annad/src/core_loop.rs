@@ -64,6 +64,9 @@ Examples:
 - "installed packages?" → pacman -Q | wc -l
 - "failed services?" → systemctl --failed
 - "when installed?" → head -1 /var/log/pacman.log
+- "biggest folders?" → du -ah / --exclude=/proc --exclude=/sys --exclude=/dev 2>/dev/null | sort -rh | head -20
+
+IMPORTANT: Always add 2>/dev/null to suppress errors. Show full paths for disk usage, not just top-level directories.
 
 Commands:"#,
                 question
@@ -300,6 +303,9 @@ Examples:
 - "installed packages?" → pacman -Q | wc -l
 - "failed services?" → systemctl --failed
 - "when installed?" → head -1 /var/log/pacman.log
+- "biggest folders?" → du -ah / --exclude=/proc --exclude=/sys --exclude=/dev 2>/dev/null | sort -rh | head -20
+
+IMPORTANT: Always add 2>/dev/null to suppress errors. Show full paths for disk usage, not just top-level directories.
 
 Commands:"#,
                 question
