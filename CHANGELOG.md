@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.842] - 2026-01-07
+
+### Fixed
+- LLM no longer generates Chinese characters in commands (enforced English-only)
+- LLM no longer makes up data when commands return empty output
+- Better grep patterns in examples (e.g., "Install Date" instead of "Install.date")
+- Added more command examples to guide LLM (including installation date)
+
 ## [0.0.841] - 2026-01-07
 
 ### Fixed

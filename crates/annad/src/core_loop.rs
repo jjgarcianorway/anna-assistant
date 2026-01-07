@@ -50,17 +50,20 @@ Question: "{}"
 Your task: Output shell commands that will retrieve the information needed to answer this question.
 
 RULES:
-1. Output ONLY commands, one per line
-2. No explanations, no markdown, no code blocks
+1. Output ONLY commands, one per line - ENGLISH ONLY
+2. No explanations, no markdown, no code blocks, no Chinese characters
 3. Commands must be safe (read-only, no destructive operations)
-4. For system info questions, ALWAYS output commands (uname, df, free, lspci, pacman, systemctl, etc.)
-5. Only output NONE if the question is purely theoretical (e.g., "what is Linux?")
+4. Do NOT escape shell characters - write $() not \$()
+5. Use exact field names for grep (e.g., "Install Date" not "Install.date")
+6. For system info, ALWAYS output commands (uname, df, free, lspci, pacman, systemctl, etc.)
+7. Only output NONE if the question is purely theoretical
 
 Examples:
 - "what kernel?" → uname -r
 - "disk space?" → df -h
 - "installed packages?" → pacman -Q | wc -l
 - "failed services?" → systemctl --failed
+- "when installed?" → head -1 /var/log/pacman.log
 
 Commands:"#,
                 question
@@ -193,7 +196,8 @@ Reply with ONLY one of:
             r#"The user asked about their Arch Linux system: "{}"
 
 No commands were needed. Provide a helpful, concise answer based on your knowledge.
-Be direct and practical. If you're not sure, say so."#,
+Be direct and practical. If you're not sure, say so.
+RESPOND IN ENGLISH ONLY."#,
             question
         )
     } else {
@@ -203,8 +207,14 @@ Be direct and practical. If you're not sure, say so."#,
 The following commands were run and produced this output:
 {}
 
-Based on this output, provide a helpful, concise answer to the user's question.
-Be direct and practical. Cite specific values from the output where relevant."#,
+RULES:
+1. ONLY report facts from the ACTUAL output above - never invent or assume data
+2. If a command returned empty or failed, say "the command returned no output" or "the command failed"
+3. Do NOT make up dates, values, or package names that aren't in the output
+4. Be concise and direct
+5. RESPOND IN ENGLISH ONLY
+
+Based ONLY on the actual output above, answer the user's question:"#,
             question, last_output
         )
     };
@@ -276,17 +286,20 @@ Question: "{}"
 Your task: Output shell commands that will retrieve the information needed to answer this question.
 
 RULES:
-1. Output ONLY commands, one per line
-2. No explanations, no markdown, no code blocks
+1. Output ONLY commands, one per line - ENGLISH ONLY
+2. No explanations, no markdown, no code blocks, no Chinese characters
 3. Commands must be safe (read-only, no destructive operations)
-4. For system info questions, ALWAYS output commands (uname, df, free, lspci, pacman, systemctl, etc.)
-5. Only output NONE if the question is purely theoretical (e.g., "what is Linux?")
+4. Do NOT escape shell characters - write $() not \$()
+5. Use exact field names for grep (e.g., "Install Date" not "Install.date")
+6. For system info, ALWAYS output commands (uname, df, free, lspci, pacman, systemctl, etc.)
+7. Only output NONE if the question is purely theoretical
 
 Examples:
 - "what kernel?" → uname -r
 - "disk space?" → df -h
 - "installed packages?" → pacman -Q | wc -l
 - "failed services?" → systemctl --failed
+- "when installed?" → head -1 /var/log/pacman.log
 
 Commands:"#,
                 question
