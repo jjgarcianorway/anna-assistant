@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.836] - 2026-01-07
+
+### Fixed
+- `annad --version` now works (previously tried to start daemon, blocking auto-update verification)
+
 ## [0.0.835] - 2026-01-07
 
 ### Fixed
