@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.841] - 2026-01-07
+
+### Fixed
+- Commands with shell metacharacters (`$()`, pipes, backticks) now execute correctly
+- LLM's escaped characters are automatically unescaped before execution
+
 ## [0.0.840] - 2026-01-07
 
 ### Added

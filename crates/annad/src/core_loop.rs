@@ -487,11 +487,23 @@ Be direct and practical. Cite specific values from the output where relevant."#,
     Ok(())
 }
 
+/// Unescape shell metacharacters that LLMs sometimes escape
+fn unescape_command(cmd: &str) -> String {
+    cmd.replace("\\$", "$")
+        .replace("\\(", "(")
+        .replace("\\)", ")")
+        .replace("\\|", "|")
+        .replace("\\`", "`")
+}
+
 /// Execute a shell command and return its output
 fn execute_command(cmd: &str) -> Result<String> {
+    // Unescape any shell metacharacters the LLM may have escaped
+    let cmd = unescape_command(cmd);
+
     let output = Command::new("sh")
         .arg("-c")
-        .arg(cmd)
+        .arg(&cmd)
         .output()
         .map_err(|e| anyhow!("Failed to execute: {}", e))?;
 
