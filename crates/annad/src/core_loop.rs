@@ -65,8 +65,14 @@ Examples:
 - "failed services?" → systemctl --failed
 - "when installed?" → head -1 /var/log/pacman.log
 - "biggest folders?" → du -ah / --exclude=/proc --exclude=/sys --exclude=/dev 2>/dev/null | sort -rh | head -20
+- "recently installed?" → grep "\[ALPM\] installed" /var/log/pacman.log | tail -10
+- "gpu/graphics?" → lspci -k 2>/dev/null | grep -A2 -i vga
+- "cpu info?" → lscpu | head -20
 
-IMPORTANT: Always add 2>/dev/null to suppress errors. Show full paths for disk usage, not just top-level directories.
+IMPORTANT:
+- Always add 2>/dev/null to suppress errors
+- Show full paths for disk usage
+- Use pacman.log for package history, not pacman -Q
 
 Commands:"#,
                 question
@@ -304,8 +310,14 @@ Examples:
 - "failed services?" → systemctl --failed
 - "when installed?" → head -1 /var/log/pacman.log
 - "biggest folders?" → du -ah / --exclude=/proc --exclude=/sys --exclude=/dev 2>/dev/null | sort -rh | head -20
+- "recently installed?" → grep "\[ALPM\] installed" /var/log/pacman.log | tail -10
+- "gpu/graphics?" → lspci -k 2>/dev/null | grep -A2 -i vga
+- "cpu info?" → lscpu | head -20
 
-IMPORTANT: Always add 2>/dev/null to suppress errors. Show full paths for disk usage, not just top-level directories.
+IMPORTANT:
+- Always add 2>/dev/null to suppress errors
+- Show full paths for disk usage
+- Use pacman.log for package history, not pacman -Q
 
 Commands:"#,
                 question

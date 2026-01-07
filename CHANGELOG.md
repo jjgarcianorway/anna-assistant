@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.844] - 2026-01-07
+
+### Improved
+- Added more Arch-specific command examples:
+  - Recently installed packages via pacman.log
+  - GPU/graphics card detection with lspci -k
+  - CPU info via lscpu
+- Better guidance for LLM to use pacman.log for package history
+
 ## [0.0.843] - 2026-01-07
 
 ### Improved
