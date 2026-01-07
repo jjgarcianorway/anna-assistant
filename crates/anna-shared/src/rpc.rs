@@ -5,10 +5,30 @@ use serde::{Deserialize, Serialize};
 /// RPC methods supported by the daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RpcMethod {
-    /// Send a question to be answered
+    /// Send a question to be answered (non-streaming, returns full result)
     Ask,
+    /// Send a question with streaming response
+    AskStreaming,
     /// Get daemon status
     Status,
+}
+
+/// Streaming response types (JSON lines format)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum StreamingResponse {
+    /// A dialogue step (user question, command, output, etc.)
+    #[serde(rename = "step")]
+    Step { step: DialogueStep },
+    /// A token from the LLM (for streaming final answer)
+    #[serde(rename = "token")]
+    Token { token: String },
+    /// Final result with complete answer
+    #[serde(rename = "done")]
+    Done { result: AskResult },
+    /// Error occurred
+    #[serde(rename = "error")]
+    Error { message: String },
 }
 
 /// JSON-RPC 2.0 request

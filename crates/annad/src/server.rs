@@ -227,9 +227,67 @@ async fn handle_connection(stream: UnixStream, state: SharedState) -> Result<()>
         }
     };
 
+    // Handle streaming requests separately
+    if matches!(request.method, RpcMethod::AskStreaming) {
+        return handle_streaming_request(request, state, writer).await;
+    }
+
     let response = handle_request(request, state).await;
     let response_json = serde_json::to_string(&response)?;
     writer.write_all(format!("{}\n", response_json).as_bytes()).await?;
+
+    Ok(())
+}
+
+/// Handle a streaming AskStreaming request
+async fn handle_streaming_request(
+    request: RpcRequest,
+    state: SharedState,
+    mut writer: tokio::net::unix::OwnedWriteHalf,
+) -> Result<()> {
+    use anna_shared::rpc::StreamingResponse;
+    use crate::core_loop::execute_question_streaming;
+
+    let question = request
+        .params
+        .as_ref()
+        .and_then(|p| p.get("question"))
+        .and_then(|q| q.as_str())
+        .unwrap_or("");
+
+    if question.is_empty() {
+        let response = StreamingResponse::Error {
+            message: "Missing 'question' parameter".to_string(),
+        };
+        let json = serde_json::to_string(&response)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        return Ok(());
+    }
+
+    // Get model from state
+    let model = {
+        let state = state.read().await;
+        match &state.model {
+            Some(m) => m.clone(),
+            None => {
+                let response = StreamingResponse::Error {
+                    message: "Daemon not ready - no model available".to_string(),
+                };
+                let json = serde_json::to_string(&response)?;
+                writer.write_all(format!("{}\n", json).as_bytes()).await?;
+                return Ok(());
+            }
+        }
+    };
+
+    // Execute with streaming
+    if let Err(e) = execute_question_streaming(&model, question, &mut writer).await {
+        let response = StreamingResponse::Error {
+            message: format!("Execution error: {}", e),
+        };
+        let json = serde_json::to_string(&response)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+    }
 
     Ok(())
 }
@@ -283,6 +341,11 @@ async fn handle_request(request: RpcRequest, state: SharedState) -> RpcResponse 
                 },
                 Err(e) => RpcResponse::error(&request.id, -32603, &format!("Execution error: {}", e)),
             }
+        }
+        RpcMethod::AskStreaming => {
+            // This is handled separately in handle_streaming_request
+            // Should not reach here, but provide a fallback
+            RpcResponse::error(&request.id, -32603, "Use streaming connection for AskStreaming")
         }
     }
 }

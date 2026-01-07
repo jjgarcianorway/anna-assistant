@@ -7,9 +7,10 @@
 //! 4. Output is sent back to LLM for validation
 //! 5. If valid answer, return to user; otherwise iterate
 
-use anna_shared::rpc::{AskResult, DialogueStep, StepType};
+use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anyhow::{anyhow, Result};
 use std::process::Command;
+use tokio::io::AsyncWriteExt;
 use tracing::{info, warn};
 
 use crate::ollama;
@@ -227,6 +228,263 @@ Be direct and practical. Cite specific values from the output where relevant."#,
         commands_executed,
         dialogue,
     })
+}
+
+/// Helper to send a streaming response
+async fn send_streaming<W: AsyncWriteExt + Unpin>(
+    writer: &mut W,
+    response: &StreamingResponse,
+) -> Result<()> {
+    let json = serde_json::to_string(response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+/// Execute a question with streaming output
+pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
+    model: &str,
+    question: &str,
+    writer: &mut W,
+) -> Result<()> {
+    info!("Processing question (streaming): {}", question);
+
+    let mut iterations = 0;
+    let mut commands_executed = Vec::new();
+    let mut last_output = String::new();
+    let mut dialogue = Vec::new();
+
+    // Record and send user's question
+    let step = DialogueStep {
+        step_type: StepType::UserQuestion,
+        content: question.to_string(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    while iterations < MAX_ITERATIONS {
+        iterations += 1;
+        info!("Iteration {}/{}", iterations, MAX_ITERATIONS);
+
+        // Step 1: Ask LLM for commands to run
+        let command_prompt = if iterations == 1 {
+            format!(
+                r#"You are a system administrator assistant. The user needs information about THIS specific Arch Linux system.
+
+Question: "{}"
+
+Your task: Output shell commands that will retrieve the information needed to answer this question.
+
+RULES:
+1. Output ONLY commands, one per line
+2. No explanations, no markdown, no code blocks
+3. Commands must be safe (read-only, no destructive operations)
+4. For system info questions, ALWAYS output commands (uname, df, free, lspci, pacman, systemctl, etc.)
+5. Only output NONE if the question is purely theoretical (e.g., "what is Linux?")
+
+Examples:
+- "what kernel?" → uname -r
+- "disk space?" → df -h
+- "installed packages?" → pacman -Q | wc -l
+- "failed services?" → systemctl --failed
+
+Commands:"#,
+                question
+            )
+        } else {
+            format!(
+                r#"Question: "{}"
+
+Previous command output:
+{}
+
+Need more information to fully answer the question.
+Output additional commands (one per line, no explanations).
+If output above is sufficient, output: DONE
+
+Commands:"#,
+                question, last_output
+            )
+        };
+
+        // Record and send prompt
+        let step = DialogueStep {
+            step_type: StepType::AnnaToLlm,
+            content: command_prompt.clone(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
+        let commands_response = commands_response.trim();
+
+        // Record and send LLM's response
+        let step = DialogueStep {
+            step_type: StepType::LlmCommands,
+            content: commands_response.to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Check for special responses
+        if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
+            break;
+        }
+
+        // Step 2: Parse and execute commands
+        let commands: Vec<&str> = commands_response
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .collect();
+
+        if commands.is_empty() {
+            break;
+        }
+
+        let mut combined_output = String::new();
+        for cmd in &commands {
+            // Security check - reject dangerous commands
+            if is_dangerous_command(cmd) {
+                warn!("Rejected dangerous command: {}", cmd);
+                let step = DialogueStep {
+                    step_type: StepType::CommandExec,
+                    content: format!("{} [REJECTED - dangerous]", cmd),
+                };
+                dialogue.push(step.clone());
+                send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                continue;
+            }
+
+            info!("Executing: {}", cmd);
+            commands_executed.push(cmd.to_string());
+
+            // Record and send command execution
+            let step = DialogueStep {
+                step_type: StepType::CommandExec,
+                content: cmd.to_string(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+            match execute_command(cmd) {
+                Ok(output) => {
+                    let step = DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: output.clone(),
+                    };
+                    dialogue.push(step.clone());
+                    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, output));
+                }
+                Err(e) => {
+                    let error_msg = format!("Error: {}", e);
+                    let step = DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: error_msg.clone(),
+                    };
+                    dialogue.push(step.clone());
+                    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, error_msg));
+                }
+            }
+        }
+
+        last_output = combined_output;
+
+        // Step 3: Check if we have enough information
+        if !last_output.is_empty() {
+            let validate_prompt = format!(
+                r#"The user asked: "{}"
+
+Commands were run and produced this output:
+{}
+
+Based on this output, can you provide a complete answer to the user's question?
+Reply with ONLY one of:
+- "YES" if the output contains enough information to answer the question
+- "NO" if more information is needed"#,
+                question, last_output
+            );
+
+            let step = DialogueStep {
+                step_type: StepType::ValidationPrompt,
+                content: validate_prompt.clone(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+            let validation = ollama::chat_with_timeout(model, &validate_prompt, 30).await?;
+
+            let step = DialogueStep {
+                step_type: StepType::ValidationResponse,
+                content: validation.trim().to_string(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+            if validation.trim().to_uppercase().starts_with("YES") {
+                break;
+            }
+        }
+    }
+
+    // Step 4: Generate final answer with streaming
+    let final_prompt = if last_output.is_empty() {
+        format!(
+            r#"The user asked about their Arch Linux system: "{}"
+
+No commands were needed. Provide a helpful, concise answer based on your knowledge.
+Be direct and practical. If you're not sure, say so."#,
+            question
+        )
+    } else {
+        format!(
+            r#"The user asked about their Arch Linux system: "{}"
+
+The following commands were run and produced this output:
+{}
+
+Based on this output, provide a helpful, concise answer to the user's question.
+Be direct and practical. Cite specific values from the output where relevant."#,
+            question, last_output
+        )
+    };
+
+    let step = DialogueStep {
+        step_type: StepType::FinalPrompt,
+        content: final_prompt.clone(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Stream the final answer token by token
+    let final_answer = ollama::chat_streaming_to_writer(
+        model,
+        &final_prompt,
+        LLM_TIMEOUT_SECS,
+        writer,
+    ).await?;
+
+    // Send the final answer step (for dialogue record)
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: final_answer.trim().to_string(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Send done
+    let result = AskResult {
+        answer: final_answer.trim().to_string(),
+        success: true,
+        iterations,
+        commands_executed,
+        dialogue,
+    };
+    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+
+    Ok(())
 }
 
 /// Execute a shell command and return its output

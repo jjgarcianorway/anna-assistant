@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.840] - 2026-01-07
+
+### Added
+- **Streaming responses** - answers now appear word-by-word as the LLM generates them
+- Real-time display of all dialogue steps as they happen
+- No more "Thinking..." wait - you see progress immediately
+
+### Changed
+- Full command outputs are no longer truncated
+- Each step is displayed as it happens, not all at once at the end
+
 ## [0.0.839] - 2026-01-07
 
 ### Added

@@ -484,3 +484,64 @@ pub async fn chat_single_attempt(model: &str, prompt: &str, timeout_secs: u64) -
 
     Ok(response_text)
 }
+
+/// Streaming LLM request - writes tokens to the provided async writer
+pub async fn chat_streaming_to_writer<W>(
+    model: &str,
+    prompt: &str,
+    timeout_secs: u64,
+    writer: &mut W,
+) -> Result<String>
+where
+    W: tokio::io::AsyncWriteExt + Unpin,
+{
+    use anna_shared::rpc::StreamingResponse;
+    use futures_util::StreamExt;
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(timeout_secs))
+        .build()?;
+
+    let body = serde_json::json!({
+        "model": model,
+        "prompt": prompt,
+        "stream": true
+    });
+
+    let response = client
+        .post(format!("{}/api/generate", OLLAMA_API))
+        .json(&body)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!("Ollama request failed: {}", response.status()));
+    }
+
+    let mut full_response = String::new();
+    let mut stream = response.bytes_stream();
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        let text = String::from_utf8_lossy(&chunk);
+
+        // Ollama streams JSON objects, one per line
+        for line in text.lines() {
+            if line.is_empty() {
+                continue;
+            }
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                if let Some(token) = json.get("response").and_then(|r| r.as_str()) {
+                    full_response.push_str(token);
+                    // Send token to client
+                    let response = StreamingResponse::Token { token: token.to_string() };
+                    let json_str = serde_json::to_string(&response)?;
+                    writer.write_all(format!("{}\n", json_str).as_bytes()).await?;
+                    writer.flush().await?;
+                }
+            }
+        }
+    }
+
+    Ok(full_response)
+}

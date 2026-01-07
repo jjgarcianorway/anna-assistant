@@ -1,6 +1,6 @@
 //! Anna CLI - simple REPL interface to ask questions about Arch Linux.
 
-use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, RpcResponse, StepType};
+use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, RpcResponse, StepType, StreamingResponse};
 use anna_shared::socket_path;
 use anna_shared::status::DaemonStatus;
 use anyhow::{anyhow, Result};
@@ -75,7 +75,7 @@ async fn get_status() -> Result<DaemonStatus> {
     serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
 }
 
-/// Send a question and get the answer
+/// Send a question and get the answer (non-streaming)
 async fn ask(question: &str) -> Result<AskResult> {
     let params = serde_json::json!({ "question": question });
     let response = call(RpcMethod::Ask, Some(params)).await?;
@@ -86,6 +86,180 @@ async fn ask(question: &str) -> Result<AskResult> {
 
     let result = response.result.ok_or_else(|| anyhow!("No result"))?;
     serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
+}
+
+/// Send a question with streaming response
+async fn ask_streaming(question: &str) -> Result<()> {
+    let socket_file = socket_path();
+    let socket_path = std::path::Path::new(&socket_file);
+
+    if !socket_path.exists() {
+        return Err(anyhow!(
+            "Anna daemon not running.\n\
+             The socket at {} does not exist.\n\n\
+             Start the daemon with: sudo systemctl start annad",
+            socket_file
+        ));
+    }
+
+    let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
+        anyhow!(
+            "Cannot connect to Anna daemon: {}\n\n\
+             Try: sudo systemctl restart annad",
+            e
+        )
+    })?;
+
+    // Send request
+    let request = RpcRequest::new(RpcMethod::AskStreaming, Some(serde_json::json!({ "question": question })));
+    let request_json = serde_json::to_string(&request)?;
+
+    timeout(Duration::from_secs(5), async {
+        stream
+            .write_all(format!("{}\n", request_json).as_bytes())
+            .await
+    })
+    .await
+    .map_err(|_| anyhow!("Timeout writing to daemon"))?
+    .map_err(|e| anyhow!("Failed to write to daemon: {}", e))?;
+
+    // Read streaming responses
+    let (reader, _) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+    let mut line = String::new();
+    let mut in_answer = false;
+    let mut iterations = 0;
+
+    loop {
+        line.clear();
+        match timeout(Duration::from_secs(RPC_TIMEOUT_SECS), reader.read_line(&mut line)).await {
+            Ok(Ok(0)) => break, // EOF
+            Ok(Ok(_)) => {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+
+                match serde_json::from_str::<StreamingResponse>(trimmed) {
+                    Ok(StreamingResponse::Step { step }) => {
+                        if in_answer {
+                            // End the answer line
+                            println!();
+                            println_colored("═══════════════════════════════════════", DIM);
+                            in_answer = false;
+                        }
+                        print_step(&step);
+                        if matches!(step.step_type, StepType::FinalPrompt) {
+                            // About to receive tokens
+                            println_colored("═══════════════════════════════════════", DIM);
+                            print_colored("ANSWER: ", GREEN);
+                            io::stdout().flush().ok();
+                            in_answer = true;
+                        }
+                    }
+                    Ok(StreamingResponse::Token { token }) => {
+                        // Print token immediately
+                        print_colored(&token, GREEN);
+                        io::stdout().flush().ok();
+                    }
+                    Ok(StreamingResponse::Done { result }) => {
+                        if in_answer {
+                            println!();
+                            println_colored("═══════════════════════════════════════", DIM);
+                        }
+                        iterations = result.iterations;
+                        break;
+                    }
+                    Ok(StreamingResponse::Error { message }) => {
+                        if in_answer {
+                            println!();
+                        }
+                        print_colored("Error: ", RED);
+                        println!("{}", message);
+                        return Err(anyhow!("{}", message));
+                    }
+                    Err(_) => {
+                        // Ignore parse errors for partial lines
+                    }
+                }
+            }
+            Ok(Err(e)) => {
+                return Err(anyhow!("Failed to read from daemon: {}", e));
+            }
+            Err(_) => {
+                return Err(anyhow!("Request timed out after {}s", RPC_TIMEOUT_SECS));
+            }
+        }
+    }
+
+    println!();
+    println_colored(&format!("({} iterations)", iterations), DIM);
+
+    Ok(())
+}
+
+/// Print a single dialogue step
+fn print_step(step: &anna_shared::rpc::DialogueStep) {
+    match step.step_type {
+        StepType::UserQuestion => {
+            print_colored("USER: ", CYAN);
+            println!("{}", step.content);
+            println!();
+        }
+        StepType::AnnaToLlm => {
+            print_colored("ANNA → LLM: ", YELLOW);
+            println_colored("(asking for commands)", DIM);
+            let lines: Vec<&str> = step.content.lines().collect();
+            if lines.len() > 3 {
+                println_colored(&format!("  {}", lines[0]), DIM);
+                println_colored("  ...", DIM);
+            }
+            println!();
+        }
+        StepType::LlmCommands => {
+            print_colored("LLM → ANNA: ", YELLOW);
+            if step.content == "NONE" || step.content == "DONE" {
+                println_colored(&step.content, DIM);
+            } else {
+                println!("commands to run:");
+                for line in step.content.lines() {
+                    let line = line.trim();
+                    if !line.is_empty() {
+                        print_colored("  $ ", DIM);
+                        println_colored(line, CYAN);
+                    }
+                }
+            }
+            println!();
+        }
+        StepType::CommandExec => {
+            print_colored("EXEC: ", GREEN);
+            println!("{}", step.content);
+        }
+        StepType::CommandOutput => {
+            print_colored("OUTPUT: ", DIM);
+            println!("{}", step.content);
+            println!();
+        }
+        StepType::ValidationPrompt => {
+            print_colored("ANNA → LLM: ", YELLOW);
+            println_colored("(validating output)", DIM);
+            println!();
+        }
+        StepType::ValidationResponse => {
+            print_colored("LLM → ANNA: ", YELLOW);
+            println!("{}", step.content);
+            println!();
+        }
+        StepType::FinalPrompt => {
+            print_colored("ANNA → LLM: ", YELLOW);
+            println_colored("(generating final answer)", DIM);
+            println!();
+        }
+        StepType::FinalAnswer => {
+            // This step comes after streaming, so we don't print it again
+        }
+    }
 }
 
 /// Print colored text
@@ -151,26 +325,14 @@ async fn print_status() {
 
 /// Handle a question
 async fn handle_question(question: &str) {
-    print_colored("Thinking...", DIM);
-    io::stdout().flush().ok();
+    // Clear line and start streaming
+    println!();
 
-    match ask(question).await {
-        Ok(result) => {
-            // Clear the "Thinking..." line
-            print!("\r\x1b[K");
-
-            // Display full dialogue for transparency
-            println!();
-            print_dialogue(&result);
-
-            println!();
-            println_colored(
-                &format!("({} iterations)", result.iterations),
-                DIM,
-            );
+    match ask_streaming(question).await {
+        Ok(()) => {
+            // Done - iterations printed by ask_streaming
         }
         Err(e) => {
-            print!("\r\x1b[K");
             print_colored("Error: ", RED);
             println!("{}", e);
         }
@@ -219,13 +381,7 @@ fn print_dialogue(result: &AskResult) {
             }
             StepType::CommandOutput => {
                 print_colored("OUTPUT: ", DIM);
-                // Truncate long output for display
-                let output = if step.content.len() > 500 {
-                    format!("{}...(truncated)", &step.content[..500])
-                } else {
-                    step.content.clone()
-                };
-                println!("{}", output);
+                println!("{}", step.content);
                 println!();
             }
             StepType::ValidationPrompt => {
