@@ -1,0 +1,19 @@
+# Anna Assistant — Changelog
+
+This file is automatically maintained by tools/commit-if-green.sh.
+Each commit adds one line: version, timestamp, and commit summary.
+
+v0.5.1 — 2025-10-24T06:18:03Z — Milestone 0: Add guardrails infrastructure
+v0.5.2 — 2025-10-24T06:20:30Z — Milestone 1: Restore annactl doctor perms command
+v0.5.3 — 2025-10-24T06:23:16Z — Milestone 2: Add numbered advice (#N) and numeric selectors
+v0.5.4 — 2025-10-24T06:25:58Z — Milestone 3: De-duplicate advice and prepare auto-clear infrastructure
+v0.5.5 — 2025-10-24T06:50:33Z — Milestone 4: Final polish - numeric selector tests and permission error handling
+v0.6.0 — 2025-10-24T[TBD] — Milestone 5: Version-aware installer, intelligent uninstaller, multiuser support, transparent messaging
+v0.6.1 — 2025-10-24T[TBD] — Milestone 6: Self-update detection, auto-update service, rollback mechanism, update policy management
+v0.6.2 — 2025-10-24T[TBD] — Fix user-mode path scoping in doctor & quickcheck; installer shows version & compile steps
+v0.6.4 — 2025-10-24T[TBD] — UI preview, quickscan --auto, batch apply (--all/--dry-run/--force), unified banner, and full AnnaPaths usage in advice/quickscan
+v0.6.5 — 2025-10-24T[TBD] — S1 Milestone: System-mode default, RPC-based reads, per-user isolation, Unix socket at /run/anna/annad.sock, systemd service, updated installer/uninstaller
+v0.6.6 — 2025-10-24T[TBD] — S2 Milestone: Policy-gated apply & notifications; per-user policies at /etc/anna/policy.d; ApplyRequest RPC with privilege delegation; notification hooks (desktop, log, broadcast); doctor perms via RPC; auto-clear on successful apply
+v0.6.7 — 2025-10-24T[TBD] — S2.1: Installer and system mode hardening: default to system mode; anna group and socket perms; per-user data under /var/lib/anna/users/<uid>; doctor perms shows mode-aware diagnostics; post-install quickcheck via RPC; improved uninstaller with backup to ~/Documents/anna_backup/<timestamp>/; --system/--user/--repair/--no-compile flags; --purge/--keep-data flags for uninstaller
+v0.6.8 — 2025-10-24T[TBD] — S3.0: Quickscan over RPC (per-user). Removed SIGUSR1 flow. annactl quickscan now uses RPC for immediate execution with structured response
+v0.6.9 — 2025-10-24T17:46:00Z — S3.1: User-mode RPC fully operational. Created centralized paths module for mode-aware path resolution; refactored all subsystems (advice, persona, quickscan, signals) to use dynamic paths; daemon detects mode early and initializes all paths accordingly; data in ~/.anna/data/, config in ~/.anna/config/, socket in $XDG_RUNTIME_DIR/anna/annad.sock (fallback ~/.anna/run/); system mode uses /var/lib/anna/, /etc/anna/, /run/anna/; mode detection via ANNA_MODE env var or auto-detect (system paths exist or running as root); all hardcoded /var/lib/anna paths eliminated

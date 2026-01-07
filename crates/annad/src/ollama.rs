@@ -1,19 +1,9 @@
 //! Ollama management - install, run, and interact with Ollama.
-//! v0.0.143: Added streaming support for word-by-word output.
-//! v0.0.158: Streaming functions extracted to ollama_streaming.rs.
-//! v0.0.825: Model management extracted to ollama_models.rs.
 
-use anna_shared::status::OllamaStatus;
 use anyhow::{anyhow, Result};
 use std::process::Command;
 use std::time::Duration;
 use tracing::{info, warn};
-
-// Re-export streaming functions from dedicated module (v0.0.158)
-pub use crate::ollama_streaming::{chat_streaming, chat_streaming_with_retry};
-
-// Re-export model management functions (v0.0.825)
-pub use crate::ollama_models::{benchmark, delete_model, has_model, list_models, pull_model};
 
 const OLLAMA_API: &str = "http://127.0.0.1:11434";
 
@@ -25,41 +15,6 @@ fn ollama_cmd() -> Command {
     cmd
 }
 
-/// Detect the system's package manager
-fn detect_package_manager() -> Option<&'static str> {
-    // Check for pacman (Arch, Manjaro, EndeavourOS)
-    if Command::new("which")
-        .arg("pacman")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
-        return Some("pacman");
-    }
-
-    // Check for apt (Debian, Ubuntu)
-    if Command::new("which")
-        .arg("apt")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
-        return Some("apt");
-    }
-
-    // Check for dnf (Fedora)
-    if Command::new("which")
-        .arg("dnf")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
-    {
-        return Some("dnf");
-    }
-
-    None
-}
-
 /// Check if Ollama is installed
 pub fn is_installed() -> bool {
     Command::new("which")
@@ -69,110 +24,20 @@ pub fn is_installed() -> bool {
         .unwrap_or(false)
 }
 
-/// Clean up manually installed Ollama files that conflict with pacman packages
-/// v0.0.820: Required because curl installer leaves files that conflict with pacman
-fn cleanup_manual_ollama_install() {
-    use std::path::Path;
-
-    // Files/dirs left by the curl installer that conflict with pacman
-    let manual_install_paths = [
-        "/usr/bin/ollama",
-        "/usr/lib/ollama",
-        "/usr/lib/systemd/system/ollama.service",
-        "/usr/lib/sysusers.d/ollama.conf",
-        "/usr/lib/tmpfiles.d/ollama.conf",
-        "/usr/share/licenses/ollama",
-        "/usr/share/ollama",
-    ];
-
-    // Check if ollama binary exists but isn't owned by pacman (manual install)
-    let is_manual = Command::new("pacman")
-        .args(["-Qo", "/usr/bin/ollama"])
-        .output()
-        .map(|o| !o.status.success())
-        .unwrap_or(false);
-
-    if !is_manual && Path::new("/usr/bin/ollama").exists() {
-        // Owned by pacman, don't touch
-        return;
-    }
-
-    info!("Cleaning up manually installed Ollama files...");
-
-    // Stop service first
-    let _ = Command::new("systemctl").args(["stop", "ollama"]).output();
-    let _ = Command::new("pkill").args(["-9", "ollama"]).output();
-    std::thread::sleep(std::time::Duration::from_secs(1));
-
-    for path in &manual_install_paths {
-        let p = Path::new(path);
-        if p.exists() {
-            if p.is_dir() {
-                if let Err(e) = std::fs::remove_dir_all(p) {
-                    warn!("Failed to remove {}: {}", path, e);
-                } else {
-                    info!("Removed {}", path);
-                }
-            } else if let Err(e) = std::fs::remove_file(p) {
-                warn!("Failed to remove {}: {}", path, e);
-            } else {
-                info!("Removed {}", path);
-            }
-        }
-    }
-}
-
-/// Install Ollama using the system package manager
-/// v0.0.820: Clean up manual install first, then install via pacman
+/// Install Ollama using pacman (Arch Linux)
 pub async fn install() -> Result<()> {
-    info!("Installing Ollama...");
+    info!("Installing Ollama via pacman...");
 
-    let pkg_manager = detect_package_manager();
+    let output = Command::new("pacman")
+        .args(["-S", "--noconfirm", "--needed", "ollama"])
+        .output()?;
 
-    // v0.0.820: Clean up manual install files that conflict with pacman
-    if pkg_manager == Some("pacman") {
-        cleanup_manual_ollama_install();
-    }
-
-    let result = match pkg_manager {
-        Some("pacman") => {
-            info!("Using pacman to install Ollama");
-            // v0.0.824: Use --overwrite to handle any file conflicts
-            Command::new("pacman")
-                .args(["-S", "--noconfirm", "--overwrite", "*", "ollama"])
-                .output()
-        }
-        Some("apt") => {
-            info!("Using apt to install Ollama");
-            // For apt, we need to add the repo first or use the script
-            Command::new("bash")
-                .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
-                .output()
-        }
-        Some("dnf") => {
-            info!("Using dnf to install Ollama");
-            Command::new("bash")
-                .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
-                .output()
-        }
-        _ => {
-            info!("Using official installer script");
-            Command::new("bash")
-                .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
-                .output()
-        }
-    };
-
-    match result {
-        Ok(output) if output.status.success() => {
-            info!("Ollama installed successfully");
-            Ok(())
-        }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(anyhow!("Failed to install Ollama: {}", stderr))
-        }
-        Err(e) => Err(anyhow!("Failed to run installer: {}", e)),
+    if output.status.success() {
+        info!("Ollama installed successfully");
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(anyhow!("Failed to install Ollama: {}", stderr))
     }
 }
 
@@ -226,41 +91,59 @@ pub async fn start_service() -> Result<()> {
     Err(anyhow!("Failed to start Ollama service"))
 }
 
-/// Get Ollama version
-pub async fn get_version() -> Option<String> {
-    let output = ollama_cmd().arg("--version").output().ok()?;
+/// List available models
+pub async fn list_models() -> Result<Vec<String>> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+
+    let response = client
+        .get(format!("{}/api/tags", OLLAMA_API))
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!("Failed to list models: {}", response.status()));
+    }
+
+    let json: serde_json::Value = response.json().await?;
+    let models = json
+        .get("models")
+        .and_then(|m| m.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(models)
+}
+
+/// Pull a model
+pub async fn pull_model(model: &str) -> Result<()> {
+    info!("Pulling model: {}", model);
+
+    let output = ollama_cmd()
+        .args(["pull", model])
+        .output()?;
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        Some(stdout.trim().to_string())
+        info!("Model {} pulled successfully", model);
+        Ok(())
     } else {
-        None
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(anyhow!("Failed to pull model: {}", stderr))
     }
 }
 
-/// Get full Ollama status
-pub async fn get_status() -> OllamaStatus {
-    OllamaStatus {
-        installed: is_installed(),
-        running: is_running().await,
-        version: get_version().await,
-    }
-}
-
-/// Send a chat request to Ollama (default timeout)
-pub async fn chat(model: &str, prompt: &str) -> Result<String> {
-    chat_with_timeout(model, prompt, 120).await
-}
-
-/// Send a chat request to Ollama with explicit timeout and retry logic
-/// v0.0.140: Added retry with exponential backoff for reliability
+/// Send a chat request to Ollama with timeout and retry
 pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
     const MAX_RETRIES: u32 = 2;
     let mut last_error = None;
 
     for attempt in 0..=MAX_RETRIES {
         if attempt > 0 {
-            // Exponential backoff: 500ms, 1000ms
             let delay_ms = 500 * (1 << (attempt - 1));
             info!("LLM retry {} after {}ms delay", attempt, delay_ms);
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
@@ -275,10 +158,10 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
         }
     }
 
-    Err(last_error.unwrap_or_else(|| anyhow!("LLM request failed after {} retries", MAX_RETRIES)))
+    Err(last_error.unwrap_or_else(|| anyhow!("LLM request failed after retries")))
 }
 
-/// Single LLM request attempt (public for use by ollama_streaming)
+/// Single LLM request attempt
 pub async fn chat_single_attempt(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))

@@ -1,0 +1,19 @@
+name: harden_ssh
+risk: medium
+description: Disable password authentication and enforce key-based login
+precheck:
+  - "sshd -t"
+  - "grep -q '^PasswordAuthentication\s\+yes' /etc/ssh/sshd_config || test -f /run/assistant/force_patch"
+actions:
+  - backup: /etc/ssh/sshd_config
+  - patch_file:
+      path: /etc/ssh/sshd_config
+      replace:
+        - { find: '^#?PasswordAuthentication\s+yes', with: 'PasswordAuthentication no' }
+        - { find: '^#?ChallengeResponseAuthentication\s+yes', with: 'ChallengeResponseAuthentication no' }
+  - "systemctl reload sshd"
+postcheck:
+  - "sshd -t"
+rollback:
+  - restore: /etc/ssh/sshd_config
+  - "systemctl reload sshd"

@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo fmt:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(cargo build:*)",
+      "Bash(systemctl status:*)",
+      "Bash(sudo scripts/install_anna.sh:*)",
+      "Bash(chmod:*)",
+      "Bash(bash -n:*)",
+      "Bash(annactl env dump:*)",
+      "Bash(annactl doctor:*)",
+      "Bash(annactl status:*)",
+      "Bash(systemctl:*)",
+      "Read(//home/lhoqvso/.anna/run/**)",
+      "Bash(journalctl:*)",
+      "Bash(~/.local/bin/annad)",
+      "Bash(awk:*)",
+      "Bash(annactl quickscan:*)",
+      "Bash(annactl advice:*)",
+      "Read(//home/lhoqvso/.anna/**)",
+      "Read(//run/user/1000/anna/**)",
+      "Bash(annactl persona debug:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

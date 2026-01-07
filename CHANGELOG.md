@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.833] - 2026-01-07
+
+### Changed - Complete Architecture Simplification
+
+**Anna is now a simple LLM-powered command executor.**
+
+The entire codebase has been stripped down to its core functionality:
+
+#### Removed (~200 modules deleted)
+- Service desk, specialists, recipes, learning loop
+- Theatre rendering, progress tracking, stats display
+- Deterministic handlers, probes, routing stages
+- Recipe engine, similarity matching, query classification
+- Ticket system, feedback handlers, greeting generators
+- All complex UI components
+
+#### What Remains
+
+**anna-shared (5 files):**
+- `lib.rs` - Core exports, socket path, version
+- `rpc.rs` - Simple RPC types (Ask, Status)
+- `status.rs` - DaemonStatus, DaemonState
+- `update_ledger.rs` - Update tracking
+- `version.rs` - Version comparison
+
+**annactl (1 file):**
+- Simple REPL client
+- Commands: question, status, help, quit
+
+**annad (9 files):**
+- Auto-update from GitHub (preserved)
+- Ollama management (install/start/chat)
+- Core loop: Question -> LLM commands -> Execute -> Validate -> Iterate
+
+#### How It Works Now
+1. User asks question about Arch Linux
+2. LLM generates shell commands to answer
+3. Commands are executed (dangerous ones filtered)
+4. Output sent to LLM for validation
+5. Iterate until valid answer (max 5 times)
+6. Return answer to user
+
 ## [0.0.832] - 2026-01-06
 
 ### Fixed - LLM Status Display

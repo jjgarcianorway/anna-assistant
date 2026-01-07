@@ -1,0 +1,38 @@
+[Unit]
+Description=Anna System Assistant Daemon
+Documentation=https://github.com/anthropics/anna
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/annad
+Restart=always
+RestartSec=3
+User=root
+Group=anna
+
+# Runtime directory for socket
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0770
+
+# Security restrictions
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/anna /run/anna
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+
+# Resource limits
+LimitNOFILE=65536
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=annad
+
+[Install]
+WantedBy=multi-user.target

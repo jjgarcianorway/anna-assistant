@@ -1,0 +1,9 @@
+# Default policy
+autonomy:
+  security: confirm
+  performance: confirm
+  reliability: confirm
+  qol: auto
+quiet_hours:
+  start: "22:00"
+  end: "07:00"

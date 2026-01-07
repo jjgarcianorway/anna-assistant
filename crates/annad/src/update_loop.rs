@@ -1,7 +1,4 @@
 //! Update check loop for automatic updates.
-//!
-//! Extracted from server.rs (v0.0.159) for modularization.
-//! Periodically checks GitHub for new versions and performs auto-updates.
 
 use anna_shared::status::UpdateCheckState;
 use anna_shared::update_ledger::{
@@ -167,11 +164,10 @@ async fn handle_failed_check(
     ledger.push(entry);
     let _ = save_update_ledger(&ledger);
 
-    // v0.0.72: On failure, preserve last known version but mark as failed
+    // Update state
     let mut state = state.write().await;
     let now = Utc::now();
     state.update.last_check_at = Some(now);
     state.update.next_check_at = Some(now + chrono::Duration::seconds(check_interval as i64));
     state.update.check_state = UpdateCheckState::Failed;
-    // NOTE: We do NOT clear latest_version - preserve last known good value
 }
