@@ -91,22 +91,31 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
     for result in &results {
         article_titles.push(format!("{} (score: {:.2})", result.article.title, result.score));
 
-        // Extract commands relevant to the question
-        let commands = wiki::extract::extract_relevant_commands(
-            &result.article.content,
-            question,
-            &result.article.title,
-        );
+        // Parse article into sections
+        let sections = wiki::sections::parse_sections(&result.article.content);
 
-        for cmd in commands {
-            if !all_commands.iter().any(|c: &wiki::ExtractedCommand| c.command == cmd.command) {
-                all_commands.push(cmd);
+        // Find relevant sections for this query
+        let relevant_sections = wiki::sections::find_relevant_sections(&sections, question, 2);
+
+        // Extract commands from relevant sections only
+        for section in &relevant_sections {
+            let commands = wiki::extract::extract_relevant_commands(
+                &section.content,
+                question,
+                &result.article.title,
+            );
+
+            for cmd in commands {
+                if !all_commands.iter().any(|c: &wiki::ExtractedCommand| c.command == cmd.command) {
+                    all_commands.push(cmd);
+                }
             }
         }
 
-        // Add relevant section to context
-        if let Some(section) = wiki::search::find_relevant_section(&result.article, question) {
-            wiki_context.push_str(&format!("\n--- From {} ---\n{}\n", result.article.title, section));
+        // Add relevant sections to context
+        let section_context = wiki::sections::format_sections_for_context(&relevant_sections, &result.article.title);
+        if !section_context.is_empty() {
+            wiki_context.push_str(&section_context);
         }
     }
 

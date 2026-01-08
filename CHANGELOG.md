@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.852] - 2026-01-08
+
+### Added
+- **Section-aware wiki retrieval** - Articles parsed into sections by headers
+- Wiki now extracts RELEVANT sections (e.g., "HiDPI" for scaling queries) instead of random paragraphs
+- Commands extracted only from relevant sections, reducing noise
+
+### Improved
+- GDM scaling queries now find the actual HiDPI/scaling section instead of keyboard layout sections
+- More focused wiki context sent to LLM = better quality answers
+
 ## [0.0.851] - 2026-01-08
 
 ### Fixed

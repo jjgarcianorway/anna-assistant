@@ -23,6 +23,7 @@ pub mod embeddings;
 pub mod extract;
 pub mod index;
 pub mod search;
+pub mod sections;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
