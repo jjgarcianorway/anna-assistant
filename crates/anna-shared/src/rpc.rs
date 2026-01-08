@@ -122,6 +122,12 @@ pub struct DialogueStep {
 pub enum StepType {
     /// User's original question
     UserQuestion,
+    /// Searching Arch Wiki
+    WikiSearch,
+    /// Wiki search results
+    WikiResults,
+    /// Commands extracted from wiki
+    WikiCommands,
     /// Prompt sent to LLM asking for commands
     AnnaToLlm,
     /// LLM's response with commands
@@ -138,4 +144,8 @@ pub enum StepType {
     FinalPrompt,
     /// Final answer from LLM
     FinalAnswer,
+    /// Clarification question for user
+    ClarificationQuestion,
+    /// User's clarification response
+    ClarificationResponse,
 }

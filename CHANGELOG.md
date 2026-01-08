@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.845] - 2026-01-08
+
+### Added
+- **Arch Wiki RAG integration** - Anna now searches the Arch Wiki for relevant information
+  - Downloads wiki articles on first startup (arch-wiki-docs or API fallback)
+  - Keyword and semantic search using Ollama embeddings
+  - Extracts commands from wiki articles
+  - Wiki context included in final answers
+- New step types displayed: WikiSearch, WikiResults, WikiCommands
+- Persistent configuration module (`~/.anna/config.toml`)
+- Helpers tracking module - tracks packages Anna installs for cleanup
+
+### Improved
+- Better command selection - uses wiki commands when available
+- More grounded answers with wiki citations
+
 ## [0.0.844] - 2026-01-07
 
 ### Improved

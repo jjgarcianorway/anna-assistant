@@ -1,10 +1,13 @@
-//! Shared types for Anna - minimal version.
-//! Only contains essential types for daemon-client communication.
+//! Shared types for Anna.
+//! Contains types for daemon-client communication and shared functionality.
 
+pub mod config;
+pub mod helpers;
 pub mod rpc;
 pub mod status;
-pub mod version;
 pub mod update_ledger;
+pub mod version;
+pub mod wiki;
 
 // Socket path
 pub fn socket_path() -> String {

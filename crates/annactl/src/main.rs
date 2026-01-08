@@ -208,12 +208,12 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
         }
         StepType::AnnaToLlm => {
             print_colored("ANNA → LLM: ", YELLOW);
-            println_colored("(asking for commands)", DIM);
-            let lines: Vec<&str> = step.content.lines().collect();
-            if lines.len() > 3 {
-                println_colored(&format!("  {}", lines[0]), DIM);
-                println_colored("  ...", DIM);
+            println!("(command selection prompt)");
+            println_colored("┌─────────────────────────────────────────", DIM);
+            for line in step.content.lines() {
+                println_colored(&format!("│ {}", line), DIM);
             }
+            println_colored("└─────────────────────────────────────────", DIM);
             println!();
         }
         StepType::LlmCommands => {
@@ -243,7 +243,12 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
         }
         StepType::ValidationPrompt => {
             print_colored("ANNA → LLM: ", YELLOW);
-            println_colored("(validating output)", DIM);
+            println!("(validation prompt)");
+            println_colored("┌─────────────────────────────────────────", DIM);
+            for line in step.content.lines() {
+                println_colored(&format!("│ {}", line), DIM);
+            }
+            println_colored("└─────────────────────────────────────────", DIM);
             println!();
         }
         StepType::ValidationResponse => {
@@ -253,11 +258,52 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
         }
         StepType::FinalPrompt => {
             print_colored("ANNA → LLM: ", YELLOW);
-            println_colored("(generating final answer)", DIM);
+            println!("(final answer prompt)");
+            println_colored("┌─────────────────────────────────────────", DIM);
+            for line in step.content.lines() {
+                println_colored(&format!("│ {}", line), DIM);
+            }
+            println_colored("└─────────────────────────────────────────", DIM);
             println!();
         }
         StepType::FinalAnswer => {
             // This step comes after streaming, so we don't print it again
+        }
+        StepType::WikiSearch => {
+            print_colored("ANNA → WIKI: ", MAGENTA);
+            println!("searching Arch Wiki...");
+            println_colored(&format!("  query: {}", step.content), DIM);
+            println!();
+        }
+        StepType::WikiResults => {
+            print_colored("WIKI → ANNA: ", MAGENTA);
+            println!("found articles:");
+            for line in step.content.lines() {
+                println_colored(&format!("  • {}", line), DIM);
+            }
+            println!();
+        }
+        StepType::WikiCommands => {
+            print_colored("WIKI: ", MAGENTA);
+            println!("extracted commands:");
+            for line in step.content.lines() {
+                let line = line.trim();
+                if !line.is_empty() {
+                    print_colored("  $ ", DIM);
+                    println_colored(line, CYAN);
+                }
+            }
+            println!();
+        }
+        StepType::ClarificationQuestion => {
+            print_colored("ANNA → USER: ", YELLOW);
+            println!("{}", step.content);
+            println!();
+        }
+        StepType::ClarificationResponse => {
+            print_colored("USER → ANNA: ", CYAN);
+            println!("{}", step.content);
+            println!();
         }
     }
 }
@@ -275,6 +321,7 @@ const GREEN: &str = "\x1b[32m";
 const YELLOW: &str = "\x1b[33m";
 const RED: &str = "\x1b[31m";
 const CYAN: &str = "\x1b[36m";
+const MAGENTA: &str = "\x1b[35m";
 const DIM: &str = "\x1b[2m";
 const BOLD: &str = "\x1b[1m";
 
@@ -350,13 +397,12 @@ fn print_dialogue(result: &AskResult) {
             }
             StepType::AnnaToLlm => {
                 print_colored("ANNA → LLM: ", YELLOW);
-                println_colored("(asking for commands)", DIM);
-                // Show abbreviated prompt
-                let lines: Vec<&str> = step.content.lines().collect();
-                if lines.len() > 3 {
-                    println_colored(&format!("  {}", lines[0]), DIM);
-                    println_colored("  ...", DIM);
+                println!("(command selection prompt)");
+                println_colored("┌─────────────────────────────────────────", DIM);
+                for line in step.content.lines() {
+                    println_colored(&format!("│ {}", line), DIM);
                 }
+                println_colored("└─────────────────────────────────────────", DIM);
                 println!();
             }
             StepType::LlmCommands => {
@@ -386,7 +432,12 @@ fn print_dialogue(result: &AskResult) {
             }
             StepType::ValidationPrompt => {
                 print_colored("ANNA → LLM: ", YELLOW);
-                println_colored("(validating output)", DIM);
+                println!("(validation prompt)");
+                println_colored("┌─────────────────────────────────────────", DIM);
+                for line in step.content.lines() {
+                    println_colored(&format!("│ {}", line), DIM);
+                }
+                println_colored("└─────────────────────────────────────────", DIM);
                 println!();
             }
             StepType::ValidationResponse => {
@@ -396,7 +447,12 @@ fn print_dialogue(result: &AskResult) {
             }
             StepType::FinalPrompt => {
                 print_colored("ANNA → LLM: ", YELLOW);
-                println_colored("(generating final answer)", DIM);
+                println!("(final answer prompt)");
+                println_colored("┌─────────────────────────────────────────", DIM);
+                for line in step.content.lines() {
+                    println_colored(&format!("│ {}", line), DIM);
+                }
+                println_colored("└─────────────────────────────────────────", DIM);
                 println!();
             }
             StepType::FinalAnswer => {
@@ -405,6 +461,42 @@ fn print_dialogue(result: &AskResult) {
                 println!();
                 println_colored(&step.content, GREEN);
                 println_colored("═══════════════════════════════════════", DIM);
+            }
+            StepType::WikiSearch => {
+                print_colored("ANNA → WIKI: ", MAGENTA);
+                println!("searching Arch Wiki...");
+                println_colored(&format!("  query: {}", step.content), DIM);
+                println!();
+            }
+            StepType::WikiResults => {
+                print_colored("WIKI → ANNA: ", MAGENTA);
+                println!("found articles:");
+                for line in step.content.lines() {
+                    println_colored(&format!("  • {}", line), DIM);
+                }
+                println!();
+            }
+            StepType::WikiCommands => {
+                print_colored("WIKI: ", MAGENTA);
+                println!("extracted commands:");
+                for line in step.content.lines() {
+                    let line = line.trim();
+                    if !line.is_empty() {
+                        print_colored("  $ ", DIM);
+                        println_colored(line, CYAN);
+                    }
+                }
+                println!();
+            }
+            StepType::ClarificationQuestion => {
+                print_colored("ANNA → USER: ", YELLOW);
+                println!("{}", step.content);
+                println!();
+            }
+            StepType::ClarificationResponse => {
+                print_colored("USER → ANNA: ", CYAN);
+                println!("{}", step.content);
+                println!();
             }
         }
     }

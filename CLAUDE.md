@@ -73,3 +73,58 @@ Every new version must also:
 - `VISION.md` - Full product vision (authoritative)
 - `ROADMAP.md` - Planned features by phase
 - `FEATURES.md` - Implemented features
+
+## How annactl Works (The Pipeline)
+
+annactl is a grounded AI assistant - it NEVER invents facts. Every answer comes from real command output.
+
+### The Query Flow
+```
+USER asks question
+    ↓
+ANNA → LLM: "What commands should I run to answer this?"
+    ↓
+LLM → ANNA: Returns list of commands (e.g., `df -h`, `free -h`)
+    ↓
+ANNA executes commands, captures output
+    ↓
+ANNA → LLM: "Is this output sufficient to answer the question?" (YES/NO)
+    ↓
+If NO: Loop back, ask for more commands (up to N iterations)
+If YES or DONE: Proceed to answer
+    ↓
+ANNA → LLM: "Generate final answer based on this command output"
+    ↓
+ANSWER displayed to user
+```
+
+### Key Behaviors
+- **Grounded**: All answers based on actual command output
+- **Iterative**: Will run multiple command rounds if needed (shows "N iterations")
+- **Validates**: LLM checks if output is sufficient before answering
+- **Streaming**: Answer streams word-by-word in real-time
+
+### Testing annactl
+```bash
+# Check status
+./target/release/annactl status
+
+# Ask questions
+./target/release/annactl "what is my disk usage?"
+./target/release/annactl "how much RAM do I have?"
+./target/release/annactl "what kernel am I running?"
+./target/release/annactl "what services are failing?"
+./target/release/annactl "how do I install neovim?"
+```
+
+### What to Evaluate When Testing
+1. **Correct commands chosen** - Did the LLM pick appropriate commands?
+2. **Grounded answer** - Does the answer match the command output?
+3. **Iteration count** - Did it need multiple rounds? Why?
+4. **Answer quality** - Clear, accurate, helpful?
+5. **Edge cases** - Empty output, errors, "how to" questions
+
+## Current Testing Phase
+
+We are testing anna with 100 Arch Linux questions to evaluate and improve the system.
+No new functionality needed - focus on testing existing pipeline and identifying issues.

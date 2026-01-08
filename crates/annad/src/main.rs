@@ -1,12 +1,16 @@
 //! Anna daemon - simplified version.
 
 use anna_shared::VERSION;
+use anna_shared::wiki;
 use anyhow::Result;
-use tracing::{info, Level};
+use tracing::{info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use annad::server::Server;
 use annad::state::SharedState;
+
+/// Ollama URL for embeddings
+const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,6 +43,15 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber)?;
 
     info!("Starting annad v{}", VERSION);
+
+    // Initialize wiki in background (don't block daemon startup)
+    tokio::spawn(async {
+        info!("Initializing wiki knowledge base...");
+        match wiki::init_wiki(OLLAMA_URL).await {
+            Ok(()) => info!("Wiki initialized successfully"),
+            Err(e) => warn!("Wiki initialization failed (will use LLM-only mode): {}", e),
+        }
+    });
 
     // Create shared state
     let state = SharedState::new();
