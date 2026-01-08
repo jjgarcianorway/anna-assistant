@@ -10,10 +10,11 @@
 //! 7. If valid answer, return to user; otherwise iterate
 //! 8. Learn from successful interactions
 
-use anna_shared::memory::{Experience, ExperienceContext, Memory};
+use anna_shared::memory::{ExperienceContext, Memory};
 use anna_shared::profile::{self, SystemProfile};
 use anna_shared::recipe::{Recipe, RecipeBook};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
+use anna_shared::user_context;
 use anna_shared::wiki;
 use anyhow::{anyhow, Result};
 use std::process::Command;
@@ -1127,14 +1128,56 @@ fn unescape_command(cmd: &str) -> String {
         .replace("\\`", "`")
 }
 
-/// Execute a shell command and return its output
+/// Execute a shell command and return its output.
+///
+/// Commands are executed in the appropriate context:
+/// - User-specific commands (~/*, .config, etc.) run as the logged-in user
+/// - Root-required commands (systemctl start, pacman -S) run as root
+/// - General commands run as the logged-in user by default
 fn execute_command(cmd: &str) -> Result<String> {
     // Unescape any shell metacharacters the LLM may have escaped
     let cmd = unescape_command(cmd);
 
+    // Determine execution context
+    let needs_root = user_context::needs_root(&cmd);
+    let user_ctx = user_context::get_user_context();
+
+    // Expand ~ to user's home if we have user context
+    let cmd = if let Some(ctx) = user_ctx {
+        ctx.expand_home(&cmd)
+    } else {
+        cmd
+    };
+
+    let result = if needs_root {
+        // Execute as root (current daemon user)
+        debug!("Executing as root: {}", cmd);
+        execute_as_root(&cmd)
+    } else if let Some(ctx) = user_ctx {
+        // Execute as the logged-in user
+        debug!("Executing as user {}: {}", ctx.username, cmd);
+        ctx.execute(&cmd)
+    } else {
+        // No user context, fall back to root
+        debug!("No user context, executing as root: {}", cmd);
+        execute_as_root(&cmd)
+    };
+
+    // Truncate very long output
+    let mut result = result?;
+    if result.len() > 4000 {
+        result.truncate(4000);
+        result.push_str("\n... (output truncated)");
+    }
+
+    Ok(result)
+}
+
+/// Execute a command as root (the daemon's user)
+fn execute_as_root(cmd: &str) -> Result<String> {
     let output = Command::new("sh")
         .arg("-c")
-        .arg(&cmd)
+        .arg(cmd)
         .output()
         .map_err(|e| anyhow!("Failed to execute: {}", e))?;
 
@@ -1147,12 +1190,6 @@ fn execute_command(cmd: &str) -> Result<String> {
             result.push('\n');
         }
         result.push_str(&format!("(stderr: {})", stderr.trim()));
-    }
-
-    // Truncate very long output
-    if result.len() > 4000 {
-        result.truncate(4000);
-        result.push_str("\n... (output truncated)");
     }
 
     Ok(result)

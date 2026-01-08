@@ -7,6 +7,7 @@ use anyhow::Result;
 use std::process::Command;
 
 use super::*;
+use crate::user_context;
 
 /// Perform a full system scan and return a profile
 pub fn scan_system() -> Result<SystemProfile> {
@@ -469,7 +470,29 @@ fn detect_shell() -> Option<String> {
 
 /// Detect preferred editor
 fn detect_editor() -> Option<String> {
-    // Check EDITOR and VISUAL environment variables
+    // Get user context to check their environment
+    let user_ctx = user_context::get_user_context();
+
+    // Check user's EDITOR and VISUAL environment variables
+    if let Some(ctx) = user_ctx {
+        // Try to get user's EDITOR variable
+        if let Ok(output) = ctx.execute("echo $EDITOR") {
+            let editor = output.trim();
+            if !editor.is_empty() && editor != "$EDITOR" {
+                let editor_name = editor.rsplit('/').next().unwrap_or(editor);
+                return Some(editor_name.to_string());
+            }
+        }
+        if let Ok(output) = ctx.execute("echo $VISUAL") {
+            let editor = output.trim();
+            if !editor.is_empty() && editor != "$VISUAL" {
+                let editor_name = editor.rsplit('/').next().unwrap_or(editor);
+                return Some(editor_name.to_string());
+            }
+        }
+    }
+
+    // Fallback: check daemon's env vars
     for var in &["EDITOR", "VISUAL"] {
         if let Ok(editor) = std::env::var(var) {
             let editor_name = editor.rsplit('/').next().unwrap_or(&editor);
@@ -568,29 +591,25 @@ fn detect_display_manager() -> Option<String> {
 
 /// Detect audio system
 fn detect_audio_system() -> Option<String> {
-    // Check for PipeWire
-    if let Ok(output) = Command::new("systemctl")
-        .args(["--user", "is-active", "pipewire.service"])
-        .output()
-    {
-        let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if status == "active" {
-            return Some("pipewire".to_string());
+    // Get user context for checking user services
+    let user_ctx = user_context::get_user_context();
+
+    // Check for PipeWire using user context if available
+    if let Some(ctx) = user_ctx {
+        // Run systemctl --user as the actual user
+        if let Ok(output) = ctx.execute("systemctl --user is-active pipewire.service 2>/dev/null") {
+            if output.trim() == "active" {
+                return Some("pipewire".to_string());
+            }
+        }
+        if let Ok(output) = ctx.execute("systemctl --user is-active pulseaudio.service 2>/dev/null") {
+            if output.trim() == "active" {
+                return Some("pulseaudio".to_string());
+            }
         }
     }
 
-    // Check for PulseAudio
-    if let Ok(output) = Command::new("systemctl")
-        .args(["--user", "is-active", "pulseaudio.service"])
-        .output()
-    {
-        let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if status == "active" {
-            return Some("pulseaudio".to_string());
-        }
-    }
-
-    // Check running processes
+    // Fallback: Check running processes (works regardless of user)
     if let Ok(output) = Command::new("sh")
         .arg("-c")
         .arg("pgrep -x pipewire")

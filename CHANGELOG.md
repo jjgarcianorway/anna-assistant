@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.869] - 2026-01-08
+
+### Added
+- **User Context System** - Commands now run as the logged-in user
+  - New `user_context` module detects real logged-in user via loginctl
+  - Commands execute as user by default (not root)
+  - Only root-required commands (systemctl start, pacman -S) run as root
+  - User-specific commands (~/, .config) properly expand paths
+  - Fixes: username, groups, home dir size, package queries
+
+### Fixed
+- **Massive accuracy improvements** from running commands as user:
+  - Package detection now works (flatpak, zsh, snapper, rust, mesa)
+  - User's groups and home directory correctly reported
+  - User services (pipewire, pulseaudio) detected properly
+  - Editor detection uses user's EDITOR/VISUAL env vars
+  - Home directory paths resolve correctly
+
 ## [0.0.868] - 2026-01-08
 
 ### Fixed
