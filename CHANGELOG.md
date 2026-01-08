@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.866] - 2026-01-08
+
+### Added
+- **Safe Operations Module** - Backup and rollback for system modifications
+  - Automatic backups before modifying files
+  - Backup ledger tracks all changes (`~/.local/share/anna/backup_ledger.json`)
+  - Backups stored in `~/.local/share/anna/backups/`
+  - Rollback capability for reversing changes
+  - Verification functions to check file contents
+  - Automatic cleanup of old backups (30+ days)
+  - Safe write and append operations with built-in backup
+
 ## [0.0.865] - 2026-01-08
 
 ### Added

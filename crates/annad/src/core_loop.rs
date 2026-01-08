@@ -91,6 +91,7 @@ pub fn refresh_profile_if_needed() {
 /// Background loop that periodically refreshes the system profile
 pub async fn profile_refresh_loop() {
     use tokio::time::{interval, Duration};
+    use anna_shared::safe_ops;
 
     // Check every 30 minutes (profile expires after 1 hour)
     let mut interval = interval(Duration::from_secs(30 * 60));
@@ -99,6 +100,11 @@ pub async fn profile_refresh_loop() {
         interval.tick().await;
         debug!("Periodic profile refresh check...");
         refresh_profile_if_needed();
+
+        // Cleanup old backups (daily check, but happens every 30 mins - the function handles time)
+        if let Err(e) = safe_ops::cleanup_old_backups() {
+            warn!("Failed to cleanup old backups: {}", e);
+        }
     }
 }
 
