@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.849] - 2026-01-08
+
+### Added
+- **System context gathering** - Anna now checks environment first (Wayland/Xorg, DE, display manager)
+- LLM receives system context before suggesting commands
+- Context-aware command examples (Wayland vs Xorg specific)
+- Final answers tailored to the actual system setup
+
+### Improved
+- Command suggestions now consider whether system uses Wayland or Xorg
+- GDM-specific examples for dconf, monitors.xml when relevant
+
 ## [0.0.848] - 2026-01-08
 
 ### Fixed

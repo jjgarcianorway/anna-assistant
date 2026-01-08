@@ -26,6 +26,30 @@ const MAX_ITERATIONS: u32 = 5;
 /// Timeout for LLM calls (seconds)
 const LLM_TIMEOUT_SECS: u64 = 60;
 
+/// System context commands - always run first to understand the environment
+const SYSTEM_CONTEXT_COMMANDS: &[&str] = &[
+    "echo $XDG_SESSION_TYPE",                           // Wayland or X11
+    "echo $XDG_CURRENT_DESKTOP",                        // Desktop environment
+    "cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)='", // OS info
+    "systemctl is-active gdm sddm lightdm 2>/dev/null | head -1",   // Display manager
+];
+
+/// Gather basic system context
+fn gather_system_context() -> String {
+    let mut context = String::new();
+
+    for cmd in SYSTEM_CONTEXT_COMMANDS {
+        if let Ok(output) = execute_command(cmd) {
+            let output = output.trim();
+            if !output.is_empty() && !output.contains("command not found") {
+                context.push_str(&format!("$ {}\n{}\n", cmd, output));
+            }
+        }
+    }
+
+    context
+}
+
 /// Search wiki and extract relevant commands
 async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
     // Check if wiki is available
@@ -355,6 +379,11 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
+    // PHASE 1: Gather system context first (like a technician checking the environment)
+    info!("Gathering system context...");
+    let system_context = gather_system_context();
+    debug!("System context: {}", system_context);
+
     // Try wiki search first
     let mut wiki_context = String::new();
     let mut wiki_commands: Vec<String> = Vec::new();
@@ -418,34 +447,38 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             String::new()
         };
 
+        // Build system context section
+        let context_section = if !system_context.is_empty() {
+            format!("\n\nSYSTEM CONTEXT (already gathered):\n{}", system_context)
+        } else {
+            String::new()
+        };
+
         // Ask LLM for commands (always - wiki just provides hints)
         let command_prompt = if iterations == 1 {
             format!(
-                r#"You are a system administrator assistant. The user needs information about THIS specific Arch Linux system.
-
+                r#"You are a system administrator assistant helping with THIS specific Arch Linux system.
+{context_section}
 Question: "{}"
 
-Your task: Output shell commands that will retrieve the information needed to answer this question.
+Based on the system context above, output commands to investigate this specific issue.
 
 RULES:
-1. Output ONLY commands, one per line - no explanations, no markdown
-2. Commands must be safe (read-only, no destructive operations)
-3. MAXIMUM 3-5 commands - only what's DIRECTLY relevant to the question
-4. STAY FOCUSED: If question is about GDM, only check GDM-related things
-5. Prefer FAST commands - avoid recursive scans unless specifically asked
-6. Only output NONE if the question is purely theoretical
+1. Output ONLY commands, one per line - no explanations
+2. Commands must be safe (read-only)
+3. MAXIMUM 3-5 commands - ONLY what's relevant to this system
+4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands
+5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)
+6. Only output NONE if purely theoretical
 
-Examples:
-- "what kernel?" → uname -r
-- "disk space?" → df -h
-- "is X installed?" → pacman -Qi X 2>/dev/null
-- "failed services?" → systemctl --failed
-- "GDM settings?" → cat /etc/gdm/custom.conf
-- "fish config?" → cat ~/.config/fish/config.fish 2>/dev/null
+Examples for Wayland + GDM:
+- GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null
+- GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null
+- GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor
 
-IMPORTANT:
-- Add 2>/dev/null to suppress errors
-- For folder sizes use --max-depth=1 (direct children only, not recursive){wiki_hint}
+Examples for Xorg:
+- Display settings → xrandr
+- Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null{wiki_hint}
 
 Commands:"#,
                 question
@@ -596,17 +629,23 @@ Reply with ONLY one of:
         String::new()
     };
 
+    let system_info = if !system_context.is_empty() {
+        format!("\n\nSystem environment:\n{}", system_context)
+    } else {
+        String::new()
+    };
+
     let final_prompt = if last_output.is_empty() {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"{wiki_section}
+            r#"The user asked about their Arch Linux system: "{}"{system_info}{wiki_section}
 
 No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.
-Be direct and practical. If you're not sure, say so."#,
+Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so."#,
             question
         )
     } else {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"
+            r#"The user asked about their Arch Linux system: "{}"{system_info}
 
 The following commands were run and produced this output:
 {}{wiki_section}
@@ -614,11 +653,12 @@ The following commands were run and produced this output:
 RULES:
 1. ONLY report facts from the ACTUAL command output above - never invent data
 2. If a command returned empty or failed, say so
-3. Use wiki information to provide context and explain the results
-4. Be concise and direct
-5. RESPOND IN ENGLISH ONLY
+3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice
+4. Provide specific, actionable steps for their exact setup
+5. Be concise and direct
+6. RESPOND IN ENGLISH ONLY
 
-Based on the actual output above, answer the user's question:"#,
+Based on the actual output and system environment, answer the user's question:"#,
             question, last_output
         )
     };
