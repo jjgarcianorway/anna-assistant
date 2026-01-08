@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.863] - 2026-01-08
+
+### Added
+- **Enhanced System Profile** - Anna now knows your environment
+  - Bootloader detection (systemd-boot, grub, limine, refind)
+  - Shell detection (bash, zsh, fish)
+  - Editor detection (vim, nvim, nano, emacs, code)
+  - AUR helper detection (paru, yay, etc.)
+  - Root filesystem detection (btrfs, ext4, xfs)
+  - Display manager detection (gdm, sddm, lightdm)
+  - Audio system detection (pipewire, pulseaudio, alsa)
+  - Brief summary now includes: OS, DE, bootloader, editor, shell, filesystem
+
 ## [0.0.862] - 2026-01-08
 
 ### Fixed

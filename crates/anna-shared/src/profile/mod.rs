@@ -103,6 +103,22 @@ pub struct SystemInfo {
     pub hostname: Option<String>,
     pub desktop: Option<String>,
     pub display_server: Option<String>,
+
+    // Enhanced profile fields (v0.0.863)
+    /// Bootloader (systemd-boot, grub, limine, refind)
+    pub bootloader: Option<String>,
+    /// Default shell (bash, zsh, fish)
+    pub shell: Option<String>,
+    /// Preferred editor (vim, nvim, nano, emacs, code)
+    pub editor: Option<String>,
+    /// AUR helper (yay, paru, none)
+    pub aur_helper: Option<String>,
+    /// Root filesystem type (btrfs, ext4, xfs)
+    pub root_filesystem: Option<String>,
+    /// Display manager (gdm, sddm, lightdm)
+    pub display_manager: Option<String>,
+    /// Audio system (pipewire, pulseaudio, alsa)
+    pub audio_system: Option<String>,
 }
 
 impl SystemProfile {
@@ -154,35 +170,29 @@ impl SystemProfile {
             parts.push(os.clone());
         }
 
-        // Kernel version (just version number)
-        if let Some(ref kernel) = self.system.kernel {
-            if let Some(ver) = kernel.split_whitespace().next() {
-                parts.push(format!("kernel {}", ver));
-            }
+        // Desktop environment
+        if let Some(ref de) = self.system.desktop {
+            parts.push(de.clone());
         }
 
-        // GPU (just the key info)
-        for dev in &self.hardware.pci_devices {
-            let class = dev.class.to_lowercase();
-            if class.contains("vga") || class.contains("3d") {
-                // Extract short GPU name
-                let gpu = if dev.device.len() > 30 {
-                    dev.device[..30].to_string()
-                } else {
-                    dev.device.clone()
-                };
-                parts.push(gpu);
-                break; // Only first GPU
-            }
+        // Bootloader
+        if let Some(ref boot) = self.system.bootloader {
+            parts.push(boot.clone());
         }
 
-        // WiFi (just vendor)
-        for dev in &self.hardware.pci_devices {
-            let class = dev.class.to_lowercase();
-            if class.contains("network") || class.contains("wireless") {
-                parts.push(format!("{} WiFi", dev.vendor));
-                break;
-            }
+        // Editor
+        if let Some(ref editor) = self.system.editor {
+            parts.push(format!("editor:{}", editor));
+        }
+
+        // Shell
+        if let Some(ref shell) = self.system.shell {
+            parts.push(format!("shell:{}", shell));
+        }
+
+        // Filesystem
+        if let Some(ref fs) = self.system.root_filesystem {
+            parts.push(fs.clone());
         }
 
         if parts.is_empty() {
@@ -254,6 +264,29 @@ impl SystemProfile {
         }
         if let Some(ref display) = self.system.display_server {
             summary.push_str(&format!("Display: {}\n", display));
+        }
+
+        // Enhanced profile fields
+        if let Some(ref bootloader) = self.system.bootloader {
+            summary.push_str(&format!("Bootloader: {}\n", bootloader));
+        }
+        if let Some(ref shell) = self.system.shell {
+            summary.push_str(&format!("Shell: {}\n", shell));
+        }
+        if let Some(ref editor) = self.system.editor {
+            summary.push_str(&format!("Editor: {}\n", editor));
+        }
+        if let Some(ref aur) = self.system.aur_helper {
+            summary.push_str(&format!("AUR helper: {}\n", aur));
+        }
+        if let Some(ref fs) = self.system.root_filesystem {
+            summary.push_str(&format!("Filesystem: {}\n", fs));
+        }
+        if let Some(ref dm) = self.system.display_manager {
+            summary.push_str(&format!("Display manager: {}\n", dm));
+        }
+        if let Some(ref audio) = self.system.audio_system {
+            summary.push_str(&format!("Audio: {}\n", audio));
         }
 
         summary

@@ -310,6 +310,23 @@ fn scan_system_info() -> Result<SystemInfo> {
     // Display server (check for running display managers)
     info.display_server = detect_display_server();
 
+    // Enhanced profile detection (v0.0.863)
+    info.bootloader = detect_bootloader();
+    info.shell = detect_shell();
+    info.editor = detect_editor();
+    info.aur_helper = detect_aur_helper();
+    info.root_filesystem = detect_root_filesystem();
+    info.display_manager = detect_display_manager();
+    info.audio_system = detect_audio_system();
+
+    tracing::info!(
+        "Enhanced profile: bootloader={:?}, shell={:?}, editor={:?}, fs={:?}",
+        info.bootloader,
+        info.shell,
+        info.editor,
+        info.root_filesystem
+    );
+
     Ok(info)
 }
 
@@ -349,4 +366,219 @@ fn detect_display_server() -> Option<String> {
     }
 
     None
+}
+
+// ============================================================================
+// Enhanced Profile Detection (v0.0.863)
+// ============================================================================
+
+/// Detect bootloader (systemd-boot, grub, limine, refind)
+fn detect_bootloader() -> Option<String> {
+    // Check for systemd-boot (most common on modern Arch)
+    if std::path::Path::new("/boot/loader/loader.conf").exists() {
+        return Some("systemd-boot".to_string());
+    }
+
+    // Check for GRUB
+    if std::path::Path::new("/boot/grub/grub.cfg").exists()
+        || std::path::Path::new("/etc/default/grub").exists()
+    {
+        return Some("grub".to_string());
+    }
+
+    // Check for Limine
+    if std::path::Path::new("/boot/limine.cfg").exists()
+        || std::path::Path::new("/boot/limine/limine.cfg").exists()
+    {
+        return Some("limine".to_string());
+    }
+
+    // Check for rEFInd
+    if std::path::Path::new("/boot/EFI/refind").exists()
+        || std::path::Path::new("/boot/refind_linux.conf").exists()
+    {
+        return Some("refind".to_string());
+    }
+
+    // Check bootctl for systemd-boot
+    if let Ok(output) = Command::new("bootctl").arg("status").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout).to_lowercase();
+        if stdout.contains("systemd-boot") {
+            return Some("systemd-boot".to_string());
+        }
+    }
+
+    None
+}
+
+/// Detect user's default shell
+fn detect_shell() -> Option<String> {
+    // Check SHELL environment variable
+    if let Ok(shell) = std::env::var("SHELL") {
+        let shell_name = shell.rsplit('/').next().unwrap_or(&shell);
+        return Some(shell_name.to_string());
+    }
+
+    // Check /etc/passwd for first real user
+    if let Ok(output) = Command::new("sh")
+        .arg("-c")
+        .arg("getent passwd $(id -un) | cut -d: -f7")
+        .output()
+    {
+        let shell = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !shell.is_empty() {
+            let shell_name = shell.rsplit('/').next().unwrap_or(&shell);
+            return Some(shell_name.to_string());
+        }
+    }
+
+    None
+}
+
+/// Detect preferred editor
+fn detect_editor() -> Option<String> {
+    // Check EDITOR and VISUAL environment variables
+    for var in &["EDITOR", "VISUAL"] {
+        if let Ok(editor) = std::env::var(var) {
+            let editor_name = editor.rsplit('/').next().unwrap_or(&editor);
+            return Some(editor_name.to_string());
+        }
+    }
+
+    // Check which editors are installed and pick the most likely default
+    let editors = ["nvim", "vim", "nano", "emacs", "code", "vi"];
+    for editor in &editors {
+        if let Ok(output) = Command::new("which").arg(editor).output() {
+            if output.status.success() {
+                return Some(editor.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Detect AUR helper
+fn detect_aur_helper() -> Option<String> {
+    let helpers = ["paru", "yay", "pikaur", "trizen", "aurman"];
+    for helper in &helpers {
+        if let Ok(output) = Command::new("which").arg(helper).output() {
+            if output.status.success() {
+                return Some(helper.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Detect root filesystem type
+fn detect_root_filesystem() -> Option<String> {
+    // Use findmnt to get root filesystem
+    if let Ok(output) = Command::new("findmnt")
+        .args(["-n", "-o", "FSTYPE", "/"])
+        .output()
+    {
+        if output.status.success() {
+            let fstype = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !fstype.is_empty() {
+                return Some(fstype);
+            }
+        }
+    }
+
+    // Fallback: check /proc/mounts
+    if let Ok(content) = std::fs::read_to_string("/proc/mounts") {
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 && parts[1] == "/" {
+                return Some(parts[2].to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Detect display manager
+fn detect_display_manager() -> Option<String> {
+    let dms = [
+        ("gdm", "gdm.service"),
+        ("sddm", "sddm.service"),
+        ("lightdm", "lightdm.service"),
+        ("ly", "ly.service"),
+        ("greetd", "greetd.service"),
+    ];
+
+    for (name, service) in &dms {
+        if let Ok(output) = Command::new("systemctl")
+            .args(["is-active", service])
+            .output()
+        {
+            let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if status == "active" {
+                return Some(name.to_string());
+            }
+        }
+    }
+
+    // Check display-manager.service symlink
+    if let Ok(target) = std::fs::read_link("/etc/systemd/system/display-manager.service") {
+        let target_str = target.display().to_string().to_lowercase();
+        for (name, _) in &dms {
+            if target_str.contains(name) {
+                return Some(name.to_string());
+            }
+        }
+    }
+
+    None
+}
+
+/// Detect audio system
+fn detect_audio_system() -> Option<String> {
+    // Check for PipeWire
+    if let Ok(output) = Command::new("systemctl")
+        .args(["--user", "is-active", "pipewire.service"])
+        .output()
+    {
+        let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if status == "active" {
+            return Some("pipewire".to_string());
+        }
+    }
+
+    // Check for PulseAudio
+    if let Ok(output) = Command::new("systemctl")
+        .args(["--user", "is-active", "pulseaudio.service"])
+        .output()
+    {
+        let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if status == "active" {
+            return Some("pulseaudio".to_string());
+        }
+    }
+
+    // Check running processes
+    if let Ok(output) = Command::new("sh")
+        .arg("-c")
+        .arg("pgrep -x pipewire")
+        .output()
+    {
+        if output.status.success() {
+            return Some("pipewire".to_string());
+        }
+    }
+
+    if let Ok(output) = Command::new("sh")
+        .arg("-c")
+        .arg("pgrep -x pulseaudio")
+        .output()
+    {
+        if output.status.success() {
+            return Some("pulseaudio".to_string());
+        }
+    }
+
+    // Default to ALSA if nothing else detected
+    Some("alsa".to_string())
 }
