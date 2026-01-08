@@ -28,8 +28,48 @@ pub async fn search(
     keyword_search(&index, query, top_k)
 }
 
-/// Search using keywords only
+/// Search using keywords only - improved to prioritize topic matches
 pub fn keyword_search(index: &WikiIndex, query: &str, top_k: usize) -> Result<Vec<WikiSearchResult>> {
+    let query_lower = query.to_lowercase();
+    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+
+    // First, try to find direct topic matches in the query
+    // Look for article titles that appear in the query (e.g., "GDM" in "how to scale GDM")
+    let mut direct_matches: Vec<WikiSearchResult> = Vec::new();
+
+    for title in index.articles.keys() {
+        let title_lower = title.to_lowercase();
+        let title_words: Vec<&str> = title_lower.split_whitespace().collect();
+
+        // Check if any significant title word appears in query
+        for title_word in &title_words {
+            if title_word.len() >= 3 && query_lower.contains(title_word) {
+                if let Some(article) = index.get_article(title) {
+                    // Give high score for direct title match
+                    direct_matches.push(WikiSearchResult {
+                        article,
+                        score: 0.9,
+                        relevant_section: None,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+
+    // If we found direct matches, prioritize those
+    if !direct_matches.is_empty() {
+        // Sort by relevance (titles that match more query words get higher score)
+        direct_matches.sort_by(|a, b| {
+            let a_matches = count_query_matches(&a.article.title, &query_words);
+            let b_matches = count_query_matches(&b.article.title, &query_words);
+            b_matches.cmp(&a_matches)
+        });
+        direct_matches.truncate(top_k);
+        return Ok(direct_matches);
+    }
+
+    // Fallback to keyword index search
     let titles = index.search_keywords(query);
 
     let mut results = Vec::new();
@@ -44,6 +84,12 @@ pub fn keyword_search(index: &WikiIndex, query: &str, top_k: usize) -> Result<Ve
     }
 
     Ok(results)
+}
+
+/// Count how many query words match a text
+fn count_query_matches(text: &str, query_words: &[&str]) -> usize {
+    let text_lower = text.to_lowercase();
+    query_words.iter().filter(|w| text_lower.contains(*w)).count()
 }
 
 /// Find relevant section within an article

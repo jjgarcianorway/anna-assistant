@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.847] - 2026-01-08
+
+### Fixed
+- Embedding model pull now properly waits for completion
+- Keyword search now prioritizes direct topic matches (e.g., "GDM" in query finds GDM article)
+- Improved search relevance - titles matching query terms are prioritized over keyword index
+
 ## [0.0.846] - 2026-01-08
 
 ### Fixed

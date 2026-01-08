@@ -121,7 +121,9 @@ pub async fn build_embeddings(ollama_url: &str) -> Result<WikiEmbeddings> {
 
 /// Ensure the embedding model is pulled
 async fn ensure_embedding_model(ollama_url: &str) -> Result<()> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300)) // 5 min timeout for model pull
+        .build()?;
 
     // Check if model exists
     let response = client
@@ -130,24 +132,38 @@ async fn ensure_embedding_model(ollama_url: &str) -> Result<()> {
         .send()
         .await;
 
-    if response.is_ok() && response.unwrap().status().is_success() {
-        return Ok(());
+    if let Ok(resp) = response {
+        if resp.status().is_success() {
+            tracing::debug!("Embedding model {} already available", EMBEDDING_MODEL);
+            return Ok(());
+        }
     }
 
-    // Pull the model
-    tracing::info!("Pulling embedding model: {}", EMBEDDING_MODEL);
+    // Pull the model - this is a streaming endpoint, read until done
+    tracing::info!("Pulling embedding model: {} (this may take a few minutes)", EMBEDDING_MODEL);
 
     let response = client
         .post(format!("{}/api/pull", ollama_url))
-        .json(&serde_json::json!({ "name": EMBEDDING_MODEL }))
+        .json(&serde_json::json!({ "name": EMBEDDING_MODEL, "stream": true }))
         .send()
         .await?;
 
     if !response.status().is_success() {
-        anyhow::bail!("Failed to pull embedding model");
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        anyhow::bail!("Failed to pull embedding model: {} - {}", status, body);
     }
 
-    Ok(())
+    // Read the streaming response until complete
+    let body = response.text().await?;
+
+    // Check for success in the final response
+    if body.contains("\"status\":\"success\"") || body.contains("success") {
+        tracing::info!("Embedding model {} pulled successfully", EMBEDDING_MODEL);
+        Ok(())
+    } else {
+        anyhow::bail!("Model pull did not complete successfully: {}", body);
+    }
 }
 
 /// Get embedding for text using Ollama
