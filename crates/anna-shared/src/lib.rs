@@ -4,6 +4,7 @@
 pub mod config;
 pub mod helpers;
 pub mod profile;
+pub mod recipe;
 pub mod rpc;
 pub mod status;
 pub mod update_ledger;

@@ -9,6 +9,7 @@
 //! 6. If valid answer, return to user; otherwise iterate
 
 use anna_shared::profile::{self, SystemProfile};
+use anna_shared::recipe::{Recipe, RecipeBook};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anna_shared::wiki;
 use anyhow::{anyhow, Result};
@@ -284,6 +285,62 @@ struct WikiSearchResults {
     context: String,
 }
 
+/// Try to answer using a recipe (fast path)
+/// Returns None if no suitable recipe found
+fn try_recipe_fast_path(question: &str) -> Option<(Recipe, String)> {
+    let profile = get_system_profile();
+    let recipe_book = match RecipeBook::load() {
+        Ok(book) => book,
+        Err(e) => {
+            debug!("Failed to load recipe book: {}", e);
+            return None;
+        }
+    };
+
+    let matches = recipe_book.find_matches(question, &profile.system);
+    if matches.is_empty() {
+        debug!("No recipes matched for question");
+        return None;
+    }
+
+    // Use the best match
+    let recipe = matches[0];
+    info!("Found matching recipe: {} (id: {})", recipe.name, recipe.id);
+
+    // Only use fast path for read-only recipes
+    if recipe.commands.iter().any(|c| c.modifies_system) {
+        debug!("Recipe modifies system, skipping fast path");
+        return None;
+    }
+
+    // Execute recipe commands
+    let mut output = String::new();
+    for cmd in &recipe.commands {
+        debug!("Executing recipe command: {}", cmd.command);
+        match execute_command(&cmd.command) {
+            Ok(result) => {
+                output.push_str(&format!("$ {}\n{}\n\n", cmd.command, result));
+            }
+            Err(e) => {
+                debug!("Recipe command failed: {}", e);
+                return None;
+            }
+        }
+    }
+
+    Some((recipe.clone(), output))
+}
+
+/// Mark a recipe as successful (for future matching)
+fn mark_recipe_success(recipe_id: &str) {
+    if let Ok(mut book) = RecipeBook::load() {
+        book.mark_success(recipe_id);
+        if let Err(e) = book.save() {
+            warn!("Failed to save recipe book: {}", e);
+        }
+    }
+}
+
 /// Execute a question and return the answer
 pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> {
     info!("Processing question: {}", question);
@@ -299,7 +356,33 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
         content: question.to_string(),
     });
 
-    while iterations < MAX_ITERATIONS {
+    // Try recipe fast path first
+    let mut used_recipe: Option<String> = None;
+    if let Some((recipe, recipe_output)) = try_recipe_fast_path(question) {
+        info!("Using recipe fast path: {}", recipe.name);
+        used_recipe = Some(recipe.id.clone());
+
+        dialogue.push(DialogueStep {
+            step_type: StepType::AnnaToLlm,
+            content: format!("[Recipe: {}]", recipe.name),
+        });
+
+        // Record the recipe commands
+        for cmd in &recipe.commands {
+            commands_executed.push(cmd.command.clone());
+        }
+
+        dialogue.push(DialogueStep {
+            step_type: StepType::CommandOutput,
+            content: recipe_output.clone(),
+        });
+
+        last_output = recipe_output;
+        iterations = 1; // Count as 1 iteration
+    }
+
+    // If no recipe matched, use LLM to find commands
+    while used_recipe.is_none() && iterations < MAX_ITERATIONS {
         iterations += 1;
         info!("Iteration {}/{}", iterations, MAX_ITERATIONS);
 
@@ -499,6 +582,11 @@ Answer:"#,
         step_type: StepType::FinalAnswer,
         content: final_answer.trim().to_string(),
     });
+
+    // Mark recipe as successful if we used one
+    if let Some(recipe_id) = used_recipe {
+        mark_recipe_success(&recipe_id);
+    }
 
     Ok(AskResult {
         answer: final_answer.trim().to_string(),

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.865] - 2026-01-08
+
+### Added
+- **Recipe System** - Deterministic solutions for common tasks
+  - Built-in recipes for: disk usage, memory, CPU, kernel version, failing services
+  - Editor-specific recipes: vim syntax highlighting, nvim syntax highlighting
+  - System update recipe for Arch Linux
+  - Context-aware matching: recipes check editor/shell/bootloader/filesystem
+  - Recipe fast path: skips LLM for known queries (faster, deterministic)
+  - Success tracking: recipes improve ranking over time
+  - Recipes stored in `~/.local/share/anna/recipes.json`
+
 ## [0.0.864] - 2026-01-08
 
 ### Added
