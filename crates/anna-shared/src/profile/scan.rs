@@ -413,22 +413,54 @@ fn detect_bootloader() -> Option<String> {
 
 /// Detect user's default shell
 fn detect_shell() -> Option<String> {
-    // Check SHELL environment variable
-    if let Ok(shell) = std::env::var("SHELL") {
-        let shell_name = shell.rsplit('/').next().unwrap_or(&shell);
-        return Some(shell_name.to_string());
+    // Get the actual logged-in user (not root if daemon is running as root)
+    // First try SUDO_USER, then check loginctl for active sessions
+    let real_user = std::env::var("SUDO_USER").ok()
+        .or_else(|| {
+            // Get first logged-in user from loginctl
+            Command::new("loginctl")
+                .args(["list-users", "--no-legend"])
+                .output()
+                .ok()
+                .and_then(|o| {
+                    String::from_utf8_lossy(&o.stdout)
+                        .lines()
+                        .next()
+                        .and_then(|line| line.split_whitespace().nth(1))
+                        .map(String::from)
+                })
+        });
+
+    // Get shell for the real user
+    if let Some(user) = real_user {
+        if let Ok(output) = Command::new("getent")
+            .args(["passwd", &user])
+            .output()
+        {
+            let line = String::from_utf8_lossy(&output.stdout);
+            if let Some(shell_path) = line.trim().split(':').nth(6) {
+                let shell_name = shell_path.rsplit('/').next().unwrap_or(shell_path);
+                if !shell_name.is_empty() {
+                    return Some(shell_name.to_string());
+                }
+            }
+        }
     }
 
-    // Check /etc/passwd for first real user
-    if let Ok(output) = Command::new("sh")
-        .arg("-c")
-        .arg("getent passwd $(id -un) | cut -d: -f7")
-        .output()
-    {
-        let shell = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !shell.is_empty() {
-            let shell_name = shell.rsplit('/').next().unwrap_or(&shell);
-            return Some(shell_name.to_string());
+    // Fallback: find first user with UID >= 1000
+    if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 7 {
+                if let Ok(uid) = parts[2].parse::<u32>() {
+                    if uid >= 1000 && uid < 65534 {
+                        let shell_name = parts[6].rsplit('/').next().unwrap_or(parts[6]);
+                        if !shell_name.is_empty() && shell_name != "nologin" && shell_name != "false" {
+                            return Some(shell_name.to_string());
+                        }
+                    }
+                }
+            }
         }
     }
 

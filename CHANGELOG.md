@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.868] - 2026-01-08
+
+### Fixed
+- **Shell detection** - Now correctly detects the logged-in user's shell
+  - Previously detected root's shell (bash) when daemon runs as root
+  - Now uses loginctl to find real user, then checks /etc/passwd
+  - Correctly identifies fish, zsh, and other shells
+
 ## [0.0.867] - 2026-01-08
 
 ### Added
