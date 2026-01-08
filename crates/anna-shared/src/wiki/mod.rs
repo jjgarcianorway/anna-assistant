@@ -97,20 +97,28 @@ pub async fn init_wiki(ollama_url: &str) -> Result<()> {
     // Ensure directories exist
     std::fs::create_dir_all(wiki_articles_dir())?;
 
+    // Check if we need to download/process wiki
+    let need_download = !wiki_available();
+    let need_reindex = if let Ok(idx) = index::WikiIndex::load() {
+        idx.total_articles == 0
+    } else {
+        true
+    };
+
     // Download if not present
-    if !wiki_available() {
+    if need_download || need_reindex {
         tracing::info!("Downloading Arch Wiki...");
         download::download_wiki().await?;
     }
 
-    // Build index if not present
-    if !wiki_index_path().exists() {
+    // Build index if not present or empty
+    if !wiki_index_path().exists() || need_reindex {
         tracing::info!("Building wiki index...");
         index::build_index().await?;
     }
 
-    // Build embeddings if not present
-    if !wiki_embeddings_path().exists() {
+    // Build embeddings if not present or index was rebuilt
+    if !wiki_embeddings_path().exists() || need_reindex {
         tracing::info!("Building wiki embeddings (this may take a while)...");
         embeddings::build_embeddings(ollama_url).await?;
     }

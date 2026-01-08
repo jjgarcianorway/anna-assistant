@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.846] - 2026-01-08
+
+### Fixed
+- Wiki now correctly reads from `/usr/share/doc/arch-wiki/html/en/` (English articles)
+- Wiki index rebuilds automatically if empty (0 articles)
+
 ## [0.0.845] - 2026-01-08
 
 ### Added

@@ -9,8 +9,8 @@ use tokio::process::Command;
 use super::wiki_articles_dir;
 use crate::helpers::{self, HelpersRegistry, InstallSource};
 
-/// Source for wiki content
-const ARCH_WIKI_DOCS_PATH: &str = "/usr/share/doc/arch-wiki/html";
+/// Source for wiki content (English articles)
+const ARCH_WIKI_DOCS_PATH: &str = "/usr/share/doc/arch-wiki/html/en";
 
 /// Download/sync Arch Wiki locally
 pub async fn download_wiki() -> Result<()> {
