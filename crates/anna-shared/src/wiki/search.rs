@@ -119,8 +119,51 @@ fn is_stop_word(word: &str) -> bool {
         "more", "most", "other", "another", "such", "only", "just", "also",
         "very", "too", "really", "everything", "nothing", "something",
         "make", "made", "change", "tried", "works", "small",
+        // Additional vague query words
+        "tell", "about", "know", "current", "patterns", "improvements",
+        "improve", "anything", "things", "stuff", "better", "good", "bad",
+        "think", "me", "please", "help", "want", "need", "like", "get",
     ];
     STOP_WORDS.contains(&word)
+}
+
+/// Check if query is too vague for wiki search (mostly stop words)
+pub fn is_vague_query(query: &str) -> bool {
+    let query_lower = query.to_lowercase();
+    let words: Vec<&str> = query_lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() >= 2)
+        .collect();
+
+    // Count meaningful (non-stop) words
+    let meaningful_words: Vec<&str> = words
+        .iter()
+        .copied()
+        .filter(|w| !is_stop_word(w))
+        .collect();
+
+    // Query is vague if:
+    // - No meaningful words at all
+    // - Only 1 meaningful word that's very generic
+    let generic_words = &["system", "arch", "linux", "computer", "machine", "config", "settings"];
+
+    if meaningful_words.is_empty() {
+        return true;
+    }
+
+    if meaningful_words.len() == 1 && generic_words.contains(&meaningful_words[0]) {
+        return true;
+    }
+
+    false
+}
+
+/// Check if article title should be skipped (Category pages, etc)
+pub fn should_skip_article(title: &str) -> bool {
+    title.starts_with("Category:") ||
+    title.starts_with("ArchWiki:") ||
+    title.starts_with("Template:") ||
+    title.starts_with("Help:")
 }
 
 /// Find relevant section within an article

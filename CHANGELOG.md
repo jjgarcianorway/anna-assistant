@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.856] - 2026-01-08
+
+### Fixed
+- **Skip wiki for vague queries** - Questions like "any improvements?" or "tell me about my system" now skip wiki
+  - Detects queries with mostly stop words (no meaningful search terms)
+  - Prevents garbage wiki results like "Concurrent Versions System" for "system" queries
+- **Skip Category: pages** - Navigation pages no longer included in wiki results
+  - Filters out Category:, ArchWiki:, Template:, Help: pages
+- **Increased LLM timeout** - From 60s to 120s for complex prompts
+
+### Added
+- Extended stop words list with vague query terms (tell, about, know, improvements, etc.)
+
 ## [0.0.855] - 2026-01-08
 
 ### Added

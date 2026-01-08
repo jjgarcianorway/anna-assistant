@@ -28,8 +28,8 @@ const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 /// Maximum iterations to try before giving up
 const MAX_ITERATIONS: u32 = 5;
 
-/// Timeout for LLM calls (seconds)
-const LLM_TIMEOUT_SECS: u64 = 60;
+/// Timeout for LLM calls (seconds) - increased for complex prompts
+const LLM_TIMEOUT_SECS: u64 = 120;
 
 /// System context commands - always run first to understand the environment
 /// Note: daemon runs as root, so we check system-wide settings, not user env vars
@@ -123,6 +123,12 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         return None;
     }
 
+    // Skip wiki for vague queries (mostly stop words)
+    if wiki::search::is_vague_query(question) {
+        debug!("Query too vague for wiki search, skipping");
+        return None;
+    }
+
     // Load config to check if embeddings are enabled
     let use_embeddings = anna_shared::config::AnnaConfig::load()
         .map(|c| c.wiki.use_embeddings)
@@ -140,6 +146,17 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
             return None;
         }
     };
+
+    // Filter out Category:, ArchWiki:, etc pages
+    let results: Vec<_> = results
+        .into_iter()
+        .filter(|r| !wiki::search::should_skip_article(&r.article.title))
+        .collect();
+
+    if results.is_empty() {
+        debug!("All wiki results were navigation pages, skipping");
+        return None;
+    }
 
     // Skip wiki if best result has low confidence (garbage results)
     // Score 0.5 means partial word match - likely not relevant
