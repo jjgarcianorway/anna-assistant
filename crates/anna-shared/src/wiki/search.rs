@@ -64,9 +64,21 @@ pub fn keyword_search(index: &WikiIndex, query: &str, top_k: usize) -> Result<Ve
     // Sort by score descending
     scored_results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Take top results
+    // Filter out low-scoring results that are likely noise
+    // If we have a high-scoring result (10+), don't include results scoring less than half
+    let top_score = scored_results.first().map(|(_, s)| *s).unwrap_or(0.0);
+    let min_threshold = if top_score >= 10.0 {
+        top_score * 0.6 // Require at least 60% of top score
+    } else {
+        5.0 // At least one word match in title
+    };
+
+    // Take top results above threshold
     let mut results = Vec::new();
     for (title, score) in scored_results.into_iter().take(top_k) {
+        if score < min_threshold {
+            continue; // Skip low-scoring noise
+        }
         if let Some(article) = index.get_article(&title) {
             results.push(WikiSearchResult {
                 article,

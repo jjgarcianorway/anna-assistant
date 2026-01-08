@@ -678,12 +678,19 @@ Based on the actual output and system environment, answer the user's question:"#
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     // Stream the final answer token by token
-    let final_answer = ollama::chat_streaming_to_writer(
+    let mut final_answer = ollama::chat_streaming_to_writer(
         model,
         &final_prompt,
         LLM_TIMEOUT_SECS,
         writer,
     ).await?;
+
+    // Fallback: if streaming returned empty, try non-streaming
+    if final_answer.trim().is_empty() {
+        tracing::warn!("Streaming LLM returned empty response, retrying non-streaming");
+        final_answer = ollama::chat_with_timeout(model, &final_prompt, LLM_TIMEOUT_SECS).await
+            .unwrap_or_else(|e| format!("I encountered an error generating a response: {}", e));
+    }
 
     // Send the final answer step (for dialogue record)
     let step = DialogueStep {

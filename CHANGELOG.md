@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.851] - 2026-01-08
+
+### Fixed
+- Wiki search now filters out low-scoring results (noise) - only shows truly relevant articles
+- Empty LLM response fallback - retries with non-streaming if streaming returns empty
+- GDM scaling query no longer shows unrelated "Domain name resolution" results
+
 ## [0.0.850] - 2026-01-08
 
 ### Fixed
