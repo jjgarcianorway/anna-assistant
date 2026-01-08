@@ -400,28 +400,28 @@ Reply with ONLY one of:
     // Step 4: Generate final answer
     let final_prompt = if last_output.is_empty() {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"
+            r#"Question: "{}"
 
-No commands were needed. Provide a helpful, concise answer based on your knowledge.
-Be direct and practical. If you're not sure, say so.
+RESPOND BRIEFLY - just answer the question, no extra commentary.
+Give the shortest correct answer with essential commands only.
 RESPOND IN ENGLISH ONLY."#,
             question
         )
     } else {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"
+            r#"Question: "{}"
 
-The following commands were run and produced this output:
+Command output:
 {}
 
 RULES:
-1. ONLY report facts from the ACTUAL output above - never invent or assume data
-2. If a command returned empty or failed, say "the command returned no output" or "the command failed"
-3. Do NOT make up dates, values, or package names that aren't in the output
-4. Be concise and direct
+1. Answer BRIEFLY - just the facts, no extra advice
+2. ONLY report facts from the output - never invent data
+3. Give the shortest correct answer
+4. If asked "how much X?" just give the number/value
 5. RESPOND IN ENGLISH ONLY
 
-Based ONLY on the actual output above, answer the user's question:"#,
+Answer:"#,
             question, last_output
         )
     };
@@ -746,29 +746,30 @@ Reply with ONLY one of:
 
     let final_prompt = if last_output.is_empty() {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"{system_info}{wiki_section}{existing_configs}
+            r#"Question: "{}"{system_info}{wiki_section}{existing_configs}
 
-No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.
-Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so."#,
+RESPOND BRIEFLY - just answer the question, no extra commentary.
+Do NOT explain what the system is or express confusion about it.
+Give the shortest correct answer with essential commands only.
+RESPOND IN ENGLISH ONLY."#,
             question
         )
     } else {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"{system_info}
+            r#"Question: "{}"{system_info}
 
-The following commands were run and produced this output:
+Command output:
 {}{wiki_section}{existing_configs}
 
 RULES:
-1. ONLY report facts from the ACTUAL command output above - never invent data
-2. If a command returned empty or failed, say so
-3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice
-4. Consider EXISTING CONFIGS shown above - the user may have already applied workarounds
-5. Provide specific, actionable steps for their exact setup
-6. Be concise and direct
-7. RESPOND IN ENGLISH ONLY
+1. Answer BRIEFLY - just the facts, no extra advice or suggestions
+2. ONLY report facts from the command output - never invent data
+3. Do NOT explain what the system is or its configuration
+4. Give the shortest correct answer
+5. If asked "how much X?" just give the number/value
+6. RESPOND IN ENGLISH ONLY
 
-Based on the actual output and system environment, answer the user's question:"#,
+Answer:"#,
             question, last_output
         )
     };

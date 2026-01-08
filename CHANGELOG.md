@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.857] - 2026-01-08
+
+### Improved
+- **Concise answers** - LLM now gives brief, direct responses
+  - No more verbose explanations or unsolicited advice
+  - "How much RAM?" now returns "31 GiB" instead of paragraphs
+  - Removed "Arch Linux system" phrasing that confused LLM about CachyOS
+- Prompt rewritten to emphasize brevity: "Answer BRIEFLY - just the facts"
+
 ## [0.0.856] - 2026-01-08
 
 ### Fixed
