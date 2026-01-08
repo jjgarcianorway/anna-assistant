@@ -580,8 +580,9 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
                 r#"System: {}
 Question: "{}"
 
-Output 1-3 Linux commands (non-interactive, no top/htop/vim).
-Examples: df -h, free -h, ps aux --sort=-%cpu | head -10, systemctl status X
+Reply with 1-3 shell commands ONLY (no markdown, no explanations).
+NEVER use: top, htop, vim, nano, less (they need a terminal).
+For CPU: ps aux --sort=-%cpu | head -10
 Output NONE if no commands needed.{wiki_hint}
 
 Commands:"#,
@@ -628,10 +629,26 @@ Commands:"#,
         }
 
         // Parse commands from LLM response (max 3 to keep responses fast)
+        // Filter out markdown, explanations, and interactive commands
         let commands_to_run: Vec<String> = commands_response
             .lines()
             .map(|l| l.trim().to_string())
-            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .filter(|l| {
+                !l.is_empty()
+                    && !l.starts_with('#')
+                    && !l.starts_with('`')  // markdown code fence
+                    && !l.contains("```")
+                    && !l.starts_with("This ")  // explanations
+                    && !l.starts_with("You ")
+                    && !l.starts_with("Note:")
+                    && !l.contains("<")  // placeholders like <username>
+                    && l.len() < 200  // skip long explanations
+            })
+            .filter(|l| {
+                // Skip interactive commands
+                let first_word = l.split_whitespace().next().unwrap_or("");
+                !["top", "htop", "vim", "nano", "less", "vi", "more"].contains(&first_word)
+            })
             .take(3)
             .collect();
 

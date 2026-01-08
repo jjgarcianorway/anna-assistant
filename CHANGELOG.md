@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.862] - 2026-01-08
+
+### Fixed
+- **Command filtering** - Robust parsing of LLM responses
+  - Filters out markdown code fences (```)
+  - Filters out explanations (lines starting with "This ", "You ", etc.)
+  - Filters out placeholders like `<username>`
+  - Enforces ban on interactive commands (top/htop/vim/nano/less)
+  - Stricter prompt: "NEVER use: top, htop, vim, nano, less"
+
 ## [0.0.861] - 2026-01-08
 
 ### Fixed
