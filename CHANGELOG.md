@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.850] - 2026-01-08
+
+### Fixed
+- System context detection now uses `loginctl` instead of environment variables
+- Properly detects Wayland/Xorg session type even when daemon runs as root
+- Session desktop environment detection improved
+
 ## [0.0.849] - 2026-01-08
 
 ### Added

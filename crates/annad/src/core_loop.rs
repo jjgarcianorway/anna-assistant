@@ -27,11 +27,18 @@ const MAX_ITERATIONS: u32 = 5;
 const LLM_TIMEOUT_SECS: u64 = 60;
 
 /// System context commands - always run first to understand the environment
+/// Note: daemon runs as root, so we check system-wide settings, not user env vars
 const SYSTEM_CONTEXT_COMMANDS: &[&str] = &[
-    "echo $XDG_SESSION_TYPE",                           // Wayland or X11
-    "echo $XDG_CURRENT_DESKTOP",                        // Desktop environment
-    "cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)='", // OS info
-    "systemctl is-active gdm sddm lightdm 2>/dev/null | head -1",   // Display manager
+    // Check active session type via loginctl (works system-wide)
+    "loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null",
+    // Check DE from the session
+    "loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Desktop --value 2>/dev/null",
+    // OS info
+    "cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2",
+    // Which display manager is active
+    "systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1",
+    // Check if GDM uses Wayland (look at config)
+    "grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1",
 ];
 
 /// Gather basic system context
