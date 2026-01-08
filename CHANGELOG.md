@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.860] - 2026-01-08
+
+### Improved
+- **Command limit** - Max 3 commands per iteration
+  - Prompt now says "1-3 commands" instead of just "commands"
+  - Hard limit of 3 enforced in code
+  - Prevents LLM from returning 9 commands and causing timeouts
+
 ## [0.0.859] - 2026-01-08
 
 ### Improved

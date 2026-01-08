@@ -580,8 +580,8 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
                 r#"System: {}
 Question: "{}"
 
-Output Linux commands to answer this (one per line, no explanations).
-Examples: df -h, free -h, ip addr, lscpu, systemctl status X, journalctl -xe | tail -20
+Output 1-3 Linux commands to answer this (one per line, no explanations).
+Examples: df -h, free -h, ip addr, lscpu, systemctl status X, ps aux --sort=-%cpu | head -5
 Output NONE if no commands needed.{wiki_hint}
 
 Commands:"#,
@@ -627,11 +627,12 @@ Commands:"#,
             break;
         }
 
-        // Parse commands from LLM response
+        // Parse commands from LLM response (max 3 to keep responses fast)
         let commands_to_run: Vec<String> = commands_response
             .lines()
             .map(|l| l.trim().to_string())
             .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .take(3)
             .collect();
 
         if commands_to_run.is_empty() {
