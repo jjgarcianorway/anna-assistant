@@ -39,14 +39,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Suggested commands from Arch Wiki (use if relevant):[0m
 [2m│   systemctl status systemd-modules-load[0m
@@ -57,164 +63,84 @@
 [2m└─────────────────────────────────────────[0m
 
 [33mLLM → ANNA: [0mcommands to run:
-[2m  $ [0m[36mcat /etc/systemd/system.conf 2>/dev/null[0m
-[2m  $ [0m[36msystemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null[0m
-[2m  $ [0m[36msystemctl show gdm -p DefaultService 2>/dev/null[0m
+[2m  $ [0m[36msystemctl status systemd-modules-load[0m
+[2m  $ [0m[36msystemctl list-units --type=service --state=running[0m
+[2m  $ [0m[36mcat /etc/gdm/custom.conf 2>/dev/null[0m
 [2m  $ [0m[36mcat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
 
-[32mEXEC: [0mcat /etc/systemd/system.conf 2>/dev/null
-[2mOUTPUT: [0m#  This file is part of systemd.
-#
-#  systemd is free software; you can redistribute it and/or modify it under the
-#  terms of the GNU Lesser General Public License as published by the Free
-#  Software Foundation; either version 2.1 of the License, or (at your option)
-#  any later version.
-#
-# Entries in this file show the compile time defaults. Local configuration
-# should be created by either modifying this file (or a copy of it placed in
-# /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in
-# /etc/systemd/system.conf.d/ directory. The latter is generally recommended.
-# Defaults can be restored by simply deleting the main configuration file and
-# all drop-ins located in /etc/.
-#
-# Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.
-#
-# See systemd-system.conf(5) for details.
-
-[Manager]
-#LogLevel=info
-#LogTarget=journal-or-kmsg
-#LogColor=yes
-#LogLocation=no
-#LogTime=no
-#DumpCore=yes
-#ShowStatus=yes
-#CrashChangeVT=no
-#CrashShell=no
-#CrashAction=freeze
-#CtrlAltDelBurstAction=reboot-force
-#CPUAffinity=
-#NUMAPolicy=default
-#NUMAMask=
-#RuntimeWatchdogSec=off
-#RuntimeWatchdogPreSec=off
-#RuntimeWatchdogPreGovernor=
-#RebootWatchdogSec=10min
-#KExecWatchdogSec=off
-#WatchdogDevice=
-#CapabilityBoundingSet=
-#NoNewPrivileges=no
-#ProtectSystem=auto
-#SystemCallArchitectures=
-#TimerSlackNSec=
-#StatusUnitFormat=description
-#DefaultTimerAccuracySec=1min
-#DefaultStandardOutput=journal
-#DefaultStandardError=inherit
-#DefaultTimeoutStartSec=90s
-#DefaultTimeoutStopSec=90s
-#DefaultTimeoutAbortSec=
-#DefaultDeviceTimeoutSec=90s
-#DefaultRestartSec=100ms
-#DefaultStartLimitIntervalSec=10s
-#DefaultStartLimitBurst=5
-#DefaultEnvironment=
-#DefaultIOAccounting=no
-#DefaultIPAccounting=no
-#DefaultMemoryAccounting=yes
-#DefaultTasksAccounting=yes
-#DefaultTasksMax=15%
-#DefaultLimitCPU=
-#DefaultLimitFSIZE=
-#DefaultLimitDATA=
-#DefaultLimitSTACK=
-#DefaultLimitCORE=
-#DefaultLimitRSS=
-#DefaultLimitNOFILE=1024:524288
-#DefaultLimitAS=
-#DefaultLimitNPROC=
-#DefaultLimitMEMLOCK=8M
-#DefaultLimitLOCKS=
-#DefaultLimitSIGPENDING=
-#DefaultLimitMSGQUEUE=
-#DefaultLimitNICE=
-#DefaultLimitRTPRIO=
-#DefaultLimitRTTIME=
-#DefaultMemoryPressureThresholdSec=200ms
-#DefaultMemoryPressureWatch=auto
-#DefaultOOMPolicy=stop
-#DefaultSmackProcessLabel=
-#DefaultRestrictSUIDSGID=
-#ReloadLimitIntervalSec=
-#ReloadLimitBurst=
+[32mEXEC: [0msystemctl status systemd-modules-load
+[2mOUTPUT: [0m● systemd-modules-load.service - Load Kernel Modules
+     Loaded: loaded (/usr/lib/systemd/system/systemd-modules-load.service; static)
+     Active: active (exited) since Wed 2026-01-07 20:54:08 CET; 16h ago
+ Invocation: 2d647d6ab4e84cf1a27d08a41ae15fcc
+       Docs: man:systemd-modules-load.service(8)
+             man:modules-load.d(5)
+    Process: 737 ExecStart=/usr/lib/systemd/systemd-modules-load (code=exited, status=0/SUCCESS)
+   Main PID: 737 (code=exited, status=0/SUCCESS)
+   Mem peak: 4.9M
+        CPU: 23ms
 
 
-[32mEXEC: [0msystemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null
-[2mOUTPUT: [0mUNIT FILE                                    STATE           PRESET
-accounts-daemon.service                      disabled        disabled
-alsa-card-wait@.service                      static          -
-alsa-restore.service                         static          -
-alsa-state.service                           static          -
-ananicy-cpp.service                          enabled         disabled
-annad.service                                enabled         disabled
-archlinux-keyring-wkd-sync.service           static          -
-arptables.service                            disabled        disabled
-audit-rules.service                          disabled        disabled
-auditd.service                               disabled        disabled
-auth-rpcgss-module.service                   static          -
-autovt@.service                              alias           -
-avahi-daemon.service                         enabled         disabled
-avahi-dnsconfd.service                       disabled        disabled
-blk-availability.service                     disabled        disabled
-bluetooth.service                            enabled         disabled
-bolt.service                                 static          -
-bpftune.service                              enabled         disabled
-breakpoint-pre-basic.service                 static          -
-breakpoint-pre-mount.service                 static          -
-breakpoint-pre-switch-root.service           static          -
-breakpoint-pre-udev.service                  static          -
-brltty-device@.service                       static          -
-brltty@.service                              static          -
-btrfs-scrub@.service                         static          -
-cachyos-rate-mirrors.service                 disabled        disabled
-canberra-system-bootup.service               disabled        disabled
-canberra-system-shutdown-reboot.service      disabled        disabled
-canberra-system-shutdown.service             disabled        disabled
-capsule@.service                             static          -
-colord.service                               static          -
-console-getty.service                        disabled        disabled
-container-getty@.service                     static          -
-cpupower.service                             disabled        disabled
-dbus-broker.service                          disabled        disabled
-dbus-org.bluez.service                       alias           -
-dbus-org.freedesktop.Avahi.service           alias           -
-dbus-org.freedesktop.hostname1.service       alias           -
-dbus-org.freedesktop.import1.service         alias           -
-dbus-org.freedesktop.locale1.service         alias           -
-dbus-org.freedesktop.login1.service          alias           -
-dbus-org.freedesktop.machine1.service        alias           -
-dbus-org.freedesktop.nm-dispatcher.service   alias           -
-dbus-org.freedesktop.portable1.service       alias           -
-dbus-org.freedesktop.resolve1.service        alias           -
-dbus-org.freedesktop.timedate1.service       alias           -
-dbus-org.freedesktop.timesync1.service       alias           -
-dbus.service                                 alias           -
-debug-shell.service                          disabled        disabled
-dhclient@.service                            disabled        disabled
-dirmngr@.service                             static          -
-display-manager.service                      alias           -
-dm-event.service                             static          -
-dmraid.service                               disabled        disabled
-dnsmasq.service                              disabled        disabled
-e2scrub@.service                             static          -
-e2scrub_all.service                          static          -
-e2scrub_fail@.service                        static          -
-e2scrub_reap.service                         disabled        disabled
-ead.service                                  disabled 
-... (output truncated)
+[32mEXEC: [0msystemctl list-units --type=service --state=running
+[2mOUTPUT: [0m  UNIT                          LOAD   ACTIVE SUB     DESCRIPTION
+  accounts-daemon.service       loaded active running Accounts Service
+  ananicy-cpp.service           loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++
+  annad.service                 loaded active running Anna Assistant Daemon
+  avahi-daemon.service          loaded active running Avahi mDNS/DNS-SD Stack
+  bluetooth.service             loaded active running Bluetooth service
+  bolt.service                  loaded active running Thunderbolt system service
+  bpftune.service               loaded active running BPF-based auto-tuning of system parameters
+  colord.service                loaded active running Manage, Install and Generate Color Profiles
+  dbus-broker.service           loaded active running D-Bus System Message Bus
+  fwupd.service                 loaded active running Firmware update daemon
+  gdm.service                   loaded active running GNOME Display Manager
+  iio-sensor-proxy.service      loaded active running IIO Sensor Proxy service
+  NetworkManager.service        loaded active running Network Manager
+  nvidia-powerd.service         loaded active running nvidia-powerd service
+  ollama.service                loaded active running Ollama Service
+  passim.service                loaded active running Local Caching Server
+  polkit.service                loaded active running Authorization Manager
+  power-profiles-daemon.service loaded active running Power Profiles daemon
+  rtkit-daemon.service          loaded active running RealtimeKit Scheduling Policy Service
+  sshd.service                  loaded active running OpenSSH Daemon
+  switcheroo-control.service    loaded active running Switcheroo Control Proxy service
+  systemd-journald.service      loaded active running Journal Service
+  systemd-logind.service        loaded active running User Login Management
+  systemd-resolved.service      loaded active running Network Name Resolution
+  systemd-timesyncd.service     loaded active running Network Time Synchronization
+  systemd-udevd.service         loaded active running Rule-based Manager for Device Events and Files
+  systemd-userdbd.service       loaded active running User Database Manager
+  udisks2.service               loaded active running Disk Manager
+  upower.service                loaded active running Daemon for power management
+  user@1000.service             loaded active running User Manager for UID 1000
+  wpa_supplicant.service        loaded active running WPA supplicant
 
-[32mEXEC: [0msystemctl show gdm -p DefaultService 2>/dev/null
-[2mOUTPUT: [0m
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+31 loaded units listed.
+
+
+[32mEXEC: [0mcat /etc/gdm/custom.conf 2>/dev/null
+[2mOUTPUT: [0m# GDM configuration storage
+
+[daemon]
+AutomaticLoginEnable=False
+# Uncomment the line below to force the login screen to use Xorg
+#WaylandEnable=false
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+# Uncomment the line below to turn on debugging
+#Enable=true
+
+
 
 [32mEXEC: [0mcat /var/lib/gdm/.config/monitors.xml 2>/dev/null
 [2mOUTPUT: [0m<monitors version="2">
@@ -281,158 +207,78 @@ ead.service                                  disabled
 [2m│ The user asked: "How do I start a systemd service?"[0m
 [2m│ [0m
 [2m│ Commands were run and produced this output:[0m
-[2m│ $ cat /etc/systemd/system.conf 2>/dev/null[0m
-[2m│ #  This file is part of systemd.[0m
-[2m│ #[0m
-[2m│ #  systemd is free software; you can redistribute it and/or modify it under the[0m
-[2m│ #  terms of the GNU Lesser General Public License as published by the Free[0m
-[2m│ #  Software Foundation; either version 2.1 of the License, or (at your option)[0m
-[2m│ #  any later version.[0m
-[2m│ #[0m
-[2m│ # Entries in this file show the compile time defaults. Local configuration[0m
-[2m│ # should be created by either modifying this file (or a copy of it placed in[0m
-[2m│ # /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in[0m
-[2m│ # /etc/systemd/system.conf.d/ directory. The latter is generally recommended.[0m
-[2m│ # Defaults can be restored by simply deleting the main configuration file and[0m
-[2m│ # all drop-ins located in /etc/.[0m
-[2m│ #[0m
-[2m│ # Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.[0m
-[2m│ #[0m
-[2m│ # See systemd-system.conf(5) for details.[0m
-[2m│ [0m
-[2m│ [Manager][0m
-[2m│ #LogLevel=info[0m
-[2m│ #LogTarget=journal-or-kmsg[0m
-[2m│ #LogColor=yes[0m
-[2m│ #LogLocation=no[0m
-[2m│ #LogTime=no[0m
-[2m│ #DumpCore=yes[0m
-[2m│ #ShowStatus=yes[0m
-[2m│ #CrashChangeVT=no[0m
-[2m│ #CrashShell=no[0m
-[2m│ #CrashAction=freeze[0m
-[2m│ #CtrlAltDelBurstAction=reboot-force[0m
-[2m│ #CPUAffinity=[0m
-[2m│ #NUMAPolicy=default[0m
-[2m│ #NUMAMask=[0m
-[2m│ #RuntimeWatchdogSec=off[0m
-[2m│ #RuntimeWatchdogPreSec=off[0m
-[2m│ #RuntimeWatchdogPreGovernor=[0m
-[2m│ #RebootWatchdogSec=10min[0m
-[2m│ #KExecWatchdogSec=off[0m
-[2m│ #WatchdogDevice=[0m
-[2m│ #CapabilityBoundingSet=[0m
-[2m│ #NoNewPrivileges=no[0m
-[2m│ #ProtectSystem=auto[0m
-[2m│ #SystemCallArchitectures=[0m
-[2m│ #TimerSlackNSec=[0m
-[2m│ #StatusUnitFormat=description[0m
-[2m│ #DefaultTimerAccuracySec=1min[0m
-[2m│ #DefaultStandardOutput=journal[0m
-[2m│ #DefaultStandardError=inherit[0m
-[2m│ #DefaultTimeoutStartSec=90s[0m
-[2m│ #DefaultTimeoutStopSec=90s[0m
-[2m│ #DefaultTimeoutAbortSec=[0m
-[2m│ #DefaultDeviceTimeoutSec=90s[0m
-[2m│ #DefaultRestartSec=100ms[0m
-[2m│ #DefaultStartLimitIntervalSec=10s[0m
-[2m│ #DefaultStartLimitBurst=5[0m
-[2m│ #DefaultEnvironment=[0m
-[2m│ #DefaultIOAccounting=no[0m
-[2m│ #DefaultIPAccounting=no[0m
-[2m│ #DefaultMemoryAccounting=yes[0m
-[2m│ #DefaultTasksAccounting=yes[0m
-[2m│ #DefaultTasksMax=15%[0m
-[2m│ #DefaultLimitCPU=[0m
-[2m│ #DefaultLimitFSIZE=[0m
-[2m│ #DefaultLimitDATA=[0m
-[2m│ #DefaultLimitSTACK=[0m
-[2m│ #DefaultLimitCORE=[0m
-[2m│ #DefaultLimitRSS=[0m
-[2m│ #DefaultLimitNOFILE=1024:524288[0m
-[2m│ #DefaultLimitAS=[0m
-[2m│ #DefaultLimitNPROC=[0m
-[2m│ #DefaultLimitMEMLOCK=8M[0m
-[2m│ #DefaultLimitLOCKS=[0m
-[2m│ #DefaultLimitSIGPENDING=[0m
-[2m│ #DefaultLimitMSGQUEUE=[0m
-[2m│ #DefaultLimitNICE=[0m
-[2m│ #DefaultLimitRTPRIO=[0m
-[2m│ #DefaultLimitRTTIME=[0m
-[2m│ #DefaultMemoryPressureThresholdSec=200ms[0m
-[2m│ #DefaultMemoryPressureWatch=auto[0m
-[2m│ #DefaultOOMPolicy=stop[0m
-[2m│ #DefaultSmackProcessLabel=[0m
-[2m│ #DefaultRestrictSUIDSGID=[0m
-[2m│ #ReloadLimitIntervalSec=[0m
-[2m│ #ReloadLimitBurst=[0m
+[2m│ $ systemctl status systemd-modules-load[0m
+[2m│ ● systemd-modules-load.service - Load Kernel Modules[0m
+[2m│      Loaded: loaded (/usr/lib/systemd/system/systemd-modules-load.service; static)[0m
+[2m│      Active: active (exited) since Wed 2026-01-07 20:54:08 CET; 16h ago[0m
+[2m│  Invocation: 2d647d6ab4e84cf1a27d08a41ae15fcc[0m
+[2m│        Docs: man:systemd-modules-load.service(8)[0m
+[2m│              man:modules-load.d(5)[0m
+[2m│     Process: 737 ExecStart=/usr/lib/systemd/systemd-modules-load (code=exited, status=0/SUCCESS)[0m
+[2m│    Main PID: 737 (code=exited, status=0/SUCCESS)[0m
+[2m│    Mem peak: 4.9M[0m
+[2m│         CPU: 23ms[0m
 [2m│ [0m
 [2m│ [0m
-[2m│ $ systemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null[0m
-[2m│ UNIT FILE                                    STATE           PRESET[0m
-[2m│ accounts-daemon.service                      disabled        disabled[0m
-[2m│ alsa-card-wait@.service                      static          -[0m
-[2m│ alsa-restore.service                         static          -[0m
-[2m│ alsa-state.service                           static          -[0m
-[2m│ ananicy-cpp.service                          enabled         disabled[0m
-[2m│ annad.service                                enabled         disabled[0m
-[2m│ archlinux-keyring-wkd-sync.service           static          -[0m
-[2m│ arptables.service                            disabled        disabled[0m
-[2m│ audit-rules.service                          disabled        disabled[0m
-[2m│ auditd.service                               disabled        disabled[0m
-[2m│ auth-rpcgss-module.service                   static          -[0m
-[2m│ autovt@.service                              alias           -[0m
-[2m│ avahi-daemon.service                         enabled         disabled[0m
-[2m│ avahi-dnsconfd.service                       disabled        disabled[0m
-[2m│ blk-availability.service                     disabled        disabled[0m
-[2m│ bluetooth.service                            enabled         disabled[0m
-[2m│ bolt.service                                 static          -[0m
-[2m│ bpftune.service                              enabled         disabled[0m
-[2m│ breakpoint-pre-basic.service                 static          -[0m
-[2m│ breakpoint-pre-mount.service                 static          -[0m
-[2m│ breakpoint-pre-switch-root.service           static          -[0m
-[2m│ breakpoint-pre-udev.service                  static          -[0m
-[2m│ brltty-device@.service                       static          -[0m
-[2m│ brltty@.service                              static          -[0m
-[2m│ btrfs-scrub@.service                         static          -[0m
-[2m│ cachyos-rate-mirrors.service                 disabled        disabled[0m
-[2m│ canberra-system-bootup.service               disabled        disabled[0m
-[2m│ canberra-system-shutdown-reboot.service      disabled        disabled[0m
-[2m│ canberra-system-shutdown.service             disabled        disabled[0m
-[2m│ capsule@.service                             static          -[0m
-[2m│ colord.service                               static          -[0m
-[2m│ console-getty.service                        disabled        disabled[0m
-[2m│ container-getty@.service                     static          -[0m
-[2m│ cpupower.service                             disabled        disabled[0m
-[2m│ dbus-broker.service                          disabled        disabled[0m
-[2m│ dbus-org.bluez.service                       alias           -[0m
-[2m│ dbus-org.freedesktop.Avahi.service           alias           -[0m
-[2m│ dbus-org.freedesktop.hostname1.service       alias           -[0m
-[2m│ dbus-org.freedesktop.import1.service         alias           -[0m
-[2m│ dbus-org.freedesktop.locale1.service         alias           -[0m
-[2m│ dbus-org.freedesktop.login1.service          alias           -[0m
-[2m│ dbus-org.freedesktop.machine1.service        alias           -[0m
-[2m│ dbus-org.freedesktop.nm-dispatcher.service   alias           -[0m
-[2m│ dbus-org.freedesktop.portable1.service       alias           -[0m
-[2m│ dbus-org.freedesktop.resolve1.service        alias           -[0m
-[2m│ dbus-org.freedesktop.timedate1.service       alias           -[0m
-[2m│ dbus-org.freedesktop.timesync1.service       alias           -[0m
-[2m│ dbus.service                                 alias           -[0m
-[2m│ debug-shell.service                          disabled        disabled[0m
-[2m│ dhclient@.service                            disabled        disabled[0m
-[2m│ dirmngr@.service                             static          -[0m
-[2m│ display-manager.service                      alias           -[0m
-[2m│ dm-event.service                             static          -[0m
-[2m│ dmraid.service                               disabled        disabled[0m
-[2m│ dnsmasq.service                              disabled        disabled[0m
-[2m│ e2scrub@.service                             static          -[0m
-[2m│ e2scrub_all.service                          static          -[0m
-[2m│ e2scrub_fail@.service                        static          -[0m
-[2m│ e2scrub_reap.service                         disabled        disabled[0m
-[2m│ ead.service                                  disabled [0m
-[2m│ ... (output truncated)[0m
+[2m│ $ systemctl list-units --type=service --state=running[0m
+[2m│   UNIT                          LOAD   ACTIVE SUB     DESCRIPTION[0m
+[2m│   accounts-daemon.service       loaded active running Accounts Service[0m
+[2m│   ananicy-cpp.service           loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++[0m
+[2m│   annad.service                 loaded active running Anna Assistant Daemon[0m
+[2m│   avahi-daemon.service          loaded active running Avahi mDNS/DNS-SD Stack[0m
+[2m│   bluetooth.service             loaded active running Bluetooth service[0m
+[2m│   bolt.service                  loaded active running Thunderbolt system service[0m
+[2m│   bpftune.service               loaded active running BPF-based auto-tuning of system parameters[0m
+[2m│   colord.service                loaded active running Manage, Install and Generate Color Profiles[0m
+[2m│   dbus-broker.service           loaded active running D-Bus System Message Bus[0m
+[2m│   fwupd.service                 loaded active running Firmware update daemon[0m
+[2m│   gdm.service                   loaded active running GNOME Display Manager[0m
+[2m│   iio-sensor-proxy.service      loaded active running IIO Sensor Proxy service[0m
+[2m│   NetworkManager.service        loaded active running Network Manager[0m
+[2m│   nvidia-powerd.service         loaded active running nvidia-powerd service[0m
+[2m│   ollama.service                loaded active running Ollama Service[0m
+[2m│   passim.service                loaded active running Local Caching Server[0m
+[2m│   polkit.service                loaded active running Authorization Manager[0m
+[2m│   power-profiles-daemon.service loaded active running Power Profiles daemon[0m
+[2m│   rtkit-daemon.service          loaded active running RealtimeKit Scheduling Policy Service[0m
+[2m│   sshd.service                  loaded active running OpenSSH Daemon[0m
+[2m│   switcheroo-control.service    loaded active running Switcheroo Control Proxy service[0m
+[2m│   systemd-journald.service      loaded active running Journal Service[0m
+[2m│   systemd-logind.service        loaded active running User Login Management[0m
+[2m│   systemd-resolved.service      loaded active running Network Name Resolution[0m
+[2m│   systemd-timesyncd.service     loaded active running Network Time Synchronization[0m
+[2m│   systemd-udevd.service         loaded active running Rule-based Manager for Device Events and Files[0m
+[2m│   systemd-userdbd.service       loaded active running User Database Manager[0m
+[2m│   udisks2.service               loaded active running Disk Manager[0m
+[2m│   upower.service                loaded active running Daemon for power management[0m
+[2m│   user@1000.service             loaded active running User Manager for UID 1000[0m
+[2m│   wpa_supplicant.service        loaded active running WPA supplicant[0m
 [2m│ [0m
-[2m│ $ systemctl show gdm -p DefaultService 2>/dev/null[0m
+[2m│ Legend: LOAD   → Reflects whether the unit definition was properly loaded.[0m
+[2m│         ACTIVE → The high-level unit activation state, i.e. generalization of SUB.[0m
+[2m│         SUB    → The low-level unit activation state, values depend on unit type.[0m
+[2m│ [0m
+[2m│ 31 loaded units listed.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ cat /etc/gdm/custom.conf 2>/dev/null[0m
+[2m│ # GDM configuration storage[0m
+[2m│ [0m
+[2m│ [daemon][0m
+[2m│ AutomaticLoginEnable=False[0m
+[2m│ # Uncomment the line below to force the login screen to use Xorg[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [security][0m
+[2m│ [0m
+[2m│ [xdmcp][0m
+[2m│ [0m
+[2m│ [chooser][0m
+[2m│ [0m
+[2m│ [debug][0m
+[2m│ # Uncomment the line below to turn on debugging[0m
+[2m│ #Enable=true[0m
+[2m│ [0m
 [2m│ [0m
 [2m│ [0m
 [2m│ $ cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
@@ -503,165 +349,96 @@ ead.service                                  disabled
 [2m│ - "NO" if more information is needed[0m
 [2m└─────────────────────────────────────────[0m
 
-[33mLLM → ANNA: [0mNO
+[33mLLM → ANNA: [0mYES
 
-[33mANNA → LLM: [0m(command selection prompt)
+[33mANNA → LLM: [0m(final answer prompt)
 [2m┌─────────────────────────────────────────[0m
-[2m│ Question: "How do I start a systemd service?"[0m
+[2m│ The user asked about their Arch Linux system: "How do I start a systemd service?"[0m
 [2m│ [0m
-[2m│ Previous command output:[0m
-[2m│ $ cat /etc/systemd/system.conf 2>/dev/null[0m
-[2m│ #  This file is part of systemd.[0m
-[2m│ #[0m
-[2m│ #  systemd is free software; you can redistribute it and/or modify it under the[0m
-[2m│ #  terms of the GNU Lesser General Public License as published by the Free[0m
-[2m│ #  Software Foundation; either version 2.1 of the License, or (at your option)[0m
-[2m│ #  any later version.[0m
-[2m│ #[0m
-[2m│ # Entries in this file show the compile time defaults. Local configuration[0m
-[2m│ # should be created by either modifying this file (or a copy of it placed in[0m
-[2m│ # /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in[0m
-[2m│ # /etc/systemd/system.conf.d/ directory. The latter is generally recommended.[0m
-[2m│ # Defaults can be restored by simply deleting the main configuration file and[0m
-[2m│ # all drop-ins located in /etc/.[0m
-[2m│ #[0m
-[2m│ # Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.[0m
-[2m│ #[0m
-[2m│ # See systemd-system.conf(5) for details.[0m
-[2m│ [0m
-[2m│ [Manager][0m
-[2m│ #LogLevel=info[0m
-[2m│ #LogTarget=journal-or-kmsg[0m
-[2m│ #LogColor=yes[0m
-[2m│ #LogLocation=no[0m
-[2m│ #LogTime=no[0m
-[2m│ #DumpCore=yes[0m
-[2m│ #ShowStatus=yes[0m
-[2m│ #CrashChangeVT=no[0m
-[2m│ #CrashShell=no[0m
-[2m│ #CrashAction=freeze[0m
-[2m│ #CtrlAltDelBurstAction=reboot-force[0m
-[2m│ #CPUAffinity=[0m
-[2m│ #NUMAPolicy=default[0m
-[2m│ #NUMAMask=[0m
-[2m│ #RuntimeWatchdogSec=off[0m
-[2m│ #RuntimeWatchdogPreSec=off[0m
-[2m│ #RuntimeWatchdogPreGovernor=[0m
-[2m│ #RebootWatchdogSec=10min[0m
-[2m│ #KExecWatchdogSec=off[0m
-[2m│ #WatchdogDevice=[0m
-[2m│ #CapabilityBoundingSet=[0m
-[2m│ #NoNewPrivileges=no[0m
-[2m│ #ProtectSystem=auto[0m
-[2m│ #SystemCallArchitectures=[0m
-[2m│ #TimerSlackNSec=[0m
-[2m│ #StatusUnitFormat=description[0m
-[2m│ #DefaultTimerAccuracySec=1min[0m
-[2m│ #DefaultStandardOutput=journal[0m
-[2m│ #DefaultStandardError=inherit[0m
-[2m│ #DefaultTimeoutStartSec=90s[0m
-[2m│ #DefaultTimeoutStopSec=90s[0m
-[2m│ #DefaultTimeoutAbortSec=[0m
-[2m│ #DefaultDeviceTimeoutSec=90s[0m
-[2m│ #DefaultRestartSec=100ms[0m
-[2m│ #DefaultStartLimitIntervalSec=10s[0m
-[2m│ #DefaultStartLimitBurst=5[0m
-[2m│ #DefaultEnvironment=[0m
-[2m│ #DefaultIOAccounting=no[0m
-[2m│ #DefaultIPAccounting=no[0m
-[2m│ #DefaultMemoryAccounting=yes[0m
-[2m│ #DefaultTasksAccounting=yes[0m
-[2m│ #DefaultTasksMax=15%[0m
-[2m│ #DefaultLimitCPU=[0m
-[2m│ #DefaultLimitFSIZE=[0m
-[2m│ #DefaultLimitDATA=[0m
-[2m│ #DefaultLimitSTACK=[0m
-[2m│ #DefaultLimitCORE=[0m
-[2m│ #DefaultLimitRSS=[0m
-[2m│ #DefaultLimitNOFILE=1024:524288[0m
-[2m│ #DefaultLimitAS=[0m
-[2m│ #DefaultLimitNPROC=[0m
-[2m│ #DefaultLimitMEMLOCK=8M[0m
-[2m│ #DefaultLimitLOCKS=[0m
-[2m│ #DefaultLimitSIGPENDING=[0m
-[2m│ #DefaultLimitMSGQUEUE=[0m
-[2m│ #DefaultLimitNICE=[0m
-[2m│ #DefaultLimitRTPRIO=[0m
-[2m│ #DefaultLimitRTTIME=[0m
-[2m│ #DefaultMemoryPressureThresholdSec=200ms[0m
-[2m│ #DefaultMemoryPressureWatch=auto[0m
-[2m│ #DefaultOOMPolicy=stop[0m
-[2m│ #DefaultSmackProcessLabel=[0m
-[2m│ #DefaultRestrictSUIDSGID=[0m
-[2m│ #ReloadLimitIntervalSec=[0m
-[2m│ #ReloadLimitBurst=[0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
 [2m│ [0m
 [2m│ [0m
-[2m│ $ systemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null[0m
-[2m│ UNIT FILE                                    STATE           PRESET[0m
-[2m│ accounts-daemon.service                      disabled        disabled[0m
-[2m│ alsa-card-wait@.service                      static          -[0m
-[2m│ alsa-restore.service                         static          -[0m
-[2m│ alsa-state.service                           static          -[0m
-[2m│ ananicy-cpp.service                          enabled         disabled[0m
-[2m│ annad.service                                enabled         disabled[0m
-[2m│ archlinux-keyring-wkd-sync.service           static          -[0m
-[2m│ arptables.service                            disabled        disabled[0m
-[2m│ audit-rules.service                          disabled        disabled[0m
-[2m│ auditd.service                               disabled        disabled[0m
-[2m│ auth-rpcgss-module.service                   static          -[0m
-[2m│ autovt@.service                              alias           -[0m
-[2m│ avahi-daemon.service                         enabled         disabled[0m
-[2m│ avahi-dnsconfd.service                       disabled        disabled[0m
-[2m│ blk-availability.service                     disabled        disabled[0m
-[2m│ bluetooth.service                            enabled         disabled[0m
-[2m│ bolt.service                                 static          -[0m
-[2m│ bpftune.service                              enabled         disabled[0m
-[2m│ breakpoint-pre-basic.service                 static          -[0m
-[2m│ breakpoint-pre-mount.service                 static          -[0m
-[2m│ breakpoint-pre-switch-root.service           static          -[0m
-[2m│ breakpoint-pre-udev.service                  static          -[0m
-[2m│ brltty-device@.service                       static          -[0m
-[2m│ brltty@.service                              static          -[0m
-[2m│ btrfs-scrub@.service                         static          -[0m
-[2m│ cachyos-rate-mirrors.service                 disabled        disabled[0m
-[2m│ canberra-system-bootup.service               disabled        disabled[0m
-[2m│ canberra-system-shutdown-reboot.service      disabled        disabled[0m
-[2m│ canberra-system-shutdown.service             disabled        disabled[0m
-[2m│ capsule@.service                             static          -[0m
-[2m│ colord.service                               static          -[0m
-[2m│ console-getty.service                        disabled        disabled[0m
-[2m│ container-getty@.service                     static          -[0m
-[2m│ cpupower.service                             disabled        disabled[0m
-[2m│ dbus-broker.service                          disabled        disabled[0m
-[2m│ dbus-org.bluez.service                       alias           -[0m
-[2m│ dbus-org.freedesktop.Avahi.service           alias           -[0m
-[2m│ dbus-org.freedesktop.hostname1.service       alias           -[0m
-[2m│ dbus-org.freedesktop.import1.service         alias           -[0m
-[2m│ dbus-org.freedesktop.locale1.service         alias           -[0m
-[2m│ dbus-org.freedesktop.login1.service          alias           -[0m
-[2m│ dbus-org.freedesktop.machine1.service        alias           -[0m
-[2m│ dbus-org.freedesktop.nm-dispatcher.service   alias           -[0m
-[2m│ dbus-org.freedesktop.portable1.service       alias           -[0m
-[2m│ dbus-org.freedesktop.resolve1.service        alias           -[0m
-[2m│ dbus-org.freedesktop.timedate1.service       alias           -[0m
-[2m│ dbus-org.freedesktop.timesync1.service       alias           -[0m
-[2m│ dbus.service                                 alias           -[0m
-[2m│ debug-shell.service                          disabled        disabled[0m
-[2m│ dhclient@.service                            disabled        disabled[0m
-[2m│ dirmngr@.service                             static          -[0m
-[2m│ display-manager.service                      alias           -[0m
-[2m│ dm-event.service                             static          -[0m
-[2m│ dmraid.service                               disabled        disabled[0m
-[2m│ dnsmasq.service                              disabled        disabled[0m
-[2m│ e2scrub@.service                             static          -[0m
-[2m│ e2scrub_all.service                          static          -[0m
-[2m│ e2scrub_fail@.service                        static          -[0m
-[2m│ e2scrub_reap.service                         disabled        disabled[0m
-[2m│ ead.service                                  disabled [0m
-[2m│ ... (output truncated)[0m
+[2m│ The following commands were run and produced this output:[0m
+[2m│ $ systemctl status systemd-modules-load[0m
+[2m│ ● systemd-modules-load.service - Load Kernel Modules[0m
+[2m│      Loaded: loaded (/usr/lib/systemd/system/systemd-modules-load.service; static)[0m
+[2m│      Active: active (exited) since Wed 2026-01-07 20:54:08 CET; 16h ago[0m
+[2m│  Invocation: 2d647d6ab4e84cf1a27d08a41ae15fcc[0m
+[2m│        Docs: man:systemd-modules-load.service(8)[0m
+[2m│              man:modules-load.d(5)[0m
+[2m│     Process: 737 ExecStart=/usr/lib/systemd/systemd-modules-load (code=exited, status=0/SUCCESS)[0m
+[2m│    Main PID: 737 (code=exited, status=0/SUCCESS)[0m
+[2m│    Mem peak: 4.9M[0m
+[2m│         CPU: 23ms[0m
 [2m│ [0m
-[2m│ $ systemctl show gdm -p DefaultService 2>/dev/null[0m
+[2m│ [0m
+[2m│ $ systemctl list-units --type=service --state=running[0m
+[2m│   UNIT                          LOAD   ACTIVE SUB     DESCRIPTION[0m
+[2m│   accounts-daemon.service       loaded active running Accounts Service[0m
+[2m│   ananicy-cpp.service           loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++[0m
+[2m│   annad.service                 loaded active running Anna Assistant Daemon[0m
+[2m│   avahi-daemon.service          loaded active running Avahi mDNS/DNS-SD Stack[0m
+[2m│   bluetooth.service             loaded active running Bluetooth service[0m
+[2m│   bolt.service                  loaded active running Thunderbolt system service[0m
+[2m│   bpftune.service               loaded active running BPF-based auto-tuning of system parameters[0m
+[2m│   colord.service                loaded active running Manage, Install and Generate Color Profiles[0m
+[2m│   dbus-broker.service           loaded active running D-Bus System Message Bus[0m
+[2m│   fwupd.service                 loaded active running Firmware update daemon[0m
+[2m│   gdm.service                   loaded active running GNOME Display Manager[0m
+[2m│   iio-sensor-proxy.service      loaded active running IIO Sensor Proxy service[0m
+[2m│   NetworkManager.service        loaded active running Network Manager[0m
+[2m│   nvidia-powerd.service         loaded active running nvidia-powerd service[0m
+[2m│   ollama.service                loaded active running Ollama Service[0m
+[2m│   passim.service                loaded active running Local Caching Server[0m
+[2m│   polkit.service                loaded active running Authorization Manager[0m
+[2m│   power-profiles-daemon.service loaded active running Power Profiles daemon[0m
+[2m│   rtkit-daemon.service          loaded active running RealtimeKit Scheduling Policy Service[0m
+[2m│   sshd.service                  loaded active running OpenSSH Daemon[0m
+[2m│   switcheroo-control.service    loaded active running Switcheroo Control Proxy service[0m
+[2m│   systemd-journald.service      loaded active running Journal Service[0m
+[2m│   systemd-logind.service        loaded active running User Login Management[0m
+[2m│   systemd-resolved.service      loaded active running Network Name Resolution[0m
+[2m│   systemd-timesyncd.service     loaded active running Network Time Synchronization[0m
+[2m│   systemd-udevd.service         loaded active running Rule-based Manager for Device Events and Files[0m
+[2m│   systemd-userdbd.service       loaded active running User Database Manager[0m
+[2m│   udisks2.service               loaded active running Disk Manager[0m
+[2m│   upower.service                loaded active running Daemon for power management[0m
+[2m│   user@1000.service             loaded active running User Manager for UID 1000[0m
+[2m│   wpa_supplicant.service        loaded active running WPA supplicant[0m
+[2m│ [0m
+[2m│ Legend: LOAD   → Reflects whether the unit definition was properly loaded.[0m
+[2m│         ACTIVE → The high-level unit activation state, i.e. generalization of SUB.[0m
+[2m│         SUB    → The low-level unit activation state, values depend on unit type.[0m
+[2m│ [0m
+[2m│ 31 loaded units listed.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ cat /etc/gdm/custom.conf 2>/dev/null[0m
+[2m│ # GDM configuration storage[0m
+[2m│ [0m
+[2m│ [daemon][0m
+[2m│ AutomaticLoginEnable=False[0m
+[2m│ # Uncomment the line below to force the login screen to use Xorg[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [security][0m
+[2m│ [0m
+[2m│ [xdmcp][0m
+[2m│ [0m
+[2m│ [chooser][0m
+[2m│ [0m
+[2m│ [debug][0m
+[2m│ # Uncomment the line below to turn on debugging[0m
+[2m│ #Enable=true[0m
+[2m│ [0m
 [2m│ [0m
 [2m│ [0m
 [2m│ $ cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
@@ -726,9 +503,42 @@ ead.service                                  disabled
 [2m│ [0m
 [2m│ [0m
 [2m│ [0m
-[2m│ Need more information to fully answer the question.[0m
-[2m│ Output additional commands (one per line, no explanations).[0m
-[2m│ If output above is sufficient, output: DONE[0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Systemd ---[0m
 [2m│ [0m
-[2m│ Commands:[0m
+[2m│ ## touch /etc/systemd/system/failure-notification@.service.d/toplevel-override.conf[0m
+[2m│ Notifying with e-mail[0m
+[2m│ You can set up systemd to send an e-mail when a unit fails. Cron sends mail to MAILTO if the job outputs to stdout or stderr, but many jobs are setup to only output on error. First you need two files: an executable for sending the mail and a .service for starting the executable. For this example, the executable is just a shell script using sendmail, which is in packages that provide smtp-forwarder.[0m
+[2m│ [0m
+[2m│ /usr/local/bin/systemd-email[0m
+[2m│ [0m
+[2m│ ## systemctl stop systemd-suspend.service[0m
+[2m│ and then trying shutdown or reboot again.[0m
+[2m│ [0m
+[2m│ Short lived processes do not seem to log any output[0m
+[2m│ If running journalctl -u foounit as root does not show any output for a short lived service, look at the PID instead. For example, if systemd-modules-load.service fails, and systemctl status systemd-modules-load shows that it ran as PID 123, then you might be able to see output in the journal for that PID, i.e. by running journalctl -b _PID=123 as root. Metadata fields for the journal such as _SYSTEMD_UNIT and _COMM are collected asynchronously and rely on the /proc directory for the process existing. Fixing this requires fixing the kernel to provide this data via a socket connection, similar to SCM_CREDENTIALS. In short, it is a bug. Keep in mind that immediately failed services might not print anything to the journal as per design of systemd.[0m
+[2m│ [0m
+[2m│ Boot time increasing over time[0m
+[2m│ [0m
+[2m│ The factual accuracy of this article or section is disputed.[0m
+[2m│ [0m
+[2m│ Reason: NetworkManager issues are not systemd's fault, the alleged reports are missing. Slow systemctl status or journalctl do not affect boot time. (Discuss in Talk:Systemd)[0m
+[2m│ [0m
+[2m│ After using systemd-analyze a number of users have noticed that their boot time has increased significantly in comparison with what it used to be. After using systemd-analyze blame NetworkManager is being reported as taking an unusually large amount of time to start.[0m
+[2m│ [0m
+[2m│ The problem for some users has been due to /var/log/journal becoming too large. This may have other impacts on...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. ONLY report facts from the ACTUAL command output above - never invent data[0m
+[2m│ 2. If a command returned empty or failed, say so[0m
+[2m│ 3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice[0m
+[2m│ 4. Provide specific, actionable steps for their exact setup[0m
+[2m│ 5. Be concise and direct[0m
+[2m│ 6. RESPOND IN ENGLISH ONLY[0m
+[2m│ [0m
+[2m│ Based on the actual output and system environment, answer the user's question:[0m
 [2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m

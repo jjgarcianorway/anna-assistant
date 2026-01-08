@@ -56,14 +56,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Suggested commands from Arch Wiki (use if relevant):[0m
 [2m│   loginctl session-status[0m
@@ -622,52 +628,53 @@
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m appears[0m[32m that[0m[32m you[0m[32m are[0m[32m using[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m,[0m[32m which[0m[32m is[0m[32m based[0m[32m on[0m[32m Arch[0m[32m Linux[0m[32m,[0m[32m and[0m[32m currently[0m[32m have[0m[32m G[0m[32mDM[0m[32m ([0m[32mGN[0m[32mOME[0m[32m Display[0m[32m Manager[0m[32m)[0m[32m active[0m[32m with[0m[32m Way[0m[32mland[0m[32m as[0m[32m the[0m[32m default[0m[32m session[0m[32m type[0m[32m.[0m[32m However[0m[32m,[0m[32m since[0m[32m your[0m[32m system[0m[32m environment[0m[32m does[0m[32m not[0m[32m mention[0m[32m GNOME[0m[32m being[0m[32m installed[0m[32m or[0m[32m running[0m[32m,[0m[32m let[0m[32m's[0m[32m proceed[0m[32m to[0m[32m install[0m[32m GNOME[0m[32m.
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m system[0m[32m environment[0m[32m details[0m[32m,[0m[32m it[0m[32m seems[0m[32m that[0m[32m your[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m distribution[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m as[0m[32m its[0m[32m display[0m[32m server[0m[32m,[0m[32m which[0m[32m is[0m[32m indicated[0m[32m by[0m[32m the[0m[32m `[0m[32m#[0m[32mWay[0m[32mland[0m[32mEnable[0m[32m=false[0m[32m`[0m[32m line[0m[32m in[0m[32m `/[0m[32metc[0m[32m/g[0m[32mdm[0m[32m/custom[0m[32m.conf[0m[32m`.[0m[32m However[0m[32m,[0m[32m Arch[0m[32m Linux[0m[32m typically[0m[32m uses[0m[32m Light[0m[32mDM[0m[32m with[0m[32m S[0m[32mDD[0m[32mM[0m[32m or[0m[32m G[0m[32mDM[0m[32m as[0m[32m a[0m[32m display[0m[32m manager[0m[32m.[0m[32m Let[0m[32m's[0m[32m proceed[0m[32m to[0m[32m install[0m[32m GNOME[0m[32m on[0m[32m your[0m[32m system[0m[32m:
 
-[0m[32m###[0m[32m Installation[0m[32m Steps[0m[32m
+[0m[32m###[0m[32m Installation[0m[32m of[0m[32m GNOME[0m[32m
 
-[0m[32mTo[0m[32m install[0m[32m GNOME[0m[32m on[0m[32m your[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m system[0m[32m,[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
-
-[0m[32m1[0m[32m.[0m[32m **[0m[32mUpdate[0m[32m Your[0m[32m System[0m[32m:[0m[32m**
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
-[0m[32m  [0m[32m ``[0m[32m`
-
-[0m[32m2[0m[32m.[0m[32m **[0m[32mInstall[0m[32m GNOME[0m[32m Packages[0m[32m:[0m[32m**
-[0m[32m  [0m[32m You[0m[32m can[0m[32m install[0m[32m the[0m[32m GNOME[0m[32m desktop[0m[32m environment[0m[32m and[0m[32m associated[0m[32m packages[0m[32m using[0m[32m Pac[0m[32mman[0m[32m:
+[0m[32m1[0m[32m.[0m[32m **[0m[32mInstall[0m[32m GNOME[0m[32m Packages[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Open[0m[32m a[0m[32m terminal[0m[32m and[0m[32m run[0m[32m the[0m[32m following[0m[32m command[0m[32m to[0m[32m install[0m[32m GNOME[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
 [0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m gnome[0m[32m gnome[0m[32m-extra[0m[32m
 [0m[32m  [0m[32m ```
-[0m[32m  [0m[32m Here[0m[32m,[0m[32m `[0m[32mgn[0m[32mome[0m[32m`[0m[32m includes[0m[32m the[0m[32m core[0m[32m GNOME[0m[32m components[0m[32m,[0m[32m and[0m[32m `[0m[32mgn[0m[32mome[0m[32m-extra[0m[32m`[0m[32m adds[0m[32m additional[0m[32m applications[0m[32m like[0m[32m Files[0m[32m,[0m[32m Na[0m[32mutilus[0m[32m,[0m[32m etc[0m[32m.
+[0m[32m  [0m[32m The[0m[32m `[0m[32mgn[0m[32mome[0m[32m`[0m[32m package[0m[32m includes[0m[32m essential[0m[32m components[0m[32m,[0m[32m while[0m[32m `[0m[32mgn[0m[32mome[0m[32m-extra[0m[32m`[0m[32m provides[0m[32m additional[0m[32m applications[0m[32m.
 
-[0m[32m3[0m[32m.[0m[32m **[0m[32mSwitch[0m[32m to[0m[32m G[0m[32mDM[0m[32m:[0m[32m**
-[0m[32m  [0m[32m Ensure[0m[32m that[0m[32m G[0m[32mDM[0m[32m is[0m[32m configured[0m[32m as[0m[32m your[0m[32m display[0m[32m manager[0m[32m.[0m[32m You[0m[32m can[0m[32m check[0m[32m this[0m[32m by[0m[32m editing[0m[32m `/[0m[32metc[0m[32m/g[0m[32mdm[0m[32m/custom[0m[32m.conf[0m[32m`[0m[32m:
+[0m[32m2[0m[32m.[0m[32m **[0m[32mEnable[0m[32m and[0m[32m Start[0m[32m GNOME[0m[32m Session[0m[32m Service[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Since[0m[32m you[0m[32m are[0m[32m using[0m[32m Way[0m[32mland[0m[32m by[0m[32m default[0m[32m ([0m[32mas[0m[32m indicated[0m[32m by[0m[32m the[0m[32m configuration[0m[32m),[0m[32m make[0m[32m sure[0m[32m to[0m[32m enable[0m[32m the[0m[32m appropriate[0m[32m session[0m[32m type[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m nano[0m[32m /[0m[32metc[0m[32m/g[0m[32mdm[0m[32m/custom[0m[32m.conf[0m[32m
-[0m[32m  [0m[32m ```
-[0m[32m  [0m[32m Make[0m[32m sure[0m[32m the[0m[32m following[0m[32m lines[0m[32m are[0m[32m uncomment[0m[32med[0m[32m and[0m[32m set[0m[32m to[0m[32m `[0m[32mtrue[0m[32m`[0m[32m:
-[0m[32m  [0m[32m ```[0m[32mini[0m[32m
-[0m[32m  [0m[32m Way[0m[32mland[0m[32mEnable[0m[32m=false[0m[32m
-[0m[32m  [0m[32m #[0m[32m Uncomment[0m[32m the[0m[32m following[0m[32m line[0m[32m if[0m[32m you[0m[32m want[0m[32m to[0m[32m use[0m[32m G[0m[32mDM[0m[32m as[0m[32m your[0m[32m display[0m[32m manager[0m[32m ([0m[32mif[0m[32m not[0m[32m already[0m[32m done[0m[32m):
-[0m[32m  [0m[32m [[0m[32mdaemon[0m[32m]
-[0m[32m  [0m[32m Automatic[0m[32mLogin[0m[32mEnable[0m[32m=True[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m enable[0m[32m g[0m[32mdm[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m start[0m[32m g[0m[32mdm[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m4[0m[32m.[0m[32m **[0m[32mRestart[0m[32m Your[0m[32m System[0m[32m:[0m[32m**
-[0m[32m  [0m[32m After[0m[32m installation[0m[32m,[0m[32m restart[0m[32m your[0m[32m system[0m[32m to[0m[32m apply[0m[32m changes[0m[32m:
+[0m[32m3[0m[32m.[0m[32m **[0m[32mSelect[0m[32m GNOME[0m[32m as[0m[32m Your[0m[32m Default[0m[32m Desktop[0m[32m Environment[0m[32m:[0m[32m**
+[0m[32m  [0m[32m You[0m[32m can[0m[32m change[0m[32m your[0m[32m default[0m[32m display[0m[32m manager[0m[32m and[0m[32m session[0m[32m in[0m[32m `/[0m[32metc[0m[32m/g[0m[32mdm[0m[32m/custom[0m[32m.conf[0m[32m`.[0m[32m Add[0m[32m or[0m[32m modify[0m[32m the[0m[32m following[0m[32m lines[0m[32m:
+[0m[32m  [0m[32m ```[0m[32mini[0m[32m
+[0m[32m  [0m[32m [[0m[32mdaemon[0m[32m]
+[0m[32m  [0m[32m #[0m[32m Way[0m[32mland[0m[32mEnable[0m[32m=false[0m[32m
+[0m[32m  [0m[32m Way[0m[32mland[0m[32mEnable[0m[32m=true[0m[32m
+
+[0m[32m  [0m[32m [[0m[32msecurity[0m[32m]
+[0m[32m  [0m[32m Enable[0m[32mL[0m[32mX[0m[32mDE[0m[32mP[0m[32mAM[0m[32m=false[0m[32m
+
+[0m[32m  [0m[32m [[0m[32mxd[0m[32mm[0m[32mcp[0m[32m]
+[0m[32m  [0m[32m Enable[0m[32m=false[0m[32m
+
+[0m[32m  [0m[32m [[0m[32mgre[0m[32meter[0m[32m]
+[0m[32m  [0m[32m Gre[0m[32meter[0m[32mHidden[0m[32m=false[0m[32m
+[0m[32m  [0m[32m Default[0m[32mSession[0m[32m=[0m[32mgn[0m[32mome[0m[32m-shell[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m4[0m[32m.[0m[32m **[0m[32mRe[0m[32mboot[0m[32m Your[0m[32m System[0m[32m:[0m[32m**
+[0m[32m  [0m[32m After[0m[32m making[0m[32m the[0m[32m changes[0m[32m,[0m[32m reboot[0m[32m your[0m[32m system[0m[32m to[0m[32m apply[0m[32m them[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
 [0m[32m  [0m[32m sudo[0m[32m reboot[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m5[0m[32m.[0m[32m **[0m[32mLog[0m[32m In[0m[32m to[0m[32m GNOME[0m[32m:[0m[32m**
-[0m[32m  [0m[32m Upon[0m[32m reboot[0m[32m,[0m[32m you[0m[32m should[0m[32m now[0m[32m have[0m[32m the[0m[32m option[0m[32m to[0m[32m log[0m[32m in[0m[32m with[0m[32m G[0m[32mDM[0m[32m and[0m[32m select[0m[32m GNOME[0m[32m as[0m[32m your[0m[32m desktop[0m[32m environment[0m[32m.
+[0m[32m###[0m[32m Notes[0m[32m:
+[0m[32m-[0m[32m If[0m[32m you[0m[32m want[0m[32m to[0m[32m use[0m[32m X[0m[32morg[0m[32m instead[0m[32m of[0m[32m Way[0m[32mland[0m[32m,[0m[32m you[0m[32m can[0m[32m disable[0m[32m Way[0m[32mland[0m[32m in[0m[32m `/[0m[32metc[0m[32m/g[0m[32mdm[0m[32m/custom[0m[32m.conf[0m[32m`[0m[32m by[0m[32m uncomment[0m[32ming[0m[32m and[0m[32m setting[0m[32m `[0m[32mWay[0m[32mland[0m[32mEnable[0m[32m=false[0m[32m`.
+[0m[32m-[0m[32m Ensure[0m[32m that[0m[32m G[0m[32mDM[0m[32m is[0m[32m configured[0m[32m correctly[0m[32m to[0m[32m handle[0m[32m both[0m[32m GNOME[0m[32m and[0m[32m any[0m[32m other[0m[32m desktop[0m[32m environments[0m[32m you[0m[32m might[0m[32m have[0m[32m installed[0m[32m.
 
-[0m[32m###[0m[32m Additional[0m[32m Tips[0m[32m
-
-[0m[32m-[0m[32m If[0m[32m you[0m[32m encounter[0m[32m any[0m[32m issues[0m[32m,[0m[32m check[0m[32m the[0m[32m logs[0m[32m for[0m[32m errors[0m[32m using[0m[32m `[0m[32mjournal[0m[32mctl[0m[32m -[0m[32mxe[0m[32m`.
-[0m[32m-[0m[32m If[0m[32m you[0m[32m prefer[0m[32m Way[0m[32mland[0m[32m over[0m[32m X[0m[32morg[0m[32m,[0m[32m you[0m[32m can[0m[32m uncomment[0m[32m `[0m[32mWay[0m[32mland[0m[32mEnable[0m[32m=true[0m[32m`[0m[32m and[0m[32m comment[0m[32m out[0m[32m or[0m[32m remove[0m[32m the[0m[32m line[0m[32m `[0m[32mAutomatic[0m[32mLogin[0m[32mEnable[0m[32m=True[0m[32m`.[0m[32m However[0m[32m,[0m[32m this[0m[32m might[0m[32m require[0m[32m some[0m[32m additional[0m[32m setup[0m[32m depending[0m[32m on[0m[32m your[0m[32m system[0m[32m configuration[0m[32m.
-
-[0m[32mIf[0m[32m you[0m[32m need[0m[32m further[0m[32m assistance[0m[32m or[0m[32m encounter[0m[32m specific[0m[32m issues[0m[32m during[0m[32m installation[0m[32m,[0m[32m feel[0m[32m free[0m[32m to[0m[32m ask[0m[32m![0m[32m[0m
+[0m[32mBy[0m[32m following[0m[32m these[0m[32m steps[0m[32m,[0m[32m you[0m[32m should[0m[32m be[0m[32m able[0m[32m to[0m[32m install[0m[32m and[0m[32m use[0m[32m GNOME[0m[32m on[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m.[0m[32m If[0m[32m you[0m[32m encounter[0m[32m any[0m[32m issues[0m[32m during[0m[32m the[0m[32m installation[0m[32m or[0m[32m configuration[0m[32m process[0m[32m,[0m[32m feel[0m[32m free[0m[32m to[0m[32m ask[0m[32m for[0m[32m further[0m[32m assistance[0m[32m![0m[32m[0m
 [2m═══════════════════════════════════════[0m
 
 [2m(1 iterations)[0m

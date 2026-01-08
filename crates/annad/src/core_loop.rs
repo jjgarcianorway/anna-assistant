@@ -8,14 +8,19 @@
 //! 5. Output is sent back to LLM for validation
 //! 6. If valid answer, return to user; otherwise iterate
 
+use anna_shared::profile::{self, SystemProfile};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anna_shared::wiki;
 use anyhow::{anyhow, Result};
 use std::process::Command;
+use std::sync::OnceLock;
 use tokio::io::AsyncWriteExt;
 use tracing::{info, warn, debug};
 
 use crate::ollama;
+
+/// Cached system profile (lazy loaded)
+static SYSTEM_PROFILE: OnceLock<SystemProfile> = OnceLock::new();
 
 /// Ollama URL for embeddings
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
@@ -41,10 +46,47 @@ const SYSTEM_CONTEXT_COMMANDS: &[&str] = &[
     "grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1",
 ];
 
+/// Get or create system profile (lazy loaded, cached)
+fn get_system_profile() -> &'static SystemProfile {
+    SYSTEM_PROFILE.get_or_init(|| {
+        // Try to load existing profile
+        if let Ok(profile) = SystemProfile::load() {
+            if !profile.needs_refresh() {
+                info!("Loaded cached system profile");
+                return profile;
+            }
+        }
+
+        // Scan system for fresh profile
+        info!("Scanning system profile...");
+        match profile::scan::scan_system() {
+            Ok(profile) => {
+                if let Err(e) = profile.save() {
+                    warn!("Failed to save system profile: {}", e);
+                }
+                profile
+            }
+            Err(e) => {
+                warn!("Failed to scan system: {}", e);
+                SystemProfile::default()
+            }
+        }
+    })
+}
+
 /// Gather basic system context
 fn gather_system_context() -> String {
     let mut context = String::new();
 
+    // Get profile summary
+    let profile = get_system_profile();
+    let profile_summary = profile.summary_for_llm();
+    if !profile_summary.is_empty() {
+        context.push_str(&profile_summary);
+        context.push('\n');
+    }
+
+    // Also run live commands for current state
     for cmd in SYSTEM_CONTEXT_COMMANDS {
         if let Ok(output) = execute_command(cmd) {
             let output = output.trim();
@@ -54,6 +96,22 @@ fn gather_system_context() -> String {
         }
     }
 
+    context
+}
+
+/// Get relevant configs for a question
+fn get_relevant_configs_for_question(question: &str) -> String {
+    let profile = get_system_profile();
+    let relevant = profile.get_relevant_configs(question);
+
+    if relevant.is_empty() {
+        return String::new();
+    }
+
+    let mut context = String::from("\nExisting system configurations:\n");
+    for cfg in relevant {
+        context.push_str(&format!("--- {} ---\n{}\n", cfg.path, cfg.content));
+    }
     context
 }
 
@@ -666,9 +724,12 @@ Reply with ONLY one of:
         String::new()
     };
 
+    // Get relevant existing configs for this question
+    let existing_configs = get_relevant_configs_for_question(question);
+
     let final_prompt = if last_output.is_empty() {
         format!(
-            r#"The user asked about their Arch Linux system: "{}"{system_info}{wiki_section}
+            r#"The user asked about their Arch Linux system: "{}"{system_info}{wiki_section}{existing_configs}
 
 No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.
 Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so."#,
@@ -679,15 +740,16 @@ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, et
             r#"The user asked about their Arch Linux system: "{}"{system_info}
 
 The following commands were run and produced this output:
-{}{wiki_section}
+{}{wiki_section}{existing_configs}
 
 RULES:
 1. ONLY report facts from the ACTUAL command output above - never invent data
 2. If a command returned empty or failed, say so
 3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice
-4. Provide specific, actionable steps for their exact setup
-5. Be concise and direct
-6. RESPOND IN ENGLISH ONLY
+4. Consider EXISTING CONFIGS shown above - the user may have already applied workarounds
+5. Provide specific, actionable steps for their exact setup
+6. Be concise and direct
+7. RESPOND IN ENGLISH ONLY
 
 Based on the actual output and system environment, answer the user's question:"#,
             question, last_output

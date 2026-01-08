@@ -5,31 +5,7 @@
 [2m  query: How do I enable SSH?[0m
 
 [35mWIKI → ANNA: [0mfound articles:
-[2m  • Install Arch Linux via SSH (score: 0.50)[0m
-[2m  • VPN over SSH (score: 0.50)[0m
-[2m  • SSH keys (score: 0.50)[0m
-
-[35mWIKI: [0mextracted commands:
-[2m  $ [0m[36mxorrisofs -output cloud-init.iso -volid CIDATA -joliet -rational-rock meta-data user-data network-config[0m
-[2m  $ [0m[36mmkfs.fat -C -n CIDATA cloud-init.img 2048[0m
-[2m  $ [0m[36mmcopy -i cloud-init.img meta-data user-data network-config ::[0m
-[2m  $ [0m[36mxorriso -indev archlinux-version-x86_64.iso -outdev archlinux-version-x86_64-with-cidata.iso -append_partition 3 0x0c cloud-init.img -boot_image any replay[0m
-[2m  $ [0m[36msystemctl restart iwd.service[0m
-[2m  $ [0m[36mssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@ip.address.of.target[0m
-[2m  $ [0m[36mprintf "" > meta-data[0m
-[2m  $ [0m[36mssh -i id_rsa_server user@server[0m
-[2m  $ [0m[36mssh-keygen[0m
-[2m  $ [0m[36mssh-keygen -C "$(whoami)@$(uname -n)-$(date -I)"[0m
-[2m  $ [0m[36mssh-keygen -t ecdsa[0m
-[2m  $ [0m[36mssh-keygen -t ecdsa -b 384[0m
-[2m  $ [0m[36mssh-keygen -t rsa[0m
-[2m  $ [0m[36mssh-keygen -t rsa -b 4096[0m
-[2m  $ [0m[36mssh-keygen -t ed25519-sk[0m
-[2m  $ [0m[36mssh-keygen -O resident -t ed25519-sk[0m
-[2m  $ [0m[36mssh-keygen -K[0m
-[2m  $ [0m[36mssh-keygen -O no-touch-required -t ed25519-sk[0m
-[2m  $ [0m[36mssh-keygen -t ecdsa-sk[0m
-[2m  $ [0m[36mssh-keygen -f ~/.ssh/id_rsa -p[0m
+[2m  • (no relevant articles found)[0m
 
 [33mANNA → LLM: [0m(command selection prompt)
 [2m┌─────────────────────────────────────────[0m
@@ -58,21 +34,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
-[2m│ [0m
-[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
-[2m│   xorrisofs -output cloud-init.iso -volid CIDATA -joliet -rational-rock meta-data user-data network-config[0m
-[2m│   mkfs.fat -C -n CIDATA cloud-init.img 2048[0m
-[2m│   mcopy -i cloud-init.img meta-data user-data network-config ::[0m
-[2m│   xorriso -indev archlinux-version-x86_64.iso -outdev archlinux-version-x86_64-with-cidata.iso -append_partition 3 0x0c cloud-init.img -boot_image any replay[0m
-[2m│   systemctl restart iwd.service[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Commands:[0m
 [2m└─────────────────────────────────────────[0m
@@ -94,573 +69,59 @@
 [2m│ #WaylandEnable=false[0m
 [2m│ [0m
 [2m│ [0m
-[2m│ Relevant information from Arch Wiki:[0m
-[2m│ --- From Install Arch Linux via SSH ---[0m
-[2m│ [0m
-[2m│ ## cloud-config[0m
-[2m│ users:[0m
-[2m│ - name: root[0m
-[2m│ ssh_authorized_keys:[0m
-[2m│ - ssh-ed25519 XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX[0m
-[2m│ - ssh-ed25519 YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY[0m
-[2m│ [0m
-[2m│ write_files:[0m
-[2m│ - content: |[0m
-[2m│ [Security][0m
-[2m│ PreSharedKey=aafb192ce2da24d8c7805c956136f45dd612103f086034c402ed266355297295[0m
-[2m│ path: /var/lib/iwd/spaceship.psk[0m
-[2m│ [0m
-[2m│ runcmd:[0m
-[2m│ - systemctl restart iwd.service[0m
-[2m│ cloud-init creates network configuration that differs from one shipped in the ISO. I.e. mDNS responder and DHCPv6 client are not enabled. To avoid this, disable cloud-init's network configuration in network-config:[0m
-[2m│ [0m
-[2m│ network-config[0m
-[2m│ version: 2[0m
-[2m│ config: disabled[0m
-[2m│ [0m
-[2m│ Once all three files are created they need to be placed on a drive with an ISO 9660 or FAT volume labeled CIDATA.[0m
-[2m│ [0m
-[2m│ Using an additional FAT formatted drive[0m
-[2m│ Use a FAT formatted drive. Copy meta-data, user-data and network-config to the drive and change the file system's LABEL to CIDATA.[0m
-[2m│ [0m
-[2m│ You will need to attach this drive to the headless machine in addition to the one with the official ISO.[0m
-[2m│ [0m
-[2m│ Using an additional ISO[0m
-[2m│ Create a cloud-init.iso file using xorriso from libisoburn:[0m
-[2m│ [0m
-[2m│ $ xorrisofs -output cloud-init.iso -volid CIDATA -joliet -rational-rock meta-data user-data network-config[0m
-[2m│ [0m
-[2m│ Prepare the cloud-init data medium by burning cloud-init.iso to an optical disc or, if deployment options permit, use the ISO as is.[0m
-[2m│ [0m
-[2m│ Using a single USB flash drive[0m
-[2m│ If the installation image is written to e.g. a USB flash drive, provided there is enough spa...[0m
-[2m│ [0m
-[2m│ ## passwd[0m
-[2m│ Confirm that PermitRootLogin yes is set in /etc/ssh/sshd_config. If it is not, set it and reload the OpenSSH daemon sshd.service to apply the changes.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Note If the target machine is behind a NAT router, and you require external access, the SSH port (22 by default) will need to be forwarded to the target machine's LAN IP address. Alternatively, you can setup a reverse SSH tunnel to your local (client) machine and connect back through it, see the -R flag of ssh(1).[0m
-[2m│ On the local machine[0m
-[2m│ On the local machine, connect to the target machine via SSH with the following command:[0m
-[2m│ [0m
-[2m│ $ ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@ip.address.of.target[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Note The -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null options will prevent verifying and writing the live environment's SSH host keys to ~/.ssh/known_hosts. This will avoid the REMOTE HOST IDENTIFICATION HAS CHANGED warning in case you have ever connected to the IP address before.[0m
-[2m│ [0m
-[2m│ Tip If both machines are on the same local network, you can use the mDNS hostname archiso.local in place of the target's IP address: $ ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@archiso.local[0m
-[2m│ [0m
-[2m│ From here one is presented with the live environment's welcome message and is able to administer the target machine as if sitting at the physical keyboard. At this point, if the intent is to simply install Arch from the live media, resume at Installation guide#Update the system clock. If the intent is to edit...[0m
-[2m│ --- From VPN over SSH ---[0m
-[2m│ [0m
-[2m│ ## ip route add <IP_of_SSH_server> via <IP_of_original_gateway> metric 5[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ ## pppd updetach noauth silent nodeflate pty "/usr/bin/ssh root@remote-gw /usr/sbin/pppd nodetach notty noauth" ipparam vpn 10.0.8.1:10.0.8.2[0m
-[2m│ When the VPN is established, you can route traffic through it. To get access to an internal network:[0m
-[2m│ --- From SSH keys ---[0m
-[2m│ [0m
-[2m│ ## /usr/bin/sshd -d[0m
-[2m│ If you gave another name to your key, for example id_rsa_server, you need to connect with the -i option:[0m
-[2m│ $ ssh -i id_rsa_server user@server[0m
-[2m│ [0m
-[2m│ agent refused operation[0m
-[2m│ If your private key requires a password (or, for instance, you have a hardware key with a PIN) but ssh-agent is not provided with one, ssh will fail:[0m
-[2m│ [0m
-[2m│ sign_and_send_pubkey: signing failed for ECDSA-SK user@host from agent: agent refused operation[0m
-[2m│ [0m
-[2m│ One potential cause for this is ssh-agent being unable to prompt for a password. Ensure that ssh-agent has access to either a display server (via the DISPLAY environment variable) or a TTY. For some graphical environments you might only need to install x11-ssh-askpass, for other setups also follow #x11-ssh-askpass instructions.[0m
-[2m│ [0m
-[2m│ Another cause, if using a hardware authenticator, could be the key malfunctioning or being unplugged.[0m
-[2m│ [0m
-[2m│ There is currently an open bug that triggers with the "agent refused operation" error when using authenticator keys like ED25519-sk and ECDSA-SK that were created with the option -O verify-required. To avoid this issue, use the -o IdentityAgent=none -o IdentitiesOnly=yes option for the ssh command or add it to your ssh_config file for the relevant hosts:[0m
-[2m│ [0m
-[2m│ Host myserver.tld[0m
-[2m│ IdentityAgent none[0m
-[2m│ IdentitiesOnly yes[0m
-[2m│ [0m
-[2m│ See also[0m
-[2m│ [0m
-[2m│ OpenSSH key management: Part 1, Part 2, Part 3[0m
-[2m│ [0m
-[2m│ Secure Secure Shell[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category: Secure Shell[0m
-[2m│ [0m
-[2m│ Hidden categories:[0m
-[2m│ Pages or sections flagged with Template:Expansion[0m
-[2m│ Pages or sections flagged with Template:Style[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Retri...[0m
-[2m│ SSH keys - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Contents[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Beginning[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 1[0m
-[2m│ Background[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2[0m
-[2m│ Generating an SSH key pair[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle Generating an SSH key pair subsection[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1[0m
-[2m│ Choosing the authentication key type[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1.1[0m
-[2m│ Ed25519[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1.2[0m
-[2m│ ECDSA[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1.3[0m
-[2m│ RSA[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1.4[0m
-[2m│ FIDO/U2F[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1.4.1[0m
-[2m│ resident[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.1.4.2[0m
-[2m│ no-touch-required[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.2[0m
-[2m│ Choosing the key location and passphrase[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.2.1[0m
-[2m│ Changing the private key's passphrase without changing the key[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.2.2[0m
-[2m│ Managing multiple keys[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2.2.3[0m
-[2m│ Storing SSH keys on hardware tokens[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 3[0m
-[2m│ Copying the public key to the remote server[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle Copying the public key to the remote server subsection[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 3.1[0m
-[2m│ Simple method[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 3.2[0m
-[2m│ Manual method[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4[0m
-[2m│ SSH agents[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle SSH agents subsection[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.1[0m
-[2m│ ssh-agent[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.1.1[0m
-[2m│ Start ssh-agent with systemd user[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.1.2[0m
-[2m│ Forwarding ssh-agent[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.1.3[0m
-[2m│ ssh-agent as a wrapper program[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.2[0m
-[2m│ OpenPGP card ssh-agent[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.2.1[0m
-[2m│ User PIN handling[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.3[0m
-[2m│ GnuPG Agent[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.4[0m
-[2m│ Keychain[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.4.1[0m
-[2m│ Installation[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.4.2[0m
-[2m│ Configuration[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.4.3[0m
-[2m│ Tips[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.5[0m
-[2m│ x11-ssh-askpass[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.5.1[0m
-[2m│ Calling x11-ssh-askpass with ssh-add[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.5.2[0m
-[2m│ Theming[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.5.3[0m
-[2m│ Alternative passphrase dialogs[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.6[0m
-[2m│ pam_ssh[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.6.1[0m
-[2m│ Using a different password to unlock the SSH key[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.6.2[0m
-[2m│ Known issues with pam_ssh[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.7[0m
-[2m│ pam_e...[0m
-[2m│ [0m
-[2m│ [0m
 [2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
 [2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m information[0m[32m,[0m[32m it[0m[32m looks[0m[32m like[0m[32m you[0m[32m are[0m[32m using[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m Way[0m[32mland[0m[32m,[0m[32m but[0m[32m the[0m[32m instructions[0m[32m from[0m[32m Arch[0m[32m Wiki[0m[32m can[0m[32m still[0m[32m be[0m[32m adapted[0m[32m for[0m[32m your[0m[32m situation[0m[32m.
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m information[0m[32m,[0m[32m it[0m[32m seems[0m[32m that[0m[32m you[0m[32m are[0m[32m using[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m,[0m[32m which[0m[32m is[0m[32m based[0m[32m on[0m[32m Arch[0m[32m Linux[0m[32m,[0m[32m with[0m[32m either[0m[32m G[0m[32mDM[0m[32m or[0m[32m S[0m[32mDD[0m[32mM[0m[32m as[0m[32m the[0m[32m display[0m[32m manager[0m[32m and[0m[32m Way[0m[32mland[0m[32m as[0m[32m the[0m[32m graphical[0m[32m environment[0m[32m ([0m[32mthough[0m[32m your[0m[32m system[0m[32m might[0m[32m also[0m[32m support[0m[32m X[0m[32morg[0m[32m since[0m[32m you[0m[32m have[0m[32m light[0m[32mdm[0m[32m).
 
-[0m[32mTo[0m[32m enable[0m[32m SSH[0m[32m on[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m:
+[0m[32mTo[0m[32m enable[0m[32m SSH[0m[32m on[0m[32m your[0m[32m system[0m[32m,[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
 
-[0m[32m1[0m[32m.[0m[32m **[0m[32mEnsure[0m[32m SSH[0m[32m is[0m[32m installed[0m[32m and[0m[32m running[0m[32m:[0m[32m**
+[0m[32m1[0m[32m.[0m[32m **[0m[32mInstall[0m[32m Open[0m[32mSSH[0m[32m Server[0m[32m:[0m[32m**
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m
-[31mError: [0mExecution error: request or response body error: operation timed out
-[31mError: [0mExecution error: request or response body error: operation timed out
+[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m opens[0m[32msh[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mConfigure[0m[32m Open[0m[32mSSH[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Edit[0m[32m the[0m[32m `/[0m[32metc[0m[32m/[0m[32mssh[0m[32m/ss[0m[32mhd[0m[32m_config[0m[32m`[0m[32m file[0m[32m to[0m[32m suit[0m[32m your[0m[32m needs[0m[32m.[0m[32m For[0m[32m example[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m nano[0m[32m /[0m[32metc[0m[32m/[0m[32mssh[0m[32m/ss[0m[32mhd[0m[32m_config[0m[32m
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m You[0m[32m can[0m[32m set[0m[32m a[0m[32m port[0m[32m,[0m[32m enable[0m[32m or[0m[32m disable[0m[32m root[0m[32m login[0m[32m,[0m[32m and[0m[32m configure[0m[32m other[0m[32m settings[0m[32m as[0m[32m needed[0m[32m.
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mStart[0m[32m the[0m[32m SSH[0m[32m Service[0m[32m:[0m[32m**
+[0m[32m  [0m[32m If[0m[32m it[0m[32m's[0m[32m not[0m[32m already[0m[32m running[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m start[0m[32m ssh[0m[32md[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m4[0m[32m.[0m[32m **[0m[32mEnable[0m[32m SSH[0m[32m to[0m[32m Start[0m[32m on[0m[32m Boot[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Ensure[0m[32m that[0m[32m the[0m[32m service[0m[32m starts[0m[32m automatically[0m[32m on[0m[32m boot[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m enable[0m[32m ssh[0m[32md[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m5[0m[32m.[0m[32m **[0m[32mCheck[0m[32m if[0m[32m SSH[0m[32m is[0m[32m Running[0m[32m:[0m[32m**
+[0m[32m  [0m[32m You[0m[32m can[0m[32m check[0m[32m the[0m[32m status[0m[32m of[0m[32m the[0m[32m SSH[0m[32m service[0m[32m with[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m status[0m[32m ssh[0m[32md[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m6[0m[32m.[0m[32m **[0m[32mAllow[0m[32m Firewall[0m[32m Access[0m[32m ([0m[32mif[0m[32m applicable[0m[32m):[0m[32m**
+[0m[32m  [0m[32m If[0m[32m you[0m[32m have[0m[32m a[0m[32m firewall[0m[32m enabled[0m[32m,[0m[32m make[0m[32m sure[0m[32m to[0m[32m allow[0m[32m traffic[0m[32m on[0m[32m port[0m[32m [0m[32m2[0m[32m2[0m[32m ([0m[32mor[0m[32m whatever[0m[32m port[0m[32m you[0m[32m configured[0m[32m):
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m firewall[0m[32m-c[0m[32mmd[0m[32m --[0m[32madd[0m[32m-service[0m[32m=[0m[32mssh[0m[32m --[0m[32mpermanent[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m firewall[0m[32m-c[0m[32mmd[0m[32m --[0m[32mreload[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m7[0m[32m.[0m[32m **[0m[32mConnect[0m[32m Using[0m[32m SSH[0m[32m:[0m[32m**
+[0m[32m  [0m[32m You[0m[32m can[0m[32m now[0m[32m connect[0m[32m to[0m[32m your[0m[32m system[0m[32m using[0m[32m an[0m[32m SSH[0m[32m client[0m[32m from[0m[32m another[0m[32m machine[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m ssh[0m[32m username[0m[32m@[0m[32myour[0m[32m-machine[0m[32m-ip[0m[32m-address[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32mIf[0m[32m you[0m[32m encounter[0m[32m any[0m[32m issues[0m[32m,[0m[32m please[0m[32m provide[0m[32m specific[0m[32m error[0m[32m messages[0m[32m or[0m[32m questions[0m[32m,[0m[32m and[0m[32m I[0m[32m'll[0m[32m be[0m[32m happy[0m[32m to[0m[32m assist[0m[32m further[0m[32m![0m[32m[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

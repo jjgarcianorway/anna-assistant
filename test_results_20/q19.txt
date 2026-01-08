@@ -5,9 +5,7 @@
 [2m  query: Why is my system slow?[0m
 
 [35mWIKI → ANNA: [0mfound articles:
-[2m  • Full system backup with tar (score: 0.50)[0m
-[2m  • Category:Version control system (score: 0.50)[0m
-[2m  • Category:System administration (score: 0.50)[0m
+[2m  • (no relevant articles found)[0m
 
 [33mANNA → LLM: [0m(command selection prompt)
 [2m┌─────────────────────────────────────────[0m
@@ -36,23 +34,116 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Commands:[0m
 [2m└─────────────────────────────────────────[0m
 
 [33mLLM → ANNA: [0mcommands to run:
+[2m  $ [0m[36mdf -h[0m
+[2m  $ [0m[36mfree -h[0m
+[2m  $ [0m[36mjournalctl -xe --no-pager | tail -50[0m
+[2m  $ [0m[36msystemctl status gdm 2>/dev/null[0m
 [2m  $ [0m[36mcat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m  $ [0m[36mgsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m  $ [0m[36mps aux --sort=-%cpu | head -n 10 2>/dev/null[0m
-[2m  $ [0m[36miostat -x 1 2>/dev/null[0m
+
+[32mEXEC: [0mdf -h
+[2mOUTPUT: [0mFilesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G   88G  862G  10% /
+devtmpfs         16G     0   16G   0% /dev
+tmpfs            16G  2,1M   16G   1% /dev/shm
+efivarfs        268K  210K   54K  80% /sys/firmware/efi/efivars
+tmpfs           6,3G  2,5M  6,3G   1% /run
+none            1,0M     0  1,0M   0% /run/credentials/systemd-journald.service
+none            1,0M     0  1,0M   0% /run/credentials/systemd-resolved.service
+/dev/nvme0n1p2  952G   88G  862G  10% /srv
+/dev/nvme0n1p2  952G   88G  862G  10% /home
+/dev/nvme0n1p2  952G   88G  862G  10% /root
+tmpfs            16G   22M   16G   1% /tmp
+/dev/nvme0n1p2  952G   88G  862G  10% /var/cache
+/dev/nvme0n1p2  952G   88G  862G  10% /var/log
+/dev/nvme0n1p2  952G   88G  862G  10% /var/tmp
+/dev/nvme0n1p1  2,0G  824M  1,2G  41% /boot
+tmpfs           3,2G  637M  2,5G  21% /run/user/1000
+
+
+[32mEXEC: [0mfree -h
+[2mOUTPUT: [0m               total        used        free      shared  buff/cache   available
+Mem:            31Gi       9,0Gi       1,4Gi        67Mi        21Gi        21Gi
+Swap:           31Gi       880Mi        30Gi
+
+
+[32mEXEC: [0mjournalctl -xe --no-pager | tail -50
+[2mOUTPUT: [0m░░ 
+░░ A start job for unit UNIT has finished successfully.
+░░ 
+░░ The job identifier is 2358.
+jan. 08 13:09:58 razorback systemd[3674]: arch-update.service: Consumed 2.747s CPU time over 8.719s wall clock time, 444.7M memory peak.
+░░ Subject: Resources consumed by unit runtime
+░░ Defined-By: systemd
+░░ Support: https://lists.freedesktop.org/mailman/listinfo/systemd-devel
+░░ 
+░░ The unit UNIT completed and consumed the indicated resources.
+jan. 08 13:10:01 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=169.254.105.128 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=23266 PROTO=2 
+jan. 08 13:10:15 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=42489 PROTO=2 
+jan. 08 13:10:26 razorback annad[155665]: 2026-01-08T12:10:26.304587Z  INFO Checking for updates...
+jan. 08 13:10:27 razorback annad[155665]: 2026-01-08T12:10:27.310258Z  INFO Already on latest version: 0.0.854
+jan. 08 13:10:31 razorback ollama[1331]: [GIN] 2026/01/08 - 13:10:31 | 200 | 48.965412092s |       127.0.0.1 | POST     "/api/generate"
+jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.177124Z  INFO Processing question (streaming): How do I clear the pacman cache?
+jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.177138Z  INFO Gathering system context...
+jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.237267Z  INFO Wiki found 1 articles, 18 commands
+jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.237277Z  INFO Iteration 1/5
+jan. 08 13:10:34 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=44154 PROTO=2 
+jan. 08 13:10:44 razorback ollama[1331]: [GIN] 2026/01/08 - 13:10:44 | 200 | 13.530588742s |       127.0.0.1 | POST     "/api/generate"
+jan. 08 13:11:00 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=169.254.105.128 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=25804 PROTO=2 
+jan. 08 13:11:13 razorback ollama[1331]: [GIN] 2026/01/08 - 13:11:13 | 200 | 29.087770375s |       127.0.0.1 | POST     "/api/generate"
+jan. 08 13:11:13 razorback annad[155665]: 2026-01-08T12:11:13.885890Z  INFO Processing question (streaming): How do I check my GPU information?
+jan. 08 13:11:13 razorback annad[155665]: 2026-01-08T12:11:13.885905Z  INFO Gathering system context...
+jan. 08 13:11:13 razorback annad[155665]: 2026-01-08T12:11:13.957631Z  INFO Iteration 1/5
+jan. 08 13:11:25 razorback ollama[1331]: [GIN] 2026/01/08 - 13:11:25 | 200 | 11.764335247s |       127.0.0.1 | POST     "/api/generate"
+jan. 08 13:11:26 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=46544 PROTO=2 
+jan. 08 13:11:26 razorback annad[155665]: 2026-01-08T12:11:26.304426Z  INFO Checking for updates...
+jan. 08 13:11:26 razorback annad[155665]: 2026-01-08T12:11:26.698496Z  INFO Already on latest version: 0.0.854
+jan. 08 13:11:39 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=47074 PROTO=2 
+jan. 08 13:11:53 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=47192 PROTO=2 
+jan. 08 13:12:01 razorback ollama[1331]: [GIN] 2026/01/08 - 13:12:01 | 200 | 35.853641344s |       127.0.0.1 | POST     "/api/generate"
+jan. 08 13:12:01 razorback annad[155665]: 2026-01-08T12:12:01.606459Z  INFO Processing question (streaming): How do I fix no sound issue?
+jan. 08 13:12:01 razorback annad[155665]: 2026-01-08T12:12:01.606471Z  INFO Gathering system context...
+jan. 08 13:12:01 razorback annad[155665]: 2026-01-08T12:12:01.663162Z  INFO Iteration 1/5
+... (output truncated)
+
+[32mEXEC: [0msystemctl status gdm 2>/dev/null
+[2mOUTPUT: [0m● gdm.service - GNOME Display Manager
+     Loaded: loaded (/usr/lib/systemd/system/gdm.service; enabled; preset: disabled)
+     Active: active (running) since Wed 2026-01-07 20:54:11 CET; 16h ago
+ Invocation: 4b4df1bdb72b49288c88a57712cd6dcf
+   Main PID: 1244 (gdm)
+      Tasks: 5 (limit: 37882)
+     Memory: 4.6M (peak: 25.4M)
+        CPU: 369ms
+     CGroup: /system.slice/gdm.service
+             └─1244 /usr/bin/gdm
+
+jan. 07 20:54:11 razorback systemd[1]: Starting GNOME Display Manager...
+jan. 07 20:54:11 razorback systemd[1]: Started GNOME Display Manager.
+jan. 07 20:54:37 razorback gdm-password][4056]: gkr-pam: unable to locate daemon control file
+jan. 07 20:54:37 razorback gdm-password][4056]: gkr-pam: stashed password to try later in open session
+jan. 07 20:54:37 razorback gdm-password][4056]: pam_unix(gdm-password:session): session opened for user lhoqvso(uid=1000) by lhoqvso(uid=0)
+jan. 07 20:54:37 razorback gdm-password][4056]: gkr-pam: unlocked login keyring
+jan. 07 20:54:39 razorback gdm[1244]: Gdm: Child process -1364 was already dead.
+
 
 [32mEXEC: [0mcat /var/lib/gdm/.config/monitors.xml 2>/dev/null
 [2mOUTPUT: [0m<monitors version="2">
@@ -114,31 +205,97 @@
 </monitors>
 
 
-[32mEXEC: [0mgsettings get org.gnome.desktop.interface scaling-factor
-[2mOUTPUT: [0muint32 0
-
-
-[32mEXEC: [0mps aux --sort=-%cpu | head -n 10 2>/dev/null
-[2mOUTPUT: [0mUSER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
-ollama     93380  772 15.6 7423528 5084344 ?     Sl   12:09 254:41 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 43899
-lhoqvso    21115  7.2  1.9 75453600 641228 pts/3 RNl+ jan.07  61:41 claude --dangerously-skip-permissions
-lhoqvso     4820  0.8  1.5 19824988 493200 ?     SNsl jan.07   8:12 /usr/bin/gnome-shell
-root         513  0.2  0.0      0     0 ?        S    jan.07   2:42 [nvidia-modeset/kthread_q]
-root        1133  0.1  0.0 174976  9044 ?        Ssl  jan.07   1:30 /usr/bin/nvidia-powerd
-root       92887  0.1  0.4 2251764 137436 ?      Ssl  12:06   0:03 /usr/local/bin/annad
-root         515  0.1  0.0      0     0 ?        S    jan.07   1:22 [irq/179-nvidia]
-lhoqvso     5491  0.0  0.3 445764 115860 ?       S<   jan.07   0:51 /usr/bin/Xwayland :0 -rootless -noreset -accessx -core -auth /run/user/1000/.mutter-Xwaylandauth.HR6DI3 -listenfd 4 -listenfd 5 -displayfd 6 -initfd 7 -byteswappedclients -enable-ei-portal
-lhoqvso    17299  0.0  0.0  17928  9524 ?        S<s  jan.07   0:44 tmux new -A -s claude
-
-
-[32mEXEC: [0miostat -x 1 2>/dev/null
-[2mOUTPUT: [0m
-
 [33mANNA → LLM: [0m(validation prompt)
 [2m┌─────────────────────────────────────────[0m
 [2m│ The user asked: "Why is my system slow?"[0m
 [2m│ [0m
 [2m│ Commands were run and produced this output:[0m
+[2m│ $ df -h[0m
+[2m│ Filesystem      Size  Used Avail Use% Mounted on[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /[0m
+[2m│ devtmpfs         16G     0   16G   0% /dev[0m
+[2m│ tmpfs            16G  2,1M   16G   1% /dev/shm[0m
+[2m│ efivarfs        268K  210K   54K  80% /sys/firmware/efi/efivars[0m
+[2m│ tmpfs           6,3G  2,5M  6,3G   1% /run[0m
+[2m│ none            1,0M     0  1,0M   0% /run/credentials/systemd-journald.service[0m
+[2m│ none            1,0M     0  1,0M   0% /run/credentials/systemd-resolved.service[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /srv[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /home[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /root[0m
+[2m│ tmpfs            16G   22M   16G   1% /tmp[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /var/cache[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /var/log[0m
+[2m│ /dev/nvme0n1p2  952G   88G  862G  10% /var/tmp[0m
+[2m│ /dev/nvme0n1p1  2,0G  824M  1,2G  41% /boot[0m
+[2m│ tmpfs           3,2G  637M  2,5G  21% /run/user/1000[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ free -h[0m
+[2m│                total        used        free      shared  buff/cache   available[0m
+[2m│ Mem:            31Gi       9,0Gi       1,4Gi        67Mi        21Gi        21Gi[0m
+[2m│ Swap:           31Gi       880Mi        30Gi[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ journalctl -xe --no-pager | tail -50[0m
+[2m│ ░░ [0m
+[2m│ ░░ A start job for unit UNIT has finished successfully.[0m
+[2m│ ░░ [0m
+[2m│ ░░ The job identifier is 2358.[0m
+[2m│ jan. 08 13:09:58 razorback systemd[3674]: arch-update.service: Consumed 2.747s CPU time over 8.719s wall clock time, 444.7M memory peak.[0m
+[2m│ ░░ Subject: Resources consumed by unit runtime[0m
+[2m│ ░░ Defined-By: systemd[0m
+[2m│ ░░ Support: https://lists.freedesktop.org/mailman/listinfo/systemd-devel[0m
+[2m│ ░░ [0m
+[2m│ ░░ The unit UNIT completed and consumed the indicated resources.[0m
+[2m│ jan. 08 13:10:01 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=169.254.105.128 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=23266 PROTO=2 [0m
+[2m│ jan. 08 13:10:15 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=42489 PROTO=2 [0m
+[2m│ jan. 08 13:10:26 razorback annad[155665]: 2026-01-08T12:10:26.304587Z  INFO Checking for updates...[0m
+[2m│ jan. 08 13:10:27 razorback annad[155665]: 2026-01-08T12:10:27.310258Z  INFO Already on latest version: 0.0.854[0m
+[2m│ jan. 08 13:10:31 razorback ollama[1331]: [GIN] 2026/01/08 - 13:10:31 | 200 | 48.965412092s |       127.0.0.1 | POST     "/api/generate"[0m
+[2m│ jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.177124Z  INFO Processing question (streaming): How do I clear the pacman cache?[0m
+[2m│ jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.177138Z  INFO Gathering system context...[0m
+[2m│ jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.237267Z  INFO Wiki found 1 articles, 18 commands[0m
+[2m│ jan. 08 13:10:31 razorback annad[155665]: 2026-01-08T12:10:31.237277Z  INFO Iteration 1/5[0m
+[2m│ jan. 08 13:10:34 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=44154 PROTO=2 [0m
+[2m│ jan. 08 13:10:44 razorback ollama[1331]: [GIN] 2026/01/08 - 13:10:44 | 200 | 13.530588742s |       127.0.0.1 | POST     "/api/generate"[0m
+[2m│ jan. 08 13:11:00 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=169.254.105.128 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=25804 PROTO=2 [0m
+[2m│ jan. 08 13:11:13 razorback ollama[1331]: [GIN] 2026/01/08 - 13:11:13 | 200 | 29.087770375s |       127.0.0.1 | POST     "/api/generate"[0m
+[2m│ jan. 08 13:11:13 razorback annad[155665]: 2026-01-08T12:11:13.885890Z  INFO Processing question (streaming): How do I check my GPU information?[0m
+[2m│ jan. 08 13:11:13 razorback annad[155665]: 2026-01-08T12:11:13.885905Z  INFO Gathering system context...[0m
+[2m│ jan. 08 13:11:13 razorback annad[155665]: 2026-01-08T12:11:13.957631Z  INFO Iteration 1/5[0m
+[2m│ jan. 08 13:11:25 razorback ollama[1331]: [GIN] 2026/01/08 - 13:11:25 | 200 | 11.764335247s |       127.0.0.1 | POST     "/api/generate"[0m
+[2m│ jan. 08 13:11:26 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=46544 PROTO=2 [0m
+[2m│ jan. 08 13:11:26 razorback annad[155665]: 2026-01-08T12:11:26.304426Z  INFO Checking for updates...[0m
+[2m│ jan. 08 13:11:26 razorback annad[155665]: 2026-01-08T12:11:26.698496Z  INFO Already on latest version: 0.0.854[0m
+[2m│ jan. 08 13:11:39 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=47074 PROTO=2 [0m
+[2m│ jan. 08 13:11:53 razorback kernel: [UFW BLOCK] IN=wlan0 OUT= MAC=01:00:5e:00:00:01:76:83:c2:30:69:80:08:00 SRC=10.0.0.1 DST=224.0.0.1 LEN=32 TOS=0x00 PREC=0xC0 TTL=1 ID=47192 PROTO=2 [0m
+[2m│ jan. 08 13:12:01 razorback ollama[1331]: [GIN] 2026/01/08 - 13:12:01 | 200 | 35.853641344s |       127.0.0.1 | POST     "/api/generate"[0m
+[2m│ jan. 08 13:12:01 razorback annad[155665]: 2026-01-08T12:12:01.606459Z  INFO Processing question (streaming): How do I fix no sound issue?[0m
+[2m│ jan. 08 13:12:01 razorback annad[155665]: 2026-01-08T12:12:01.606471Z  INFO Gathering system context...[0m
+[2m│ jan. 08 13:12:01 razorback annad[155665]: 2026-01-08T12:12:01.663162Z  INFO Iteration 1/5[0m
+[2m│ ... (output truncated)[0m
+[2m│ [0m
+[2m│ $ systemctl status gdm 2>/dev/null[0m
+[2m│ ● gdm.service - GNOME Display Manager[0m
+[2m│      Loaded: loaded (/usr/lib/systemd/system/gdm.service; enabled; preset: disabled)[0m
+[2m│      Active: active (running) since Wed 2026-01-07 20:54:11 CET; 16h ago[0m
+[2m│  Invocation: 4b4df1bdb72b49288c88a57712cd6dcf[0m
+[2m│    Main PID: 1244 (gdm)[0m
+[2m│       Tasks: 5 (limit: 37882)[0m
+[2m│      Memory: 4.6M (peak: 25.4M)[0m
+[2m│         CPU: 369ms[0m
+[2m│      CGroup: /system.slice/gdm.service[0m
+[2m│              └─1244 /usr/bin/gdm[0m
+[2m│ [0m
+[2m│ jan. 07 20:54:11 razorback systemd[1]: Starting GNOME Display Manager...[0m
+[2m│ jan. 07 20:54:11 razorback systemd[1]: Started GNOME Display Manager.[0m
+[2m│ jan. 07 20:54:37 razorback gdm-password][4056]: gkr-pam: unable to locate daemon control file[0m
+[2m│ jan. 07 20:54:37 razorback gdm-password][4056]: gkr-pam: stashed password to try later in open session[0m
+[2m│ jan. 07 20:54:37 razorback gdm-password][4056]: pam_unix(gdm-password:session): session opened for user lhoqvso(uid=1000) by lhoqvso(uid=0)[0m
+[2m│ jan. 07 20:54:37 razorback gdm-password][4056]: gkr-pam: unlocked login keyring[0m
+[2m│ jan. 07 20:54:39 razorback gdm[1244]: Gdm: Child process -1364 was already dead.[0m
+[2m│ [0m
+[2m│ [0m
 [2m│ $ cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
 [2m│ <monitors version="2">[0m
 [2m│   <configuration>[0m
@@ -197,26 +354,6 @@ lhoqvso    17299  0.0  0.0  17928  9524 ?        S<s  jan.07   0:44 tmux new -A 
 [2m│     </disabled>[0m
 [2m│   </configuration>[0m
 [2m│ </monitors>[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ uint32 0[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ ps aux --sort=-%cpu | head -n 10 2>/dev/null[0m
-[2m│ USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND[0m
-[2m│ ollama     93380  772 15.6 7423528 5084344 ?     Sl   12:09 254:41 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 43899[0m
-[2m│ lhoqvso    21115  7.2  1.9 75453600 641228 pts/3 RNl+ jan.07  61:41 claude --dangerously-skip-permissions[0m
-[2m│ lhoqvso     4820  0.8  1.5 19824988 493200 ?     SNsl jan.07   8:12 /usr/bin/gnome-shell[0m
-[2m│ root         513  0.2  0.0      0     0 ?        S    jan.07   2:42 [nvidia-modeset/kthread_q][0m
-[2m│ root        1133  0.1  0.0 174976  9044 ?        Ssl  jan.07   1:30 /usr/bin/nvidia-powerd[0m
-[2m│ root       92887  0.1  0.4 2251764 137436 ?      Ssl  12:06   0:03 /usr/local/bin/annad[0m
-[2m│ root         515  0.1  0.0      0     0 ?        S    jan.07   1:22 [irq/179-nvidia][0m
-[2m│ lhoqvso     5491  0.0  0.3 445764 115860 ?       S<   jan.07   0:51 /usr/bin/Xwayland :0 -rootless -noreset -accessx -core -auth /run/user/1000/.mutter-Xwaylandauth.HR6DI3 -listenfd 4 -listenfd 5 -displayfd 6 -initfd 7 -byteswappedclients -enable-ei-portal[0m
-[2m│ lhoqvso    17299  0.0  0.0  17928  9524 ?        S<s  jan.07   0:44 tmux new -A -s claude[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ iostat -x 1 2>/dev/null[0m
 [2m│ [0m
 [2m│ [0m
 [2m│ [0m
@@ -226,603 +363,3 @@ lhoqvso    17299  0.0  0.0  17928  9524 ?        S<s  jan.07   0:44 tmux new -A 
 [2m│ - "YES" if the output contains enough information to answer the question[0m
 [2m│ - "NO" if more information is needed[0m
 [2m└─────────────────────────────────────────[0m
-
-[33mLLM → ANNA: [0mYES
-
-[33mANNA → LLM: [0m(final answer prompt)
-[2m┌─────────────────────────────────────────[0m
-[2m│ The user asked about their Arch Linux system: "Why is my system slow?"[0m
-[2m│ [0m
-[2m│ System environment:[0m
-[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
-[2m│ tty[0m
-[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
-[2m│ NAME="CachyOS Linux"[0m
-[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
-[2m│ active[0m
-[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
-[2m│ #WaylandEnable=false[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ The following commands were run and produced this output:[0m
-[2m│ $ cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ <monitors version="2">[0m
-[2m│   <configuration>[0m
-[2m│     <layoutmode>logical</layoutmode>[0m
-[2m│     <logicalmonitor>[0m
-[2m│       <x>0</x>[0m
-[2m│       <y>0</y>[0m
-[2m│       <scale>1</scale>[0m
-[2m│       <primary>yes</primary>[0m
-[2m│       <monitor>[0m
-[2m│         <monitorspec>[0m
-[2m│           <connector>HDMI-1</connector>[0m
-[2m│           <vendor>GSM</vendor>[0m
-[2m│           <product>LG TV SSCR2</product>[0m
-[2m│           <serial>0x01010101</serial>[0m
-[2m│         </monitorspec>[0m
-[2m│         <mode>[0m
-[2m│           <width>1920</width>[0m
-[2m│           <height>1080</height>[0m
-[2m│           <rate>119.879</rate>[0m
-[2m│         </mode>[0m
-[2m│         <colormode>bt2100</colormode>[0m
-[2m│       </monitor>[0m
-[2m│     </logicalmonitor>[0m
-[2m│   </configuration>[0m
-[2m│   <configuration>[0m
-[2m│     <layoutmode>logical</layoutmode>[0m
-[2m│     <logicalmonitor>[0m
-[2m│       <x>0</x>[0m
-[2m│       <y>0</y>[0m
-[2m│       <scale>2</scale>[0m
-[2m│       <primary>yes</primary>[0m
-[2m│       <monitor>[0m
-[2m│         <monitorspec>[0m
-[2m│           <connector>HDMI-1</connector>[0m
-[2m│           <vendor>GSM</vendor>[0m
-[2m│           <product>LG TV SSCR2</product>[0m
-[2m│           <serial>0x01010101</serial>[0m
-[2m│         </monitorspec>[0m
-[2m│         <mode>[0m
-[2m│           <width>3840</width>[0m
-[2m│           <height>2160</height>[0m
-[2m│           <rate>119.880</rate>[0m
-[2m│           <ratemode>variable</ratemode>[0m
-[2m│         </mode>[0m
-[2m│         <colormode>bt2100</colormode>[0m
-[2m│       </monitor>[0m
-[2m│     </logicalmonitor>[0m
-[2m│     <disabled>[0m
-[2m│       <monitorspec>[0m
-[2m│         <connector>eDP-1</connector>[0m
-[2m│         <vendor>CSO</vendor>[0m
-[2m│         <product>0x1619</product>[0m
-[2m│         <serial>0x00000000</serial>[0m
-[2m│       </monitorspec>[0m
-[2m│     </disabled>[0m
-[2m│   </configuration>[0m
-[2m│ </monitors>[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ uint32 0[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ ps aux --sort=-%cpu | head -n 10 2>/dev/null[0m
-[2m│ USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND[0m
-[2m│ ollama     93380  772 15.6 7423528 5084344 ?     Sl   12:09 254:41 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 43899[0m
-[2m│ lhoqvso    21115  7.2  1.9 75453600 641228 pts/3 RNl+ jan.07  61:41 claude --dangerously-skip-permissions[0m
-[2m│ lhoqvso     4820  0.8  1.5 19824988 493200 ?     SNsl jan.07   8:12 /usr/bin/gnome-shell[0m
-[2m│ root         513  0.2  0.0      0     0 ?        S    jan.07   2:42 [nvidia-modeset/kthread_q][0m
-[2m│ root        1133  0.1  0.0 174976  9044 ?        Ssl  jan.07   1:30 /usr/bin/nvidia-powerd[0m
-[2m│ root       92887  0.1  0.4 2251764 137436 ?      Ssl  12:06   0:03 /usr/local/bin/annad[0m
-[2m│ root         515  0.1  0.0      0     0 ?        S    jan.07   1:22 [irq/179-nvidia][0m
-[2m│ lhoqvso     5491  0.0  0.3 445764 115860 ?       S<   jan.07   0:51 /usr/bin/Xwayland :0 -rootless -noreset -accessx -core -auth /run/user/1000/.mutter-Xwaylandauth.HR6DI3 -listenfd 4 -listenfd 5 -displayfd 6 -initfd 7 -byteswappedclients -enable-ei-portal[0m
-[2m│ lhoqvso    17299  0.0  0.0  17928  9524 ?        S<s  jan.07   0:44 tmux new -A -s claude[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ iostat -x 1 2>/dev/null[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Relevant information from Arch Wiki:[0m
-[2m│ --- From Full system backup with tar ---[0m
-[2m│ [0m
-[2m│ ## slow terminal, this can greatly speed up the backup process.[0m
-[2m│ tar --exclude-from="$exclude_file" --acls --xattrs -cpvaf "$backupfile" /[0m
-[2m│ fi[0m
-[2m│ Restoring[0m
-[2m│ To restore from a previous backup, mount all relevant partitions, change the current working directory to the root directory, and execute[0m
-[2m│ [0m
-[2m│ ## Check if exclude file exists[0m
-[2m│ if [ ! -f $exclude_file ]; then[0m
-[2m│ echo -n "No exclude file exists, continue? (y/n): "[0m
-[2m│ read continue[0m
-[2m│ if [ $continue == "n" ]; then exit; fi[0m
-[2m│ fi[0m
-[2m│ [0m
-[2m│ if [ $executeback = "y" ]; then[0m
-[2m│ --- From Category:Version control system ---[0m
-[2m│ Category:Version control system - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category:Version control system[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Appearance[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Help[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ From ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ See also Wikipedia:Version control and List of applications/Utilities#Version control systems.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Subcategories[0m
-[2m│ This category has only the following subcategory.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ G[0m
-[2m│ Git web interfaces[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Pages in category "Version control system"[0m
-[2m│ The following 9 pages are in this category, out of 9 total.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ B[0m
-[2m│ Bisecting bugs with Git[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ C[0m
-[2m│ Concurrent Versions System[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ G[0m
-[2m│ [0m
-[2m│ Git[0m
-[2m│ Git server[0m
-[2m│ Gitfs[0m
-[2m│ Gitolite[0m
-[2m│ Gitosis[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ M[0m
-[2m│ Mercurial[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ S[0m
-[2m│ Subversion[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category: Development[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:Version_control_system&oldid=817157"[0m
-[2m│ This page was last edited on 24 September 2024, at 11:46.[0m
-[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Privacy policy[0m
-[2m│ About ArchWiki[0m
-[2m│ Disclaimers[0m
-[2m│ Code of conduct[0m
-[2m│ Terms of service[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Search[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Search[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category:Version control system[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Add topic[0m
-[2m│ --- From Category:System administration ---[0m
-[2m│ Category:System administration - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category:System administration[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Appearance[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Help[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ From ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ The main articles for this category are General recommendations, System maintenance and General troubleshooting.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Subcategories[0m
-[2m│ This category has the following 23 subcategories, out of 23 total.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ B[0m
-[2m│ [0m
-[2m│ Backup[0m
-[2m│ Boot process[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ C[0m
-[2m│ [0m
-[2m│ Command-line[0m
-[2m│ Configuration files[0m
-[2m│ Configuration management[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ E[0m
-[2m│ Eye candy[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ F[0m
-[2m│ [0m
-[2m│ File sharing[0m
-[2m│ File systems[0m
-[2m│ Freedesktop.org[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ G[0m
-[2m│ Graphical user interfaces[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ I[0m
-[2m│ Input[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ K[0m
-[2m│ Kernel[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ L[0m
-[2m│ [0m
-[2m│ Linux console[0m
-[2m│ Localization[0m
-[2m│ Logging[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ M[0m
-[2m│ Monitoring[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ N[0m
-[2m│ Notification[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ P[0m
-[2m│ [0m
-[2m│ Package management[0m
-[2m│ Power management[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ S[0m
-[2m│ [0m
-[2m│ Security[0m
-[2m│ Synchronization[0m
-[2m│ System recovery[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ V[0m
-[2m│ Virtualization[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Pages in category "System administration"[0m
-[2m│ The following 25 pages are in this category, out of 25 total.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ A[0m
-[2m│ [0m
-[2m│ Allow a program to continue after logoff[0m
-[2m│ Anything-sync-daemon[0m
-[2m│ Autostarting[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ B[0m
-[2m│ [0m
-[2m│ Binfmt misc for Java[0m
-[2m│ Binfmt misc for Java/Wrapper examples[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ C[0m
-[2m│ [0m
-[2m│ Cockpit[0m
-[2m│ Cron[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ D[0m
-[2m│ [0m
-[2m│ D-Bus[0m
-[2m│ Debugging[0m
-[2m│ Debugging/Profiling[0m
-[2m│ Default applications[0m
-[2m│ Device file[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ E[0m
-[2m│ Environment variables[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ G[0m
-[2m│ General recommendations[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ I[0m
-[2m│ [0m
-[2m│ Improving performance[0m
-[2m│ Incron[0m
-[2m│ IPMI[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ P[0m
-[2m│ Preload[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ S[0m
-[2m│ [0m
-[2m│ Screen capture[0m
-[2m│ System maintenance[0m
-[2m│ System time[0m
-[2m│ Systemd/Timers[0m
-[2m│ Systemd/User[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ T[0m
-[2m│ Talkd and the talk command[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ W[0m
-[2m│ Windows PE[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category: English[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:System_administration&oldid=799119"[0m
-[2m│ ...[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ RULES:[0m
-[2m│ 1. ONLY report facts from the ACTUAL command output above - never invent data[0m
-[2m│ 2. If a command returned empty or failed, say so[0m
-[2m│ 3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice[0m
-[2m│ 4. Provide specific, actionable steps for their exact setup[0m
-[2m│ 5. Be concise and direct[0m
-[2m│ 6. RESPOND IN ENGLISH ONLY[0m
-[2m│ [0m
-[2m│ Based on the actual output and system environment, answer the user's question:[0m
-[2m└─────────────────────────────────────────[0m
-
-[2m═══════════════════════════════════════[0m
-[32mANSWER: [0m

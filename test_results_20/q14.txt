@@ -5,13 +5,7 @@
 [2m  query: How do I check my CPU temperature?[0m
 
 [35mWIKI → ANNA: [0mfound articles:
-[2m  • Machine-check exception (score: 0.50)[0m
-[2m  • CPU frequency scaling (score: 0.50)[0m
-[2m  • Category:CPU (score: 0.50)[0m
-
-[35mWIKI: [0mextracted commands:
-[2m  $ [0m[36mcat /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor[0m
-[2m  $ [0m[36mwatch cat /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq[0m
+[2m  • (no relevant articles found)[0m
 
 [33mANNA → LLM: [0m(command selection prompt)
 [2m┌─────────────────────────────────────────[0m
@@ -40,54 +34,25 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
-[2m│ [0m
-[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
-[2m│   cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor[0m
-[2m│   watch cat /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Commands:[0m
 [2m└─────────────────────────────────────────[0m
 
-[33mLLM → ANNA: [0mcommands to run:
-[2m  $ [0m[36mcat /sys/class/thermal/thermal_zone0/temp[0m
-[2m  $ [0m[36mwatch -n 1 cat /sys/class/thermal/processor_power[0m
-
-[32mEXEC: [0mcat /sys/class/thermal/thermal_zone0/temp
-[2mOUTPUT: [0m66050
-
-
-[32mEXEC: [0mwatch -n 1 cat /sys/class/thermal/processor_power
-[2mOUTPUT: [0m(stderr: Error opening terminal: unknown.)
-
-[33mANNA → LLM: [0m(validation prompt)
-[2m┌─────────────────────────────────────────[0m
-[2m│ The user asked: "How do I check my CPU temperature?"[0m
-[2m│ [0m
-[2m│ Commands were run and produced this output:[0m
-[2m│ $ cat /sys/class/thermal/thermal_zone0/temp[0m
-[2m│ 66050[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ watch -n 1 cat /sys/class/thermal/processor_power[0m
-[2m│ (stderr: Error opening terminal: unknown.)[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Based on this output, can you provide a complete answer to the user's question?[0m
-[2m│ Reply with ONLY one of:[0m
-[2m│ - "YES" if the output contains enough information to answer the question[0m
-[2m│ - "NO" if more information is needed[0m
-[2m└─────────────────────────────────────────[0m
-
-[33mLLM → ANNA: [0mYES
+[33mLLM → ANNA: [0m[2mNONE[0m
 
 [33mANNA → LLM: [0m(final answer prompt)
 [2m┌─────────────────────────────────────────[0m
@@ -104,491 +69,49 @@
 [2m│ #WaylandEnable=false[0m
 [2m│ [0m
 [2m│ [0m
-[2m│ The following commands were run and produced this output:[0m
-[2m│ $ cat /sys/class/thermal/thermal_zone0/temp[0m
-[2m│ 66050[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ $ watch -n 1 cat /sys/class/thermal/processor_power[0m
-[2m│ (stderr: Error opening terminal: unknown.)[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Relevant information from Arch Wiki:[0m
-[2m│ --- From Machine-check exception ---[0m
-[2m│ Machine-check exception - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Contents[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Beginning[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 1[0m
-[2m│ Installation[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2[0m
-[2m│ Configuration[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 3[0m
-[2m│ Usage[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4[0m
-[2m│ See also[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle See also subsection[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4.1[0m
-[2m│ Hardware documentation[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle the table of contents[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Machine-check exception[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Appearance[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ From ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ This article aims to help users implement services to actively monitor, log, and report hardware errors. A machine check exception (MCE) is an error generated by the CPU when the CPU detects that a hardware error or failure has occurred.[0m
-[2m│ [0m
-[2m│ Machine check exceptions (MCEs) can occur for a variety of reasons ranging from undesired or out-of-spec voltages from the power supply, from cosmic radiation flipping bits in memory DIMMs or the CPU, or from other miscellaneous faults, including faulty software triggering hardware errors.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Installation[0m
-[2m│ Install the rasdaemonAUR package. rasdaemon written by Mauro Carvalho Chehab is one of the tools to gather MCE information.[0m
-[2m│ [0m
-[2m│ Previously, the task was performed by the mcelog package. However, it has been deprecated, and Arch kernels are not even compiled with the necessary configuration option CONFIG_X86_MCELOG_LEGACY (FS#55657) now.[0m
-[2m│ [0m
-[2m│ Configuration[0m
-[2m│ There are two systemd services that need to be started and enabled. ras-mc-ctl.service registers DIMM labels (from /etc/ras/dimm_labels.d/) with EDAC drivers. On consum...[0m
-[2m│ --- From CPU frequency scaling ---[0m
-[2m│ [0m
-[2m│ ## echo -n percent > /sys/devices/system/cpu/cpufreq/governor/down_threshold[0m
-[2m│ Sampling rate[0m
-[2m│ The sampling rate determines how frequently the governor checks to tune the CPU. sampling_down_factor is a tunable that multiplies the sampling rate when the CPU is at its highest clock frequency, thereby delaying load evaluation and improving performance. Allowed values for sampling_down_factor are 1 to 100000.  This tunable has no effect on behavior at lower CPU frequencies/loads.[0m
-[2m│ [0m
-[2m│ To read the value (default = 1), run:[0m
-[2m│ [0m
-[2m│ $ cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor[0m
-[2m│ [0m
-[2m│ To set the value, run:[0m
-[2m│ [0m
-[2m│ ## echo governor | tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor[0m
-[2m│ Tip To monitor cpu speed in real time, run:[0m
-[2m│ $ watch cat /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Tuning the ondemand governor[0m
-[2m│ See the kernel documentation for details.[0m
-[2m│ [0m
-[2m│ Switching threshold[0m
-[2m│ To set the threshold for stepping up to another frequency:[0m
-[2m│ --- From Category:CPU ---[0m
-[2m│ Category:CPU - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category:CPU[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Appearance[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Help[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ From ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ See also Improving performance#CPU.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Pages in category "CPU"[0m
-[2m│ The following 9 pages are in this category, out of 9 total.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ C[0m
-[2m│ CPU frequency scaling[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ F[0m
-[2m│ Fan speed control[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ L[0m
-[2m│ Lm sensors[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ M[0m
-[2m│ [0m
-[2m│ Machine-check exception[0m
-[2m│ Microcode[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ P[0m
-[2m│ Paramano[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ R[0m
-[2m│ Ryzen[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ S[0m
-[2m│ Stress testing[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ U[0m
-[2m│ Undervolting CPU[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category: Hardware[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:CPU&oldid=839152"[0m
-[2m│ This page was last edited on 24 June 2025, at 20:10.[0m
-[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Privacy policy[0m
-[2m│ About ArchWiki[0m
-[2m│ Disclaimers[0m
-[2m│ Code of conduct[0m
-[2m│ Terms of service[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Search[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Search[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category:CPU[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Add topic[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ RULES:[0m
-[2m│ 1. ONLY report facts from the ACTUAL command output above - never invent data[0m
-[2m│ 2. If a command returned empty or failed, say so[0m
-[2m│ 3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice[0m
-[2m│ 4. Provide specific, actionable steps for their exact setup[0m
-[2m│ 5. Be concise and direct[0m
-[2m│ 6. RESPOND IN ENGLISH ONLY[0m
-[2m│ [0m
-[2m│ Based on the actual output and system environment, answer the user's question:[0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mTo[0m[32m check[0m[32m your[0m[32m CPU[0m[32m temperature[0m[32m in[0m[32m Arch[0m[32m Linux[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m the[0m[32m value[0m[32m from[0m[32m `/[0m[32msys[0m[32m/class[0m[32m/[0m[32mthermal[0m[32m/[0m[32mthermal[0m[32m_zone[0m[32m0[0m[32m/temp[0m[32m`[0m[32m that[0m[32m you[0m[32m've[0m[32m already[0m[32m obtained[0m[32m.[0m[32m The[0m[32m value[0m[32m `[0m[32m6[0m[32m6[0m[32m0[0m[32m5[0m[32m0[0m[32m`[0m[32m represents[0m[32m the[0m[32m temperature[0m[32m in[0m[32m mill[0m[32mide[0m[32mg[0m[32mrees[0m[32m Celsius[0m[32m ([0m[32mm[0m[32mC[0m[32m).[0m[32m To[0m[32m convert[0m[32m this[0m[32m to[0m[32m degrees[0m[32m Celsius[0m[32m,[0m[32m divide[0m[32m by[0m[32m [0m[32m1[0m[32m0[0m[32m0[0m[32m0[0m[32m:
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m environment[0m[32m details[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m this[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m is[0m[32m using[0m[32m a[0m[32m Way[0m[32mland[0m[32m session[0m[32m with[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m as[0m[32m the[0m[32m desktop[0m[32m environment[0m[32m.[0m[32m To[0m[32m check[0m[32m your[0m[32m CPU[0m[32m temperature[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m one[0m[32m of[0m[32m the[0m[32m following[0m[32m tools[0m[32m:
 
-[0m[32m``[0m[32m`
-[0m[32mTemperature[0m[32m in[0m[32m °[0m[32mC[0m[32m =[0m[32m [0m[32m6[0m[32m6[0m[32m0[0m[32m5[0m[32m0[0m[32m /[0m[32m [0m[32m1[0m[32m0[0m[32m0[0m[32m0[0m[32m =[0m[32m [0m[32m6[0m[32m6[0m[32m.[0m[32m0[0m[32m5[0m[32m°C[0m[32m
-[0m[32m``[0m[32m`
+[0m[32m1[0m[32m.[0m[32m **[0m[32mlm[0m[32m-s[0m[32mensors[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m Install[0m[32m `[0m[32mlm[0m[32m_s[0m[32mensors[0m[32m`[0m[32m if[0m[32m it[0m[32m's[0m[32m not[0m[32m already[0m[32m installed[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m lm[0m[32m_s[0m[32mensors[0m[32m
+[0m[32m    [0m[32m ```
+[0m[32m  [0m[32m -[0m[32m Run[0m[32m the[0m[32m following[0m[32m commands[0m[32m to[0m[32m configure[0m[32m and[0m[32m detect[0m[32m sensors[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m sensors[0m[32m-d[0m[32metect[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m service[0m[32m module[0m[32m-init[0m[32m-tools[0m[32m restart[0m[32m
+[0m[32m    [0m[32m ```
+[0m[32m  [0m[32m -[0m[32m Check[0m[32m the[0m[32m temperature[0m[32m using[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sensors[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
 
-[0m[32mSo[0m[32m your[0m[32m current[0m[32m CPU[0m[32m temperature[0m[32m is[0m[32m approximately[0m[32m [0m[32m6[0m[32m6[0m[32m.[0m[32m0[0m[32m5[0m[32m°C[0m[32m.
+[0m[32m2[0m[32m.[0m[32m **[0m[32mps[0m[32mutil[0m[32m ([0m[32mPython[0m[32m library[0m[32m)**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m Install[0m[32m `[0m[32mps[0m[32mutil[0m[32m`[0m[32m via[0m[32m pip[0m[32m if[0m[32m it[0m[32m's[0m[32m not[0m[32m already[0m[32m installed[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m python[0m[32m3[0m[32m -[0m[32mm[0m[32m pip[0m[32m install[0m[32m ps[0m[32mutil[0m[32m
+[0m[32m    [0m[32m ```
+[0m[32m  [0m[32m -[0m[32m You[0m[32m can[0m[32m then[0m[32m use[0m[32m Python[0m[32m to[0m[32m get[0m[32m the[0m[32m CPU[0m[32m temperature[0m[32m in[0m[32m a[0m[32m script[0m[32m or[0m[32m directly[0m[32m in[0m[32m your[0m[32m terminal[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m python[0m[32m3[0m[32m -[0m[32mc[0m[32m "[0m[32mimport[0m[32m ps[0m[32mutil[0m[32m;[0m[32m print[0m[32m(ps[0m[32mutil[0m[32m.s[0m[32mensors[0m[32m_tem[0m[32mper[0m[32matures[0m[32m()['[0m[32mcore[0m[32mtemp[0m[32m'][[0m[32m0[0m[32m].[0m[32mcurrent[0m[32m)"
+[0m[32m    [0m[32m ``[0m[32m`
 
-[0m[32mIf[0m[32m you[0m[32m want[0m[32m a[0m[32m more[0m[32m automated[0m[32m and[0m[32m user[0m[32m-friendly[0m[32m way[0m[32m to[0m[32m monitor[0m[32m your[0m[32m CPU[0m[32m temperature[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m tools[0m[32m like[0m[32m `[0m[32mlm[0m[32m-s[0m[32mensors[0m[32m`[0m[32m in[0m[32m combination[0m[32m with[0m[32m `[0m[32mh[0m[32mdd[0m[32mtemp[0m[32m`.[0m[32m Here[0m[32m’s[0m[32m how[0m[32m you[0m[32m can[0m[32m set[0m[32m it[0m[32m up[0m[32m:
+[0m[32m3[0m[32m.[0m[32m **[0m[32mGP[0m[32mAC[0m[32m**[0m[32m ([0m[32mif[0m[32m you[0m[32m have[0m[32m a[0m[32m GPU[0m[32m that[0m[32m is[0m[32m also[0m[32m reporting[0m[32m temperatures[0m[32m):
+[0m[32m  [0m[32m -[0m[32m Install[0m[32m `[0m[32mgp[0m[32mac[0m[32m`[0m[32m if[0m[32m it[0m[32m's[0m[32m not[0m[32m already[0m[32m installed[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m gp[0m[32mac[0m[32m
+[0m[32m    [0m[32m ```
+[0m[32m  [0m[32m -[0m[32m Use[0m[32m the[0m[32m following[0m[32m command[0m[32m to[0m[32m get[0m[32m temperature[0m[32m information[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m m[0m[32mplayer[0m[32m -[0m[32mvo[0m[32m null[0m[32m -[0m[32mvf[0m[32m main[0m[32mmenu[0m[32m -[0m[32mfps[0m[32m [0m[32m1[0m[32m -[0m[32mnos[0m[32mound[0m[32m /[0m[32mdev[0m[32m/null[0m[32m |[0m[32m grep[0m[32m '[0m[32mTemp[0m[32m'[0m[32m |[0m[32m head[0m[32m -[0m[32mn[0m[32m [0m[32m1[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
 
-[0m[32m1[0m[32m.[0m[32m **[0m[32mInstall[0m[32m lm[0m[32m-s[0m[32mensors[0m[32m**[0m[32m:
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m lm[0m[32m-s[0m[32mensors[0m[32m
-[0m[32m  [0m[32m ``[0m[32m`
-
-[0m[32m2[0m[32m.[0m[32m **[0m[32mDetect[0m[32m sensor[0m[32m chips[0m[32m**[0m[32m:
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sensors[0m[32m-d[0m[32metect[0m[32m
-[0m[32m  [0m[32m ```
-[0m[32m  [0m[32m Follow[0m[32m the[0m[32m prompts[0m[32m to[0m[32m configure[0m[32m lm[0m[32m-s[0m[32mensors[0m[32m for[0m[32m your[0m[32m hardware[0m[32m.
-
-[0m[32m3[0m[32m.[0m[32m **[0m[32mCheck[0m[32m sensor[0m[32m readings[0m[32m**[0m[32m:
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sensors[0m[32m
-[0m[32m  [0m[32m ``[0m[32m`
-
-[0m[32m4[0m[32m.[0m[32m **[0m[32mInstall[0m[32m a[0m[32m monitoring[0m[32m tool[0m[32m**[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m `[0m[32mlm[0m[32m_s[0m[32mensors[0m[32m`[0m[32m or[0m[32m `[0m[32mps[0m[32mensor[0m[32m`[0m[32m):
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m ps[0m[32mensor[0m[32m
-[0m[32m  [0m[32m ```
-[0m[32m   
-[0m[32m5[0m[32m.[0m[32m **[0m[32mStart[0m[32m and[0m[32m enable[0m[32m the[0m[32m ps[0m[32mensor[0m[32m service[0m[32m**[0m[32m:
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m start[0m[32m ps[0m[32mensor[0m[32m.service[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m enable[0m[32m ps[0m[32mensor[0m[32m.service[0m[32m
-[0m[32m  [0m[32m ``[0m[32m`
-
-[0m[32m6[0m[32m.[0m[32m **[0m[32mOpen[0m[32m the[0m[32m ps[0m[32mensor[0m[32m application[0m[32m from[0m[32m your[0m[32m desktop[0m[32m environment[0m[32m or[0m[32m run[0m[32m it[0m[32m from[0m[32m the[0m[32m terminal[0m[32m**[0m[32m.
-
-[0m[32mThis[0m[32m setup[0m[32m will[0m[32m provide[0m[32m a[0m[32m more[0m[32m user[0m[32m-friendly[0m[32m interface[0m[32m to[0m[32m monitor[0m[32m your[0m[32m CPU[0m[32m temperature[0m[32m and[0m[32m alert[0m[32m you[0m[32m if[0m[32m it[0m[32m exceeds[0m[32m certain[0m[32m thresholds[0m[32m.[0m[32m[0m
+[0m[32mIf[0m[32m you[0m[32m have[0m[32m a[0m[32m specific[0m[32m sensor[0m[32m or[0m[32m tool[0m[32m in[0m[32m mind[0m[32m,[0m[32m let[0m[32m me[0m[32m know[0m[32m,[0m[32m and[0m[32m I[0m[32m can[0m[32m provide[0m[32m more[0m[32m tailored[0m[32m instructions[0m[32m![0m[32m[0m
 [2m═══════════════════════════════════════[0m
 
 [2m(1 iterations)[0m

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.855] - 2026-01-08
+
+### Added
+- **System Profile** - Anna now scans and remembers your hardware + existing configs
+  - Detects PCI devices (GPU, WiFi, audio) and their drivers
+  - Scans existing workarounds: modprobe.d, udev rules, systemd overrides
+  - Profile cached and refreshed every 24 hours
+- **Context-aware answers** - LLM sees your existing configs when relevant
+  - WiFi question? Shows your iwlwifi.conf settings
+  - GPU question? Shows your nvidia/amdgpu modprobe configs
+  - Prevents suggesting fixes you've already applied
+
 ## [0.0.854] - 2026-01-08
 
 ### Fixed

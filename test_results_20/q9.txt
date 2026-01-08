@@ -34,14 +34,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Commands:[0m
 [2m└─────────────────────────────────────────[0m
@@ -256,44 +262,74 @@
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m that[0m[32m your[0m[32m system[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m as[0m[32m the[0m[32m display[0m[32m server[0m[32m,[0m[32m which[0m[32m is[0m[32m indicated[0m[32m by[0m[32m the[0m[32m absence[0m[32m of[0m[32m an[0m[32m active[0m[32m display[0m[32m manager[0m[32m like[0m[32m G[0m[32mDM[0m[32m,[0m[32m S[0m[32mDD[0m[32mM[0m[32m,[0m[32m or[0m[32m Light[0m[32mDM[0m[32m and[0m[32m the[0m[32m comment[0m[32m in[0m[32m `/[0m[32metc[0m[32m/g[0m[32mdm[0m[32m/custom[0m[32m.conf[0m[32m`[0m[32m for[0m[32m Way[0m[32mland[0m[32m.
+[32mANSWER: [0m[32mIt[0m[32m seems[0m[32m there[0m[32m might[0m[32m be[0m[32m some[0m[32m confusion[0m[32m in[0m[32m the[0m[32m provided[0m[32m information[0m[32m,[0m[32m as[0m[32m it[0m[32m references[0m[32m a[0m[32m dis[0m[32mamb[0m[32mig[0m[32muation[0m[32m page[0m[32m for[0m[32m "[0m[32mScreen[0m[32m"[0m[32m rather[0m[32m than[0m[32m providing[0m[32m guidance[0m[32m on[0m[32m changing[0m[32m screen[0m[32m resolution[0m[32m.[0m[32m Since[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m ([0m[32mas[0m[32m indicated[0m[32m by[0m[32m the[0m[32m absence[0m[32m of[0m[32m `[0m[32mWay[0m[32mland[0m[32mEnable[0m[32m=false[0m[32m`[0m[32m),[0m[32m you[0m[32m'll[0m[32m need[0m[32m to[0m[32m follow[0m[32m different[0m[32m steps[0m[32m compared[0m[32m to[0m[32m an[0m[32m X[0m[32morg[0m[32m setup[0m[32m.
 
-[0m[32mTo[0m[32m change[0m[32m the[0m[32m screen[0m[32m resolution[0m[32m on[0m[32m a[0m[32m Way[0m[32mland[0m[32m-based[0m[32m system[0m[32m in[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m `[0m[32mg[0m[32msettings[0m[32m`[0m[32m to[0m[32m adjust[0m[32m the[0m[32m settings[0m[32m.[0m[32m Here[0m[32m’s[0m[32m how[0m[32m:
+[0m[32m###[0m[32m For[0m[32m Way[0m[32mland[0m[32m:
 
-[0m[32m1[0m[32m.[0m[32m **[0m[32mOpen[0m[32m Terminal[0m[32m**:[0m[32m You[0m[32m can[0m[32m open[0m[32m the[0m[32m terminal[0m[32m by[0m[32m pressing[0m[32m `[0m[32mCtrl[0m[32m +[0m[32m Alt[0m[32m +[0m[32m T[0m[32m`.
-
-[0m[32m2[0m[32m.[0m[32m **[0m[32mRun[0m[32m the[0m[32m following[0m[32m command[0m[32m**[0m[32m:
+[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m Current[0m[32m Resolution[0m[32m:[0m[32m**
+[0m[32m  [0m[32m You[0m[32m can[0m[32m check[0m[32m the[0m[32m current[0m[32m display[0m[32m settings[0m[32m with[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m g[0m[32msettings[0m[32m set[0m[32m org[0m[32m.g[0m[32mnome[0m[32m.desktop[0m[32m.session[0m[32m idle[0m[32m-delay[0m[32m [0m[32m0[0m[32m
+[0m[32m  [0m[32m sway[0m[32mmsg[0m[32m -[0m[32mt[0m[32m get[0m[32m_outputs[0m[32m
 [0m[32m  [0m[32m ```
-[0m[32m  [0m[32m This[0m[32m command[0m[32m removes[0m[32m the[0m[32m idle[0m[32m delay[0m[32m,[0m[32m which[0m[32m might[0m[32m help[0m[32m in[0m[32m persist[0m[32ming[0m[32m changes[0m[32m.
+[0m[32m  [0m[32m or[0m[32m,[0m[32m if[0m[32m you[0m[32m are[0m[32m using[0m[32m a[0m[32m different[0m[32m compos[0m[32mitor[0m[32m like[0m[32m `[0m[32mk[0m[32mway[0m[32mland[0m[32m`[0m[32m or[0m[32m `[0m[32mpic[0m[32mom[0m[32m`,[0m[32m similar[0m[32m commands[0m[32m might[0m[32m apply[0m[32m but[0m[32m will[0m[32m depend[0m[32m on[0m[32m your[0m[32m setup[0m[32m.
 
-[0m[32m3[0m[32m.[0m[32m **[0m[32mSet[0m[32m the[0m[32m resolution[0m[32m using[0m[32m `[0m[32mg[0m[32msettings[0m[32m`[0m[32m**[0m[32m:
+[0m[32m2[0m[32m.[0m[32m **[0m[32mChange[0m[32m Resolution[0m[32m via[0m[32m Com[0m[32mpositor[0m[32m:[0m[32m**
+[0m[32m  [0m[32m If[0m[32m you[0m[32m are[0m[32m using[0m[32m a[0m[32m Way[0m[32mland[0m[32m session[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m S[0m[32mway[0m[32m),[0m[32m you[0m[32m can[0m[32m change[0m[32m the[0m[32m resolution[0m[32m through[0m[32m your[0m[32m compos[0m[32mitor[0m[32m's[0m[32m configuration[0m[32m or[0m[32m via[0m[32m `[0m[32msw[0m[32may[0m[32mmsg[0m[32m`.[0m[32m For[0m[32m example[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m g[0m[32msettings[0m[32m set[0m[32m org[0m[32m.g[0m[32mnome[0m[32m.m[0m[32mutter[0m[32m experimental[0m[32m-[0m[32mfeatures[0m[32m "[0m[32m['[0m[32mscale[0m[32m-mon[0m[32mitors[0m[32m'][0m[32m"
-[0m[32m  [0m[32m g[0m[32msettings[0m[32m set[0m[32m org[0m[32m.g[0m[32mnome[0m[32m.desktop[0m[32m.interface[0m[32m scaling[0m[32m-factor[0m[32m [0m[32m1[0m[32m
+[0m[32m  [0m[32m sway[0m[32mmsg[0m[32m output[0m[32m <[0m[32moutput[0m[32m_name[0m[32m>[0m[32m mode[0m[32m <[0m[32mresolution[0m[32m>
 [0m[32m  [0m[32m ```
-[0m[32m  [0m[32m These[0m[32m commands[0m[32m enable[0m[32m the[0m[32m scaling[0m[32m feature[0m[32m and[0m[32m reset[0m[32m it[0m[32m to[0m[32m [0m[32m1[0m[32mx[0m[32m,[0m[32m which[0m[32m is[0m[32m necessary[0m[32m for[0m[32m setting[0m[32m custom[0m[32m resolutions[0m[32m.
+[0m[32m  [0m[32m Replace[0m[32m `<[0m[32moutput[0m[32m_name[0m[32m>`[0m[32m with[0m[32m the[0m[32m name[0m[32m of[0m[32m your[0m[32m display[0m[32m and[0m[32m `<[0m[32mresolution[0m[32m>`[0m[32m with[0m[32m the[0m[32m desired[0m[32m resolution[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m `[0m[32m1[0m[32m9[0m[32m2[0m[32m0[0m[32mx[0m[32m1[0m[32m0[0m[32m8[0m[32m0[0m[32m@[0m[32m6[0m[32m0[0m[32mHz[0m[32m`[0m[32m).
 
-[0m[32m4[0m[32m.[0m[32m **[0m[32mSet[0m[32m the[0m[32m desired[0m[32m resolution[0m[32m**[0m[32m:
+[0m[32m3[0m[32m.[0m[32m **[0m[32mConfigure[0m[32m Com[0m[32mpositor[0m[32m:[0m[32m**
+[0m[32m  [0m[32m If[0m[32m you[0m[32m frequently[0m[32m need[0m[32m to[0m[32m change[0m[32m resolutions[0m[32m,[0m[32m consider[0m[32m adding[0m[32m these[0m[32m changes[0m[32m to[0m[32m your[0m[32m compos[0m[32mitor[0m[32m’s[0m[32m configuration[0m[32m file[0m[32m.
+
+[0m[32m###[0m[32m For[0m[32m X[0m[32morg[0m[32m:
+
+[0m[32mIf[0m[32m you[0m[32m are[0m[32m using[0m[32m an[0m[32m X[0m[32morg[0m[32m session[0m[32m or[0m[32m if[0m[32m your[0m[32m system[0m[32m switches[0m[32m between[0m[32m Way[0m[32mland[0m[32m and[0m[32m X[0m[32morg[0m[32m depending[0m[32m on[0m[32m the[0m[32m display[0m[32m manager[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m S[0m[32mDD[0m[32mM[0m[32m),[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m Current[0m[32m Resolution[0m[32m:[0m[32m**
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m x[0m[32mrand[0m[32mr[0m[32m --[0m[32moutput[0m[32m <[0m[32myour[0m[32m-monitor[0m[32m>[0m[32m --[0m[32mmode[0m[32m <[0m[32mresolution[0m[32m>
+[0m[32m  [0m[32m x[0m[32mrand[0m[32mr[0m[32m --[0m[32mcurrent[0m[32m
 [0m[32m  [0m[32m ```
-[0m[32m  [0m[32m Replace[0m[32m `<[0m[32myour[0m[32m-monitor[0m[32m>`[0m[32m with[0m[32m your[0m[32m monitor[0m[32m identifier[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m `[0m[32mH[0m[32mDMI[0m[32m-[0m[32m1[0m[32m`[0m[32m or[0m[32m `[0m[32mDP[0m[32m-[0m[32m1[0m[32m`)[0m[32m and[0m[32m `<[0m[32mresolution[0m[32m>`[0m[32m with[0m[32m the[0m[32m desired[0m[32m resolution[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m `[0m[32m1[0m[32m9[0m[32m2[0m[32m0[0m[32mx[0m[32m1[0m[32m0[0m[32m8[0m[32m0[0m[32m`[0m[32m).
+[0m[32m  [0m[32m This[0m[32m command[0m[32m will[0m[32m list[0m[32m all[0m[32m connected[0m[32m displays[0m[32m with[0m[32m their[0m[32m current[0m[32m resolutions[0m[32m.
 
-[0m[32mFor[0m[32m example[0m[32m,[0m[32m if[0m[32m you[0m[32m want[0m[32m to[0m[32m set[0m[32m the[0m[32m resolution[0m[32m to[0m[32m [0m[32m1[0m[32m9[0m[32m2[0m[32m0[0m[32mx[0m[32m1[0m[32m0[0m[32m8[0m[32m0[0m[32m on[0m[32m a[0m[32m monitor[0m[32m identified[0m[32m as[0m[32m `[0m[32mH[0m[32mDMI[0m[32m-[0m[32m1[0m[32m`,[0m[32m use[0m[32m:
+[0m[32m2[0m[32m.[0m[32m **[0m[32mChange[0m[32m Resolution[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Use[0m[32m `[0m[32mx[0m[32mrand[0m[32mr[0m[32m`[0m[32m to[0m[32m change[0m[32m the[0m[32m resolution[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m x[0m[32mrand[0m[32mr[0m[32m --[0m[32moutput[0m[32m HDMI[0m[32m-[0m[32m1[0m[32m --[0m[32mmode[0m[32m [0m[32m1[0m[32m9[0m[32m2[0m[32m0[0m[32mx[0m[32m1[0m[32m0[0m[32m8[0m[32m0[0m[32m
+[0m[32m  [0m[32m x[0m[32mrand[0m[32mr[0m[32m --[0m[32moutput[0m[32m <[0m[32moutput[0m[32m_name[0m[32m>[0m[32m --[0m[32mmode[0m[32m <[0m[32mresolution[0m[32m>
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m Replace[0m[32m `<[0m[32moutput[0m[32m_name[0m[32m>`[0m[32m with[0m[32m the[0m[32m name[0m[32m of[0m[32m your[0m[32m display[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m `[0m[32mH[0m[32mDMI[0m[32m-[0m[32m1[0m[32m`)[0m[32m and[0m[32m `<[0m[32mresolution[0m[32m>`[0m[32m with[0m[32m the[0m[32m desired[0m[32m mode[0m[32m.
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mCreate[0m[32m a[0m[32m Script[0m[32m:[0m[32m**
+[0m[32m  [0m[32m You[0m[32m can[0m[32m create[0m[32m an[0m[32m alias[0m[32m or[0m[32m script[0m[32m to[0m[32m make[0m[32m it[0m[32m easier[0m[32m to[0m[32m switch[0m[32m resolutions[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m alias[0m[32m set[0m[32m_res[0m[32m='[0m[32mx[0m[32mrand[0m[32mr[0m[32m --[0m[32moutput[0m[32m HDMI[0m[32m-[0m[32m1[0m[32m --[0m[32mmode[0m[32m [0m[32m1[0m[32m9[0m[32m2[0m[32m0[0m[32mx[0m[32m1[0m[32m0[0m[32m8[0m[32m0[0m[32m'
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m5[0m[32m.[0m[32m **[0m[32mPersist[0m[32m the[0m[32m changes[0m[32m**[0m[32m:
-[0m[32m  [0m[32m You[0m[32m might[0m[32m need[0m[32m to[0m[32m add[0m[32m these[0m[32m commands[0m[32m to[0m[32m your[0m[32m startup[0m[32m applications[0m[32m or[0m[32m login[0m[32m scripts[0m[32m to[0m[32m ensure[0m[32m they[0m[32m run[0m[32m every[0m[32m time[0m[32m you[0m[32m log[0m[32m in[0m[32m.
+[0m[32m4[0m[32m.[0m[32m **[0m[32mConfigure[0m[32m X[0m[32morg[0m[32m:[0m[32m**
+[0m[32m  [0m[32m If[0m[32m you[0m[32m want[0m[32m to[0m[32m ensure[0m[32m the[0m[32m resolution[0m[32m is[0m[32m set[0m[32m at[0m[32m boot[0m[32m,[0m[32m add[0m[32m the[0m[32m `[0m[32mx[0m[32mrand[0m[32mr[0m[32m`[0m[32m command[0m[32m to[0m[32m your[0m[32m X[0m[32morg[0m[32m configuration[0m[32m file[0m[32m ([0m[32musually[0m[32m located[0m[32m in[0m[32m `/[0m[32metc[0m[32m/X[0m[32m1[0m[32m1[0m[32m/x[0m[32morg[0m[32m.conf[0m[32m.d[0m[32m/[0m[32m`[0m[32m).
 
-[0m[32m6[0m[32m.[0m[32m **[0m[32mLog[0m[32m out[0m[32m and[0m[32m back[0m[32m in[0m[32m**:[0m[32m Sometimes[0m[32m,[0m[32m Way[0m[32mland[0m[32m requires[0m[32m a[0m[32m logout[0m[32m and[0m[32m login[0m[32m to[0m[32m apply[0m[32m certain[0m[32m settings[0m[32m properly[0m[32m.
+[0m[32m###[0m[32m Example[0m[32m for[0m[32m X[0m[32morg[0m[32m:
+[0m[32mCreate[0m[32m a[0m[32m `.[0m[32mconf[0m[32m`[0m[32m file[0m[32m under[0m[32m `/[0m[32metc[0m[32m/X[0m[32m1[0m[32m1[0m[32m/x[0m[32morg[0m[32m.conf[0m[32m.d[0m[32m/[0m[32m`[0m[32m with[0m[32m the[0m[32m following[0m[32m content[0m[32m:
+[0m[32m```[0m[32msh[0m[32m
+[0m[32mSection[0m[32m "[0m[32mMonitor[0m[32m"
+[0m[32m   [0m[32m Identifier[0m[32m    [0m[32m "[0m[32mMy[0m[32mMonitor[0m[32m"
+[0m[32mEnd[0m[32mSection[0m[32m
 
-[0m[32mIf[0m[32m you[0m[32m're[0m[32m unsure[0m[32m about[0m[32m any[0m[32m steps[0m[32m or[0m[32m encounter[0m[32m issues[0m[32m,[0m[32m you[0m[32m can[0m[32m refer[0m[32m to[0m[32m the[0m[32m official[0m[32m Arch[0m[32m Wiki[0m[32m on[0m[32m [[0m[32mDisplay[0m[32m Configuration[0m[32m]([0m[32mhttps[0m[32m://[0m[32mwiki[0m[32m.arch[0m[32mlinux[0m[32m.org[0m[32m/title[0m[32m/[0m[32mDisplay[0m[32m_configuration[0m[32m)[0m[32m for[0m[32m more[0m[32m detailed[0m[32m instructions[0m[32m tailored[0m[32m to[0m[32m Way[0m[32mland[0m[32m.
+[0m[32mSection[0m[32m "[0m[32mScreen[0m[32m"
+[0m[32m   [0m[32m Identifier[0m[32m    [0m[32m "[0m[32mDefault[0m[32m Screen[0m[32m"
+[0m[32m   [0m[32m Monitor[0m[32m       [0m[32m "[0m[32mMy[0m[32mMonitor[0m[32m"
+[0m[32m   [0m[32m Default[0m[32mDepth[0m[32m [0m[32m2[0m[32m4[0m[32m
+[0m[32m   [0m[32m Sub[0m[32msection[0m[32m "[0m[32mDisplay[0m[32m"
+[0m[32m       [0m[32m Mode[0m[32m "[0m[32m1[0m[32m9[0m[32m2[0m[32m0[0m[32mx[0m[32m1[0m[32m0[0m[32m8[0m[32m0[0m[32m"
+[0m[32m   [0m[32m End[0m[32mSub[0m[32msection[0m[32m
+[0m[32mEnd[0m[32mSection[0m[32m
+[0m[32m``[0m[32m`
 
-[0m[32mNote[0m[32m:[0m[32m The[0m[32m specific[0m[32m commands[0m[32m might[0m[32m vary[0m[32m slightly[0m[32m depending[0m[32m on[0m[32m your[0m[32m desktop[0m[32m environment[0m[32m ([0m[32mDE[0m[32m).[0m[32m If[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m uses[0m[32m a[0m[32m different[0m[32m DE[0m[32m like[0m[32m KDE[0m[32m Plasma[0m[32m or[0m[32m GNOME[0m[32m,[0m[32m you[0m[32m may[0m[32m need[0m[32m to[0m[32m adjust[0m[32m the[0m[32m settings[0m[32m accordingly[0m[32m.[0m[32m[0m
+[0m[32m###[0m[32m Conclusion[0m[32m:
+[0m[32mGiven[0m[32m your[0m[32m setup[0m[32m,[0m[32m it[0m[32m seems[0m[32m you[0m[32m are[0m[32m using[0m[32m Way[0m[32mland[0m[32m.[0m[32m Therefore[0m[32m,[0m[32m the[0m[32m `[0m[32msw[0m[32may[0m[32m`[0m[32m compos[0m[32mitor[0m[32m commands[0m[32m would[0m[32m be[0m[32m appropriate[0m[32m.[0m[32m If[0m[32m you[0m[32m are[0m[32m in[0m[32m an[0m[32m X[0m[32morg[0m[32m session[0m[32m or[0m[32m if[0m[32m your[0m[32m system[0m[32m switches[0m[32m between[0m[32m Way[0m[32mlands[0m[32m and[0m[32m X[0m[32morg[0m[32m,[0m[32m use[0m[32m the[0m[32m corresponding[0m[32m `[0m[32mx[0m[32mrand[0m[32mr[0m[32m`[0m[32m commands[0m[32m.
+
+[0m[32mIf[0m[32m you[0m[32m need[0m[32m further[0m[32m assistance[0m[32m specific[0m[32m to[0m[32m your[0m[32m setup[0m[32m,[0m[32m please[0m[32m provide[0m[32m more[0m[32m details[0m[32m on[0m[32m your[0m[32m desktop[0m[32m environment[0m[32m ([0m[32mDE[0m[32m)[0m[32m and[0m[32m any[0m[32m relevant[0m[32m configuration[0m[32m files[0m[32m.[0m[32m[0m
 [2m═══════════════════════════════════════[0m
 
 [2m(1 iterations)[0m

@@ -5,13 +5,7 @@
 [2m  query: How do I update my system?[0m
 
 [35mWIKI → ANNA: [0mfound articles:
-[2m  • EFI system partition (score: 0.50)[0m
-[2m  • Category:System administration (score: 0.50)[0m
-[2m  • System backup (score: 0.50)[0m
-
-[35mWIKI: [0mextracted commands:
-[2m  $ [0m[36mlsblk -dno UUID /dev/sdxY[0m
-[2m  $ [0m[36mlsblk -no NAME,UUID /dev/sdXY[0m
+[2m  • (no relevant articles found)[0m
 
 [33mANNA → LLM: [0m(command selection prompt)
 [2m┌─────────────────────────────────────────[0m
@@ -40,18 +34,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
-[2m│ [0m
-[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
-[2m│   lsblk -dno UUID /dev/sdxY[0m
-[2m│   lsblk -no NAME,UUID /dev/sdXY[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Commands:[0m
 [2m└─────────────────────────────────────────[0m
@@ -73,605 +69,51 @@
 [2m│ #WaylandEnable=false[0m
 [2m│ [0m
 [2m│ [0m
-[2m│ Relevant information from Arch Wiki:[0m
-[2m│ --- From EFI system partition ---[0m
-[2m│ [0m
-[2m│ ## sgdisk --align-end --largest-new=0 --typecode=0:ef00 --change-name=0:'EFI system partition' --partition-guid=0:YYYYYYYY-YYYY-YYYY-YYYY-YYYYYYYYYYYY /dev/sdx[0m
-[2m│ Tell the kernel to reread the partition table using partprobe(8) from parted:[0m
-[2m│ [0m
-[2m│ ## fdisk -l /dev/sdx[0m
-[2m│ ...[0m
-[2m│ Device       Start       End   Sectors  Size Type[0m
-[2m│ /dev/sdx1     2048    616447    614400  300M EFI System[0m
-[2m│ /dev/sdx2   616448   9005055   8388608    4G Linux swap[0m
-[2m│ /dev/sdx3  9005056 125827071 116822016 55.7G Linux root (x86-64)[0m
-[2m│ [0m
-[2m│ First, deactivate the swap partition and remove it from fstab.[0m
-[2m│ [0m
-[2m│ Use fdisk to delete the swap partition and enlarge the EFI system partition.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Run: # fdisk /dev/sdx[0m
-[2m│ [0m
-[2m│ Use the d command to delete the swap partition (partition number 2 in the example layout above).[0m
-[2m│ Use the e command to enlarge the EFI system partition (partition number 1 in the example layout above). Use the suggested default value for the new size and press Enter.[0m
-[2m│ Write changes to disk and exit via the w command.[0m
-[2m│ [0m
-[2m│ After the partition is resized, you need to resize the file system in it. Since fatresize(1) does not work and libparted cannot resize FAT volumes of certain sizes, the only option is to backup the files from the existing file system and create a new one that takes up all space of the partition.[0m
-[2m│ [0m
-[2m│ Take note of the file system UUID to allow reusing it for the new file system:[0m
-[2m│ [0m
-[2m│ $ lsblk -dno UUID /dev/sdxY[0m
-[2m│ XXXX-XXXX[0m
-[2m│ [0m
-[2m│ Backup the contents of the EFI system partition. For example, with esp being its mountpoint:[0m
-[2m│ --- From Category:System administration ---[0m
-[2m│ Category:System administration - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category:System administration[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Appearance[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Help[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ From ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ The main articles for this category are General recommendations, System maintenance and General troubleshooting.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Subcategories[0m
-[2m│ This category has the following 23 subcategories, out of 23 total.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ B[0m
-[2m│ [0m
-[2m│ Backup[0m
-[2m│ Boot process[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ C[0m
-[2m│ [0m
-[2m│ Command-line[0m
-[2m│ Configuration files[0m
-[2m│ Configuration management[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ E[0m
-[2m│ Eye candy[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ F[0m
-[2m│ [0m
-[2m│ File sharing[0m
-[2m│ File systems[0m
-[2m│ Freedesktop.org[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ G[0m
-[2m│ Graphical user interfaces[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ I[0m
-[2m│ Input[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ K[0m
-[2m│ Kernel[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ L[0m
-[2m│ [0m
-[2m│ Linux console[0m
-[2m│ Localization[0m
-[2m│ Logging[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ M[0m
-[2m│ Monitoring[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ N[0m
-[2m│ Notification[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ P[0m
-[2m│ [0m
-[2m│ Package management[0m
-[2m│ Power management[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ S[0m
-[2m│ [0m
-[2m│ Security[0m
-[2m│ Synchronization[0m
-[2m│ System recovery[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ V[0m
-[2m│ Virtualization[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Pages in category "System administration"[0m
-[2m│ The following 25 pages are in this category, out of 25 total.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ A[0m
-[2m│ [0m
-[2m│ Allow a program to continue after logoff[0m
-[2m│ Anything-sync-daemon[0m
-[2m│ Autostarting[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ B[0m
-[2m│ [0m
-[2m│ Binfmt misc for Java[0m
-[2m│ Binfmt misc for Java/Wrapper examples[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ C[0m
-[2m│ [0m
-[2m│ Cockpit[0m
-[2m│ Cron[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ D[0m
-[2m│ [0m
-[2m│ D-Bus[0m
-[2m│ Debugging[0m
-[2m│ Debugging/Profiling[0m
-[2m│ Default applications[0m
-[2m│ Device file[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ E[0m
-[2m│ Environment variables[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ G[0m
-[2m│ General recommendations[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ I[0m
-[2m│ [0m
-[2m│ Improving performance[0m
-[2m│ Incron[0m
-[2m│ IPMI[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ P[0m
-[2m│ Preload[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ S[0m
-[2m│ [0m
-[2m│ Screen capture[0m
-[2m│ System maintenance[0m
-[2m│ System time[0m
-[2m│ Systemd/Timers[0m
-[2m│ Systemd/User[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ T[0m
-[2m│ Talkd and the talk command[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ W[0m
-[2m│ Windows PE[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Category: English[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:System_administration&oldid=799119"[0m
-[2m│ ...[0m
-[2m│ --- From System backup ---[0m
-[2m│ System backup - ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Jump to content[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Contents[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Beginning[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 1[0m
-[2m│ Using Btrfs snapshots[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 2[0m
-[2m│ Using LVM snapshots[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 3[0m
-[2m│ Using rsync[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 4[0m
-[2m│ Using tar[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 5[0m
-[2m│ Using SquashFS[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 6[0m
-[2m│ Bootable backup[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle Bootable backup subsection[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 6.1[0m
-[2m│ Update the fstab[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 6.2[0m
-[2m│ Update the boot loader's configuration file[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 6.3[0m
-[2m│ First boot[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 7[0m
-[2m│ Snapshots and /boot partition[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ 8[0m
-[2m│ Automation[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Toggle the table of contents[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ System backup[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Appearance[0m
-[2m│ move to sidebar[0m
-[2m│ hide[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ From ArchWiki[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Related articles[0m
-[2m│ [0m
-[2m│ Synchronization and backup programs[0m
-[2m│ System maintenance#Backup[0m
-[2m│ Data-at-rest encryption#Backup for disk encryption scenarios[0m
-[2m│ Disk cloning[0m
-[2m│ Migrate installation to new hardware[0m
-[2m│ File recovery[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ A system backup is the process of backing up the operating system, files and system-specific useful/essential data. [It] primarily ensures that not only the user data in a system is saved, but also the system's state or operational condition. This helps in restoring the system to the last-saved state along with all the selected backup data.[1][dead link 2025-11-17—HTTP 404][0m
-[2m│ [0m
-[2m│ One common and generally effective method is to follow the 3-2-1 strategy:[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Maintain three copies of your data,[0m
-[2m│ Use two different types of storage media,[0m
-[2m│ Store one copy offsite.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Using Btrfs snapshots[0m
-[2m│ See Btrfs#Snapshots, #Snapshots and /boot partition, and Snapper.[0m
-[2m│ [0m
-[2m│ Using...[0m
-[2m│ [0m
-[2m│ ## grep UUID= /boot/grub/grub.cfg[0m
-[2m│ First boot[0m
-[2m│ Reboot the computer and select the right entry in the boot loader. This will load the system for the first time. All peripherals should be detected and the empty folders in / will be populated.[0m
-[2m│ [0m
-[2m│ Now you can re-edit /etc/fstab to add the previously removed partitions and mount points.[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Snapshots and /boot partition[0m
-[2m│ If your file system supports snapshots (e.g., LVM or Btrfs), these will most likely exclude the /boot partition or ESP.[0m
-[2m│ [0m
-[2m│ You can copy the boot partition automatically on a kernel update to your root partition with a pacman hook (make sure the hook file is owned by root):[0m
-[2m│ [0m
-[2m│ /etc/pacman.d/hooks/55-bootbackup_pre.hook[0m
-[2m│ [Trigger][0m
-[2m│ Operation = Upgrade[0m
-[2m│ Operation = Install[0m
-[2m│ Operation = Remove[0m
-[2m│ Type = Path[0m
-[2m│ Target = usr/lib/modules/*/vmlinuz[0m
-[2m│ [0m
-[2m│ [Action][0m
-[2m│ Depends = rsync[0m
-[2m│ Description = Backing up pre /boot...[0m
-[2m│ When = PreTransaction[0m
-[2m│ Exec = /usr/bin/bash -c 'rsync -a --mkpath --delete /boot/ "/.bootbackup/$(date +%Y_%m_%d_%H.%M.%S)_pre"/'[0m
-[2m│ /etc/pacman.d/hooks/95-bootbackup_post.hook[0m
-[2m│ [Trigger][0m
-[2m│ Operation = Upgrade[0m
-[2m│ Operation = Install[0m
-[2m│ Operation = Remove[0m
-[2m│ Type = Path[0m
-[2m│ Target = usr/lib/modules/*/vmlinuz[0m
-[2m│ [0m
-[2m│ [Action][0m
-[2m│ Depends = rsync[0m
-[2m│ Description = Backing up post /boot...[0m
-[2m│ When = PostTransaction[0m
-[2m│ Exec = /usr/bin/bash -c 'rsync -a --mkpath --delete /boot/ "/.bootbackup/$(date +%Y_%m_%d_%H.%M.%S)_post"/'[0m
-[2m│ [0m
-[2m│ [0m
-[2m│ Automation[0m
-[2m│ Backups that are only manually created are rarely up to date when they are needed. Therefore it is recommended to setup an automated process to ensure backup processes are execut...[0m
-[2m│ [0m
-[2m│ [0m
 [2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
 [2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mTo[0m[32m update[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m,[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m you[0m[32m are[0m[32m using[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m,[0m[32m which[0m[32m is[0m[32m based[0m[32m on[0m[32m Arch[0m[32m Linux[0m[32m,[0m[32m with[0m[32m a[0m[32m display[0m[32m manager[0m[32m like[0m[32m G[0m[32mDM[0m[32m that[0m[32m supports[0m[32m Way[0m[32mland[0m[32m or[0m[32m X[0m[32m1[0m[32m1[0m[32m.[0m[32m To[0m[32m update[0m[32m your[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
 
-[0m[32m1[0m[32m.[0m[32m **[0m[32mClose[0m[32m any[0m[32m open[0m[32m applications[0m[32m**[0m[32m that[0m[32m might[0m[32m interfere[0m[32m with[0m[32m the[0m[32m update[0m[32m process[0m[32m.
+[0m[32m###[0m[32m Update[0m[32m Your[0m[32m System[0m[32m
 
-[0m[32m2[0m[32m.[0m[32m **[0m[32mOpen[0m[32m a[0m[32m terminal[0m[32m**[0m[32m and[0m[32m run[0m[32m the[0m[32m following[0m[32m command[0m[32m to[0m[32m check[0m[32m for[0m[32m system[0m[32m updates[0m[32m:
+[0m[32mTo[0m[32m update[0m[32m your[0m[32m system[0m[32m in[0m[32m Arch[0m[32m Linux[0m[32m ([0m[32mor[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m),[0m[32m open[0m[32m a[0m[32m terminal[0m[32m and[0m[32m run[0m[32m the[0m[32m following[0m[32m commands[0m[32m:
+
+[0m[32m```[0m[32msh[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32m-[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32mS[0m[32m`[0m[32m updates[0m[32m all[0m[32m packages[0m[32m to[0m[32m their[0m[32m latest[0m[32m versions[0m[32m.
+[0m[32m-[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32myu[0m[32m`[0m[32m is[0m[32m used[0m[32m for[0m[32m incremental[0m[32m upgrades[0m[32m,[0m[32m ensuring[0m[32m that[0m[32m only[0m[32m necessary[0m[32m package[0m[32m changes[0m[32m are[0m[32m applied[0m[32m.[0m[32m This[0m[32m option[0m[32m also[0m[32m allows[0m[32m the[0m[32m installation[0m[32m of[0m[32m new[0m[32m packages[0m[32m without[0m[32m removing[0m[32m existing[0m[32m ones[0m[32m.
+
+[0m[32m###[0m[32m Optional[0m[32m Steps[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mUpdate[0m[32m System[0m[32m Configuration[0m[32m Files[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Sometimes[0m[32m,[0m[32m configuration[0m[32m files[0m[32m can[0m[32m be[0m[32m updated[0m[32m separately[0m[32m:
 [0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
-[0m[32m  [0m[32m ```
-[0m[32m  [0m[32m This[0m[32m command[0m[32m will[0m[32m download[0m[32m and[0m[32m install[0m[32m all[0m[32m available[0m[32m updates[0m[32m for[0m[32m your[0m[32m packages[0m[32m and[0m[32m system[0m[32m.
-
-[0m[32m3[0m[32m.[0m[32m If[0m[32m you[0m[32m want[0m[32m to[0m[32m ensure[0m[32m your[0m[32m `[0m[32mg[0m[32mdm[0m[32m`[0m[32m ([0m[32mor[0m[32m other[0m[32m display[0m[32m manager[0m[32m)[0m[32m is[0m[32m up[0m[32m-to[0m[32m-date[0m[32m,[0m[32m you[0m[32m can[0m[32m update[0m[32m it[0m[32m separately[0m[32m if[0m[32m needed[0m[32m:
-[0m[32m  [0m[32m ```[0m[32msh[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m g[0m[32mdm[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m reflect[0m[32mor[0m[32m --[0m[32msave[0m[32m /[0m[32metc[0m[32m/p[0m[32macman[0m[32m.d[0m[32m/m[0m[32mirror[0m[32mlist[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m4[0m[32m.[0m[32m **[0m[32mRe[0m[32mboot[0m[32m**[0m[32m the[0m[32m system[0m[32m after[0m[32m the[0m[32m update[0m[32m process[0m[32m completes[0m
-[31mError: [0mExecution error: request or response body error: operation timed out
-[31mError: [0mExecution error: request or response body error: operation timed out
+[0m[32m2[0m[32m.[0m[32m **[0m[32mClean[0m[32m Up[0m[32m Unused[0m[32m Packages[0m[32m and[0m[32m Cache[0m[32m:[0m[32m**
+[0m[32m  [0m[32m After[0m[32m updating[0m[32m,[0m[32m you[0m[32m might[0m[32m want[0m[32m to[0m[32m clean[0m[32m up[0m[32m unused[0m[32m packages[0m[32m and[0m[32m free[0m[32m up[0m[32m disk[0m[32m space[0m[32m with[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mSc[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mR[0m[32mns[0m[32m $([0m[32mpac[0m[32mman[0m[32m -[0m[32mQ[0m[32mtd[0m[32mq[0m[32m)
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mRe[0m[32mboot[0m[32m ([0m[32mif[0m[32m necessary[0m[32m):[0m[32m**
+[0m[32m  [0m[32m If[0m[32m any[0m[32m kernel[0m[32m modules[0m[32m or[0m[32m system[0m[32m services[0m[32m were[0m[32m updated[0m[32m,[0m[32m a[0m[32m reboot[0m[32m may[0m[32m be[0m[32m required[0m[32m to[0m[32m apply[0m[32m the[0m[32m changes[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m reboot[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m###[0m[32m Notes[0m[32m
+
+[0m[32m-[0m[32m Since[0m[32m you[0m[32m mentioned[0m[32m Way[0m[32mland[0m[32m support[0m[32m in[0m[32m G[0m[32mDM[0m[32m,[0m[32m your[0m[32m desktop[0m[32m environment[0m[32m should[0m[32m handle[0m[32m this[0m[32m seamlessly[0m[32m.
+[0m[32m-[0m[32m The[0m[32m display[0m[32m manager[0m[32m being[0m[32m active[0m[32m ([0m[32mG[0m[32mDM[0m[32m)[0m[32m suggests[0m[32m that[0m[32m the[0m[32m system[0m[32m is[0m[32m running[0m[32m graphical[0m[32m applications[0m[32m.
+
+[0m[32mIf[0m[32m you[0m[32m encounter[0m[32m any[0m[32m specific[0m[32m issues[0m[32m or[0m[32m errors[0m[32m during[0m[32m these[0m[32m steps[0m[32m,[0m[32m feel[0m[32m free[0m[32m to[0m[32m ask[0m[32m for[0m[32m more[0m[32m detailed[0m[32m assistance[0m[32m![0m[32m[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

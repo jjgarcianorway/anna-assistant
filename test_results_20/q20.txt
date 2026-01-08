@@ -34,14 +34,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Commands:[0m
 [2m└─────────────────────────────────────────[0m
@@ -256,47 +262,12 @@
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m that[0m[32m this[0m[32m system[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m as[0m[32m the[0m[32m display[0m[32m server[0m[32m,[0m[32m which[0m[32m means[0m[32m traditional[0m[32m X[0m[32m1[0m[32m1[0m[32m methods[0m[32m for[0m[32m changing[0m[32m screen[0m[32m brightness[0m[32m might[0m[32m not[0m[32m apply[0m[32m directly[0m[32m.
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m that[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m is[0m[32m running[0m[32m on[0m[32m this[0m[32m system[0m[32m,[0m[32m which[0m[32m uses[0m[32m Way[0m[32mland[0m[32m as[0m[32m its[0m[32m display[0m[32m server[0m[32m.[0m[32m Here[0m[32m’s[0m[32m how[0m[32m you[0m[32m can[0m[32m change[0m[32m the[0m[32m screen[0m[32m brightness[0m[32m:
 
-[0m[32mTo[0m[32m change[0m[32m the[0m[32m screen[0m[32m brightness[0m[32m in[0m[32m a[0m[32m Way[0m[32mland[0m[32m session[0m[32m:
-
-[0m[32m###[0m[32m Using[0m[32m `[0m[32mlight[0m[32m`[0m[32m ([0m[32mif[0m[32m available[0m[32m)
-[0m[32mIf[0m[32m the[0m[32m `[0m[32mlight[0m[32m`[0m[32m utility[0m[32m is[0m[32m installed[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m it[0m[32m to[0m[32m adjust[0m[32m the[0m[32m brightness[0m[32m.[0m[32m Open[0m[32m a[0m[32m terminal[0m[32m and[0m[32m run[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m light[0m[32m
-[0m[32m``[0m[32m`
-[0m[32mThen[0m[32m,[0m[32m you[0m[32m can[0m[32m set[0m[32m the[0m[32m brightness[0m[32m level[0m[32m using[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32mlight[0m[32m -[0m[32mS[0m[32m <[0m[32mpercentage[0m[32m>
-[0m[32m``[0m[32m`
-[0m[32mFor[0m[32m example[0m[32m,[0m[32m to[0m[32m set[0m[32m the[0m[32m brightness[0m[32m to[0m[32m [0m[32m5[0m[32m0[0m[32m%,[0m[32m you[0m[32m would[0m[32m run[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32mlight[0m[32m -[0m[32mS[0m[32m [0m[32m5[0m[32m0[0m[32m
-[0m[32m``[0m[32m`
-
-[0m[32m###[0m[32m Using[0m[32m `[0m[32mbrightness[0m[32mctl[0m[32m`[0m[32m ([0m[32moften[0m[32m included[0m[32m in[0m[32m backlight[0m[32m utilities[0m[32m)
-[0m[32mThis[0m[32m utility[0m[32m is[0m[32m often[0m[32m used[0m[32m with[0m[32m tools[0m[32m like[0m[32m `[0m[32mx[0m[32mback[0m[32mlight[0m[32m`,[0m[32m which[0m[32m can[0m[32m also[0m[32m work[0m[32m in[0m[32m Way[0m[32mland[0m[32m.[0m[32m First[0m[32m,[0m[32m ensure[0m[32m it[0m[32m's[0m[32m installed[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m brightness[0m[32mctl[0m[32m
-[0m[32m``[0m[32m`
-[0m[32mThen[0m[32m adjust[0m[32m the[0m[32m brightness[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32mbrightness[0m[32mctl[0m[32m s[0m[32m <[0m[32mpercentage[0m[32m>[0m[32m%
-[0m[32m``[0m[32m`
-[0m[32mFor[0m[32m example[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32mbrightness[0m[32mctl[0m[32m s[0m[32m [0m[32m5[0m[32m0[0m[32m%
-[0m[32m``[0m[32m`
-
-[0m[32m###[0m[32m Using[0m[32m KDE[0m[32m Plasma[0m[32m System[0m[32m Settings[0m[32m ([0m[32mif[0m[32m using[0m[32m a[0m[32m Desktop[0m[32m Environment[0m[32m)
-[0m[32mIf[0m[32m you[0m[32m're[0m[32m using[0m[32m KDE[0m[32m Plasma[0m[32m,[0m[32m you[0m[32m can[0m[32m access[0m[32m system[0m[32m settings[0m[32m and[0m[32m find[0m[32m an[0m[32m option[0m[32m to[0m[32m adjust[0m[32m screen[0m[32m brightness[0m[32m through[0m[32m the[0m[32m System[0m[32m Settings[0m[32m application[0m[32m.
-
-[0m[32m###[0m[32m Checking[0m[32m for[0m[32m Back[0m[32mlight[0m[32m Support[0m[32m
-[0m[32mYou[0m[32m can[0m[32m check[0m[32m if[0m[32m your[0m[32m hardware[0m[32m supports[0m[32m backlight[0m[32m control[0m[32m with[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32mcat[0m[32m /[0m[32msys[0m[32m/class[0m[32m/back[0m[32mlight[0m[32m/int[0m[32mel[0m[32m_back[0m[32mlight[0m[32m/b[0m[32mrightness[0m[32m
-[0m[32m``[0m[32m`
-[0m[32mor[0m[32m a[0m[32m similar[0m[32m path[0m[32m depending[0m[32m on[0m[32m your[0m[32m hardware[0m[32m.[0m[32m If[0m[32m you[0m[32m see[0m[32m output[0m[32m,[0m[32m it[0m[32m indicates[0m[32m that[0m[32m your[0m[32m system[0m[32m is[0m[32m capable[0m[32m of[0m[32m adjusting[0m[32m brightness[0m[32m via[0m[32m the[0m[32m kernel[0m[32m driver[0m[32m.
-
-[0m[32m###[0m[32m Note[0m[32m
-[0m[32mIf[0m[32m none[0m[32m of[0m[32m these[0m[32m methods[0m[32m work[0m[32m or[0m[32m if[0m[32m you[0m[32m're[0m[32m unsure[0m[32m about[0m[32m your[0m[32m setup[0m[32m,[0m[32m consider[0m[32m checking[0m[32m your[0m[32m distribution[0m[32m's[0m[32m package[0m[32m manager[0m[32m for[0m[32m additional[0m[32m tools[0m[32m specific[0m[32m to[0m[32m screen[0m[32m brightness[0m[32m control[0m[32m,[0m[32m as[0m[32m Arch[0m[32m Linux[0m[32m has[0m[32m a[0m[32m large[0m[32m number[0m[32m of[0m[32m community[0m
+[0m[32m###[0m[32m For[0m[32m Way[0m[32mland[0m[32m:
+[0m[32m1[0m[32m.[0m[32m **[0m[32mUsing[0m[32m Bright[0m[32mness[0m[32mT[0m[32moggler[0m[32m Daemon[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m Install[0m[32m `[0m[32mbrightness[0m[32mt[0m[32moggler[0m[32m`[0m[32m if[0m[32m not[0m[32m already[0m[32m installed[0m[32m.
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m brightness[0m[32mt[0m[32moggler[0m[32m
+[0m[32m    [0m[32m ```
+[0m[32m  [0m[32m -[0m[32m Use[0m[32m the[0m[32m following[0m[32m command[0m[32m to[0m[32m adjust[0m[32m brightness[0m[32m ([0m[32mreplace[0m[32m `<[0m[32mvalue[0m[32m>`[0m[32m with[0m

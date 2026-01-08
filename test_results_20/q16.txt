@@ -56,14 +56,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Suggested commands from Arch Wiki (use if relevant):[0m
 [2m│   pacman -Ss string1 string2 ...[0m
@@ -164,23 +170,23 @@
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m Arch[0m[32m Wiki[0m[32m information[0m[32m provided[0m[32m,[0m[32m to[0m[32m clear[0m[32m the[0m[32m pacman[0m[32m cache[0m[32m in[0m[32m your[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m the[0m[32m following[0m[32m command[0m[32m:
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m Arch[0m[32m Wiki[0m[32m information[0m[32m provided[0m[32m,[0m[32m to[0m[32m clear[0m[32m the[0m[32m pacman[0m[32m cache[0m[32m on[0m[32m your[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m the[0m[32m following[0m[32m command[0m[32m:
 
 [0m[32m```[0m[32msh[0m[32m
 [0m[32msudo[0m[32m pacman[0m[32m -[0m[32mSc[0m[32m
 [0m[32m``[0m[32m`
 
-[0m[32mThis[0m[32m command[0m[32m will[0m[32m remove[0m[32m all[0m[32m packages[0m[32m from[0m[32m the[0m[32m `/[0m[32mvar[0m[32m/cache[0m[32m/p[0m[32macman[0m[32m/pkg[0m[32m/[0m[32m`[0m[32m directory[0m[32m.
+[0m[32mThis[0m[32m command[0m[32m will[0m[32m remove[0m[32m all[0m[32m packages[0m[32m from[0m[32m the[0m[32m `/[0m[32mvar[0m[32m/cache[0m[32m/p[0m[32macman[0m[32m/pkg[0m[32m/[0m[32m`[0m[32m directory[0m[32m that[0m[32m are[0m[32m not[0m[32m currently[0m[32m installed[0m[32m.
 
-[0m[32mAdditionally[0m[32m,[0m[32m if[0m[32m you[0m[32m want[0m[32m to[0m[32m refresh[0m[32m the[0m[32m package[0m[32m database[0m[32m as[0m[32m a[0m[32m precaution[0m[32mary[0m[32m measure[0m[32m,[0m[32m you[0m[32m can[0m[32m run[0m[32m:
+[0m[32mIf[0m[32m you[0m[32m also[0m[32m want[0m[32m to[0m[32m clean[0m[32m the[0m[32m package[0m[32m db[0m[32m and[0m[32m sync[0m[32m it[0m[32m with[0m[32m the[0m[32m remote[0m[32m databases[0m[32m,[0m[32m you[0m[32m can[0m[32m run[0m[32m:
 
 [0m[32m```[0m[32msh[0m[32m
-[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mF[0m[32my[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
 [0m[32m``[0m[32m`
 
-[0m[32mHowever[0m[32m,[0m[32m based[0m[32m on[0m[32m your[0m[32m login[0m[32m type[0m[32m ([0m[32mtty[0m[32m),[0m[32m it[0m[32m seems[0m[32m that[0m[32m G[0m[32mDM[0m[32m is[0m[32m not[0m[32m active[0m[32m,[0m[32m and[0m[32m the[0m[32m system[0m[32m might[0m[32m be[0m[32m using[0m[32m S[0m[32mDD[0m[32mM[0m[32m or[0m[32m Light[0m[32mDM[0m[32m with[0m[32m Way[0m[32mland[0m[32m.[0m[32m This[0m[32m setup[0m[32m does[0m[32m not[0m[32m significantly[0m[32m affect[0m[32m the[0m[32m process[0m[32m of[0m[32m clearing[0m[32m the[0m[32m cache[0m[32m.
+[0m[32mHowever[0m[32m,[0m[32m if[0m[32m you[0m[32m specifically[0m[32m need[0m[32m to[0m[32m clear[0m[32m just[0m[32m the[0m[32m cache[0m[32m without[0m[32m updating[0m[32m the[0m[32m system[0m[32m,[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32mSc[0m[32m`[0m[32m is[0m[32m sufficient[0m[32m.
 
-[0m[32mMake[0m[32m sure[0m[32m to[0m[32m perform[0m[32m these[0m[32m operations[0m[32m when[0m[32m no[0m[32m other[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m processes[0m[32m are[0m[32m running[0m[32m to[0m[32m avoid[0m[32m conflicts[0m[32m.[0m[32m[0m
+[0m[32mSince[0m[32m your[0m[32m system[0m[32m appears[0m[32m to[0m[32m be[0m[32m using[0m[32m Way[0m[32mland[0m[32m ([0m[32mind[0m[32micated[0m[32m by[0m[32m the[0m[32m configuration[0m[32m of[0m[32m G[0m[32mDM[0m[32m),[0m[32m this[0m[32m command[0m[32m should[0m[32m work[0m[32m seamlessly[0m[32m in[0m[32m your[0m[32m environment[0m[32m.[0m[32m[0m
 [2m═══════════════════════════════════════[0m
 
 [2m(1 iterations)[0m

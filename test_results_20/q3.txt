@@ -39,14 +39,20 @@
 [2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
 [2m│ 6. Only output NONE if purely theoretical[0m
 [2m│ [0m
-[2m│ Examples for Wayland + GDM:[0m
+[2m│ Common examples:[0m
+[2m│ - Check updates → checkupdates[0m
+[2m│ - Disk space → df -h[0m
+[2m│ - Memory usage → free -h[0m
+[2m│ - System logs → journalctl -xe --no-pager | tail -50[0m
+[2m│ - Service status → systemctl status <service>[0m
+[2m│ - List services → systemctl list-units --type=service --state=running[0m
+[2m│ - Network info → ip addr[0m
+[2m│ - GPU info → lspci | grep -i vga[0m
+[2m│ [0m
+[2m│ Display examples (Wayland/GDM):[0m
 [2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
 [2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
-[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
-[2m│ [0m
-[2m│ Examples for Xorg:[0m
-[2m│ - Display settings → xrandr[0m
-[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ - Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null[0m
 [2m│ [0m
 [2m│ Suggested commands from Arch Wiki (use if relevant):[0m
 [2m│   nvidia-settings --load-config-only[0m
@@ -142,69 +148,64 @@
 [2m└─────────────────────────────────────────[0m
 
 [2m═══════════════════════════════════════[0m
-[32mANSWER: [0m[32mGiven[0m[32m that[0m[32m you[0m[32m are[0m[32m using[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m G[0m[32mDM[0m[32m ([0m[32mwhich[0m[32m might[0m[32m use[0m[32m Way[0m[32mland[0m[32m by[0m[32m default[0m[32m),[0m[32m here[0m[32m's[0m[32m a[0m[32m straightforward[0m[32m guide[0m[32m on[0m[32m how[0m[32m to[0m[32m install[0m[32m and[0m[32m configure[0m[32m NVIDIA[0m[32m drivers[0m[32m on[0m[32m your[0m[32m Arch[0m[32m-based[0m[32m system[0m[32m:
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m information[0m[32m,[0m[32m it[0m[32m appears[0m[32m that[0m[32m you[0m[32m are[0m[32m running[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m a[0m[32m Way[0m[32mland[0m[32m session[0m[32m,[0m[32m but[0m[32m the[0m[32m Arch[0m[32m Wiki[0m[32m excerpt[0m[32m suggests[0m[32m this[0m[32m is[0m[32m primarily[0m[32m for[0m[32m an[0m[32m X[0m[32morg[0m[32m environment[0m[32m.[0m[32m Therefore[0m[32m,[0m[32m let[0m[32m's[0m[32m focus[0m[32m on[0m[32m installing[0m[32m and[0m[32m configuring[0m[32m NVIDIA[0m[32m drivers[0m[32m in[0m[32m an[0m[32m X[0m[32morg[0m[32m context[0m[32m,[0m[32m which[0m[32m can[0m[32m be[0m[32m relevant[0m[32m depending[0m[32m on[0m[32m your[0m[32m setup[0m[32m.
 
-[0m[32m###[0m[32m Step[0m[32m [0m[32m1[0m[32m:[0m[32m Install[0m[32m the[0m[32m NVIDIA[0m[32m Driver[0m[32m
+[0m[32m###[0m[32m Step[0m[32m-by[0m[32m-[0m[32mStep[0m[32m Guide[0m[32m to[0m[32m Install[0m[32m NVIDIA[0m[32m Drivers[0m[32m
 
-[0m[32m1[0m[32m.[0m[32m **[0m[32mUpdate[0m[32m Your[0m[32m System[0m[32m**[0m[32m:
-[0m[32m  [0m[32m Ensure[0m[32m your[0m[32m system[0m[32m is[0m[32m up[0m[32m-to[0m[32m-date[0m[32m.
-[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
+[0m[32m1[0m[32m.[0m[32m **[0m[32mRemove[0m[32m Existing[0m[32m NVIDIA[0m[32m Packages[0m[32m ([0m[32mif[0m[32m installed[0m[32m):[0m[32m**
+[0m[32m  [0m[32m If[0m[32m you[0m[32m already[0m[32m have[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m installed[0m[32m via[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-driver[0m[32m`[0m[32m or[0m[32m similar[0m[32m,[0m[32m remove[0m[32m it[0m[32m first[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mR[0m[32mns[0m[32m n[0m[32mvidia[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m2[0m[32m.[0m[32m **[0m[32mInstall[0m[32m the[0m[32m NVIDIA[0m[32m Driver[0m[32m**[0m[32m:
-[0m[32m  [0m[32m Use[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m to[0m[32m install[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m and[0m[32m its[0m[32m utilities[0m[32m.
-[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m n[0m[32mvidia[0m[32m n[0m[32mvidia[0m[32m-utils[0m[32m n[0m[32mvidia[0m[32m-settings[0m[32m
+[0m[32m2[0m[32m.[0m[32m **[0m[32mInstall[0m[32m the[0m[32m NVIDIA[0m[32m Driver[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Install[0m[32m the[0m[32m latest[0m[32m NVIDIA[0m[32m driver[0m[32m from[0m[32m the[0m[32m A[0m[32mUR[0m[32m using[0m[32m tools[0m[32m like[0m[32m `[0m[32my[0m[32may[0m[32m`[0m[32m or[0m[32m `[0m[32mtr[0m[32mizen[0m[32m`.[0m[32m First[0m[32m,[0m[32m install[0m[32m `[0m[32my[0m[32may[0m[32m`[0m[32m if[0m[32m you[0m[32m don[0m[32m't[0m[32m have[0m[32m it[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m git[0m[32m clone[0m[32m https[0m[32m://[0m[32maur[0m[32m.arch[0m[32mlinux[0m[32m.org[0m[32m/y[0m[32may[0m[32m.git[0m[32m
+[0m[32m  [0m[32m cd[0m[32m yay[0m[32m
+[0m[32m  [0m[32m make[0m[32mpkg[0m[32m -[0m[32msi[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m###[0m[32m Step[0m[32m [0m[32m2[0m[32m:[0m[32m Configure[0m[32m X[0m[32morg[0m[32m
-
-[0m[32m1[0m[32m.[0m[32m **[0m[32mGenerate[0m[32m an[0m[32m x[0m[32morg[0m[32m.conf[0m[32m File[0m[32m ([0m[32mOptional[0m[32m)**[0m[32m:
-[0m[32m  [0m[32m If[0m[32m you[0m[32m want[0m[32m to[0m[32m use[0m[32m legacy[0m[32m X[0m[32morg[0m[32m with[0m[32m NVIDIA[0m[32m,[0m[32m run[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-x[0m[32mconfig[0m[32m`[0m[32m to[0m[32m generate[0m[32m a[0m[32m configuration[0m[32m file[0m[32m.
-[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m n[0m[32mvidia[0m[32m-x[0m[32mconfig[0m[32m --[0m[32mbus[0m[32mid[0m[32m=[0m[32mPCI[0m[32m:[0m[32m3[0m[32m:[0m[32m0[0m[32m:[0m[32m0[0m[32m
+[0m[32m  [0m[32m Then[0m[32m use[0m[32m `[0m[32my[0m[32may[0m[32m`[0m[32m to[0m[32m install[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m yay[0m[32m -[0m[32mS[0m[32m n[0m[32mvidia[0m[32m-driver[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m2[0m[32m.[0m[32m **[0m[32mEdit[0m[32m the[0m[32m [0m[32m2[0m[32m0[0m[32m-n[0m[32mvidia[0m[32m.conf[0m[32m File[0m[32m**[0m[32m ([0m[32mOptional[0m[32m):
-[0m[32m  [0m[32m If[0m[32m you[0m[32m want[0m[32m more[0m[32m fine[0m[32m-gr[0m[32mained[0m[32m control[0m[32m,[0m[32m edit[0m[32m `/[0m[32metc[0m[32m/X[0m[32m1[0m[32m1[0m[32m/x[0m[32morg[0m[32m.conf[0m[32m.d[0m[32m/[0m[32m2[0m[32m0[0m[32m-n[0m[32mvidia[0m[32m.conf[0m[32m`[0m[32m to[0m[32m match[0m[32m your[0m[32m needs[0m[32m.
-
-[0m[32m###[0m[32m Step[0m[32m [0m[32m3[0m[32m:[0m[32m Configure[0m[32m Way[0m[32mland[0m[32m ([0m[32mIf[0m[32m Needed[0m[32m)
-
-[0m[32mSince[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m by[0m[32m default[0m[32m,[0m[32m and[0m[32m Way[0m[32mland[0m[32m does[0m[32m not[0m[32m use[0m[32m X[0m[32morg[0m[32m,[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m might[0m[32m not[0m[32m be[0m[32m necessary[0m[32m.[0m[32m However[0m[32m,[0m[32m if[0m[32m you[0m[32m still[0m[32m want[0m[32m to[0m[32m run[0m[32m an[0m[32m X[0m[32m session[0m[32m:
-
-[0m[32m1[0m[32m.[0m[32m **[0m[32mDisable[0m[32m the[0m[32m Display[0m[32m Manager[0m[32m**[0m[32m:
-[0m[32m  [0m[32m If[0m[32m you[0m[32m are[0m[32m currently[0m[32m running[0m[32m a[0m[32m display[0m[32m manager[0m[32m like[0m[32m G[0m[32mDM[0m[32m,[0m[32m temporarily[0m[32m disable[0m[32m it[0m[32m or[0m[32m switch[0m[32m to[0m[32m `[0m[32mlight[0m[32mdm[0m[32m`[0m[32m or[0m[32m another[0m[32m display[0m[32m manager[0m[32m that[0m[32m supports[0m[32m both[0m[32m Way[0m[32mland[0m[32m and[0m[32m X[0m[32morg[0m[32m.
-[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
-[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m stop[0m[32m g[0m[32mdm[0m[32m
+[0m[32m3[0m[32m.[0m[32m **[0m[32mRe[0m[32mboot[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Re[0m[32mboot[0m[32m your[0m[32m system[0m[32m to[0m[32m apply[0m[32m the[0m[32m new[0m[32m drivers[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m reboot[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m2[0m[32m.[0m[32m **[0m[32mSet[0m[32m Up[0m[32m an[0m[32m X[0m[32m Session[0m[32m**[0m[32m:
-[0m[32m  [0m[32m You[0m[32m can[0m[32m manually[0m[32m start[0m[32m an[0m[32m X[0m[32m session[0m[32m with[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m by[0m[32m logging[0m[32m out[0m[32m and[0m[32m choosing[0m[32m "[0m[32mX[0m[32m"[0m[32m from[0m[32m your[0m[32m display[0m[32m manager[0m[32m's[0m[32m options[0m[32m,[0m[32m if[0m[32m available[0m[32m.
+[0m[32m4[0m[32m.[0m[32m **[0m[32mConfigure[0m[32m X[0m[32morg[0m[32m ([0m[32mif[0m[32m not[0m[32m using[0m[32m Way[0m[32mland[0m[32m):[0m[32m**
+[0m[32m  [0m[32m If[0m[32m you[0m[32m decide[0m[32m to[0m[32m use[0m[32m an[0m[32m X[0m[32morg[0m[32m session[0m[32m,[0m[32m create[0m[32m or[0m[32m edit[0m[32m a[0m[32m configuration[0m[32m file[0m[32m like[0m[32m `/[0m[32metc[0m[32m/X[0m[32m1[0m[32m1[0m[32m/x[0m[32morg[0m[32m.conf[0m[32m.d[0m[32m/[0m[32m2[0m[32m0[0m[32m-n[0m[32mvidia[0m[32m.conf[0m[32m`[0m[32m with[0m[32m the[0m[32m following[0m[32m content[0m[32m:
+[0m[32m  [0m[32m ```[0m[32mconf[0m[32m
+[0m[32m  [0m[32m Section[0m[32m "[0m[32mDevice[0m[32m"
+[0m[32m      [0m[32m Identifier[0m[32m    [0m[32m "[0m[32mCard[0m[32m0[0m[32m"
+[0m[32m      [0m[32m Driver[0m[32m        [0m[32m "[0m[32mn[0m[32mvidia[0m[32m"
+[0m[32m      [0m[32m Option[0m[32m        [0m[32m "[0m[32mCool[0m[32mbits[0m[32m"[0m[32m "[0m[32m2[0m[32m8[0m[32m"
+[0m[32m      [0m[32m Bus[0m[32mID[0m[32m         [0m[32m "[0m[32mPCI[0m[32m:[0m[32m1[0m[32m:[0m[32m0[0m[32m:[0m[32m0[0m[32m"[0m[32m [0m[32m #[0m[32m Replace[0m[32m with[0m[32m your[0m[32m actual[0m[32m PCI[0m[32m bus[0m[32m ID[0m[32m if[0m[32m different[0m[32m
+[0m[32m  [0m[32m End[0m[32mSection[0m[32m
 
-[0m[32m###[0m[32m Step[0m[32m [0m[32m4[0m[32m:[0m[32m Verify[0m[32m Installation[0m[32m
-
-[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m Driver[0m[32m Version[0m[32m**[0m[32m:
-[0m[32m  [0m[32m Verify[0m[32m that[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m is[0m[32m installed[0m[32m correctly[0m[32m.
-[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
-[0m[32m  [0m[32m n[0m[32mvidia[0m[32m-sm[0m[32mi[0m[32m
+[0m[32m  [0m[32m Section[0m[32m "[0m[32mScreen[0m[32m"
+[0m[32m      [0m[32m Identifier[0m[32m    [0m[32m "[0m[32mScreen[0m[32m0[0m[32m"
+[0m[32m      [0m[32m Device[0m[32m        [0m[32m "[0m[32mCard[0m[32m0[0m[32m"
+[0m[32m      [0m[32m Default[0m[32mDepth[0m[32m  [0m[32m [0m[32m2[0m[32m4[0m[32m
+[0m[32m      [0m[32m Option[0m[32m        [0m[32m "[0m[32mSter[0m[32meo[0m[32m"[0m[32m "[0m[32m0[0m[32m"
+[0m[32m      [0m[32m Option[0m[32m        [0m[32m "[0m[32mmet[0m[32mam[0m[32modes[0m[32m"[0m[32m "[0m[32mn[0m[32mvidia[0m[32m-auto[0m[32m-select[0m[32m +[0m[32m0[0m[32m+[0m[32m0[0m[32m {[0m[32m Force[0m[32mFull[0m[32mComposition[0m[32mPipeline[0m[32m=True[0m[32m }[0m[32m"
+[0m[32m      [0m[32m Sub[0m[32mSection[0m[32m    [0m[32m "[0m[32mDisplay[0m[32m"
+[0m[32m          [0m[32m Depth[0m[32m      [0m[32m [0m[32m2[0m[32m4[0m[32m
+[0m[32m      [0m[32m End[0m[32mSub[0m[32mSection[0m[32m
+[0m[32m  [0m[32m End[0m[32mSection[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m2[0m[32m.[0m[32m **[0m[32mRun[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-settings[0m[32m`[0m[32m**[0m[32m ([0m[32mOptional[0m[32m):
-[0m[32m  [0m[32m Open[0m[32m the[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-settings[0m[32m`[0m[32m GUI[0m[32m to[0m[32m ensure[0m[32m everything[0m[32m works[0m[32m as[0m[32m expected[0m[32m.
-[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
-[0m[32m  [0m[32m n[0m[32mvidia[0m[32m-settings[0m[32m
+[0m[32m5[0m[32m.[0m[32m **[0m[32mSet[0m[32m Up[0m[32m the[0m[32m NVIDIA[0m[32m Settings[0m[32m Tool[0m[32m ([0m[32mOptional[0m[32m):[0m[32m**
+[0m[32m  [0m[32m You[0m[32m can[0m[32m set[0m[32m up[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-settings[0m[32m`[0m[32m to[0m[32m save[0m[32m your[0m[32m configurations[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m n[0m[32mvidia[0m[32m-settings[0m[32m --[0m[32mload[0m[32m-config[0m[32m-only[0m[32m
 [0m[32m  [0m[32m ``[0m[32m`
 
-[0m[32m###[0m[32m Step[0m[32m [0m[32m5[0m[32m:[0m[32m Re[0m[32m-enable[0m[32m Your[0m[32m Display[0m[32m Manager[0m[32m
-
-[0m[32mAfter[0m[32m you[0m[32m are[0m[32m done[0m[32m with[0m[32m X[0m[32morg[0m[32m,[0m[32m re[0m[32m-enable[0m[32m your[0m[32m display[0m[32m manager[0m[32m if[0m[32m necessary[0m[32m:
-[0m[32m```[0m[32mbash[0m[32m
-[0m[32msudo[0m[32m systemctl[0m[32m start[0m[32m g[0m[32mdm[0m[32m
-[0m[32m``[0m[32m`
-
-[0m[32m###[0m[32m Notes[0m[32m:
-
-[0m[32m-[0m[32m If[0m
+[0m[32m6[0m[32m.[0m[32m **[0m[32mVerify[0m[32m Installation[0m[32m:[0m[32m**
+[0m[32m  [0m[32m After[0m[32m reboot[0m[32ming[0m[32m,[0m[32m verify[0m
 [31mError: [0mExecution error: request or response body error: operation timed out
 [31mError: [0mExecution error: request or response body error: operation timed out
