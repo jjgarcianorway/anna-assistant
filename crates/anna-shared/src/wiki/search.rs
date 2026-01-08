@@ -28,68 +28,87 @@ pub async fn search(
     keyword_search(&index, query, top_k)
 }
 
-/// Search using keywords only - improved to prioritize topic matches
+/// Search using keywords only - prioritizes exact topic matches
 pub fn keyword_search(index: &WikiIndex, query: &str, top_k: usize) -> Result<Vec<WikiSearchResult>> {
     let query_lower = query.to_lowercase();
-    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
 
-    // First, try to find direct topic matches in the query
-    // Look for article titles that appear in the query (e.g., "GDM" in "how to scale GDM")
-    let mut direct_matches: Vec<WikiSearchResult> = Vec::new();
+    // Extract significant words from query (skip stop words)
+    let query_words: Vec<&str> = query_lower
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() >= 2 && !is_stop_word(w))
+        .collect();
+
+    let mut scored_results: Vec<(String, f32)> = Vec::new();
 
     for title in index.articles.keys() {
         let title_lower = title.to_lowercase();
-        let title_words: Vec<&str> = title_lower.split_whitespace().collect();
+        let mut score: f32 = 0.0;
 
-        // Check if any significant title word appears in query
-        for title_word in &title_words {
-            if title_word.len() >= 3 && query_lower.contains(title_word) {
-                if let Some(article) = index.get_article(title) {
-                    // Give high score for direct title match
-                    direct_matches.push(WikiSearchResult {
-                        article,
-                        score: 0.9,
-                        relevant_section: None,
-                    });
-                    break;
-                }
+        // Check for exact title match (highest priority)
+        for word in &query_words {
+            // Exact match with title or title word
+            if title_lower == *word {
+                score += 10.0; // Exact title match
+            } else if title_lower.split(|c: char| !c.is_alphanumeric()).any(|tw| tw == *word) {
+                score += 5.0; // Title contains this exact word
+            } else if word.len() >= 4 && title_lower.contains(word) {
+                score += 2.0; // Partial match (only for longer words)
             }
+        }
+
+        if score > 0.0 {
+            scored_results.push((title.clone(), score));
         }
     }
 
-    // If we found direct matches, prioritize those
-    if !direct_matches.is_empty() {
-        // Sort by relevance (titles that match more query words get higher score)
-        direct_matches.sort_by(|a, b| {
-            let a_matches = count_query_matches(&a.article.title, &query_words);
-            let b_matches = count_query_matches(&b.article.title, &query_words);
-            b_matches.cmp(&a_matches)
-        });
-        direct_matches.truncate(top_k);
-        return Ok(direct_matches);
-    }
+    // Sort by score descending
+    scored_results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
-    // Fallback to keyword index search
-    let titles = index.search_keywords(query);
-
+    // Take top results
     let mut results = Vec::new();
-    for title in titles.into_iter().take(top_k) {
+    for (title, score) in scored_results.into_iter().take(top_k) {
         if let Some(article) = index.get_article(&title) {
             results.push(WikiSearchResult {
                 article,
-                score: 0.5, // Default score for keyword matches
+                score: (score / 10.0).min(1.0), // Normalize score
                 relevant_section: None,
             });
+        }
+    }
+
+    // If no direct matches, fall back to keyword index
+    if results.is_empty() {
+        let titles = index.search_keywords(query);
+        for title in titles.into_iter().take(top_k) {
+            if let Some(article) = index.get_article(&title) {
+                results.push(WikiSearchResult {
+                    article,
+                    score: 0.3,
+                    relevant_section: None,
+                });
+            }
         }
     }
 
     Ok(results)
 }
 
-/// Count how many query words match a text
-fn count_query_matches(text: &str, query_words: &[&str]) -> usize {
-    let text_lower = text.to_lowercase();
-    query_words.iter().filter(|w| text_lower.contains(*w)).count()
+/// Check if word is a stop word (common words to ignore)
+fn is_stop_word(word: &str) -> bool {
+    const STOP_WORDS: &[&str] = &[
+        "a", "an", "the", "is", "it", "to", "of", "in", "for", "on", "with",
+        "at", "by", "from", "or", "and", "be", "was", "were", "been", "being",
+        "have", "has", "had", "do", "does", "did", "will", "would", "could",
+        "should", "may", "might", "must", "can", "this", "that", "these",
+        "those", "i", "you", "he", "she", "we", "they", "my", "your", "his",
+        "her", "its", "our", "their", "what", "which", "who", "whom", "how",
+        "when", "where", "why", "if", "then", "else", "so", "but", "not",
+        "no", "yes", "all", "any", "some", "every", "each", "much", "many",
+        "more", "most", "other", "another", "such", "only", "just", "also",
+        "very", "too", "really", "everything", "nothing", "something",
+        "make", "made", "change", "tried", "works", "small",
+    ];
+    STOP_WORDS.contains(&word)
 }
 
 /// Find relevant section within an article

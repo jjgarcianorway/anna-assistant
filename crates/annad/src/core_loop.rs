@@ -408,25 +408,20 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         iterations += 1;
         info!("Iteration {}/{}", iterations, MAX_ITERATIONS);
 
-        // Step 1: Get commands - from wiki or LLM
-        let commands_to_run: Vec<String> = if iterations == 1 && !wiki_commands.is_empty() {
-            // Use wiki commands on first iteration - skip LLM call
-            info!("Using {} commands from wiki", wiki_commands.len());
-
-            // Record that we're using wiki commands
-            let step = DialogueStep {
-                step_type: StepType::LlmCommands,
-                content: format!("(using {} commands from wiki)", wiki_commands.len()),
-            };
-            dialogue.push(step.clone());
-            send_streaming(writer, &StreamingResponse::Step { step }).await?;
-
-            wiki_commands.clone()
+        // Build wiki hint for first iteration
+        let wiki_hint = if iterations == 1 && !wiki_commands.is_empty() {
+            format!(
+                "\n\nSuggested commands from Arch Wiki (use if relevant):\n{}",
+                wiki_commands.iter().take(5).map(|c| format!("  {}", c)).collect::<Vec<_>>().join("\n")
+            )
         } else {
-            // Ask LLM for commands
-            let command_prompt = if iterations == 1 {
-                format!(
-                    r#"You are a system administrator assistant. The user needs information about THIS specific Arch Linux system.
+            String::new()
+        };
+
+        // Ask LLM for commands (always - wiki just provides hints)
+        let command_prompt = if iterations == 1 {
+            format!(
+                r#"You are a system administrator assistant. The user needs information about THIS specific Arch Linux system.
 
 Question: "{}"
 
@@ -436,7 +431,7 @@ RULES:
 1. Output ONLY commands, one per line - no explanations, no markdown
 2. Commands must be safe (read-only, no destructive operations)
 3. MAXIMUM 3-5 commands - only what's DIRECTLY relevant to the question
-4. STAY FOCUSED: If question is about fish shell, only check fish-related things
+4. STAY FOCUSED: If question is about GDM, only check GDM-related things
 5. Prefer FAST commands - avoid recursive scans unless specifically asked
 6. Only output NONE if the question is purely theoretical
 
@@ -445,21 +440,19 @@ Examples:
 - "disk space?" → df -h
 - "is X installed?" → pacman -Qi X 2>/dev/null
 - "failed services?" → systemctl --failed
-- "top 10 folders?" → du -h --max-depth=1 / 2>/dev/null | sort -rh | head -10
+- "GDM settings?" → cat /etc/gdm/custom.conf
 - "fish config?" → cat ~/.config/fish/config.fish 2>/dev/null
-- "ssh slow?" → cat ~/.ssh/config 2>/dev/null
 
 IMPORTANT:
 - Add 2>/dev/null to suppress errors
-- For folder sizes use --max-depth=1 (direct children only, not recursive)
-- Don't include unrelated commands (CPU info not needed for shell questions)
+- For folder sizes use --max-depth=1 (direct children only, not recursive){wiki_hint}
 
 Commands:"#,
-                    question
-                )
-            } else {
-                format!(
-                    r#"Question: "{}"
+                question
+            )
+        } else {
+            format!(
+                r#"Question: "{}"
 
 Previous command output:
 {}
@@ -469,41 +462,40 @@ Output additional commands (one per line, no explanations).
 If output above is sufficient, output: DONE
 
 Commands:"#,
-                    question, last_output
-                )
-            };
-
-            // Record and send prompt
-            let step = DialogueStep {
-                step_type: StepType::AnnaToLlm,
-                content: command_prompt.clone(),
-            };
-            dialogue.push(step.clone());
-            send_streaming(writer, &StreamingResponse::Step { step }).await?;
-
-            let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
-            let commands_response = commands_response.trim();
-
-            // Record and send LLM's response
-            let step = DialogueStep {
-                step_type: StepType::LlmCommands,
-                content: commands_response.to_string(),
-            };
-            dialogue.push(step.clone());
-            send_streaming(writer, &StreamingResponse::Step { step }).await?;
-
-            // Check for special responses
-            if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
-                break;
-            }
-
-            // Parse commands from LLM response
-            commands_response
-                .lines()
-                .map(|l| l.trim().to_string())
-                .filter(|l| !l.is_empty() && !l.starts_with('#'))
-                .collect()
+                question, last_output
+            )
         };
+
+        // Record and send prompt
+        let step = DialogueStep {
+            step_type: StepType::AnnaToLlm,
+            content: command_prompt.clone(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
+        let commands_response = commands_response.trim();
+
+        // Record and send LLM's response
+        let step = DialogueStep {
+            step_type: StepType::LlmCommands,
+            content: commands_response.to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Check for special responses
+        if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
+            break;
+        }
+
+        // Parse commands from LLM response
+        let commands_to_run: Vec<String> = commands_response
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .collect();
 
         if commands_to_run.is_empty() {
             break;

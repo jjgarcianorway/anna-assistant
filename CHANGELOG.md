@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.848] - 2026-01-08
+
+### Fixed
+- Wiki search now properly filters stop words (the, is, to, etc.)
+- Wiki commands are now hints to LLM, not executed directly (prevents wrong commands)
+- Search prioritizes exact topic matches with proper scoring
+
 ## [0.0.847] - 2026-01-08
 
 ### Fixed
