@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.861] - 2026-01-08
+
+### Fixed
+- **No interactive commands** - Prompt now says "no top/htop/vim"
+  - These commands need a terminal and fail in non-interactive execution
+  - Example changed to `ps aux --sort=-%cpu | head -10`
+
 ## [0.0.860] - 2026-01-08
 
 ### Improved

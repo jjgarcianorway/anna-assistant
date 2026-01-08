@@ -580,8 +580,8 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
                 r#"System: {}
 Question: "{}"
 
-Output 1-3 Linux commands to answer this (one per line, no explanations).
-Examples: df -h, free -h, ip addr, lscpu, systemctl status X, ps aux --sort=-%cpu | head -5
+Output 1-3 Linux commands (non-interactive, no top/htop/vim).
+Examples: df -h, free -h, ps aux --sort=-%cpu | head -10, systemctl status X
 Output NONE if no commands needed.{wiki_hint}
 
 Commands:"#,
