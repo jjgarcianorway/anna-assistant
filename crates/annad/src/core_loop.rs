@@ -208,6 +208,18 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         return None;
     }
 
+    // Truncate wiki context to prevent huge prompts (max 2000 chars)
+    let wiki_context = if wiki_context.len() > 2000 {
+        let truncated = &wiki_context[..2000];
+        if let Some(pos) = truncated.rfind('\n') {
+            format!("{}...\n(truncated)", &truncated[..pos])
+        } else {
+            format!("{}...", truncated)
+        }
+    } else {
+        wiki_context
+    };
+
     Some(WikiSearchResults {
         article_titles,
         commands: all_commands,
@@ -521,8 +533,20 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             wiki_commands = cmd_list;
         }
 
-        wiki_context = wiki_results.context;
-        info!("Wiki found {} articles, {} commands", wiki_results.article_titles.len(), wiki_commands.len());
+        // Limit wiki context to prevent huge prompts (max 2000 chars)
+        wiki_context = if wiki_results.context.len() > 2000 {
+            let truncated = &wiki_results.context[..2000];
+            // Find last complete line
+            if let Some(pos) = truncated.rfind('\n') {
+                format!("{}...\n(truncated)", &truncated[..pos])
+            } else {
+                format!("{}...", truncated)
+            }
+        } else {
+            wiki_results.context
+        };
+        info!("Wiki found {} articles, {} commands, context {} chars",
+              wiki_results.article_titles.len(), wiki_commands.len(), wiki_context.len());
     } else {
         // No wiki results
         let step = DialogueStep {

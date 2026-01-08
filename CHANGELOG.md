@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.858] - 2026-01-08
+
+### Fixed
+- **Wiki context truncation** - Limit wiki content to 2000 chars max
+  - Prevents huge prompts that cause LLM timeouts
+  - Faster response times for questions that match wiki articles
+
 ## [0.0.857] - 2026-01-08
 
 ### Improved
