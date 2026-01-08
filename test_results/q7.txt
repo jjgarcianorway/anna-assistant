@@ -1,0 +1,721 @@
+
+[36mUSER: [0mHow do I downgrade a package?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I downgrade a package?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • MinGW package guidelines (score: 0.50)[0m
+[2m  • Category:Package development (score: 0.50)[0m
+[2m  • Free Pascal package guidelines (score: 0.50)[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I downgrade a package?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I downgrade a package?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From MinGW package guidelines ---[0m
+[2m│ MinGW package guidelines - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Package naming[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Packaging[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Examples[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Examples subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1[0m
+[2m│ Autotools[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.2[0m
+[2m│ CMake[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ MinGW package guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Arch package guidelines[0m
+[2m│ [0m
+[2m│ 32-bit – CLR – CMake – Cross – DKMS – Eclipse – Electron – Font – Free Pascal – GNOME – Go – Haskell – Java – KDE – Kernel modules – Lisp – Meson – MinGW – Node.js – Nonfree – OCaml – Perl – PHP – Python – R – Ruby – Rust - Security – Shell – VCS – Web – Wine[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This page explains how to write PKGBUILDs for software running on Windows.[0m
+[2m│ [0m
+[2m│ In order to build software for Windows on Linux one needs:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Windows header files and import libraries for the WinAPI and the C standard library. There are two options to get those:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ mingw-w64: provides 32 and 64-bit toolchains with secure crt, Vista+ API, DDK (ReactOS), and DirectX (WINE) support. For a full list of supported features and differences with the old MinGW.org, see here. Available from the official repositories by installing mingw-w64-headers and mingw-w64-crt. AUR packages providing further libraries rely on those packages.[0m
+[2m│ [0m
+[2m│ MinGW: provides 32-bit toolchains with limited DirectX support. It also suffers from long-standing break...[0m
+[2m│ --- From Category:Package development ---[0m
+[2m│ Category:Package development - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Package development[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Help[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ The main article for this category is Creating packages.[0m
+[2m│ [0m
+[2m│ See also Category:Package management.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Subcategories[0m
+[2m│ This category has only the following subcategory.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A[0m
+[2m│ Arch package guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pages in category "Package development"[0m
+[2m│ The following 24 pages are in this category, out of 24 total.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ .[0m
+[2m│ .SRCINFO[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A[0m
+[2m│ [0m
+[2m│ Abuild[0m
+[2m│ Arch build system[0m
+[2m│ Arch User Repository[0m
+[2m│ AUR Cleanup Day[0m
+[2m│ AUR submission guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ B[0m
+[2m│ [0m
+[2m│ Bug Day[0m
+[2m│ DeveloperWiki:Building in a clean chroot[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ C[0m
+[2m│ [0m
+[2m│ Ccache[0m
+[2m│ Clang[0m
+[2m│ Creating packages[0m
+[2m│ Creating packages for other distributions[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ D[0m
+[2m│ [0m
+[2m│ Debugging/Getting traces[0m
+[2m│ Debuginfod[0m
+[2m│ Desktop entries[0m
+[2m│ Distcc[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ M[0m
+[2m│ Makepkg[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ N[0m
+[2m│ Namcap[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ P[0m
+[2m│ [0m
+[2m│ Package Maintainer guidelines[0m
+[2m│ Perl Policy[0m
+[2m│ PKGBUILD[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ R[0m
+[2m│ [0m
+[2m│ Rebuilderd[0m
+[2m│ Reproducible builds[0m
+[2m│ Reproducible builds/Status[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category: Arch development[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:Package_development&oldid=836518"[0m
+[2m│ This page was last edited on 14 June 2025, at 05:40.[0m
+[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Privacy policy[0m
+[2m│ About ArchWiki[0m
+[2m│ Disclaimers[0m
+[2m│ Code of conduct[0m
+[2m│ Terms of service[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Package development[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Add topic[0m
+[2m│ --- From Free Pascal package guidelines ---[0m
+[2m│ Free Pascal package guidelines - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Free Pascal[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Free Pascal subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.1[0m
+[2m│ Package naming[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.2[0m
+[2m│ Helpful snippets[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.3[0m
+[2m│ Packaging[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.3.1[0m
+[2m│ Cross compiling[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Free Pascal package guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Arch package guidelines[0m
+[2m│ [0m
+[2m│ 32-bit – CLR – CMake – Cross – DKMS – Eclipse – Electron – Font – Free Pascal – GNOME – Go – Haskell – Java – KDE – Kernel modules – Lisp – Meson – MinGW – Node.js – Nonfree – OCaml – Perl – PHP – Python – R – Ruby – Rust - Security – Shell – VCS – Web – Wine[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This page explains on how to write PKGBUILDs for software built with the Free Pascal Compiler (FPC). Compiling for x86_64 Arch Linux requires the fpc package.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Free Pascal[0m
+[2m│ Package naming[0m
+[2m│ The project name alone is usually sufficient. However, in the case of cross-compiling, the package should be prefixed with fpc32- when targeting i686 Linux from multilib and named in the format of fpc-cpu-system-pkgname when targeting non-Arch Linux systems.[0m
+[2m│ [0m
+[2m│ Helpful snippets[0m
+[2m│ Determine FPC's version and the CPU and OS of the units to output:[0m
+[2m│ [0m
+[2m│ _unitdir=`fpc -iSP`-`fpc -iSO`[0m
+[2m│ _fpcver=`fpc -iV`[0m
+[2m│ [0m
+[2m│ Packaging[0m
+[2m│ Please adhere to the following when making an FPC-based package:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ always add fpc to either m...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m like[0m[32m the[0m[32m system[0m[32m in[0m[32m question[0m[32m is[0m[32m running[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m a[0m[32m Way[0m[32mland[0m[32m-based[0m[32m display[0m[32m server[0m[32m and[0m[32m using[0m[32m G[0m[32mDM[0m[32m as[0m[32m the[0m[32m display[0m[32m manager[0m[32m.[0m[32m However[0m[32m,[0m[32m your[0m[32m question[0m[32m is[0m[32m about[0m[32m down[0m[32mgrading[0m[32m a[0m[32m package[0m[32m on[0m[32m Arch[0m[32m Linux[0m[32m.
+
+[0m[32mTo[0m[32m downgrade[0m[32m a[0m[32m package[0m[32m on[0m[32m an[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mIdent[0m[32mify[0m[32m the[0m[32m Package[0m[32m to[0m[32m Down[0m[32mgrade[0m[32m:[0m[32m**
+[0m[32m  [0m[32m First[0m[32m,[0m[32m determine[0m[32m which[0m[32m package[0m[32m you[0m[32m want[0m[32m to[0m[32m downgrade[0m[32m and[0m[32m its[0m[32m current[0m[32m version[0m[32m.[0m[32m You[0m[32m can[0m[32m list[0m[32m all[0m[32m installed[0m[32m packages[0m[32m with[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32mQ[0m[32m`[0m[32m or[0m[32m search[0m[32m for[0m[32m specific[0m[32m packages[0m[32m with[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32mQi[0m[32m <[0m[32mpackage[0m[32m_name[0m[32m>`[0m[32m.
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mFind[0m[32m a[0m[32m Suitable[0m[32m Version[0m[32m in[0m[32m the[0m[32m Repository[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Check[0m[32m if[0m[32m an[0m[32m older[0m[32m version[0m[32m of[0m[32m the[0m[32m package[0m[32m is[0m[32m available[0m[32m in[0m[32m your[0m[32m repository[0m[32m by[0m[32m using[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32mSi[0m[32m <[0m[32mpackage[0m[32m_name[0m[32m>[0m[32m`.[0m[32m This[0m[32m command[0m[32m will[0m[32m show[0m[32m you[0m[32m information[0m[32m about[0m[32m all[0m[32m available[0m[32m versions[0m[32m of[0m[32m the[0m[32m package[0m[32m,[0m[32m including[0m[32m their[0m[32m respective[0m[32m versions[0m[32m and[0m[32m release[0m[32m dates[0m[32m.
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mDown[0m[32mgrade[0m[32m the[0m[32m Package[0m[32m:[0m[32m**
+[0m[32m  [0m[32m Use[0m[32m the[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m command[0m[32m with[0m[32m the[0m[32m `-[0m[32mU[0m[32m`[0m[32m option[0m[32m to[0m[32m downgrade[0m[32m the[0m[32m package[0m[32m.[0m[32m First[0m[32m,[0m[32m download[0m[32m the[0m[32m desired[0m[32m package[0m

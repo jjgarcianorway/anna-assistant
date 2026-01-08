@@ -1,0 +1,125 @@
+
+[36mUSER: [0mHow do I install a package with pacman?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I install a package with pacman?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Pacman (score: 1.00)[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I install a package with pacman?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I install a package with pacman?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Pacman ---[0m
+[2m│ [0m
+[2m│ ## pacman -Rn package_name[0m
+[2m│ Note Pacman will not remove configurations that the application itself creates (for example "dotfiles" in the home directory).[0m
+[2m│ Upgrading packages[0m
+[2m│ [0m
+[2m│ Warning[0m
+[2m│ [0m
+[2m│ Users are expected to follow the guidance in the System maintenance#Upgrading the system section to upgrade their systems regularly and not blindly run the following command.[0m
+[2m│ Arch only supports full system upgrades. See System maintenance#Partial upgrades are unsupported and #Installing packages for details.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ pacman can update all packages on the system with just one command. This could take quite a while depending on how up-to-date the system is. The following command synchronizes the repository databases and updates the system's packages, excluding "local" packages that are not in the configured repositories:[0m
+[2m│ [0m
+[2m│ ## pacman -S --asdeps package_name[0m
+[2m│ The command is normally used because explicitly-installed packages may offer optional packages, usually for non-essential features for which the user has discretion.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Tip Installing optional dependencies with --asdeps will ensure that, if you remove orphans, pacman will also remove optional packages set this way.[0m
+[2m│ When reinstalling a package, though, the current installation reason is preserved by default.[0m
+[2m│ [0m
+[2m│ The list of explicitly-installed packages can be shown with pacman -Qe, while the complementary list of dependencies can be shown with pacman -Qd.[0m
+[2m│ [0m
+[2m│ To change the installation reason of an already installed package, execute:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m details[0m[32m provided[0m[32m,[0m[32m here[0m[32m's[0m[32m how[0m[32m you[0m[32m can[0m[32m install[0m[32m a[0m[32m package[0m[32m using[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m:
+
+[0m[32mTo[0m[32m install[0m[32m a[0m[32m package[0m[32m with[0m[32m `[0m[32mpac[0m[32mman[0m[32m`,[0m[32m use[0m[32m the[0m[32m following[0m[32m command[0m[32m:
+[0m[32m```[0m[32msh[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m package[0m[32m_name[0m[32m
+[0m[32m``[0m[32m`
+[0m[32mReplace[0m[32m `[0m[32mpackage[0m[32m_name[0m[32m`[0m[32m with[0m[32m the[0m[32m actual[0m[32m name[0m[32m of[0m[32m the[0m[32m package[0m[32m you[0m[32m want[0m[32m to[0m[32m install[0m[32m.[0m[32m For[0m[32m example[0m[32m,[0m[32m if[0m[32m you[0m[32m wanted[0m[32m to[0m[32m install[0m[32m the[0m[32m `[0m[32mvim[0m[32m`[0m[32m editor[0m[32m,[0m[32m you[0m[32m would[0m[32m run[0m[32m:
+[0m[32m```[0m[32msh[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m vim[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32mHere[0m[32m's[0m[32m a[0m[32m brief[0m[32m explanation[0m[32m of[0m[32m the[0m[32m command[0m[32m:
+
+[0m[32m-[0m[32m `[0m[32msudo[0m[32m`:[0m[32m Run[0m[32m the[0m[32m command[0m[32m with[0m[32m super[0m[32muser[0m[32m privileges[0m[32m,[0m[32m which[0m[32m is[0m[32m necessary[0m[32m for[0m[32m modifying[0m[32m system[0m[32m packages[0m[32m.
+[0m[32m-[0m[32m `[0m[32mpac[0m[32mman[0m[32m`:[0m[32m The[0m[32m package[0m[32m manager[0m[32m for[0m[32m Arch[0m[32m Linux[0m[32m and[0m[32m its[0m[32m derivatives[0m[32m.
+[0m[32m-[0m[32m `-[0m[32mS[0m[32m`:[0m[32m This[0m[32m option[0m[32m tells[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m to[0m[32m sync[0m[32m the[0m[32m repository[0m[32m databases[0m[32m and[0m[32m install[0m[32m any[0m[32m packages[0m[32m that[0m[32m are[0m[32m not[0m[32m yet[0m[32m installed[0m[32m.
+
+[0m[32mIf[0m[32m you[0m[32m want[0m[32m to[0m[32m ensure[0m[32m that[0m[32m all[0m[32m optional[0m[32m dependencies[0m[32m ([0m[32mthose[0m[32m marked[0m[32m as[0m[32m "[0m[32mas[0m[32mdeps[0m[32m")[0m[32m are[0m[32m also[0m[32m installed[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m:
+[0m[32m```[0m[32msh[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m --[0m[32mas[0m[32mdeps[0m[32m package[0m[32m_name[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32mRemember[0m[32m that[0m[32m Arch[0m[32m Linux[0m[32m supports[0m[32m full[0m[32m system[0m[32m upgrades[0m[32m using[0m[32m `[0m[32mpac[0m[32mman[0m[32m -[0m[32mSy[0m[32mu[0m[32m`,[0m[32m which[0m[32m is[0m[32m a[0m[32m combination[0m[32m of[0m[32m syncing[0m[32m the[0m[32m repositories[0m[32m and[0m[32m upgrading[0m[32m all[0m[32m packages[0m[32m on[0m[32m the[0m[32m system[0m[32m.[0m[32m However[0m[32m,[0m[32m this[0m[32m command[0m[32m should[0m[32m be[0m[32m used[0m[32m with[0m[32m caution[0m[32m as[0m[32m it[0m[32m affects[0m[32m your[0m[32m entire[0m[32m system[0m[32m.
+
+[0m[32mFor[0m[32m more[0m[32m detailed[0m[32m information[0m[32m or[0m[32m specific[0m[32m requirements[0m[32m,[0m[32m you[0m[32m can[0m[32m refer[0m[32m to[0m[32m the[0m[32m official[0m[32m [[0m[32mP[0m[32macman[0m[32m Guide[0m[32m]([0m[32mhttps[0m[32m://[0m[32mwiki[0m[32m.arch[0m[32mlinux[0m[32m.org[0m[32m/title[0m[32m/P[0m[32macman[0m[32m/T[0m[32mips[0m[32m_and[0m[32m_tr[0m[32micks[0m[32m)[0m[32m from[0m[32m the[0m[32m Arch[0m[32m Wiki[0m[32m.[0m[32m[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

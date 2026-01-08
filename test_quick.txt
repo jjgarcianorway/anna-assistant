@@ -1,0 +1,5 @@
+How do I install a package with pacman?
+How do I search for a package?
+How do I remove a package and its dependencies?
+How do I update my system?
+How do I clear the pacman cache?

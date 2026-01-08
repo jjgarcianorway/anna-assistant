@@ -1,0 +1,210 @@
+
+[36mUSER: [0mHow do I install NVIDIA drivers?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I install NVIDIA drivers?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • NVIDIA (score: 1.00)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mnvidia-settings --load-config-only[0m
+[2m  $ [0m[36mnvidia-settings -q all | grep SLIMode[0m
+[2m  $ [0m[36mnvidia-settings -q all | grep -i pcibus[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I install NVIDIA drivers?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   nvidia-settings --load-config-only[0m
+[2m│   nvidia-settings -q all | grep SLIMode[0m
+[2m│   nvidia-settings -q all | grep -i pcibus[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I install NVIDIA drivers?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From NVIDIA ---[0m
+[2m│ [0m
+[2m│ ## nvidia-xconfig[0m
+[2m│ This command will auto-detect and create (or edit, if already present) the /etc/X11/xorg.conf configuration according to present hardware.[0m
+[2m│ [0m
+[2m│ Double-check your /etc/X11/xorg.conf to make sure your default depth, horizontal sync, vertical refresh, and resolutions are acceptable.[0m
+[2m│ [0m
+[2m│ nvidia-settings[0m
+[2m│ The nvidia-settings tool lets you configure many options using either CLI or GUI. Running nvidia-settings without any options launches the GUI, for CLI options see nvidia-settings(1).[0m
+[2m│ [0m
+[2m│ You can run the CLI/GUI as a non-root user and save the settings to ~/.nvidia-settings-rc by using the option Save Current Configuration under nvidia-settings Configuration tab.[0m
+[2m│ [0m
+[2m│ To load the ~/.nvidia-settings-rc for the current user:[0m
+[2m│ [0m
+[2m│ $ nvidia-settings --load-config-only[0m
+[2m│ [0m
+[2m│ See Autostarting to start this command on every boot.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Note Xorg may not start or crash on startup after saving nvidia-settings changes. Adjusting or deleting the generated ~/.nvidia-settings-rc and/or Xorg file(s) should recover normal startup.[0m
+[2m│ Manual configuration[0m
+[2m│ Several tweaks (which cannot be enabled automatically or with nvidia-settings) can be performed by editing your configuration file. The Xorg server will need to be restarted before any changes are applied.[0m
+[2m│ [0m
+[2m│ See NVIDIA Accelerated Linux Graphics Driver README and Installation Guide for additional details and options.[0m
+[2m│ [0m
+[2m│ Minimal configuration[0m
+[2m│ A basic configuration block in 20-nvidia.conf (or deprecated in xorg.conf) would look like this:[0m
+[2m│ [0m
+[2m│ /etc/X11/xorg.conf.d/20-nvidia.conf[0m
+[2m│ Sect...[0m
+[2m│ [0m
+[2m│ ## nvidia-xconfig --busid=PCI:3:0:0 --sli=AA[0m
+[2m│ To verify that SLI mode is enabled from a shell:[0m
+[2m│ [0m
+[2m│ $ nvidia-settings -q all | grep SLIMode[0m
+[2m│ Attribute 'SLIMode' (arch:0.0): AA[0m
+[2m│ 'SLIMode' is a string attribute.[0m
+[2m│ 'SLIMode' is a read-only attribute.[0m
+[2m│ 'SLIMode' can use the following target types: X Screen.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Warning After enabling SLI, your system may become frozen/non-responsive upon starting xorg. It is advisable that you disable your display manager before restarting.[0m
+[2m│ If this configuration does not work, you may need to use the PCI Bus ID provided by nvidia-settings,[0m
+[2m│ [0m
+[2m│ $ nvidia-settings -q all | grep -i pcibus[0m
+[2m│ Attribute 'PCIBus' (host:0[gpu:0]): 101.[0m
+[2m│ 'PCIBus' is an integer attribute.[0m
+[2m│ 'PCIBus' is a read-only attribute.[0m
+[2m│ 'PCIBus' can use the following target types: GPU, SDI Input Device.[0m
+[2m│ Attribute 'PCIBus' (host:0[gpu:1]): 23.[0m
+[2m│ 'PCIBus' is an integer attribute.[0m
+[2m│ 'PCIBus' is a read-only attribute.[0m
+[2m│ 'PCIBus' can use the following target types: GPU, SDI Input Device.[0m
+[2m│ [0m
+[2m│ and comment out the PrimaryGPU option in your xorg.d configuration,[0m
+[2m│ [0m
+[2m│ /usr/share/X11/xorg.conf.d/10-nvidia-drm-outputclass.conf[0m
+[2m│ ...[0m
+[2m│ [0m
+[2m│ Section "OutputClass"[0m
+[2m│ ...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mGiven[0m[32m that[0m[32m you[0m[32m are[0m[32m using[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m G[0m[32mDM[0m[32m ([0m[32mwhich[0m[32m might[0m[32m use[0m[32m Way[0m[32mland[0m[32m by[0m[32m default[0m[32m),[0m[32m here[0m[32m's[0m[32m a[0m[32m straightforward[0m[32m guide[0m[32m on[0m[32m how[0m[32m to[0m[32m install[0m[32m and[0m[32m configure[0m[32m NVIDIA[0m[32m drivers[0m[32m on[0m[32m your[0m[32m Arch[0m[32m-based[0m[32m system[0m[32m:
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m1[0m[32m:[0m[32m Install[0m[32m the[0m[32m NVIDIA[0m[32m Driver[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mUpdate[0m[32m Your[0m[32m System[0m[32m**[0m[32m:
+[0m[32m  [0m[32m Ensure[0m[32m your[0m[32m system[0m[32m is[0m[32m up[0m[32m-to[0m[32m-date[0m[32m.
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mInstall[0m[32m the[0m[32m NVIDIA[0m[32m Driver[0m[32m**[0m[32m:
+[0m[32m  [0m[32m Use[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m to[0m[32m install[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m and[0m[32m its[0m[32m utilities[0m[32m.
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m n[0m[32mvidia[0m[32m n[0m[32mvidia[0m[32m-utils[0m[32m n[0m[32mvidia[0m[32m-settings[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m2[0m[32m:[0m[32m Configure[0m[32m X[0m[32morg[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mGenerate[0m[32m an[0m[32m x[0m[32morg[0m[32m.conf[0m[32m File[0m[32m ([0m[32mOptional[0m[32m)**[0m[32m:
+[0m[32m  [0m[32m If[0m[32m you[0m[32m want[0m[32m to[0m[32m use[0m[32m legacy[0m[32m X[0m[32morg[0m[32m with[0m[32m NVIDIA[0m[32m,[0m[32m run[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-x[0m[32mconfig[0m[32m`[0m[32m to[0m[32m generate[0m[32m a[0m[32m configuration[0m[32m file[0m[32m.
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m n[0m[32mvidia[0m[32m-x[0m[32mconfig[0m[32m --[0m[32mbus[0m[32mid[0m[32m=[0m[32mPCI[0m[32m:[0m[32m3[0m[32m:[0m[32m0[0m[32m:[0m[32m0[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mEdit[0m[32m the[0m[32m [0m[32m2[0m[32m0[0m[32m-n[0m[32mvidia[0m[32m.conf[0m[32m File[0m[32m**[0m[32m ([0m[32mOptional[0m[32m):
+[0m[32m  [0m[32m If[0m[32m you[0m[32m want[0m[32m more[0m[32m fine[0m[32m-gr[0m[32mained[0m[32m control[0m[32m,[0m[32m edit[0m[32m `/[0m[32metc[0m[32m/X[0m[32m1[0m[32m1[0m[32m/x[0m[32morg[0m[32m.conf[0m[32m.d[0m[32m/[0m[32m2[0m[32m0[0m[32m-n[0m[32mvidia[0m[32m.conf[0m[32m`[0m[32m to[0m[32m match[0m[32m your[0m[32m needs[0m[32m.
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m3[0m[32m:[0m[32m Configure[0m[32m Way[0m[32mland[0m[32m ([0m[32mIf[0m[32m Needed[0m[32m)
+
+[0m[32mSince[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m by[0m[32m default[0m[32m,[0m[32m and[0m[32m Way[0m[32mland[0m[32m does[0m[32m not[0m[32m use[0m[32m X[0m[32morg[0m[32m,[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m might[0m[32m not[0m[32m be[0m[32m necessary[0m[32m.[0m[32m However[0m[32m,[0m[32m if[0m[32m you[0m[32m still[0m[32m want[0m[32m to[0m[32m run[0m[32m an[0m[32m X[0m[32m session[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mDisable[0m[32m the[0m[32m Display[0m[32m Manager[0m[32m**[0m[32m:
+[0m[32m  [0m[32m If[0m[32m you[0m[32m are[0m[32m currently[0m[32m running[0m[32m a[0m[32m display[0m[32m manager[0m[32m like[0m[32m G[0m[32mDM[0m[32m,[0m[32m temporarily[0m[32m disable[0m[32m it[0m[32m or[0m[32m switch[0m[32m to[0m[32m `[0m[32mlight[0m[32mdm[0m[32m`[0m[32m or[0m[32m another[0m[32m display[0m[32m manager[0m[32m that[0m[32m supports[0m[32m both[0m[32m Way[0m[32mland[0m[32m and[0m[32m X[0m[32morg[0m[32m.
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m systemctl[0m[32m stop[0m[32m g[0m[32mdm[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mSet[0m[32m Up[0m[32m an[0m[32m X[0m[32m Session[0m[32m**[0m[32m:
+[0m[32m  [0m[32m You[0m[32m can[0m[32m manually[0m[32m start[0m[32m an[0m[32m X[0m[32m session[0m[32m with[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m by[0m[32m logging[0m[32m out[0m[32m and[0m[32m choosing[0m[32m "[0m[32mX[0m[32m"[0m[32m from[0m[32m your[0m[32m display[0m[32m manager[0m[32m's[0m[32m options[0m[32m,[0m[32m if[0m[32m available[0m[32m.
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m4[0m[32m:[0m[32m Verify[0m[32m Installation[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m Driver[0m[32m Version[0m[32m**[0m[32m:
+[0m[32m  [0m[32m Verify[0m[32m that[0m[32m the[0m[32m NVIDIA[0m[32m driver[0m[32m is[0m[32m installed[0m[32m correctly[0m[32m.
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m n[0m[32mvidia[0m[32m-sm[0m[32mi[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mRun[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-settings[0m[32m`[0m[32m**[0m[32m ([0m[32mOptional[0m[32m):
+[0m[32m  [0m[32m Open[0m[32m the[0m[32m `[0m[32mn[0m[32mvidia[0m[32m-settings[0m[32m`[0m[32m GUI[0m[32m to[0m[32m ensure[0m[32m everything[0m[32m works[0m[32m as[0m[32m expected[0m[32m.
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m n[0m[32mvidia[0m[32m-settings[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m5[0m[32m:[0m[32m Re[0m[32m-enable[0m[32m Your[0m[32m Display[0m[32m Manager[0m[32m
+
+[0m[32mAfter[0m[32m you[0m[32m are[0m[32m done[0m[32m with[0m[32m X[0m[32morg[0m[32m,[0m[32m re[0m[32m-enable[0m[32m your[0m[32m display[0m[32m manager[0m[32m if[0m[32m necessary[0m[32m:
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m systemctl[0m[32m start[0m[32m g[0m[32mdm[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32m###[0m[32m Notes[0m[32m:
+
+[0m[32m-[0m[32m If[0m
+[31mError: [0mExecution error: request or response body error: operation timed out
+[31mError: [0mExecution error: request or response body error: operation timed out

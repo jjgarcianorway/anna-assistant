@@ -1,0 +1,142 @@
+
+[36mUSER: [0mHow do I mount a USB drive?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I mount a USB drive?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Multiboot USB drive (score: 1.00)[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I mount a USB drive?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I mount a USB drive?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Multiboot USB drive ---[0m
+[2m│ [0m
+[2m│ ## mount /dev/sdX2 /mnt/efi[0m
+[2m│ Then, you can install GRUB for UEFI with:[0m
+[2m│ [0m
+[2m│ In most cases EFI_MOUNTPOINT will correspond to the /mnt/efi directory on your mounted USB disk.[0m
+[2m│ DATA_MOUNTPOINT is where your data partition is mounted. In this example it would be the mount point of sdX3, /mnt.[0m
+[2m│ [0m
+[2m│ ## grub-install --target=i386-pc --recheck --boot-directory=/DATA_MOUNTPOINT/boot /dev/sdX3[0m
+[2m│ Configuring GRUB[0m
+[2m│ Using a template[0m
+[2m│ There are some git projects which provide some pre-existing GRUB configuration files, and a nice generic grub.cfg which can be used to load the other boot entries on demand, showing them only if the specified ISO files - or folders containing them - are present on the drive.[0m
+[2m│ [0m
+[2m│ Multiboot USB: https://github.com/hackerncoder/multibootusb[0m
+[2m│ [0m
+[2m│ GLIM (GRUB2 Live ISO Multiboot): https://github.com/thias/glim[0m
+[2m│ [0m
+[2m│ Manual configuration[0m
+[2m│ For the purpose of multiboot USB drive it is easier to edit grub.cfg by hand instead of generating it. Alternatively, make the following changes in /etc/grub.d/40_custom or /mnt/boot/grub/custom.cfg and generate /mnt/boot/grub/grub.cfg using grub-mkconfig.[0m
+[2m│ [0m
+[2m│ As it is recommend to use a persistent name instead of /dev/sdxY to identify the partition on the USB drive where the image files are located, define a variable for convenience to hold the value. If the ISO images are on the same partition as GRUB, use the following to read the UUID at boot time:[0m
+[2m│ [0m
+[2m│ /mnt/boot/grub/grub.cfg[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m system[0m[32m environment[0m[32m,[0m[32m it[0m[32m seems[0m[32m like[0m[32m you[0m[32m are[0m[32m using[0m[32m Way[0m[32mland[0m[32m with[0m[32m a[0m[32m desktop[0m[32m environment[0m[32m such[0m[32m as[0m[32m GNOME[0m[32m or[0m[32m KDE[0m[32m Plasma[0m[32m,[0m[32m which[0m[32m is[0m[32m common[0m[32m for[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m.
+
+[0m[32mTo[0m[32m mount[0m[32m a[0m[32m USB[0m[32m drive[0m[32m in[0m[32m Arch[0m[32m Linux[0m[32m,[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mIdent[0m[32mify[0m[32m Your[0m[32m USB[0m[32m Drive[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m Use[0m[32m `[0m[32mls[0m[32mblk[0m[32m`[0m[32m or[0m[32m `[0m[32mfd[0m[32misk[0m[32m -[0m[32ml[0m[32m`[0m[32m to[0m[32m find[0m[32m the[0m[32m device[0m[32m name[0m[32m of[0m[32m your[0m[32m USB[0m[32m drive[0m[32m ([0m[32me[0m[32m.g[0m[32m.,[0m[32m `/[0m[32mdev[0m[32m/s[0m[32md[0m[32mX[0m[32m`[0m[32m).
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mCreate[0m[32m a[0m[32m Mount[0m[32m Point[0m[32m**[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m mkdir[0m[32m /[0m[32mmnt[0m[32m/[0m[32musb[0m[32m_drive[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mMount[0m[32m the[0m[32m USB[0m[32m Drive[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m Assuming[0m[32m the[0m[32m data[0m[32m partition[0m[32m on[0m[32m the[0m[32m USB[0m[32m drive[0m[32m is[0m[32m `[0m[32msd[0m[32mX[0m[32m1[0m[32m`,[0m[32m use[0m[32m the[0m[32m following[0m[32m command[0m[32m to[0m[32m mount[0m[32m it[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m mount[0m[32m /[0m[32mdev[0m[32m/s[0m[32md[0m[32mX[0m[32m1[0m[32m /[0m[32mmnt[0m[32m/[0m[32musb[0m[32m_drive[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
+
+[0m[32m4[0m[32m.[0m[32m **[0m[32mVerify[0m[32m the[0m[32m Mount[0m[32m Point[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m You[0m[32m can[0m[32m check[0m[32m if[0m[32m the[0m[32m USB[0m[32m drive[0m[32m is[0m[32m mounted[0m[32m correctly[0m[32m by[0m[32m listing[0m[32m the[0m[32m contents[0m[32m of[0m[32m the[0m[32m mount[0m[32m point[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m ls[0m[32m /[0m[32mmnt[0m[32m/[0m[32musb[0m[32m_drive[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
+
+[0m[32m5[0m[32m.[0m[32m **[0m[32mUnmount[0m[32ming[0m[32m When[0m[32m Done[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m Once[0m[32m you[0m[32m are[0m[32m done[0m[32m,[0m[32m un[0m[32mmount[0m[32m the[0m[32m USB[0m[32m drive[0m[32m using[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m um[0m[32mount[0m[32m /[0m[32mmnt[0m[32m/[0m[32musb[0m[32m_drive[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
+
+[0m[32m6[0m[32m.[0m[32m **[0m[32mMaking[0m[32m Mount[0m[32m Persistent[0m[32m ([0m[32mOptional[0m[32m)**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m If[0m[32m you[0m[32m want[0m[32m to[0m[32m mount[0m[32m this[0m[32m USB[0m[32m drive[0m[32m automatically[0m[32m at[0m[32m boot[0m[32m time[0m[32m or[0m[32m make[0m[32m it[0m[32m persistent[0m[32m,[0m[32m you[0m[32m can[0m[32m add[0m[32m an[0m[32m entry[0m[32m in[0m[32m `/[0m[32metc[0m[32m/f[0m[32mstab[0m[32m`.[0m[32m First[0m[32m,[0m[32m find[0m[32m the[0m[32m UUID[0m[32m of[0m[32m your[0m[32m partition[0m[32m using[0m[32m `[0m[32mblk[0m[32mid[0m[32m`[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m sudo[0m[32m blk[0m[32mid[0m[32m /[0m[32mdev[0m[32m/s[0m[32md[0m[32mX[0m[32m1[0m[32m
+[0m[32m    [0m[32m ```
+[0m[32m  [0m[32m -[0m[32m Edit[0m[32m the[0m[32m `/[0m[32metc[0m[32m/f[0m[32mstab[0m[32m`[0m[32m file[0m[32m to[0m[32m include[0m[32m a[0m[32m line[0m[32m like[0m[32m this[0m[32m ([0m[32mreplace[0m[32m `<[0m[32mUUID[0m[32m>`[0m[32m with[0m[32m the[0m[32m actual[0m[32m UUID[0m[32m):
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m <[0m[32mUUID[0m[32m>[0m[32m [0m[32m /[0m[32mmnt[0m[32m/[0m[32musb[0m[32m_drive[0m[32m [0m[32m ext[0m[32m4[0m[32m   [0m[32m defaults[0m[32m       [0m[32m [0m[32m0[0m[32m      [0m[32m [0m[32m2[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
+
+[0m[32mRemember[0m[32m,[0m[32m if[0m[32m you[0m[32m are[0m[32m creating[0m[32m a[0m[32m mult[0m[32mib[0m[32moot[0m[32m USB[0m[32m drive[0m[32m as[0m[32m mentioned[0m[32m in[0m[32m the[0m[32m Arch[0m[32m Wiki[0m[32m section[0m[32m,[0m[32m the[0m[32m process[0m[32m might[0m[32m be[0m[32m slightly[0m[32m different[0m[32m.[0m[32m The[0m[32m provided[0m[32m information[0m[32m is[0m[32m generally[0m[32m for[0m[32m mounting[0m[32m standard[0m[32m filesystem[0m[32ms[0m[32m.
+
+[0m[32mIf[0m[32m you[0m[32m have[0m[32m any[0m[32m specific[0m[32m requirements[0m[32m or[0m[32m need[0m[32m further[0m[32m assistance[0m[32m with[0m[32m GR[0m[32mUB[0m[32m configuration[0m[32m for[0m[32m mult[0m[32mib[0m[32moot[0m[32m USB[0m[32m drives[0m[32m,[0m[32m feel[0m[32m free[0m[32m to[0m[32m ask[0m[32m![0m[32m[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

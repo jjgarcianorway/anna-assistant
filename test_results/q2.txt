@@ -1,0 +1,8 @@
+
+[36mUSER: [0mHow do I search for a package?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I search for a package?[0m
+
+
+[2m(0 iterations)[0m

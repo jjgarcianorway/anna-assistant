@@ -1,0 +1,1062 @@
+
+[36mUSER: [0mHow do I list all installed packages?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I list all installed packages?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • List of applications (score: 0.50)[0m
+[2m  • Creating packages for other distributions (score: 0.50)[0m
+[2m  • List of games (score: 0.50)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mpacman -Qql package[0m
+[2m  $ [0m[36mdpkg-buildpackage -d -us -uc[0m
+[2m  $ [0m[36mdpkg-buildpackage -d -us -uc -S[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I list all installed packages?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   pacman -Qql package[0m
+[2m│   dpkg-buildpackage -d -us -uc[0m
+[2m│   dpkg-buildpackage -d -us -uc -S[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I list all installed packages?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From List of applications ---[0m
+[2m│ List of applications - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Generic software lists[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Software lists of other distributions[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Specialized software lists[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Software forges[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ List of applications[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Documents – Internet – Multimedia – Security – Science – Utilities – Other[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Related articles[0m
+[2m│ [0m
+[2m│ Core utilities[0m
+[2m│ List of games[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This article is a general list of applications sorted by category, as a reference for those looking for packages. Many sections are split between console and graphical applications. Applications listed in "Console" sections can have graphical front-ends, official ones are currently omitted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Tip[0m
+[2m│ [0m
+[2m│ Please consider installing the pkgstats package, which provides a timer that sends a list of the packages installed on your system, along with the architecture and the mirrors you use, to the Arch Linux developers in order to help them prioritize their efforts and make the distribution even better. The information is sent anonymously and cannot be used to identify you. You can view the collected data at the Statistics page. More information is available in this forum thread.[0m
+[2m│ Daemon packages usually include the relevant systemd unit file to start; some packages even include different ones. After installation pacman -Qql package | ...[0m
+[2m│ --- From Creating packages for other distributions ---[0m
+[2m│ Creating packages for other distributions - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ General[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Alpine[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Debian[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Debian subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1[0m
+[2m│ Tips and tricks about Debian[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1.1[0m
+[2m│ Override dependency handling[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1.2[0m
+[2m│ Set up a chroot[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.2[0m
+[2m│ See also about Debian[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Fedora[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Fedora subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.1[0m
+[2m│ See also about Fedora[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5[0m
+[2m│ openSUSE[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle openSUSE subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5.1[0m
+[2m│ Creating Arch packages in OBS with OSC[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5.1.1[0m
+[2m│ Creating a package[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5.1.2[0m
+[2m│ Managing a package[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5.1.3[0m
+[2m│ Tips and tricks about openSUSE[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5.1.4[0m
+[2m│ ca-certificates-utils package problem[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5.1.5[0m
+[2m│ See also about openSUSE[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6[0m
+[2m│ Multi-distribution[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Multi-distribution subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.1[0m
+[2m│ Pacur[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 7[0m
+[2m│ See also[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Creating packages for other distributions[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Related articles[0m
+[2m│ [0m
+[2m│ Creating packages[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Arch is the best. But you may still want to package for other distributions.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ General[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Virtualization is an obvious way, but requires maintaining additional system(s).[0m
+[2m│ Use distribution-specific packaging tools. Examples: abuild (Alpine), dh-makeAUR, dpkg (Debian), rpm-tools (Fedora). Shortcuts such as dpkg-deb may be suited for less complex tasks.[0m
+[2m│ [0m
+[2m│ Chroot or systemd-nspawn to create a base system ins...[0m
+[2m│ [0m
+[2m│ ## ln -s /usr/lib/libeatmydata.so.1.1.1 /usr/lib/libeatmydata/libeatmydata.so.1[0m
+[2m│ Sample pbuilderrc[0m
+[2m│ To create a source package for pbuilder to handle:[0m
+[2m│ [0m
+[2m│ $ dpkg-buildpackage -d -us -uc -S[0m
+[2m│ [0m
+[2m│ See also about Debian[0m
+[2m│ [0m
+[2m│ Debian Policy[0m
+[2m│ New Maintainers' Guide[0m
+[2m│ Quilt in Debian packaging[0m
+[2m│ [0m
+[2m│ Fedora[0m
+[2m│ [0m
+[2m│ This article or section needs expansion.[0m
+[2m│ [0m
+[2m│ Reason:  (Discuss in Talk:Creating packages for other distributions)[0m
+[2m│ [0m
+[2m│ Fedora Packaging Tutorial[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ rpm-tools — RPM.org fork, used in major RPM distributions[0m
+[2m│ [0m
+[2m│ http://www.rpm.org/ || rpm-tools[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ mock — Takes Source RPMs and builds RPMs from them in a chroot[0m
+[2m│ [0m
+[2m│ https://github.com/rpm-software-management/mock/wiki || mockAUR[0m
+[2m│ [0m
+[2m│ See also about Fedora[0m
+[2m│ Copr[0m
+[2m│ openSUSE[0m
+[2m│ The Open Build Service (OBS) is a generic system to build and distribute packages from sources in an automatic, consistent and reproducible way. It supports at least .deb, .rpm and Arch packages.[0m
+[2m│ [0m
+[2m│ Creating Arch packages in OBS with OSC[0m
+[2m│ [0m
+[2m│ Note For building, you must upload your PKGBUILD file as well as the source files (by uploading or letting OBS download the files). OBS uses virtual machines without networking support and cannot download any file.[0m
+[2m│ Creating a package[0m
+[2m│ [0m
+[2m│ Create an account in [1][0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Install the oscAUR package. Upstream documentation is available here.[0m
+[2m│ Create an example home:foo project.[0m
+[2m│ Create an example home:foo:bar subproject (optional, but recommended).[0m
+[2m│ Create a new ham example package with osc meta pkg -e home:foo:bar ham. Save the created XML then exit.[0m
+[2m│ Switch to a clean working directory then checkout the project you have just created: osc co home:foo:bar/ham.[0m
+[2m│ Now cd ...[0m
+[2m│ --- From List of games ---[0m
+[2m│ List of games - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Action and adventure[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Arcade[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Casual games[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Chess simulators[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5[0m
+[2m│ Digital collectible card game (DCCG)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6[0m
+[2m│ Education[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 7[0m
+[2m│ Interactive fiction[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 8[0m
+[2m│ Massively multiplayer online games (MMO)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 9[0m
+[2m│ Minecraft and Minecraft-like[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 10[0m
+[2m│ Platformer[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 11[0m
+[2m│ Puzzle[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 12[0m
+[2m│ Racing[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 13[0m
+[2m│ Rhythm[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 14[0m
+[2m│ Rogue-like[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 15[0m
+[2m│ Role-playing games (RPG)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 16[0m
+[2m│ Shooters (FPS, third person)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 17[0m
+[2m│ Simulation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 18[0m
+[2m│ Strategy[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Strategy subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 18.1[0m
+[2m│ Real-time[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 18.2[0m
+[2m│ Turn-based[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 19[0m
+[2m│ Tycoon/management games[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 20[0m
+[2m│ Visual novels[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 21[0m
+[2m│ See also[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle See also subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 21.1[0m
+[2m│ Storefronts[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 21.2[0m
+[2m│ Free, libre, open source games[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ List of games[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Related articles[0m
+[2m│ [0m
+[2m│ Video game platform emulators[0m
+[2m│ List of applications[0m
+[2m│ Gaming[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This page strives to list all games which have a package available in the official repositories or the AUR. There are many more Linux games available, which are not packaged. See Gaming#Getting games for ways to obtain them.[0m
+[2m│ [0m
+[2m│ For more about running games, related system configuration tips, see Gaming. For an up to date selection of games available in the AUR, try checking...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo[0m[32m list[0m[32m all[0m[32m installed[0m[32m packages[0m[32m on[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m the[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m command[0m[32m with[0m[32m the[0m[32m `-[0m[32mQ[0m[32m`[0m[32m option[0m[32m.[0m[32m Here[0m[32m is[0m[32m how[0m[32m you[0m[32m can[0m[32m do[0m[32m it[0m[32m:
+
+[0m[32m```[0m[32msh[0m[32m
+[0m[32mpac[0m[32mman[0m[32m -[0m[32mQ[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32mThis[0m[32m command[0m[32m will[0m[32m display[0m[32m a[0m[32m list[0m[32m of[0m[32m all[0m[32m packages[0m[32m that[0m

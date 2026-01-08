@@ -1,0 +1,750 @@
+
+[36mUSER: [0mHow do I add a new user?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I add a new user?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Category:Graphical user interfaces (score: 0.50)[0m
+[2m  • User-mode Linux (score: 0.50)[0m
+[2m  • XDG user directories (score: 0.50)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mls -l ~/.uml/[0m
+[2m  $ [0m[36mpacman -Sy base[0m
+[2m  $ [0m[36mxdg-user-dirs-update[0m
+[2m  $ [0m[36mxdg-user-dirs-update --set DOWNLOAD ~/Internet[0m
+[2m  $ [0m[36mxdg-user-dir TEMPLATES[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I add a new user?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   ls -l ~/.uml/[0m
+[2m│   pacman -Sy base[0m
+[2m│   xdg-user-dirs-update[0m
+[2m│   xdg-user-dirs-update --set DOWNLOAD ~/Internet[0m
+[2m│   xdg-user-dir TEMPLATES[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I add a new user?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Category:Graphical user interfaces ---[0m
+[2m│ Category:Graphical user interfaces - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Graphical user interfaces[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Help[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This category is meant for general graphical user interface (GUI) articles, GUI applications belong in Category:Applications.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Desktop environment[0m
+[2m│ Provides a complete GUI for a system by bundling together a variety of components.[0m
+[2m│ Window manager[0m
+[2m│ Is system software that controls the placement and appearance of windows within a windowing system in a GUI.[0m
+[2m│ Display manager[0m
+[2m│ Is a graphical login manager which starts a session on a display server.[0m
+[2m│ [0m
+[2m│ For graphics card drivers, see Graphics processing unit.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Subcategories[0m
+[2m│ This category has the following 6 subcategories, out of 6 total.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ D[0m
+[2m│ [0m
+[2m│ Desktop environments[0m
+[2m│ Display managers[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ W[0m
+[2m│ [0m
+[2m│ Wayland[0m
+[2m│ Widget toolkits[0m
+[2m│ Window managers[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ X[0m
+[2m│ X server[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pages in category "Graphical user interfaces"[0m
+[2m│ The following 3 pages are in this category, out of 3 total.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ D[0m
+[2m│ Display manager[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ H[0m
+[2m│ HDR[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ R[0m
+[2m│ Running GUI applications as root[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category: System administration[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:Graphical_user_interfaces&oldid=858252"[0m
+[2m│ This page was last edited on 21 December 2025, at 10:20.[0m
+[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Privacy policy[0m
+[2m│ About ArchWiki[0m
+[2m│ Disclaimers[0m
+[2m│ Code of conduct[0m
+[2m│ Terms of service[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Sea...[0m
+[2m│ --- From User-mode Linux ---[0m
+[2m│ User-mode Linux - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Why use UML?[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ HOWTO[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle HOWTO subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1[0m
+[2m│ Setup by hostfs + vde2[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1.1[0m
+[2m│ Required packages[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1.2[0m
+[2m│ Launch script[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2[0m
+[2m│ Setup by rootfs + tap[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2.1[0m
+[2m│ Required packages[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2.2[0m
+[2m│ Build rootfs image[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.3[0m
+[2m│ Marionnet[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Usage[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Usage subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1[0m
+[2m│ Management console[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ User-mode Linux[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ The factual accuracy of this article or section is disputed.[0m
+[2m│ [0m
+[2m│ Reason: Inaccurate Information (Discuss in Talk:User-mode Linux#Needs work)[0m
+[2m│ [0m
+[2m│ User-mode-Linux (UML) is a method to run Linux inside Linux as a normal process. Please check [1] for in-depth information what UML is and how it works.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Why use UML?[0m
+[2m│ Running UML is a safe way to run multiple instances of (Arch-)Linux at the same time. The single processes are separated from each other, which makes it secure to run, for example, a testing instance and a production instance on the same machine. If something goes wrong inside the testing instance, it does not interfere with the host Linux or the productive instance.[0m
+[2m│ [0m
+[2m│ HOWTO[0m
+[2m│ There are three methods:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Use hostfs with vde2 network (all UMLs use same file system)[0m
+[2m│ Use rootfs with tap network (require build image)[0m
+[2m│ Use Marionnet[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Setup by hostfs + vde2[0m
+[2m│ ...[0m
+[2m│ --- From XDG user directories ---[0m
+[2m│ XDG user directories - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Installation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Creating default directories[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Creating custom directories[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Querying configured directories[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ XDG user directories[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Related articles[0m
+[2m│ [0m
+[2m│ Environment variables[0m
+[2m│ Default applications[0m
+[2m│ XDG Base Directory support[0m
+[2m│ xdg-menu[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From freedesktop.org:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ xdg-user-dirs is a tool to help manage "well known" user directories like the desktop folder and the music folder. It also handles localization (i.e. translation) of the filenames.[0m
+[2m│ The way it works is that xdg-user-dirs-update(1) is run very early in the login phase. This program reads a configuration file, and a set of default directories. It then creates localized versions of these directories in the user home directory and sets up a configuration file in $XDG_CONFIG_HOME/user-dirs.dirs (XDG_CONFIG_HOME defaults to ~/.config) that applications can read to find these directories.[0m
+[2m│ Most file managers indicate XDG user directories with special icons.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Installation[0m
+[2m│ Install xdg-user-dirs.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Note Some desktop environments might have it installed already, e.g. GNOME.[0m
+[2m│ Creating default directories[0m
+[2m│ Creating a full suite of localized default user directories within the $HOME directory can be done automatically by running:[0m
+[2m│ [0m
+[2m│ $ xdg-user-dirs-update[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ ...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m information[0m[32m,[0m[32m it[0m[32m seems[0m[32m that[0m[32m this[0m[32m system[0m[32m is[0m[32m using[0m[32m Way[0m[32mland[0m[32m as[0m[32m its[0m[32m display[0m[32m server[0m[32m,[0m[32m which[0m[32m is[0m[32m quite[0m[32m common[0m[32m in[0m[32m modern[0m[32m Arch[0m[32m Linux[0m[32m installations[0m[32m.[0m[32m To[0m[32m add[0m[32m a[0m[32m new[0m[32m user[0m[32m,[0m[32m you[0m[32m can[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mOpen[0m[32m a[0m[32m Terminal[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m You[0m[32m can[0m[32m do[0m[32m this[0m[32m by[0m[32m opening[0m[32m a[0m[32m terminal[0m[32m emulator[0m[32m or[0m[32m logging[0m[32m into[0m[32m a[0m[32m T[0m[32mTY[0m[32m session[0m[32m.
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mAdd[0m[32m the[0m[32m New[0m[32m User[0m[32m Using[0m[32m `[0m[32muser[0m[32madd[0m[32m`[0m[32m Command[0m[32m**[0m[32m:
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m user[0m[32madd[0m[32m -[0m[32mm[0m[32m -[0m[32mG[0m[32m users[0m[32m,w[0m[32mheel[0m[32m -[0m[32ms[0m[32m /[0m[32mbin[0m[32m/bash[0m[32m new[0m[32m_username[0m[32m
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m Here[0m[32m,[0m[32m `-[0m[32mm[0m[32m`[0m[32m creates[0m[32m a[0m[32m home[0m[32m directory[0m[32m for[0m[32m the[0m[32m user[0m[32m,[0m[32m `-[0m[32mG[0m[32m`[0m[32m specifies[0m[32m additional[0m[32m groups[0m[32m to[0m[32m which[0m[32m the[0m[32m user[0m[32m belongs[0m[32m ([0m[32min[0m[32m this[0m[32m case[0m[32m,[0m[32m `[0m[32musers[0m[32m`[0m[32m and[0m[32m `[0m[32mwheel[0m[32m`,[0m[32m giving[0m[32m them[0m[32m sudo[0m[32m privileges[0m[32m),[0m[32m and[0m[32m `-[0m[32ms[0m[32m /[0m[32mbin[0m[32m/bash[0m[32m`[0m[32m sets[0m[32m the[0m[32m default[0m[32m shell[0m[32m to[0m[32m Bash[0m[32m.
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mSet[0m[32m a[0m[32m Password[0m[32m for[0m[32m the[0m[32m New[0m[32m User[0m[32m**[0m[32m:
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m passwd[0m[32m new[0m[32m_username[0m[32m
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m This[0m[32m command[0m[32m will[0m[32m prompt[0m[32m you[0m[32m to[0m[32m enter[0m[32m and[0m[32m confirm[0m[32m a[0m[32m password[0m[32m for[0m[32m the[0m[32m new[0m[32m user[0m[32m.
+
+[0m[32m4[0m[32m.[0m[32m **[0m[32mLog[0m[32m Out[0m[32m of[0m[32m the[0m[32m Current[0m[32m Session[0m[32m**[0m[32m:
+[0m[32m  [0m[32m -[0m[32m You[0m[32m may[0m[32m need[0m[32m to[0m[32m log[0m[32m out[0m[32m or[0m[32m reboot[0m[32m the[0m[32m system[0m[32m so[0m[32m that[0m[32m Way[0m[32mland[0m[32m can[0m[32m properly[0m[32m manage[0m[32m sessions[0m[32m for[0m[32m the[0m[32m new[0m[32m user[0m[32m.
+
+[0m[32m5[0m[32m.[0m[32m **[0m[32mSwitch[0m[32m to[0m[32m the[0m[32m New[0m[32m User[0m[32m ([0m[32mOptional[0m[32m)**[0m[32m:
+[0m[32m  [0m[32m ```[0m[32mbash[0m[32m
+[0m[32m  [0m[32m su[0m[32m -[0m[32m new[0m[32m_username[0m[32m
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m This[0m[32m command[0m[32m logs[0m[32m you[0m[32m in[0m[32m as[0m[32m the[0m[32m new[0m[32m user[0m[32m,[0m[32m and[0m[32m you[0m[32m can[0m[32m then[0m[32m proceed[0m[32m with[0m[32m setting[0m[32m up[0m[32m any[0m[32m additional[0m[32m configurations[0m[32m specific[0m[32m to[0m[32m this[0m[32m user[0m[32m.
+
+[0m[32m###[0m[32m Additional[0m[32m Tips[0m[32m
+
+[0m[32m-[0m[32m If[0m[32m you[0m[32m are[0m[32m using[0m[32m G[0m[32mDM[0m[32m ([0m[32mGN[0m[32mOME[0m[32m Display[0m[32m Manager[0m[32m)[0m[32m or[0m[32m another[0m[32m display[0m[32m manager[0m[32m that[0m[32m manages[0m[32m Way[0m[32mland[0m[32m sessions[0m[32m,[0m[32m you[0m[32m might[0m[32m need[0m[32m to[0m[32m reboot[0m[32m the[0m[32m system[0m[32m for[0m[32m the[0m[32m new[0m[32m user[0m[32m settings[0m[32m to[0m[32m take[0m[32m effect[0m[32m properly[0m[32m.
+[0m[32m  
+[0m[32m-[0m[32m Ensure[0m[32m that[0m[32m you[0m[32m have[0m[32m configured[0m[32m your[0m[32m display[0m[32m manager[0m[32m correctly[0m[32m if[0m[32m you[0m[32m plan[0m[32m to[0m[32m log[0m[32m in[0m[32m with[0m[32m the[0m[32m new[0m[32m user[0m[32m through[0m[32m a[0m[32m graphical[0m[32m session[0m[32m.
+
+[0m[32m###[0m[32m Example[0m[32m Commands[0m[32m Recap[0m
+[31mError: [0mExecution error: request or response body error: operation timed out
+[31mError: [0mExecution error: request or response body error: operation timed out

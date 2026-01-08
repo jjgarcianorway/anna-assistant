@@ -83,6 +83,15 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         }
     };
 
+    // Skip wiki if best result has low confidence (garbage results)
+    // Score 0.5 means partial word match - likely not relevant
+    const MIN_WIKI_CONFIDENCE: f32 = 0.7;
+    let top_score = results.first().map(|r| r.score).unwrap_or(0.0);
+    if top_score < MIN_WIKI_CONFIDENCE {
+        debug!("Wiki results low confidence ({:.2} < {:.2}), skipping", top_score, MIN_WIKI_CONFIDENCE);
+        return None;
+    }
+
     // Extract commands from found articles
     let mut all_commands = Vec::new();
     let mut article_titles = Vec::new();
@@ -487,14 +496,20 @@ RULES:
 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)
 6. Only output NONE if purely theoretical
 
-Examples for Wayland + GDM:
+Common examples:
+- Check updates → checkupdates
+- Disk space → df -h
+- Memory usage → free -h
+- System logs → journalctl -xe --no-pager | tail -50
+- Service status → systemctl status <service>
+- List services → systemctl list-units --type=service --state=running
+- Network info → ip addr
+- GPU info → lspci | grep -i vga
+
+Display examples (Wayland/GDM):
 - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null
 - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null
-- GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor
-
-Examples for Xorg:
-- Display settings → xrandr
-- Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null{wiki_hint}
+- Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null{wiki_hint}
 
 Commands:"#,
                 question

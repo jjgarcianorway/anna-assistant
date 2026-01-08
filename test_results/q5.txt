@@ -1,0 +1,195 @@
+
+[36mUSER: [0mHow do I clear the pacman cache?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I clear the pacman cache?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Pacman (score: 1.00)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mpacman -Ss string1 string2 ...[0m
+[2m  $ [0m[36mpacman -Ss '^vim-'[0m
+[2m  $ [0m[36mpacman -Qs string1 string2 ...[0m
+[2m  $ [0m[36mpacman -F string1 string2 ...[0m
+[2m  $ [0m[36mpacman -Si package_name[0m
+[2m  $ [0m[36mpacman -Qi package_name[0m
+[2m  $ [0m[36mpacman -Qii package_name[0m
+[2m  $ [0m[36mpacman -Ql package_name[0m
+[2m  $ [0m[36mpacman -Fl package_name[0m
+[2m  $ [0m[36mpacman -Qk package_name[0m
+[2m  $ [0m[36mpacman -Qo /path/to/file_name[0m
+[2m  $ [0m[36mpacman -F /path/to/file_name[0m
+[2m  $ [0m[36mpacman -Qdt[0m
+[2m  $ [0m[36mpacman -Qet[0m
+[2m  $ [0m[36mpactree package_name[0m
+[2m  $ [0m[36mtree which-2.21-5[0m
+[2m  $ [0m[36mpacman -Qdt[0m
+[2m  $ [0m[36mTo[0m
+[2m  $ [0m[36mpacman -Qet[0m
+[2m  $ [0m[36mSee[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I clear the pacman cache?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   pacman -Ss string1 string2 ...[0m
+[2m│   pacman -Ss '^vim-'[0m
+[2m│   pacman -Qs string1 string2 ...[0m
+[2m│   pacman -F string1 string2 ...[0m
+[2m│   pacman -Si package_name[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I clear the pacman cache?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Pacman ---[0m
+[2m│ [0m
+[2m│ ## find /var/cache/pacman/pkg/ -iname "*.part" -delete[0m
+[2m│ That same error may also appear if archlinux-keyring is out-of-date, preventing pacman from verifying signatures. See Pacman/Package signing#Upgrade system regularly for the fix and how to avoid it in the future.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ "Failed to init transaction (unable to lock database)" error[0m
+[2m│ When pacman is about to alter the package database, for example installing a package, it creates a lock file at /var/lib/pacman/db.lck. This prevents another instance of pacman from trying to alter the package database at the same time.[0m
+[2m│ [0m
+[2m│ If pacman is interrupted while changing the database, this stale lock file can remain. If you are certain that no instances of pacman are running then delete the lock file:[0m
+[2m│ [0m
+[2m│ ## pacman -Fy[0m
+[2m│ Tip You can enable/start the pacman-filesdb-refresh.timer (provided within the pacman-contrib package) to refresh pacman files database weekly.[0m
+[2m│ pacman can search for packages in the database, searching both in packages' names and descriptions:[0m
+[2m│ [0m
+[2m│ $ pacman -Ss string1 string2 ...[0m
+[2m│ [0m
+[2m│ Sometimes, -s's builtin ERE (Extended Regular Expressions) can cause a lot of unwanted results, so it has to be limited to match the package name only; not the description nor any other field:[0m
+[2m│ [0m
+[2m│ $ pacman -Ss '^vim-'[0m
+[2m│ [0m
+[2m│ To search for already installed packages:[0m
+[2m│ [0m
+[2m│ $ pacman -Qs string1 string2 ...[0m
+[2m│ [0m
+[2m│ To search for package file names in remote packages:[0m
+[2m│ [0m
+[2m│ $ pacman -F string1 string2 ...[0m
+[2m│ [0m
+[2m│ To display extensive information about a given package (e.g. its dependencies):[0m
+[2m│ [0m
+[2m│ $ pacman -Si package_name[0m
+[2m│ [0m
+[2m│ For locally installed packages:[0m
+[2m│ [0m
+[2m│ $ pacman -Qi package_name[0m
+[2m│ [0m
+[2m│ Passing two -i flags will also display the list of backup files and their modification states:[0m
+[2m│ [0m
+[2m│ $ pacman -Qii package_name[0m
+[2m│ [0m
+[2m│ To retrieve a list of the files installed by a package:[0m
+[2m│ [0m
+[2m│ $ pacman -Ql package_name[0m
+[2m│ [0m
+[2m│ To retrieve a list of the files installed by a remote package:[0m
+[2m│ [0m
+[2m│ $ pacman -Fl package_name[0m
+[2m│ [0m
+[2m│ To verify the presence of the files installed by a package:[0m
+[2m│ [0m
+[2m│ $ pacman -Qk package_name[0m
+[2m│ [0m
+[2m│ Passing the k flag twice will perform a more thorough check.[0m
+[2m│ [0m
+[2m│ To query the database to know which package a file in the file system belongs to:[0m
+[2m│ [0m
+[2m│ $ pacman -Qo /path/to/file_name[0m
+[2m│ [0m
+[2m│ To query the database to know which remote package a file belongs to:[0m
+[2m│ [0m
+[2m│ $ pacman -F /path/to/file_name[0m
+[2m│ [0m
+[2m│ To li...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo[0m[32m clear[0m[32m the[0m[32m pacman[0m[32m cache[0m[32m on[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m the[0m[32m following[0m[32m command[0m[32m:
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m pac[0m[32mdiff[0m[32m -[0m[32mc[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32mAlternatively[0m[32m,[0m[32m you[0m[32m can[0m[32m manually[0m[32m remove[0m[32m the[0m[32m contents[0m[32m of[0m[32m the[0m[32m package[0m[32m cache[0m[32m directory[0m[32m:
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m rm[0m[32m -[0m[32mrf[0m[32m /[0m[32mvar[0m[32m/cache[0m[32m/p[0m[32macman[0m[32m/pkg[0m[32m/*
+[0m[32m``[0m[32m`
+
+[0m[32mThis[0m[32m will[0m[32m delete[0m[32m all[0m[32m cached[0m[32m packages[0m[32m in[0m[32m `/[0m[32mvar[0m[32m/cache[0m[32m/p[0m[32macman[0m[32m/pkg[0m[32m/[0m[32m`.
+
+[0m[32mIf[0m[32m you[0m[32m encounter[0m[32m issues[0m[32m with[0m[32m stale[0m[32m lock[0m[32m files[0m[32m preventing[0m[32m pacman[0m[32m operations[0m[32m,[0m[32m you[0m[32m can[0m[32m also[0m[32m try[0m[32m to[0m[32m force[0m[32m a[0m[32m database[0m[32m sync[0m[32m and[0m[32m refresh[0m[32m:
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mF[0m[32my[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32mThis[0m[32m command[0m[32m will[0m[32m attempt[0m[32m to[0m[32m fix[0m[32m any[0m[32m broken[0m[32m package[0m[32m dependencies[0m[32m and[0m[32m update[0m[32m the[0m[32m package[0m[32m database[0m[32m.
+
+[0m[32mMake[0m[32m sure[0m[32m no[0m[32m other[0m[32m instances[0m[32m of[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m are[0m[32m running[0m[32m before[0m[32m performing[0m[32m these[0m[32m actions[0m[32m.[0m[32m If[0m[32m you[0m[32m're[0m[32m unsure[0m[32m about[0m[32m the[0m[32m current[0m[32m state[0m[32m,[0m[32m you[0m[32m can[0m[32m check[0m[32m for[0m[32m running[0m[32m processes[0m[32m with[0m[32m:
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32mps[0m[32m aux[0m[32m |[0m[32m grep[0m[32m pacman[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32mIf[0m[32m you[0m[32m have[0m[32m encountered[0m[32m a[0m[32m "[0m[32mFailed[0m[32m to[0m[32m init[0m[32m transaction[0m[32m ([0m[32munable[0m[32m to[0m[32m lock[0m[32m database[0m[32m)"[0m[32m error[0m[32m in[0m[32m the[0m

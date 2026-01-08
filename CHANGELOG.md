@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.854] - 2026-01-08
+
+### Fixed
+- **Skip low-quality wiki results** - If best wiki score < 0.7, skip wiki entirely
+  - "check updates" no longer finds "Machine-check exception"
+  - Prevents garbage wiki context from confusing LLM
+- **Better command examples** - Added common system commands to LLM prompt
+  - checkupdates, df -h, free -h, journalctl, systemctl, ip addr, lspci
+
 ## [0.0.853] - 2026-01-08
 
 ### Fixed

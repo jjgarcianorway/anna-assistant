@@ -1,0 +1,734 @@
+
+[36mUSER: [0mHow do I start a systemd service?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I start a systemd service?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Systemd (score: 1.00)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36msystemctl status systemd-modules-load[0m
+[2m  $ [0m[36msystemctl status or[0m
+[2m  $ [0m[36msystemctl operates on[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I start a systemd service?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   systemctl status systemd-modules-load[0m
+[2m│   systemctl status or[0m
+[2m│   systemctl operates on[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0mcommands to run:
+[2m  $ [0m[36mcat /etc/systemd/system.conf 2>/dev/null[0m
+[2m  $ [0m[36msystemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null[0m
+[2m  $ [0m[36msystemctl show gdm -p DefaultService 2>/dev/null[0m
+[2m  $ [0m[36mcat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+
+[32mEXEC: [0mcat /etc/systemd/system.conf 2>/dev/null
+[2mOUTPUT: [0m#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it under the
+#  terms of the GNU Lesser General Public License as published by the Free
+#  Software Foundation; either version 2.1 of the License, or (at your option)
+#  any later version.
+#
+# Entries in this file show the compile time defaults. Local configuration
+# should be created by either modifying this file (or a copy of it placed in
+# /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in
+# /etc/systemd/system.conf.d/ directory. The latter is generally recommended.
+# Defaults can be restored by simply deleting the main configuration file and
+# all drop-ins located in /etc/.
+#
+# Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.
+#
+# See systemd-system.conf(5) for details.
+
+[Manager]
+#LogLevel=info
+#LogTarget=journal-or-kmsg
+#LogColor=yes
+#LogLocation=no
+#LogTime=no
+#DumpCore=yes
+#ShowStatus=yes
+#CrashChangeVT=no
+#CrashShell=no
+#CrashAction=freeze
+#CtrlAltDelBurstAction=reboot-force
+#CPUAffinity=
+#NUMAPolicy=default
+#NUMAMask=
+#RuntimeWatchdogSec=off
+#RuntimeWatchdogPreSec=off
+#RuntimeWatchdogPreGovernor=
+#RebootWatchdogSec=10min
+#KExecWatchdogSec=off
+#WatchdogDevice=
+#CapabilityBoundingSet=
+#NoNewPrivileges=no
+#ProtectSystem=auto
+#SystemCallArchitectures=
+#TimerSlackNSec=
+#StatusUnitFormat=description
+#DefaultTimerAccuracySec=1min
+#DefaultStandardOutput=journal
+#DefaultStandardError=inherit
+#DefaultTimeoutStartSec=90s
+#DefaultTimeoutStopSec=90s
+#DefaultTimeoutAbortSec=
+#DefaultDeviceTimeoutSec=90s
+#DefaultRestartSec=100ms
+#DefaultStartLimitIntervalSec=10s
+#DefaultStartLimitBurst=5
+#DefaultEnvironment=
+#DefaultIOAccounting=no
+#DefaultIPAccounting=no
+#DefaultMemoryAccounting=yes
+#DefaultTasksAccounting=yes
+#DefaultTasksMax=15%
+#DefaultLimitCPU=
+#DefaultLimitFSIZE=
+#DefaultLimitDATA=
+#DefaultLimitSTACK=
+#DefaultLimitCORE=
+#DefaultLimitRSS=
+#DefaultLimitNOFILE=1024:524288
+#DefaultLimitAS=
+#DefaultLimitNPROC=
+#DefaultLimitMEMLOCK=8M
+#DefaultLimitLOCKS=
+#DefaultLimitSIGPENDING=
+#DefaultLimitMSGQUEUE=
+#DefaultLimitNICE=
+#DefaultLimitRTPRIO=
+#DefaultLimitRTTIME=
+#DefaultMemoryPressureThresholdSec=200ms
+#DefaultMemoryPressureWatch=auto
+#DefaultOOMPolicy=stop
+#DefaultSmackProcessLabel=
+#DefaultRestrictSUIDSGID=
+#ReloadLimitIntervalSec=
+#ReloadLimitBurst=
+
+
+[32mEXEC: [0msystemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null
+[2mOUTPUT: [0mUNIT FILE                                    STATE           PRESET
+accounts-daemon.service                      disabled        disabled
+alsa-card-wait@.service                      static          -
+alsa-restore.service                         static          -
+alsa-state.service                           static          -
+ananicy-cpp.service                          enabled         disabled
+annad.service                                enabled         disabled
+archlinux-keyring-wkd-sync.service           static          -
+arptables.service                            disabled        disabled
+audit-rules.service                          disabled        disabled
+auditd.service                               disabled        disabled
+auth-rpcgss-module.service                   static          -
+autovt@.service                              alias           -
+avahi-daemon.service                         enabled         disabled
+avahi-dnsconfd.service                       disabled        disabled
+blk-availability.service                     disabled        disabled
+bluetooth.service                            enabled         disabled
+bolt.service                                 static          -
+bpftune.service                              enabled         disabled
+breakpoint-pre-basic.service                 static          -
+breakpoint-pre-mount.service                 static          -
+breakpoint-pre-switch-root.service           static          -
+breakpoint-pre-udev.service                  static          -
+brltty-device@.service                       static          -
+brltty@.service                              static          -
+btrfs-scrub@.service                         static          -
+cachyos-rate-mirrors.service                 disabled        disabled
+canberra-system-bootup.service               disabled        disabled
+canberra-system-shutdown-reboot.service      disabled        disabled
+canberra-system-shutdown.service             disabled        disabled
+capsule@.service                             static          -
+colord.service                               static          -
+console-getty.service                        disabled        disabled
+container-getty@.service                     static          -
+cpupower.service                             disabled        disabled
+dbus-broker.service                          disabled        disabled
+dbus-org.bluez.service                       alias           -
+dbus-org.freedesktop.Avahi.service           alias           -
+dbus-org.freedesktop.hostname1.service       alias           -
+dbus-org.freedesktop.import1.service         alias           -
+dbus-org.freedesktop.locale1.service         alias           -
+dbus-org.freedesktop.login1.service          alias           -
+dbus-org.freedesktop.machine1.service        alias           -
+dbus-org.freedesktop.nm-dispatcher.service   alias           -
+dbus-org.freedesktop.portable1.service       alias           -
+dbus-org.freedesktop.resolve1.service        alias           -
+dbus-org.freedesktop.timedate1.service       alias           -
+dbus-org.freedesktop.timesync1.service       alias           -
+dbus.service                                 alias           -
+debug-shell.service                          disabled        disabled
+dhclient@.service                            disabled        disabled
+dirmngr@.service                             static          -
+display-manager.service                      alias           -
+dm-event.service                             static          -
+dmraid.service                               disabled        disabled
+dnsmasq.service                              disabled        disabled
+e2scrub@.service                             static          -
+e2scrub_all.service                          static          -
+e2scrub_fail@.service                        static          -
+e2scrub_reap.service                         disabled        disabled
+ead.service                                  disabled 
+... (output truncated)
+
+[32mEXEC: [0msystemctl show gdm -p DefaultService 2>/dev/null
+[2mOUTPUT: [0m
+
+[32mEXEC: [0mcat /var/lib/gdm/.config/monitors.xml 2>/dev/null
+[2mOUTPUT: [0m<monitors version="2">
+  <configuration>
+    <layoutmode>logical</layoutmode>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>1</scale>
+      <primary>yes</primary>
+      <monitor>
+        <monitorspec>
+          <connector>HDMI-1</connector>
+          <vendor>GSM</vendor>
+          <product>LG TV SSCR2</product>
+          <serial>0x01010101</serial>
+        </monitorspec>
+        <mode>
+          <width>1920</width>
+          <height>1080</height>
+          <rate>119.879</rate>
+        </mode>
+        <colormode>bt2100</colormode>
+      </monitor>
+    </logicalmonitor>
+  </configuration>
+  <configuration>
+    <layoutmode>logical</layoutmode>
+    <logicalmonitor>
+      <x>0</x>
+      <y>0</y>
+      <scale>2</scale>
+      <primary>yes</primary>
+      <monitor>
+        <monitorspec>
+          <connector>HDMI-1</connector>
+          <vendor>GSM</vendor>
+          <product>LG TV SSCR2</product>
+          <serial>0x01010101</serial>
+        </monitorspec>
+        <mode>
+          <width>3840</width>
+          <height>2160</height>
+          <rate>119.880</rate>
+          <ratemode>variable</ratemode>
+        </mode>
+        <colormode>bt2100</colormode>
+      </monitor>
+    </logicalmonitor>
+    <disabled>
+      <monitorspec>
+        <connector>eDP-1</connector>
+        <vendor>CSO</vendor>
+        <product>0x1619</product>
+        <serial>0x00000000</serial>
+      </monitorspec>
+    </disabled>
+  </configuration>
+</monitors>
+
+
+[33mANNA → LLM: [0m(validation prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked: "How do I start a systemd service?"[0m
+[2m│ [0m
+[2m│ Commands were run and produced this output:[0m
+[2m│ $ cat /etc/systemd/system.conf 2>/dev/null[0m
+[2m│ #  This file is part of systemd.[0m
+[2m│ #[0m
+[2m│ #  systemd is free software; you can redistribute it and/or modify it under the[0m
+[2m│ #  terms of the GNU Lesser General Public License as published by the Free[0m
+[2m│ #  Software Foundation; either version 2.1 of the License, or (at your option)[0m
+[2m│ #  any later version.[0m
+[2m│ #[0m
+[2m│ # Entries in this file show the compile time defaults. Local configuration[0m
+[2m│ # should be created by either modifying this file (or a copy of it placed in[0m
+[2m│ # /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in[0m
+[2m│ # /etc/systemd/system.conf.d/ directory. The latter is generally recommended.[0m
+[2m│ # Defaults can be restored by simply deleting the main configuration file and[0m
+[2m│ # all drop-ins located in /etc/.[0m
+[2m│ #[0m
+[2m│ # Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.[0m
+[2m│ #[0m
+[2m│ # See systemd-system.conf(5) for details.[0m
+[2m│ [0m
+[2m│ [Manager][0m
+[2m│ #LogLevel=info[0m
+[2m│ #LogTarget=journal-or-kmsg[0m
+[2m│ #LogColor=yes[0m
+[2m│ #LogLocation=no[0m
+[2m│ #LogTime=no[0m
+[2m│ #DumpCore=yes[0m
+[2m│ #ShowStatus=yes[0m
+[2m│ #CrashChangeVT=no[0m
+[2m│ #CrashShell=no[0m
+[2m│ #CrashAction=freeze[0m
+[2m│ #CtrlAltDelBurstAction=reboot-force[0m
+[2m│ #CPUAffinity=[0m
+[2m│ #NUMAPolicy=default[0m
+[2m│ #NUMAMask=[0m
+[2m│ #RuntimeWatchdogSec=off[0m
+[2m│ #RuntimeWatchdogPreSec=off[0m
+[2m│ #RuntimeWatchdogPreGovernor=[0m
+[2m│ #RebootWatchdogSec=10min[0m
+[2m│ #KExecWatchdogSec=off[0m
+[2m│ #WatchdogDevice=[0m
+[2m│ #CapabilityBoundingSet=[0m
+[2m│ #NoNewPrivileges=no[0m
+[2m│ #ProtectSystem=auto[0m
+[2m│ #SystemCallArchitectures=[0m
+[2m│ #TimerSlackNSec=[0m
+[2m│ #StatusUnitFormat=description[0m
+[2m│ #DefaultTimerAccuracySec=1min[0m
+[2m│ #DefaultStandardOutput=journal[0m
+[2m│ #DefaultStandardError=inherit[0m
+[2m│ #DefaultTimeoutStartSec=90s[0m
+[2m│ #DefaultTimeoutStopSec=90s[0m
+[2m│ #DefaultTimeoutAbortSec=[0m
+[2m│ #DefaultDeviceTimeoutSec=90s[0m
+[2m│ #DefaultRestartSec=100ms[0m
+[2m│ #DefaultStartLimitIntervalSec=10s[0m
+[2m│ #DefaultStartLimitBurst=5[0m
+[2m│ #DefaultEnvironment=[0m
+[2m│ #DefaultIOAccounting=no[0m
+[2m│ #DefaultIPAccounting=no[0m
+[2m│ #DefaultMemoryAccounting=yes[0m
+[2m│ #DefaultTasksAccounting=yes[0m
+[2m│ #DefaultTasksMax=15%[0m
+[2m│ #DefaultLimitCPU=[0m
+[2m│ #DefaultLimitFSIZE=[0m
+[2m│ #DefaultLimitDATA=[0m
+[2m│ #DefaultLimitSTACK=[0m
+[2m│ #DefaultLimitCORE=[0m
+[2m│ #DefaultLimitRSS=[0m
+[2m│ #DefaultLimitNOFILE=1024:524288[0m
+[2m│ #DefaultLimitAS=[0m
+[2m│ #DefaultLimitNPROC=[0m
+[2m│ #DefaultLimitMEMLOCK=8M[0m
+[2m│ #DefaultLimitLOCKS=[0m
+[2m│ #DefaultLimitSIGPENDING=[0m
+[2m│ #DefaultLimitMSGQUEUE=[0m
+[2m│ #DefaultLimitNICE=[0m
+[2m│ #DefaultLimitRTPRIO=[0m
+[2m│ #DefaultLimitRTTIME=[0m
+[2m│ #DefaultMemoryPressureThresholdSec=200ms[0m
+[2m│ #DefaultMemoryPressureWatch=auto[0m
+[2m│ #DefaultOOMPolicy=stop[0m
+[2m│ #DefaultSmackProcessLabel=[0m
+[2m│ #DefaultRestrictSUIDSGID=[0m
+[2m│ #ReloadLimitIntervalSec=[0m
+[2m│ #ReloadLimitBurst=[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ systemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null[0m
+[2m│ UNIT FILE                                    STATE           PRESET[0m
+[2m│ accounts-daemon.service                      disabled        disabled[0m
+[2m│ alsa-card-wait@.service                      static          -[0m
+[2m│ alsa-restore.service                         static          -[0m
+[2m│ alsa-state.service                           static          -[0m
+[2m│ ananicy-cpp.service                          enabled         disabled[0m
+[2m│ annad.service                                enabled         disabled[0m
+[2m│ archlinux-keyring-wkd-sync.service           static          -[0m
+[2m│ arptables.service                            disabled        disabled[0m
+[2m│ audit-rules.service                          disabled        disabled[0m
+[2m│ auditd.service                               disabled        disabled[0m
+[2m│ auth-rpcgss-module.service                   static          -[0m
+[2m│ autovt@.service                              alias           -[0m
+[2m│ avahi-daemon.service                         enabled         disabled[0m
+[2m│ avahi-dnsconfd.service                       disabled        disabled[0m
+[2m│ blk-availability.service                     disabled        disabled[0m
+[2m│ bluetooth.service                            enabled         disabled[0m
+[2m│ bolt.service                                 static          -[0m
+[2m│ bpftune.service                              enabled         disabled[0m
+[2m│ breakpoint-pre-basic.service                 static          -[0m
+[2m│ breakpoint-pre-mount.service                 static          -[0m
+[2m│ breakpoint-pre-switch-root.service           static          -[0m
+[2m│ breakpoint-pre-udev.service                  static          -[0m
+[2m│ brltty-device@.service                       static          -[0m
+[2m│ brltty@.service                              static          -[0m
+[2m│ btrfs-scrub@.service                         static          -[0m
+[2m│ cachyos-rate-mirrors.service                 disabled        disabled[0m
+[2m│ canberra-system-bootup.service               disabled        disabled[0m
+[2m│ canberra-system-shutdown-reboot.service      disabled        disabled[0m
+[2m│ canberra-system-shutdown.service             disabled        disabled[0m
+[2m│ capsule@.service                             static          -[0m
+[2m│ colord.service                               static          -[0m
+[2m│ console-getty.service                        disabled        disabled[0m
+[2m│ container-getty@.service                     static          -[0m
+[2m│ cpupower.service                             disabled        disabled[0m
+[2m│ dbus-broker.service                          disabled        disabled[0m
+[2m│ dbus-org.bluez.service                       alias           -[0m
+[2m│ dbus-org.freedesktop.Avahi.service           alias           -[0m
+[2m│ dbus-org.freedesktop.hostname1.service       alias           -[0m
+[2m│ dbus-org.freedesktop.import1.service         alias           -[0m
+[2m│ dbus-org.freedesktop.locale1.service         alias           -[0m
+[2m│ dbus-org.freedesktop.login1.service          alias           -[0m
+[2m│ dbus-org.freedesktop.machine1.service        alias           -[0m
+[2m│ dbus-org.freedesktop.nm-dispatcher.service   alias           -[0m
+[2m│ dbus-org.freedesktop.portable1.service       alias           -[0m
+[2m│ dbus-org.freedesktop.resolve1.service        alias           -[0m
+[2m│ dbus-org.freedesktop.timedate1.service       alias           -[0m
+[2m│ dbus-org.freedesktop.timesync1.service       alias           -[0m
+[2m│ dbus.service                                 alias           -[0m
+[2m│ debug-shell.service                          disabled        disabled[0m
+[2m│ dhclient@.service                            disabled        disabled[0m
+[2m│ dirmngr@.service                             static          -[0m
+[2m│ display-manager.service                      alias           -[0m
+[2m│ dm-event.service                             static          -[0m
+[2m│ dmraid.service                               disabled        disabled[0m
+[2m│ dnsmasq.service                              disabled        disabled[0m
+[2m│ e2scrub@.service                             static          -[0m
+[2m│ e2scrub_all.service                          static          -[0m
+[2m│ e2scrub_fail@.service                        static          -[0m
+[2m│ e2scrub_reap.service                         disabled        disabled[0m
+[2m│ ead.service                                  disabled [0m
+[2m│ ... (output truncated)[0m
+[2m│ [0m
+[2m│ $ systemctl show gdm -p DefaultService 2>/dev/null[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ <monitors version="2">[0m
+[2m│   <configuration>[0m
+[2m│     <layoutmode>logical</layoutmode>[0m
+[2m│     <logicalmonitor>[0m
+[2m│       <x>0</x>[0m
+[2m│       <y>0</y>[0m
+[2m│       <scale>1</scale>[0m
+[2m│       <primary>yes</primary>[0m
+[2m│       <monitor>[0m
+[2m│         <monitorspec>[0m
+[2m│           <connector>HDMI-1</connector>[0m
+[2m│           <vendor>GSM</vendor>[0m
+[2m│           <product>LG TV SSCR2</product>[0m
+[2m│           <serial>0x01010101</serial>[0m
+[2m│         </monitorspec>[0m
+[2m│         <mode>[0m
+[2m│           <width>1920</width>[0m
+[2m│           <height>1080</height>[0m
+[2m│           <rate>119.879</rate>[0m
+[2m│         </mode>[0m
+[2m│         <colormode>bt2100</colormode>[0m
+[2m│       </monitor>[0m
+[2m│     </logicalmonitor>[0m
+[2m│   </configuration>[0m
+[2m│   <configuration>[0m
+[2m│     <layoutmode>logical</layoutmode>[0m
+[2m│     <logicalmonitor>[0m
+[2m│       <x>0</x>[0m
+[2m│       <y>0</y>[0m
+[2m│       <scale>2</scale>[0m
+[2m│       <primary>yes</primary>[0m
+[2m│       <monitor>[0m
+[2m│         <monitorspec>[0m
+[2m│           <connector>HDMI-1</connector>[0m
+[2m│           <vendor>GSM</vendor>[0m
+[2m│           <product>LG TV SSCR2</product>[0m
+[2m│           <serial>0x01010101</serial>[0m
+[2m│         </monitorspec>[0m
+[2m│         <mode>[0m
+[2m│           <width>3840</width>[0m
+[2m│           <height>2160</height>[0m
+[2m│           <rate>119.880</rate>[0m
+[2m│           <ratemode>variable</ratemode>[0m
+[2m│         </mode>[0m
+[2m│         <colormode>bt2100</colormode>[0m
+[2m│       </monitor>[0m
+[2m│     </logicalmonitor>[0m
+[2m│     <disabled>[0m
+[2m│       <monitorspec>[0m
+[2m│         <connector>eDP-1</connector>[0m
+[2m│         <vendor>CSO</vendor>[0m
+[2m│         <product>0x1619</product>[0m
+[2m│         <serial>0x00000000</serial>[0m
+[2m│       </monitorspec>[0m
+[2m│     </disabled>[0m
+[2m│   </configuration>[0m
+[2m│ </monitors>[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Based on this output, can you provide a complete answer to the user's question?[0m
+[2m│ Reply with ONLY one of:[0m
+[2m│ - "YES" if the output contains enough information to answer the question[0m
+[2m│ - "NO" if more information is needed[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0mNO
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Question: "How do I start a systemd service?"[0m
+[2m│ [0m
+[2m│ Previous command output:[0m
+[2m│ $ cat /etc/systemd/system.conf 2>/dev/null[0m
+[2m│ #  This file is part of systemd.[0m
+[2m│ #[0m
+[2m│ #  systemd is free software; you can redistribute it and/or modify it under the[0m
+[2m│ #  terms of the GNU Lesser General Public License as published by the Free[0m
+[2m│ #  Software Foundation; either version 2.1 of the License, or (at your option)[0m
+[2m│ #  any later version.[0m
+[2m│ #[0m
+[2m│ # Entries in this file show the compile time defaults. Local configuration[0m
+[2m│ # should be created by either modifying this file (or a copy of it placed in[0m
+[2m│ # /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in[0m
+[2m│ # /etc/systemd/system.conf.d/ directory. The latter is generally recommended.[0m
+[2m│ # Defaults can be restored by simply deleting the main configuration file and[0m
+[2m│ # all drop-ins located in /etc/.[0m
+[2m│ #[0m
+[2m│ # Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.[0m
+[2m│ #[0m
+[2m│ # See systemd-system.conf(5) for details.[0m
+[2m│ [0m
+[2m│ [Manager][0m
+[2m│ #LogLevel=info[0m
+[2m│ #LogTarget=journal-or-kmsg[0m
+[2m│ #LogColor=yes[0m
+[2m│ #LogLocation=no[0m
+[2m│ #LogTime=no[0m
+[2m│ #DumpCore=yes[0m
+[2m│ #ShowStatus=yes[0m
+[2m│ #CrashChangeVT=no[0m
+[2m│ #CrashShell=no[0m
+[2m│ #CrashAction=freeze[0m
+[2m│ #CtrlAltDelBurstAction=reboot-force[0m
+[2m│ #CPUAffinity=[0m
+[2m│ #NUMAPolicy=default[0m
+[2m│ #NUMAMask=[0m
+[2m│ #RuntimeWatchdogSec=off[0m
+[2m│ #RuntimeWatchdogPreSec=off[0m
+[2m│ #RuntimeWatchdogPreGovernor=[0m
+[2m│ #RebootWatchdogSec=10min[0m
+[2m│ #KExecWatchdogSec=off[0m
+[2m│ #WatchdogDevice=[0m
+[2m│ #CapabilityBoundingSet=[0m
+[2m│ #NoNewPrivileges=no[0m
+[2m│ #ProtectSystem=auto[0m
+[2m│ #SystemCallArchitectures=[0m
+[2m│ #TimerSlackNSec=[0m
+[2m│ #StatusUnitFormat=description[0m
+[2m│ #DefaultTimerAccuracySec=1min[0m
+[2m│ #DefaultStandardOutput=journal[0m
+[2m│ #DefaultStandardError=inherit[0m
+[2m│ #DefaultTimeoutStartSec=90s[0m
+[2m│ #DefaultTimeoutStopSec=90s[0m
+[2m│ #DefaultTimeoutAbortSec=[0m
+[2m│ #DefaultDeviceTimeoutSec=90s[0m
+[2m│ #DefaultRestartSec=100ms[0m
+[2m│ #DefaultStartLimitIntervalSec=10s[0m
+[2m│ #DefaultStartLimitBurst=5[0m
+[2m│ #DefaultEnvironment=[0m
+[2m│ #DefaultIOAccounting=no[0m
+[2m│ #DefaultIPAccounting=no[0m
+[2m│ #DefaultMemoryAccounting=yes[0m
+[2m│ #DefaultTasksAccounting=yes[0m
+[2m│ #DefaultTasksMax=15%[0m
+[2m│ #DefaultLimitCPU=[0m
+[2m│ #DefaultLimitFSIZE=[0m
+[2m│ #DefaultLimitDATA=[0m
+[2m│ #DefaultLimitSTACK=[0m
+[2m│ #DefaultLimitCORE=[0m
+[2m│ #DefaultLimitRSS=[0m
+[2m│ #DefaultLimitNOFILE=1024:524288[0m
+[2m│ #DefaultLimitAS=[0m
+[2m│ #DefaultLimitNPROC=[0m
+[2m│ #DefaultLimitMEMLOCK=8M[0m
+[2m│ #DefaultLimitLOCKS=[0m
+[2m│ #DefaultLimitSIGPENDING=[0m
+[2m│ #DefaultLimitMSGQUEUE=[0m
+[2m│ #DefaultLimitNICE=[0m
+[2m│ #DefaultLimitRTPRIO=[0m
+[2m│ #DefaultLimitRTTIME=[0m
+[2m│ #DefaultMemoryPressureThresholdSec=200ms[0m
+[2m│ #DefaultMemoryPressureWatch=auto[0m
+[2m│ #DefaultOOMPolicy=stop[0m
+[2m│ #DefaultSmackProcessLabel=[0m
+[2m│ #DefaultRestrictSUIDSGID=[0m
+[2m│ #ReloadLimitIntervalSec=[0m
+[2m│ #ReloadLimitBurst=[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ systemctl list-unit-files --type=service | grep -v "^#" 2>/dev/null[0m
+[2m│ UNIT FILE                                    STATE           PRESET[0m
+[2m│ accounts-daemon.service                      disabled        disabled[0m
+[2m│ alsa-card-wait@.service                      static          -[0m
+[2m│ alsa-restore.service                         static          -[0m
+[2m│ alsa-state.service                           static          -[0m
+[2m│ ananicy-cpp.service                          enabled         disabled[0m
+[2m│ annad.service                                enabled         disabled[0m
+[2m│ archlinux-keyring-wkd-sync.service           static          -[0m
+[2m│ arptables.service                            disabled        disabled[0m
+[2m│ audit-rules.service                          disabled        disabled[0m
+[2m│ auditd.service                               disabled        disabled[0m
+[2m│ auth-rpcgss-module.service                   static          -[0m
+[2m│ autovt@.service                              alias           -[0m
+[2m│ avahi-daemon.service                         enabled         disabled[0m
+[2m│ avahi-dnsconfd.service                       disabled        disabled[0m
+[2m│ blk-availability.service                     disabled        disabled[0m
+[2m│ bluetooth.service                            enabled         disabled[0m
+[2m│ bolt.service                                 static          -[0m
+[2m│ bpftune.service                              enabled         disabled[0m
+[2m│ breakpoint-pre-basic.service                 static          -[0m
+[2m│ breakpoint-pre-mount.service                 static          -[0m
+[2m│ breakpoint-pre-switch-root.service           static          -[0m
+[2m│ breakpoint-pre-udev.service                  static          -[0m
+[2m│ brltty-device@.service                       static          -[0m
+[2m│ brltty@.service                              static          -[0m
+[2m│ btrfs-scrub@.service                         static          -[0m
+[2m│ cachyos-rate-mirrors.service                 disabled        disabled[0m
+[2m│ canberra-system-bootup.service               disabled        disabled[0m
+[2m│ canberra-system-shutdown-reboot.service      disabled        disabled[0m
+[2m│ canberra-system-shutdown.service             disabled        disabled[0m
+[2m│ capsule@.service                             static          -[0m
+[2m│ colord.service                               static          -[0m
+[2m│ console-getty.service                        disabled        disabled[0m
+[2m│ container-getty@.service                     static          -[0m
+[2m│ cpupower.service                             disabled        disabled[0m
+[2m│ dbus-broker.service                          disabled        disabled[0m
+[2m│ dbus-org.bluez.service                       alias           -[0m
+[2m│ dbus-org.freedesktop.Avahi.service           alias           -[0m
+[2m│ dbus-org.freedesktop.hostname1.service       alias           -[0m
+[2m│ dbus-org.freedesktop.import1.service         alias           -[0m
+[2m│ dbus-org.freedesktop.locale1.service         alias           -[0m
+[2m│ dbus-org.freedesktop.login1.service          alias           -[0m
+[2m│ dbus-org.freedesktop.machine1.service        alias           -[0m
+[2m│ dbus-org.freedesktop.nm-dispatcher.service   alias           -[0m
+[2m│ dbus-org.freedesktop.portable1.service       alias           -[0m
+[2m│ dbus-org.freedesktop.resolve1.service        alias           -[0m
+[2m│ dbus-org.freedesktop.timedate1.service       alias           -[0m
+[2m│ dbus-org.freedesktop.timesync1.service       alias           -[0m
+[2m│ dbus.service                                 alias           -[0m
+[2m│ debug-shell.service                          disabled        disabled[0m
+[2m│ dhclient@.service                            disabled        disabled[0m
+[2m│ dirmngr@.service                             static          -[0m
+[2m│ display-manager.service                      alias           -[0m
+[2m│ dm-event.service                             static          -[0m
+[2m│ dmraid.service                               disabled        disabled[0m
+[2m│ dnsmasq.service                              disabled        disabled[0m
+[2m│ e2scrub@.service                             static          -[0m
+[2m│ e2scrub_all.service                          static          -[0m
+[2m│ e2scrub_fail@.service                        static          -[0m
+[2m│ e2scrub_reap.service                         disabled        disabled[0m
+[2m│ ead.service                                  disabled [0m
+[2m│ ... (output truncated)[0m
+[2m│ [0m
+[2m│ $ systemctl show gdm -p DefaultService 2>/dev/null[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ <monitors version="2">[0m
+[2m│   <configuration>[0m
+[2m│     <layoutmode>logical</layoutmode>[0m
+[2m│     <logicalmonitor>[0m
+[2m│       <x>0</x>[0m
+[2m│       <y>0</y>[0m
+[2m│       <scale>1</scale>[0m
+[2m│       <primary>yes</primary>[0m
+[2m│       <monitor>[0m
+[2m│         <monitorspec>[0m
+[2m│           <connector>HDMI-1</connector>[0m
+[2m│           <vendor>GSM</vendor>[0m
+[2m│           <product>LG TV SSCR2</product>[0m
+[2m│           <serial>0x01010101</serial>[0m
+[2m│         </monitorspec>[0m
+[2m│         <mode>[0m
+[2m│           <width>1920</width>[0m
+[2m│           <height>1080</height>[0m
+[2m│           <rate>119.879</rate>[0m
+[2m│         </mode>[0m
+[2m│         <colormode>bt2100</colormode>[0m
+[2m│       </monitor>[0m
+[2m│     </logicalmonitor>[0m
+[2m│   </configuration>[0m
+[2m│   <configuration>[0m
+[2m│     <layoutmode>logical</layoutmode>[0m
+[2m│     <logicalmonitor>[0m
+[2m│       <x>0</x>[0m
+[2m│       <y>0</y>[0m
+[2m│       <scale>2</scale>[0m
+[2m│       <primary>yes</primary>[0m
+[2m│       <monitor>[0m
+[2m│         <monitorspec>[0m
+[2m│           <connector>HDMI-1</connector>[0m
+[2m│           <vendor>GSM</vendor>[0m
+[2m│           <product>LG TV SSCR2</product>[0m
+[2m│           <serial>0x01010101</serial>[0m
+[2m│         </monitorspec>[0m
+[2m│         <mode>[0m
+[2m│           <width>3840</width>[0m
+[2m│           <height>2160</height>[0m
+[2m│           <rate>119.880</rate>[0m
+[2m│           <ratemode>variable</ratemode>[0m
+[2m│         </mode>[0m
+[2m│         <colormode>bt2100</colormode>[0m
+[2m│       </monitor>[0m
+[2m│     </logicalmonitor>[0m
+[2m│     <disabled>[0m
+[2m│       <monitorspec>[0m
+[2m│         <connector>eDP-1</connector>[0m
+[2m│         <vendor>CSO</vendor>[0m
+[2m│         <product>0x1619</product>[0m
+[2m│         <serial>0x00000000</serial>[0m
+[2m│       </monitorspec>[0m
+[2m│     </disabled>[0m
+[2m│   </configuration>[0m
+[2m│ </monitors>[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Need more information to fully answer the question.[0m
+[2m│ Output additional commands (one per line, no explanations).[0m
+[2m│ If output above is sufficient, output: DONE[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m

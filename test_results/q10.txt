@@ -1,0 +1,857 @@
+
+[36mUSER: [0mHow do I find which package owns a file?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I find which package owns a file?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Category:Package development (score: 0.50)[0m
+[2m  • Python package guidelines (score: 0.50)[0m
+[2m  • Category:File Transfer Protocol (score: 0.50)[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I find which package owns a file?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I find which package owns a file?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Category:Package development ---[0m
+[2m│ Category:Package development - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Package development[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Help[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ The main article for this category is Creating packages.[0m
+[2m│ [0m
+[2m│ See also Category:Package management.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Subcategories[0m
+[2m│ This category has only the following subcategory.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A[0m
+[2m│ Arch package guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pages in category "Package development"[0m
+[2m│ The following 24 pages are in this category, out of 24 total.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ .[0m
+[2m│ .SRCINFO[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A[0m
+[2m│ [0m
+[2m│ Abuild[0m
+[2m│ Arch build system[0m
+[2m│ Arch User Repository[0m
+[2m│ AUR Cleanup Day[0m
+[2m│ AUR submission guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ B[0m
+[2m│ [0m
+[2m│ Bug Day[0m
+[2m│ DeveloperWiki:Building in a clean chroot[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ C[0m
+[2m│ [0m
+[2m│ Ccache[0m
+[2m│ Clang[0m
+[2m│ Creating packages[0m
+[2m│ Creating packages for other distributions[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ D[0m
+[2m│ [0m
+[2m│ Debugging/Getting traces[0m
+[2m│ Debuginfod[0m
+[2m│ Desktop entries[0m
+[2m│ Distcc[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ M[0m
+[2m│ Makepkg[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ N[0m
+[2m│ Namcap[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ P[0m
+[2m│ [0m
+[2m│ Package Maintainer guidelines[0m
+[2m│ Perl Policy[0m
+[2m│ PKGBUILD[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ R[0m
+[2m│ [0m
+[2m│ Rebuilderd[0m
+[2m│ Reproducible builds[0m
+[2m│ Reproducible builds/Status[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category: Arch development[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:Package_development&oldid=836518"[0m
+[2m│ This page was last edited on 14 June 2025, at 05:40.[0m
+[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Privacy policy[0m
+[2m│ About ArchWiki[0m
+[2m│ Disclaimers[0m
+[2m│ Code of conduct[0m
+[2m│ Terms of service[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Package development[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Add topic[0m
+[2m│ --- From Python package guidelines ---[0m
+[2m│ Python package guidelines - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Package naming[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Architecture[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Source[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Installation methods[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Installation methods subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.1[0m
+[2m│ Standards based (PEP 517)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.2[0m
+[2m│ setuptools or distutils[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 5[0m
+[2m│ Check[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6[0m
+[2m│ Tips and tricks[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Tips and tricks subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.1[0m
+[2m│ Using Python version[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.2[0m
+[2m│ Using site-packages[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.3[0m
+[2m│ Test directory in site-package[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.4[0m
+[2m│ Disable pytest options[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.5[0m
+[2m│ Fix reproducibility issue with meson-python[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 6.6[0m
+[2m│ Running tests with an installed package[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Python package guidelines[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Arch package guidelines[0m
+[2m│ [0m
+[2m│ 32-bit – CLR – CMake – Cross – DKMS – Eclipse – Electron – Font – Free Pascal – GNOME – Go – Haskell – Java – KDE – Kernel modules – Lisp – Meson – MinGW – Node.js – Nonfree – OCaml – Perl – PHP – Python – R – Ruby – Rust - Security – Shell – VCS – Web – Wine[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This document covers standards and guidelines on writing PKGBUILDs for Python software.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Package naming[0m
+[2m│ For Python 3 library modules, use python-modulename. Also use the prefix if the package provides a program that is strongly coupled to the Python ecosystem (e.g. pip or tox). For other applications, use...[0m
+[2m│ [0m
+[2m│ ## For pytest[0m
+[2m│ PYTHONPATH="$PWD/build/lib.linux-$CARCH-cpython-$python_version" pytest[0m
+[2m│ }[0m
+[2m│ Tips and tricks[0m
+[2m│ Using Python version[0m
+[2m│ Sometimes during preparing, building, testing or installation it is required to refer to the system's major and minor Python version (e.g. 3.9 or 3.10). Do not hardcode this and instead use a call to the Python interpreter to retrieve the information and store it in a local variable:[0m
+[2m│ [0m
+[2m│ check(){[0m
+[2m│ local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')[0m
+[2m│ ...[0m
+[2m│ }[0m
+[2m│ Using site-packages[0m
+[2m│ Sometimes during building, testing or installation it is required to refer to the system's site-packages directory. Do not hardcode this directory and use a call to the Python interpreter instead to retrieve the path and store it in a local variable:[0m
+[2m│ [0m
+[2m│ check(){[0m
+[2m│ local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")[0m
+[2m│ ...[0m
+[2m│ }[0m
+[2m│ Test directory in site-package[0m
+[2m│ Make sure to not install a directory named just tests/ directly under site-packages/ (i.e. /usr/lib/pythonX.Y/site-packages/tests/). Doing so could lead to conflicts between packages. Python package projects using setuptools are sometimes misconfigured to include the directory containing its tests as a top level Python package. If you encounter this, you can help by filing an issue with the package project and ask them to fix this, e.g. like this.[0m
+[2m│ [0m
+[2m│ Disable pytest options[0m
+[2m│ When running pytest, it is mostly desirable to not run with additional plugins. Especially plugins for linting and co...[0m
+[2m│ --- From Category:File Transfer Protocol ---[0m
+[2m│ Category:File Transfer Protocol - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:File Transfer Protocol[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Help[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ See also:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Wikipedia:File Transfer Protocol[0m
+[2m│ List of applications/Internet#FTP[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Note FTP transmits passwords in plaintext. If you want to use FTP over a regular network or the internet, use FTP over TLS (FTPS) or SSH File Transfer Protocol (SFTP) instead.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Subcategories[0m
+[2m│ This category has only the following subcategory.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ F[0m
+[2m│ FTP servers[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pages in category "File Transfer Protocol"[0m
+[2m│ This category contains only the following page.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ C[0m
+[2m│ CurlFtpFS[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category: Protocols[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:File_Transfer_Protocol&oldid=722045"[0m
+[2m│ This page was last edited on 8 March 2022, at 20:12.[0m
+[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Privacy policy[0m
+[2m│ About ArchWiki[0m
+[2m│ Disclaimers[0m
+[2m│ Code of conduct[0m
+[2m│ Terms of service[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:File Transfer Protocol[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Add topic[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo[0m[32m find[0m[32m which[0m[32m package[0m[32m owns[0m[32m a[0m[32m file[0m[32m in[0m[32m Arch[0m[32m Linux[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m the[0m[32m `[0m[32mpac[0m[32mman[0m[32m`[0m[32m command[0m[32m with[0m[32m the[0m[32m `-[0m[32mQ[0m[32mo[0m[32m`[0m[32m option[0m[32m.[0m[32m Here[0m[32m is[0m[32m how[0m[32m you[0m[32m can[0m[32m do[0m[32m it[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m Open[0m[32m a[0m[32m terminal[0m[32m.
+[0m[32m2[0m[32m.[0m[32m Run[0m[32m the[0m[32m following[0m[32m command[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m pacman[0m[32m -[0m[32mQ[0m[32mo[0m[32m /[0m[32mpath[0m[32m/to[0m[32m/[0m[32myour[0m[32m/file[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32mReplace[0m[32m `/[0m[32mpath[0m[32m/to[0m[32m/[0m[32myour[0m[32m/file[0m[32m`[0m[32m with[0m[32m the[0m[32m actual[0m[32m path[0m[32m to[0m[32m the[0m[32m file[0m[32m you[0m[32m want[0m[32m to[0m[32m check[0m[32m.
+
+[0m[32mFor[0m[32m example[0m[32m,[0m[32m if[0m[32m you[0m[32m want[0m[32m to[0m[32m find[0m[32m out[0m[32m which[0m[32m package[0m[32m owns[0m[32m the[0m[32m `[0m[32m~[0m[32m/.[0m[32mbash[0m[32mrc[0m[32m`[0m[32m file[0m[32m,[0m[32m you[0m[32m would[0m[32m run[0m[32m:
+[0m

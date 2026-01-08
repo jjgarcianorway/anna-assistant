@@ -1,0 +1,711 @@
+
+[36mUSER: [0mHow do I check my GPU information?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I check my GPU information?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Machine-check exception (score: 0.50)[0m
+[2m  • External GPU (score: 0.50)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mxrandr --listproviders[0m
+[2m  $ [0m[36mxrandr --setprovideroutputsource NVIDIA-G0 modesetting && xrandr --auto[0m
+[2m  $ [0m[36mlspci -d ::03xx[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I check my GPU information?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   xrandr --listproviders[0m
+[2m│   xrandr --setprovideroutputsource NVIDIA-G0 modesetting && xrandr --auto[0m
+[2m│   lspci -d ::03xx[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0mcommands to run:
+[2m  $ [0m[36mlspci -vnn | grep -i vga[0m
+[2m  $ [0m[36mcat /sys/class/drm/*/status[0m
+[2m  $ [0m[36mnvidia-smi 2>/dev/null[0m
+
+[32mEXEC: [0mlspci -vnn | grep -i vga
+[2mOUTPUT: [0m01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile] [10de:28e0] (rev a1) (prog-if 00 [VGA controller])
+
+
+[32mEXEC: [0mcat /sys/class/drm/*/status
+[2mOUTPUT: [0mdisconnected
+disconnected
+connected
+connected
+
+
+[32mEXEC: [0mnvidia-smi 2>/dev/null
+[2mOUTPUT: [0mThu Jan  8 12:39:09 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 590.48.01              Driver Version: 590.48.01      CUDA Version: 13.1     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4060 ...    Off |   00000000:01:00.0  On |                  N/A |
+| N/A   65C    P8              7W /   55W |     146MiB /   8188MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            4820      G   /usr/bin/gnome-shell                     97MiB |
+|    0   N/A  N/A            5491      G   /usr/bin/Xwayland                         3MiB |
++-----------------------------------------------------------------------------------------+
+
+
+[33mANNA → LLM: [0m(validation prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked: "How do I check my GPU information?"[0m
+[2m│ [0m
+[2m│ Commands were run and produced this output:[0m
+[2m│ $ lspci -vnn | grep -i vga[0m
+[2m│ 01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile] [10de:28e0] (rev a1) (prog-if 00 [VGA controller])[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ cat /sys/class/drm/*/status[0m
+[2m│ disconnected[0m
+[2m│ disconnected[0m
+[2m│ connected[0m
+[2m│ connected[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ nvidia-smi 2>/dev/null[0m
+[2m│ Thu Jan  8 12:39:09 2026       [0m
+[2m│ +-----------------------------------------------------------------------------------------+[0m
+[2m│ | NVIDIA-SMI 590.48.01              Driver Version: 590.48.01      CUDA Version: 13.1     |[0m
+[2m│ +-----------------------------------------+------------------------+----------------------+[0m
+[2m│ | GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |[0m
+[2m│ | Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |[0m
+[2m│ |                                         |                        |               MIG M. |[0m
+[2m│ |=========================================+========================+======================|[0m
+[2m│ |   0  NVIDIA GeForce RTX 4060 ...    Off |   00000000:01:00.0  On |                  N/A |[0m
+[2m│ | N/A   65C    P8              7W /   55W |     146MiB /   8188MiB |      0%      Default |[0m
+[2m│ |                                         |                        |                  N/A |[0m
+[2m│ +-----------------------------------------+------------------------+----------------------+[0m
+[2m│ [0m
+[2m│ +-----------------------------------------------------------------------------------------+[0m
+[2m│ | Processes:                                                                              |[0m
+[2m│ |  GPU   GI   CI              PID   Type   Process name                        GPU Memory |[0m
+[2m│ |        ID   ID                                                               Usage      |[0m
+[2m│ |=========================================================================================|[0m
+[2m│ |    0   N/A  N/A            4820      G   /usr/bin/gnome-shell                     97MiB |[0m
+[2m│ |    0   N/A  N/A            5491      G   /usr/bin/Xwayland                         3MiB |[0m
+[2m│ +-----------------------------------------------------------------------------------------+[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Based on this output, can you provide a complete answer to the user's question?[0m
+[2m│ Reply with ONLY one of:[0m
+[2m│ - "YES" if the output contains enough information to answer the question[0m
+[2m│ - "NO" if more information is needed[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0mYES
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I check my GPU information?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ The following commands were run and produced this output:[0m
+[2m│ $ lspci -vnn | grep -i vga[0m
+[2m│ 01:00.0 VGA compatible controller [0300]: NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile] [10de:28e0] (rev a1) (prog-if 00 [VGA controller])[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ cat /sys/class/drm/*/status[0m
+[2m│ disconnected[0m
+[2m│ disconnected[0m
+[2m│ connected[0m
+[2m│ connected[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ nvidia-smi 2>/dev/null[0m
+[2m│ Thu Jan  8 12:39:09 2026       [0m
+[2m│ +-----------------------------------------------------------------------------------------+[0m
+[2m│ | NVIDIA-SMI 590.48.01              Driver Version: 590.48.01      CUDA Version: 13.1     |[0m
+[2m│ +-----------------------------------------+------------------------+----------------------+[0m
+[2m│ | GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |[0m
+[2m│ | Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |[0m
+[2m│ |                                         |                        |               MIG M. |[0m
+[2m│ |=========================================+========================+======================|[0m
+[2m│ |   0  NVIDIA GeForce RTX 4060 ...    Off |   00000000:01:00.0  On |                  N/A |[0m
+[2m│ | N/A   65C    P8              7W /   55W |     146MiB /   8188MiB |      0%      Default |[0m
+[2m│ |                                         |                        |                  N/A |[0m
+[2m│ +-----------------------------------------+------------------------+----------------------+[0m
+[2m│ [0m
+[2m│ +-----------------------------------------------------------------------------------------+[0m
+[2m│ | Processes:                                                                              |[0m
+[2m│ |  GPU   GI   CI              PID   Type   Process name                        GPU Memory |[0m
+[2m│ |        ID   ID                                                               Usage      |[0m
+[2m│ |=========================================================================================|[0m
+[2m│ |    0   N/A  N/A            4820      G   /usr/bin/gnome-shell                     97MiB |[0m
+[2m│ |    0   N/A  N/A            5491      G   /usr/bin/Xwayland                         3MiB |[0m
+[2m│ +-----------------------------------------------------------------------------------------+[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Machine-check exception ---[0m
+[2m│ Machine-check exception - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Installation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Configuration[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Usage[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ See also[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle See also subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.1[0m
+[2m│ Hardware documentation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Machine-check exception[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ This article aims to help users implement services to actively monitor, log, and report hardware errors. A machine check exception (MCE) is an error generated by the CPU when the CPU detects that a hardware error or failure has occurred.[0m
+[2m│ [0m
+[2m│ Machine check exceptions (MCEs) can occur for a variety of reasons ranging from undesired or out-of-spec voltages from the power supply, from cosmic radiation flipping bits in memory DIMMs or the CPU, or from other miscellaneous faults, including faulty software triggering hardware errors.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Installation[0m
+[2m│ Install the rasdaemonAUR package. rasdaemon written by Mauro Carvalho Chehab is one of the tools to gather MCE information.[0m
+[2m│ [0m
+[2m│ Previously, the task was performed by the mcelog package. However, it has been deprecated, and Arch kernels are not even compiled with the necessary configuration option CONFIG_X86_MCELOG_LEGACY (FS#55657) now.[0m
+[2m│ [0m
+[2m│ Configuration[0m
+[2m│ There are two systemd services that need to be started and enabled. ras-mc-ctl.service registers DIMM labels (from /etc/ras/dimm_labels.d/) with EDAC drivers. On consum...[0m
+[2m│ --- From External GPU ---[0m
+[2m│ [0m
+[2m│ ## Load modesetting module for the iGPU, which should show up in XrandR 1.4 as a provider.[0m
+[2m│ Load "modesetting"[0m
+[2m│ EndSection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Note Xorg uses decimal bus IDs, while most other tools use hexadecimal. We had to convert 1a:10.3 to 26:16:3 for xorg.conf snippet.[0m
+[2m│ [0m
+[2m│ Tip With modern Xorg, it is not needed to specify ServerLayout and Screen sections, as these are inferred automatically. First Device defined will be considered primary.[0m
+[2m│ To validate this setup, use xrandr --listproviders, which should display[0m
+[2m│ [0m
+[2m│ Providers: number : 2[0m
+[2m│ Provider 0: id: 0x1b8 cap: 0x1, Source Output crtcs: 4 outputs: 4 associated providers: 0 name:NVIDIA-0[0m
+[2m│ Provider 1: id: 0x1f3 cap: 0xf, Source Output, Sink Output, Source Offload, Sink Offload crtcs: 3 outputs: 5 associated providers: 0 name:modesetting[0m
+[2m│ [0m
+[2m│ To output to internal laptop screen and/or other monitors attached to iGPU, RandR 1.4 PRIME display offload can be used, using names from above xrandr --listproviders output:[0m
+[2m│ [0m
+[2m│ xrandr --setprovideroutputsource modesetting NVIDIA-0 && xrandr --auto[0m
+[2m│ [0m
+[2m│ Note The xrandr --auto is optional and may be substituted by any RandR-based display configuration tool. Its presence prevents all-screens-black situation.[0m
+[2m│ You may want to run this command before a display manager shows login prompt or before desktop environment starts, see xrandr#Configuration and xinit.[0m
+[2m│ [0m
+[2m│ Vulkan may enumerate GPUs independently of Xorg, so in order to run for example vkcube in this setup, one may need to pass --gpu_number 1 option. Alternatively, a layer to reorder GPUs during enumeration can be activated with the same effect: __NV_PRIME_REN...[0m
+[2m│ External GPU - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Installation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Installation subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.1[0m
+[2m│ Thunderbolt[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.2[0m
+[2m│ Drivers[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.2.1[0m
+[2m│ AMDGPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.2.2[0m
+[2m│ NVIDIA[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Compute-only workloads[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Xorg[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Xorg subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1[0m
+[2m│ Xorg rendered on eGPU, PRIME display offload to iGPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.2[0m
+[2m│ Xorg rendered on iGPU, PRIME render offload to eGPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.3[0m
+[2m│ Separate Xorg instance for eGPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.4[0m
+[2m│ Known issues with eGPUs on Xorg[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Wayland[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Wayland subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.1[0m
+[2m│ Hotplugging NVIDIA eGPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.2[0m
+[2m│ Hotplugging NVIDIA eGPU and temporarily disabling NVIDIA dGPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ External GPU[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Related articles[0m
+[2m│ [0m
+[2m│ Xorg[0m
+[2m│ PRIME[0m
+[2m│ Thunderbolt[0m
+[2m│ NVIDIA Optimus[0m
+[2m│ NVIDIA/Tips and tricks[0m
+[2m│ Docks[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ On computers equipped with Thunderbolt 3+ or USB4, it is possible to attach a desktop-grade external graphics card (eGPU) using a GPU enclosure. eGPU.io is a good resource with buyer's guide and a community forum. While some manual configuration (shown below) is needed for most modes of operation, Linux support for eGPUs is generally good.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Note For USB4 laptops the data rate is specified to be at minimum 20 Gbit/s and optionally superior (40, 80, or more ). When using a Thunderbolt enclosure it is a good idea to ensure the laptop USB4 ...[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. ONLY report facts from the ACTUAL command output above - never invent data[0m
+[2m│ 2. If a command returned empty or failed, say so[0m
+[2m│ 3. TAILOR YOUR ANSWER TO THIS SYSTEM - if it's Wayland, don't give Xorg advice[0m
+[2m│ 4. Provide specific, actionable steps for their exact setup[0m
+[2m│ 5. Be concise and direct[0m
+[2m│ 6. RESPOND IN ENGLISH ONLY[0m
+[2m│ [0m
+[2m│ Based on the actual output and system environment, answer the user's question:[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mFrom[0m[32m the[0m[32m provided[0m[32m information[0m[32m,[0m[32m your[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m has[0m[32m an[0m[32m NVIDIA[0m[32m GPU[0m[32m ([0m[32mGe[0m[32mForce[0m[32m RT[0m[32mX[0m[32m [0m[32m4[0m[32m0[0m[32m6[0m[32m0[0m[32m Max[0m[32m-Q[0m[32m)[0m[32m and[0m[32m you[0m[32m are[0m[32m using[0m[32m Way[0m[32mland[0m[32m.[0m[32m To[0m[32m check[0m[32m your[0m[32m GPU[0m[32m information[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mUsing[0m[32m `[0m[32ml[0m[32msp[0m[32mci[0m[32m`[0m[32m**:[0m[32m You[0m[32m have[0m[32m already[0m[32m used[0m[32m this[0m[32m command[0m[32m to[0m[32m identify[0m[32m your[0m[32m GPU[0m[32m.[0m[32m The[0m[32m output[0m[32m indicates[0m[32m that[0m[32m your[0m[32m GPU[0m[32m is[0m

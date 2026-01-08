@@ -1,0 +1,1052 @@
+
+[36mUSER: [0mHow do I connect to WiFi from terminal?
+
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: How do I connect to WiFi from terminal?[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Category:Terminal multiplexers (score: 0.50)[0m
+[2m  • Pulse Connect Secure (score: 0.50)[0m
+[2m  • Category:Terminal emulators (score: 0.50)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mnmcli con add type vpn con-name "Connection Name" ifname "*" vpn-type openconnect -- vpn.data "gateway=vpn.example.com,protocol=nc"[0m
+[2m  $ [0m[36mmkdir -p ~/.juniper_networks/network_connect[0m
+[2m  $ [0m[36mmkdir -p ~/.juniper_networks/tmp[0m
+[2m  $ [0m[36munzip ~/.juniper_networks/ncLinuxApp.jar -d ~/.juniper_networks/tmp[0m
+[2m  $ [0m[36mcp ~/.juniper_networks/tmp/NC.jar ~/.juniper_networks/network_connect[0m
+[2m  $ [0m[36msh ~/.juniper_networks/tmp/installNC.sh ~/.juniper_networks/network_connect[0m
+[2m  $ [0m[36m/opt/pulsesecure/bin/pulselauncher [-U signinUrl] [-r realm] [-l role] [-c cert] [-u username] [-p password][0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are a system administrator assistant helping with THIS specific Arch Linux system.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ SYSTEM CONTEXT (already gathered):[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ Question: "How do I connect to WiFi from terminal?"[0m
+[2m│ [0m
+[2m│ Based on the system context above, output commands to investigate this specific issue.[0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Output ONLY commands, one per line - no explanations[0m
+[2m│ 2. Commands must be safe (read-only)[0m
+[2m│ 3. MAXIMUM 3-5 commands - ONLY what's relevant to this system[0m
+[2m│ 4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands[0m
+[2m│ 5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)[0m
+[2m│ 6. Only output NONE if purely theoretical[0m
+[2m│ [0m
+[2m│ Examples for Wayland + GDM:[0m
+[2m│ - GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null[0m
+[2m│ - GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null[0m
+[2m│ - GNOME scaling → gsettings get org.gnome.desktop.interface scaling-factor[0m
+[2m│ [0m
+[2m│ Examples for Xorg:[0m
+[2m│ - Display settings → xrandr[0m
+[2m│ - Xorg config → cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   nmcli con add type vpn con-name "Connection Name" ifname "*" vpn-type openconnect -- vpn.data "gateway=vpn.example.com,protocol=nc"[0m
+[2m│   mkdir -p ~/.juniper_networks/network_connect[0m
+[2m│   mkdir -p ~/.juniper_networks/tmp[0m
+[2m│   unzip ~/.juniper_networks/ncLinuxApp.jar -d ~/.juniper_networks/tmp[0m
+[2m│   cp ~/.juniper_networks/tmp/NC.jar ~/.juniper_networks/network_connect[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[33mLLM → ANNA: [0m[2mNONE[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ The user asked about their Arch Linux system: "How do I connect to WiFi from terminal?"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ tty[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant information from Arch Wiki:[0m
+[2m│ --- From Category:Terminal multiplexers ---[0m
+[2m│ Category:Terminal multiplexers - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Terminal multiplexers[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Help[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ See Wikipedia:Terminal multiplexer.[0m
+[2m│ [0m
+[2m│ See also List of applications/Utilities#Terminal multiplexers.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pages in category "Terminal multiplexers"[0m
+[2m│ The following 5 pages are in this category, out of 5 total.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A[0m
+[2m│ Abduco[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ D[0m
+[2m│ Dtach[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ G[0m
+[2m│ GNU Screen[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ K[0m
+[2m│ Kitty[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ T[0m
+[2m│ Tmux[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category: Commands[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:Terminal_multiplexers&oldid=770982"[0m
+[2m│ This page was last edited on 4 March 2023, at 15:04.[0m
+[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Privacy policy[0m
+[2m│ About ArchWiki[0m
+[2m│ Disclaimers[0m
+[2m│ Code of conduct[0m
+[2m│ Terms of service[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Terminal multiplexers[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Add topic[0m
+[2m│ --- From Pulse Connect Secure ---[0m
+[2m│ [0m
+[2m│ ## openconnect --protocol=pulse https://vpn.example.com/[0m
+[2m│ If you want NetworkManager support, install networkmanager-openconnect, or try the latest git version. The VPN connection can be created through the GUI or by using this command:[0m
+[2m│ [0m
+[2m│ $ nmcli con add type vpn con-name "Connection Name" ifname "*" vpn-type openconnect -- vpn.data "gateway=vpn.example.com,protocol=nc"[0m
+[2m│ [0m
+[2m│ Third-party scripts[0m
+[2m│ MSJNC[0m
+[2m│ The Mad Scientist's "msjnc" script requires multilib, then install lib32-zlib, net-tools, glib-perl, perl-libwww and gtk2-perlAUR.[0m
+[2m│ [0m
+[2m│ Access the Juniper VPN website you need to use. Log in and allow the installation to attempt and fail (due to non-32 bit Java). You should get an error similar to the following:[0m
+[2m│ [0m
+[2m│ Setup failed.[0m
+[2m│ Please install 32 bit Java and update alternatives links using update-alternatives command.[0m
+[2m│ For more details, refer KB article KB25230[0m
+[2m│ You should now have the file ~/.juniper_networks/ncLinuxApp.jar present.[0m
+[2m│ [0m
+[2m│ However, if ncLinuxApp.jar is not downloaded, fetch it manually - see the following example URL: https://server/dana-cached/nc/ncLinuxApp.jar (note: you need to log in first).[0m
+[2m│ [0m
+[2m│ Then download the msjnc script, make it executable, and put it in your PATH.[0m
+[2m│ [0m
+[2m│ Automatic installation of ncsvc using msjnc[0m
+[2m│ The first time you launch msjnc (before ncsvc is installed), it will extract ncLinuxApp.jar and prompt for your password in order to install the service. This requires sudo to be configured to allow all commands to your user.[0m
+[2m│ [0m
+[2m│ After the service is installed to ~/.juniper_networks/network_connect/ncsvc with suid, create a pro...[0m
+[2m│ Pulse Connect Secure - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ Installation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Installation subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.1[0m
+[2m│ AUR[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1.2[0m
+[2m│ OpenConnect[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2[0m
+[2m│ Third-party scripts[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Third-party scripts subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1[0m
+[2m│ MSJNC[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1.1[0m
+[2m│ Automatic installation of ncsvc using msjnc[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1.2[0m
+[2m│ Manual installation of msjnc[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.1.3[0m
+[2m│ Note regarding Server/URL[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2[0m
+[2m│ JVPN[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2.1[0m
+[2m│ Installation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2.2[0m
+[2m│ Running as root[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 2.2.3[0m
+[2m│ Running as a regular user[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3[0m
+[2m│ Workarounds[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Workarounds subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.1[0m
+[2m│ 64-bit Java (workaround 1)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 3.2[0m
+[2m│ 64-bit Java (workaround 2)[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4[0m
+[2m│ Troubleshooting[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle Troubleshooting subsection[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.1[0m
+[2m│ Login succeeds but Network Connect will not launch[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.2[0m
+[2m│ Network Connect launched but the VPN does not work[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.3[0m
+[2m│ Network Connect launched and a configuration error message is displayed[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.4[0m
+[2m│ ncapp.error Failed to connect/authenticate with IVE.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.5[0m
+[2m│ Unauthorized new route has been added, disconnecting[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.6[0m
+[2m│ After login, pulseUi displays 'Compliance: Security policies not met'[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 4.7[0m
+[2m│ pulseUi does not remember connections[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pulse Connect Secure[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pulse Connect Secure (PCS), previously known as Juniper SSL VPN, is a commercial VPN so...[0m
+[2m│ --- From Category:Terminal emulators ---[0m
+[2m│ Category:Terminal emulators - ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Jump to content[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Contents[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Beginning[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ 1[0m
+[2m│ See also[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Terminal emulators[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Appearance[0m
+[2m│ move to sidebar[0m
+[2m│ hide[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Help[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ From ArchWiki[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A terminal emulator allows a user to interact with a shell from within Xorg or Wayland.[0m
+[2m│ [0m
+[2m│ See also[0m
+[2m│ [0m
+[2m│ List of applications/Utilities#Terminal emulators[0m
+[2m│ Wikipedia:List of terminal emulators[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Pages in category "Terminal emulators"[0m
+[2m│ The following 20 pages are in this category, out of 20 total.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ A[0m
+[2m│ Alacritty[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ C[0m
+[2m│ Copying text from a terminal[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ F[0m
+[2m│ [0m
+[2m│ Fbpad[0m
+[2m│ Fbterm[0m
+[2m│ Foot[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ G[0m
+[2m│ [0m
+[2m│ Ghostty[0m
+[2m│ Guake[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ K[0m
+[2m│ [0m
+[2m│ Kitty[0m
+[2m│ KMSCON[0m
+[2m│ Konsole[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ M[0m
+[2m│ Mlterm[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ P[0m
+[2m│ PuTTY[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ R[0m
+[2m│ [0m
+[2m│ Rxvt-unicode[0m
+[2m│ Rxvt-unicode/Tips and tricks[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ S[0m
+[2m│ St[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ T[0m
+[2m│ [0m
+[2m│ Terminator[0m
+[2m│ Termite[0m
+[2m│ Tmuxp[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ X[0m
+[2m│ Xterm[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Y[0m
+[2m│ Yakuake[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Categories:[0m
+[2m│ Command-line[0m
+[2m│ Emulation[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Retrieved from "https://wiki.archlinux.org/index.php?title=Category:Terminal_emulators&oldid=832026"[0m
+[2m│ This page was last edited on 14 April 2025, at 13:11.[0m
+[2m│ Content is available under GNU Free Documentation License 1.3 or later unless otherwise noted.[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Privacy policy[0m
+[2m│ About ArchWiki[0m
+[2m│ Disclaimers[0m
+[2m│ Code of conduct[0m
+[2m│ Terms of service[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Search[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Toggle the table of contents[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Category:Terminal emulators[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Add topic[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ No commands were needed. Provide a helpful, concise answer based on the wiki information and your knowledge.[0m
+[2m│ Be direct and practical. Tailor your answer to THIS system (Wayland/Xorg, DE, etc.). If you're not sure, say so.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m information[0m[32m provided[0m[32m,[0m[32m it[0m[32m seems[0m[32m you[0m[32m are[0m[32m using[0m[32m Way[0m[32mland[0m[32m as[0m[32m indicated[0m[32m by[0m[32m the[0m[32m `[0m[32mlogin[0m[32mctl[0m[32m`[0m[32m output[0m[32m showing[0m[32m "[0m[32mtty[0m[32m"[0m[32m instead[0m[32m of[0m[32m a[0m[32m more[0m[32m typical[0m[32m graphical[0m[32m session[0m[32m identifier[0m[32m.[0m[32m However[0m[32m,[0m[32m the[0m[32m Arch[0m[32m Linux[0m[32m system[0m[32m is[0m[32m running[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m,[0m[32m which[0m[32m is[0m[32m derived[0m[32m from[0m[32m Arch[0m[32m Linux[0m[32m but[0m[32m might[0m[32m have[0m[32m some[0m[32m custom[0m[32m configurations[0m[32m.
+
+[0m[32mTo[0m[32m connect[0m[32m to[0m[32m WiFi[0m[32m from[0m[32m the[0m[32m terminal[0m[32m on[0m[32m your[0m[32m Arch[0m[32m-based[0m[32m system[0m[32m,[0m[32m you[0m[32m can[0m[32m use[0m[32m tools[0m[32m like[0m[32m `[0m[32mnm[0m[32mcli[0m[32m`,[0m[32m which[0m[32m is[0m[32m part[0m[32m of[0m[32m Network[0m[32mManager[0m[32m.[0m[32m Here[0m[32m’s[0m[32m how[0m[32m you[0m[32m can[0m[32m do[0m[32m it[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m if[0m[32m Network[0m[32mManager[0m[32m and[0m[32m its[0m[32m dependencies[0m[32m are[0m[32m installed[0m[32m:[0m[32m**
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m pacman[0m[32m -[0m[32mQi[0m[32m network[0m[32mmanager[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mConnect[0m[32m to[0m[32m WiFi[0m[32m using[0m[32m `[0m[32mnm[0m[32mcli[0m[32m`:[0m[32m**
+[0m[32m  [0m[32m First[0m[32m,[0m[32m ensure[0m[32m your[0m[32m WiFi[0m[32m adapter[0m[32m is[0m[32m up[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m ip[0m[32m link[0m[32m set[0m[32m w[0m[32mlp[0m[32m3[0m[32ms[0m[32m0[0m[32m up[0m[32m [0m[32m #[0m[32m Replace[0m[32m '[0m[32mw[0m[32mlp[0m[32m3[0m[32ms[0m[32m0[0m[32m'[0m[32m with[0m[32m your[0m[32m actual[0m[32m wireless[0m[32m interface[0m[32m name[0m[32m.
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m  [0m[32m Then[0m[32m connect[0m[32m to[0m[32m the[0m[32m network[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m nm[0m[32mcli[0m[32m dev[0m[32m wifi[0m[32m connect[0m[32m "[0m[32mSSID[0m[32m"[0m[32m password[0m[32m "[0m[32mPASSWORD[0m[32m"
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m Replace[0m[32m `[0m[32mSSID[0m[32m`[0m[32m and[0m[32m `[0m[32mPASSWORD[0m[32m`[0m[32m with[0m
+[31mError: [0mExecution error: request or response body error: operation timed out
+[31mError: [0mExecution error: request or response body error: operation timed out
