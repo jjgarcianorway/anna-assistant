@@ -571,47 +571,21 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             String::new()
         };
 
-        // Build system context section
-        let context_section = if !system_context.is_empty() {
-            format!("\n\nSYSTEM CONTEXT (already gathered):\n{}", system_context)
-        } else {
-            String::new()
-        };
+        // Build minimal context for command selection (full context saved for final answer)
+        let brief_context = get_system_profile().brief_summary();
 
-        // Ask LLM for commands (always - wiki just provides hints)
+        // Ask LLM for commands - keep prompt SMALL for speed
         let command_prompt = if iterations == 1 {
             format!(
-                r#"You are a system administrator assistant helping with THIS specific Arch Linux system.
-{context_section}
+                r#"System: {}
 Question: "{}"
 
-Based on the system context above, output commands to investigate this specific issue.
-
-RULES:
-1. Output ONLY commands, one per line - no explanations
-2. Commands must be safe (read-only)
-3. MAXIMUM 3-5 commands - ONLY what's relevant to this system
-4. CONSIDER THE CONTEXT: If system uses Wayland, don't suggest Xorg commands
-5. If system uses GDM, check GDM-specific settings (dconf, monitors.xml)
-6. Only output NONE if purely theoretical
-
-Common examples:
-- Check updates → checkupdates
-- Disk space → df -h
-- Memory usage → free -h
-- System logs → journalctl -xe --no-pager | tail -50
-- Service status → systemctl status <service>
-- List services → systemctl list-units --type=service --state=running
-- Network info → ip addr
-- GPU info → lspci | grep -i vga
-
-Display examples (Wayland/GDM):
-- GDM scaling → cat /etc/dconf/db/gdm.d/* 2>/dev/null
-- GDM monitors → cat /var/lib/gdm/.config/monitors.xml 2>/dev/null
-- Brightness → cat /sys/class/backlight/*/brightness 2>/dev/null{wiki_hint}
+Output Linux commands to answer this (one per line, no explanations).
+Examples: df -h, free -h, ip addr, lscpu, systemctl status X, journalctl -xe | tail -20
+Output NONE if no commands needed.{wiki_hint}
 
 Commands:"#,
-                question
+                brief_context, question
             )
         } else {
             format!(

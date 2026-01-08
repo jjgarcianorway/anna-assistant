@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.859] - 2026-01-08
+
+### Improved
+- **Slim command selection prompts** - Much smaller prompts for faster LLM responses
+  - Added `brief_summary()` for one-line system context
+  - Command selection now uses minimal prompt instead of full system details
+  - Reduces LLM processing time significantly
+
 ## [0.0.858] - 2026-01-08
 
 ### Fixed

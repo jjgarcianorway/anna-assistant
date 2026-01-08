@@ -145,6 +145,53 @@ impl SystemProfile {
         true
     }
 
+    /// Get a brief one-line summary for minimal LLM prompts
+    pub fn brief_summary(&self) -> String {
+        let mut parts = Vec::new();
+
+        // OS
+        if let Some(ref os) = self.system.os_name {
+            parts.push(os.clone());
+        }
+
+        // Kernel version (just version number)
+        if let Some(ref kernel) = self.system.kernel {
+            if let Some(ver) = kernel.split_whitespace().next() {
+                parts.push(format!("kernel {}", ver));
+            }
+        }
+
+        // GPU (just the key info)
+        for dev in &self.hardware.pci_devices {
+            let class = dev.class.to_lowercase();
+            if class.contains("vga") || class.contains("3d") {
+                // Extract short GPU name
+                let gpu = if dev.device.len() > 30 {
+                    dev.device[..30].to_string()
+                } else {
+                    dev.device.clone()
+                };
+                parts.push(gpu);
+                break; // Only first GPU
+            }
+        }
+
+        // WiFi (just vendor)
+        for dev in &self.hardware.pci_devices {
+            let class = dev.class.to_lowercase();
+            if class.contains("network") || class.contains("wireless") {
+                parts.push(format!("{} WiFi", dev.vendor));
+                break;
+            }
+        }
+
+        if parts.is_empty() {
+            "Linux system".to_string()
+        } else {
+            parts.join(", ")
+        }
+    }
+
     /// Get a summary suitable for LLM context
     pub fn summary_for_llm(&self) -> String {
         let mut summary = String::new();
