@@ -13,14 +13,14 @@ use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anna_shared::wiki;
 use anyhow::{anyhow, Result};
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::RwLock;
 use tokio::io::AsyncWriteExt;
 use tracing::{info, warn, debug};
 
 use crate::ollama;
 
-/// Cached system profile (lazy loaded)
-static SYSTEM_PROFILE: OnceLock<SystemProfile> = OnceLock::new();
+/// Cached system profile (refreshable)
+static SYSTEM_PROFILE: RwLock<Option<SystemProfile>> = RwLock::new(None);
 
 /// Ollama URL for embeddings
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
@@ -46,32 +46,82 @@ const SYSTEM_CONTEXT_COMMANDS: &[&str] = &[
     "grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1",
 ];
 
-/// Get or create system profile (lazy loaded, cached)
-fn get_system_profile() -> &'static SystemProfile {
-    SYSTEM_PROFILE.get_or_init(|| {
-        // Try to load existing profile
-        if let Ok(profile) = SystemProfile::load() {
-            if !profile.needs_refresh() {
-                info!("Loaded cached system profile");
-                return profile;
+/// Initialize system profile on daemon startup - always scans fresh
+pub fn init_system_profile() {
+    info!("Initializing system profile (fresh scan)...");
+    let profile = match profile::scan::scan_system() {
+        Ok(p) => {
+            if let Err(e) = p.save() {
+                warn!("Failed to save system profile: {}", e);
             }
+            info!(
+                "Profile initialized: bootloader={:?}, editor={:?}, shell={:?}, fs={:?}",
+                p.system.bootloader, p.system.editor, p.system.shell, p.system.root_filesystem
+            );
+            p
         }
+        Err(e) => {
+            warn!("Failed to scan system: {}", e);
+            SystemProfile::default()
+        }
+    };
 
-        // Scan system for fresh profile
-        info!("Scanning system profile...");
-        match profile::scan::scan_system() {
-            Ok(profile) => {
-                if let Err(e) = profile.save() {
-                    warn!("Failed to save system profile: {}", e);
-                }
-                profile
-            }
-            Err(e) => {
-                warn!("Failed to scan system: {}", e);
-                SystemProfile::default()
-            }
+    if let Ok(mut guard) = SYSTEM_PROFILE.write() {
+        *guard = Some(profile);
+    }
+}
+
+/// Refresh system profile if needed (called periodically)
+pub fn refresh_profile_if_needed() {
+    let needs_refresh = {
+        let guard = SYSTEM_PROFILE.read().ok();
+        guard.as_ref()
+            .and_then(|g| g.as_ref())
+            .map(|p| p.needs_refresh())
+            .unwrap_or(true)
+    };
+
+    if needs_refresh {
+        info!("Profile needs refresh, rescanning...");
+        init_system_profile();
+    }
+}
+
+/// Background loop that periodically refreshes the system profile
+pub async fn profile_refresh_loop() {
+    use tokio::time::{interval, Duration};
+
+    // Check every 30 minutes (profile expires after 1 hour)
+    let mut interval = interval(Duration::from_secs(30 * 60));
+
+    loop {
+        interval.tick().await;
+        debug!("Periodic profile refresh check...");
+        refresh_profile_if_needed();
+    }
+}
+
+/// Get system profile (returns clone to avoid lock issues)
+fn get_system_profile() -> SystemProfile {
+    // Try to get cached profile
+    if let Ok(guard) = SYSTEM_PROFILE.read() {
+        if let Some(ref profile) = *guard {
+            return profile.clone();
         }
-    })
+    }
+
+    // No cached profile, initialize it
+    init_system_profile();
+
+    // Return the newly created profile
+    if let Ok(guard) = SYSTEM_PROFILE.read() {
+        if let Some(ref profile) = *guard {
+            return profile.clone();
+        }
+    }
+
+    // Fallback
+    SystemProfile::default()
 }
 
 /// Gather basic system context

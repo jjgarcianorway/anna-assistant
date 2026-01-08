@@ -145,7 +145,7 @@ impl SystemProfile {
         Ok(())
     }
 
-    /// Check if profile needs refresh (older than 24 hours or empty)
+    /// Check if profile needs refresh (older than 1 hour or empty)
     pub fn needs_refresh(&self) -> bool {
         if self.hardware.pci_devices.is_empty() {
             return true;
@@ -154,7 +154,7 @@ impl SystemProfile {
         if let Some(ref last_updated) = self.last_updated {
             if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(last_updated) {
                 let age = chrono::Utc::now().signed_duration_since(dt);
-                return age.num_hours() > 24;
+                return age.num_hours() > 1;
             }
         }
 

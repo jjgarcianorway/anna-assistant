@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tracing::{error, info, warn};
 
-use crate::core_loop::execute_question;
+use crate::core_loop::{execute_question, init_system_profile, profile_refresh_loop};
 use crate::ollama;
 use crate::state::SharedState;
 use crate::update_loop::update_check_loop;
@@ -42,6 +42,11 @@ impl Server {
         let update_state = self.state.clone();
         tokio::spawn(async move {
             update_check_loop(update_state).await;
+        });
+
+        // Start profile refresh loop (checks every 30 minutes)
+        tokio::spawn(async move {
+            profile_refresh_loop().await;
         });
 
         // Run socket server
@@ -98,7 +103,10 @@ impl Server {
 async fn initialize(state: SharedState) -> Result<()> {
     info!("Initializing...");
 
-    // Detect hardware first
+    // Initialize system profile first (scans hardware, configs, preferences)
+    init_system_profile();
+
+    // Detect hardware for GPU/VRAM
     let hw = ollama::detect_hardware();
     let best_model = ollama::select_best_model(&hw);
     info!("Best model for this hardware: {}", best_model);

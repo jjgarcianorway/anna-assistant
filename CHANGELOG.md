@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.864] - 2026-01-08
+
+### Added
+- **Autonomous Profile Refresh** - Anna keeps itself up-to-date without user intervention
+  - Profile automatically scans fresh on daemon startup
+  - Background refresh loop checks every 30 minutes
+  - Profile expiration reduced from 24 hours to 1 hour
+  - RwLock-based caching allows runtime refresh without restart
+
 ## [0.0.863] - 2026-01-08
 
 ### Added
