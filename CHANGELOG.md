@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.853] - 2026-01-08
+
+### Fixed
+- Section matching now filters generic words ("change", "make") from header matching
+- Added related terms expansion - "scale" now also matches "monitor", "hidpi", "resolution"
+- GDM scaling queries now find "Setup default monitor settings" instead of "Change the language"
+
 ## [0.0.852] - 2026-01-08
 
 ### Added

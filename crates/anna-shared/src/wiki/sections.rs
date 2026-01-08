@@ -58,13 +58,47 @@ pub fn parse_sections(content: &str) -> Vec<WikiSection> {
     sections
 }
 
+/// Words to ignore when matching section headers (too generic)
+const HEADER_STOP_WORDS: &[&str] = &[
+    "change", "make", "set", "get", "the", "how", "can", "do", "to", "if", "or",
+    "not", "everything", "something", "nothing", "anything", "tried", "works",
+    "want", "need", "help", "please", "using", "use",
+];
+
+/// Related terms mapping for better semantic matching
+fn get_related_terms(word: &str) -> Vec<&'static str> {
+    match word {
+        "scale" | "scaling" | "2x" | "hidpi" | "dpi" =>
+            vec!["scale", "scaling", "hidpi", "dpi", "monitor", "display", "font", "resolution"],
+        "resolution" | "1920" | "1080" | "4k" | "1440" =>
+            vec!["resolution", "monitor", "display", "screen", "mode"],
+        "small" | "tiny" | "big" | "large" | "size" =>
+            vec!["font", "scale", "scaling", "hidpi", "size", "larger", "smaller"],
+        "display" | "monitor" | "screen" =>
+            vec!["display", "monitor", "screen", "resolution", "mode"],
+        _ => vec![],
+    }
+}
+
 /// Find the most relevant section for a query using keyword matching
 pub fn find_relevant_sections<'a>(sections: &'a [WikiSection], query: &str, max_sections: usize) -> Vec<&'a WikiSection> {
     let query_lower = query.to_lowercase();
+
+    // Extract significant words (skip stop words for header matching)
     let query_words: Vec<&str> = query_lower
         .split(|c: char| !c.is_alphanumeric())
-        .filter(|w| w.len() >= 2)
+        .filter(|w| w.len() >= 2 && !HEADER_STOP_WORDS.contains(w))
         .collect();
+
+    // Expand query with related terms
+    let mut expanded_terms: Vec<&str> = query_words.clone();
+    for word in &query_words {
+        for related in get_related_terms(word) {
+            if !expanded_terms.contains(&related) {
+                expanded_terms.push(related);
+            }
+        }
+    }
 
     let mut scored: Vec<(&WikiSection, i32)> = sections
         .iter()
@@ -73,12 +107,15 @@ pub fn find_relevant_sections<'a>(sections: &'a [WikiSection], query: &str, max_
             let content_lower = section.content.to_lowercase();
             let mut score = 0i32;
 
-            for word in &query_words {
-                // Header matches are worth more
-                if header_lower.contains(word) {
+            // Check expanded terms against header (high value)
+            for term in &expanded_terms {
+                if header_lower.contains(term) {
                     score += 10;
                 }
-                // Content matches
+            }
+
+            // Check original query words against content (lower value)
+            for word in &query_words {
                 if content_lower.contains(word) {
                     score += 1;
                 }
