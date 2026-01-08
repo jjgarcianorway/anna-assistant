@@ -10,7 +10,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
 use tracing::{error, info, warn};
 
-use crate::core_loop::{execute_question, init_system_profile, profile_refresh_loop};
+use crate::core_loop::{execute_question, init_system_profile, profile_refresh_loop, monitoring_loop};
 use crate::ollama;
 use crate::state::SharedState;
 use crate::update_loop::update_check_loop;
@@ -47,6 +47,11 @@ impl Server {
         // Start profile refresh loop (checks every 30 minutes)
         tokio::spawn(async move {
             profile_refresh_loop().await;
+        });
+
+        // Start proactive monitoring loop (checks every 5 minutes)
+        tokio::spawn(async move {
+            monitoring_loop().await;
         });
 
         // Run socket server

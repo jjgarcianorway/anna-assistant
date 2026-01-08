@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.867] - 2026-01-08
+
+### Added
+- **Learning Memory System** - Anna learns from every interaction
+  - Stores successful Q&A pairs with semantic context
+  - Recalls similar past questions to inform new answers
+  - Learns command patterns from successful executions
+  - Memory compacts automatically to keep most valuable experiences
+  - Storage: `~/.local/share/anna/memory.json`
+
+- **Proactive Monitoring** - Anna watches your system 24/7
+  - Checks every 5 minutes for issues
+  - Detects: disk space, memory, failed services, journal errors, outdated packages
+  - Severity levels: Critical (🔴), Warning (🟡), Info (ℹ️)
+  - Issues tracked in `~/.local/share/anna/issues.json`
+
+- **Wiki Knowledge Extractor** - Anna reads the wiki to learn
+  - Extracts config file locations from wiki articles
+  - Learns common commands per topic
+  - Maps packages → config files, services → config files
+  - No hardcoding - knowledge comes from wiki
+
+- **Session Memory** - Context awareness in conversations
+  - Remembers entities mentioned (packages, services, files)
+  - Resolves references ("it", "that service", "the file")
+  - Tracks conversation topic for better answers
+  - Detects user's apparent goal (troubleshooting, setup, etc.)
+
 ## [0.0.866] - 2026-01-08
 
 ### Added

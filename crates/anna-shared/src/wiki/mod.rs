@@ -22,6 +22,7 @@ pub mod download;
 pub mod embeddings;
 pub mod extract;
 pub mod index;
+pub mod knowledge;
 pub mod search;
 pub mod sections;
 

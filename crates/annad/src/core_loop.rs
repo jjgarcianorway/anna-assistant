@@ -2,12 +2,15 @@
 //!
 //! Flow:
 //! 1. User asks a question about Arch Linux
-//! 2. Search Arch Wiki for relevant articles (if available)
-//! 3. Extract commands from wiki OR ask LLM for commands
-//! 4. Commands are executed
-//! 5. Output is sent back to LLM for validation
-//! 6. If valid answer, return to user; otherwise iterate
+//! 2. Check memory for similar past questions (learning)
+//! 3. Search Arch Wiki for relevant articles (if available)
+//! 4. Use wiki knowledge for config files and commands
+//! 5. Execute commands
+//! 6. Output is sent back to LLM for validation
+//! 7. If valid answer, return to user; otherwise iterate
+//! 8. Learn from successful interactions
 
+use anna_shared::memory::{Experience, ExperienceContext, Memory};
 use anna_shared::profile::{self, SystemProfile};
 use anna_shared::recipe::{Recipe, RecipeBook};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
@@ -104,6 +107,53 @@ pub async fn profile_refresh_loop() {
         // Cleanup old backups (daily check, but happens every 30 mins - the function handles time)
         if let Err(e) = safe_ops::cleanup_old_backups() {
             warn!("Failed to cleanup old backups: {}", e);
+        }
+    }
+}
+
+/// Background loop for proactive system monitoring
+pub async fn monitoring_loop() {
+    use tokio::time::{interval, Duration};
+    use anna_shared::monitor::{self, MonitorThresholds, IssueStore, Severity};
+
+    // Check every 5 minutes
+    let mut interval = interval(Duration::from_secs(5 * 60));
+    let thresholds = MonitorThresholds::default();
+
+    // Wait a bit before first check to let system settle
+    tokio::time::sleep(Duration::from_secs(60)).await;
+
+    loop {
+        interval.tick().await;
+        debug!("Running proactive monitoring checks...");
+
+        let results = monitor::run_checks(&thresholds);
+
+        // Update issue store
+        let mut store = IssueStore::load().unwrap_or_default();
+        store.update(results.clone());
+
+        // Log any critical issues
+        for issue in store.get_critical() {
+            warn!("CRITICAL: {}", issue.summary);
+        }
+
+        // Log new unnotified issues
+        let unnotified = store.get_unnotified();
+        if !unnotified.is_empty() {
+            info!("Detected {} new issues:", unnotified.len());
+            for issue in &unnotified {
+                match issue.severity {
+                    Severity::Critical => warn!("  🔴 {}", issue.summary),
+                    Severity::Warning => info!("  🟡 {}", issue.summary),
+                    Severity::Info => debug!("  ℹ️ {}", issue.summary),
+                }
+            }
+            store.mark_notified();
+        }
+
+        if let Err(e) = store.save() {
+            warn!("Failed to save issue store: {}", e);
         }
     }
 }
@@ -362,6 +412,16 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
         content: question.to_string(),
     });
 
+    // Try to recall similar past experiences (learning)
+    let memory = Memory::load().unwrap_or_default();
+    let recalled = memory.recall(question, 3);
+    let suggested_commands = memory.suggest_commands(question);
+
+    if !recalled.is_empty() {
+        info!("Recalled {} similar past experiences", recalled.len());
+        debug!("Suggested commands from memory: {:?}", suggested_commands);
+    }
+
     // Try recipe fast path first
     let mut used_recipe: Option<String> = None;
     if let Some((recipe, recipe_output)) = try_recipe_fast_path(question) {
@@ -594,6 +654,11 @@ Answer:"#,
         mark_recipe_success(&recipe_id);
     }
 
+    // Learn from this successful interaction
+    if !commands_executed.is_empty() {
+        learn_from_interaction(question, &commands_executed, final_answer.trim());
+    }
+
     Ok(AskResult {
         answer: final_answer.trim().to_string(),
         success: true,
@@ -601,6 +666,82 @@ Answer:"#,
         commands_executed,
         dialogue,
     })
+}
+
+/// Learn from a successful interaction
+fn learn_from_interaction(question: &str, commands: &[String], answer: &str) {
+    let mut memory = match Memory::load() {
+        Ok(m) => m,
+        Err(e) => {
+            warn!("Failed to load memory for learning: {}", e);
+            return;
+        }
+    };
+
+    // Extract context from the question
+    let context = extract_context_from_question(question);
+
+    // Learn this experience
+    memory.learn(question, commands.to_vec(), answer, context);
+
+    // Compact if too large (keep most valuable experiences)
+    memory.compact(1000);
+
+    if let Err(e) = memory.save() {
+        warn!("Failed to save memory: {}", e);
+    } else {
+        debug!("Learned from interaction: {}", question);
+    }
+}
+
+/// Extract context from a question for learning
+fn extract_context_from_question(question: &str) -> ExperienceContext {
+    let q_lower = question.to_lowercase();
+    let mut context = ExperienceContext::default();
+
+    // Detect if about a specific package
+    if q_lower.contains("install") || q_lower.contains("pacman") {
+        // Try to extract package name
+        for word in question.split_whitespace() {
+            let clean = word.trim_matches(|c: char| !c.is_alphanumeric() && c != '-');
+            if clean.chars().all(|c| c.is_lowercase() || c == '-' || c.is_numeric())
+                && clean.len() > 2
+                && !["the", "and", "for", "how", "what", "install", "pacman"].contains(&clean)
+            {
+                context.package = Some(clean.to_string());
+                break;
+            }
+        }
+    }
+
+    // Detect if about a service
+    if q_lower.contains("service") || q_lower.contains("systemctl") || q_lower.contains("systemd") {
+        for word in question.split_whitespace() {
+            if word.ends_with(".service") || word.ends_with(".socket") {
+                context.service = Some(word.to_string());
+                break;
+            }
+        }
+    }
+
+    // Detect topic
+    let topics = [
+        ("network", &["network", "wifi", "ethernet", "ip", "dns"][..]),
+        ("audio", &["audio", "sound", "speaker", "pipewire", "pulseaudio"]),
+        ("display", &["display", "screen", "monitor", "wayland", "x11"]),
+        ("boot", &["boot", "grub", "systemd-boot", "kernel"]),
+        ("storage", &["disk", "partition", "mount", "btrfs", "storage"]),
+        ("security", &["security", "firewall", "permission", "ssh"]),
+    ];
+
+    for (topic, keywords) in topics {
+        if keywords.iter().any(|k| q_lower.contains(k)) {
+            context.topic = Some(topic.to_string());
+            break;
+        }
+    }
+
+    context
 }
 
 /// Helper to send a streaming response

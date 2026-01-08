@@ -3,10 +3,13 @@
 
 pub mod config;
 pub mod helpers;
+pub mod memory;
+pub mod monitor;
 pub mod profile;
 pub mod recipe;
 pub mod rpc;
 pub mod safe_ops;
+pub mod session;
 pub mod status;
 pub mod update_ledger;
 pub mod version;
