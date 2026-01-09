@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.880] - 2026-01-09
+
+### Added
+- **Command Retry with LLM-Suggested Alternatives** - When a command fails or returns empty/useless output:
+  - `get_alternative_commands()` asks LLM for alternatives (not hardcoded)
+  - `execute_command_with_retry()` tries alternatives automatically
+  - Shows `[alternative]` in dialogue when using fallback commands
+
+- **Answer Verification Loop** - Quick quality check before returning:
+  - `verify_answer_quality()` validates answer addresses the question
+  - Heuristic checks for short answers (avoids LLM call for obvious good answers)
+  - Regenerates answer with stricter prompt if verification fails
+
+- **Speed Optimizations**:
+  - Skip wiki search for high-confidence FACTUAL queries (saves 2-5 seconds)
+  - New `HIGH_CONFIDENCE_THRESHOLD` (0.85) determines when to skip wiki
+  - `FAST_LLM_TIMEOUT_SECS` (30s) for quick verification calls
+
+- **Output Cleanup** - `strip_ansi_codes()` removes terminal escape codes from command output
+
+### Improved
+- Reduced `MAX_ITERATIONS` from 5 to 3 (faster overall)
+- Reduced default `LLM_TIMEOUT_SECS` from 120 to 60 (fail faster)
+- Cleaner command output without color codes interfering with LLM parsing
+
 ## [0.0.879] - 2026-01-09
 
 ### Added

@@ -31,11 +31,240 @@ static SYSTEM_PROFILE: RwLock<Option<SystemProfile>> = RwLock::new(None);
 /// Ollama URL for embeddings
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
-/// Maximum iterations to try before giving up
-const MAX_ITERATIONS: u32 = 5;
+/// Maximum iterations to try before giving up (reduced for speed)
+const MAX_ITERATIONS: u32 = 3;
 
-/// Timeout for LLM calls (seconds) - increased for complex prompts
-const LLM_TIMEOUT_SECS: u64 = 120;
+/// Timeout for LLM calls (seconds) - reduced for speed
+const LLM_TIMEOUT_SECS: u64 = 60;
+
+/// Fast timeout for simple queries
+const FAST_LLM_TIMEOUT_SECS: u64 = 30;
+
+/// Confidence threshold for skipping extra steps
+const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
+
+/// Strip ANSI escape codes from text
+fn strip_ansi_codes(text: &str) -> String {
+    // Regex-free ANSI stripping for speed
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            // Skip escape sequence
+            if chars.peek() == Some(&'[') {
+                chars.next(); // consume '['
+                // Skip until we hit a letter (end of sequence)
+                while let Some(&next) = chars.peek() {
+                    chars.next();
+                    if next.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
+}
+
+/// Get alternative commands when the first one fails
+/// This is NOT hardcoded - it asks the LLM for alternatives
+async fn get_alternative_commands(
+    model: &str,
+    original_cmd: &str,
+    error_output: &str,
+    question: &str,
+) -> Option<Vec<String>> {
+    let prompt = format!(
+        r#"The command `{original_cmd}` failed or returned no useful data.
+Error/output: {error_output}
+
+Original question: "{question}"
+
+Suggest 1-2 alternative commands that might work better on Arch Linux.
+Reply with ONLY the commands, one per line. No explanation.
+If no alternative exists, reply with "NONE"."#,
+        original_cmd = original_cmd,
+        error_output = if error_output.len() > 200 { &error_output[..200] } else { error_output },
+        question = question
+    );
+
+    match ollama::chat_with_timeout(model, &prompt, FAST_LLM_TIMEOUT_SECS).await {
+        Ok(response) => {
+            let response = response.trim();
+            if response == "NONE" || response.is_empty() {
+                return None;
+            }
+
+            let alternatives: Vec<String> = response
+                .lines()
+                .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
+                .map(|l| l.trim().to_string())
+                .take(2)
+                .collect();
+
+            if alternatives.is_empty() {
+                None
+            } else {
+                debug!("Got alternative commands: {:?}", alternatives);
+                Some(alternatives)
+            }
+        }
+        Err(e) => {
+            debug!("Failed to get alternative commands: {}", e);
+            None
+        }
+    }
+}
+
+/// Quick verification that the answer addresses the question
+/// Returns true if answer is good, false if we should retry
+async fn verify_answer_quality(
+    model: &str,
+    question: &str,
+    answer: &str,
+) -> bool {
+    // Skip verification for very short answers that are likely correct
+    let answer_trimmed = answer.trim();
+    if answer_trimmed.is_empty() {
+        return false;
+    }
+
+    // Quick heuristic checks (fast, no LLM call needed)
+    // If answer contains actual data, it's probably good
+    let has_data = answer_trimmed.len() > 5
+        && !answer_trimmed.to_lowercase().contains("not found")
+        && !answer_trimmed.to_lowercase().contains("no data")
+        && !answer_trimmed.to_lowercase().contains("error:")
+        && !answer_trimmed.to_lowercase().contains("command not found");
+
+    if has_data && answer_trimmed.len() < 500 {
+        // Short answers with data are likely correct
+        return true;
+    }
+
+    // For longer or questionable answers, do a quick LLM verification
+    let prompt = format!(
+        r#"Question: "{question}"
+Answer: "{answer}"
+
+Does this answer address the question? Reply with only YES or NO."#,
+        question = question,
+        answer = if answer_trimmed.len() > 300 { &answer_trimmed[..300] } else { answer_trimmed }
+    );
+
+    match ollama::chat_with_timeout(model, &prompt, 10).await {
+        Ok(response) => {
+            let response = response.trim().to_uppercase();
+            response.contains("YES")
+        }
+        Err(_) => {
+            // If verification fails, assume answer is OK
+            true
+        }
+    }
+}
+
+/// Build a lean prompt for simple factual queries (speed optimization)
+fn build_lean_factual_prompt(question: &str, command_output: &str, system_info: &str) -> String {
+    format!(
+        r#"Question: "{question}"
+
+System: {system_info}
+
+Command output:
+{output}
+
+Give a SHORT, direct answer (just the value or fact). No explanation needed.
+RESPOND IN ENGLISH ONLY."#,
+        question = question,
+        system_info = system_info,
+        output = if command_output.len() > 1500 { &command_output[..1500] } else { command_output }
+    )
+}
+
+/// Execute a command with retry logic - tries alternatives if first attempt fails
+async fn execute_command_with_retry(
+    model: &str,
+    cmd: &str,
+    question: &str,
+) -> (String, Vec<String>) {
+    // Track all commands tried
+    let mut all_commands = vec![cmd.to_string()];
+
+    // First attempt
+    match execute_command(cmd) {
+        Ok(output) if !output.trim().is_empty()
+            && !output.contains("command not found")
+            && !output.contains("No such file")
+            && !output.contains("not found") => {
+            // Success - got useful output
+            return (output, all_commands);
+        }
+        Ok(output) => {
+            // Empty or error-like output - try alternatives
+            debug!("Command {} returned empty/error output, trying alternatives", cmd);
+
+            if let Some(alternatives) = get_alternative_commands(model, cmd, &output, question).await {
+                for alt_cmd in alternatives {
+                    // Skip dangerous commands
+                    if is_dangerous_command(&alt_cmd) {
+                        continue;
+                    }
+
+                    all_commands.push(alt_cmd.clone());
+
+                    if let Ok(alt_output) = execute_command(&alt_cmd) {
+                        if !alt_output.trim().is_empty()
+                            && !alt_output.contains("command not found") {
+                            info!("Alternative command {} succeeded", alt_cmd);
+                            return (alt_output, all_commands);
+                        }
+                    }
+                }
+            }
+
+            // Return original output if alternatives didn't help
+            (output, all_commands)
+        }
+        Err(e) => {
+            // Command failed - try alternatives
+            let error_msg = format!("Error: {}", e);
+
+            if let Some(alternatives) = get_alternative_commands(model, cmd, &error_msg, question).await {
+                for alt_cmd in alternatives {
+                    if is_dangerous_command(&alt_cmd) {
+                        continue;
+                    }
+
+                    all_commands.push(alt_cmd.clone());
+
+                    if let Ok(alt_output) = execute_command(&alt_cmd) {
+                        if !alt_output.trim().is_empty() {
+                            info!("Alternative command {} succeeded after error", alt_cmd);
+                            return (alt_output, all_commands);
+                        }
+                    }
+                }
+            }
+
+            (error_msg, all_commands)
+        }
+    }
+}
+
+/// Check if output looks like an error or empty result
+fn is_useless_output(output: &str) -> bool {
+    let output_lower = output.to_lowercase();
+    output.trim().is_empty()
+        || output_lower.contains("command not found")
+        || output_lower.contains("no such file")
+        || output_lower.contains("permission denied")
+        || (output_lower.contains("error") && output.len() < 50)
+}
 
 /// Check if this is a simple factual query that doesn't need full context
 /// Simple queries: "what is X?", "how much X?", "is X installed?", etc.
@@ -1605,19 +1834,35 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     let system_context = gather_system_context();
     debug!("System context: {}", system_context);
 
-    // Try wiki search first
+    // SPEED OPTIMIZATION: Skip wiki search for high-confidence FACTUAL queries
+    // Wiki search adds ~2-5 seconds latency - skip for simple "what is X?" queries
+    let skip_wiki = understanding.category == IntentCategory::Factual
+        && understanding.confidence >= HIGH_CONFIDENCE_THRESHOLD;
+
     let mut wiki_context = String::new();
     let mut wiki_commands: Vec<String> = Vec::new();
 
-    // Send wiki search step
-    let step = DialogueStep {
-        step_type: StepType::WikiSearch,
-        content: question.to_string(),
-    };
-    dialogue.push(step.clone());
-    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+    if skip_wiki {
+        info!("Skipping wiki search for high-confidence factual query (confidence: {:.0}%)",
+              understanding.confidence * 100.0);
+        let step = DialogueStep {
+            step_type: StepType::WikiSearch,
+            content: "(skipped - simple factual query)".to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+    } else {
+        // Send wiki search step
+        let step = DialogueStep {
+            step_type: StepType::WikiSearch,
+            content: question.to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+    }
 
-    if let Some(wiki_results) = search_wiki_for_commands(question).await {
+    if !skip_wiki {
+        if let Some(wiki_results) = search_wiki_for_commands(question).await {
         // Send wiki results
         let step = DialogueStep {
             step_type: StepType::WikiResults,
@@ -1656,15 +1901,16 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         };
         info!("Wiki found {} articles, {} commands, context {} chars",
               wiki_results.article_titles.len(), wiki_commands.len(), wiki_context.len());
-    } else {
-        // No wiki results
-        let step = DialogueStep {
-            step_type: StepType::WikiResults,
-            content: "(no relevant articles found)".to_string(),
-        };
-        dialogue.push(step.clone());
-        send_streaming(writer, &StreamingResponse::Step { step }).await?;
-    }
+        } else {
+            // No wiki results
+            let step = DialogueStep {
+                step_type: StepType::WikiResults,
+                content: "(no relevant articles found)".to_string(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+        }
+    } // End of !skip_wiki
 
     while iterations < MAX_ITERATIONS {
         iterations += 1;
@@ -1798,27 +2044,29 @@ Commands:"#,
             dialogue.push(step.clone());
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-            match execute_command(cmd) {
-                Ok(output) => {
+            // Execute with retry - tries LLM-suggested alternatives on failure
+            let (output, tried_commands) = execute_command_with_retry(model, cmd, question).await;
+
+            // Record all commands that were tried (including alternatives)
+            for tried_cmd in &tried_commands {
+                if tried_cmd != cmd {
+                    commands_executed.push(tried_cmd.clone());
                     let step = DialogueStep {
-                        step_type: StepType::CommandOutput,
-                        content: output.clone(),
+                        step_type: StepType::CommandExec,
+                        content: format!("{} [alternative]", tried_cmd),
                     };
                     dialogue.push(step.clone());
                     send_streaming(writer, &StreamingResponse::Step { step }).await?;
-                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, output));
-                }
-                Err(e) => {
-                    let error_msg = format!("Error: {}", e);
-                    let step = DialogueStep {
-                        step_type: StepType::CommandOutput,
-                        content: error_msg.clone(),
-                    };
-                    dialogue.push(step.clone());
-                    send_streaming(writer, &StreamingResponse::Step { step }).await?;
-                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, error_msg));
                 }
             }
+
+            let step = DialogueStep {
+                step_type: StepType::CommandOutput,
+                content: output.clone(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+            combined_output.push_str(&format!("$ {}\n{}\n\n", tried_commands.last().unwrap_or(&cmd.to_string()), output));
         }
 
         last_output = combined_output;
@@ -1956,6 +2204,33 @@ Answer:"#,
         tracing::warn!("Streaming LLM returned empty response, retrying non-streaming");
         final_answer = ollama::chat_with_timeout(model, &final_prompt, LLM_TIMEOUT_SECS).await
             .unwrap_or_else(|e| format!("I encountered an error generating a response: {}", e));
+    }
+
+    // Verify answer quality - quick check that it addresses the question
+    let answer_ok = verify_answer_quality(model, question, &final_answer).await;
+    if !answer_ok && !last_output.is_empty() {
+        // Answer seems off - try once more with a stricter prompt
+        debug!("Answer verification failed, regenerating...");
+        let retry_prompt = format!(
+            r#"Question: "{question}"
+
+Command output:
+{output}
+
+Your previous answer didn't directly address the question.
+Give a SHORT, DIRECT answer using ONLY the command output above.
+Just state the fact or value - no explanation needed.
+RESPOND IN ENGLISH ONLY."#,
+            question = question,
+            output = last_output
+        );
+
+        if let Ok(retry_answer) = ollama::chat_with_timeout(model, &retry_prompt, FAST_LLM_TIMEOUT_SECS).await {
+            if !retry_answer.trim().is_empty() {
+                debug!("Regenerated answer: {}", retry_answer.trim());
+                final_answer = retry_answer;
+            }
+        }
     }
 
     // Send the final answer step (for dialogue record)
@@ -2683,8 +2958,13 @@ fn execute_command(cmd: &str) -> Result<String> {
         execute_as_root(&cmd)
     };
 
-    // Truncate very long output
+    // Clean and truncate output
     let mut result = result?;
+
+    // Strip ANSI escape codes for clean output
+    result = strip_ansi_codes(&result);
+
+    // Truncate very long output
     if result.len() > 4000 {
         result.truncate(4000);
         result.push_str("\n... (output truncated)");
