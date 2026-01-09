@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.879] - 2026-01-09
+
+### Added
+- **Deep Understanding System** - Anna now thinks like Claude before acting
+  - `DeepUnderstanding` struct captures paraphrase, required info, missing info, ambiguities
+  - `understand_request()` uses chain-of-thought prompting for step-by-step reasoning
+  - Anna paraphrases questions: "I understand: User wants to know their kernel version"
+  - Shows confidence level and detected entities/topic
+
+- **Smart Clarification Triggers** - Anna asks for clarification when:
+  - Confidence is below 70%
+  - Critical information is missing (which service? which file?)
+  - Multiple valid interpretations exist
+  - Request involves potentially destructive actions (delete, remove, uninstall)
+  - TROUBLESHOOT question is too short/vague
+
+- **New Step Types** for UI:
+  - `UnderstandingCheck` - Shows what Anna thinks the user is asking
+  - `ConfirmationRequest` - Asks user to confirm understanding
+  - `MissingInfo` - Displays missing critical details
+
+### Improved
+- Chain-of-thought prompting: LLM thinks step-by-step before classifying
+  1. Paraphrase the request
+  2. List required information
+  3. Identify missing details
+  4. Check for ambiguity
+  5. Rate confidence
+  6. Classify intent
+- Better JSON extraction from LLM responses (handles reasoning text before JSON)
+- More accurate intent classification with semantic understanding
+
+### Technical
+- `fallback_understanding()` for graceful degradation
+- `should_ask_confirmation()` determines when to pause and ask
+- `format_understanding_result()` for display
+- Backward-compatible `classify_intent()` wrapper
+
 ## [0.0.878] - 2026-01-09
 
 ### Added

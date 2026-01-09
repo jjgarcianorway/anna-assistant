@@ -1450,7 +1450,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-    // PHASE 0: Intent Classification - understand what the user is asking
+    // PHASE 0: Deep Understanding - think through the request like Claude does
     let step = DialogueStep {
         step_type: StepType::IntentClassifying,
         content: question.to_string(),
@@ -1458,29 +1458,100 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-    let intent_result = match intent::classify_intent(model, question, None).await {
-        Ok(i) => i,
+    let understanding = match intent::understand_request(model, question, None).await {
+        Ok(u) => u,
         Err(e) => {
-            warn!("Intent classification failed: {}, using fallback", e);
-            intent::fallback_classification(question)
+            warn!("Understanding failed: {}, using fallback", e);
+            intent::fallback_understanding(question)
         }
     };
 
-    // Send intent result
+    // Send understanding result (shows what Anna thinks the user is asking)
     let step = DialogueStep {
-        step_type: StepType::IntentResult,
-        content: intent::format_intent_result(&intent_result),
+        step_type: StepType::UnderstandingCheck,
+        content: format!("I understand: {}", understanding.interpreted_as),
     };
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-    info!("Intent: {:?} (confidence: {:.0}%)", intent_result.category, intent_result.confidence * 100.0);
+    // Send classification result
+    let step = DialogueStep {
+        step_type: StepType::IntentResult,
+        content: intent::format_understanding_result(&understanding),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    info!("Understanding: {:?} (confidence: {:.0}%) - {}",
+          understanding.category, understanding.confidence * 100.0, understanding.interpreted_as);
+
+    // Convert to legacy format for existing handlers
+    let intent_result = anna_shared::rpc::IntentClassification {
+        category: understanding.category.clone(),
+        confidence: understanding.confidence,
+        sub_questions: understanding.sub_questions.clone(),
+        clarification: understanding.clarification_needed.clone(),
+        entities: understanding.entities.clone(),
+        topic: understanding.topic.clone(),
+    };
+
+    // Check if Anna needs to ask for clarification before proceeding
+    if understanding.needs_confirmation {
+        // Build a clarification message
+        let mut clarification_msg = String::new();
+
+        // Show what Anna understood
+        clarification_msg.push_str(&format!("I understood: \"{}\"\n\n", understanding.interpreted_as));
+
+        // Show missing info if any
+        if !understanding.missing_info.is_empty() {
+            clarification_msg.push_str("However, I need more details:\n");
+            for info in &understanding.missing_info {
+                clarification_msg.push_str(&format!("  - {}\n", info));
+            }
+            clarification_msg.push('\n');
+        }
+
+        // Show ambiguities if any
+        if understanding.ambiguities.len() > 1 {
+            clarification_msg.push_str("This could mean different things:\n");
+            for (i, interp) in understanding.ambiguities.iter().enumerate() {
+                clarification_msg.push_str(&format!("  {}. {}\n", i + 1, interp));
+            }
+            clarification_msg.push('\n');
+        }
+
+        // Add the clarification question
+        let clarification_question = understanding.clarification_needed.as_deref()
+            .unwrap_or("Could you please be more specific?");
+        clarification_msg.push_str(clarification_question);
+
+        let step = DialogueStep {
+            step_type: StepType::ClarificationQuestion,
+            content: clarification_msg.clone(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Return with needs_clarification flag
+        let result = AskResult {
+            answer: clarification_msg,
+            success: false,
+            iterations: 0,
+            commands_executed: vec![],
+            dialogue,
+            needs_clarification: true,
+            clarification_question: Some(clarification_question.to_string()),
+        };
+        send_streaming(writer, &StreamingResponse::Done { result }).await?;
+        return Ok(());
+    }
 
     // Handle special intents
-    match intent_result.category {
+    match understanding.category {
         IntentCategory::Unclear => {
-            // Question needs clarification - ask user
-            let clarification = intent_result.clarification.as_deref()
+            // Already handled by needs_confirmation above, but fallback just in case
+            let clarification = understanding.clarification_needed.as_deref()
                 .unwrap_or("Could you please be more specific about what you're asking?");
 
             let step = DialogueStep {
@@ -1490,7 +1561,6 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             dialogue.push(step.clone());
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-            // Return with needs_clarification flag
             let result = AskResult {
                 answer: format!("I need more information to help you: {}", clarification),
                 success: false,
@@ -1505,7 +1575,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         }
         IntentCategory::Multi => {
             // Multiple questions - handle separately
-            if let Some(ref sub_questions) = intent_result.sub_questions {
+            if let Some(ref sub_questions) = understanding.sub_questions {
                 return handle_multi_question(model, question, sub_questions, writer, dialogue).await;
             }
             // If no sub_questions extracted, fall through to normal processing

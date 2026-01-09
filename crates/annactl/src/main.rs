@@ -329,6 +329,26 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
             print_colored("  → ", GREEN);
             println!("{}", step.content);
         }
+        StepType::UnderstandingCheck => {
+            print_colored("ANNA: ", CYAN);
+            println!("{}", step.content);
+        }
+        StepType::ConfirmationRequest => {
+            println!();
+            print_colored("ANNA → USER: ", YELLOW);
+            println!("Please confirm:");
+            for line in step.content.lines() {
+                println!("  {}", line);
+            }
+            println!();
+        }
+        StepType::MissingInfo => {
+            print_colored("ANNA: ", RED);
+            println!("Missing information:");
+            for line in step.content.lines() {
+                println!("  - {}", line);
+            }
+        }
     }
 }
 
@@ -584,6 +604,26 @@ fn print_dialogue(result: &AskResult) {
             StepType::SubQuestionResult => {
                 print_colored("  → ", GREEN);
                 println!("{}", step.content);
+            }
+            StepType::UnderstandingCheck => {
+                print_colored("ANNA: ", CYAN);
+                println!("{}", step.content);
+            }
+            StepType::ConfirmationRequest => {
+                println!();
+                print_colored("ANNA → USER: ", YELLOW);
+                println!("Please confirm:");
+                for line in step.content.lines() {
+                    println!("  {}", line);
+                }
+                println!();
+            }
+            StepType::MissingInfo => {
+                print_colored("ANNA: ", RED);
+                println!("Missing information:");
+                for line in step.content.lines() {
+                    println!("  - {}", line);
+                }
             }
         }
     }

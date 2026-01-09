@@ -34,6 +34,33 @@ pub struct IntentClassification {
     pub topic: Option<String>,
 }
 
+/// Deep understanding of a user request - makes Anna think before acting
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeepUnderstanding {
+    /// What Anna thinks the user is asking (paraphrase for verification)
+    pub interpreted_as: String,
+    /// What information is needed to answer this question
+    pub required_info: Vec<String>,
+    /// Critical details that are missing from the request
+    pub missing_info: Vec<String>,
+    /// Alternative valid interpretations of the question
+    pub ambiguities: Vec<String>,
+    /// Confidence in understanding (0.0 - 1.0)
+    pub confidence: f32,
+    /// The intent category
+    pub category: IntentCategory,
+    /// Detected entities (packages, services, files mentioned)
+    pub entities: Vec<String>,
+    /// Topic area (network, audio, storage, etc.)
+    pub topic: Option<String>,
+    /// For MULTI: decomposed sub-questions
+    pub sub_questions: Option<Vec<String>>,
+    /// Suggested clarification if understanding is uncertain
+    pub clarification_needed: Option<String>,
+    /// Whether Anna should confirm its understanding before proceeding
+    pub needs_confirmation: bool,
+}
+
 /// RPC methods supported by the daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RpcMethod {
@@ -194,4 +221,10 @@ pub enum StepType {
     SubQuestion,
     /// Sub-question result
     SubQuestionResult,
+    /// Anna's understanding of the request (paraphrase)
+    UnderstandingCheck,
+    /// Anna asking for confirmation of understanding
+    ConfirmationRequest,
+    /// Missing information detected
+    MissingInfo,
 }

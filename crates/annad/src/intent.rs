@@ -1,111 +1,112 @@
 //! Intent classification module - LLM-based question understanding.
 //!
-//! Replaces brittle keyword matching with semantic understanding
-//! of user questions using a quick LLM call.
+//! Uses chain-of-thought reasoning to deeply understand user requests
+//! before taking action. This makes Anna think like Claude - paraphrasing,
+//! identifying missing info, and asking for clarification when needed.
 
-use anna_shared::rpc::{IntentCategory, IntentClassification};
+use anna_shared::rpc::{DeepUnderstanding, IntentCategory, IntentClassification};
 use anyhow::Result;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::ollama;
 
-/// Timeout for intent classification (fast - ~100-150 tokens)
-const INTENT_TIMEOUT_SECS: u64 = 15;
+/// Timeout for understanding (slightly longer for chain-of-thought)
+const UNDERSTAND_TIMEOUT_SECS: u64 = 25;
 
-/// Classify the intent of a user question using LLM
-pub async fn classify_intent(
+/// Confidence threshold below which we ask for clarification
+const CLARIFICATION_THRESHOLD: f32 = 0.7;
+
+/// Deep understanding of a user request using chain-of-thought reasoning
+/// This makes Anna think through the request before acting
+pub async fn understand_request(
     model: &str,
     question: &str,
     session_context: Option<&str>,
-) -> Result<IntentClassification> {
+) -> Result<DeepUnderstanding> {
     let context_section = session_context
         .filter(|c| !c.is_empty())
-        .map(|c| format!("\nContext from conversation:\n{}", c))
+        .map(|c| format!("\nPrevious context:\n{}", c))
         .unwrap_or_default();
 
+    // Chain-of-thought prompt that makes the LLM think step by step
     let prompt = format!(
-        r#"Classify this question into ONE category. Reply with ONLY valid JSON.
+        r#"Think through this user request step by step before responding.
 
-Question: "{question}"
+User request: "{question}"
 {context}
-Categories:
-- FACTUAL: Status/info query ("what is X?", "how much RAM?", "is X installed?", "what version?")
-- HOWTO: Instructions needed ("how do I install X?", "how to configure Y?", "setup Z")
-- TROUBLESHOOT: Problem solving ("X not working", "error when Y", "why is Z slow?", "fix")
-- MULTI: Multiple distinct questions in one ("what's my disk AND how do I install Y?")
-- UNCLEAR: Too vague to understand ("fix it", "help", "the thing", needs more context)
+THINK STEP BY STEP:
 
-If MULTI, extract the sub_questions as a list.
-If UNCLEAR, suggest a clarification question to ask the user.
-Extract entities: packages, services, files, commands mentioned.
-Detect topic: network, audio, storage, boot, packages, services, security, performance, display, or null.
+1. PARAPHRASE: What is the user actually asking for? Restate in your own words.
 
-Reply ONLY with this JSON format:
-{{"category":"FACTUAL","confidence":0.9,"sub_questions":null,"clarification":null,"entities":[],"topic":null}}"#,
+2. REQUIRED INFO: What information do you need to answer this? List specific things.
+
+3. MISSING INFO: Is anything critical missing from the request? (which service? which file? which package?)
+   - If they say "the service" but didn't specify which one = missing
+   - If they say "install it" but didn't say what = missing
+   - If they reference "that error" without showing it = missing
+
+4. AMBIGUITY CHECK: Could this request mean multiple different things?
+   - "check the log" = which log? system log? application log?
+   - "enable bluetooth" = just enable? or also pair a device?
+
+5. CONFIDENCE: How confident are you that you understand exactly what they want? (0.0-1.0)
+   - 0.9+ = Crystal clear, no ambiguity
+   - 0.7-0.9 = Mostly clear, minor assumptions needed
+   - 0.5-0.7 = Somewhat unclear, should probably ask
+   - <0.5 = Too vague, must ask for clarification
+
+6. CATEGORY: FACTUAL / HOWTO / TROUBLESHOOT / MULTI / UNCLEAR
+
+7. ENTITIES: List any packages, services, files, commands mentioned
+
+8. TOPIC: network / audio / storage / boot / packages / services / security / performance / display / null
+
+Now output your analysis as JSON:
+{{"interpreted_as":"what you think they're asking","required_info":["item1","item2"],"missing_info":["missing1"],"ambiguities":["possible interpretation 1","possible interpretation 2"],"confidence":0.85,"category":"FACTUAL","entities":["entity1"],"topic":"topic_or_null","sub_questions":null,"clarification_needed":"question to ask if unclear","needs_confirmation":false}}"#,
         question = question,
         context = context_section
     );
 
-    debug!("Intent classification prompt: {} chars", prompt.len());
+    debug!("Understanding prompt: {} chars", prompt.len());
 
-    let response = ollama::chat_with_timeout(model, &prompt, INTENT_TIMEOUT_SECS).await?;
+    let response = ollama::chat_with_timeout(model, &prompt, UNDERSTAND_TIMEOUT_SECS).await?;
 
-    debug!("Intent classification response: {}", response.trim());
+    debug!("Understanding response: {}", response.trim());
 
-    parse_intent_response(&response)
+    parse_understanding_response(&response, question)
 }
 
-/// Parse the LLM's JSON response into IntentClassification
-fn parse_intent_response(response: &str) -> Result<IntentClassification> {
-    // Try to extract JSON from response (handle markdown code blocks)
-    let json_str = response
-        .trim()
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim();
+/// Parse the LLM's chain-of-thought response into DeepUnderstanding
+fn parse_understanding_response(response: &str, original_question: &str) -> Result<DeepUnderstanding> {
+    // Try to extract JSON from response (handle markdown code blocks and reasoning text)
+    let json_str = extract_json_from_response(response);
 
-    // Attempt to parse
-    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&json_str) {
         let category = match parsed.get("category").and_then(|c| c.as_str()) {
             Some("FACTUAL") => IntentCategory::Factual,
             Some("HOWTO") => IntentCategory::HowTo,
             Some("TROUBLESHOOT") => IntentCategory::Troubleshoot,
             Some("MULTI") => IntentCategory::Multi,
             Some("UNCLEAR") => IntentCategory::Unclear,
-            _ => IntentCategory::Factual, // Default fallback
+            _ => IntentCategory::Factual,
         };
 
         let confidence = parsed
             .get("confidence")
             .and_then(|c| c.as_f64())
             .map(|c| c as f32)
-            .unwrap_or(0.7);
+            .unwrap_or(0.5);
 
-        let sub_questions = parsed
-            .get("sub_questions")
-            .and_then(|s| s.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            });
+        let interpreted_as = parsed
+            .get("interpreted_as")
+            .and_then(|s| s.as_str())
+            .unwrap_or(original_question)
+            .to_string();
 
-        let clarification = parsed
-            .get("clarification")
-            .and_then(|c| c.as_str())
-            .filter(|s| !s.is_empty() && *s != "null")
-            .map(String::from);
-
-        let entities = parsed
-            .get("entities")
-            .and_then(|e| e.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let required_info = extract_string_array(&parsed, "required_info");
+        let missing_info = extract_string_array(&parsed, "missing_info");
+        let ambiguities = extract_string_array(&parsed, "ambiguities");
+        let entities = extract_string_array(&parsed, "entities");
 
         let topic = parsed
             .get("topic")
@@ -113,19 +114,159 @@ fn parse_intent_response(response: &str) -> Result<IntentClassification> {
             .filter(|t| !t.is_empty() && *t != "null")
             .map(String::from);
 
-        return Ok(IntentClassification {
-            category,
+        let sub_questions = parsed
+            .get("sub_questions")
+            .and_then(|s| s.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
+
+        let clarification_needed = parsed
+            .get("clarification_needed")
+            .and_then(|c| c.as_str())
+            .filter(|s| !s.is_empty() && *s != "null")
+            .map(String::from);
+
+        // Determine if confirmation is needed
+        let needs_confirmation = should_ask_confirmation(
             confidence,
-            sub_questions,
-            clarification,
+            &missing_info,
+            &ambiguities,
+            &category,
+            original_question,
+        );
+
+        return Ok(DeepUnderstanding {
+            interpreted_as,
+            required_info,
+            missing_info,
+            ambiguities,
+            confidence,
+            category,
             entities,
             topic,
+            sub_questions,
+            clarification_needed,
+            needs_confirmation,
         });
     }
 
     // Fallback if JSON parsing fails
-    warn!("Failed to parse intent JSON, using fallback: {}", json_str);
-    Ok(fallback_classification(response))
+    warn!("Failed to parse understanding JSON, using fallback");
+    Ok(fallback_understanding(original_question))
+}
+
+/// Extract JSON from a response that may contain reasoning text
+fn extract_json_from_response(response: &str) -> String {
+    let response = response.trim();
+
+    // Try to find JSON object in the response
+    if let Some(start) = response.find('{') {
+        if let Some(end) = response.rfind('}') {
+            if end > start {
+                return response[start..=end].to_string();
+            }
+        }
+    }
+
+    // Try handling markdown code blocks
+    response
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim()
+        .to_string()
+}
+
+/// Extract a string array from JSON
+fn extract_string_array(parsed: &serde_json::Value, key: &str) -> Vec<String> {
+    parsed
+        .get(key)
+        .and_then(|arr| arr.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default()
+}
+
+/// Determine if Anna should ask for confirmation before proceeding
+fn should_ask_confirmation(
+    confidence: f32,
+    missing_info: &[String],
+    ambiguities: &[String],
+    category: &IntentCategory,
+    question: &str,
+) -> bool {
+    // Low confidence = ask for clarification
+    if confidence < CLARIFICATION_THRESHOLD {
+        info!("Confidence {:.0}% below threshold, will ask for clarification", confidence * 100.0);
+        return true;
+    }
+
+    // Missing critical information
+    if !missing_info.is_empty() {
+        info!("Missing info detected: {:?}", missing_info);
+        return true;
+    }
+
+    // Multiple valid interpretations
+    if ambiguities.len() > 1 {
+        info!("Multiple interpretations detected: {:?}", ambiguities);
+        return true;
+    }
+
+    // Destructive or system-modifying actions need confirmation
+    let q_lower = question.to_lowercase();
+    let destructive_patterns = [
+        "delete", "remove", "uninstall", "wipe", "format", "reset",
+        "overwrite", "replace", "drop", "purge", "clean",
+    ];
+    if destructive_patterns.iter().any(|p| q_lower.contains(p)) {
+        info!("Potentially destructive action detected, will confirm");
+        return true;
+    }
+
+    // TROUBLESHOOT with vague description
+    if matches!(category, IntentCategory::Troubleshoot) && question.split_whitespace().count() < 5 {
+        info!("Short troubleshoot question, will ask for more details");
+        return true;
+    }
+
+    false
+}
+
+/// Fallback understanding using keyword analysis
+pub fn fallback_understanding(question: &str) -> DeepUnderstanding {
+    let fallback = fallback_classification(question);
+
+    DeepUnderstanding {
+        interpreted_as: question.to_string(),
+        required_info: vec![],
+        missing_info: vec![],
+        ambiguities: vec![],
+        confidence: fallback.confidence,
+        category: fallback.category,
+        entities: fallback.entities,
+        topic: fallback.topic,
+        sub_questions: fallback.sub_questions,
+        clarification_needed: fallback.clarification,
+        needs_confirmation: fallback.confidence < CLARIFICATION_THRESHOLD,
+    }
+}
+
+/// Legacy classify_intent for backward compatibility
+pub async fn classify_intent(
+    model: &str,
+    question: &str,
+    session_context: Option<&str>,
+) -> Result<IntentClassification> {
+    // Use the new understanding system and convert to legacy format
+    let understanding = understand_request(model, question, session_context).await?;
+
+    Ok(IntentClassification {
+        category: understanding.category,
+        confidence: understanding.confidence,
+        sub_questions: understanding.sub_questions,
+        clarification: understanding.clarification_needed,
+        entities: understanding.entities,
+        topic: understanding.topic,
+    })
 }
 
 /// Fallback classification using keywords (when LLM response is malformed)
@@ -225,6 +366,37 @@ pub fn format_intent_result(intent: &IntentClassification) -> String {
     result
 }
 
+/// Format deep understanding result for display
+pub fn format_understanding_result(understanding: &DeepUnderstanding) -> String {
+    let category_str = match understanding.category {
+        IntentCategory::Factual => "FACTUAL",
+        IntentCategory::HowTo => "HOWTO",
+        IntentCategory::Troubleshoot => "TROUBLESHOOT",
+        IntentCategory::Multi => "MULTI",
+        IntentCategory::Unclear => "UNCLEAR",
+    };
+
+    let mut result = format!("{} ({:.0}%)", category_str, understanding.confidence * 100.0);
+
+    if let Some(ref topic) = understanding.topic {
+        result.push_str(&format!(" [{}]", topic));
+    }
+
+    if !understanding.entities.is_empty() {
+        result.push_str(&format!(" | entities: {}", understanding.entities.join(", ")));
+    }
+
+    if understanding.needs_confirmation {
+        result.push_str(" | NEEDS CONFIRMATION");
+    }
+
+    if !understanding.missing_info.is_empty() {
+        result.push_str(&format!(" | missing: {}", understanding.missing_info.join(", ")));
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -254,12 +426,45 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_valid_json() {
-        let json = r#"{"category":"HOWTO","confidence":0.95,"sub_questions":null,"clarification":null,"entities":["neovim"],"topic":"packages"}"#;
-        let result = parse_intent_response(json).unwrap();
+    fn test_parse_understanding_json() {
+        let json = r#"{"interpreted_as":"User wants to install neovim","required_info":["package manager"],"missing_info":[],"ambiguities":[],"confidence":0.95,"category":"HOWTO","entities":["neovim"],"topic":"packages","sub_questions":null,"clarification_needed":null,"needs_confirmation":false}"#;
+        let result = parse_understanding_response(json, "install neovim").unwrap();
         assert_eq!(result.category, IntentCategory::HowTo);
         assert!(result.confidence > 0.9);
         assert_eq!(result.entities, vec!["neovim"]);
         assert_eq!(result.topic, Some("packages".into()));
+        assert!(!result.needs_confirmation);
+    }
+
+    #[test]
+    fn test_needs_confirmation_low_confidence() {
+        let result = should_ask_confirmation(0.5, &[], &[], &IntentCategory::Factual, "what is X?");
+        assert!(result); // Low confidence should trigger confirmation
+    }
+
+    #[test]
+    fn test_needs_confirmation_missing_info() {
+        let missing = vec!["which service".to_string()];
+        let result = should_ask_confirmation(0.9, &missing, &[], &IntentCategory::HowTo, "enable the service");
+        assert!(result); // Missing info should trigger confirmation
+    }
+
+    #[test]
+    fn test_no_confirmation_high_confidence() {
+        let result = should_ask_confirmation(0.95, &[], &[], &IntentCategory::Factual, "what is my kernel version?");
+        assert!(!result); // High confidence, no missing info = no confirmation needed
+    }
+
+    #[test]
+    fn test_extract_json_from_response() {
+        // Test with reasoning text before JSON
+        let response = "Let me think about this...\n\n{\"category\":\"FACTUAL\",\"confidence\":0.9}";
+        let json = extract_json_from_response(response);
+        assert!(json.contains("FACTUAL"));
+
+        // Test with markdown code block
+        let response = "```json\n{\"category\":\"HOWTO\"}\n```";
+        let json = extract_json_from_response(response);
+        assert!(json.contains("HOWTO"));
     }
 }
