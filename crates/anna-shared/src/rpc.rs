@@ -214,6 +214,79 @@ pub struct DialogueStep {
     pub content: String,
 }
 
+/// LLM error types for context preservation (v0.0.890)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LlmErrorType {
+    /// Request timed out
+    Timeout,
+    /// Network/connection error
+    Network,
+    /// Circuit breaker open (too many failures)
+    CircuitOpen,
+    /// Invalid/malformed response from LLM
+    MalformedResponse,
+    /// LLM returned empty response
+    EmptyResponse,
+    /// HTTP error from Ollama API
+    HttpError,
+    /// Unknown error
+    Unknown,
+}
+
+/// LLM error context for debugging and learning (v0.0.890)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmErrorContext {
+    /// Type of error
+    pub error_type: LlmErrorType,
+    /// Error message
+    pub message: String,
+    /// Number of attempts made
+    pub attempts: u32,
+    /// What the request was trying to do
+    pub purpose: String,
+    /// Truncated prompt (for debugging)
+    pub prompt_preview: Option<String>,
+}
+
+impl LlmErrorContext {
+    /// Create error context from an error message
+    pub fn from_error(error: &str, purpose: &str, attempts: u32, prompt: Option<&str>) -> Self {
+        let error_lower = error.to_lowercase();
+        let error_type = if error_lower.contains("timeout") || error_lower.contains("timed out") {
+            LlmErrorType::Timeout
+        } else if error_lower.contains("circuit breaker") {
+            LlmErrorType::CircuitOpen
+        } else if error_lower.contains("connection") || error_lower.contains("network") {
+            LlmErrorType::Network
+        } else if error_lower.contains("empty") {
+            LlmErrorType::EmptyResponse
+        } else if error_lower.contains("http") || error_lower.contains("status") {
+            LlmErrorType::HttpError
+        } else if error_lower.contains("parse") || error_lower.contains("json") {
+            LlmErrorType::MalformedResponse
+        } else {
+            LlmErrorType::Unknown
+        };
+
+        // Truncate prompt preview to first 200 chars
+        let prompt_preview = prompt.map(|p| {
+            if p.len() > 200 {
+                format!("{}...", &p[..200])
+            } else {
+                p.to_string()
+            }
+        });
+
+        Self {
+            error_type,
+            message: error.to_string(),
+            attempts,
+            purpose: purpose.to_string(),
+            prompt_preview,
+        }
+    }
+}
+
 /// Types of dialogue steps
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StepType {
@@ -261,4 +334,6 @@ pub enum StepType {
     MissingInfo,
     /// System alert (proactive issue notification)
     SystemAlert,
+    /// LLM error with context (v0.0.890)
+    LlmError,
 }

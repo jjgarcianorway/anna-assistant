@@ -137,6 +137,26 @@ pub struct MemoryStats {
 
     /// Total clusters formed
     pub total_clusters: u32,
+
+    /// Load failures encountered (v0.0.890)
+    #[serde(default)]
+    pub load_failures: u32,
+
+    /// Last load error message (v0.0.890)
+    #[serde(default)]
+    pub last_error: Option<String>,
+
+    /// Recovery count - times we recovered from corruption (v0.0.890)
+    #[serde(default)]
+    pub recoveries: u32,
+}
+
+/// Memory load result with context (v0.0.890)
+#[derive(Debug)]
+pub struct MemoryLoadResult {
+    pub memory: Memory,
+    pub was_recovered: bool,
+    pub error: Option<String>,
 }
 
 /// Semantic question cluster - groups similar questions together
@@ -179,6 +199,95 @@ impl Memory {
         } else {
             Ok(Memory::default())
         }
+    }
+
+    /// Load memory with recovery on failure (v0.0.890)
+    /// Returns memory + metadata about whether recovery occurred
+    pub fn load_with_recovery() -> MemoryLoadResult {
+        let path = memory_path();
+
+        if !path.exists() {
+            return MemoryLoadResult {
+                memory: Memory::default(),
+                was_recovered: false,
+                error: None,
+            };
+        }
+
+        // Try to load normally
+        match std::fs::read_to_string(&path) {
+            Ok(content) => {
+                match serde_json::from_str::<Memory>(&content) {
+                    Ok(memory) => MemoryLoadResult {
+                        memory,
+                        was_recovered: false,
+                        error: None,
+                    },
+                    Err(e) => {
+                        // JSON parse failed - try to recover what we can
+                        let error_msg = format!("Memory corruption detected: {}", e);
+
+                        // Backup corrupted file
+                        let backup_path = memory_path().with_extension("json.corrupted");
+                        let _ = std::fs::rename(&path, &backup_path);
+
+                        // Return fresh memory with error context
+                        let mut memory = Memory::default();
+                        memory.stats.load_failures += 1;
+                        memory.stats.last_error = Some(error_msg.clone());
+                        memory.stats.recoveries += 1;
+
+                        MemoryLoadResult {
+                            memory,
+                            was_recovered: true,
+                            error: Some(error_msg),
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                // File read failed
+                let error_msg = format!("Memory file read error: {}", e);
+                let mut memory = Memory::default();
+                memory.stats.load_failures += 1;
+                memory.stats.last_error = Some(error_msg.clone());
+
+                MemoryLoadResult {
+                    memory,
+                    was_recovered: true,
+                    error: Some(error_msg),
+                }
+            }
+        }
+    }
+
+    /// Check memory health (v0.0.890)
+    pub fn health_check(&self) -> Vec<String> {
+        let mut issues = Vec::new();
+
+        if self.stats.load_failures > 0 {
+            issues.push(format!(
+                "Memory has had {} load failures (last: {})",
+                self.stats.load_failures,
+                self.stats.last_error.as_deref().unwrap_or("unknown")
+            ));
+        }
+
+        if self.experiences.len() > 800 {
+            issues.push(format!(
+                "Memory approaching capacity ({}/1000 experiences)",
+                self.experiences.len()
+            ));
+        }
+
+        if self.clusters.len() > 100 {
+            issues.push(format!(
+                "High cluster count ({}) may slow recall",
+                self.clusters.len()
+            ));
+        }
+
+        issues
     }
 
     /// Save memory to disk

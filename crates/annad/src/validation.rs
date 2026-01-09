@@ -73,6 +73,14 @@ impl StreamingValidator {
             }
         }
 
+        // v0.0.890: Check for contradictions with command output
+        if let Some(warning) = check_contradiction(new_text, &self.command_output) {
+            if !self.has_warning(&warning) {
+                self.warnings.push(warning.clone());
+                new_warnings.push(warning);
+            }
+        }
+
         self.last_validated_len = self.accumulated.len();
         new_warnings
     }
@@ -277,6 +285,222 @@ fn check_too_generic(text: &str) -> Option<ValidationWarning> {
     None
 }
 
+// ============================================================================
+// CONTRADICTION DETECTION (v0.0.890)
+// ============================================================================
+
+/// Check for contradictions between answer text and command output
+fn check_contradiction(text: &str, command_output: &str) -> Option<ValidationWarning> {
+    let text_lower = text.to_lowercase();
+    let output_lower = command_output.to_lowercase();
+
+    // 1. Status contradictions: answer says "running/active" but output shows "stopped/inactive"
+    if let Some(warning) = check_status_contradiction(&text_lower, &output_lower) {
+        return Some(warning);
+    }
+
+    // 2. Numeric contradictions: answer gives different number than output
+    if let Some(warning) = check_numeric_contradiction(&text_lower, &output_lower) {
+        return Some(warning);
+    }
+
+    // 3. Presence contradictions: answer says "installed" but output shows "not found"
+    if let Some(warning) = check_presence_contradiction(&text_lower, &output_lower) {
+        return Some(warning);
+    }
+
+    // 4. Boolean contradictions: answer says "yes/enabled" but output shows "no/disabled"
+    if let Some(warning) = check_boolean_contradiction(&text_lower, &output_lower) {
+        return Some(warning);
+    }
+
+    None
+}
+
+/// Check for status contradictions (running vs stopped, active vs inactive)
+fn check_status_contradiction(answer: &str, output: &str) -> Option<ValidationWarning> {
+    // Pairs of contradicting status terms
+    let status_pairs = [
+        ("running", "stopped"),
+        ("running", "dead"),
+        ("running", "not running"),
+        ("active", "inactive"),
+        ("active", "failed"),
+        ("enabled", "disabled"),
+        ("up", "down"),
+        ("online", "offline"),
+        ("started", "stopped"),
+        ("healthy", "unhealthy"),
+        ("connected", "disconnected"),
+        ("mounted", "unmounted"),
+        ("loaded", "not loaded"),
+    ];
+
+    for (positive, negative) in status_pairs {
+        // Answer says positive, but output shows negative
+        if answer.contains(positive) && output.contains(negative) && !output.contains(positive) {
+            return Some(ValidationWarning {
+                issue_type: ValidationIssueType::Contradiction,
+                message: format!(
+                    "Answer says '{}' but command output shows '{}'",
+                    positive, negative
+                ),
+                severity: "high".to_string(),
+            });
+        }
+        // Answer says negative, but output shows positive
+        if answer.contains(negative) && output.contains(positive) && !output.contains(negative) {
+            return Some(ValidationWarning {
+                issue_type: ValidationIssueType::Contradiction,
+                message: format!(
+                    "Answer says '{}' but command output shows '{}'",
+                    negative, positive
+                ),
+                severity: "high".to_string(),
+            });
+        }
+    }
+
+    None
+}
+
+/// Check for numeric contradictions with tolerance for units
+fn check_numeric_contradiction(answer: &str, output: &str) -> Option<ValidationWarning> {
+    // Pattern to find memory/storage values with units (case-insensitive)
+    // Note: "Gi" is common shorthand for GiB in `free` output
+    let mem_pattern = regex::Regex::new(r"(?i)(\d+(?:\.\d+)?)\s*(gb|mb|tb|gib|mib|tib|gi|mi|ti|g|m|t)\b").ok()?;
+
+    // Extract all numeric values with memory units from answer
+    for cap in mem_pattern.captures_iter(answer) {
+        let answer_num: f64 = cap.get(1)?.as_str().parse().ok()?;
+        let answer_unit = cap.get(2)?.as_str();
+
+        // Normalize to a common unit (GB)
+        let answer_gb = normalize_to_gb(answer_num, answer_unit);
+
+        // Look for contradicting values in output
+        for out_cap in mem_pattern.captures_iter(output) {
+            let output_num: f64 = out_cap.get(1)?.as_str().parse().ok()?;
+            let output_unit = out_cap.get(2)?.as_str();
+            let output_gb = normalize_to_gb(output_num, output_unit);
+
+            // Check if values are in same ballpark but significantly different
+            // Allow 15% tolerance for rounding differences (16GB vs 15.9Gi)
+            if answer_gb > 0.5 && output_gb > 0.5 {
+                let ratio = answer_gb / output_gb;
+                if ratio < 0.5 || ratio > 2.0 {
+                    // More than 2x difference - likely a contradiction
+                    return Some(ValidationWarning {
+                        issue_type: ValidationIssueType::Contradiction,
+                        message: format!(
+                            "Answer states '{:.1}{} ' but output shows '{:.1}{}'",
+                            answer_num, answer_unit, output_num, output_unit
+                        ),
+                        severity: "high".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Normalize memory value to GB for comparison
+fn normalize_to_gb(value: f64, unit: &str) -> f64 {
+    match unit.to_lowercase().as_str() {
+        "tb" | "tib" | "ti" | "t" => value * 1024.0,
+        "gb" | "gib" | "gi" | "g" => value,
+        "mb" | "mib" | "mi" | "m" => value / 1024.0,
+        "kb" | "kib" | "ki" | "k" => value / (1024.0 * 1024.0),
+        _ => value,
+    }
+}
+
+/// Check for presence contradictions (installed vs not found)
+fn check_presence_contradiction(answer: &str, output: &str) -> Option<ValidationWarning> {
+    // Answer says something is installed/present but output shows otherwise
+    let presence_positive = ["installed", "available", "found", "exists", "present"];
+    let presence_negative = ["not installed", "not found", "not available", "does not exist",
+                             "no such", "error: target not found", "package not found"];
+
+    // If answer claims something is installed
+    for positive in presence_positive {
+        if answer.contains(positive) {
+            // Check if output contradicts
+            for negative in presence_negative {
+                if output.contains(negative) {
+                    return Some(ValidationWarning {
+                        issue_type: ValidationIssueType::Contradiction,
+                        message: format!(
+                            "Answer says '{}' but command output shows '{}'",
+                            positive, negative
+                        ),
+                        severity: "high".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // If answer claims something is not installed
+    for negative in presence_negative {
+        let neg_parts: Vec<&str> = negative.split_whitespace().collect();
+        if neg_parts.iter().any(|&n| answer.contains(n)) {
+            // Check if output shows it IS installed (package name in output without "not")
+            if presence_positive.iter().any(|&p| output.contains(p)) && !output.contains("not") {
+                return Some(ValidationWarning {
+                    issue_type: ValidationIssueType::Contradiction,
+                    message: "Answer claims something is not present but command output suggests it exists".to_string(),
+                    severity: "medium".to_string(),
+                });
+            }
+        }
+    }
+
+    None
+}
+
+/// Check for boolean contradictions (yes/no, enabled/disabled)
+fn check_boolean_contradiction(answer: &str, output: &str) -> Option<ValidationWarning> {
+    let bool_pairs = [
+        ("yes", "no"),
+        ("true", "false"),
+        ("on", "off"),
+        ("1", "0"),
+        ("success", "failed"),
+        ("passed", "failed"),
+        ("ok", "error"),
+    ];
+
+    // Only check these in specific contexts (after "is" or "=" or ":")
+    // to avoid false positives from natural language
+    let context_pattern = regex::Regex::new(r"(?:is|=|:)\s*(\w+)").ok()?;
+
+    for cap in context_pattern.captures_iter(answer) {
+        let answer_val = cap.get(1)?.as_str().to_lowercase();
+
+        for (positive, negative) in bool_pairs {
+            // Answer has positive value
+            if answer_val == positive {
+                // Check if output shows negative
+                for out_cap in context_pattern.captures_iter(output) {
+                    let output_val = out_cap.get(1)?.as_str().to_lowercase();
+                    if output_val == negative {
+                        return Some(ValidationWarning {
+                            issue_type: ValidationIssueType::Contradiction,
+                            message: format!("Answer shows '{}' but output shows '{}'", positive, negative),
+                            severity: "high".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Check if a word is a common English word (not a package/service name)
 fn is_common_word(word: &str) -> bool {
     const COMMON_WORDS: &[&str] = &[
@@ -328,5 +552,39 @@ mod tests {
         let output = "Mem: 16Gi total\nlinux 6.8.1-arch1-1";
         let warning = check_hallucination(text, output, &extract_grounding_values(output));
         assert!(warning.is_none());
+    }
+
+    // v0.0.890: Contradiction detection tests
+    #[test]
+    fn test_status_contradiction() {
+        let answer = "The service is running normally";
+        let output = "nginx.service - A high performance web server\n   Active: inactive (dead)";
+        let warning = check_contradiction(answer, output);
+        assert!(warning.is_some());
+        assert!(matches!(warning.unwrap().issue_type, ValidationIssueType::Contradiction));
+    }
+
+    #[test]
+    fn test_no_status_contradiction() {
+        let answer = "The service is running";
+        let output = "nginx.service\n   Active: active (running)";
+        let warning = check_contradiction(answer, output);
+        assert!(warning.is_none());
+    }
+
+    #[test]
+    fn test_numeric_contradiction() {
+        let answer = "You have 32GB of RAM";
+        let output = "Mem:           15Gi";
+        let warning = check_numeric_contradiction(answer, output);
+        assert!(warning.is_some());
+    }
+
+    #[test]
+    fn test_presence_contradiction() {
+        let answer = "Firefox is installed on your system";
+        let output = "error: package 'firefox' was not found";
+        let warning = check_presence_contradiction(answer, output);
+        assert!(warning.is_some());
     }
 }

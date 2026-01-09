@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.890] - 2026-01-09
+
+### Added
+- **Silent Memory Failure Recovery** - Resilient memory system
+  - `load_with_recovery()` automatically recovers from corrupted memory files
+  - Backs up corrupted files before creating fresh memory
+  - Tracks load failures and recoveries in memory stats
+  - `health_check()` warns about capacity issues (>800 experiences, >100 clusters)
+
+- **Destructive HowTo Confirmation** - Safety for how-to questions
+  - Moved destructive pattern check BEFORE category-based early returns
+  - "How do I format my disk?" now always prompts for confirmation
+  - `is_semantically_destructive()` catches pattern combinations
+  - Includes recursive operations, partitioning, reinstalls
+
+- **Parallel Command Execution in Main Loop** - Faster read-only queries
+  - Detects when all commands are safe and cacheable
+  - Uses parallel execution for 3+ read-only commands
+  - Falls back to sequential for mixed or dangerous commands
+
+- **LLM Error Context Preservation** - Better debugging
+  - New `LlmErrorType` enum: Timeout, Network, CircuitOpen, MalformedResponse, etc.
+  - `LlmErrorContext` struct captures error type, message, attempts, purpose
+  - New `StepType::LlmError` in dialogue for visibility
+  - Streaming and non-streaming helpers record errors before propagating
+
+- **Contradiction Detection** - Catch LLM mistakes
+  - `check_contradiction()` integrated into streaming validation
+  - Status contradictions: "running" vs output shows "stopped/inactive"
+  - Numeric contradictions: answer says "32GB" but output shows "15Gi"
+  - Presence contradictions: "installed" vs "not found"
+  - Boolean contradictions: "enabled" vs "disabled" in context
+
 ## [0.0.889] - 2026-01-09
 
 ### Added

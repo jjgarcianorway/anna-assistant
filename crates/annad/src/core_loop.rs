@@ -14,7 +14,7 @@ use anna_shared::config::{AnnaConfig, PerformanceConfig};
 use anna_shared::memory::{ExperienceContext, Memory};
 use anna_shared::profile::{self, SystemProfile};
 use anna_shared::recipe::{Recipe, RecipeBook};
-use anna_shared::rpc::{AskResult, DialogueStep, IntentCategory, StepType, StreamingResponse};
+use anna_shared::rpc::{AskResult, DialogueStep, IntentCategory, LlmErrorContext, StepType, StreamingResponse};
 use anna_shared::user_context;
 use anna_shared::wiki;
 use anyhow::{anyhow, Result};
@@ -1791,8 +1791,19 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
         content: question.to_string(),
     });
 
-    // Try to recall similar past experiences (learning) - v0.0.889: Uses semantic clustering
-    let memory = Memory::load().unwrap_or_default();
+    // Try to recall similar past experiences (learning) - v0.0.890: Uses resilient load with recovery
+    let memory_result = Memory::load_with_recovery();
+    if memory_result.was_recovered {
+        warn!("Memory recovered from failure: {}", memory_result.error.as_deref().unwrap_or("unknown"));
+    }
+    let memory = memory_result.memory;
+
+    // Check memory health and log any issues
+    let health_issues = memory.health_check();
+    for issue in &health_issues {
+        warn!("Memory health: {}", issue);
+    }
+
     let recalled = memory.recall_with_clusters(question, 3);  // Enhanced with cluster awareness
     let suggested_commands = memory.suggest_commands(question);
     let cluster_commands = memory.suggest_commands_from_clusters(question);  // Semantic cluster suggestions
@@ -1913,7 +1924,13 @@ Commands:"#,
             content: command_prompt.clone(),
         });
 
-        let commands_response = ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await?;
+        // v0.0.890: Record error context on LLM failure
+        let commands_response = match ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(record_llm_error(&mut dialogue, &e, "command extraction", Some(&command_prompt)));
+            }
+        };
         let commands_response = commands_response.trim();
 
         // Record LLM's response
@@ -2010,7 +2027,13 @@ Reply with ONLY one of:
                 content: validate_prompt.clone(),
             });
 
-            let validation = ollama::chat_with_timeout(model, &validate_prompt, 30).await?;
+            // v0.0.890: Record error context on validation failure
+            let validation = match ollama::chat_with_timeout(model, &validate_prompt, 30).await {
+                Ok(response) => response,
+                Err(e) => {
+                    return Err(record_llm_error(&mut dialogue, &e, "validation", Some(&validate_prompt)));
+                }
+            };
 
             dialogue.push(DialogueStep {
                 step_type: StepType::ValidationResponse,
@@ -2057,7 +2080,13 @@ Answer:"#,
         content: final_prompt.clone(),
     });
 
-    let final_answer = ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await?;
+    // v0.0.890: Record error context on final answer failure
+    let final_answer = match ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await {
+        Ok(response) => response,
+        Err(e) => {
+            return Err(record_llm_error(&mut dialogue, &e, "final answer generation", Some(&final_prompt)));
+        }
+    };
 
     dialogue.push(DialogueStep {
         step_type: StepType::FinalAnswer,
@@ -2592,6 +2621,22 @@ Commands:"#,
             break;
         }
 
+        // v0.0.890: Try parallel execution for read-only commands
+        // This is faster when all commands are cacheable (no side effects)
+        let safe_commands: Vec<&str> = commands_to_run
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|cmd| !is_dangerous_command(cmd) && is_cacheable_command(cmd))
+            .collect();
+
+        // If all commands are safe and cacheable, run in parallel
+        let parallel_results = if safe_commands.len() == commands_to_run.len() && safe_commands.len() > 2 {
+            info!("Using parallel execution for {} read-only commands", safe_commands.len());
+            Some(execute_commands_parallel(&safe_commands))
+        } else {
+            None
+        };
+
         let mut combined_output = String::new();
         for cmd in &commands_to_run {
             let cmd = cmd.as_str();
@@ -2618,8 +2663,18 @@ Commands:"#,
             dialogue.push(step.clone());
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-            // Execute with retry - tries LLM-suggested alternatives on failure
-            let (output, tried_commands) = execute_command_with_retry(model, cmd, question).await;
+            // v0.0.890: Use parallel result if available, otherwise execute with retry
+            let (output, tried_commands) = if let Some(ref results) = parallel_results {
+                if let Some(result) = results.get(cmd) {
+                    (result.clone(), vec![cmd.to_string()])
+                } else {
+                    // Fallback if parallel execution missed this command
+                    execute_command_with_retry(model, cmd, question).await
+                }
+            } else {
+                // Execute with retry - tries LLM-suggested alternatives on failure
+                execute_command_with_retry(model, cmd, question).await
+            };
 
             // Record all commands that were tried (including alternatives)
             for tried_cmd in &tried_commands {
@@ -2680,7 +2735,13 @@ Reply with ONLY one of:
             dialogue.push(step.clone());
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-            let validation = ollama::chat_with_timeout(model, &validate_prompt, 30).await?;
+            // v0.0.890: Record error context on validation failure (streaming)
+            let validation = match ollama::chat_with_timeout(model, &validate_prompt, 30).await {
+                Ok(response) => response,
+                Err(e) => {
+                    return Err(record_llm_error_streaming(&mut dialogue, writer, &e, "validation", Some(&validate_prompt)).await);
+                }
+            };
 
             let step = DialogueStep {
                 step_type: StepType::ValidationResponse,
@@ -3438,7 +3499,13 @@ Commands:"#,
             brief_context, sub_q
         );
 
-        let commands_response = ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await?;
+        // v0.0.890: Record error context on sub-question command extraction
+        let commands_response = match ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(record_llm_error_streaming(&mut dialogue, writer, &e, "sub-question commands", Some(&command_prompt)).await);
+            }
+        };
         let commands_response = commands_response.trim();
 
         let mut sub_output = String::new();
@@ -3507,7 +3574,13 @@ Command output:
 Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_output)
         };
 
-        let sub_answer = ollama::chat_with_timeout(model, &answer_prompt, llm_timeout).await?;
+        // v0.0.890: Record error context on sub-question answer
+        let sub_answer = match ollama::chat_with_timeout(model, &answer_prompt, llm_timeout).await {
+            Ok(response) => response,
+            Err(e) => {
+                return Err(record_llm_error_streaming(&mut dialogue, writer, &e, "sub-question answer", Some(&answer_prompt)).await);
+            }
+        };
 
         // Send SubQuestionResult step
         let step = DialogueStep {
@@ -3961,6 +4034,75 @@ fn is_dangerous_command(cmd: &str) -> bool {
     }
 
     false
+}
+
+// ============================================================================
+// LLM ERROR CONTEXT PRESERVATION (v0.0.890)
+// ============================================================================
+
+/// Record an LLM error with context and return a formatted error
+/// This preserves error details in the dialogue for debugging and learning
+fn record_llm_error(
+    dialogue: &mut Vec<DialogueStep>,
+    error: &anyhow::Error,
+    purpose: &str,
+    prompt: Option<&str>,
+) -> anyhow::Error {
+    let error_str = format!("{}", error);
+    let context = LlmErrorContext::from_error(&error_str, purpose, 3, prompt); // 3 attempts (1 + 2 retries)
+
+    // Serialize error context for dialogue
+    let context_json = serde_json::to_string(&context).unwrap_or_else(|_| error_str.clone());
+
+    dialogue.push(DialogueStep {
+        step_type: StepType::LlmError,
+        content: context_json,
+    });
+
+    warn!(
+        "LLM error recorded: type={:?}, purpose='{}', message='{}'",
+        context.error_type, purpose, context.message
+    );
+
+    // Return original error for propagation
+    anyhow!("LLM {} failed: {}", purpose, error_str)
+}
+
+/// Record an LLM error in streaming mode (sends to writer)
+async fn record_llm_error_streaming<W>(
+    dialogue: &mut Vec<DialogueStep>,
+    writer: &mut W,
+    error: &anyhow::Error,
+    purpose: &str,
+    prompt: Option<&str>,
+) -> anyhow::Error
+where
+    W: AsyncWriteExt + Unpin,
+{
+    let error_str = format!("{}", error);
+    let context = LlmErrorContext::from_error(&error_str, purpose, 3, prompt);
+
+    let context_json = serde_json::to_string(&context).unwrap_or_else(|_| error_str.clone());
+
+    let step = DialogueStep {
+        step_type: StepType::LlmError,
+        content: context_json,
+    };
+
+    dialogue.push(step.clone());
+
+    // Try to send error step to client
+    if let Ok(response) = serde_json::to_string(&StreamingResponse::Step { step }) {
+        let _ = writer.write_all(format!("{}\n", response).as_bytes()).await;
+        let _ = writer.flush().await;
+    }
+
+    warn!(
+        "LLM error recorded (streaming): type={:?}, purpose='{}', message='{}'",
+        context.error_type, purpose, context.message
+    );
+
+    anyhow!("LLM {} failed: {}", purpose, error_str)
 }
 
 // ============================================================================

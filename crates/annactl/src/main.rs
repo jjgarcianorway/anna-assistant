@@ -394,6 +394,23 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
             }
             println!();
         }
+        StepType::LlmError => {
+            // v0.0.890: Display LLM error with context
+            print_colored("LLM ERROR: ", RED);
+            // Try to parse structured error context
+            if let Ok(ctx) = serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content) {
+                println!("{} ({})", ctx.message, format!("{:?}", ctx.error_type));
+                print_colored("  purpose: ", DIM);
+                println!("{}", ctx.purpose);
+                if let Some(preview) = ctx.prompt_preview {
+                    print_colored("  prompt: ", DIM);
+                    println!("{}...", preview.chars().take(80).collect::<String>());
+                }
+            } else {
+                println!("{}", step.content);
+            }
+            println!();
+        }
     }
 }
 
@@ -680,6 +697,23 @@ fn print_dialogue(result: &AskResult) {
                 for line in step.content.lines() {
                     print_colored("  ", YELLOW);
                     println!("{}", line);
+                }
+                println!();
+            }
+            StepType::LlmError => {
+                // v0.0.890: Display LLM error with context
+                print_colored("LLM ERROR: ", RED);
+                // Try to parse structured error context
+                if let Ok(ctx) = serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content) {
+                    println!("{} ({})", ctx.message, format!("{:?}", ctx.error_type));
+                    print_colored("  purpose: ", DIM);
+                    println!("{}", ctx.purpose);
+                    if let Some(preview) = ctx.prompt_preview {
+                        print_colored("  prompt: ", DIM);
+                        println!("{}...", preview.chars().take(80).collect::<String>());
+                    }
+                } else {
+                    println!("{}", step.content);
                 }
                 println!();
             }

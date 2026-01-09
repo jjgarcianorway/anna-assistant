@@ -193,6 +193,15 @@ fn should_ask_confirmation(
     category: &IntentCategory,
     question: &str,
 ) -> bool {
+    let q_lower = question.to_lowercase();
+
+    // v0.0.890: ALWAYS check destructive patterns FIRST, regardless of category or confidence
+    // This prevents "how do I format my disk?" from bypassing safety checks
+    if is_semantically_destructive(&q_lower) {
+        info!("Potentially destructive action detected, will confirm");
+        return true;
+    }
+
     // FACTUAL questions with decent confidence - just answer, don't ask
     // Users asking "what is X?" want an answer, not more questions
     if matches!(category, IntentCategory::Factual) && confidence >= 0.6 {
@@ -218,23 +227,82 @@ fn should_ask_confirmation(
         return true;
     }
 
-    // Destructive or system-modifying actions need confirmation
-    let q_lower = question.to_lowercase();
-    let destructive_patterns = [
-        "delete", "remove", "uninstall", "wipe", "format", "reset",
-        "overwrite", "replace", "drop", "purge", "clean",
-    ];
-    if destructive_patterns.iter().any(|p| q_lower.contains(p)) {
-        info!("Potentially destructive action detected, will confirm");
-        return true;
-    }
-
     // TROUBLESHOOT with vague description AND low confidence
     if matches!(category, IntentCategory::Troubleshoot)
         && question.split_whitespace().count() < 4
         && confidence < CLARIFICATION_THRESHOLD {
         info!("Short troubleshoot question with low confidence, will ask for more details");
         return true;
+    }
+
+    false
+}
+
+/// Check if a question is semantically destructive (v0.0.890)
+/// Uses multiple detection strategies beyond simple keyword matching
+fn is_semantically_destructive(question: &str) -> bool {
+    // Direct destructive keywords
+    let direct_destructive = [
+        "delete", "remove", "uninstall", "wipe", "format", "reset",
+        "overwrite", "replace", "drop", "purge", "clean", "erase",
+        "destroy", "clear", "truncate", "shred",
+    ];
+    if direct_destructive.iter().any(|p| question.contains(p)) {
+        return true;
+    }
+
+    // Semantic patterns that imply destruction even without direct keywords
+    let semantic_patterns = [
+        // Disk/storage operations
+        ("partition", "create"),    // creating partitions destroys data
+        ("partition", "resize"),
+        ("disk", "prepare"),
+        ("drive", "initialize"),
+        ("filesystem", "create"),
+        ("mkfs", ""),               // direct command reference
+        ("fdisk", ""),
+        ("gdisk", ""),
+        ("parted", ""),
+        // System modification
+        ("factory", "reset"),
+        ("fresh", "install"),
+        ("reinstall", ""),
+        ("downgrade", ""),
+        // Permission/ownership changes
+        ("chmod", "recursive"),
+        ("chown", "recursive"),
+        // Service/daemon control
+        ("disable", "service"),
+        ("stop", "all"),
+        ("kill", "process"),
+        // Package management destructive ops
+        ("pacman", "-Rns"),
+        ("pacman", "-Rdd"),
+        ("orphan", "remove"),
+    ];
+
+    for (pattern1, pattern2) in &semantic_patterns {
+        if question.contains(pattern1) {
+            if pattern2.is_empty() || question.contains(pattern2) {
+                return true;
+            }
+        }
+    }
+
+    // Check for dangerous target paths in questions
+    let dangerous_targets = [
+        "all files", "everything", "entire", "whole disk", "root",
+        "/home", "/etc", "/var", "/usr", "/boot", "system",
+    ];
+    let action_words = ["from", "on", "in", "at"];
+
+    for target in &dangerous_targets {
+        if question.contains(target) {
+            // Check if there's an action word suggesting modification
+            if action_words.iter().any(|a| question.contains(a)) {
+                return true;
+            }
+        }
     }
 
     false
