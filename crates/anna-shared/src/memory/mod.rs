@@ -676,47 +676,45 @@ fn extract_semantic_groups(question: &str) -> Vec<String> {
 }
 
 /// Calculate similarity between a question and a cluster
+/// v0.0.893: Fixed edge case for very short questions
 fn calculate_cluster_similarity(question: &str, cluster: &QuestionCluster) -> f32 {
     let q_lower = question.to_lowercase();
     let q_canonical = canonicalize_question(question);
     let q_keywords = extract_keywords(question);
     let q_groups = extract_semantic_groups(question);
 
+    // Exact canonical match is strongest signal
+    if q_canonical == cluster.canonical { return 0.95; }
+
     let mut score = 0.0;
 
-    // Exact canonical match is strongest signal
-    if q_canonical == cluster.canonical {
-        return 0.95;
-    }
-
-    // Check if canonical forms share significant overlap
+    // v0.0.893: Require minimum 2 words to avoid single-word over-matching
     let canonical_words: Vec<&str> = cluster.canonical.split_whitespace().collect();
     let q_words: Vec<&str> = q_canonical.split_whitespace().collect();
-    let common_words = canonical_words.iter().filter(|w| q_words.contains(w)).count();
-    if !canonical_words.is_empty() && !q_words.is_empty() {
-        let overlap = common_words as f32 / canonical_words.len().max(q_words.len()) as f32;
-        score += overlap * 0.4;
+    let max_words = canonical_words.len().max(q_words.len()).max(1);
+    if canonical_words.len() >= 2 && q_words.len() >= 2 {
+        let common_words = canonical_words.iter().filter(|w| q_words.contains(w)).count();
+        score += (common_words as f32 / max_words as f32) * 0.4;
     }
 
-    // Keyword overlap
-    let keyword_matches = q_keywords.iter().filter(|k| cluster.keywords.contains(k)).count();
-    if !q_keywords.is_empty() && !cluster.keywords.is_empty() {
-        score += (keyword_matches as f32) / q_keywords.len().max(cluster.keywords.len()) as f32 * 0.3;
+    // v0.0.893: Require minimum 2 keywords
+    let max_kw = q_keywords.len().max(cluster.keywords.len()).max(1);
+    if q_keywords.len() >= 2 && cluster.keywords.len() >= 2 {
+        let keyword_matches = q_keywords.iter().filter(|k| cluster.keywords.contains(k)).count();
+        score += (keyword_matches as f32 / max_kw as f32) * 0.3;
     }
 
-    // Semantic group overlap
+    // Semantic group overlap (groups are already aggregated, no min needed)
     let cluster_groups = extract_semantic_groups(&cluster.canonical);
-    let group_matches = q_groups.iter().filter(|g| cluster_groups.contains(g)).count();
+    let max_groups = q_groups.len().max(cluster_groups.len()).max(1);
     if !q_groups.is_empty() && !cluster_groups.is_empty() {
-        score += (group_matches as f32) / q_groups.len().max(cluster_groups.len()) as f32 * 0.2;
+        let group_matches = q_groups.iter().filter(|g| cluster_groups.contains(g)).count();
+        score += (group_matches as f32 / max_groups as f32) * 0.2;
     }
 
     // Check variation similarity
     for variation in &cluster.variations {
-        if variation.contains(&q_lower) || q_lower.contains(variation) {
-            score += 0.3;
-            break;
-        }
+        if variation.contains(&q_lower) || q_lower.contains(variation) { score += 0.3; break; }
     }
 
     score.min(1.0)

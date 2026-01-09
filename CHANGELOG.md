@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.893] - 2026-01-09
+
+### Changed
+- **Configurable Timeouts & Thresholds** - No more hardcoding
+  - Added `wiki_search_timeout_secs`, `static_command_cache_ttl_secs` to config
+  - Added `wiki_circuit_threshold`, `wiki_circuit_cooldown_secs` to config
+  - Added `high_confidence_threshold`, `max_session_history` to config
+  - All values now loaded from `~/.anna/config.toml` with sensible defaults
+
+### Fixed
+- **Wiki Initialization Retry** - Exponential backoff on failure
+  - Retries up to 3 times with 2s/4s/8s delays
+  - Graceful fallback to LLM-only mode after all attempts fail
+
+- **Pre-compiled Validation Regexes** - Faster validation
+  - `LazyLock` static regexes compiled once at startup
+  - Removes per-call `Regex::new().ok()?` overhead and silent failures
+
+- **Parallel Intent + Wiki Search** - Reduced latency
+  - Wiki search spawned before intent classification
+  - Runs in parallel, awaited when needed
+  - Aborted if skipped (high-confidence factual queries)
+
+- **Cluster Similarity Edge Case** - Better memory matching
+  - Requires minimum 2 words/keywords to compute overlap scores
+  - Prevents single-word questions from over-matching clusters
+
 ## [0.0.892] - 2026-01-09
 
 ### Fixed

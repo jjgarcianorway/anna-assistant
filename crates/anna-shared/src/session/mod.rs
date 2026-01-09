@@ -7,14 +7,16 @@
 //! - Topic tracking for more relevant answers
 //! - Persistence across daemon restarts
 
-use crate::config::anna_data_dir;
+use crate::config::{anna_data_dir, AnnaConfig};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 
-/// Maximum number of turns to remember
-const MAX_HISTORY: usize = 20;
+/// v0.0.893: Get max history from config
+fn get_max_history() -> usize {
+    AnnaConfig::load().map(|c| c.performance.max_session_history).unwrap_or(20)
+}
 
 /// A session maintains conversational context
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -142,8 +144,9 @@ impl Session {
 
         self.history.push_back(turn);
 
-        // Keep history bounded
-        while self.history.len() > MAX_HISTORY {
+        // v0.0.893: Uses config max history
+        let max_history = get_max_history();
+        while self.history.len() > max_history {
             self.history.pop_front();
         }
 

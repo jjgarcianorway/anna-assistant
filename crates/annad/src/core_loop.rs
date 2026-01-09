@@ -46,48 +46,28 @@ struct CachedOutput {
     is_static: bool,
 }
 
-/// TTL for dynamic commands (60 seconds)
-const CMD_CACHE_TTL: u64 = 60;
-/// TTL for static commands (5 minutes)
-const STATIC_CMD_CACHE_TTL: u64 = 300;
-
 /// Ollama URL for embeddings
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
-/// Confidence threshold for skipping extra steps
-const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
-
-/// v0.0.892: Wiki search circuit breaker
-/// Opens after consecutive failures/slow responses, auto-resets after cooldown
+/// v0.0.892: Wiki search circuit breaker state
 static WIKI_FAILURES: AtomicU32 = AtomicU32::new(0);
 static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
 
-/// Number of consecutive failures before wiki circuit opens
-const WIKI_CIRCUIT_THRESHOLD: u32 = 2;
-/// Cooldown period in seconds before retrying wiki after circuit opens
-const WIKI_CIRCUIT_COOLDOWN_SECS: u64 = 60;
-/// Timeout for wiki search in seconds (slow = failure)
-const WIKI_SEARCH_TIMEOUT_SECS: u64 = 5;
-
-/// Check if wiki circuit breaker is open
+/// v0.0.893: Check if wiki circuit breaker is open (uses config)
 fn is_wiki_circuit_open() -> bool {
+    let perf = get_perf_config();
     let failures = WIKI_FAILURES.load(Ordering::SeqCst);
-    if failures >= WIKI_CIRCUIT_THRESHOLD {
+    if failures >= perf.wiki_circuit_threshold {
         let opened_at = WIKI_CIRCUIT_OPENED_AT.load(Ordering::SeqCst);
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-
-        if now.saturating_sub(opened_at) < WIKI_CIRCUIT_COOLDOWN_SECS {
+        if now.saturating_sub(opened_at) < perf.wiki_circuit_cooldown_secs {
             return true;
         }
-        // Half-open: allow test request
         if WIKI_FAILURES.compare_exchange(
-            failures,
-            WIKI_CIRCUIT_THRESHOLD - 1,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
+            failures, perf.wiki_circuit_threshold - 1, Ordering::SeqCst, Ordering::SeqCst,
         ).is_ok() {
             info!("Wiki circuit breaker half-open, allowing test request");
         }
@@ -97,23 +77,25 @@ fn is_wiki_circuit_open() -> bool {
 
 /// Record successful wiki search
 fn wiki_record_success() {
+    let threshold = get_perf_config().wiki_circuit_threshold;
     let prev = WIKI_FAILURES.swap(0, Ordering::SeqCst);
-    if prev >= WIKI_CIRCUIT_THRESHOLD - 1 {
+    if prev >= threshold - 1 {
         info!("Wiki circuit breaker closed after successful search");
     }
 }
 
 /// Record failed/slow wiki search
 fn wiki_record_failure() {
+    let perf = get_perf_config();
     let failures = WIKI_FAILURES.fetch_add(1, Ordering::SeqCst) + 1;
-    if failures == WIKI_CIRCUIT_THRESHOLD {
+    if failures == perf.wiki_circuit_threshold {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
         WIKI_CIRCUIT_OPENED_AT.store(now, Ordering::SeqCst);
-        warn!("Wiki circuit breaker OPEN - {} consecutive failures, cooling down for {}s",
-              failures, WIKI_CIRCUIT_COOLDOWN_SECS);
+        warn!("Wiki circuit breaker OPEN - {} failures, cooldown {}s",
+              failures, perf.wiki_circuit_cooldown_secs);
     }
 }
 
@@ -170,13 +152,14 @@ fn normalize_command(cmd: &str) -> String {
 }
 
 /// Get cached command output if not expired
-/// v0.0.892: Uses normalized command key
+/// v0.0.893: Uses config TTL values
 fn get_cached_command(cmd: &str) -> Option<String> {
+    let perf = get_perf_config();
     if let Ok(guard) = COMMAND_CACHE.read() {
         if let Some(ref cache) = *guard {
             let key = normalize_command(cmd);
             if let Some(cached) = cache.get(&key) {
-                let ttl = if cached.is_static { STATIC_CMD_CACHE_TTL } else { CMD_CACHE_TTL };
+                let ttl = if cached.is_static { perf.static_command_cache_ttl_secs } else { perf.command_cache_ttl_secs };
                 if cached.cached_at.elapsed().as_secs() < ttl {
                     debug!("Command cache hit: {}", cmd);
                     return Some(cached.output.clone());
@@ -188,22 +171,17 @@ fn get_cached_command(cmd: &str) -> Option<String> {
 }
 
 /// Cache a command's output
-/// v0.0.892: Uses normalized command key
+/// v0.0.893: Uses config TTL values
 fn cache_command(cmd: &str, output: &str) {
+    let perf = get_perf_config();
     if let Ok(mut guard) = COMMAND_CACHE.write() {
         let cache = guard.get_or_insert_with(HashMap::new);
         let key = normalize_command(cmd);
         let is_static = is_static_command(cmd);
-        cache.insert(key, CachedOutput {
-            output: output.to_string(),
-            cached_at: Instant::now(),
-            is_static,
-        });
-        // Keep cache size bounded
+        cache.insert(key, CachedOutput { output: output.to_string(), cached_at: Instant::now(), is_static });
         if cache.len() > 100 {
-            // Remove expired entries
             cache.retain(|_, v| {
-                let ttl = if v.is_static { STATIC_CMD_CACHE_TTL } else { CMD_CACHE_TTL };
+                let ttl = if v.is_static { perf.static_command_cache_ttl_secs } else { perf.command_cache_ttl_secs };
                 v.cached_at.elapsed().as_secs() < ttl
             });
         }
@@ -1699,30 +1677,14 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         .map(|c| c.wiki.use_embeddings)
         .unwrap_or(true);
 
-    // v0.0.892: Wrap wiki search with timeout
+    // v0.0.893: Uses config timeout
+    let timeout_secs = get_perf_config().wiki_search_timeout_secs;
     let search_future = wiki::search::search(OLLAMA_URL, question, 3, use_embeddings);
-    let timeout_duration = std::time::Duration::from_secs(WIKI_SEARCH_TIMEOUT_SECS);
-
-    let results = match tokio::time::timeout(timeout_duration, search_future).await {
-        Ok(Ok(r)) if !r.is_empty() => {
-            wiki_record_success();
-            r
-        }
-        Ok(Ok(_)) => {
-            debug!("Wiki search returned no results");
-            wiki_record_success(); // Empty results isn't a failure
-            return None;
-        }
-        Ok(Err(e)) => {
-            warn!("Wiki search failed: {}", e);
-            wiki_record_failure();
-            return None;
-        }
-        Err(_) => {
-            warn!("Wiki search timed out ({}s)", WIKI_SEARCH_TIMEOUT_SECS);
-            wiki_record_failure();
-            return None;
-        }
+    let results = match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), search_future).await {
+        Ok(Ok(r)) if !r.is_empty() => { wiki_record_success(); r }
+        Ok(Ok(_)) => { debug!("Wiki search returned no results"); wiki_record_success(); return None; }
+        Ok(Err(e)) => { warn!("Wiki search failed: {}", e); wiki_record_failure(); return None; }
+        Err(_) => { warn!("Wiki search timed out ({}s)", timeout_secs); wiki_record_failure(); return None; }
     };
 
     // Filter out Category:, ArchWiki:, etc pages
@@ -2372,20 +2334,18 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
+    // v0.0.893: Start wiki search early (runs in parallel with intent classification)
+    let wiki_question = question.to_string();
+    let wiki_future = tokio::spawn(async move { search_wiki_for_commands(&wiki_question).await });
+
     // PHASE 0: Deep Understanding - think through the request like Claude does
-    let step = DialogueStep {
-        step_type: StepType::IntentClassifying,
-        content: question.to_string(),
-    };
+    let step = DialogueStep { step_type: StepType::IntentClassifying, content: question.to_string() };
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     let understanding = match intent::understand_request(model, question, session_context).await {
         Ok(u) => u,
-        Err(e) => {
-            warn!("Understanding failed: {}, using fallback", e);
-            intent::fallback_understanding(question)
-        }
+        Err(e) => { warn!("Understanding failed: {}, using fallback", e); intent::fallback_understanding(question) }
     };
 
     // Send understanding result (shows what Anna thinks the user is asking)
@@ -2530,9 +2490,9 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     debug!("System context: {}", system_context);
 
     // SPEED OPTIMIZATION: Skip wiki search for high-confidence FACTUAL queries
-    // Wiki search adds ~2-5 seconds latency - skip for simple "what is X?" queries
+    // v0.0.893: Uses config threshold
     let skip_wiki = understanding.category == IntentCategory::Factual
-        && understanding.confidence >= HIGH_CONFIDENCE_THRESHOLD;
+        && understanding.confidence >= get_perf_config().high_confidence_threshold;
 
     let mut wiki_context = String::new();
     let mut wiki_commands: Vec<String> = Vec::new();
@@ -2540,10 +2500,8 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     if skip_wiki {
         info!("Skipping wiki search for high-confidence factual query (confidence: {:.0}%)",
               understanding.confidence * 100.0);
-        let step = DialogueStep {
-            step_type: StepType::WikiSearch,
-            content: "(skipped - simple factual query)".to_string(),
-        };
+        wiki_future.abort(); // v0.0.893: Cancel parallel wiki search
+        let step = DialogueStep { step_type: StepType::WikiSearch, content: "(skipped - simple factual query)".to_string() };
         dialogue.push(step.clone());
         send_streaming(writer, &StreamingResponse::Step { step }).await?;
     } else {
@@ -2557,7 +2515,9 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     }
 
     if !skip_wiki {
-        if let Some(wiki_results) = search_wiki_for_commands(question).await {
+        // v0.0.893: Await parallel wiki search (already started above)
+        let wiki_results_opt = wiki_future.await.ok().flatten();
+        if let Some(wiki_results) = wiki_results_opt {
         // Send wiki results
         let step = DialogueStep {
             step_type: StepType::WikiResults,

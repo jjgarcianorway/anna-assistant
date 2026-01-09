@@ -7,6 +7,22 @@
 //! - Generic responses not specific to the system
 
 use anna_shared::rpc::{ValidationIssueType, ValidationWarning};
+use regex::Regex;
+use std::sync::LazyLock;
+
+/// v0.0.893: Pre-compiled regexes for validation (avoids per-call compilation)
+static RE_NUMBER: LazyLock<Regex> = LazyLock::new(||
+    Regex::new(r"\b(\d+\.?\d*)\s*(GB|MB|KB|TB|GiB|MiB|cores?|threads?|%)\b").unwrap()
+);
+static RE_NAME: LazyLock<Regex> = LazyLock::new(||
+    Regex::new(r"\b([a-z][\w-]*\.service|[a-z][\w-]{3,})\b").unwrap()
+);
+static RE_MEM: LazyLock<Regex> = LazyLock::new(||
+    Regex::new(r"(?i)(\d+(?:\.\d+)?)\s*(gb|mb|tb|gib|mib|tib|gi|mi|ti|g|m|t)\b").unwrap()
+);
+static RE_CONTEXT: LazyLock<Regex> = LazyLock::new(||
+    Regex::new(r"(?:is|=|:)\s*(\w+)").unwrap()
+);
 
 /// Streaming validator that accumulates tokens and checks for issues
 pub struct StreamingValidator {
@@ -223,14 +239,13 @@ fn check_uncertainty(text: &str) -> Option<ValidationWarning> {
 }
 
 /// Check for hallucinations - specific claims not grounded in command output
+/// v0.0.893: Uses pre-compiled regexes
 fn check_hallucination(text: &str, command_output: &str, grounding_values: &[String]) -> Option<ValidationWarning> {
     let text_lower = text.to_lowercase();
     let output_lower = command_output.to_lowercase();
 
-    // Check for specific numeric claims not in output
-    let number_pattern = regex::Regex::new(r"\b(\d+\.?\d*)\s*(GB|MB|KB|TB|GiB|MiB|cores?|threads?|%)\b").ok()?;
-
-    for cap in number_pattern.captures_iter(text) {
+    // Check for specific numeric claims not in output (v0.0.893: pre-compiled)
+    for cap in RE_NUMBER.captures_iter(text) {
         let full_match = cap.get(0)?.as_str();
         let number = cap.get(1)?.as_str();
 
@@ -247,10 +262,8 @@ fn check_hallucination(text: &str, command_output: &str, grounding_values: &[Str
         }
     }
 
-    // Check for service/package names that weren't in output
-    let name_pattern = regex::Regex::new(r"\b([a-z][\w-]*\.service|[a-z][\w-]{3,})\b").ok()?;
-
-    for cap in name_pattern.captures_iter(&text_lower) {
+    // Check for service/package names that weren't in output (v0.0.893: pre-compiled)
+    for cap in RE_NAME.captures_iter(&text_lower) {
         let name = cap.get(1)?.as_str();
 
         // Skip common words
@@ -384,21 +397,16 @@ fn check_status_contradiction(answer: &str, output: &str) -> Option<ValidationWa
 }
 
 /// Check for numeric contradictions with tolerance for units
+/// v0.0.893: Uses pre-compiled regex
 fn check_numeric_contradiction(answer: &str, output: &str) -> Option<ValidationWarning> {
-    // Pattern to find memory/storage values with units (case-insensitive)
-    // Note: "Gi" is common shorthand for GiB in `free` output
-    let mem_pattern = regex::Regex::new(r"(?i)(\d+(?:\.\d+)?)\s*(gb|mb|tb|gib|mib|tib|gi|mi|ti|g|m|t)\b").ok()?;
-
-    // Extract all numeric values with memory units from answer
-    for cap in mem_pattern.captures_iter(answer) {
+    // Extract all numeric values with memory units from answer (v0.0.893: pre-compiled)
+    for cap in RE_MEM.captures_iter(answer) {
         let answer_num: f64 = cap.get(1)?.as_str().parse().ok()?;
         let answer_unit = cap.get(2)?.as_str();
-
-        // Normalize to a common unit (GB)
         let answer_gb = normalize_to_gb(answer_num, answer_unit);
 
         // Look for contradicting values in output
-        for out_cap in mem_pattern.captures_iter(output) {
+        for out_cap in RE_MEM.captures_iter(output) {
             let output_num: f64 = out_cap.get(1)?.as_str().parse().ok()?;
             let output_unit = out_cap.get(2)?.as_str();
             let output_gb = normalize_to_gb(output_num, output_unit);
@@ -492,18 +500,13 @@ fn check_boolean_contradiction(answer: &str, output: &str) -> Option<ValidationW
         ("ok", "error"),
     ];
 
-    // Only check these in specific contexts (after "is" or "=" or ":")
-    // to avoid false positives from natural language
-    let context_pattern = regex::Regex::new(r"(?:is|=|:)\s*(\w+)").ok()?;
-
-    for cap in context_pattern.captures_iter(answer) {
+    // Only check in contexts after "is", "=", or ":" (v0.0.893: pre-compiled)
+    for cap in RE_CONTEXT.captures_iter(answer) {
         let answer_val = cap.get(1)?.as_str().to_lowercase();
 
         for (positive, negative) in bool_pairs {
-            // Answer has positive value
             if answer_val == positive {
-                // Check if output shows negative
-                for out_cap in context_pattern.captures_iter(output) {
+                for out_cap in RE_CONTEXT.captures_iter(output) {
                     let output_val = out_cap.get(1)?.as_str().to_lowercase();
                     if output_val == negative {
                         return Some(ValidationWarning {

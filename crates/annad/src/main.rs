@@ -44,12 +44,26 @@ async fn main() -> Result<()> {
 
     info!("Starting annad v{}", VERSION);
 
-    // Initialize wiki in background (don't block daemon startup)
+    // v0.0.893: Initialize wiki with retry loop
     tokio::spawn(async {
         info!("Initializing wiki knowledge base...");
-        match wiki::init_wiki(OLLAMA_URL).await {
-            Ok(()) => info!("Wiki initialized successfully"),
-            Err(e) => warn!("Wiki initialization failed (will use LLM-only mode): {}", e),
+        let mut attempts = 0;
+        let max_attempts = 3;
+        let mut delay = std::time::Duration::from_secs(2);
+        loop {
+            attempts += 1;
+            match wiki::init_wiki(OLLAMA_URL).await {
+                Ok(()) => { info!("Wiki initialized successfully"); break; }
+                Err(e) if attempts >= max_attempts => {
+                    warn!("Wiki init failed after {} attempts (LLM-only mode): {}", attempts, e);
+                    break;
+                }
+                Err(e) => {
+                    warn!("Wiki init attempt {}/{} failed: {}, retrying in {:?}", attempts, max_attempts, e, delay);
+                    tokio::time::sleep(delay).await;
+                    delay *= 2; // Exponential backoff
+                }
+            }
         }
     });
 

@@ -31,31 +31,45 @@ pub struct AnnaConfig {
 }
 
 /// Performance configuration (timeouts, limits, etc.)
+/// v0.0.893: Added wiki, session, and threshold settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceConfig {
     /// Maximum iterations for command discovery
     #[serde(default = "default_max_iterations")]
     pub max_iterations: u32,
-
     /// Timeout for LLM calls in seconds
     #[serde(default = "default_llm_timeout")]
     pub llm_timeout_secs: u64,
-
     /// Fast timeout for simple queries in seconds
     #[serde(default = "default_fast_timeout")]
     pub fast_llm_timeout_secs: u64,
-
     /// Command execution timeout in seconds
     #[serde(default = "default_command_timeout")]
     pub command_timeout_secs: u64,
-
     /// Cache TTL for answers in seconds
     #[serde(default = "default_answer_cache_ttl")]
     pub answer_cache_ttl_secs: u64,
-
     /// Cache TTL for command outputs in seconds
     #[serde(default = "default_command_cache_ttl")]
     pub command_cache_ttl_secs: u64,
+    /// Cache TTL for static commands (uname, lscpu, etc.) in seconds
+    #[serde(default = "default_static_cache_ttl")]
+    pub static_command_cache_ttl_secs: u64,
+    /// Wiki search timeout in seconds
+    #[serde(default = "default_wiki_timeout")]
+    pub wiki_search_timeout_secs: u64,
+    /// Wiki circuit breaker threshold (failures before open)
+    #[serde(default = "default_wiki_circuit_threshold")]
+    pub wiki_circuit_threshold: u32,
+    /// Wiki circuit breaker cooldown in seconds
+    #[serde(default = "default_wiki_circuit_cooldown")]
+    pub wiki_circuit_cooldown_secs: u64,
+    /// High confidence threshold for skipping extra steps
+    #[serde(default = "default_high_confidence")]
+    pub high_confidence_threshold: f32,
+    /// Maximum session history turns to keep
+    #[serde(default = "default_max_session_history")]
+    pub max_session_history: usize,
 }
 
 fn default_max_iterations() -> u32 { 3 }
@@ -64,6 +78,12 @@ fn default_fast_timeout() -> u64 { 30 }
 fn default_command_timeout() -> u64 { 10 }
 fn default_answer_cache_ttl() -> u64 { 300 }
 fn default_command_cache_ttl() -> u64 { 60 }
+fn default_static_cache_ttl() -> u64 { 300 }
+fn default_wiki_timeout() -> u64 { 5 }
+fn default_wiki_circuit_threshold() -> u32 { 2 }
+fn default_wiki_circuit_cooldown() -> u64 { 60 }
+fn default_high_confidence() -> f32 { 0.85 }
+fn default_max_session_history() -> usize { 20 }
 
 impl Default for PerformanceConfig {
     fn default() -> Self {
@@ -74,6 +94,12 @@ impl Default for PerformanceConfig {
             command_timeout_secs: default_command_timeout(),
             answer_cache_ttl_secs: default_answer_cache_ttl(),
             command_cache_ttl_secs: default_command_cache_ttl(),
+            static_command_cache_ttl_secs: default_static_cache_ttl(),
+            wiki_search_timeout_secs: default_wiki_timeout(),
+            wiki_circuit_threshold: default_wiki_circuit_threshold(),
+            wiki_circuit_cooldown_secs: default_wiki_circuit_cooldown(),
+            high_confidence_threshold: default_high_confidence(),
+            max_session_history: default_max_session_history(),
         }
     }
 }
