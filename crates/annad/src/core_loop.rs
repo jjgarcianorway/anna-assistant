@@ -46,6 +46,39 @@ struct CachedOutput {
     is_static: bool,
 }
 
+/// v0.0.899: Resolution state machine for intelligent retry logic
+/// Replaces blind iteration count with explicit state tracking
+#[derive(Debug, Clone, PartialEq)]
+enum ResolutionState {
+    /// Initial state: gathering command output
+    Gathering,
+    /// Have output, checking if sufficient for answer
+    Validating,
+    /// Command failed, attempting recovery with diagnostics
+    Recovering { error_type: CommandErrorType, attempts: u8 },
+    /// Answer generated but validation failed, refining
+    Refining { issues: String, attempts: u8 },
+    /// Successfully converged on answer
+    Complete,
+    /// Unrecoverable error or max attempts reached
+    Failed { reason: String },
+}
+
+impl ResolutionState {
+    fn is_terminal(&self) -> bool {
+        matches!(self, ResolutionState::Complete | ResolutionState::Failed { .. })
+    }
+
+    fn can_continue(&self) -> bool {
+        match self {
+            ResolutionState::Recovering { attempts, .. } => *attempts < 3,
+            ResolutionState::Refining { attempts, .. } => *attempts < 2,
+            ResolutionState::Failed { .. } => false,
+            _ => true,
+        }
+    }
+}
+
 /// v0.0.892: Wiki search circuit breaker state
 static WIKI_FAILURES: AtomicU32 = AtomicU32::new(0);
 static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
@@ -2090,12 +2123,17 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
         }
     }
 
-    // If no recipe matched, use LLM to find commands
-    while used_recipe.is_none() && iterations < max_iterations {
-        iterations += 1;
-        info!("Iteration {}/{}", iterations, max_iterations);
+    // v0.0.899: State machine for intelligent resolution
+    let mut resolution_state = ResolutionState::Gathering;
+    let mut last_error_type: Option<CommandErrorType> = None;
+    let mut failed_commands: Vec<String> = Vec::new();
 
-        // Step 1: Ask LLM for commands to run
+    // If no recipe matched, use LLM to find commands
+    while used_recipe.is_none() && iterations < max_iterations && resolution_state.can_continue() {
+        iterations += 1;
+        info!("Iteration {}/{} (state: {:?})", iterations, max_iterations, resolution_state);
+
+        // Step 1: Ask LLM for commands to run (v0.0.899: state-aware prompts)
         let command_prompt = if iterations == 1 {
             // Include memory hints if we have them
             let hints_section = if !memory_hints.is_empty() {
@@ -2139,7 +2177,37 @@ IMPORTANT:
 Commands:"#,
                 question, hints_section
             )
+        } else if let ResolutionState::Recovering { error_type, .. } = &resolution_state {
+            // v0.0.899: Recovery-specific prompt with error context
+            let last_failed = failed_commands.last().map(|s| s.as_str()).unwrap_or("");
+            let recovery_hint = get_recovery_prompt(error_type, last_failed);
+            let failed_list = if !failed_commands.is_empty() {
+                format!("\nFailed commands (DO NOT repeat these):\n{}\n",
+                    failed_commands.iter().map(|c| format!("- {}", c)).collect::<Vec<_>>().join("\n"))
+            } else {
+                String::new()
+            };
+
+            format!(
+                r#"Question: "{}"
+
+Previous commands FAILED with error type: {:?}
+{}
+{}
+Recovery guidance: {}
+
+Output ALTERNATIVE commands that:
+1. Work around the error (different approach)
+2. Don't repeat failed commands
+3. Still answer the original question
+
+If no alternatives exist, output: DONE
+
+Commands:"#,
+                question, error_type, last_output, failed_list, recovery_hint
+            )
         } else {
+            // Normal continuation prompt
             format!(
                 r#"Question: "{}"
 
@@ -2261,6 +2329,10 @@ Commands:"#,
         }
 
         // Execute remaining commands sequentially
+        // v0.0.899: Track errors for state machine
+        let mut has_errors = false;
+        let mut detected_error_type = CommandErrorType::Unknown;
+
         for cmd in &other_commands {
             info!("Executing: {}", cmd);
             commands_executed.push(cmd.to_string());
@@ -2276,19 +2348,41 @@ Commands:"#,
                         step_type: StepType::CommandOutput,
                         content: output.clone(),
                     });
-                    let status = if output.contains("timed out") {
-                        "[TIMEOUT]"
+
+                    // v0.0.899: Classify output to detect soft errors
+                    let (status, is_error) = if output.contains("timed out") {
+                        detected_error_type = CommandErrorType::Timeout;
+                        ("[TIMEOUT]", true)
                     } else if output.trim().is_empty() {
-                        "[EMPTY OUTPUT]"
-                    } else if output.contains("(stderr:") && !output.contains('\n') {
-                        "[ERROR]"
+                        detected_error_type = CommandErrorType::EmptyOutput;
+                        ("[EMPTY OUTPUT]", true)
+                    } else if output.contains("(stderr:") {
+                        // Classify the error from stderr
+                        let (err_type, _) = classify_command_error(&output, None);
+                        detected_error_type = err_type;
+                        if output.contains('\n') {
+                            // Has stdout too, partial success
+                            ("[PARTIAL]", false)
+                        } else {
+                            ("[ERROR]", true)
+                        }
                     } else {
-                        "[OK]"
+                        ("[OK]", false)
                     };
+
+                    if is_error {
+                        has_errors = true;
+                        failed_commands.push(cmd.to_string());
+                    }
                     combined_output.push_str(&format!("$ {} {}\n{}\n\n", cmd, status, output));
                 }
                 Err(e) => {
+                    has_errors = true;
                     let error_msg = format!("Error: {}", e);
+                    let (err_type, _) = classify_command_error(&error_msg, None);
+                    detected_error_type = err_type;
+                    failed_commands.push(cmd.to_string());
+
                     dialogue.push(DialogueStep {
                         step_type: StepType::CommandOutput,
                         content: error_msg.clone(),
@@ -2298,7 +2392,25 @@ Commands:"#,
             }
         }
 
-        last_output = combined_output;
+        last_output = combined_output.clone();
+
+        // v0.0.899: Update state based on execution results
+        if has_errors && !combined_output.contains("[OK]") {
+            // All commands failed - enter recovery state
+            let recovery_attempts = match &resolution_state {
+                ResolutionState::Recovering { attempts, .. } => attempts + 1,
+                _ => 1,
+            };
+            resolution_state = ResolutionState::Recovering {
+                error_type: detected_error_type.clone(),
+                attempts: recovery_attempts,
+            };
+            last_error_type = Some(detected_error_type);
+            info!("Entering recovery state (attempt {})", recovery_attempts);
+        } else if !combined_output.is_empty() {
+            // Have some output, move to validating
+            resolution_state = ResolutionState::Validating;
+        }
 
         // Step 3: Check if we have enough information
         if !last_output.is_empty() {
@@ -2334,20 +2446,33 @@ Reply with ONLY one of:
             });
 
             if validation.trim().to_uppercase().starts_with("YES") {
+                resolution_state = ResolutionState::Complete;
                 break;
+            } else {
+                // Need more info - back to gathering
+                resolution_state = ResolutionState::Gathering;
             }
         }
     }
 
+    // v0.0.899: Log final state
+    info!("Resolution completed with state: {:?}, iterations: {}", resolution_state, iterations);
+    let _ = last_error_type; // Suppress unused warning (used for future diagnostics)
+
     // Step 4: Generate final answer
+    // v0.0.899: Load user preferences for personalized response
+    let user_prefs = anna_shared::session::UserPreferences::load();
+    let pref_guidance = user_prefs.get_prompt_guidance();
+
     let final_prompt = if last_output.is_empty() {
         format!(
             r#"Question: "{}"
 
-RESPOND BRIEFLY - just answer the question, no extra commentary.
+{}
 Give the shortest correct answer with essential commands only.
 RESPOND IN ENGLISH ONLY."#,
-            question
+            question,
+            if pref_guidance.is_empty() { "RESPOND BRIEFLY - just answer the question, no extra commentary.".to_string() } else { pref_guidance.clone() }
         )
     } else {
         format!(
@@ -2357,14 +2482,15 @@ Command output:
 {}
 
 RULES:
-1. Answer BRIEFLY - just the facts, no extra advice
+1. {}
 2. ONLY report facts from the output - never invent data
 3. Give the shortest correct answer
 4. If asked "how much X?" just give the number/value
 5. RESPOND IN ENGLISH ONLY
 
 Answer:"#,
-            question, last_output
+            question, last_output,
+            if pref_guidance.is_empty() { "Answer BRIEFLY - just the facts, no extra advice".to_string() } else { pref_guidance }
         )
     };
 

@@ -628,9 +628,17 @@ fn is_common_word(word: &str) -> bool {
 /// v0.0.898: Validate a complete answer against command output
 /// Returns validation result with confidence score and potential correction hints
 pub fn validate_complete_answer(answer: &str, command_output: &str) -> ValidationResult {
+    validate_and_learn(answer, command_output, None)
+}
+
+/// v0.0.899: Validate and optionally record contradictions for learning
+pub fn validate_and_learn(answer: &str, command_output: &str, source_cmd: Option<&str>) -> ValidationResult {
+    use anna_shared::session::ContradictionStore;
+
     let mut warnings = Vec::new();
     let mut confidence = 1.0f32;
     let mut correction_hints = Vec::new();
+    let mut detected_contradictions: Vec<(String, String, String)> = Vec::new();
 
     // Check uncertainty
     if let Some(warning) = check_uncertainty(answer) {
@@ -643,6 +651,11 @@ pub fn validate_complete_answer(answer: &str, command_output: &str) -> Validatio
     if let Some(warning) = check_hallucination(answer, command_output, &grounding_values) {
         confidence -= PENALTY_HALLUCINATION;
         correction_hints.push(format!("Verify: {}", warning.message));
+
+        // v0.0.899: Record for learning
+        if let Some(claim) = extract_claim_from_warning(&warning.message) {
+            detected_contradictions.push(("numeric_claim".to_string(), claim, "see output".to_string()));
+        }
         warnings.push(warning);
     }
 
@@ -657,6 +670,11 @@ pub fn validate_complete_answer(answer: &str, command_output: &str) -> Validatio
     if let Some(warning) = check_contradiction(answer, command_output) {
         confidence -= PENALTY_CONTRADICTION;
         correction_hints.push(format!("Fix: {}", warning.message));
+
+        // v0.0.899: Record specific contradiction for learning
+        if let Some((wrong, correct)) = extract_contradiction_details(&warning.message) {
+            detected_contradictions.push(("status".to_string(), wrong, correct));
+        }
         warnings.push(warning);
     }
 
@@ -664,6 +682,7 @@ pub fn validate_complete_answer(answer: &str, command_output: &str) -> Validatio
     if let Some(warning) = check_existence_contradiction(answer, command_output) {
         confidence -= PENALTY_CONTRADICTION;
         correction_hints.push(format!("Entity issue: {}", warning.message));
+        detected_contradictions.push(("existence".to_string(), "exists".to_string(), "does not exist".to_string()));
         warnings.push(warning);
     }
 
@@ -671,7 +690,20 @@ pub fn validate_complete_answer(answer: &str, command_output: &str) -> Validatio
     if let Some(warning) = check_arithmetic_error(answer, command_output) {
         confidence -= PENALTY_HALLUCINATION;
         correction_hints.push(format!("Math error: {}", warning.message));
+        if let Some(claim) = extract_claim_from_warning(&warning.message) {
+            detected_contradictions.push(("arithmetic".to_string(), claim, "incorrect math".to_string()));
+        }
         warnings.push(warning);
+    }
+
+    // v0.0.899: Record contradictions for future prevention
+    if !detected_contradictions.is_empty() {
+        let cmd = source_cmd.unwrap_or("unknown");
+        let mut store = ContradictionStore::load();
+        for (claim_type, wrong, correct) in detected_contradictions {
+            store.record(&claim_type, &wrong, &correct, cmd);
+        }
+        let _ = store.save();
     }
 
     confidence = confidence.max(0.0);
@@ -686,6 +718,39 @@ pub fn validate_complete_answer(answer: &str, command_output: &str) -> Validatio
             Some(correction_hints.join("; "))
         },
     }
+}
+
+/// v0.0.899: Extract a claim value from warning message
+fn extract_claim_from_warning(message: &str) -> Option<String> {
+    // Look for quoted values or numbers with units
+    if let Some(start) = message.find('\'') {
+        if let Some(end) = message[start+1..].find('\'') {
+            return Some(message[start+1..start+1+end].to_string());
+        }
+    }
+    // Try to find a number pattern
+    for word in message.split_whitespace() {
+        if word.chars().any(|c| c.is_numeric()) && word.len() < 20 {
+            return Some(word.to_string());
+        }
+    }
+    None
+}
+
+/// v0.0.899: Extract wrong/correct values from contradiction message
+fn extract_contradiction_details(message: &str) -> Option<(String, String)> {
+    // Message format: "Answer says 'X' but command output shows 'Y'"
+    if message.contains("says") && message.contains("but") {
+        let parts: Vec<&str> = message.split("but").collect();
+        if parts.len() == 2 {
+            let wrong = extract_claim_from_warning(parts[0]);
+            let correct = extract_claim_from_warning(parts[1]);
+            if let (Some(w), Some(c)) = (wrong, correct) {
+                return Some((w, c));
+            }
+        }
+    }
+    None
 }
 
 /// v0.0.898: Check if answer assumes something exists but output shows it doesn't

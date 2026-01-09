@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.899] - 2026-01-09
+
+### Added
+- **Resolution State Machine** - Intelligent retry logic replaces blind iteration
+  - `ResolutionState` enum: Gathering, Validating, Recovering, Refining, Complete, Failed
+  - State-aware command prompts: recovery mode gets error-specific guidance
+  - Tracks failed commands to avoid repeating them
+  - Limits recovery attempts (3 max) and refinement attempts (2 max)
+  - Logs state transitions for debugging
+
+- **Contradiction Learning** - Prevents repeating the same mistakes
+  - `ContradictionStore` persists learned contradiction patterns to disk
+  - Records claim type, wrong assertion, correct value, source command
+  - `validate_and_learn()` automatically saves contradictions when detected
+  - `get_correction_hints()` retrieves guidance for specific topics
+  - Auto-cleanup keeps max 100 patterns, prioritizes frequent/recent
+
+- **User Preference Persistence** - Remembers preferences across sessions
+  - `UserPreferences` struct saved to `~/.anna/user_preferences.json`
+  - Tracks: detail_level, show_command_output, show_reasoning, style
+  - `update_from_signal()` learns from: "be brief", "explain more", "hide output"
+  - `get_prompt_guidance()` applies preferences to answer generation
+  - Records favorite_topics and preferred_commands
+
 ## [0.0.898] - 2026-01-09
 
 ### Added
