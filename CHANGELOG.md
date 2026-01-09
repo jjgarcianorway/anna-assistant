@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.885] - 2026-01-09
+
+### Added
+- **Command Execution Timeout** - Hung commands no longer block forever
+  - 10-second timeout using Linux `timeout` command
+  - Applies to both root and user command execution
+  - Returns clear timeout error message
+
+- **Streaming Learning** - Sessions now learn from all execution paths
+  - Added `learn_from_interaction()` calls to streaming handlers
+  - Main execution, troubleshoot, and multi-question paths all learn
+  - Experiences properly stored in memory for future reference
+
+- **Smart Output Truncation** - Preserves important error messages
+  - Keeps first 1500 chars (context) and last 2000 chars (errors)
+  - Shows count of truncated lines in middle
+  - Errors at end of output no longer cut off
+
+- **Failed Command Tracking** - LLM sees which commands failed
+  - Status annotations: [OK], [ERROR], [EMPTY OUTPUT], [TIMEOUT]
+  - Retry prompts explain status markers
+  - LLM can suggest alternatives for failed commands
+
+- **Parallel Wiki Parsing** - Faster wiki article processing
+  - Uses rayon for parallel article parsing
+  - Section extraction runs concurrently across 3 wiki articles
+  - Command extraction parallelized
+
+### Dependencies
+- Added `rayon = "1.10"` for parallel processing
+
 ## [0.0.884] - 2026-01-09
 
 ### Added

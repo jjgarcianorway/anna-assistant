@@ -40,6 +40,9 @@ const LLM_TIMEOUT_SECS: u64 = 120;
 /// Fast timeout for simple queries
 const FAST_LLM_TIMEOUT_SECS: u64 = 30;
 
+/// Command execution timeout (seconds) - prevents hung commands
+const COMMAND_TIMEOUT_SECS: u64 = 10;
+
 /// Confidence threshold for skipping extra steps
 const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
 
@@ -1285,37 +1288,54 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         return None;
     }
 
-    // Extract commands from found articles
+    // Extract commands from found articles in parallel using rayon
+    use rayon::prelude::*;
+
+    // Process each article in parallel
+    let article_results: Vec<_> = results
+        .par_iter()
+        .map(|result| {
+            let title = format!("{} (score: {:.2})", result.article.title, result.score);
+
+            // Parse article into sections
+            let sections = wiki::sections::parse_sections(&result.article.content);
+
+            // Find relevant sections for this query
+            let relevant_sections = wiki::sections::find_relevant_sections(&sections, question, 2);
+
+            // Extract commands from relevant sections only
+            let mut commands = Vec::new();
+            for section in &relevant_sections {
+                let cmds = wiki::extract::extract_relevant_commands(
+                    &section.content,
+                    question,
+                    &result.article.title,
+                );
+                commands.extend(cmds);
+            }
+
+            // Get section context
+            let section_context = wiki::sections::format_sections_for_context(&relevant_sections, &result.article.title);
+
+            (title, commands, section_context)
+        })
+        .collect();
+
+    // Merge results from parallel processing
     let mut all_commands = Vec::new();
     let mut article_titles = Vec::new();
     let mut wiki_context = String::new();
 
-    for result in &results {
-        article_titles.push(format!("{} (score: {:.2})", result.article.title, result.score));
+    for (title, commands, section_context) in article_results {
+        article_titles.push(title);
 
-        // Parse article into sections
-        let sections = wiki::sections::parse_sections(&result.article.content);
-
-        // Find relevant sections for this query
-        let relevant_sections = wiki::sections::find_relevant_sections(&sections, question, 2);
-
-        // Extract commands from relevant sections only
-        for section in &relevant_sections {
-            let commands = wiki::extract::extract_relevant_commands(
-                &section.content,
-                question,
-                &result.article.title,
-            );
-
-            for cmd in commands {
-                if !all_commands.iter().any(|c: &wiki::ExtractedCommand| c.command == cmd.command) {
-                    all_commands.push(cmd);
-                }
+        // Deduplicate commands
+        for cmd in commands {
+            if !all_commands.iter().any(|c: &wiki::ExtractedCommand| c.command == cmd.command) {
+                all_commands.push(cmd);
             }
         }
 
-        // Add relevant sections to context
-        let section_context = wiki::sections::format_sections_for_context(&relevant_sections, &result.article.title);
         if !section_context.is_empty() {
             wiki_context.push_str(&section_context);
         }
@@ -1501,10 +1521,11 @@ Commands:"#,
             format!(
                 r#"Question: "{}"
 
-Previous command output:
+Previous command output (status: [OK]=success, [ERROR]=failed, [EMPTY OUTPUT]=no output, [TIMEOUT]=timed out):
 {}
 
 Need more information to fully answer the question.
+Consider trying alternative commands if previous ones failed or returned no output.
 Output additional commands (one per line, no explanations).
 If output above is sufficient, output: DONE
 
@@ -1571,7 +1592,17 @@ Commands:"#,
                         step_type: StepType::CommandOutput,
                         content: output.clone(),
                     });
-                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, output));
+                    // Add status annotation for LLM context
+                    let status = if output.contains("timed out") {
+                        "[TIMEOUT]"
+                    } else if output.trim().is_empty() {
+                        "[EMPTY OUTPUT]"
+                    } else if output.contains("(stderr:") && !output.contains('\n') {
+                        "[ERROR]"
+                    } else {
+                        "[OK]"
+                    };
+                    combined_output.push_str(&format!("$ {} {}\n{}\n\n", cmd, status, output));
                 }
                 Err(e) => {
                     let error_msg = format!("Error: {}", e);
@@ -1579,7 +1610,7 @@ Commands:"#,
                         step_type: StepType::CommandOutput,
                         content: error_msg.clone(),
                     });
-                    combined_output.push_str(&format!("$ {}\n{}\n\n", cmd, error_msg));
+                    combined_output.push_str(&format!("$ {} [ERROR]\n{}\n\n", cmd, error_msg));
                 }
             }
         }
@@ -2095,10 +2126,11 @@ Commands:"#,
             format!(
                 r#"Question: "{}"
 
-Previous command output:
+Previous command output (status: [OK]=success, [ERROR]=failed, [EMPTY OUTPUT]=no output, [TIMEOUT]=timed out):
 {}
 
 Need more information to fully answer the question.
+Consider trying alternative commands if previous ones failed or returned no output.
 Output additional commands (one per line, no explanations).
 If output above is sufficient, output: DONE
 
@@ -2207,7 +2239,20 @@ Commands:"#,
             };
             dialogue.push(step.clone());
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
-            combined_output.push_str(&format!("$ {}\n{}\n\n", tried_commands.last().unwrap_or(&cmd.to_string()), output));
+
+            // Build status-annotated output for LLM context
+            let cmd_string = cmd.to_string();
+            let cmd_used = tried_commands.last().unwrap_or(&cmd_string);
+            let status = if output.contains("timed out") {
+                "[TIMEOUT]"
+            } else if output.trim().is_empty() {
+                "[EMPTY OUTPUT]"
+            } else if output.contains("(stderr:") && !output.contains('\n') {
+                "[ERROR]"
+            } else {
+                "[OK]"
+            };
+            combined_output.push_str(&format!("$ {} {}\n{}\n\n", cmd_used, status, output));
         }
 
         last_output = combined_output;
@@ -2384,6 +2429,11 @@ RESPOND IN ENGLISH ONLY."#,
     };
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Learn from this successful interaction (streaming path)
+    if !commands_executed.is_empty() {
+        learn_from_interaction(question, &commands_executed, &cleaned_answer);
+    }
 
     // Send done
     let result = AskResult {
@@ -2900,6 +2950,11 @@ RESPOND IN ENGLISH ONLY."#,
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
+    // Learn from this successful interaction (troubleshoot path)
+    if !commands_executed.is_empty() {
+        learn_from_interaction(question, &commands_executed, answer.trim());
+    }
+
     // Send done
     let result = AskResult {
         answer: answer.trim().to_string(),
@@ -2919,7 +2974,7 @@ RESPOND IN ENGLISH ONLY."#,
 /// Handle multi-question intent - process each sub-question and combine answers
 async fn handle_multi_question<W: AsyncWriteExt + Unpin>(
     model: &str,
-    _original_question: &str,
+    original_question: &str,
     sub_questions: &[String],
     writer: &mut W,
     mut dialogue: Vec<DialogueStep>,
@@ -3046,6 +3101,11 @@ Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
+    // Learn from this successful interaction (multi-question path)
+    if !all_commands.is_empty() {
+        learn_from_interaction(original_question, &all_commands, &combined_answer);
+    }
+
     // Send done
     let result = AskResult {
         answer: combined_answer,
@@ -3112,22 +3172,42 @@ fn execute_command(cmd: &str) -> Result<String> {
     // Strip ANSI escape codes for clean output
     result = strip_ansi_codes(&result);
 
-    // Truncate very long output
-    if result.len() > 4000 {
-        result.truncate(4000);
-        result.push_str("\n... (output truncated)");
+    // Smart truncation: preserve beginning and end (errors usually at the end)
+    const MAX_OUTPUT: usize = 4000;
+    const HEAD_SIZE: usize = 1500;  // Keep first 1500 chars
+    const TAIL_SIZE: usize = 2000;  // Keep last 2000 chars (errors often here)
+
+    if result.len() > MAX_OUTPUT {
+        let head = &result[..HEAD_SIZE];
+        let tail = &result[result.len() - TAIL_SIZE..];
+        let truncated_lines = result[HEAD_SIZE..result.len() - TAIL_SIZE].lines().count();
+        result = format!(
+            "{}\n\n... ({} lines truncated) ...\n\n{}",
+            head.trim_end(),
+            truncated_lines,
+            tail.trim_start()
+        );
     }
 
     Ok(result)
 }
 
-/// Execute a command as root (the daemon's user)
+/// Execute a command as root (the daemon's user) with timeout
 fn execute_as_root(cmd: &str) -> Result<String> {
-    let output = Command::new("sh")
+    // Wrap command with timeout to prevent hung commands
+    let output = Command::new("timeout")
+        .arg("--signal=KILL")
+        .arg(format!("{}s", COMMAND_TIMEOUT_SECS))
+        .arg("sh")
         .arg("-c")
         .arg(cmd)
         .output()
         .map_err(|e| anyhow!("Failed to execute: {}", e))?;
+
+    // Check for timeout (exit code 137 = killed by SIGKILL after timeout)
+    if output.status.code() == Some(137) || output.status.code() == Some(124) {
+        return Err(anyhow!("Command timed out after {}s: {}", COMMAND_TIMEOUT_SECS, cmd));
+    }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

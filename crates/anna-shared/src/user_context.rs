@@ -7,6 +7,9 @@ use anyhow::{anyhow, Result};
 use std::process::Command;
 use tracing::{debug, warn};
 
+/// Command execution timeout (seconds) - prevents hung commands
+const COMMAND_TIMEOUT_SECS: u64 = 10;
+
 /// Context for the logged-in user
 #[derive(Debug, Clone)]
 pub struct UserContext {
@@ -131,11 +134,14 @@ impl UserContext {
         Err(anyhow!("No display user found"))
     }
 
-    /// Execute a command as this user.
+    /// Execute a command as this user with timeout.
     /// Uses runuser for proper session setup.
     pub fn execute(&self, cmd: &str) -> Result<String> {
-        // Use runuser to execute as the user with their environment
-        let output = Command::new("runuser")
+        // Wrap with timeout to prevent hung commands
+        let output = Command::new("timeout")
+            .arg("--signal=KILL")
+            .arg(format!("{}s", COMMAND_TIMEOUT_SECS))
+            .arg("runuser")
             .args([
                 "-u", &self.username,
                 "--",
@@ -146,6 +152,11 @@ impl UserContext {
             .env("LOGNAME", &self.username)
             .output()
             .map_err(|e| anyhow!("runuser failed: {}", e))?;
+
+        // Check for timeout (exit code 137 = killed by SIGKILL, 124 = timeout)
+        if output.status.code() == Some(137) || output.status.code() == Some(124) {
+            return Err(anyhow!("Command timed out after {}s: {}", COMMAND_TIMEOUT_SECS, cmd));
+        }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);

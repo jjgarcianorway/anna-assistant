@@ -19,3 +19,4 @@ tracing-subscriber.workspace = true
 reqwest.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
+rayon = "1.10"
