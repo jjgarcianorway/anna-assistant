@@ -48,9 +48,15 @@ fn is_simple_factual_query(question: &str) -> bool {
         "why is", "why does", "why can't", "why won't",
         "fix", "solve", "troubleshoot", "debug", "error",
         "not working", "doesn't work", "can't", "cannot",
-        "help me", "configure", "setup", "install",
+        "help me", "configure", "setup",
         "problem", "issue", "wrong",
     ];
+
+    // Check for "install" only if NOT asking about status
+    // "is X installed?" is simple, "how to install X" is complex
+    if q.contains("install") && !q.contains("installed") {
+        return false;
+    }
 
     for pattern in complex_patterns {
         if q.contains(pattern) {
