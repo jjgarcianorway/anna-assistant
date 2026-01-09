@@ -281,8 +281,15 @@ pub fn is_user_command(cmd: &str) -> bool {
         "xdg-",
         "fish ",  // Fish shell
         "fish_",
+        "fish -c",
         "nvim ",
         "vim ",
+        "alias",  // Shell aliases
+        "echo $",  // Environment variables
+        "env ",
+        "id ",  // User ID info
+        "groups",
+        "whoami",
     ];
 
     for pattern in &user_commands {

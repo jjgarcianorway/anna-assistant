@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.870] - 2026-01-09
+
+### Added
+- **Command Hints System** - Intelligent command suggestions based on question type
+  - Desktop theme queries now get gsettings commands
+  - Hardware sensors get sensors/acpi commands
+  - Battery queries get proper power supply commands
+  - Motherboard/RAM speed get dmidecode hints
+  - Package queries get specific pacman commands
+
+### Improved
+- Better LLM command selection for specialized questions
+- More user commands recognized (alias, env, groups, whoami)
+- Fish shell queries now properly handled
+
 ## [0.0.869] - 2026-01-08
 
 ### Added

@@ -36,6 +36,120 @@ const MAX_ITERATIONS: u32 = 5;
 /// Timeout for LLM calls (seconds) - increased for complex prompts
 const LLM_TIMEOUT_SECS: u64 = 120;
 
+/// Get command hints based on question category
+fn get_command_hints(question: &str) -> String {
+    let q = question.to_lowercase();
+    let mut hints: Vec<String> = Vec::new();
+
+    // Desktop/Theme queries
+    if q.contains("theme") || q.contains("gtk") || q.contains("icon") || q.contains("cursor")
+        || q.contains("font") || q.contains("dark mode") || q.contains("appearance") {
+        hints.push("gsettings get org.gnome.desktop.interface gtk-theme".into());
+        hints.push("gsettings get org.gnome.desktop.interface icon-theme".into());
+        hints.push("gsettings get org.gnome.desktop.interface cursor-theme".into());
+        hints.push("gsettings get org.gnome.desktop.interface font-name".into());
+        hints.push("gsettings get org.gnome.desktop.interface color-scheme".into());
+    }
+
+    // Hardware sensors
+    if q.contains("temperature") || q.contains("temp") || q.contains("thermal") || q.contains("hot") {
+        hints.push("sensors 2>/dev/null | grep -E '(Core|temp|Tctl)' | head -5".into());
+        hints.push("cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | head -3".into());
+    }
+
+    // GPU temperature
+    if q.contains("gpu") && (q.contains("temp") || q.contains("hot")) {
+        hints.push("nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader 2>/dev/null".into());
+    }
+
+    // Battery
+    if q.contains("battery") || q.contains("charge") || q.contains("power") || q.contains("plugged") {
+        hints.push("cat /sys/class/power_supply/BAT*/capacity 2>/dev/null".into());
+        hints.push("cat /sys/class/power_supply/BAT*/status 2>/dev/null".into());
+        hints.push("acpi -b 2>/dev/null".into());
+        hints.push("upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null | grep -E '(state|percentage)'".into());
+    }
+
+    // Package queries - be specific about the package
+    if q.contains("installed") && !q.contains("how many") {
+        hints.push("pacman -Qi PACKAGENAME 2>/dev/null | head -2".into());
+        hints.push("which PACKAGENAME 2>/dev/null".into());
+    }
+
+    // Shell/dotfiles queries
+    if q.contains("alias") || q.contains("aliases") {
+        hints.push("alias 2>/dev/null | head -20".into());
+        hints.push("grep -h 'alias ' ~/.bashrc ~/.zshrc ~/.config/fish/config.fish 2>/dev/null | head -10".into());
+    }
+
+    if q.contains("path") && !q.contains("home") {
+        hints.push("echo $PATH | tr ':' '\\n'".into());
+    }
+
+    // Starship/prompt
+    if q.contains("starship") || q.contains("prompt") {
+        hints.push("which starship 2>/dev/null && starship --version".into());
+        hints.push("cat ~/.config/starship.toml 2>/dev/null | head -5".into());
+    }
+
+    // tmux
+    if q.contains("tmux") {
+        hints.push("which tmux 2>/dev/null && tmux -V".into());
+        hints.push("cat ~/.tmux.conf 2>/dev/null | head -5".into());
+    }
+
+    // Monitor/display
+    if q.contains("monitor") || q.contains("display") || q.contains("screen") {
+        hints.push("xrandr --query 2>/dev/null | grep -E '( connected|\\*)'".into());
+        hints.push("wlr-randr 2>/dev/null | head -10".into());
+    }
+
+    // RAM speed
+    if q.contains("ram") && q.contains("speed") {
+        hints.push("dmidecode -t memory 2>/dev/null | grep -E '(Speed|Type):' | head -4".into());
+    }
+
+    // Motherboard
+    if q.contains("motherboard") || q.contains("mainboard") || q.contains("mobo") {
+        hints.push("cat /sys/class/dmi/id/board_{vendor,name,version} 2>/dev/null".into());
+        hints.push("dmidecode -t baseboard 2>/dev/null | grep -E '(Manufacturer|Product|Version)' | head -3".into());
+    }
+
+    // Pacman cache
+    if q.contains("cache") && q.contains("pacman") {
+        hints.push("du -sh /var/cache/pacman/pkg 2>/dev/null".into());
+    }
+
+    // Mirrors
+    if q.contains("mirror") {
+        hints.push("head -20 /etc/pacman.d/mirrorlist | grep -v '^#'".into());
+    }
+
+    // Kernel modules
+    if q.contains("module") || (q.contains("driver") && q.contains("loaded")) {
+        hints.push("lsmod | head -20".into());
+    }
+
+    // Nvidia specific
+    if q.contains("nvidia") {
+        hints.push("lsmod | grep nvidia".into());
+        hints.push("nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null".into());
+    }
+
+    // Fish shell
+    if q.contains("fish") {
+        hints.push("cat ~/.config/fish/config.fish 2>/dev/null | head -20".into());
+        hints.push("fish -c 'functions' 2>/dev/null | head -10".into());
+    }
+
+    if hints.is_empty() {
+        String::new()
+    } else {
+        format!("\n\nRecommended commands for this type of question:\n{}",
+            hints.iter().take(4).map(|h| format!("  {}", h)).collect::<Vec<_>>().join("\n"))
+    }
+}
+
 /// System context commands - always run first to understand the environment
 /// Note: daemon runs as root, so we check system-wide settings, not user env vars
 const SYSTEM_CONTEXT_COMMANDS: &[&str] = &[
@@ -857,6 +971,13 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             String::new()
         };
 
+        // Get command hints based on question type
+        let cmd_hints = if iterations == 1 {
+            get_command_hints(question)
+        } else {
+            String::new()
+        };
+
         // Build minimal context for command selection (full context saved for final answer)
         let brief_context = get_system_profile().brief_summary();
 
@@ -869,7 +990,7 @@ Question: "{}"
 Reply with 1-3 shell commands ONLY (no markdown, no explanations).
 NEVER use: top, htop, vim, nano, less (they need a terminal).
 For CPU: ps aux --sort=-%cpu | head -10
-Output NONE if no commands needed.{wiki_hint}
+Output NONE if no commands needed.{wiki_hint}{cmd_hints}
 
 Commands:"#,
                 brief_context, question
