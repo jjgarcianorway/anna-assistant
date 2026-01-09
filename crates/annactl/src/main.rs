@@ -191,6 +191,25 @@ async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult> {
                 return Err(anyhow!("Failed to read from daemon: {}", e));
             }
             Err(_) => {
+                println!();
+                println_colored("╔══════════════════════════════════════════════╗", RED);
+                println_colored("║           REQUEST TIMED OUT                  ║", RED);
+                println_colored("╚══════════════════════════════════════════════╝", RED);
+                println!();
+                println!("  The request took longer than {}s to complete.", RPC_TIMEOUT_SECS);
+                println!();
+                println_colored("  Possible causes:", YELLOW);
+                println!("  • Ollama model is loading (first query is slow)");
+                println!("  • Complex question requiring many iterations");
+                println!("  • LLM server is overloaded");
+                println!();
+                println_colored("  Suggestions:", GREEN);
+                println!("  • Try again - model may be loaded now");
+                println!("  • Check: annactl status");
+                println!("  • Increase timeout in ~/.anna/config.toml:");
+                println!("    [performance]");
+                println!("    llm_timeout_secs = 180");
+                println!();
                 return Err(anyhow!("Request timed out after {}s", RPC_TIMEOUT_SECS));
             }
         }

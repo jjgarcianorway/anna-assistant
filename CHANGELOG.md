@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.886] - 2026-01-09
+
+### Added
+- **Configurable Timeouts** - All timing parameters now in config file
+  - New `[performance]` section in `~/.anna/config.toml`
+  - `max_iterations`, `llm_timeout_secs`, `fast_llm_timeout_secs`
+  - `command_timeout_secs`, `answer_cache_ttl_secs`, `command_cache_ttl_secs`
+  - Tune for your hardware (slow systems need longer timeouts)
+
+- **Better Timeout Error Messages** - Clear guidance when requests timeout
+  - Shows timeout duration and possible causes
+  - Lists common solutions (model loading, retry, config)
+  - Points to config file for timeout adjustment
+
+- **Ollama Diagnostics** - Detailed troubleshooting when Ollama fails
+  - `get_ollama_diagnostics()` checks binary, process, port, service status
+  - Detects low disk space that could affect models
+  - Provides actionable recovery steps
+
+### Changed
+- All timeout constants replaced with config-loaded values
+- Performance config cached in memory (loaded once at startup)
+
 ## [0.0.885] - 2026-01-09
 
 ### Added

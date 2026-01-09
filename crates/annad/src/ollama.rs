@@ -327,6 +327,89 @@ pub async fn is_running() -> bool {
         .unwrap_or(false)
 }
 
+/// Get detailed diagnostics when Ollama is not working
+pub fn get_ollama_diagnostics() -> Vec<String> {
+    let mut diagnostics = Vec::new();
+
+    // Check if ollama binary exists
+    let ollama_exists = Command::new("which")
+        .arg("ollama")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !ollama_exists {
+        diagnostics.push("Ollama not installed. Install with: sudo pacman -S ollama".to_string());
+        return diagnostics;
+    }
+
+    // Check if ollama process is running
+    let process_running = Command::new("pgrep")
+        .arg("-x")
+        .arg("ollama")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    if !process_running {
+        diagnostics.push("Ollama process not running".to_string());
+        diagnostics.push("Start with: sudo systemctl start ollama".to_string());
+    }
+
+    // Check if port 11434 is in use
+    let port_check = Command::new("ss")
+        .args(["-tlnp"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).contains(":11434"))
+        .unwrap_or(false);
+
+    if !port_check && process_running {
+        diagnostics.push("Port 11434 not listening - Ollama may be starting up".to_string());
+    }
+
+    // Check systemd service status
+    let service_status = Command::new("systemctl")
+        .args(["is-active", "ollama"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    if service_status != "active" {
+        diagnostics.push(format!("Ollama service status: {}", service_status));
+        if service_status == "failed" {
+            diagnostics.push("Check logs: journalctl -u ollama -n 20".to_string());
+        }
+    }
+
+    // Check disk space for models
+    let disk_check = Command::new("df")
+        .args(["-h", "/usr/share/ollama"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            // Parse usage percentage from df output
+            output.lines().nth(1).and_then(|line| {
+                line.split_whitespace().nth(4).map(|s| s.to_string())
+            })
+        });
+
+    if let Some(usage) = disk_check {
+        if let Ok(pct) = usage.trim_end_matches('%').parse::<u32>() {
+            if pct > 95 {
+                diagnostics.push(format!("Low disk space ({}% used) - may affect model loading", pct));
+            }
+        }
+    }
+
+    if diagnostics.is_empty() {
+        diagnostics.push("Ollama appears configured correctly but API not responding".to_string());
+        diagnostics.push("Try restarting: sudo systemctl restart ollama".to_string());
+    }
+
+    diagnostics
+}
+
 /// Start Ollama service
 pub async fn start_service() -> Result<()> {
     info!("Starting Ollama service...");

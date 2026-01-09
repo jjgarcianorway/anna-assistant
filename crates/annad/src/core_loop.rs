@@ -10,6 +10,7 @@
 //! 7. If valid answer, return to user; otherwise iterate
 //! 8. Learn from successful interactions
 
+use anna_shared::config::{AnnaConfig, PerformanceConfig};
 use anna_shared::memory::{ExperienceContext, Memory};
 use anna_shared::profile::{self, SystemProfile};
 use anna_shared::recipe::{Recipe, RecipeBook};
@@ -28,23 +29,44 @@ use crate::ollama;
 /// Cached system profile (refreshable)
 static SYSTEM_PROFILE: RwLock<Option<SystemProfile>> = RwLock::new(None);
 
+/// Cached performance config (loaded once at startup)
+static PERF_CONFIG: RwLock<Option<PerformanceConfig>> = RwLock::new(None);
+
 /// Ollama URL for embeddings
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
-/// Maximum iterations to try before giving up (reduced for speed)
-const MAX_ITERATIONS: u32 = 3;
-
-/// Timeout for LLM calls (seconds) - reduced for speed
-const LLM_TIMEOUT_SECS: u64 = 120;
-
-/// Fast timeout for simple queries
-const FAST_LLM_TIMEOUT_SECS: u64 = 30;
-
-/// Command execution timeout (seconds) - prevents hung commands
-const COMMAND_TIMEOUT_SECS: u64 = 10;
-
 /// Confidence threshold for skipping extra steps
 const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
+
+/// Get performance config (loads from disk once, caches in memory)
+fn get_perf_config() -> PerformanceConfig {
+    // Try to read from cache first
+    if let Ok(guard) = PERF_CONFIG.read() {
+        if let Some(ref config) = *guard {
+            return config.clone();
+        }
+    }
+    // Load from disk
+    let config = AnnaConfig::load()
+        .map(|c| c.performance)
+        .unwrap_or_default();
+    // Cache it
+    if let Ok(mut guard) = PERF_CONFIG.write() {
+        *guard = Some(config.clone());
+    }
+    config
+}
+
+/// Reload performance config from disk (called when config changes)
+pub fn reload_perf_config() {
+    if let Ok(mut guard) = PERF_CONFIG.write() {
+        let config = AnnaConfig::load()
+            .map(|c| c.performance)
+            .unwrap_or_default();
+        *guard = Some(config);
+        info!("Reloaded performance config");
+    }
+}
 
 /// Strip ANSI escape codes from text
 fn strip_ansi_codes(text: &str) -> String {
@@ -81,6 +103,8 @@ async fn get_alternative_commands(
     error_output: &str,
     question: &str,
 ) -> Option<Vec<String>> {
+    let fast_timeout = get_perf_config().fast_llm_timeout_secs;
+
     let prompt = format!(
         r#"The command `{original_cmd}` failed or returned no useful data.
 Error/output: {error_output}
@@ -95,7 +119,7 @@ If no alternative exists, reply with "NONE"."#,
         question = question
     );
 
-    match ollama::chat_with_timeout(model, &prompt, FAST_LLM_TIMEOUT_SECS).await {
+    match ollama::chat_with_timeout(model, &prompt, fast_timeout).await {
         Ok(response) => {
             let response = response.trim();
             if response == "NONE" || response.is_empty() {
@@ -1432,6 +1456,11 @@ fn mark_recipe_success(recipe_id: &str) {
 pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> {
     info!("Processing question: {}", question);
 
+    // Load performance config once at start
+    let perf = get_perf_config();
+    let max_iterations = perf.max_iterations;
+    let llm_timeout = perf.llm_timeout_secs;
+
     let mut iterations = 0;
     let mut commands_executed = Vec::new();
     let mut last_output = String::new();
@@ -1479,9 +1508,9 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
     }
 
     // If no recipe matched, use LLM to find commands
-    while used_recipe.is_none() && iterations < MAX_ITERATIONS {
+    while used_recipe.is_none() && iterations < max_iterations {
         iterations += 1;
-        info!("Iteration {}/{}", iterations, MAX_ITERATIONS);
+        info!("Iteration {}/{}", iterations, max_iterations);
 
         // Step 1: Ask LLM for commands to run
         let command_prompt = if iterations == 1 {
@@ -1540,7 +1569,7 @@ Commands:"#,
             content: command_prompt.clone(),
         });
 
-        let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
+        let commands_response = ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await?;
         let commands_response = commands_response.trim();
 
         // Record LLM's response
@@ -1684,7 +1713,7 @@ Answer:"#,
         content: final_prompt.clone(),
     });
 
-    let final_answer = ollama::chat_with_timeout(model, &final_prompt, LLM_TIMEOUT_SECS).await?;
+    let final_answer = ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await?;
 
     dialogue.push(DialogueStep {
         step_type: StepType::FinalAnswer,
@@ -1811,6 +1840,12 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     if let Some(ctx) = session_context {
         debug!("Session context: {}", ctx);
     }
+
+    // Load performance config once at start
+    let perf = get_perf_config();
+    let max_iterations = perf.max_iterations;
+    let llm_timeout = perf.llm_timeout_secs;
+    let fast_timeout = perf.fast_llm_timeout_secs;
 
     let mut iterations = 0;
     let mut commands_executed = Vec::new();
@@ -2084,9 +2119,9 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         }
     } // End of !skip_wiki
 
-    while iterations < MAX_ITERATIONS {
+    while iterations < max_iterations {
         iterations += 1;
-        info!("Iteration {}/{}", iterations, MAX_ITERATIONS);
+        info!("Iteration {}/{}", iterations, max_iterations);
 
         // Build wiki hint for first iteration
         let wiki_hint = if iterations == 1 && !wiki_commands.is_empty() {
@@ -2147,7 +2182,7 @@ Commands:"#,
         dialogue.push(step.clone());
         send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-        let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
+        let commands_response = ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await?;
         let commands_response = commands_response.trim();
 
         // Record and send LLM's response
@@ -2381,14 +2416,14 @@ Answer:"#,
     let mut final_answer = ollama::chat_streaming_to_writer(
         model,
         &final_prompt,
-        LLM_TIMEOUT_SECS,
+        llm_timeout,
         writer,
     ).await?;
 
     // Fallback: if streaming returned empty, try non-streaming
     if final_answer.trim().is_empty() {
         tracing::warn!("Streaming LLM returned empty response, retrying non-streaming");
-        final_answer = ollama::chat_with_timeout(model, &final_prompt, LLM_TIMEOUT_SECS).await
+        final_answer = ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await
             .unwrap_or_else(|e| format!("I encountered an error generating a response: {}", e));
     }
 
@@ -2411,7 +2446,7 @@ RESPOND IN ENGLISH ONLY."#,
             output = last_output
         );
 
-        if let Ok(retry_answer) = ollama::chat_with_timeout(model, &retry_prompt, FAST_LLM_TIMEOUT_SECS).await {
+        if let Ok(retry_answer) = ollama::chat_with_timeout(model, &retry_prompt, fast_timeout).await {
             if !retry_answer.trim().is_empty() {
                 debug!("Regenerated answer: {}", retry_answer.trim());
                 final_answer = retry_answer;
@@ -2545,6 +2580,7 @@ async fn handle_howto_config<W: AsyncWriteExt + Unpin>(
     mut dialogue: Vec<DialogueStep>,
 ) -> Result<()> {
     info!("Handling HOWTO configuration request");
+    let llm_timeout = get_perf_config().llm_timeout_secs;
 
     // Extract better search terms for wiki
     let search_terms = extract_search_terms(
@@ -2640,14 +2676,14 @@ Keep the answer focused and practical."#,
     let answer = ollama::chat_streaming_to_writer(
         model,
         &instruction_prompt,
-        LLM_TIMEOUT_SECS,
+        llm_timeout,
         writer,
     ).await?;
 
     // Fallback if streaming returned empty
     let answer = if answer.trim().is_empty() {
         warn!("Streaming returned empty, retrying non-streaming");
-        ollama::chat_with_timeout(model, &instruction_prompt, LLM_TIMEOUT_SECS).await
+        ollama::chat_with_timeout(model, &instruction_prompt, llm_timeout).await
             .unwrap_or_else(|e| format!("Error generating instructions: {}", e))
     } else {
         answer
@@ -2810,6 +2846,7 @@ async fn handle_troubleshoot_diagnostic<W: AsyncWriteExt + Unpin>(
     mut dialogue: Vec<DialogueStep>,
 ) -> Result<()> {
     info!("Handling TROUBLESHOOT diagnostic: {}", question);
+    let llm_timeout = get_perf_config().llm_timeout_secs;
 
     // Get diagnostic commands for this issue type
     let diagnostic_cmds = get_diagnostic_commands(question);
@@ -2929,14 +2966,14 @@ RESPOND IN ENGLISH ONLY."#,
     let answer = ollama::chat_streaming_to_writer(
         model,
         &analysis_prompt,
-        LLM_TIMEOUT_SECS,
+        llm_timeout,
         writer,
     ).await?;
 
     // Fallback if empty
     let answer = if answer.trim().is_empty() {
         warn!("Streaming returned empty, retrying non-streaming");
-        ollama::chat_with_timeout(model, &analysis_prompt, LLM_TIMEOUT_SECS).await
+        ollama::chat_with_timeout(model, &analysis_prompt, llm_timeout).await
             .unwrap_or_else(|e| format!("Error generating analysis: {}", e))
     } else {
         answer
@@ -2979,6 +3016,8 @@ async fn handle_multi_question<W: AsyncWriteExt + Unpin>(
     writer: &mut W,
     mut dialogue: Vec<DialogueStep>,
 ) -> Result<()> {
+    let llm_timeout = get_perf_config().llm_timeout_secs;
+
     let mut combined_answer = String::new();
     let mut all_commands = Vec::new();
     let mut total_iterations = 0;
@@ -3007,7 +3046,7 @@ Commands:"#,
             brief_context, sub_q
         );
 
-        let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
+        let commands_response = ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await?;
         let commands_response = commands_response.trim();
 
         let mut sub_output = String::new();
@@ -3076,7 +3115,7 @@ Command output:
 Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_output)
         };
 
-        let sub_answer = ollama::chat_with_timeout(model, &answer_prompt, LLM_TIMEOUT_SECS).await?;
+        let sub_answer = ollama::chat_with_timeout(model, &answer_prompt, llm_timeout).await?;
 
         // Send SubQuestionResult step
         let step = DialogueStep {
@@ -3194,10 +3233,12 @@ fn execute_command(cmd: &str) -> Result<String> {
 
 /// Execute a command as root (the daemon's user) with timeout
 fn execute_as_root(cmd: &str) -> Result<String> {
+    let timeout_secs = get_perf_config().command_timeout_secs;
+
     // Wrap command with timeout to prevent hung commands
     let output = Command::new("timeout")
         .arg("--signal=KILL")
-        .arg(format!("{}s", COMMAND_TIMEOUT_SECS))
+        .arg(format!("{}s", timeout_secs))
         .arg("sh")
         .arg("-c")
         .arg(cmd)
@@ -3206,7 +3247,7 @@ fn execute_as_root(cmd: &str) -> Result<String> {
 
     // Check for timeout (exit code 137 = killed by SIGKILL after timeout)
     if output.status.code() == Some(137) || output.status.code() == Some(124) {
-        return Err(anyhow!("Command timed out after {}s: {}", COMMAND_TIMEOUT_SECS, cmd));
+        return Err(anyhow!("Command timed out after {}s: {}", timeout_secs, cmd));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);

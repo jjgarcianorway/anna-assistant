@@ -24,6 +24,58 @@ pub struct AnnaConfig {
     /// Wiki settings
     #[serde(default)]
     pub wiki: WikiConfig,
+
+    /// Performance settings (timeouts, limits)
+    #[serde(default)]
+    pub performance: PerformanceConfig,
+}
+
+/// Performance configuration (timeouts, limits, etc.)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceConfig {
+    /// Maximum iterations for command discovery
+    #[serde(default = "default_max_iterations")]
+    pub max_iterations: u32,
+
+    /// Timeout for LLM calls in seconds
+    #[serde(default = "default_llm_timeout")]
+    pub llm_timeout_secs: u64,
+
+    /// Fast timeout for simple queries in seconds
+    #[serde(default = "default_fast_timeout")]
+    pub fast_llm_timeout_secs: u64,
+
+    /// Command execution timeout in seconds
+    #[serde(default = "default_command_timeout")]
+    pub command_timeout_secs: u64,
+
+    /// Cache TTL for answers in seconds
+    #[serde(default = "default_answer_cache_ttl")]
+    pub answer_cache_ttl_secs: u64,
+
+    /// Cache TTL for command outputs in seconds
+    #[serde(default = "default_command_cache_ttl")]
+    pub command_cache_ttl_secs: u64,
+}
+
+fn default_max_iterations() -> u32 { 3 }
+fn default_llm_timeout() -> u64 { 120 }
+fn default_fast_timeout() -> u64 { 30 }
+fn default_command_timeout() -> u64 { 10 }
+fn default_answer_cache_ttl() -> u64 { 300 }
+fn default_command_cache_ttl() -> u64 { 60 }
+
+impl Default for PerformanceConfig {
+    fn default() -> Self {
+        Self {
+            max_iterations: default_max_iterations(),
+            llm_timeout_secs: default_llm_timeout(),
+            fast_llm_timeout_secs: default_fast_timeout(),
+            command_timeout_secs: default_command_timeout(),
+            answer_cache_ttl_secs: default_answer_cache_ttl(),
+            command_cache_ttl_secs: default_command_cache_ttl(),
+        }
+    }
 }
 
 fn default_true() -> bool {
@@ -56,6 +108,7 @@ impl Default for AnnaConfig {
             auto_install_helpers: true,
             ask_clarification: true,
             wiki: WikiConfig::default(),
+            performance: PerformanceConfig::default(),
         }
     }
 }
