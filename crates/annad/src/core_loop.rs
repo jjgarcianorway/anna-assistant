@@ -1407,16 +1407,16 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             }
             // If no sub_questions extracted, fall through to normal processing
         }
-        IntentCategory::HowTo => {
-            // HOWTO questions need instructions, not command execution
-            // Check if this is a configuration/change request vs informational howto
+        IntentCategory::HowTo | IntentCategory::Troubleshoot => {
+            // Both HOWTO and TROUBLESHOOT can be configuration requests
+            // Check if this is asking to change/configure something
             if is_configuration_request(question) {
                 return handle_howto_config(model, question, &intent_result, writer, dialogue).await;
             }
-            // Informational howto (e.g., "how do I check X?") falls through to normal flow
+            // Queries/diagnostics fall through to normal command-execution flow
         }
         _ => {
-            // FACTUAL, TROUBLESHOOT - continue with command execution flow
+            // FACTUAL - continue with command execution flow
         }
     }
 
