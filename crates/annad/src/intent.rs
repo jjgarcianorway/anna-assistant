@@ -1,8 +1,8 @@
 //! Intent classification module - LLM-based question understanding.
 //!
-//! Uses chain-of-thought reasoning to deeply understand user requests
-//! before taking action. This makes Anna think like Claude - paraphrasing,
-//! identifying missing info, and asking for clarification when needed.
+//! v0.0.895: Two-tier understanding system:
+//! - Quick classification (~100 tokens, 3-5s) for simple queries
+//! - Deep COT (~700 tokens, 15-20s) only for complex/unclear cases
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory, IntentClassification};
 use anyhow::Result;
@@ -10,68 +10,159 @@ use tracing::{debug, info, warn};
 
 use crate::ollama;
 
-/// Timeout for understanding (slightly longer for chain-of-thought)
-const UNDERSTAND_TIMEOUT_SECS: u64 = 25;
+/// Timeout for quick classification (v0.0.895)
+const QUICK_TIMEOUT_SECS: u64 = 8;
+
+/// Timeout for deep understanding (only used for complex cases)
+const DEEP_TIMEOUT_SECS: u64 = 20;
 
 /// Confidence threshold below which we ask for clarification
 const CLARIFICATION_THRESHOLD: f32 = 0.7;
 
-/// Deep understanding of a user request using chain-of-thought reasoning
-/// This makes Anna think through the request before acting
+/// Confidence threshold above which we skip deep understanding (v0.0.895)
+const QUICK_CONFIDENCE_THRESHOLD: f32 = 0.8;
+
+/// v0.0.895: Two-tier understanding - quick first, deep only if needed
 pub async fn understand_request(
     model: &str,
     question: &str,
     session_context: Option<&str>,
 ) -> Result<DeepUnderstanding> {
+    // First try quick classification (3-5 seconds)
+    let quick_result = quick_classify(model, question).await;
+
+    match quick_result {
+        Ok(understanding) if understanding.confidence >= QUICK_CONFIDENCE_THRESHOLD => {
+            // High confidence quick result - use it directly
+            info!("Quick classification sufficient (confidence: {:.0}%)", understanding.confidence * 100.0);
+            return Ok(understanding);
+        }
+        Ok(understanding) if matches!(understanding.category, IntentCategory::Factual | IntentCategory::HowTo)
+            && understanding.confidence >= 0.6 => {
+            // Factual/HowTo with decent confidence - good enough
+            info!("Quick classification acceptable for {:?} (confidence: {:.0}%)",
+                  understanding.category, understanding.confidence * 100.0);
+            return Ok(understanding);
+        }
+        Ok(understanding) => {
+            // Low confidence or complex - fall through to deep understanding
+            debug!("Quick classification low confidence ({:.0}%), trying deep understanding",
+                   understanding.confidence * 100.0);
+        }
+        Err(e) => {
+            debug!("Quick classification failed: {}, trying deep understanding", e);
+        }
+    }
+
+    // Fall back to deep understanding for complex cases
+    deep_understand(model, question, session_context).await
+}
+
+/// v0.0.895: Quick classification - lightweight prompt for simple queries
+async fn quick_classify(model: &str, question: &str) -> Result<DeepUnderstanding> {
+    let prompt = format!(
+        r#"Classify this Linux question. Reply ONLY with JSON, no other text.
+
+Question: "{}"
+
+JSON format: {{"interpreted_as":"brief paraphrase","confidence":0.9,"category":"FACTUAL","entities":["item1"],"topic":"packages"}}
+
+Categories: FACTUAL (status/info queries), HOWTO (instructions), TROUBLESHOOT (fix problems), UNCLEAR (vague/ambiguous)
+Topics: network, audio, storage, boot, packages, services, security, performance, display, null"#,
+        question
+    );
+
+    debug!("Quick classify prompt: {} chars", prompt.len());
+    let response = ollama::chat_with_timeout(model, &prompt, QUICK_TIMEOUT_SECS).await?;
+    debug!("Quick classify response: {}", response.trim());
+
+    parse_quick_response(&response, question)
+}
+
+/// Parse quick classification response
+fn parse_quick_response(response: &str, original_question: &str) -> Result<DeepUnderstanding> {
+    let json_str = extract_json_from_response(response);
+
+    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&json_str) {
+        let category = match parsed.get("category").and_then(|c| c.as_str()) {
+            Some("FACTUAL") => IntentCategory::Factual,
+            Some("HOWTO") => IntentCategory::HowTo,
+            Some("TROUBLESHOOT") => IntentCategory::Troubleshoot,
+            Some("MULTI") => IntentCategory::Multi,
+            Some("UNCLEAR") => IntentCategory::Unclear,
+            _ => IntentCategory::Factual,
+        };
+
+        let confidence = parsed.get("confidence").and_then(|c| c.as_f64())
+            .map(|c| c as f32).unwrap_or(0.7);
+
+        let interpreted_as = parsed.get("interpreted_as").and_then(|s| s.as_str())
+            .unwrap_or(original_question).to_string();
+
+        let entities = extract_string_array(&parsed, "entities");
+        let topic = parsed.get("topic").and_then(|t| t.as_str())
+            .filter(|t| !t.is_empty() && *t != "null").map(String::from);
+
+        // Quick classification doesn't do deep analysis
+        let needs_confirmation = confidence < 0.5 || matches!(category, IntentCategory::Unclear);
+
+        return Ok(DeepUnderstanding {
+            interpreted_as,
+            required_info: vec![],
+            missing_info: vec![],
+            ambiguities: vec![],
+            confidence,
+            category,
+            entities,
+            topic,
+            sub_questions: None,
+            clarification_needed: None,
+            needs_confirmation,
+        });
+    }
+
+    // Parsing failed - return low confidence to trigger deep understanding
+    Ok(DeepUnderstanding {
+        interpreted_as: original_question.to_string(),
+        confidence: 0.3, // Low confidence triggers deep understanding
+        category: IntentCategory::Factual,
+        ..Default::default()
+    })
+}
+
+/// Deep understanding with full chain-of-thought (for complex cases only)
+async fn deep_understand(
+    model: &str,
+    question: &str,
+    session_context: Option<&str>,
+) -> Result<DeepUnderstanding> {
+    info!("Using deep understanding for complex question");
+
     let context_section = session_context
         .filter(|c| !c.is_empty())
         .map(|c| format!("\nPrevious context:\n{}", c))
         .unwrap_or_default();
 
-    // Chain-of-thought prompt that makes the LLM think step by step
     let prompt = format!(
-        r#"Think through this user request step by step before responding.
+        r#"Analyze this user request carefully. Output JSON only.
 
-User request: "{question}"
+Request: "{question}"
 {context}
-THINK STEP BY STEP:
 
-1. PARAPHRASE: What is the user actually asking for? Restate in your own words.
+Consider:
+1. What are they asking? (paraphrase)
+2. Is anything critical missing? (which service? which file?)
+3. Could this mean multiple things?
+4. Confidence 0.0-1.0 (0.9+=clear, 0.7-0.9=mostly clear, <0.7=unclear)
 
-2. REQUIRED INFO: What information do you need to answer this? List specific things.
-
-3. MISSING INFO: Is anything critical missing from the request? (which service? which file? which package?)
-   - If they say "the service" but didn't specify which one = missing
-   - If they say "install it" but didn't say what = missing
-   - If they reference "that error" without showing it = missing
-
-4. AMBIGUITY CHECK: Could this request mean multiple different things?
-   - "check the log" = which log? system log? application log?
-   - "enable bluetooth" = just enable? or also pair a device?
-
-5. CONFIDENCE: How confident are you that you understand exactly what they want? (0.0-1.0)
-   - 0.9+ = Crystal clear, no ambiguity
-   - 0.7-0.9 = Mostly clear, minor assumptions needed
-   - 0.5-0.7 = Somewhat unclear, should probably ask
-   - <0.5 = Too vague, must ask for clarification
-
-6. CATEGORY: FACTUAL / HOWTO / TROUBLESHOOT / MULTI / UNCLEAR
-
-7. ENTITIES: List any packages, services, files, commands mentioned
-
-8. TOPIC: network / audio / storage / boot / packages / services / security / performance / display / null
-
-Now output your analysis as JSON:
-{{"interpreted_as":"what you think they're asking","required_info":["item1","item2"],"missing_info":["missing1"],"ambiguities":["possible interpretation 1","possible interpretation 2"],"confidence":0.85,"category":"FACTUAL","entities":["entity1"],"topic":"topic_or_null","sub_questions":null,"clarification_needed":"question to ask if unclear","needs_confirmation":false}}"#,
+JSON: {{"interpreted_as":"...","missing_info":["item1"],"ambiguities":[],"confidence":0.85,"category":"FACTUAL/HOWTO/TROUBLESHOOT/UNCLEAR","entities":["entity1"],"topic":"packages/services/network/etc","clarification_needed":"question if unclear"}}"#,
         question = question,
         context = context_section
     );
 
-    debug!("Understanding prompt: {} chars", prompt.len());
-
-    let response = ollama::chat_with_timeout(model, &prompt, UNDERSTAND_TIMEOUT_SECS).await?;
-
-    debug!("Understanding response: {}", response.trim());
+    debug!("Deep understanding prompt: {} chars", prompt.len());
+    let response = ollama::chat_with_timeout(model, &prompt, DEEP_TIMEOUT_SECS).await?;
+    debug!("Deep understanding response: {}", response.trim());
 
     parse_understanding_response(&response, question)
 }

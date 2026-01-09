@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.895] - 2026-01-09
+
+### Changed
+- **Two-Tier Intent Classification** - Faster simple query handling
+  - Quick classify (~100 tokens, 3-5s) for simple FACTUAL/HOWTO queries
+  - Deep understanding only when confidence < 0.8 or query is complex
+  - Reduces average response time from ~25s to ~5-8s for simple questions
+
+- **Centralized Ollama Configuration** - No more hardcoded URLs
+  - Added `OllamaConfig` with `url` and `model` settings
+  - Environment variable support: `ANNA_OLLAMA_URL`, `ANNA_OLLAMA_MODEL`
+  - Single source of truth in `~/.anna/config.toml`
+
+- **Wiki Circuit Breaker Threshold** - Less aggressive failure handling
+  - Increased from 2 to 4 consecutive failures before circuit opens
+  - Prevents premature disabling of wiki search on flaky connections
+
+### Fixed
+- **Code Cleanup** - Removed 4 unused functions
+  - Removed `is_useless_output()`, `get_parallel_count()`
+  - Removed `get_similar_cached_answer()`, `build_lean_factual_prompt()`
+  - Cleaner codebase with less dead code
+
 ## [0.0.894] - 2026-01-09
 
 ### Added

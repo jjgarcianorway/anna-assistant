@@ -28,6 +28,38 @@ pub struct AnnaConfig {
     /// Performance settings (timeouts, limits)
     #[serde(default)]
     pub performance: PerformanceConfig,
+
+    /// Ollama settings (v0.0.895)
+    #[serde(default)]
+    pub ollama: OllamaConfig,
+}
+
+/// v0.0.895: Ollama configuration - centralized, no more hardcoding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OllamaConfig {
+    /// Ollama API URL (default: http://127.0.0.1:11434)
+    #[serde(default = "default_ollama_url")]
+    pub url: String,
+    /// Default model to use
+    #[serde(default = "default_ollama_model")]
+    pub model: String,
+}
+
+impl Default for OllamaConfig {
+    fn default() -> Self {
+        Self {
+            url: default_ollama_url(),
+            model: default_ollama_model(),
+        }
+    }
+}
+
+fn default_ollama_url() -> String {
+    std::env::var("ANNA_OLLAMA_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string())
+}
+
+fn default_ollama_model() -> String {
+    std::env::var("ANNA_OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:7b".to_string())
 }
 
 /// Performance configuration (timeouts, limits, etc.)
@@ -80,7 +112,7 @@ fn default_answer_cache_ttl() -> u64 { 300 }
 fn default_command_cache_ttl() -> u64 { 60 }
 fn default_static_cache_ttl() -> u64 { 300 }
 fn default_wiki_timeout() -> u64 { 5 }
-fn default_wiki_circuit_threshold() -> u32 { 2 }
+fn default_wiki_circuit_threshold() -> u32 { 4 } // v0.0.895: Increased from 2 (too aggressive)
 fn default_wiki_circuit_cooldown() -> u64 { 60 }
 fn default_high_confidence() -> f32 { 0.85 }
 fn default_max_session_history() -> usize { 20 }
@@ -135,6 +167,7 @@ impl Default for AnnaConfig {
             ask_clarification: true,
             wiki: WikiConfig::default(),
             performance: PerformanceConfig::default(),
+            ollama: OllamaConfig::default(),
         }
     }
 }
@@ -189,4 +222,18 @@ pub fn anna_data_dir() -> PathBuf {
 /// Get config file path
 pub fn config_path() -> PathBuf {
     anna_data_dir().join("config.toml")
+}
+
+/// v0.0.895: Get Ollama URL from config or environment
+pub fn get_ollama_url() -> String {
+    AnnaConfig::load()
+        .map(|c| c.ollama.url)
+        .unwrap_or_else(|_| default_ollama_url())
+}
+
+/// v0.0.895: Get default Ollama model from config or environment
+pub fn get_ollama_model() -> String {
+    AnnaConfig::load()
+        .map(|c| c.ollama.model)
+        .unwrap_or_else(|_| default_ollama_model())
 }

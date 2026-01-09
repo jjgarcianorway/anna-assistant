@@ -3,9 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 /// Intent categories for question classification
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum IntentCategory {
     /// Simple factual question ("what is my kernel version?", "how much RAM?")
+    #[default]
     Factual,
     /// How-to question ("how do I install X?", "how to configure Y?")
     HowTo,
@@ -35,7 +36,7 @@ pub struct IntentClassification {
 }
 
 /// Deep understanding of a user request - makes Anna think before acting
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DeepUnderstanding {
     /// What Anna thinks the user is asking (paraphrase for verification)
     pub interpreted_as: String,

@@ -46,9 +46,6 @@ struct CachedOutput {
     is_static: bool,
 }
 
-/// Ollama URL for embeddings
-const OLLAMA_URL: &str = "http://127.0.0.1:11434";
-
 /// v0.0.892: Wiki search circuit breaker state
 static WIKI_FAILURES: AtomicU32 = AtomicU32::new(0);
 static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
@@ -305,20 +302,6 @@ fn get_fallback_commands_with_intent(question: &str, intent: Option<&str>) -> Ve
     // Default: no specific fallback
     vec![]
 }
-
-/// Get a cached answer for similar questions (fuzzy match)
-fn get_similar_cached_answer(question: &str) -> Option<String> {
-    // This is a simple check - just looks for exact normalized match
-    // Could be enhanced with embeddings for semantic similarity
-    if let Ok(guard) = COMMAND_CACHE.read() {
-        if let Some(ref _cache) = *guard {
-            // For now, we don't have answer caching at this level
-            // This would integrate with state.rs answer cache
-        }
-    }
-    None
-}
-
 /// Warm up the command cache with static system info (called at daemon startup)
 /// This makes first queries faster by pre-caching common commands
 pub fn warm_up_cache() {
@@ -540,25 +523,6 @@ Is this answer helpful and relevant? Reply with only YES or NO."#,
         }
     }
 }
-
-/// Build a lean prompt for simple factual queries (speed optimization)
-fn build_lean_factual_prompt(question: &str, command_output: &str, system_info: &str) -> String {
-    format!(
-        r#"Question: "{question}"
-
-System: {system_info}
-
-Command output:
-{output}
-
-Give a SHORT, direct answer (just the value or fact). No explanation needed.
-RESPOND IN ENGLISH ONLY."#,
-        question = question,
-        system_info = system_info,
-        output = if command_output.len() > 1500 { &command_output[..1500] } else { command_output }
-    )
-}
-
 /// Execute a command with retry logic - tries alternatives if first attempt fails
 /// v0.0.891: Added alternatives_budget to rate-limit LLM calls
 async fn execute_command_with_retry(
@@ -673,17 +637,6 @@ async fn execute_command_with_retry(
         }
     }
 }
-
-/// Check if output looks like an error or empty result
-fn is_useless_output(output: &str) -> bool {
-    let output_lower = output.to_lowercase();
-    output.trim().is_empty()
-        || output_lower.contains("command not found")
-        || output_lower.contains("no such file")
-        || output_lower.contains("permission denied")
-        || (output_lower.contains("error") && output.len() < 50)
-}
-
 /// Clean prompt artifacts from LLM answers
 /// Removes leaked prompt fragments, rules, and formatting issues
 fn clean_answer(answer: &str) -> String {
@@ -1712,8 +1665,10 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         .unwrap_or(true);
 
     // v0.0.893: Uses config timeout
+    // v0.0.895: Uses centralized Ollama URL from config
     let timeout_secs = get_perf_config().wiki_search_timeout_secs;
-    let search_future = wiki::search::search(OLLAMA_URL, question, 3, use_embeddings);
+    let ollama_url = anna_shared::config::get_ollama_url();
+    let search_future = wiki::search::search(&ollama_url, question, 3, use_embeddings);
     let results = match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), search_future).await {
         Ok(Ok(r)) if !r.is_empty() => { wiki_record_success(); r }
         Ok(Ok(_)) => { debug!("Wiki search returned no results"); wiki_record_success(); return None; }
@@ -4011,13 +3966,6 @@ pub fn execute_command_batch(commands: &[&str]) -> Result<String> {
         .join(" && ");
 
     execute_command(&batch_script)
-}
-
-/// Get the optimal number of parallel executors based on CPU cores
-fn get_parallel_count() -> usize {
-    std::thread::available_parallelism()
-        .map(|p| p.get().min(8))  // Cap at 8 to avoid overwhelming system
-        .unwrap_or(4)
 }
 
 /// Execute a command as root (the daemon's user) with timeout

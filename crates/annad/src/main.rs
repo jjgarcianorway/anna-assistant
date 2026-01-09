@@ -1,5 +1,6 @@
 //! Anna daemon - simplified version.
 
+use anna_shared::config::get_ollama_url;
 use anna_shared::VERSION;
 use anna_shared::wiki;
 use anyhow::Result;
@@ -8,9 +9,6 @@ use tracing_subscriber::FmtSubscriber;
 
 use annad::server::Server;
 use annad::state::SharedState;
-
-/// Ollama URL for embeddings
-const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -45,14 +43,16 @@ async fn main() -> Result<()> {
     info!("Starting annad v{}", VERSION);
 
     // v0.0.893: Initialize wiki with retry loop
-    tokio::spawn(async {
+    // v0.0.895: Use centralized config for Ollama URL
+    let ollama_url = get_ollama_url();
+    tokio::spawn(async move {
         info!("Initializing wiki knowledge base...");
         let mut attempts = 0;
         let max_attempts = 3;
         let mut delay = std::time::Duration::from_secs(2);
         loop {
             attempts += 1;
-            match wiki::init_wiki(OLLAMA_URL).await {
+            match wiki::init_wiki(&ollama_url).await {
                 Ok(()) => { info!("Wiki initialized successfully"); break; }
                 Err(e) if attempts >= max_attempts => {
                     warn!("Wiki init failed after {} attempts (LLM-only mode): {}", attempts, e);
