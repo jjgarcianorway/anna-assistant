@@ -230,4 +230,6 @@ pub enum StepType {
     ConfirmationRequest,
     /// Missing information detected
     MissingInfo,
+    /// System alert (proactive issue notification)
+    SystemAlert,
 }

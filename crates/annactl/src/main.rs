@@ -352,6 +352,17 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
                 println!("  - {}", line);
             }
         }
+        StepType::SystemAlert => {
+            println!();
+            println_colored("╔══════════════════════════════════════════════╗", YELLOW);
+            println_colored("║           SYSTEM ALERT                       ║", YELLOW);
+            println_colored("╚══════════════════════════════════════════════╝", YELLOW);
+            for line in step.content.lines() {
+                print_colored("  ", YELLOW);
+                println!("{}", line);
+            }
+            println!();
+        }
     }
 }
 
@@ -629,6 +640,17 @@ fn print_dialogue(result: &AskResult) {
                 for line in step.content.lines() {
                     println!("  - {}", line);
                 }
+            }
+            StepType::SystemAlert => {
+                println!();
+                println_colored("╔══════════════════════════════════════════════╗", YELLOW);
+                println_colored("║           SYSTEM ALERT                       ║", YELLOW);
+                println_colored("╚══════════════════════════════════════════════╝", YELLOW);
+                for line in step.content.lines() {
+                    print_colored("  ", YELLOW);
+                    println!("{}", line);
+                }
+                println!();
             }
         }
     }

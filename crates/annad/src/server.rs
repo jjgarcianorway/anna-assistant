@@ -294,6 +294,19 @@ async fn handle_streaming_request(
         return Ok(());
     }
 
+    // Check for pending critical system alerts and notify user
+    if let Some(alerts) = get_pending_alerts() {
+        for alert in alerts {
+            let step = DialogueStep {
+                step_type: StepType::SystemAlert,
+                content: alert,
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        }
+    }
+
     // Check cache for identical recent question
     {
         let state_guard = state.read().await;
@@ -462,4 +475,45 @@ impl Drop for ConnectionGuard {
             state_guard.connection_ended();
         });
     }
+}
+
+/// Get pending critical/warning alerts that haven't been shown to user
+/// Returns formatted alert messages and marks them as notified
+fn get_pending_alerts() -> Option<Vec<String>> {
+    use anna_shared::monitor::{IssueStore, Severity};
+
+    let mut store = IssueStore::load().ok()?;
+    let unnotified = store.get_unnotified();
+
+    if unnotified.is_empty() {
+        return None;
+    }
+
+    // Only show critical and warning alerts (not info)
+    let alerts: Vec<String> = unnotified
+        .iter()
+        .filter(|issue| matches!(issue.severity, Severity::Critical | Severity::Warning))
+        .map(|issue| {
+            let icon = match issue.severity {
+                Severity::Critical => "🔴 CRITICAL",
+                Severity::Warning => "🟡 Warning",
+                Severity::Info => "ℹ️ Info",
+            };
+            let mut msg = format!("{}: {}", icon, issue.summary);
+            if let Some(ref fix) = issue.suggested_fix {
+                msg.push_str(&format!("\n   Suggested fix: {}", fix));
+            }
+            msg
+        })
+        .collect();
+
+    if alerts.is_empty() {
+        return None;
+    }
+
+    // Mark as notified
+    store.mark_notified();
+    let _ = store.save();
+
+    Some(alerts)
 }

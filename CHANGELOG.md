@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.884] - 2026-01-09
+
+### Added
+- **User Alerting** - Proactive notifications for detected system issues
+  - `get_pending_alerts()` checks issue store for Critical/Warning severity
+  - New `SystemAlert` StepType for displaying alerts
+  - Alerts shown at start of responses when issues detected
+  - Yellow warning box display in annactl
+
+- **Enhanced Danger Detection** - Broader command safety checks
+  - Added 30+ new dangerous patterns: truncate, wipefs, shred
+  - User/group deletion: deluser, userdel, groupdel
+  - Kernel modules: modprobe -r, rmmod
+  - Bootloader: update-grub, grub-install
+  - Firewall flush: iptables -F/-X, ufw disable
+  - Mount operations detection for destructive mount commands
+  - Expanded safe sudo whitelist for common operations
+
+### Changed
+- Stream interruption now properly propagates errors (was already working via `?` operator)
+
 ## [0.0.883] - 2026-01-09
 
 ### Added
