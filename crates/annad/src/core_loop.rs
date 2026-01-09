@@ -2587,15 +2587,27 @@ Reply with ONLY one of:
     let user_prefs = anna_shared::session::UserPreferences::load();
     let pref_guidance = user_prefs.get_prompt_guidance();
 
+    // v0.0.904: Load contradiction warnings to prevent repeating known mistakes
+    let contradiction_warnings = {
+        let store = anna_shared::session::ContradictionStore::load();
+        let hints = store.get_correction_hints(question);
+        if hints.is_empty() {
+            String::new()
+        } else {
+            format!("\nKNOWN MISTAKES TO AVOID:\n{}\n", hints.iter().take(3).map(|h| format!("- {}", h)).collect::<Vec<_>>().join("\n"))
+        }
+    };
+
     let final_prompt = if last_output.is_empty() {
         format!(
             r#"Question: "{}"
-
+{}
 {}
 Give the shortest correct answer with essential commands only.
 RESPOND IN ENGLISH ONLY."#,
             question,
-            if pref_guidance.is_empty() { "RESPOND BRIEFLY - just answer the question, no extra commentary.".to_string() } else { pref_guidance.clone() }
+            if pref_guidance.is_empty() { "RESPOND BRIEFLY - just answer the question, no extra commentary.".to_string() } else { pref_guidance.clone() },
+            contradiction_warnings
         )
     } else {
         format!(
@@ -2603,7 +2615,7 @@ RESPOND IN ENGLISH ONLY."#,
 
 Command output:
 {}
-
+{}
 RULES:
 1. {}
 2. ONLY report facts from the output - never invent data
@@ -2612,7 +2624,7 @@ RULES:
 5. RESPOND IN ENGLISH ONLY
 
 Answer:"#,
-            question, last_output,
+            question, last_output, contradiction_warnings,
             if pref_guidance.is_empty() { "Answer BRIEFLY - just the facts, no extra advice".to_string() } else { pref_guidance }
         )
     };
@@ -2631,10 +2643,18 @@ Answer:"#,
     };
 
     // v0.0.898: Post-generation validation with self-correction
+    // v0.0.904: Fast path for simple one-liner answers (skip expensive correction)
+    let is_simple_answer = final_answer.trim().len() < 150 && !final_answer.contains('\n');
+    let mut final_confidence: f32 = 1.0; // v0.0.904: Track confidence for learning boost
+
     if !last_output.is_empty() {
         let validation = crate::validation::validate_complete_answer(final_answer.trim(), &last_output);
+        final_confidence = validation.confidence;
 
-        if validation.needs_correction {
+        // v0.0.904: Skip correction for high-confidence simple answers
+        if is_simple_answer && validation.confidence > 0.85 {
+            debug!("Fast path: simple answer with {:.0}% confidence, skipping correction", validation.confidence * 100.0);
+        } else if validation.needs_correction {
             info!(
                 "Post-generation validation failed (confidence: {:.0}%), attempting correction",
                 validation.confidence * 100.0
@@ -2693,6 +2713,7 @@ Corrected answer:"#,
                         corrected_validation.confidence * 100.0
                     );
                     final_answer = corrected;
+                    final_confidence = corrected_validation.confidence; // v0.0.904: Update confidence
                 } else {
                     info!("Self-correction did not improve, keeping original");
                 }
@@ -2700,9 +2721,20 @@ Corrected answer:"#,
         }
     }
 
+    // v0.0.904: Add confidence note to low-confidence answers
+    let answer_with_confidence = if final_confidence < 0.70 && !last_output.is_empty() {
+        format!(
+            "{}\n\n*(Confidence: {:.0}% - please verify)*",
+            final_answer.trim(),
+            final_confidence * 100.0
+        )
+    } else {
+        final_answer.trim().to_string()
+    };
+
     dialogue.push(DialogueStep {
         step_type: StepType::FinalAnswer,
-        content: final_answer.trim().to_string(),
+        content: answer_with_confidence.clone(),
     });
 
     // Mark recipe as successful if we used one
@@ -2711,12 +2743,13 @@ Corrected answer:"#,
     }
 
     // Learn from this successful interaction
+    // v0.0.904: Pass confidence for experience boosting
     if !commands_executed.is_empty() {
-        learn_from_interaction(question, &commands_executed, final_answer.trim());
+        learn_from_interaction_with_confidence(question, &commands_executed, final_answer.trim(), final_confidence);
     }
 
     Ok(AskResult {
-        answer: final_answer.trim().to_string(),
+        answer: answer_with_confidence,  // v0.0.904: Use confidence-annotated answer
         success: true,
         iterations,
         commands_executed,
@@ -2729,6 +2762,12 @@ Corrected answer:"#,
 
 /// Learn from a successful interaction
 fn learn_from_interaction(question: &str, commands: &[String], answer: &str) {
+    learn_from_interaction_with_confidence(question, commands, answer, 1.0);
+}
+
+/// v0.0.904: Learn from interaction with confidence-based boosting
+/// High-confidence answers (>90%) get extra usefulness boost
+fn learn_from_interaction_with_confidence(question: &str, commands: &[String], answer: &str, confidence: f32) {
     let mut memory = match Memory::load() {
         Ok(m) => m,
         Err(e) => {
@@ -2742,6 +2781,21 @@ fn learn_from_interaction(question: &str, commands: &[String], answer: &str) {
 
     // Learn this experience
     memory.learn(question, commands.to_vec(), answer, context);
+
+    // v0.0.904: Boost high-confidence experiences
+    // If confidence > 90%, give extra usefulness points
+    if confidence > 0.90 {
+        // Find the experience we just learned (most recent with matching question)
+        let q_lower = question.to_lowercase();
+        for exp in memory.experiences.iter_mut().rev() {
+            if exp.question == q_lower {
+                let boost = if confidence > 0.95 { 3 } else { 2 };
+                exp.usefulness_score += boost;
+                debug!("Boosted experience usefulness by {} (confidence: {:.0}%)", boost, confidence * 100.0);
+                break;
+            }
+        }
+    }
 
     // Compact if too large (keep most valuable experiences)
     memory.compact(1000);

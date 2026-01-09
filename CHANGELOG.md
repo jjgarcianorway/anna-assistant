@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.904] - 2026-01-09
+
+### Added
+- **Contradiction Warnings in Prompts** - Prevent repeating known mistakes
+  - Loads `ContradictionStore` before generating final answer
+  - Adds "KNOWN MISTAKES TO AVOID" section to final prompt
+  - Shows up to 3 relevant correction hints based on question topic
+  - Proactive prevention instead of just reactive correction
+
+- **Fast Path for Simple Answers** - Skip expensive validation
+  - One-liner answers (<150 chars, no newlines) with >85% confidence skip correction loop
+  - Reduces latency by 1-2s for simple factual queries
+  - "What's my kernel?" answers faster without validation overhead
+
+- **Confidence-Based Experience Boosting** - High-quality answers bubble up
+  - Answers with >90% confidence get +2 usefulness boost
+  - Answers with >95% confidence get +3 usefulness boost
+  - Better experiences naturally rise in recall priority
+
+- **Visible Low-Confidence Warning** - User awareness
+  - Answers with <70% confidence show: "*(Confidence: X% - please verify)*"
+  - Users know when to double-check Anna's response
+  - Only shown when command output was available for validation
+
 ## [0.0.903] - 2026-01-09
 
 ### Added
