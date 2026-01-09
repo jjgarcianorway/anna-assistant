@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.888] - 2026-01-09
+
+### Added
+- **Graceful Degradation on LLM Timeout** - Never hard-fail on timeout
+  - Falls back to heuristic commands when LLM is unavailable
+  - 70+ keyword patterns for common system queries
+  - Raw command output shown when LLM can't generate answer
+  - Intent-aware fallbacks (TROUBLESHOOT gets logs, FACTUAL gets status)
+
+- **Context Window Optimization** - Smaller prompts, faster responses
+  - Entity lists compressed (count + recent items when >5)
+  - History limited to last 2 questions
+  - Truncated topics and goals for minimal tokens
+  - New `get_brief_context()` for command selection
+
+- **Cache Warm-up on Startup** - Faster first queries
+  - Pre-caches static system info (uname, lscpu, free, df, etc.)
+  - Background thread doesn't block daemon startup
+  - First queries hit cache instead of running commands
+
+- **Intent-Aware Command Retry** - Smarter fallback selection
+  - TROUBLESHOOT intents prioritize journalctl, dmesg, systemctl --failed
+  - HOWTO intents check for package/service existence
+  - Topic-specific commands (network→ip/NetworkManager, audio→pipewire)
+
+- **Smart Output Truncation** - Format-aware parsing
+  - Detects output format: JSON, logs, tables, package lists
+  - Logs: prioritizes ERROR/WARN lines + recent entries
+  - Package lists: shows count + first 30 items
+  - Better information preservation for LLM
+
 ## [0.0.887] - 2026-01-09
 
 ### Added

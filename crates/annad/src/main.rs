@@ -53,6 +53,11 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Warm up command cache in background (pre-cache static system info)
+    std::thread::spawn(|| {
+        annad::core_loop::warm_up_cache();
+    });
+
     // Create shared state
     let state = SharedState::new();
 

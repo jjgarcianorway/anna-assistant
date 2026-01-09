@@ -133,6 +133,184 @@ fn cache_command(cmd: &str, output: &str) {
     }
 }
 
+/// Heuristic command hints for when LLM is unavailable (timeout fallback)
+/// Returns suggested commands based on keyword matching and intent category
+/// Intent-aware: uses category to suggest better commands
+fn get_fallback_commands(question: &str) -> Vec<&'static str> {
+    get_fallback_commands_with_intent(question, None)
+}
+
+/// Get fallback commands with optional intent category for smarter suggestions
+fn get_fallback_commands_with_intent(question: &str, intent: Option<&str>) -> Vec<&'static str> {
+    let q = question.to_lowercase();
+
+    // If we have intent, use category-specific commands
+    if let Some(category) = intent {
+        match category {
+            "TROUBLESHOOT" => {
+                // For troubleshooting, prioritize logs and diagnostics
+                if q.contains("network") {
+                    return vec!["journalctl -u NetworkManager --no-pager -n 30", "ip addr", "systemctl status NetworkManager"];
+                }
+                if q.contains("audio") || q.contains("sound") {
+                    return vec!["journalctl -u pipewire --no-pager -n 30", "pactl info", "wpctl status"];
+                }
+                if q.contains("boot") || q.contains("startup") {
+                    return vec!["journalctl -b -p err --no-pager -n 30", "systemctl --failed"];
+                }
+                // Generic troubleshooting
+                return vec!["journalctl -p err -b --no-pager | tail -30", "systemctl --failed", "dmesg --level=err | tail -20"];
+            }
+            "HOWTO" => {
+                // For how-to, check if package/service exists first
+                if q.contains("install") {
+                    return vec!["pacman -Ss", "checkupdates | head -10"];
+                }
+                if q.contains("enable") || q.contains("service") {
+                    return vec!["systemctl list-unit-files --type=service | head -20"];
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // System info
+    if q.contains("kernel") || q.contains("version") && q.contains("linux") {
+        return vec!["uname -r", "uname -a"];
+    }
+    if q.contains("hostname") {
+        return vec!["hostname"];
+    }
+    if q.contains("uptime") || q.contains("running") && q.contains("long") {
+        return vec!["uptime -p", "uptime"];
+    }
+    if q.contains("distribution") || q.contains("distro") || q.contains("os") {
+        return vec!["cat /etc/os-release", "hostnamectl"];
+    }
+    if q.contains("architecture") || q.contains("arch") && q.contains("system") {
+        return vec!["uname -m", "arch"];
+    }
+
+    // Hardware
+    if q.contains("cpu") || q.contains("processor") {
+        return vec!["lscpu | head -20", "cat /proc/cpuinfo | head -30"];
+    }
+    if q.contains("memory") || q.contains("ram") {
+        return vec!["free -h", "cat /proc/meminfo | head -10"];
+    }
+    if q.contains("gpu") || q.contains("graphics") || q.contains("video") {
+        return vec!["lspci | grep -i vga", "lspci | grep -i 3d"];
+    }
+    if q.contains("disk") || q.contains("storage") || q.contains("space") {
+        return vec!["df -h", "lsblk"];
+    }
+    if q.contains("usb") {
+        return vec!["lsusb"];
+    }
+    if q.contains("network") || q.contains("interface") {
+        return vec!["ip addr", "ip link"];
+    }
+    if q.contains("ip") && q.contains("address") {
+        return vec!["ip addr show | grep 'inet '"];
+    }
+
+    // Packages
+    if q.contains("installed") && q.contains("package") {
+        return vec!["pacman -Q | wc -l"];
+    }
+    if q.contains("update") && (q.contains("package") || q.contains("system")) {
+        return vec!["checkupdates | head -20"];
+    }
+    if q.contains("orphan") {
+        return vec!["pacman -Qdt"];
+    }
+
+    // Services
+    if q.contains("service") && q.contains("fail") {
+        return vec!["systemctl --failed"];
+    }
+    if q.contains("service") && q.contains("running") {
+        return vec!["systemctl list-units --type=service --state=running | head -20"];
+    }
+    if q.contains("service") && q.contains("enabled") {
+        return vec!["systemctl list-unit-files --state=enabled | head -20"];
+    }
+
+    // Troubleshooting
+    if q.contains("error") || q.contains("log") {
+        return vec!["journalctl -p err -b --no-pager | tail -30"];
+    }
+    if q.contains("process") && (q.contains("cpu") || q.contains("top")) {
+        return vec!["ps aux --sort=-%cpu | head -10"];
+    }
+    if q.contains("process") && q.contains("memory") {
+        return vec!["ps aux --sort=-%mem | head -10"];
+    }
+
+    // Default: no specific fallback
+    vec![]
+}
+
+/// Get a cached answer for similar questions (fuzzy match)
+fn get_similar_cached_answer(question: &str) -> Option<String> {
+    // This is a simple check - just looks for exact normalized match
+    // Could be enhanced with embeddings for semantic similarity
+    if let Ok(guard) = COMMAND_CACHE.read() {
+        if let Some(ref _cache) = *guard {
+            // For now, we don't have answer caching at this level
+            // This would integrate with state.rs answer cache
+        }
+    }
+    None
+}
+
+/// Warm up the command cache with static system info (called at daemon startup)
+/// This makes first queries faster by pre-caching common commands
+pub fn warm_up_cache() {
+    info!("Warming up command cache with static system info...");
+
+    let static_commands = [
+        "uname -r",
+        "uname -a",
+        "hostname",
+        "cat /etc/os-release",
+        "lscpu | head -20",
+        "free -h",
+        "df -h",
+        "ip addr",
+    ];
+
+    let mut cached_count = 0;
+    for cmd in static_commands {
+        // Check if already cached
+        if get_cached_command(cmd).is_some() {
+            continue;
+        }
+
+        // Execute and cache
+        match std::process::Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .output()
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let result = String::from_utf8_lossy(&output.stdout).to_string();
+                    if !result.trim().is_empty() {
+                        cache_command(cmd, &result);
+                        cached_count += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Cache warm-up failed for '{}': {}", cmd, e);
+            }
+        }
+    }
+
+    info!("Cache warm-up complete: {} commands pre-cached", cached_count);
+}
+
 /// Strip ANSI escape codes from text
 fn strip_ansi_codes(text: &str) -> String {
     // Regex-free ANSI stripping for speed
@@ -2323,16 +2501,38 @@ Commands:"#,
         dialogue.push(step.clone());
         send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-        let commands_response = ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await?;
-        let commands_response = commands_response.trim();
-
-        // Record and send LLM's response
-        let step = DialogueStep {
-            step_type: StepType::LlmCommands,
-            content: commands_response.to_string(),
+        // Try LLM first, fall back to heuristic commands on timeout/error
+        let commands_response = match ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await {
+            Ok(response) => response.trim().to_string(),
+            Err(e) => {
+                // LLM failed - try heuristic fallback
+                warn!("LLM command selection failed ({}), trying heuristic fallback", e);
+                let fallback_cmds = get_fallback_commands(question);
+                if !fallback_cmds.is_empty() {
+                    info!("Using {} heuristic fallback command(s)", fallback_cmds.len());
+                    let step = DialogueStep {
+                        step_type: StepType::LlmCommands,
+                        content: format!("[FALLBACK] {}", fallback_cmds.join("\n")),
+                    };
+                    dialogue.push(step.clone());
+                    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                    fallback_cmds.join("\n")
+                } else {
+                    // No fallback available, propagate error
+                    return Err(e);
+                }
+            }
         };
-        dialogue.push(step.clone());
-        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Record and send LLM's response (if not already sent as fallback)
+        if !commands_response.starts_with("[FALLBACK]") {
+            let step = DialogueStep {
+                step_type: StepType::LlmCommands,
+                content: commands_response.to_string(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+        }
 
         // Check for special responses
         if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
@@ -2554,18 +2754,43 @@ Answer:"#,
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     // Stream the final answer token by token
-    let mut final_answer = ollama::chat_streaming_to_writer(
+    let mut final_answer = match ollama::chat_streaming_to_writer(
         model,
         &final_prompt,
         llm_timeout,
         writer,
-    ).await?;
+    ).await {
+        Ok(answer) => answer,
+        Err(e) => {
+            warn!("Streaming LLM failed: {}", e);
+            String::new()
+        }
+    };
 
-    // Fallback: if streaming returned empty, try non-streaming
+    // Fallback chain for empty/failed responses
     if final_answer.trim().is_empty() {
-        tracing::warn!("Streaming LLM returned empty response, retrying non-streaming");
-        final_answer = ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await
-            .unwrap_or_else(|e| format!("I encountered an error generating a response: {}", e));
+        tracing::warn!("Streaming LLM returned empty response, trying non-streaming");
+        match ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await {
+            Ok(answer) => {
+                final_answer = answer;
+            }
+            Err(e) => {
+                // Ultimate fallback: provide raw command output with a note
+                warn!("Non-streaming LLM also failed: {}", e);
+                if !last_output.is_empty() {
+                    final_answer = format!(
+                        "[LLM unavailable - showing raw command output]\n\n{}",
+                        last_output.lines().take(20).collect::<Vec<_>>().join("\n")
+                    );
+                    info!("Using raw output fallback ({} lines)", last_output.lines().count());
+                } else {
+                    final_answer = format!(
+                        "I encountered an error generating a response and have no command output to show. Error: {}",
+                        e
+                    );
+                }
+            }
+        }
     }
 
     // Verify answer quality - quick check that it addresses the question
@@ -3311,6 +3536,118 @@ fn unescape_command(cmd: &str) -> String {
         .replace("\\`", "`")
 }
 
+/// Detect output format and return format type
+fn detect_output_format(output: &str) -> &'static str {
+    let trimmed = output.trim();
+
+    // JSON detection
+    if (trimmed.starts_with('{') && trimmed.ends_with('}'))
+        || (trimmed.starts_with('[') && trimmed.ends_with(']'))
+    {
+        return "json";
+    }
+
+    // Log format detection (timestamps, log levels)
+    if trimmed.lines().take(5).any(|l| {
+        l.contains("ERROR") || l.contains("WARN") || l.contains("INFO")
+            || l.contains("Jan ") || l.contains("Feb ") || l.contains("Mar ")
+            || l.contains("Apr ") || l.contains("May ") || l.contains("Jun ")
+            || l.contains("Jul ") || l.contains("Aug ") || l.contains("Sep ")
+            || l.contains("Oct ") || l.contains("Nov ") || l.contains("Dec ")
+    }) {
+        return "log";
+    }
+
+    // Table detection (lines with consistent column separators)
+    let lines: Vec<&str> = trimmed.lines().take(5).collect();
+    if lines.len() >= 2 {
+        let has_header_sep = lines.iter().any(|l| l.chars().filter(|&c| c == '-').count() > 5);
+        let consistent_tabs = lines.iter().filter(|l| l.contains('\t')).count() >= 2;
+        if has_header_sep || consistent_tabs {
+            return "table";
+        }
+    }
+
+    // Package list (pacman output)
+    if trimmed.lines().take(3).all(|l| {
+        l.split_whitespace().count() == 2 && !l.contains('/') && !l.contains(':')
+    }) {
+        return "package_list";
+    }
+
+    "plain"
+}
+
+/// Smart truncation based on output format
+fn smart_truncate_output(output: &str) -> String {
+    const MAX_OUTPUT: usize = 4000;
+    const HEAD_SIZE: usize = 1500;
+    const TAIL_SIZE: usize = 2000;
+
+    if output.len() <= MAX_OUTPUT {
+        return output.to_string();
+    }
+
+    let format = detect_output_format(output);
+
+    match format {
+        "log" => {
+            // For logs, prioritize error/warning lines and recent entries
+            let lines: Vec<&str> = output.lines().collect();
+            let mut result = Vec::new();
+
+            // Find error/warning lines
+            let important_lines: Vec<&str> = lines.iter()
+                .filter(|l| l.contains("error") || l.contains("ERROR")
+                    || l.contains("fail") || l.contains("FAIL")
+                    || l.contains("warn") || l.contains("WARN"))
+                .take(10)
+                .copied()
+                .collect();
+
+            if !important_lines.is_empty() {
+                result.push("=== Important log entries ===");
+                result.extend(important_lines);
+                result.push("");
+            }
+
+            // Add recent entries (tail)
+            result.push("=== Recent entries ===");
+            let recent: Vec<&str> = lines.iter().rev().take(20).copied().collect();
+            result.extend(recent.into_iter().rev());
+
+            let truncated = result.join("\n");
+            if truncated.len() > MAX_OUTPUT {
+                truncated[..MAX_OUTPUT].to_string()
+            } else {
+                truncated
+            }
+        }
+        "package_list" => {
+            // For package lists, show count + sample
+            let line_count = output.lines().count();
+            let sample: Vec<&str> = output.lines().take(30).collect();
+            format!(
+                "{}\n\n... ({} total packages, showing first 30) ...",
+                sample.join("\n"),
+                line_count
+            )
+        }
+        "table" | "json" | "plain" | _ => {
+            // Default: head + tail truncation
+            let head = &output[..HEAD_SIZE];
+            let tail = &output[output.len() - TAIL_SIZE..];
+            let truncated_lines = output[HEAD_SIZE..output.len() - TAIL_SIZE].lines().count();
+            format!(
+                "{}\n\n... ({} lines truncated) ...\n\n{}",
+                head.trim_end(),
+                truncated_lines,
+                tail.trim_start()
+            )
+        }
+    }
+}
+
 /// Execute a shell command and return its output.
 ///
 /// Commands are executed in the appropriate context:
@@ -3359,22 +3696,9 @@ fn execute_command(cmd: &str) -> Result<String> {
     // Strip ANSI escape codes for clean output
     result = strip_ansi_codes(&result);
 
-    // Smart truncation: preserve beginning and end (errors usually at the end)
-    const MAX_OUTPUT: usize = 4000;
-    const HEAD_SIZE: usize = 1500;  // Keep first 1500 chars
-    const TAIL_SIZE: usize = 2000;  // Keep last 2000 chars (errors often here)
+    // Smart truncation based on output format
+    result = smart_truncate_output(&result);
 
-    if result.len() > MAX_OUTPUT {
-        let head = &result[..HEAD_SIZE];
-        let tail = &result[result.len() - TAIL_SIZE..];
-        let truncated_lines = result[HEAD_SIZE..result.len() - TAIL_SIZE].lines().count();
-        result = format!(
-            "{}\n\n... ({} lines truncated) ...\n\n{}",
-            head.trim_end(),
-            truncated_lines,
-            tail.trim_start()
-        );
-    }
 
     // Cache successful read-only command output
     if is_cacheable_command(&cmd) && !result.contains("command not found") {

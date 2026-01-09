@@ -242,40 +242,80 @@ impl Session {
         None
     }
 
-    /// Get context for LLM prompts
+    /// Get context for LLM prompts (optimized for smaller token usage)
     pub fn get_context_for_llm(&self) -> String {
         let mut context = String::new();
 
-        // Current topic
+        // Current topic (most important)
         if let Some(ref topic) = self.context.current_topic {
-            context.push_str(&format!("Current topic: {}\n", topic));
+            context.push_str(&format!("Topic: {}\n", topic));
         }
 
-        // Recent history summary
+        // Recent history - only include last 2 questions (save tokens)
         if !self.history.is_empty() {
-            context.push_str("Recent conversation:\n");
-            for turn in self.history.iter().rev().take(3) {
-                context.push_str(&format!("- Q: {}\n", truncate(&turn.question, 80)));
+            context.push_str("Previous:\n");
+            for turn in self.history.iter().rev().take(2) {
+                context.push_str(&format!("- {}\n", truncate(&turn.question, 60)));
             }
         }
 
-        // Entities in play
+        // Entities - compress if too many (save tokens)
         if !self.entities.services.is_empty() {
-            context.push_str(&format!("Services discussed: {}\n", self.entities.services.join(", ")));
+            let services = &self.entities.services;
+            if services.len() <= 3 {
+                context.push_str(&format!("Services: {}\n", services.join(", ")));
+            } else {
+                // Show count + most recent
+                context.push_str(&format!(
+                    "Services: {} discussed, recent: {}\n",
+                    services.len(),
+                    services.iter().rev().take(2).cloned().collect::<Vec<_>>().join(", ")
+                ));
+            }
         }
         if !self.entities.packages.is_empty() {
-            context.push_str(&format!("Packages discussed: {}\n", self.entities.packages.join(", ")));
+            let packages = &self.entities.packages;
+            if packages.len() <= 5 {
+                context.push_str(&format!("Packages: {}\n", packages.join(", ")));
+            } else {
+                context.push_str(&format!(
+                    "Packages: {} discussed, recent: {}\n",
+                    packages.len(),
+                    packages.iter().rev().take(3).cloned().collect::<Vec<_>>().join(", ")
+                ));
+            }
         }
         if !self.entities.files.is_empty() {
-            context.push_str(&format!("Files discussed: {}\n", self.entities.files.join(", ")));
+            let files = &self.entities.files;
+            if files.len() <= 3 {
+                context.push_str(&format!("Files: {}\n", files.join(", ")));
+            } else {
+                context.push_str(&format!(
+                    "Files: {} referenced, recent: {}\n",
+                    files.len(),
+                    files.iter().rev().take(2).cloned().collect::<Vec<_>>().join(", ")
+                ));
+            }
         }
 
-        // Goal
+        // Goal (if relevant)
         if let Some(ref goal) = self.context.apparent_goal {
-            context.push_str(&format!("User appears to be: {}\n", goal));
+            context.push_str(&format!("Goal: {}\n", truncate(goal, 50)));
         }
 
         context
+    }
+
+    /// Get a brief context summary for command selection (minimal tokens)
+    pub fn get_brief_context(&self) -> String {
+        let mut brief = String::new();
+        if let Some(ref topic) = self.context.current_topic {
+            brief.push_str(&format!("Topic: {}. ", truncate(topic, 30)));
+        }
+        if let Some(last) = self.history.back() {
+            brief.push_str(&format!("Last Q: {}", truncate(&last.question, 40)));
+        }
+        brief
     }
 
     /// Expand a question with context
