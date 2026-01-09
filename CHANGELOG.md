@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.876] - 2026-01-09
+
+### Added
+- **HOWTO Configuration Handler** - Special handling for configuration/change requests
+  - Detects when user wants to change/configure vs just query information
+  - Routes to instruction-generation mode instead of command-execution
+  - Provides step-by-step instructions with commands and config file edits
+  - Example: "apply 2x scale to GDM3" now gives proper instructions
+
+- **Better Wiki Search** - Improved search term extraction
+  - Extracts key technical terms (gdm, wayland, hidpi, etc.) from questions
+  - Uses intent entities and topic for focused search
+  - Reduces noise from long questions
+
+### Improved
+- HOWTO intent routing: configuration requests get instructions, queries get commands
+- Configuration detection: recognizes action verbs (apply, change, configure, enable, etc.)
+- Wiki context increased to 3000 chars for HOWTO configuration requests
+
 ## [0.0.875] - 2026-01-09
 
 ### Added

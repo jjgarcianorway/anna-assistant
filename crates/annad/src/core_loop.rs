@@ -1407,8 +1407,16 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             }
             // If no sub_questions extracted, fall through to normal processing
         }
+        IntentCategory::HowTo => {
+            // HOWTO questions need instructions, not command execution
+            // Check if this is a configuration/change request vs informational howto
+            if is_configuration_request(question) {
+                return handle_howto_config(model, question, &intent_result, writer, dialogue).await;
+            }
+            // Informational howto (e.g., "how do I check X?") falls through to normal flow
+        }
         _ => {
-            // FACTUAL, HOWTO, TROUBLESHOOT - continue with normal flow
+            // FACTUAL, TROUBLESHOOT - continue with command execution flow
         }
     }
 
@@ -1784,6 +1792,231 @@ Answer:"#,
         success: true,
         iterations,
         commands_executed,
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+    };
+    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+
+    Ok(())
+}
+
+/// Detect if a question is asking for configuration/change vs just information
+fn is_configuration_request(question: &str) -> bool {
+    let q = question.to_lowercase();
+
+    // Action verbs that indicate wanting to change something
+    let config_patterns = [
+        "apply", "change", "set", "configure", "enable", "disable",
+        "modify", "edit", "update", "add", "remove", "delete",
+        "make", "create", "install", "setup", "fix", "adjust",
+        "increase", "decrease", "turn on", "turn off", "switch",
+        "permanently", "persist", "save",
+    ];
+
+    // Check for configuration intent
+    for pattern in config_patterns {
+        if q.contains(pattern) {
+            return true;
+        }
+    }
+
+    // Check for "please" with action context (polite request to do something)
+    if q.contains("please") && !q.contains("how do i") && !q.contains("how can i") {
+        // "can you please apply" vs "how do i check please"
+        for action in ["apply", "change", "set", "configure", "enable", "disable", "fix"] {
+            if q.contains(action) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+/// Extract search terms from a question for better wiki search
+fn extract_search_terms(question: &str, entities: &[String], topic: Option<&str>) -> String {
+    let mut terms = Vec::new();
+
+    // Add topic if detected
+    if let Some(t) = topic {
+        terms.push(t.to_string());
+    }
+
+    // Add entities (packages, services mentioned)
+    for entity in entities.iter().take(3) {
+        if !terms.contains(entity) {
+            terms.push(entity.clone());
+        }
+    }
+
+    // Extract key technical terms from question
+    let q_lower = question.to_lowercase();
+    let tech_terms = [
+        "gdm", "gdm3", "sddm", "lightdm", "xorg", "wayland", "x11",
+        "hidpi", "scale", "scaling", "resolution", "monitor", "display",
+        "grub", "systemd-boot", "bootloader", "kernel",
+        "pipewire", "pulseaudio", "audio", "sound",
+        "nvidia", "amd", "intel", "gpu", "driver",
+        "network", "wifi", "ethernet", "bluetooth",
+        "systemd", "service", "daemon",
+        "pacman", "yay", "aur", "package",
+        "btrfs", "ext4", "partition", "mount", "fstab",
+    ];
+
+    for term in tech_terms {
+        if q_lower.contains(term) && !terms.iter().any(|t| t.to_lowercase() == term) {
+            terms.push(term.to_string());
+        }
+    }
+
+    // Limit to 5 terms for focused search
+    terms.truncate(5);
+
+    if terms.is_empty() {
+        // Fallback: extract first few meaningful words
+        let words: Vec<&str> = question.split_whitespace()
+            .filter(|w| w.len() > 3)
+            .filter(|w| !["what", "how", "can", "please", "want", "need", "would", "could", "should"].contains(&w.to_lowercase().as_str()))
+            .take(4)
+            .collect();
+        words.join(" ")
+    } else {
+        terms.join(" ")
+    }
+}
+
+/// Handle HOWTO configuration requests - provide instructions instead of running commands
+async fn handle_howto_config<W: AsyncWriteExt + Unpin>(
+    model: &str,
+    question: &str,
+    intent: &anna_shared::rpc::IntentClassification,
+    writer: &mut W,
+    mut dialogue: Vec<DialogueStep>,
+) -> Result<()> {
+    info!("Handling HOWTO configuration request");
+
+    // Extract better search terms for wiki
+    let search_terms = extract_search_terms(
+        question,
+        &intent.entities,
+        intent.topic.as_deref(),
+    );
+
+    // Search wiki with extracted terms
+    let step = DialogueStep {
+        step_type: StepType::WikiSearch,
+        content: search_terms.clone(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    let wiki_context = if let Some(wiki_results) = search_wiki_for_commands(&search_terms).await {
+        let step = DialogueStep {
+            step_type: StepType::WikiResults,
+            content: wiki_results.article_titles.join("\n"),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Use more wiki context for howto (up to 3000 chars)
+        if wiki_results.context.len() > 3000 {
+            let truncated = &wiki_results.context[..3000];
+            if let Some(pos) = truncated.rfind('\n') {
+                format!("{}\n(truncated)", &truncated[..pos])
+            } else {
+                truncated.to_string()
+            }
+        } else {
+            wiki_results.context
+        }
+    } else {
+        let step = DialogueStep {
+            step_type: StepType::WikiResults,
+            content: "(no relevant articles found)".to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+        String::new()
+    };
+
+    // Get system context for relevant config file paths
+    let profile = get_system_profile();
+    let system_summary = profile.brief_summary();
+    let relevant_configs = get_relevant_configs_for_question(question);
+
+    // Build instruction-focused prompt (NOT command execution)
+    let instruction_prompt = format!(
+        r#"You are an Arch Linux expert. The user wants to configure or change something on their system.
+
+System: {system_summary}
+{wiki_section}{config_section}
+User request: "{question}"
+
+Provide step-by-step instructions to accomplish this task. Include:
+1. The exact commands to run (with sudo if needed)
+2. Any config files to edit and what to add/change
+3. How to make changes permanent if applicable
+4. How to verify the change worked
+
+Be specific to this system. Use the Arch Wiki information if provided.
+If this requires GUI access or a reboot, mention that.
+
+RESPOND IN ENGLISH ONLY.
+Keep the answer focused and practical."#,
+        system_summary = system_summary,
+        wiki_section = if !wiki_context.is_empty() {
+            format!("\n\nRelevant Arch Wiki information:\n{}", wiki_context)
+        } else {
+            String::new()
+        },
+        config_section = if !relevant_configs.is_empty() {
+            format!("\n\nExisting configuration:\n{}", relevant_configs)
+        } else {
+            String::new()
+        },
+        question = question
+    );
+
+    // Send prompt step
+    let step = DialogueStep {
+        step_type: StepType::FinalPrompt,
+        content: instruction_prompt.clone(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Stream the answer
+    let answer = ollama::chat_streaming_to_writer(
+        model,
+        &instruction_prompt,
+        LLM_TIMEOUT_SECS,
+        writer,
+    ).await?;
+
+    // Fallback if streaming returned empty
+    let answer = if answer.trim().is_empty() {
+        warn!("Streaming returned empty, retrying non-streaming");
+        ollama::chat_with_timeout(model, &instruction_prompt, LLM_TIMEOUT_SECS).await
+            .unwrap_or_else(|e| format!("Error generating instructions: {}", e))
+    } else {
+        answer
+    };
+
+    // Send final answer step
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.trim().to_string(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Send done
+    let result = AskResult {
+        answer: answer.trim().to_string(),
+        success: true,
+        iterations: 1,
+        commands_executed: vec![],
         dialogue,
         needs_clarification: false,
         clarification_question: None,
