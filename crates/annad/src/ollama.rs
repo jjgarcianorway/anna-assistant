@@ -647,7 +647,24 @@ pub async fn chat_streaming_to_writer<W>(
 where
     W: tokio::io::AsyncWriteExt + Unpin,
 {
+    // Use the validating version with empty command output (no validation)
+    chat_streaming_validated(model, prompt, timeout_secs, "", writer).await
+}
+
+/// Streaming LLM request with validation (v0.0.889)
+/// Validates the answer against command output as it streams
+pub async fn chat_streaming_validated<W>(
+    model: &str,
+    prompt: &str,
+    timeout_secs: u64,
+    command_output: &str,
+    writer: &mut W,
+) -> Result<String>
+where
+    W: tokio::io::AsyncWriteExt + Unpin,
+{
     use anna_shared::rpc::StreamingResponse;
+    use crate::validation::StreamingValidator;
     use futures_util::StreamExt;
 
     // Check circuit breaker first
@@ -682,6 +699,13 @@ where
     let mut full_response = String::new();
     let mut stream = response.bytes_stream();
 
+    // Create validator if we have command output to validate against
+    let mut validator = if !command_output.is_empty() {
+        Some(StreamingValidator::new(command_output))
+    } else {
+        None
+    };
+
     while let Some(chunk) = stream.next().await {
         let chunk = match chunk {
             Ok(c) => c,
@@ -700,11 +724,23 @@ where
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
                 if let Some(token) = json.get("response").and_then(|r| r.as_str()) {
                     full_response.push_str(token);
+
                     // Send token to client
                     let response = StreamingResponse::Token { token: token.to_string() };
                     let json_str = serde_json::to_string(&response)?;
                     writer.write_all(format!("{}\n", json_str).as_bytes()).await?;
                     writer.flush().await?;
+
+                    // Validate and send any warnings (v0.0.889)
+                    if let Some(ref mut v) = validator {
+                        let warnings = v.add_token(token);
+                        for warning in warnings {
+                            let warning_response = StreamingResponse::Validation { warning };
+                            let warning_json = serde_json::to_string(&warning_response)?;
+                            writer.write_all(format!("{}\n", warning_json).as_bytes()).await?;
+                            writer.flush().await?;
+                        }
+                    }
                 }
             }
         }

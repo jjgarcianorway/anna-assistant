@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.889] - 2026-01-09
+
+### Added
+- **Semantic Question Clustering** - Smarter memory recall
+  - Questions like "What's my RAM?" and "How much memory?" cluster together
+  - Clusters share learned commands across paraphrased questions
+  - Semantic synonym mapping for 20+ topic areas (memory, disk, network, etc.)
+  - Memory hints included in LLM command prompts for faster convergence
+
+- **Streaming Answer Validation** - Real-time quality checks
+  - Validates answers as they stream, not just at the end
+  - Detects hallucinations (claims not supported by command output)
+  - Flags uncertainty language ("might be", "could be", "I think")
+  - Warns about generic advice vs system-specific information
+  - High severity warnings displayed to user during streaming
+
+- **Cross-Session Pattern Mining** - Learning from user behavior
+  - Tracks topic flows (e.g., "network" -> "dns" -> "firewall")
+  - Mines frequently asked question patterns
+  - Identifies recurring issues across sessions
+  - Enables proactive topic suggestions based on patterns
+
+- **Parallel Command Execution** - Faster query processing
+  - `execute_commands_parallel()` runs independent commands concurrently
+  - `execute_command_batch()` batches read-only commands into single shell
+  - Automatic fallback to sequential for small command counts
+  - Reduced process spawning overhead for multi-command queries
+
+- **Semantic Danger Detection** - Beyond keyword matching
+  - Detects obfuscated commands (base64, hex encoding)
+  - Identifies data exfiltration patterns (curl + sensitive files)
+  - Catches privilege escalation attempts (SUID, sudoers modification)
+  - Recognizes persistence mechanisms (cron, shell profiles)
+  - Multi-level severity (Safe, Low, Medium, High, Critical)
+  - Blocks critical-risk commands with explanation
+
 ## [0.0.888] - 2026-01-09
 
 ### Added

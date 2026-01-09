@@ -166,6 +166,18 @@ async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult> {
                         print_colored(&token, GREEN);
                         io::stdout().flush().ok();
                     }
+                    Ok(StreamingResponse::Validation { warning }) => {
+                        // Display validation warning (v0.0.889)
+                        // Only show high severity warnings to avoid noise
+                        if warning.severity == "high" {
+                            if in_answer {
+                                println!();
+                            }
+                            print_colored("⚠ ", YELLOW);
+                            println_colored(&warning.message, YELLOW);
+                            io::stdout().flush().ok();
+                        }
+                    }
                     Ok(StreamingResponse::Done { result }) => {
                         if in_answer {
                             println!();

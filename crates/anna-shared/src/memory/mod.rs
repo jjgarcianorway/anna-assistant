@@ -10,9 +10,15 @@
 //! - Question patterns → effective commands
 //! - System context → relevant approaches
 //! - Error patterns → successful fixes
+//!
+//! v0.0.889: Added semantic question clustering
+//! - Questions like "What's my RAM?" and "How much memory?" cluster together
+//! - Clusters share learned commands and patterns
+//! - Improves recall accuracy for paraphrased questions
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::config::anna_data_dir;
@@ -80,6 +86,10 @@ pub struct Memory {
     /// Learned patterns: keyword -> common commands
     pub patterns: Vec<LearnedPattern>,
 
+    /// Semantic question clusters (v0.0.889)
+    #[serde(default)]
+    pub clusters: Vec<QuestionCluster>,
+
     /// Statistics
     pub stats: MemoryStats,
 }
@@ -124,6 +134,38 @@ pub struct MemoryStats {
 
     /// Questions that needed full LLM processing
     pub memory_misses: u32,
+
+    /// Total clusters formed
+    pub total_clusters: u32,
+}
+
+/// Semantic question cluster - groups similar questions together
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuestionCluster {
+    /// Cluster ID
+    pub id: String,
+
+    /// Canonical form of the question (normalized)
+    pub canonical: String,
+
+    /// All question variations that belong to this cluster
+    pub variations: Vec<String>,
+
+    /// Combined keywords from all variations
+    pub keywords: Vec<String>,
+
+    /// IDs of experiences in this cluster
+    pub experience_ids: Vec<String>,
+
+    /// Commands that work for this cluster (aggregated)
+    pub effective_commands: Vec<ClusterCommand>,
+}
+
+/// A command with cluster-level statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClusterCommand {
+    pub command: String,
+    pub success_count: u32,
 }
 
 impl Memory {
@@ -154,9 +196,13 @@ impl Memory {
     pub fn learn(&mut self, question: &str, commands: Vec<String>, answer: &str, context: ExperienceContext) {
         let keywords = extract_keywords(question);
 
+        // Find or create a semantic cluster for this question (v0.0.889)
+        let cluster_id = self.find_or_create_cluster(question, &keywords);
+
         // Create new experience
+        let experience_id = uuid::Uuid::new_v4().to_string();
         let experience = Experience {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: experience_id.clone(),
             question: question.to_lowercase(),
             keywords: keywords.clone(),
             successful_commands: commands.clone(),
@@ -170,6 +216,12 @@ impl Memory {
 
         self.experiences.push(experience);
         self.stats.total_experiences += 1;
+
+        // Link experience to cluster and update cluster commands
+        if let Some(cluster) = self.clusters.iter_mut().find(|c| c.id == cluster_id) {
+            cluster.experience_ids.push(experience_id);
+        }
+        self.update_cluster_commands(&cluster_id, &commands);
 
         // Update patterns
         self.update_patterns(&keywords, &commands);
@@ -362,4 +414,269 @@ fn calculate_relevance(experience: &Experience, question: &str, keywords: &[Stri
 /// Get memory storage path
 pub fn memory_path() -> PathBuf {
     anna_data_dir().join("memory.json")
+}
+
+// ============================================================================
+// SEMANTIC QUESTION CLUSTERING (v0.0.889)
+// ============================================================================
+
+/// Semantic synonym groups - questions using any word in a group are considered related
+/// Format: (canonical_term, [synonyms])
+const SEMANTIC_SYNONYMS: &[(&str, &[&str])] = &[
+    // Memory/RAM
+    ("memory", &["ram", "memory", "mem", "swap"]),
+    // Storage/Disk
+    ("disk", &["disk", "storage", "drive", "hdd", "ssd", "nvme", "partition", "space"]),
+    // CPU/Processor
+    ("cpu", &["cpu", "processor", "cores", "threads", "load", "utilization"]),
+    // Network
+    ("network", &["network", "wifi", "ethernet", "connection", "internet", "ip", "dns"]),
+    // Audio/Sound
+    ("audio", &["audio", "sound", "speaker", "volume", "microphone", "pulseaudio", "pipewire"]),
+    // Display/Screen
+    ("display", &["display", "screen", "monitor", "resolution", "brightness", "wayland", "xorg"]),
+    // Packages/Software
+    ("packages", &["package", "packages", "install", "pacman", "yay", "aur", "software", "app"]),
+    // Services/Daemons
+    ("services", &["service", "services", "daemon", "systemd", "unit", "systemctl"]),
+    // Boot/Startup
+    ("boot", &["boot", "startup", "grub", "kernel", "initramfs", "bootloader"]),
+    // System info
+    ("system", &["system", "os", "distro", "arch", "version", "hostname"]),
+    // Hardware
+    ("hardware", &["hardware", "device", "devices", "lspci", "lsusb", "gpu", "graphics"]),
+    // Battery/Power
+    ("battery", &["battery", "power", "charging", "acpi", "upower"]),
+    // Users/Permissions
+    ("users", &["user", "users", "permission", "permissions", "sudo", "group"]),
+    // Files/Filesystem
+    ("files", &["file", "files", "directory", "folder", "path", "filesystem"]),
+    // Processes
+    ("processes", &["process", "processes", "running", "pid", "kill", "ps", "htop"]),
+    // Errors/Issues
+    ("errors", &["error", "errors", "fail", "failed", "failing", "issue", "problem", "broken"]),
+    // Logs
+    ("logs", &["log", "logs", "journal", "journalctl", "dmesg"]),
+    // Config
+    ("config", &["config", "configuration", "settings", "configure", "setup"]),
+    // Kernel
+    ("kernel", &["kernel", "uname", "module", "modules", "driver", "drivers"]),
+];
+
+/// Canonicalize a question by replacing synonyms with canonical terms
+pub fn canonicalize_question(question: &str) -> String {
+    let mut canonical = question.to_lowercase();
+
+    // Remove question marks and normalize whitespace
+    canonical = canonical.replace('?', "").trim().to_string();
+
+    // Replace synonyms with canonical terms
+    for (canonical_term, synonyms) in SEMANTIC_SYNONYMS {
+        for synonym in *synonyms {
+            if *synonym != *canonical_term {
+                // Word boundary replacement to avoid partial matches
+                let pattern = format!(" {} ", synonym);
+                let replacement = format!(" {} ", canonical_term);
+                canonical = format!(" {} ", canonical).replace(&pattern, &replacement);
+            }
+        }
+    }
+
+    canonical.trim().to_string()
+}
+
+/// Extract semantic groups from a question
+fn extract_semantic_groups(question: &str) -> Vec<String> {
+    let q_lower = question.to_lowercase();
+    let mut groups = Vec::new();
+
+    for (canonical, synonyms) in SEMANTIC_SYNONYMS {
+        for synonym in *synonyms {
+            if q_lower.contains(synonym) {
+                if !groups.contains(&canonical.to_string()) {
+                    groups.push(canonical.to_string());
+                }
+                break;
+            }
+        }
+    }
+
+    groups
+}
+
+/// Calculate similarity between a question and a cluster
+fn calculate_cluster_similarity(question: &str, cluster: &QuestionCluster) -> f32 {
+    let q_lower = question.to_lowercase();
+    let q_canonical = canonicalize_question(question);
+    let q_keywords = extract_keywords(question);
+    let q_groups = extract_semantic_groups(question);
+
+    let mut score = 0.0;
+
+    // Exact canonical match is strongest signal
+    if q_canonical == cluster.canonical {
+        return 0.95;
+    }
+
+    // Check if canonical forms share significant overlap
+    let canonical_words: Vec<&str> = cluster.canonical.split_whitespace().collect();
+    let q_words: Vec<&str> = q_canonical.split_whitespace().collect();
+    let common_words = canonical_words.iter().filter(|w| q_words.contains(w)).count();
+    if !canonical_words.is_empty() && !q_words.is_empty() {
+        let overlap = common_words as f32 / canonical_words.len().max(q_words.len()) as f32;
+        score += overlap * 0.4;
+    }
+
+    // Keyword overlap
+    let keyword_matches = q_keywords.iter().filter(|k| cluster.keywords.contains(k)).count();
+    if !q_keywords.is_empty() && !cluster.keywords.is_empty() {
+        score += (keyword_matches as f32) / q_keywords.len().max(cluster.keywords.len()) as f32 * 0.3;
+    }
+
+    // Semantic group overlap
+    let cluster_groups = extract_semantic_groups(&cluster.canonical);
+    let group_matches = q_groups.iter().filter(|g| cluster_groups.contains(g)).count();
+    if !q_groups.is_empty() && !cluster_groups.is_empty() {
+        score += (group_matches as f32) / q_groups.len().max(cluster_groups.len()) as f32 * 0.2;
+    }
+
+    // Check variation similarity
+    for variation in &cluster.variations {
+        if variation.contains(&q_lower) || q_lower.contains(variation) {
+            score += 0.3;
+            break;
+        }
+    }
+
+    score.min(1.0)
+}
+
+impl Memory {
+    /// Find a matching cluster or create a new one
+    pub fn find_or_create_cluster(&mut self, question: &str, keywords: &[String]) -> String {
+        let canonical = canonicalize_question(question);
+        let q_lower = question.to_lowercase();
+
+        // Find best matching cluster
+        let mut best_match: Option<(usize, f32)> = None;
+        for (idx, cluster) in self.clusters.iter().enumerate() {
+            let sim = calculate_cluster_similarity(question, cluster);
+            if sim > 0.6 {
+                if best_match.is_none() || sim > best_match.unwrap().1 {
+                    best_match = Some((idx, sim));
+                }
+            }
+        }
+
+        if let Some((idx, _)) = best_match {
+            // Add this variation to the existing cluster
+            let cluster = &mut self.clusters[idx];
+            if !cluster.variations.contains(&q_lower) {
+                cluster.variations.push(q_lower);
+            }
+            // Merge keywords
+            for kw in keywords {
+                if !cluster.keywords.contains(kw) {
+                    cluster.keywords.push(kw.clone());
+                }
+            }
+            cluster.id.clone()
+        } else {
+            // Create new cluster
+            let cluster_id = uuid::Uuid::new_v4().to_string();
+            let cluster = QuestionCluster {
+                id: cluster_id.clone(),
+                canonical,
+                variations: vec![q_lower],
+                keywords: keywords.to_vec(),
+                experience_ids: Vec::new(),
+                effective_commands: Vec::new(),
+            };
+            self.clusters.push(cluster);
+            self.stats.total_clusters += 1;
+            cluster_id
+        }
+    }
+
+    /// Update cluster with successful commands
+    pub fn update_cluster_commands(&mut self, cluster_id: &str, commands: &[String]) {
+        if let Some(cluster) = self.clusters.iter_mut().find(|c| c.id == cluster_id) {
+            for cmd in commands {
+                if let Some(cc) = cluster.effective_commands.iter_mut().find(|c| &c.command == cmd) {
+                    cc.success_count += 1;
+                } else {
+                    cluster.effective_commands.push(ClusterCommand {
+                        command: cmd.clone(),
+                        success_count: 1,
+                    });
+                }
+            }
+            // Sort by success count
+            cluster.effective_commands.sort_by(|a, b| b.success_count.cmp(&a.success_count));
+        }
+    }
+
+    /// Get commands suggested by clusters (semantic recall)
+    pub fn suggest_commands_from_clusters(&self, question: &str) -> Vec<String> {
+        let mut suggestions: HashMap<String, u32> = HashMap::new();
+
+        for cluster in &self.clusters {
+            let sim = calculate_cluster_similarity(question, cluster);
+            if sim > 0.5 {
+                for cmd in &cluster.effective_commands {
+                    // Weight by similarity and success count
+                    let weight = (sim * cmd.success_count as f32) as u32;
+                    *suggestions.entry(cmd.command.clone()).or_insert(0) += weight.max(1);
+                }
+            }
+        }
+
+        // Sort by weighted score
+        let mut sorted: Vec<_> = suggestions.into_iter().collect();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+        sorted.into_iter().map(|(c, _)| c).take(5).collect()
+    }
+
+    /// Enhanced recall using clusters
+    pub fn recall_with_clusters(&self, question: &str, limit: usize) -> Vec<&Experience> {
+        let keywords = extract_keywords(question);
+        let question_lower = question.to_lowercase();
+
+        // Get experience IDs from similar clusters
+        let mut cluster_exp_ids: Vec<String> = Vec::new();
+        for cluster in &self.clusters {
+            let sim = calculate_cluster_similarity(question, cluster);
+            if sim > 0.5 {
+                cluster_exp_ids.extend(cluster.experience_ids.clone());
+            }
+        }
+
+        // Score experiences, boosting those from matching clusters
+        let mut scored: Vec<(&Experience, f32)> = self
+            .experiences
+            .iter()
+            .filter_map(|exp| {
+                let mut score = calculate_relevance(exp, &question_lower, &keywords);
+
+                // Boost if experience is in a matching cluster
+                if cluster_exp_ids.contains(&exp.id) {
+                    score += 0.2;
+                }
+
+                if score > 0.2 {
+                    Some((exp, score))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| b.0.usefulness_score.cmp(&a.0.usefulness_score))
+        });
+
+        scored.into_iter().take(limit).map(|(e, _)| e).collect()
+    }
 }

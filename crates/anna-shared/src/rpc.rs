@@ -82,12 +82,41 @@ pub enum StreamingResponse {
     /// A token from the LLM (for streaming final answer)
     #[serde(rename = "token")]
     Token { token: String },
+    /// Validation warning (v0.0.889) - issues detected during streaming
+    #[serde(rename = "validation")]
+    Validation { warning: ValidationWarning },
     /// Final result with complete answer
     #[serde(rename = "done")]
     Done { result: AskResult },
     /// Error occurred
     #[serde(rename = "error")]
     Error { message: String },
+}
+
+/// Validation warnings detected during streaming (v0.0.889)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationWarning {
+    /// Type of validation issue
+    pub issue_type: ValidationIssueType,
+    /// Description of the issue
+    pub message: String,
+    /// Severity: low, medium, high
+    pub severity: String,
+}
+
+/// Types of validation issues that can be detected
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ValidationIssueType {
+    /// Answer makes claims not supported by command output
+    UnsupportedClaim,
+    /// Answer uses uncertain language
+    Uncertainty,
+    /// Answer contradicts command output
+    Contradiction,
+    /// Answer is too generic/not specific to the system
+    TooGeneric,
+    /// Answer references data not in command output
+    Hallucination,
 }
 
 /// JSON-RPC 2.0 request
