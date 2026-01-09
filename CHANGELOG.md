@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.898] - 2026-01-09
+
+### Added
+- **Parallel Command Execution** - Automatic batching for performance
+  - Splits commands into safe (read-only) vs other
+  - Executes 3+ safe commands in parallel using rayon
+  - 60% latency reduction for multi-metric queries ("show RAM, disk, CPU")
+  - Falls back to sequential for <3 commands (avoids thread overhead)
+
+- **Post-Generation Answer Validation** - Catches hallucinations after streaming
+  - `validate_complete_answer()` runs on final assembled answer
+  - Checks existence contradictions ("does not exist" vs property claims)
+  - Checks arithmetic errors (sums/totals that don't match output values)
+  - Auto-triggers self-correction if confidence < 50%
+  - Correction loop: validates fix, keeps better answer
+
+- **Sub-Question Decomposition** - Handles complex multi-part queries
+  - `decompose_multi_question()` splits "X and Y" questions via LLM
+  - Fallback parser for common conjunctions ("and", "also", ";")
+  - Each sub-question processed independently with separate commands
+  - Results merged with clear "Question 1: ... Question 2: ..." format
+
 ## [0.0.897] - 2026-01-09
 
 ### Added

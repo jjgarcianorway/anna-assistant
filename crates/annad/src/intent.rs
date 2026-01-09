@@ -693,6 +693,87 @@ pub fn format_intent_result(intent: &IntentClassification) -> String {
     result
 }
 
+/// v0.0.898: Decompose a MULTI question into sub-questions using LLM
+pub async fn decompose_multi_question(model: &str, question: &str) -> Result<Vec<String>> {
+    let prompt = format!(
+        r#"Break this into separate questions. Output JSON array only.
+
+Question: "{}"
+
+Rules:
+1. Each sub-question should be independently answerable
+2. Preserve the original intent of each part
+3. Keep it simple - don't add questions that weren't asked
+
+JSON: ["question 1", "question 2", ...]"#,
+        question
+    );
+
+    let response = ollama::chat_with_timeout(model, &prompt, QUICK_TIMEOUT_SECS).await?;
+
+    // Parse JSON array
+    let json_str = extract_json_array_from_response(&response);
+    if let Ok(arr) = serde_json::from_str::<Vec<String>>(&json_str) {
+        if !arr.is_empty() {
+            return Ok(arr);
+        }
+    }
+
+    // Fallback: simple split on "and" / "also"
+    Ok(fallback_decompose(question))
+}
+
+/// Extract JSON array from response
+fn extract_json_array_from_response(response: &str) -> String {
+    let response = response.trim()
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    // Find array start
+    if let Some(start) = response.find('[') {
+        if let Some(end) = response.rfind(']') {
+            return response[start..=end].to_string();
+        }
+    }
+
+    "[]".to_string()
+}
+
+/// Fallback decomposition without LLM
+fn fallback_decompose(question: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+
+    // Split on common conjunctions
+    let separators = [" and also ", " and ", " also ", "; "];
+
+    let mut remaining = question.to_string();
+    for sep in separators {
+        let lower = remaining.to_lowercase();
+        if let Some(idx) = lower.find(sep) {
+            let first = remaining[..idx].trim().to_string();
+            let second = remaining[idx + sep.len()..].trim().to_string();
+
+            if !first.is_empty() && first.split_whitespace().count() >= 2 {
+                parts.push(first);
+            }
+            remaining = second;
+        }
+    }
+
+    if !remaining.is_empty() && remaining.split_whitespace().count() >= 2 {
+        parts.push(remaining);
+    }
+
+    // If we couldn't split meaningfully, return original
+    if parts.len() < 2 {
+        return vec![question.to_string()];
+    }
+
+    parts
+}
+
 /// Format deep understanding result for display
 pub fn format_understanding_result(understanding: &DeepUnderstanding) -> String {
     let category_str = match understanding.category {

@@ -625,6 +625,165 @@ fn is_common_word(word: &str) -> bool {
     COMMON_WORDS.contains(&word)
 }
 
+/// v0.0.898: Validate a complete answer against command output
+/// Returns validation result with confidence score and potential correction hints
+pub fn validate_complete_answer(answer: &str, command_output: &str) -> ValidationResult {
+    let mut warnings = Vec::new();
+    let mut confidence = 1.0f32;
+    let mut correction_hints = Vec::new();
+
+    // Check uncertainty
+    if let Some(warning) = check_uncertainty(answer) {
+        confidence -= PENALTY_UNCERTAINTY;
+        warnings.push(warning);
+    }
+
+    // Check hallucinations
+    let grounding_values = extract_grounding_values(command_output);
+    if let Some(warning) = check_hallucination(answer, command_output, &grounding_values) {
+        confidence -= PENALTY_HALLUCINATION;
+        correction_hints.push(format!("Verify: {}", warning.message));
+        warnings.push(warning);
+    }
+
+    // Check generic responses
+    if let Some(warning) = check_too_generic(answer) {
+        confidence -= PENALTY_TOO_GENERIC;
+        correction_hints.push("Be more specific with system data".to_string());
+        warnings.push(warning);
+    }
+
+    // Check contradictions
+    if let Some(warning) = check_contradiction(answer, command_output) {
+        confidence -= PENALTY_CONTRADICTION;
+        correction_hints.push(format!("Fix: {}", warning.message));
+        warnings.push(warning);
+    }
+
+    // v0.0.898: Check for "does not exist" contradictions
+    if let Some(warning) = check_existence_contradiction(answer, command_output) {
+        confidence -= PENALTY_CONTRADICTION;
+        correction_hints.push(format!("Entity issue: {}", warning.message));
+        warnings.push(warning);
+    }
+
+    // v0.0.898: Check arithmetic errors (sums, differences)
+    if let Some(warning) = check_arithmetic_error(answer, command_output) {
+        confidence -= PENALTY_HALLUCINATION;
+        correction_hints.push(format!("Math error: {}", warning.message));
+        warnings.push(warning);
+    }
+
+    confidence = confidence.max(0.0);
+
+    ValidationResult {
+        warnings,
+        confidence,
+        needs_correction: confidence < CORRECTION_THRESHOLD,
+        correction_hint: if correction_hints.is_empty() {
+            None
+        } else {
+            Some(correction_hints.join("; "))
+        },
+    }
+}
+
+/// v0.0.898: Check if answer assumes something exists but output shows it doesn't
+fn check_existence_contradiction(answer: &str, output: &str) -> Option<ValidationWarning> {
+    let output_lower = output.to_lowercase();
+
+    // Patterns indicating non-existence
+    let nonexist_patterns = [
+        "does not exist",
+        "no such file",
+        "not found",
+        "unit .* could not be found",
+        "no packages found",
+        "command not found",
+    ];
+
+    // If output shows something doesn't exist
+    for pattern in nonexist_patterns {
+        if output_lower.contains(pattern) || (pattern.contains(".*") && {
+            let re = Regex::new(&format!("(?i){}", pattern)).ok();
+            re.map(|r| r.is_match(&output_lower)).unwrap_or(false)
+        }) {
+            // Check if answer makes claims about properties of that thing
+            let answer_lower = answer.to_lowercase();
+            let property_claims = ["is ", "has ", "uses ", "runs ", "contains "];
+
+            for claim in property_claims {
+                if answer_lower.contains(claim) && !answer_lower.contains("does not exist")
+                    && !answer_lower.contains("not found") && !answer_lower.contains("doesn't exist") {
+                    return Some(ValidationWarning {
+                        issue_type: ValidationIssueType::Contradiction,
+                        message: format!(
+                            "Answer describes properties of something that doesn't exist (output shows: {})",
+                            pattern.replace(".*", "...")
+                        ),
+                        severity: "high".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// v0.0.898: Check for arithmetic errors in derived values
+fn check_arithmetic_error(answer: &str, output: &str) -> Option<ValidationWarning> {
+    // Extract all memory values from output
+    let output_values: Vec<f64> = RE_MEM.captures_iter(output)
+        .filter_map(|cap| {
+            let num: f64 = cap.get(1)?.as_str().parse().ok()?;
+            let unit = cap.get(2)?.as_str();
+            Some(normalize_to_gb(num, unit))
+        })
+        .collect();
+
+    if output_values.len() < 2 {
+        return None; // Need multiple values to check arithmetic
+    }
+
+    // Check answer values against reasonable sums/differences
+    for cap in RE_MEM.captures_iter(answer) {
+        let answer_num: f64 = cap.get(1)?.as_str().parse().ok()?;
+        let answer_unit = cap.get(2)?.as_str();
+        let answer_gb = normalize_to_gb(answer_num, answer_unit);
+
+        // Check if answer value is close to any output value
+        let matches_single = output_values.iter().any(|&v| {
+            let ratio = answer_gb / v;
+            ratio > 0.85 && ratio < 1.15  // 15% tolerance
+        });
+
+        if matches_single {
+            continue; // This value is directly from output
+        }
+
+        // Check if it could be a sum of output values
+        let total: f64 = output_values.iter().sum();
+        let sum_ratio = answer_gb / total;
+        let is_reasonable_sum = sum_ratio > 0.85 && sum_ratio < 1.15;
+
+        // Check if answer is way off (more than 2x any individual or sum)
+        let max_output = output_values.iter().cloned().fold(f64::MIN, f64::max);
+        if answer_gb > max_output * 2.5 && !is_reasonable_sum {
+            return Some(ValidationWarning {
+                issue_type: ValidationIssueType::Hallucination,
+                message: format!(
+                    "Answer claims {:.1}{} but output values don't support this (max: {:.1}GB, sum: {:.1}GB)",
+                    answer_num, answer_unit, max_output, total
+                ),
+                severity: "high".to_string(),
+            });
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

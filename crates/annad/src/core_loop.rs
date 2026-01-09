@@ -2193,22 +2193,78 @@ Commands:"#,
             break;
         }
 
-        let mut combined_output = String::new();
+        // v0.0.898: Parallel command execution for read-only commands
+        // Split commands into safe (parallel-executable) and other (sequential)
+        let mut safe_commands: Vec<&str> = Vec::new();
+        let mut other_commands: Vec<&str> = Vec::new();
+        let mut rejected: Vec<&str> = Vec::new();
+
         for cmd in &commands {
-            // Security check - reject dangerous commands
             if is_dangerous_command(cmd) {
-                warn!("Rejected dangerous command: {}", cmd);
+                rejected.push(cmd);
+            } else if is_cacheable_command(cmd) {
+                safe_commands.push(cmd);
+            } else {
+                other_commands.push(cmd);
+            }
+        }
+
+        let mut combined_output = String::new();
+
+        // Log rejected commands
+        for cmd in &rejected {
+            warn!("Rejected dangerous command: {}", cmd);
+            dialogue.push(DialogueStep {
+                step_type: StepType::CommandExec,
+                content: format!("{} [REJECTED - dangerous]", cmd),
+            });
+        }
+
+        // Execute safe commands in parallel (3+ commands)
+        if safe_commands.len() >= 3 {
+            info!("Executing {} commands in parallel", safe_commands.len());
+            let results = execute_commands_parallel(&safe_commands);
+
+            for cmd in &safe_commands {
+                commands_executed.push(cmd.to_string());
                 dialogue.push(DialogueStep {
                     step_type: StepType::CommandExec,
-                    content: format!("{} [REJECTED - dangerous]", cmd),
+                    content: cmd.to_string(),
                 });
-                continue;
-            }
 
+                if let Some(output) = results.get(*cmd) {
+                    dialogue.push(DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: output.clone(),
+                    });
+                    let status = if output.contains("timed out") {
+                        "[TIMEOUT]"
+                    } else if output.trim().is_empty() {
+                        "[EMPTY OUTPUT]"
+                    } else if output.contains("(stderr:") && !output.contains('\n') {
+                        "[ERROR]"
+                    } else {
+                        "[OK]"
+                    };
+                    combined_output.push_str(&format!("$ {} {}\n{}\n\n", cmd, status, output));
+                } else {
+                    dialogue.push(DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: "Error: Command failed".to_string(),
+                    });
+                    combined_output.push_str(&format!("$ {} [ERROR]\nError: Command failed\n\n", cmd));
+                }
+            }
+        } else {
+            // Execute safe commands sequentially if < 3
+            other_commands = [&safe_commands[..], &other_commands[..]].concat();
+        }
+
+        // Execute remaining commands sequentially
+        for cmd in &other_commands {
             info!("Executing: {}", cmd);
             commands_executed.push(cmd.to_string());
 
-            // Record command execution
             dialogue.push(DialogueStep {
                 step_type: StepType::CommandExec,
                 content: cmd.to_string(),
@@ -2220,7 +2276,6 @@ Commands:"#,
                         step_type: StepType::CommandOutput,
                         content: output.clone(),
                     });
-                    // Add status annotation for LLM context
                     let status = if output.contains("timed out") {
                         "[TIMEOUT]"
                     } else if output.trim().is_empty() {
@@ -2319,12 +2374,82 @@ Answer:"#,
     });
 
     // v0.0.890: Record error context on final answer failure
-    let final_answer = match ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await {
+    let mut final_answer = match ollama::chat_with_timeout(model, &final_prompt, llm_timeout).await {
         Ok(response) => response,
         Err(e) => {
             return Err(record_llm_error(&mut dialogue, &e, "final answer generation", Some(&final_prompt)));
         }
     };
+
+    // v0.0.898: Post-generation validation with self-correction
+    if !last_output.is_empty() {
+        let validation = crate::validation::validate_complete_answer(final_answer.trim(), &last_output);
+
+        if validation.needs_correction {
+            info!(
+                "Post-generation validation failed (confidence: {:.0}%), attempting correction",
+                validation.confidence * 100.0
+            );
+
+            dialogue.push(DialogueStep {
+                step_type: StepType::ValidationPrompt,
+                content: format!(
+                    "Answer validation: confidence {:.0}%, issues: {:?}",
+                    validation.confidence * 100.0,
+                    validation.correction_hint
+                ),
+            });
+
+            // Build correction prompt
+            let correction_prompt = format!(
+                r#"Your previous answer had issues that need correction:
+{}
+
+Original question: "{}"
+
+Command output:
+{}
+
+Previous answer (with issues):
+{}
+
+Please provide a CORRECTED answer that:
+1. Only uses facts from the command output
+2. Does not contradict the output
+3. Is specific, not generic
+4. Fixes: {}
+
+Corrected answer:"#,
+                validation.correction_hint.as_deref().unwrap_or("validation issues detected"),
+                question,
+                last_output,
+                final_answer.trim(),
+                validation.correction_hint.as_deref().unwrap_or("the issues above")
+            );
+
+            dialogue.push(DialogueStep {
+                step_type: StepType::AnnaToLlm,
+                content: "[Self-correction attempt]".to_string(),
+            });
+
+            // Attempt correction
+            if let Ok(corrected) = ollama::chat_with_timeout(model, &correction_prompt, llm_timeout).await {
+                // Validate the correction
+                let corrected_validation = crate::validation::validate_complete_answer(corrected.trim(), &last_output);
+
+                if corrected_validation.confidence > validation.confidence {
+                    info!(
+                        "Self-correction improved confidence: {:.0}% -> {:.0}%",
+                        validation.confidence * 100.0,
+                        corrected_validation.confidence * 100.0
+                    );
+                    final_answer = corrected;
+                } else {
+                    info!("Self-correction did not improve, keeping original");
+                }
+            }
+        }
+    }
 
     dialogue.push(DialogueStep {
         step_type: StepType::FinalAnswer,
@@ -2630,11 +2755,33 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             return Ok(result);
         }
         IntentCategory::Multi => {
-            // Multiple questions - handle separately
-            if let Some(ref sub_questions) = understanding.sub_questions {
-                return handle_multi_question(model, question, sub_questions, writer, dialogue).await;
+            // v0.0.898: Multiple questions - decompose and handle separately
+            let sub_questions = if let Some(ref subs) = understanding.sub_questions {
+                subs.clone()
+            } else {
+                // Decompose using LLM or fallback
+                info!("MULTI detected without sub_questions, decomposing...");
+                let step = DialogueStep {
+                    step_type: StepType::AnnaToLlm,
+                    content: "Decomposing multi-question...".to_string(),
+                };
+                dialogue.push(step.clone());
+                send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+                match crate::intent::decompose_multi_question(model, question).await {
+                    Ok(subs) if subs.len() > 1 => subs,
+                    _ => {
+                        // Couldn't decompose meaningfully, treat as single question
+                        debug!("Could not decompose multi-question, falling through");
+                        vec![]
+                    }
+                }
+            };
+
+            if !sub_questions.is_empty() {
+                return handle_multi_question(model, question, &sub_questions, writer, dialogue).await;
             }
-            // If no sub_questions extracted, fall through to normal processing
+            // If decomposition failed, fall through to normal processing
         }
         IntentCategory::HowTo => {
             // Check if this is asking to change/configure something
