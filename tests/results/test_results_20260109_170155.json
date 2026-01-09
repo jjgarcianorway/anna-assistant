@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "started_at": "2026-01-09T17:01:55+01:00",
+    "system": "6.18.3-2-cachyos",
+    "distro": "CachyOS",
+    "completed_at": "2026-01-09T17:09:43+01:00",
+    "total": 10,
+    "success": 9,
+    "failed": 0,
+    "errors": 1
+  },
+  "results": [
+    {
+      "id": 11,
+      "category": "hardware",
+      "question": "What CPU do I have?",
+      "answer": "TIMEOUT\n",
+      "status": "timeout",
+      "duration_secs": 120
+    },
+    {
+      "id": 12,
+      "category": "hardware",
+      "question": "How many CPU cores does my system have?",
+      "answer": "32 CPU cores\n",
+      "status": "success",
+      "duration_secs": 34
+    },
+    {
+      "id": 13,
+      "category": "hardware",
+      "question": "What GPU or graphics card do I have?",
+      "answer": "NVIDIA Corporation AD107M [GeForce RTX 4060 Max-Q / Mobile]\n",
+      "status": "success",
+      "duration_secs": 33
+    },
+    {
+      "id": 14,
+      "category": "hardware",
+      "question": "How much total RAM does my system have?",
+      "answer": "31 GiB\n",
+      "status": "success",
+      "duration_secs": 33
+    },
+    {
+      "id": 15,
+      "category": "hardware",
+      "question": "What audio devices are available?",
+      "answer": "PulseAudio and PipeWire are available.\n",
+      "status": "success",
+      "duration_secs": 41
+    },
+    {
+      "id": 16,
+      "category": "hardware",
+      "question": "What USB devices are connected?",
+      "answer": "4 USB devices are connected.\n",
+      "status": "success",
+      "duration_secs": 45
+    },
+    {
+      "id": 17,
+      "category": "hardware",
+      "question": "What is my monitor resolution?",
+      "answer": "No monitor resolution found.\n",
+      "status": "success",
+      "duration_secs": 38
+    },
+    {
+      "id": 18,
+      "category": "hardware",
+      "question": "What bluetooth devices do I have?",
+      "answer": "None\n",
+      "status": "success",
+      "duration_secs": 40
+    },
+    {
+      "id": 19,
+      "category": "hardware",
+      "question": "What network interfaces exist on my system?",
+      "answer": "wlan0\n",
+      "status": "success",
+      "duration_secs": 37
+    },
+    {
+      "id": 20,
+      "category": "hardware",
+      "question": "What is my motherboard model?",
+      "answer": "board_name not found\n",
+      "status": "success",
+      "duration_secs": 37
+    }
+  ]
+}

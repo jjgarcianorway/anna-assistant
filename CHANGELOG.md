@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.887] - 2026-01-09
+
+### Added
+- **Command Output Cache** - Read-only commands cached for performance
+  - Static commands (uname, lscpu, etc.) cached for 5 minutes
+  - Dynamic read-only commands cached for 60 seconds
+  - Avoids re-running same commands during multi-step queries
+  - Cache auto-cleanup when size exceeds 100 entries
+
+- **Enhanced Retry Progress Messages** - Better visibility into retries
+  - Detailed logging when commands fail and alternatives are tried
+  - Shows retry count and alternative commands being attempted
+  - Logs success/failure of each alternative attempt
+
+- **Improved Answer Validation** - More thorough coherence checks
+  - Detects prompt leakage in answers (RULES:, Question:, etc.)
+  - Checks for non-English/gibberish (high non-ASCII ratio)
+  - Rejects answers that just repeat the question
+  - Detects LLM refusal patterns ("I cannot", "as an AI")
+  - Validates answers actually contain useful content
+
+- **100-Question Test Suite** - Comprehensive testing capability
+  - Tests across 12 categories (system, hardware, packages, etc.)
+  - Test runner script with JSON results output
+  - Duration tracking and success/failure statistics
+
 ## [0.0.886] - 2026-01-09
 
 ### Added

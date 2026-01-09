@@ -25,12 +25,30 @@ use tracing::{info, warn, debug};
 
 use crate::intent;
 use crate::ollama;
+use crate::state::STATIC_COMMANDS;
+use std::collections::HashMap;
+use std::time::Instant;
 
 /// Cached system profile (refreshable)
 static SYSTEM_PROFILE: RwLock<Option<SystemProfile>> = RwLock::new(None);
 
 /// Cached performance config (loaded once at startup)
 static PERF_CONFIG: RwLock<Option<PerformanceConfig>> = RwLock::new(None);
+
+/// Command output cache (for performance - avoids re-running same commands)
+static COMMAND_CACHE: RwLock<Option<HashMap<String, CachedOutput>>> = RwLock::new(None);
+
+/// Cached command output with timestamp
+struct CachedOutput {
+    output: String,
+    cached_at: Instant,
+    is_static: bool,
+}
+
+/// TTL for dynamic commands (60 seconds)
+const CMD_CACHE_TTL: u64 = 60;
+/// TTL for static commands (5 minutes)
+const STATIC_CMD_CACHE_TTL: u64 = 300;
 
 /// Ollama URL for embeddings
 const OLLAMA_URL: &str = "http://127.0.0.1:11434";
@@ -65,6 +83,53 @@ pub fn reload_perf_config() {
             .unwrap_or_default();
         *guard = Some(config);
         info!("Reloaded performance config");
+    }
+}
+
+/// Check if a command is cacheable (static system info)
+fn is_static_command(cmd: &str) -> bool {
+    let cmd_trimmed = cmd.trim();
+    STATIC_COMMANDS.iter().any(|&static_cmd| {
+        cmd_trimmed == static_cmd || cmd_trimmed.starts_with(static_cmd)
+    })
+}
+
+/// Get cached command output if not expired
+fn get_cached_command(cmd: &str) -> Option<String> {
+    if let Ok(guard) = COMMAND_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            let key = cmd.trim();
+            if let Some(cached) = cache.get(key) {
+                let ttl = if cached.is_static { STATIC_CMD_CACHE_TTL } else { CMD_CACHE_TTL };
+                if cached.cached_at.elapsed().as_secs() < ttl {
+                    debug!("Command cache hit: {}", cmd);
+                    return Some(cached.output.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Cache a command's output
+fn cache_command(cmd: &str, output: &str) {
+    if let Ok(mut guard) = COMMAND_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+        let key = cmd.trim().to_string();
+        let is_static = is_static_command(cmd);
+        cache.insert(key, CachedOutput {
+            output: output.to_string(),
+            cached_at: Instant::now(),
+            is_static,
+        });
+        // Keep cache size bounded
+        if cache.len() > 100 {
+            // Remove expired entries
+            cache.retain(|_, v| {
+                let ttl = if v.is_static { STATIC_CMD_CACHE_TTL } else { CMD_CACHE_TTL };
+                v.cached_at.elapsed().as_secs() < ttl
+            });
+        }
     }
 }
 
@@ -154,22 +219,65 @@ async fn verify_answer_quality(
     question: &str,
     answer: &str,
 ) -> bool {
-    // Skip verification for very short answers that are likely correct
     let answer_trimmed = answer.trim();
+
+    // Empty answers are never valid
     if answer_trimmed.is_empty() {
+        warn!("Answer validation: empty answer");
         return false;
     }
 
-    // Quick heuristic checks (fast, no LLM call needed)
-    // If answer contains actual data, it's probably good
-    let has_data = answer_trimmed.len() > 5
-        && !answer_trimmed.to_lowercase().contains("not found")
-        && !answer_trimmed.to_lowercase().contains("no data")
-        && !answer_trimmed.to_lowercase().contains("error:")
-        && !answer_trimmed.to_lowercase().contains("command not found");
+    // Check for prompt leakage (answer contains instruction fragments)
+    let prompt_leakage_markers = [
+        "RULES:", "RESPOND IN ENGLISH", "Answer BRIEFLY",
+        "Question:", "Command output:", "Do NOT include",
+        "│", "┌", "└", // Box drawing from prompts
+    ];
+    for marker in prompt_leakage_markers {
+        if answer_trimmed.contains(marker) {
+            warn!("Answer validation: detected prompt leakage ({})", marker);
+            return false;
+        }
+    }
 
-    if has_data && answer_trimmed.len() < 500 {
-        // Short answers with data are likely correct
+    // Check for non-English gibberish (high ratio of non-ASCII chars)
+    let non_ascii_count = answer_trimmed.chars().filter(|c| !c.is_ascii()).count();
+    let total_chars = answer_trimmed.chars().count();
+    if total_chars > 20 && non_ascii_count as f32 / total_chars as f32 > 0.3 {
+        warn!("Answer validation: too many non-ASCII characters, possible encoding issue");
+        return false;
+    }
+
+    // Check if answer just repeats the question
+    let question_lower = question.to_lowercase();
+    let answer_lower = answer_trimmed.to_lowercase();
+    if answer_lower.starts_with(&question_lower) || answer_lower == question_lower {
+        warn!("Answer validation: answer just repeats the question");
+        return false;
+    }
+
+    // Check for obvious error markers
+    let error_markers = [
+        "i cannot", "i don't have access", "i am unable",
+        "i can't", "as an ai", "as a language model",
+    ];
+    for marker in error_markers {
+        if answer_lower.contains(marker) {
+            warn!("Answer validation: detected refusal or capability limitation");
+            return false;
+        }
+    }
+
+    // Quick heuristic checks (fast, no LLM call needed)
+    let has_useful_content = answer_trimmed.len() > 10
+        && !answer_lower.contains("not found")
+        && !answer_lower.contains("no data")
+        && !answer_lower.contains("error:")
+        && !answer_lower.contains("command not found");
+
+    if has_useful_content && answer_trimmed.len() < 500 {
+        // Short answers with useful content are likely correct
+        debug!("Answer validation: passed heuristic checks");
         return true;
     }
 
@@ -178,7 +286,7 @@ async fn verify_answer_quality(
         r#"Question: "{question}"
 Answer: "{answer}"
 
-Does this answer address the question? Reply with only YES or NO."#,
+Is this answer helpful and relevant? Reply with only YES or NO."#,
         question = question,
         answer = if answer_trimmed.len() > 300 { &answer_trimmed[..300] } else { answer_trimmed }
     );
@@ -186,9 +294,14 @@ Does this answer address the question? Reply with only YES or NO."#,
     match ollama::chat_with_timeout(model, &prompt, 10).await {
         Ok(response) => {
             let response = response.trim().to_uppercase();
-            response.contains("YES")
+            let is_valid = response.contains("YES");
+            if !is_valid {
+                warn!("Answer validation: LLM rejected answer as unhelpful");
+            }
+            is_valid
         }
-        Err(_) => {
+        Err(e) => {
+            debug!("Answer validation: LLM check failed ({}), assuming OK", e);
             // If verification fails, assume answer is OK
             true
         }
@@ -223,35 +336,52 @@ async fn execute_command_with_retry(
     let mut all_commands = vec![cmd.to_string()];
 
     // First attempt
+    info!("Executing command: {}", cmd);
     match execute_command(cmd) {
         Ok(output) if !output.trim().is_empty()
             && !output.contains("command not found")
             && !output.contains("No such file")
             && !output.contains("not found") => {
             // Success - got useful output
+            debug!("Command succeeded with {} bytes output", output.len());
             return (output, all_commands);
         }
         Ok(output) => {
             // Empty or error-like output - try alternatives
-            debug!("Command {} returned empty/error output, trying alternatives", cmd);
+            let reason = if output.trim().is_empty() {
+                "empty output"
+            } else if output.contains("command not found") {
+                "command not found"
+            } else {
+                "error-like output"
+            };
+            warn!("Command '{}' returned {}, asking LLM for alternatives...", cmd, reason);
 
             if let Some(alternatives) = get_alternative_commands(model, cmd, &output, question).await {
-                for alt_cmd in alternatives {
+                info!("LLM suggested {} alternative command(s)", alternatives.len());
+                for (i, alt_cmd) in alternatives.iter().enumerate() {
                     // Skip dangerous commands
-                    if is_dangerous_command(&alt_cmd) {
+                    if is_dangerous_command(alt_cmd) {
+                        warn!("Skipping dangerous alternative: {}", alt_cmd);
                         continue;
                     }
 
+                    info!("Retry {}/{}: trying '{}'", i + 1, alternatives.len(), alt_cmd);
                     all_commands.push(alt_cmd.clone());
 
-                    if let Ok(alt_output) = execute_command(&alt_cmd) {
+                    if let Ok(alt_output) = execute_command(alt_cmd) {
                         if !alt_output.trim().is_empty()
                             && !alt_output.contains("command not found") {
-                            info!("Alternative command {} succeeded", alt_cmd);
+                            info!("Alternative command succeeded: {}", alt_cmd);
                             return (alt_output, all_commands);
+                        } else {
+                            debug!("Alternative '{}' also failed, continuing...", alt_cmd);
                         }
                     }
                 }
+                warn!("All {} alternatives failed, using original output", alternatives.len());
+            } else {
+                debug!("LLM provided no alternative commands");
             }
 
             // Return original output if alternatives didn't help
@@ -260,22 +390,33 @@ async fn execute_command_with_retry(
         Err(e) => {
             // Command failed - try alternatives
             let error_msg = format!("Error: {}", e);
+            warn!("Command '{}' failed with error: {}", cmd, e);
 
             if let Some(alternatives) = get_alternative_commands(model, cmd, &error_msg, question).await {
-                for alt_cmd in alternatives {
-                    if is_dangerous_command(&alt_cmd) {
+                info!("LLM suggested {} alternative command(s) after error", alternatives.len());
+                for (i, alt_cmd) in alternatives.iter().enumerate() {
+                    if is_dangerous_command(alt_cmd) {
+                        warn!("Skipping dangerous alternative: {}", alt_cmd);
                         continue;
                     }
 
+                    info!("Retry {}/{}: trying '{}'", i + 1, alternatives.len(), alt_cmd);
                     all_commands.push(alt_cmd.clone());
 
-                    if let Ok(alt_output) = execute_command(&alt_cmd) {
+                    if let Ok(alt_output) = execute_command(alt_cmd) {
                         if !alt_output.trim().is_empty() {
-                            info!("Alternative command {} succeeded after error", alt_cmd);
+                            info!("Alternative command succeeded after error: {}", alt_cmd);
                             return (alt_output, all_commands);
+                        } else {
+                            debug!("Alternative '{}' returned empty output", alt_cmd);
                         }
+                    } else {
+                        debug!("Alternative '{}' also failed", alt_cmd);
                     }
                 }
+                warn!("All alternatives exhausted, returning error");
+            } else {
+                debug!("LLM provided no alternative commands for error case");
             }
 
             (error_msg, all_commands)
@@ -3180,6 +3321,13 @@ fn execute_command(cmd: &str) -> Result<String> {
     // Unescape any shell metacharacters the LLM may have escaped
     let cmd = unescape_command(cmd);
 
+    // Check cache first for read-only commands
+    if is_cacheable_command(&cmd) {
+        if let Some(cached) = get_cached_command(&cmd) {
+            return Ok(cached);
+        }
+    }
+
     // Determine execution context
     let needs_root = user_context::needs_root(&cmd);
     let user_ctx = user_context::get_user_context();
@@ -3228,7 +3376,34 @@ fn execute_command(cmd: &str) -> Result<String> {
         );
     }
 
+    // Cache successful read-only command output
+    if is_cacheable_command(&cmd) && !result.contains("command not found") {
+        cache_command(&cmd, &result);
+    }
+
     Ok(result)
+}
+
+/// Check if a command is safe to cache (read-only, no side effects)
+fn is_cacheable_command(cmd: &str) -> bool {
+    let cmd_trimmed = cmd.trim();
+    // Static commands are always cacheable
+    if is_static_command(cmd) {
+        return true;
+    }
+    // Other read-only commands
+    let read_only_prefixes = [
+        "cat ", "head ", "tail ", "ls ", "stat ", "file ",
+        "which ", "whereis ", "type ", "command -v",
+        "systemctl status", "systemctl is-active", "systemctl is-enabled",
+        "journalctl", "grep ", "find ", "locate ",
+        "ip addr", "ip route", "ip link",
+        "ss -", "netstat ",
+        "ps ", "pgrep ", "pidof ",
+        "date", "uptime", "whoami", "id ", "groups ",
+        "printenv", "env", "echo $",
+    ];
+    read_only_prefixes.iter().any(|&prefix| cmd_trimmed.starts_with(prefix))
 }
 
 /// Execute a command as root (the daemon's user) with timeout

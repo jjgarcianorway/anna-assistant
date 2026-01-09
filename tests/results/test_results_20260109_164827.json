@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "started_at": "2026-01-09T16:48:27+01:00",
+    "system": "6.18.3-2-cachyos",
+    "distro": "CachyOS",
+    "completed_at": "2026-01-09T16:55:21+01:00",
+    "total": 10,
+    "success": 10,
+    "failed": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "id": 1,
+      "category": "system_info",
+      "question": "What kernel version am I running?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 27
+    },
+    {
+      "id": 2,
+      "category": "system_info",
+      "question": "What is my hostname?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 39
+    },
+    {
+      "id": 3,
+      "category": "system_info",
+      "question": "How long has my system been running?",
+      "answer": "═══════════════════════════════════════ (2 iterations)\n",
+      "status": "success",
+      "duration_secs": 41
+    },
+    {
+      "id": 4,
+      "category": "system_info",
+      "question": "What Linux distribution am I using?",
+      "answer": "═══════════════════════════════════════ (2 iterations)\n",
+      "status": "success",
+      "duration_secs": 30
+    },
+    {
+      "id": 5,
+      "category": "system_info",
+      "question": "What is my system architecture?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 101
+    },
+    {
+      "id": 6,
+      "category": "system_info",
+      "question": "When was my system last booted?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 30
+    },
+    {
+      "id": 7,
+      "category": "system_info",
+      "question": "What shell am I using?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 28
+    },
+    {
+      "id": 8,
+      "category": "system_info",
+      "question": "What is the current system time and timezone?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 37
+    },
+    {
+      "id": 9,
+      "category": "system_info",
+      "question": "What locale is my system using?",
+      "answer": "═══════════════════════════════════════ (1 iterations)\n",
+      "status": "success",
+      "duration_secs": 39
+    },
+    {
+      "id": 10,
+      "category": "system_info",
+      "question": "What desktop environment am I running?",
+      "answer": "═══════════════════════════════════════ (2 iterations)\n",
+      "status": "success",
+      "duration_secs": 32
+    }
+  ]
+}
