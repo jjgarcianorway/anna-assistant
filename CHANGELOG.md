@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.881] - 2026-01-09
+
+### Fixed
+- **Reverted timeout reduction** - 60s was causing more failures, back to 120s
+- **Less aggressive clarification** - FACTUAL questions with >= 60% confidence now answer directly
+  - Missing info only triggers clarification if confidence is also low
+  - Users asking "what is X?" get answers, not more questions
+- **Out-of-scope detection** - Questions about friends, relationships, weather, etc. get a polite decline
+  - "Why is my friend not replying on WhatsApp?" → polite redirect to Linux questions
+
+### Changed
+- Clarification logic now requires BOTH low confidence AND missing info (not just one)
+- Short TROUBLESHOOT questions only ask for more details if confidence is also low
+
 ## [0.0.880] - 2026-01-09
 
 ### Added

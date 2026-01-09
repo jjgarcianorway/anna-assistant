@@ -193,21 +193,28 @@ fn should_ask_confirmation(
     category: &IntentCategory,
     question: &str,
 ) -> bool {
-    // Low confidence = ask for clarification
-    if confidence < CLARIFICATION_THRESHOLD {
-        info!("Confidence {:.0}% below threshold, will ask for clarification", confidence * 100.0);
+    // FACTUAL questions with decent confidence - just answer, don't ask
+    // Users asking "what is X?" want an answer, not more questions
+    if matches!(category, IntentCategory::Factual) && confidence >= 0.6 {
+        return false;
+    }
+
+    // Very low confidence = definitely ask for clarification
+    if confidence < 0.5 {
+        info!("Confidence {:.0}% very low, will ask for clarification", confidence * 100.0);
         return true;
     }
 
-    // Missing critical information
-    if !missing_info.is_empty() {
-        info!("Missing info detected: {:?}", missing_info);
+    // Missing critical info ONLY if confidence is also low
+    // High confidence + missing info means the LLM is being pedantic
+    if !missing_info.is_empty() && confidence < CLARIFICATION_THRESHOLD {
+        info!("Missing info with low confidence: {:?}", missing_info);
         return true;
     }
 
-    // Multiple valid interpretations
-    if ambiguities.len() > 1 {
-        info!("Multiple interpretations detected: {:?}", ambiguities);
+    // Multiple valid interpretations ONLY with low confidence
+    if ambiguities.len() > 2 && confidence < 0.75 {
+        info!("Multiple interpretations with low confidence: {:?}", ambiguities);
         return true;
     }
 
@@ -222,9 +229,11 @@ fn should_ask_confirmation(
         return true;
     }
 
-    // TROUBLESHOOT with vague description
-    if matches!(category, IntentCategory::Troubleshoot) && question.split_whitespace().count() < 5 {
-        info!("Short troubleshoot question, will ask for more details");
+    // TROUBLESHOOT with vague description AND low confidence
+    if matches!(category, IntentCategory::Troubleshoot)
+        && question.split_whitespace().count() < 4
+        && confidence < CLARIFICATION_THRESHOLD {
+        info!("Short troubleshoot question with low confidence, will ask for more details");
         return true;
     }
 
@@ -437,16 +446,33 @@ mod tests {
     }
 
     #[test]
-    fn test_needs_confirmation_low_confidence() {
-        let result = should_ask_confirmation(0.5, &[], &[], &IntentCategory::Factual, "what is X?");
-        assert!(result); // Low confidence should trigger confirmation
+    fn test_needs_confirmation_very_low_confidence() {
+        // Very low confidence (< 0.5) should trigger confirmation
+        let result = should_ask_confirmation(0.4, &[], &[], &IntentCategory::HowTo, "do something");
+        assert!(result);
     }
 
     #[test]
-    fn test_needs_confirmation_missing_info() {
+    fn test_needs_confirmation_missing_info_with_low_confidence() {
+        // Missing info only triggers confirmation if confidence is also low
+        let missing = vec!["which service".to_string()];
+        let result = should_ask_confirmation(0.6, &missing, &[], &IntentCategory::HowTo, "enable the service");
+        assert!(result); // Missing info with low confidence should trigger confirmation
+    }
+
+    #[test]
+    fn test_no_confirmation_missing_info_high_confidence() {
+        // High confidence with missing info should NOT trigger confirmation (LLM is being pedantic)
         let missing = vec!["which service".to_string()];
         let result = should_ask_confirmation(0.9, &missing, &[], &IntentCategory::HowTo, "enable the service");
-        assert!(result); // Missing info should trigger confirmation
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_factual_no_confirmation() {
+        // FACTUAL questions with decent confidence should never ask for confirmation
+        let result = should_ask_confirmation(0.6, &[], &[], &IntentCategory::Factual, "what is X?");
+        assert!(!result);
     }
 
     #[test]

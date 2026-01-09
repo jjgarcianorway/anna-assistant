@@ -35,7 +35,7 @@ const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 const MAX_ITERATIONS: u32 = 3;
 
 /// Timeout for LLM calls (seconds) - reduced for speed
-const LLM_TIMEOUT_SECS: u64 = 60;
+const LLM_TIMEOUT_SECS: u64 = 120;
 
 /// Fast timeout for simple queries
 const FAST_LLM_TIMEOUT_SECS: u64 = 30;
@@ -264,6 +264,53 @@ fn is_useless_output(output: &str) -> bool {
         || output_lower.contains("no such file")
         || output_lower.contains("permission denied")
         || (output_lower.contains("error") && output.len() < 50)
+}
+
+/// Check if a question is clearly out of scope (not about Linux/computers)
+/// Returns Some(response) if out of scope, None if in scope
+fn check_out_of_scope(question: &str) -> Option<String> {
+    let q = question.to_lowercase();
+
+    // Social/interpersonal questions Anna can't help with
+    let social_patterns = [
+        ("friend", "replying"),
+        ("friend", "respond"),
+        ("friend", "answer"),
+        ("friend", "texting"),
+        ("friend", "message"),
+        ("girlfriend", ""),
+        ("boyfriend", ""),
+        ("relationship", ""),
+        ("dating", ""),
+    ];
+
+    for (pattern1, pattern2) in social_patterns {
+        if q.contains(pattern1) && (pattern2.is_empty() || q.contains(pattern2)) {
+            return Some("I'm Anna, an Arch Linux system assistant. I can help with Linux administration, troubleshooting, and system configuration - but I can't help with social or interpersonal questions. Is there something about your Linux system I can help with?".to_string());
+        }
+    }
+
+    // General knowledge questions not about computers
+    let general_patterns = [
+        "weather",
+        "recipe",
+        "cook",
+        "movie",
+        "song",
+        "music recommend",
+        "what should i eat",
+        "what should i wear",
+        "travel",
+        "vacation",
+    ];
+
+    for pattern in general_patterns {
+        if q.contains(pattern) {
+            return Some("I'm Anna, an Arch Linux system assistant. I specialize in Linux administration and troubleshooting. For general knowledge questions, you might want to ask a general-purpose AI assistant. Is there something about your Linux system I can help with?".to_string());
+        }
+    }
+
+    None
 }
 
 /// Check if this is a simple factual query that doesn't need full context
@@ -1678,6 +1725,29 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     };
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Check for out-of-scope questions early (before wasting LLM calls)
+    if let Some(out_of_scope_response) = check_out_of_scope(question) {
+        info!("Question out of scope: {}", question);
+        let step = DialogueStep {
+            step_type: StepType::FinalAnswer,
+            content: out_of_scope_response.clone(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        let result = AskResult {
+            answer: out_of_scope_response,
+            success: true,
+            iterations: 0,
+            commands_executed: vec![],
+            dialogue,
+            needs_clarification: false,
+            clarification_question: None,
+        };
+        send_streaming(writer, &StreamingResponse::Done { result }).await?;
+        return Ok(());
+    }
 
     // PHASE 0: Deep Understanding - think through the request like Claude does
     let step = DialogueStep {
