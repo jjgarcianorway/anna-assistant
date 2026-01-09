@@ -1,0 +1,40 @@
+# 25 Diverse Test Questions - Anna vs Claude Evaluation
+
+# Factual (5)
+What kernel am I running?
+How much RAM do I have?
+What GPU do I have?
+How many CPU cores do I have?
+What is my IP address?
+
+# How-to (5)
+How do I update my system?
+How do I check service status?
+How do I check disk health?
+How do I enable SSH?
+How do I check CPU temperature?
+
+# Troubleshooting (3)
+Why is my system slow?
+Why is pacman locked?
+Why is my fan loud?
+
+# Config/Opinion (3)
+Should I use systemd-boot or GRUB?
+Which AUR helper is best, yay or paru?
+Is btrfs better than ext4?
+
+# Specific (3)
+What process is using the most CPU right now?
+Which package provides /usr/bin/ls?
+What services depend on dbus?
+
+# Tricky (3)
+How do I install apt on Arch?
+Can I run Arch without systemd?
+Why does Arch break after every update?
+
+# Nonsense (3)
+What is the meaning of life?
+Can you write me a poem?
+How do I cook spaghetti?

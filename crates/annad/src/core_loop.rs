@@ -738,6 +738,11 @@ fn clean_answer(answer: &str) -> String {
 fn check_out_of_scope(question: &str) -> Option<String> {
     let q = question.to_lowercase();
 
+    // v0.0.894: First check using the comprehensive off-topic detection
+    if let Some(response) = intent::detect_off_topic(question) {
+        return Some(response);
+    }
+
     // Social/interpersonal questions Anna can't help with
     let social_patterns = [
         ("friend", "replying"),
@@ -757,23 +762,20 @@ fn check_out_of_scope(question: &str) -> Option<String> {
         }
     }
 
-    // General knowledge questions not about computers
-    let general_patterns = [
-        "weather",
-        "recipe",
-        "cook",
-        "movie",
-        "song",
-        "music recommend",
-        "what should i eat",
-        "what should i wear",
-        "travel",
-        "vacation",
+    // v0.0.894: Detect tricky/misleading questions about non-Arch tools
+    let arch_guardrails = [
+        ("install apt", "Arch Linux uses pacman, not apt. To install packages: `sudo pacman -S <package>`. For AUR packages, use an AUR helper like paru or yay."),
+        ("use apt", "Arch doesn't use apt - that's for Debian/Ubuntu. Use pacman: `pacman -Syu` to update, `pacman -S` to install."),
+        ("apt-get", "apt-get is for Debian/Ubuntu systems. On Arch, use pacman: `sudo pacman -S <package>`."),
+        ("yum", "yum is for RHEL/Fedora systems. On Arch, use pacman instead."),
+        ("dnf", "dnf is for Fedora. On Arch Linux, the package manager is pacman."),
+        ("install .deb", "Arch doesn't use .deb packages. Search for the package in the official repos (`pacman -Ss`) or AUR."),
+        ("ubuntu package", "Arch uses its own repositories, not Ubuntu packages. Check if it's in the AUR or Arch repos."),
     ];
 
-    for pattern in general_patterns {
+    for (pattern, response) in arch_guardrails {
         if q.contains(pattern) {
-            return Some("I'm Anna, an Arch Linux system assistant. I specialize in Linux administration and troubleshooting. For general knowledge questions, you might want to ask a general-purpose AI assistant. Is there something about your Linux system I can help with?".to_string());
+            return Some(response.to_string());
         }
     }
 
@@ -834,6 +836,38 @@ fn is_simple_factual_query(question: &str) -> bool {
 fn get_command_hints(question: &str) -> String {
     let q = question.to_lowercase();
     let mut hints: Vec<String> = Vec::new();
+
+    // === CRITICAL BASICS (v0.0.894) ===
+    // These are the most common queries that were failing in evaluation
+
+    // Kernel version - CRITICAL: was failing with wrong commands
+    if q.contains("kernel") || q.contains("uname") {
+        hints.push("uname -r".into());
+        hints.push("uname -a".into());
+    }
+
+    // CPU model
+    if q.contains("cpu") && (q.contains("model") || q.contains("what") || q.contains("which")) {
+        hints.push("lscpu | grep 'Model name'".into());
+        hints.push("cat /proc/cpuinfo | grep 'model name' | head -1".into());
+    }
+
+    // GPU - what GPU do I have
+    if q.contains("gpu") || q.contains("graphics") || q.contains("video card") {
+        hints.push("lspci | grep -iE 'vga|3d|display'".into());
+        hints.push("lspci -k | grep -iA3 'vga'".into());
+    }
+
+    // Package owner - which package provides/owns a file
+    if (q.contains("package") || q.contains("pacman")) && (q.contains("provides") || q.contains("owns") || q.contains("own")) {
+        hints.push("pacman -Qo /path/to/file".into());
+        hints.push("pacman -F /path/to/file 2>/dev/null".into());
+    }
+
+    // Update system - CRITICAL: was asking unnecessary clarification
+    if q.contains("update") && (q.contains("system") || q.contains("arch") || q.contains("packages")) {
+        hints.push("sudo pacman -Syu".into());
+    }
 
     // === SYSTEM BASICS ===
 

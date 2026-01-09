@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.894] - 2026-01-09
+
+### Added
+- **Command Recipes for Common Queries** - Smarter command selection
+  - Added hints for kernel (`uname -r`), CPU model, GPU, package owner
+  - Added hint for `sudo pacman -Syu` when asking about system updates
+  - LLM now has better guidance for basic queries
+
+- **Non-Technical Question Filter** - Off-topic detection
+  - Detects philosophical, cooking, entertainment, and general knowledge questions
+  - Returns friendly responses without wasting LLM calls on system commands
+  - Example: "meaning of life" → polite redirect to Linux questions
+
+- **Arch-Specific Guardrails** - Prevents wrong advice
+  - Detects apt/yum/dnf questions and explains Arch uses pacman
+  - Prevents misleading suggestions like "paru -S apt"
+  - Explains .deb files and Ubuntu packages don't work on Arch
+
+### Fixed
+- **Over-Clarification Logic** - Stop asking about known context
+  - HOWTO questions no longer ask for "operating_system" (we know it's Arch)
+  - Filters out "package manager", "update_tool", "method" from missing_info
+  - "How do I update my system?" now works without clarification
+
 ## [0.0.893] - 2026-01-09
 
 ### Changed

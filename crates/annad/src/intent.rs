@@ -208,6 +208,30 @@ fn should_ask_confirmation(
         return false;
     }
 
+    // v0.0.894: HOWTO questions about common operations - don't ask for OS/tool clarification
+    // We already know it's Arch Linux from system context
+    if matches!(category, IntentCategory::HowTo) {
+        // Filter out things we already know from system context
+        let relevant_missing: Vec<&String> = missing_info.iter()
+            .filter(|m| {
+                let m_lower = m.to_lowercase();
+                // We already know the OS is Arch/CachyOS - don't ask
+                !m_lower.contains("operating") && !m_lower.contains("os") &&
+                !m_lower.contains("distro") && !m_lower.contains("distribution") &&
+                // We know the package manager is pacman
+                !m_lower.contains("package manager") && !m_lower.contains("update_tool") &&
+                // Generic "method" questions - just use the default Arch way
+                !m_lower.contains("method") && !m_lower.contains("tool_or")
+            })
+            .collect();
+
+        // If no relevant missing info remains, don't ask for clarification
+        if relevant_missing.is_empty() && confidence >= 0.5 {
+            debug!("HOWTO question - filtered out known context, proceeding without clarification");
+            return false;
+        }
+    }
+
     // Very low confidence = definitely ask for clarification
     if confidence < 0.5 {
         info!("Confidence {:.0}% very low, will ask for clarification", confidence * 100.0);
@@ -344,6 +368,60 @@ pub async fn classify_intent(
         entities: understanding.entities,
         topic: understanding.topic,
     })
+}
+
+/// v0.0.894: Check if a question is off-topic (not related to Linux/system administration)
+/// Returns Some(response) if off-topic, None if it's a valid system question
+pub fn detect_off_topic(question: &str) -> Option<String> {
+    let q = question.to_lowercase();
+
+    // Off-topic patterns - questions that have nothing to do with Linux
+    let off_topic_patterns = [
+        // Philosophy/existential
+        ("meaning of life", "That's a profound question, but I'm specialized in Arch Linux system administration. Try asking me about your system instead!"),
+        ("purpose of life", "Philosophy is beyond my expertise - I'm here for Linux questions!"),
+        // Cooking
+        ("cook", "I'm not a chef, but I can help you configure your system!"),
+        ("recipe", "I only have recipes for Linux commands, not food!"),
+        ("spaghetti", "I can't help with cooking, but ask me anything about Arch Linux!"),
+        // Entertainment
+        ("write me a poem", "I'm an IT assistant, not a poet. How about a system check instead?"),
+        ("tell me a joke", "My jokes are all about segfaults. Ask me something technical!"),
+        ("play music", "I can help you configure PipeWire, but I can't play music myself."),
+        // General knowledge unrelated to systems
+        ("capital of", "I'm specialized in Linux, not geography!"),
+        ("world cup", "I track system metrics, not sports scores!"),
+        ("weather", "I monitor system temperature, not the weather outside!"),
+        ("stock", "I handle system processes, not financial ones!"),
+        ("train my dog", "I can only train neural networks and configure services!"),
+        // Meta questions
+        ("are you sentient", "I'm Anna, an Arch Linux assistant. Sentience is above my pay grade!"),
+        ("favorite color", "My favorite color is whatever your terminal theme is set to!"),
+        ("how old are you", "I'm as old as my last deployment. Ask me about your system!"),
+    ];
+
+    for (pattern, response) in &off_topic_patterns {
+        if q.contains(pattern) {
+            return Some(response.to_string());
+        }
+    }
+
+    // Generic off-topic detection: questions with no technical keywords at all
+    let has_tech_keywords = [
+        "install", "update", "package", "service", "file", "disk", "network",
+        "kernel", "boot", "driver", "cpu", "ram", "memory", "gpu", "audio",
+        "bluetooth", "wifi", "ssh", "sudo", "permission", "user", "group",
+        "systemd", "pacman", "aur", "config", "log", "error", "fail",
+        "mount", "partition", "grub", "systemd-boot", "firewall", "port",
+        "process", "kill", "running", "status", "version", "arch", "linux",
+    ].iter().any(|kw| q.contains(kw));
+
+    if !has_tech_keywords && q.len() > 20 {
+        // Long question with no technical keywords - probably off-topic
+        return Some("I'm specialized in Arch Linux system administration. Could you rephrase your question in terms of system configuration, troubleshooting, or Linux commands?".to_string());
+    }
+
+    None
 }
 
 /// Fallback classification using keywords (when LLM response is malformed)
