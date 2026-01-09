@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.891] - 2026-01-09
+
+### Fixed
+- **Consolidated Duplicate Cache Systems** - Removed dead code
+  - Removed unused `CachedCommandOutput` and methods from `state.rs`
+  - Single cache implementation now in `core_loop.rs`
+  - Reduces memory footprint and eliminates confusion
+
+- **Fixed Unsafe `.unwrap()` Operations** - Better error handling
+  - `ollama.rs`: Registry path parent extraction now returns proper error
+  - `safe_ops/mod.rs`: Restructured `safe_write()` to avoid unwrap
+
+- **Fixed Circuit Breaker Race Conditions** - Thread-safe state transitions
+  - Changed from `Ordering::Relaxed` to `Ordering::SeqCst` for consistency
+  - Added `compare_exchange` for half-open state transition
+  - Used `saturating_sub` to prevent underflow on timestamp comparison
+
+- **Rate-Limited Command Alternative Generation** - Prevents LLM call amplification
+  - Added `alternatives_budget` parameter (limit: 2 per iteration)
+  - Skips LLM alternative requests when budget exhausted
+  - Prevents cascading latency when multiple commands fail
+
+- **Fixed Validation Feedback Loops** - Smarter uncertainty detection
+  - Strong uncertainty phrases checked in first 150 chars only
+  - Weak uncertainty only flagged if at very start of answer
+  - Reduces false positives on valid hedging language
+
 ## [0.0.890] - 2026-01-09
 
 ### Added

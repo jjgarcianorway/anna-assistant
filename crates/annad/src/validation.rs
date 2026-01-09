@@ -170,32 +170,51 @@ fn extract_number_with_unit(s: &str) -> Option<String> {
 }
 
 /// Check for uncertainty markers
+/// v0.0.891: Smarter detection to avoid false positives on valid hedging
 fn check_uncertainty(text: &str) -> Option<ValidationWarning> {
     let text_lower = text.to_lowercase();
 
-    let uncertainty_phrases = [
-        ("might be", "low"),
-        ("could be", "low"),
-        ("perhaps", "low"),
-        ("possibly", "low"),
-        ("i think", "medium"),
-        ("i believe", "medium"),
-        ("probably", "low"),
-        ("likely", "low"),
-        ("not sure", "medium"),
-        ("unsure", "medium"),
+    // Only check early in the response - uncertainty at the end is often valid hedging
+    // e.g., "The disk is 80% full, though this might increase if you download more files"
+    let check_text = if text_lower.len() > 150 {
+        &text_lower[..150]
+    } else {
+        &text_lower
+    };
+
+    // High-confidence uncertainty markers (always flag)
+    let strong_uncertainty = [
+        ("i'm not sure", "medium"),
+        ("i don't know", "medium"),
+        ("unable to determine", "medium"),
+        ("cannot determine", "medium"),
         ("hard to say", "medium"),
         ("can't tell", "medium"),
-        ("unable to determine", "medium"),
-        ("without more information", "medium"),
     ];
 
-    for (phrase, severity) in uncertainty_phrases {
-        if text_lower.contains(phrase) {
+    for (phrase, severity) in strong_uncertainty {
+        if check_text.contains(phrase) {
             return Some(ValidationWarning {
                 issue_type: ValidationIssueType::Uncertainty,
                 message: format!("Response uses uncertain language: '{}'", phrase),
                 severity: severity.to_string(),
+            });
+        }
+    }
+
+    // Weak uncertainty markers - only flag if they appear at the very start
+    // These are often valid hedging when used mid-sentence
+    let weak_uncertainty = ["might be", "could be", "perhaps", "possibly", "probably", "likely"];
+
+    // Only flag if the answer STARTS with uncertainty (first 50 chars)
+    let start_text = if text_lower.len() > 50 { &text_lower[..50] } else { &text_lower };
+
+    for phrase in weak_uncertainty {
+        if start_text.contains(phrase) {
+            return Some(ValidationWarning {
+                issue_type: ValidationIssueType::Uncertainty,
+                message: format!("Response starts with uncertain language: '{}'", phrase),
+                severity: "low".to_string(),
             });
         }
     }

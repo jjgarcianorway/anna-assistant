@@ -164,35 +164,34 @@ pub fn verify_file_not_contains(file_path: &str, not_expected: &str) -> Result<b
 
 /// Safe write operation with backup
 pub fn safe_write(file_path: &str, content: &str, reason: &str) -> Result<FileBackup> {
-    // Backup existing file if it exists
-    let backup = if Path::new(file_path).exists() {
-        Some(backup_file(file_path, reason)?)
-    } else {
-        None
-    };
+    // v0.0.891: Restructured to avoid unwrap
+    let file_exists = Path::new(file_path).exists();
 
-    // Write new content
+    // Write new content (create parent dirs if needed)
     if let Some(parent) = Path::new(file_path).parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(file_path, content)?;
 
-    // If no backup was created (new file), create a record
-    if backup.is_none() {
-        let backup = FileBackup {
-            original_path: file_path.to_string(),
-            backup_path: String::new(), // No backup for new files
-            created_at: Utc::now().to_rfc3339(),
-            reason: format!("Created new file: {}", reason),
-            can_rollback: false, // Can't rollback a new file to "not existing"
-        };
-        let mut ledger = BackupLedger::load().unwrap_or_default();
-        ledger.add_backup(backup.clone());
-        ledger.save()?;
+    // Handle existing file: backup first
+    if file_exists {
+        let backup = backup_file(file_path, reason)?;
+        fs::write(file_path, content)?;
         return Ok(backup);
     }
 
-    Ok(backup.unwrap())
+    // New file: write and create record (no backup to restore to)
+    fs::write(file_path, content)?;
+    let backup = FileBackup {
+        original_path: file_path.to_string(),
+        backup_path: String::new(),
+        created_at: Utc::now().to_rfc3339(),
+        reason: format!("Created new file: {}", reason),
+        can_rollback: false,
+    };
+    let mut ledger = BackupLedger::load().unwrap_or_default();
+    ledger.add_backup(backup.clone());
+    ledger.save()?;
+    Ok(backup)
 }
 
 /// Safe append operation with backup

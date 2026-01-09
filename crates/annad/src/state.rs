@@ -96,8 +96,7 @@ pub struct StateInner {
     session_save_counter: u32,
     /// Answer cache for identical questions (normalized question -> (answer, timestamp))
     answer_cache: HashMap<String, CachedAnswer>,
-    /// Command output cache (command -> output)
-    command_cache: HashMap<String, CachedCommandOutput>,
+    // v0.0.891: Removed command_cache - consolidated into core_loop.rs COMMAND_CACHE
 }
 
 /// A cached answer with timestamp
@@ -107,16 +106,10 @@ pub struct CachedAnswer {
     pub cached_at: Instant,
 }
 
-/// A cached command output with timestamp
-#[derive(Clone)]
-pub struct CachedCommandOutput {
-    pub output: String,
-    pub cached_at: Instant,
-    /// Whether this is a static command (longer TTL)
-    pub is_static: bool,
-}
+// v0.0.891: Removed duplicate CachedCommandOutput struct - using core_loop.rs cache instead
 
 /// Commands that rarely change and can be cached longer (5 minutes)
+/// Used by core_loop.rs for cache TTL decisions
 pub const STATIC_COMMANDS: &[&str] = &[
     "uname -r",
     "uname -a",
@@ -132,12 +125,6 @@ pub const STATIC_COMMANDS: &[&str] = &[
     "lspci",
     "lsusb",
 ];
-
-/// TTL for dynamic command output (60 seconds)
-const COMMAND_CACHE_TTL_SECS: u64 = 60;
-
-/// TTL for static command output (5 minutes)
-const STATIC_COMMAND_CACHE_TTL_SECS: u64 = 300;
 
 impl StateInner {
     pub fn new() -> Self {
@@ -170,7 +157,6 @@ impl StateInner {
             restart_pending: false,
             session_save_counter: 0,
             answer_cache: HashMap::new(),
-            command_cache: HashMap::new(),
         }
     }
 
@@ -220,58 +206,7 @@ impl StateInner {
         });
     }
 
-    /// Check if a command is cacheable (static system info)
-    fn is_static_command(cmd: &str) -> bool {
-        let cmd_trimmed = cmd.trim();
-        STATIC_COMMANDS.iter().any(|&static_cmd| {
-            cmd_trimmed == static_cmd || cmd_trimmed.starts_with(static_cmd)
-        })
-    }
-
-    /// Get cached command output if available and not expired
-    pub fn get_cached_command(&self, cmd: &str) -> Option<String> {
-        let key = cmd.trim().to_string();
-        if let Some(cached) = self.command_cache.get(&key) {
-            let ttl = if cached.is_static {
-                STATIC_COMMAND_CACHE_TTL_SECS
-            } else {
-                COMMAND_CACHE_TTL_SECS
-            };
-            if cached.cached_at.elapsed().as_secs() < ttl {
-                debug!("Command cache hit: {}", cmd);
-                return Some(cached.output.clone());
-            }
-        }
-        None
-    }
-
-    /// Cache a command's output
-    pub fn cache_command(&mut self, cmd: &str, output: &str) {
-        let key = cmd.trim().to_string();
-        let is_static = Self::is_static_command(cmd);
-        self.command_cache.insert(key, CachedCommandOutput {
-            output: output.to_string(),
-            cached_at: Instant::now(),
-            is_static,
-        });
-
-        // Cleanup old entries periodically (keep max 50)
-        if self.command_cache.len() > 50 {
-            self.cleanup_command_cache();
-        }
-    }
-
-    /// Remove expired command cache entries
-    fn cleanup_command_cache(&mut self) {
-        self.command_cache.retain(|_, cached| {
-            let ttl = if cached.is_static {
-                STATIC_COMMAND_CACHE_TTL_SECS
-            } else {
-                COMMAND_CACHE_TTL_SECS
-            };
-            cached.cached_at.elapsed().as_secs() < ttl
-        });
-    }
+    // v0.0.891: Removed duplicate command cache methods - using core_loop.rs cache
 
     /// Get or create a session for a client
     pub fn get_or_create_session(&mut self, client_id: &str) -> &mut Session {

@@ -505,10 +505,12 @@ RESPOND IN ENGLISH ONLY."#,
 }
 
 /// Execute a command with retry logic - tries alternatives if first attempt fails
+/// v0.0.891: Added alternatives_budget to rate-limit LLM calls
 async fn execute_command_with_retry(
     model: &str,
     cmd: &str,
     question: &str,
+    alternatives_budget: &mut u32,
 ) -> (String, Vec<String>) {
     // Track all commands tried
     let mut all_commands = vec![cmd.to_string()];
@@ -533,6 +535,14 @@ async fn execute_command_with_retry(
             } else {
                 "error-like output"
             };
+
+            // v0.0.891: Check budget before asking LLM for alternatives
+            if *alternatives_budget == 0 {
+                debug!("Alternative budget exhausted, skipping LLM call for '{}'", cmd);
+                return (output, all_commands);
+            }
+            *alternatives_budget = alternatives_budget.saturating_sub(1);
+
             warn!("Command '{}' returned {}, asking LLM for alternatives...", cmd, reason);
 
             if let Some(alternatives) = get_alternative_commands(model, cmd, &output, question).await {
@@ -569,6 +579,13 @@ async fn execute_command_with_retry(
             // Command failed - try alternatives
             let error_msg = format!("Error: {}", e);
             warn!("Command '{}' failed with error: {}", cmd, e);
+
+            // v0.0.891: Check budget before asking LLM for alternatives
+            if *alternatives_budget == 0 {
+                debug!("Alternative budget exhausted, skipping LLM call for error case");
+                return (error_msg, all_commands);
+            }
+            *alternatives_budget = alternatives_budget.saturating_sub(1);
 
             if let Some(alternatives) = get_alternative_commands(model, cmd, &error_msg, question).await {
                 info!("LLM suggested {} alternative command(s) after error", alternatives.len());
@@ -2637,6 +2654,9 @@ Commands:"#,
             None
         };
 
+        // v0.0.891: Limit alternative LLM calls to 2 per iteration
+        let mut alternatives_budget: u32 = 2;
+
         let mut combined_output = String::new();
         for cmd in &commands_to_run {
             let cmd = cmd.as_str();
@@ -2664,16 +2684,17 @@ Commands:"#,
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
             // v0.0.890: Use parallel result if available, otherwise execute with retry
+            // v0.0.891: Pass alternatives budget to rate-limit LLM calls
             let (output, tried_commands) = if let Some(ref results) = parallel_results {
                 if let Some(result) = results.get(cmd) {
                     (result.clone(), vec![cmd.to_string()])
                 } else {
                     // Fallback if parallel execution missed this command
-                    execute_command_with_retry(model, cmd, question).await
+                    execute_command_with_retry(model, cmd, question, &mut alternatives_budget).await
                 }
             } else {
                 // Execute with retry - tries LLM-suggested alternatives on failure
-                execute_command_with_retry(model, cmd, question).await
+                execute_command_with_retry(model, cmd, question, &mut alternatives_budget).await
             };
 
             // Record all commands that were tried (including alternatives)

@@ -14,6 +14,7 @@ const ANNA_REGISTRY: &str = "/var/lib/anna/registry.json";
 
 /// Circuit breaker state for Ollama
 /// Opens after consecutive failures, auto-resets after cooldown
+/// v0.0.891: Using SeqCst ordering to prevent race conditions
 static CONSECUTIVE_FAILURES: AtomicU32 = AtomicU32::new(0);
 static CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
 
@@ -22,44 +23,58 @@ const CIRCUIT_OPEN_THRESHOLD: u32 = 3;
 /// Cooldown period in seconds before retrying after circuit opens
 const CIRCUIT_COOLDOWN_SECS: u64 = 30;
 
+/// Get current time as seconds since epoch
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs()
+}
+
 /// Check if circuit breaker is open (should fail fast)
+/// v0.0.891: Using SeqCst for proper synchronization
 fn is_circuit_open() -> bool {
-    let failures = CONSECUTIVE_FAILURES.load(Ordering::Relaxed);
+    let failures = CONSECUTIVE_FAILURES.load(Ordering::SeqCst);
     if failures >= CIRCUIT_OPEN_THRESHOLD {
-        let opened_at = CIRCUIT_OPENED_AT.load(Ordering::Relaxed);
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let opened_at = CIRCUIT_OPENED_AT.load(Ordering::SeqCst);
+        let now = now_secs();
 
         // Check if cooldown has passed
-        if now - opened_at < CIRCUIT_COOLDOWN_SECS {
+        if now.saturating_sub(opened_at) < CIRCUIT_COOLDOWN_SECS {
             return true;
         }
 
         // Cooldown passed - allow a test request (half-open state)
-        info!("Circuit breaker cooldown passed, allowing test request");
+        // Reset failure count to allow test request through
+        // Use compare_exchange to avoid race with other threads
+        if CONSECUTIVE_FAILURES.compare_exchange(
+            failures,
+            CIRCUIT_OPEN_THRESHOLD - 1, // Allow one test request
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+        ).is_ok() {
+            info!("Circuit breaker half-open, allowing test request");
+        }
     }
     false
 }
 
 /// Record a successful request (closes circuit)
+/// v0.0.891: Using SeqCst for proper synchronization
 fn record_success() {
-    let prev = CONSECUTIVE_FAILURES.swap(0, Ordering::Relaxed);
-    if prev >= CIRCUIT_OPEN_THRESHOLD {
+    let prev = CONSECUTIVE_FAILURES.swap(0, Ordering::SeqCst);
+    if prev >= CIRCUIT_OPEN_THRESHOLD - 1 {
         info!("Circuit breaker closed after successful request");
     }
 }
 
 /// Record a failed request (may open circuit)
+/// v0.0.891: Using SeqCst and atomic check for threshold
 fn record_failure() {
-    let failures = CONSECUTIVE_FAILURES.fetch_add(1, Ordering::Relaxed) + 1;
+    let failures = CONSECUTIVE_FAILURES.fetch_add(1, Ordering::SeqCst) + 1;
     if failures == CIRCUIT_OPEN_THRESHOLD {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        CIRCUIT_OPENED_AT.store(now, Ordering::Relaxed);
+        // Atomically set opened_at timestamp
+        CIRCUIT_OPENED_AT.store(now_secs(), Ordering::SeqCst);
         error!("Circuit breaker OPEN - Ollama has {} consecutive failures, cooling down for {}s",
                failures, CIRCUIT_COOLDOWN_SECS);
     }
@@ -97,7 +112,10 @@ impl AnnaRegistry {
     }
 
     pub fn save(&self) -> Result<()> {
-        let dir = Path::new(ANNA_REGISTRY).parent().unwrap();
+        // v0.0.891: Safe parent extraction instead of unwrap
+        let dir = Path::new(ANNA_REGISTRY)
+            .parent()
+            .ok_or_else(|| anyhow!("Invalid registry path: no parent directory"))?;
         std::fs::create_dir_all(dir)?;
         let json = serde_json::to_string_pretty(self)?;
         std::fs::write(ANNA_REGISTRY, json)?;
