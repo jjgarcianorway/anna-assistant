@@ -307,7 +307,14 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
             println!();
         }
         StepType::FinalAnswer => {
-            // This step comes after streaming, so we don't print it again
+            // v0.0.894: Print if content exists (for out-of-scope early returns)
+            // Normal streaming flow sends empty content here (answer already streamed)
+            if !step.content.is_empty() {
+                println_colored("═══════════════════════════════════════", DIM);
+                print_colored("ANSWER: ", GREEN);
+                println_colored(&step.content, GREEN);
+                println_colored("═══════════════════════════════════════", DIM);
+            }
         }
         StepType::WikiSearch => {
             print_colored("ANNA → WIKI: ", MAGENTA);
