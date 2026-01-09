@@ -384,20 +384,34 @@ async fn get_alternative_commands(
     error_output: &str,
     question: &str,
 ) -> Option<Vec<String>> {
+    // v0.0.897: Use smart version with generic hint
+    get_alternative_commands_smart(model, original_cmd, error_output, question, "Suggest alternatives").await
+}
+
+/// v0.0.897: Get alternative commands with error-specific recovery guidance
+async fn get_alternative_commands_smart(
+    model: &str,
+    original_cmd: &str,
+    error_output: &str,
+    question: &str,
+    recovery_hint: &str,
+) -> Option<Vec<String>> {
     let fast_timeout = get_perf_config().fast_llm_timeout_secs;
 
     let prompt = format!(
-        r#"The command `{original_cmd}` failed or returned no useful data.
-Error/output: {error_output}
+        r#"Command failed: `{original_cmd}`
+Error: {error_output}
+Question: "{question}"
 
-Original question: "{question}"
+DIAGNOSIS: {recovery_hint}
 
-Suggest 1-2 alternative commands that might work better on Arch Linux.
+Based on this diagnosis, suggest 1-2 alternative commands for Arch Linux.
 Reply with ONLY the commands, one per line. No explanation.
 If no alternative exists, reply with "NONE"."#,
         original_cmd = original_cmd,
         error_output = if error_output.len() > 200 { &error_output[..200] } else { error_output },
-        question = question
+        question = question,
+        recovery_hint = recovery_hint
     );
 
     match ollama::chat_with_timeout(model, &prompt, fast_timeout).await {
@@ -417,7 +431,7 @@ If no alternative exists, reply with "NONE"."#,
             if alternatives.is_empty() {
                 None
             } else {
-                debug!("Got alternative commands: {:?}", alternatives);
+                debug!("Got alternative commands with smart recovery: {:?}", alternatives);
                 Some(alternatives)
             }
         }
@@ -523,8 +537,97 @@ Is this answer helpful and relevant? Reply with only YES or NO."#,
         }
     }
 }
+
+/// v0.0.897: Error categories for intelligent recovery
+#[derive(Debug, Clone, PartialEq)]
+enum CommandErrorType {
+    /// Command not found - need to install package or use different command
+    CommandNotFound,
+    /// Permission denied - might need sudo or different user
+    PermissionDenied,
+    /// File/path not found - wrong path or file doesn't exist
+    PathNotFound,
+    /// Command timed out - might be hanging or need different approach
+    Timeout,
+    /// Syntax error - malformed command
+    SyntaxError,
+    /// Missing dependency - needs another package installed
+    MissingDependency,
+    /// Empty output - command ran but produced nothing
+    EmptyOutput,
+    /// Generic error - couldn't categorize
+    Unknown,
+}
+
+/// v0.0.897: Classify error to enable intelligent recovery
+fn classify_command_error(output: &str, error: Option<&str>) -> (CommandErrorType, &'static str) {
+    let combined = format!("{} {}", output, error.unwrap_or("")).to_lowercase();
+
+    if combined.contains("command not found") || combined.contains("not found in path")
+        || combined.contains("no such command") {
+        (CommandErrorType::CommandNotFound, "Install the package or use an alternative command")
+    } else if combined.contains("permission denied") || combined.contains("operation not permitted")
+        || combined.contains("access denied") || combined.contains("must be root") {
+        (CommandErrorType::PermissionDenied, "Try with sudo or check file permissions")
+    } else if combined.contains("no such file") || combined.contains("cannot find")
+        || combined.contains("does not exist") || combined.contains("not a directory") {
+        (CommandErrorType::PathNotFound, "Check if path exists or use correct location")
+    } else if combined.contains("timed out") || combined.contains("timeout") {
+        (CommandErrorType::Timeout, "Command took too long - try a simpler query")
+    } else if combined.contains("syntax error") || combined.contains("parse error")
+        || combined.contains("unexpected token") || combined.contains("invalid option") {
+        (CommandErrorType::SyntaxError, "Fix command syntax or flags")
+    } else if combined.contains("dependency") || combined.contains("requires")
+        || combined.contains("not installed") || combined.contains("package not found") {
+        (CommandErrorType::MissingDependency, "Install required dependency first")
+    } else if output.trim().is_empty() {
+        (CommandErrorType::EmptyOutput, "Command produced no output - may need different approach")
+    } else {
+        (CommandErrorType::Unknown, "Unknown error - try alternative command")
+    }
+}
+
+/// v0.0.897: Get recovery hint based on error type
+fn get_recovery_prompt(error_type: &CommandErrorType, cmd: &str) -> String {
+    match error_type {
+        CommandErrorType::CommandNotFound => format!(
+            "The command '{}' is not installed. Suggest: 1) The Arch package to install it, OR 2) An alternative command that's commonly available.",
+            cmd.split_whitespace().next().unwrap_or(cmd)
+        ),
+        CommandErrorType::PermissionDenied => format!(
+            "Permission denied for '{}'. Suggest: 1) The same command with sudo, OR 2) A way to check current permissions, OR 3) An unprivileged alternative.",
+            cmd
+        ),
+        CommandErrorType::PathNotFound => format!(
+            "Path not found in '{}'. Suggest: 1) Commands to find the correct path, OR 2) Alternative locations to check.",
+            cmd
+        ),
+        CommandErrorType::Timeout => format!(
+            "Command '{}' timed out. Suggest: 1) A faster alternative, OR 2) A way to limit scope (e.g., specific directory).",
+            cmd
+        ),
+        CommandErrorType::SyntaxError => format!(
+            "Syntax error in '{}'. Suggest the corrected command with proper flags/syntax.",
+            cmd
+        ),
+        CommandErrorType::MissingDependency => format!(
+            "Missing dependency for '{}'. Suggest: 1) How to install the dependency, OR 2) An alternative that doesn't need it.",
+            cmd
+        ),
+        CommandErrorType::EmptyOutput => format!(
+            "Command '{}' produced no output. Suggest: 1) A command to verify the data exists, OR 2) An alternative way to get this info.",
+            cmd
+        ),
+        CommandErrorType::Unknown => format!(
+            "Command '{}' failed. Suggest alternative commands to achieve the same goal.",
+            cmd
+        ),
+    }
+}
+
 /// Execute a command with retry logic - tries alternatives if first attempt fails
 /// v0.0.891: Added alternatives_budget to rate-limit LLM calls
+/// v0.0.897: Added error classification for intelligent recovery
 async fn execute_command_with_retry(
     model: &str,
     cmd: &str,
@@ -546,14 +649,13 @@ async fn execute_command_with_retry(
             return (output, all_commands);
         }
         Ok(output) => {
-            // Empty or error-like output - try alternatives
-            let reason = if output.trim().is_empty() {
-                "empty output"
-            } else if output.contains("command not found") {
-                "command not found"
-            } else {
-                "error-like output"
-            };
+            // v0.0.897: Classify error for intelligent recovery
+            let (error_type, hint) = classify_command_error(&output, None);
+
+            // Success case - no error detected
+            if error_type == CommandErrorType::Unknown && !output.trim().is_empty() {
+                return (output, all_commands);
+            }
 
             // v0.0.891: Check budget before asking LLM for alternatives
             if *alternatives_budget == 0 {
@@ -562,9 +664,11 @@ async fn execute_command_with_retry(
             }
             *alternatives_budget = alternatives_budget.saturating_sub(1);
 
-            warn!("Command '{}' returned {}, asking LLM for alternatives...", cmd, reason);
+            // v0.0.897: Use error-specific recovery prompt
+            let recovery_hint = get_recovery_prompt(&error_type, cmd);
+            warn!("Command '{}' failed ({:?}): {}. Recovery: {}", cmd, error_type, hint, recovery_hint);
 
-            if let Some(alternatives) = get_alternative_commands(model, cmd, &output, question).await {
+            if let Some(alternatives) = get_alternative_commands_smart(model, cmd, &output, question, &recovery_hint).await {
                 info!("LLM suggested {} alternative command(s)", alternatives.len());
                 for (i, alt_cmd) in alternatives.iter().enumerate() {
                     // Skip dangerous commands
@@ -595,9 +699,12 @@ async fn execute_command_with_retry(
             (output, all_commands)
         }
         Err(e) => {
-            // Command failed - try alternatives
+            // v0.0.897: Classify error for intelligent recovery
             let error_msg = format!("Error: {}", e);
-            warn!("Command '{}' failed with error: {}", cmd, e);
+            let (error_type, hint) = classify_command_error("", Some(&error_msg));
+            let recovery_hint = get_recovery_prompt(&error_type, cmd);
+
+            warn!("Command '{}' failed ({:?}): {}. Recovery: {}", cmd, error_type, hint, recovery_hint);
 
             // v0.0.891: Check budget before asking LLM for alternatives
             if *alternatives_budget == 0 {
@@ -606,7 +713,7 @@ async fn execute_command_with_retry(
             }
             *alternatives_budget = alternatives_budget.saturating_sub(1);
 
-            if let Some(alternatives) = get_alternative_commands(model, cmd, &error_msg, question).await {
+            if let Some(alternatives) = get_alternative_commands_smart(model, cmd, &error_msg, question, &recovery_hint).await {
                 info!("LLM suggested {} alternative command(s) after error", alternatives.len());
                 for (i, alt_cmd) in alternatives.iter().enumerate() {
                     if is_dangerous_command(alt_cmd) {
@@ -1583,6 +1690,52 @@ fn get_system_profile() -> SystemProfile {
     SystemProfile::default()
 }
 
+/// v0.0.897: Get proactive insights relevant to the question
+/// Checks active system issues that might affect the user's request
+fn get_proactive_insights(question: &str, topic: Option<&str>) -> Option<String> {
+    use anna_shared::monitor::IssueStore;
+
+    let store = IssueStore::load().ok()?;
+    if store.active_issues.is_empty() {
+        return None;
+    }
+
+    let q_lower = question.to_lowercase();
+    let topic_lower = topic.map(|t| t.to_lowercase());
+
+    // Find issues relevant to the question
+    let relevant_issues: Vec<_> = store.active_issues.iter()
+        .filter(|issue| {
+            // Match by topic
+            if let Some(ref topic) = topic_lower {
+                let issue_type = format!("{:?}", issue.issue_type).to_lowercase();
+                if issue_type.contains(topic) || topic.contains(&issue_type) {
+                    return true;
+                }
+            }
+
+            // Match by keywords in question
+            let issue_summary = issue.summary.to_lowercase();
+            let keywords = ["disk", "memory", "ram", "cpu", "service", "network", "storage", "boot", "fail"];
+            keywords.iter().any(|kw| q_lower.contains(kw) && issue_summary.contains(kw))
+        })
+        .take(2) // Max 2 insights
+        .collect();
+
+    if relevant_issues.is_empty() {
+        return None;
+    }
+
+    let mut insights = String::from("⚠️ Related system status:\n");
+    for issue in relevant_issues {
+        insights.push_str(&format!("  • {}: {}\n",
+            format!("{:?}", issue.severity).to_uppercase(),
+            issue.summary
+        ));
+    }
+    Some(insights)
+}
+
 /// Gather basic system context (parallelized for speed)
 fn gather_system_context() -> String {
     let mut context = String::new();
@@ -2375,6 +2528,16 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
 
     info!("Understanding: {:?} (confidence: {:.0}%) - {}",
           understanding.category, understanding.confidence * 100.0, understanding.interpreted_as);
+
+    // v0.0.897: Check for proactive insights related to this question
+    if let Some(insights) = get_proactive_insights(question, understanding.topic.as_deref()) {
+        let step = DialogueStep {
+            step_type: StepType::SystemAlert,
+            content: insights,
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+    }
 
     // Convert to legacy format for existing handlers
     let intent_result = anna_shared::rpc::IntentClassification {

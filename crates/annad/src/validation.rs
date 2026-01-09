@@ -25,6 +25,7 @@ static RE_CONTEXT: LazyLock<Regex> = LazyLock::new(||
 );
 
 /// Streaming validator that accumulates tokens and checks for issues
+/// v0.0.897: Added confidence tracking for self-correction
 pub struct StreamingValidator {
     /// Accumulated answer text so far
     accumulated: String,
@@ -36,7 +37,30 @@ pub struct StreamingValidator {
     warnings: Vec<ValidationWarning>,
     /// Last sentence validated (to avoid re-validating)
     last_validated_len: usize,
+    /// v0.0.897: Running confidence score (starts at 1.0, decreases with issues)
+    confidence: f32,
 }
+
+/// v0.0.897: Result of validation with confidence info
+#[derive(Debug, Clone)]
+pub struct ValidationResult {
+    /// New warnings detected
+    pub warnings: Vec<ValidationWarning>,
+    /// Current confidence score (0.0 - 1.0)
+    pub confidence: f32,
+    /// Whether self-correction is recommended
+    pub needs_correction: bool,
+    /// Specific issue to address if correction needed
+    pub correction_hint: Option<String>,
+}
+
+/// v0.0.897: Confidence penalty for each issue type
+const PENALTY_HALLUCINATION: f32 = 0.25;
+const PENALTY_CONTRADICTION: f32 = 0.30;
+const PENALTY_UNCERTAINTY: f32 = 0.10;
+const PENALTY_TOO_GENERIC: f32 = 0.15;
+/// v0.0.897: Threshold below which self-correction is recommended
+const CORRECTION_THRESHOLD: f32 = 0.5;
 
 impl StreamingValidator {
     /// Create a new validator with command output to check against
@@ -48,26 +72,39 @@ impl StreamingValidator {
             grounding_values,
             warnings: Vec::new(),
             last_validated_len: 0,
+            confidence: 1.0,
         }
     }
 
     /// Add a token and check for new validation issues
     /// Returns any new warnings detected
     pub fn add_token(&mut self, token: &str) -> Vec<ValidationWarning> {
+        let result = self.add_token_with_confidence(token);
+        result.warnings
+    }
+
+    /// v0.0.897: Add a token and return full validation result with confidence
+    pub fn add_token_with_confidence(&mut self, token: &str) -> ValidationResult {
         self.accumulated.push_str(token);
 
         // Only validate when we have a complete sentence or phrase
-        // (ends with punctuation or is sufficiently long)
         if !should_validate(&self.accumulated, self.last_validated_len) {
-            return Vec::new();
+            return ValidationResult {
+                warnings: Vec::new(),
+                confidence: self.confidence,
+                needs_correction: false,
+                correction_hint: None,
+            };
         }
 
         let new_text = &self.accumulated[self.last_validated_len..];
         let mut new_warnings = Vec::new();
+        let mut correction_hint = None;
 
         // Check for uncertainty markers
         if let Some(warning) = check_uncertainty(new_text) {
             if !self.has_warning(&warning) {
+                self.confidence -= PENALTY_UNCERTAINTY;
                 self.warnings.push(warning.clone());
                 new_warnings.push(warning);
             }
@@ -76,6 +113,8 @@ impl StreamingValidator {
         // Check for hallucinations (specific values not in command output)
         if let Some(warning) = check_hallucination(new_text, &self.command_output, &self.grounding_values) {
             if !self.has_warning(&warning) {
+                self.confidence -= PENALTY_HALLUCINATION;
+                correction_hint = Some(format!("Verify claim: {}", warning.message));
                 self.warnings.push(warning.clone());
                 new_warnings.push(warning);
             }
@@ -84,6 +123,7 @@ impl StreamingValidator {
         // Check for generic responses
         if let Some(warning) = check_too_generic(new_text) {
             if !self.has_warning(&warning) {
+                self.confidence -= PENALTY_TOO_GENERIC;
                 self.warnings.push(warning.clone());
                 new_warnings.push(warning);
             }
@@ -92,13 +132,49 @@ impl StreamingValidator {
         // v0.0.890: Check for contradictions with command output
         if let Some(warning) = check_contradiction(new_text, &self.command_output) {
             if !self.has_warning(&warning) {
+                self.confidence -= PENALTY_CONTRADICTION;
+                correction_hint = Some(format!("Contradiction detected: {}", warning.message));
                 self.warnings.push(warning.clone());
                 new_warnings.push(warning);
             }
         }
 
         self.last_validated_len = self.accumulated.len();
-        new_warnings
+        self.confidence = self.confidence.max(0.0); // Don't go below 0
+
+        ValidationResult {
+            warnings: new_warnings,
+            confidence: self.confidence,
+            needs_correction: self.confidence < CORRECTION_THRESHOLD,
+            correction_hint,
+        }
+    }
+
+    /// v0.0.897: Get current confidence score
+    pub fn get_confidence(&self) -> f32 {
+        self.confidence
+    }
+
+    /// v0.0.897: Check if self-correction is recommended
+    pub fn needs_correction(&self) -> bool {
+        self.confidence < CORRECTION_THRESHOLD
+    }
+
+    /// v0.0.897: Get summary of issues for correction prompt
+    pub fn get_correction_summary(&self) -> Option<String> {
+        if self.warnings.is_empty() {
+            return None;
+        }
+
+        let issues: Vec<String> = self.warnings.iter()
+            .map(|w| format!("- {:?}: {}", w.issue_type, w.message))
+            .collect();
+
+        Some(format!(
+            "Issues detected (confidence: {:.0}%):\n{}",
+            self.confidence * 100.0,
+            issues.join("\n")
+        ))
     }
 
     /// Get all accumulated warnings

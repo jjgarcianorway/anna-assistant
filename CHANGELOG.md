@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.897] - 2026-01-09
+
+### Added
+- **Smart Error Recovery** - Root cause analysis for failed commands
+  - `CommandErrorType` enum classifies 8 error types (not found, permission, path, timeout, syntax, dependency, empty, unknown)
+  - `classify_command_error()` parses stderr to diagnose WHY commands failed
+  - `get_recovery_prompt()` provides error-specific guidance to LLM for retries
+  - `get_alternative_commands_smart()` includes recovery hints in prompts
+  - Example: "permission denied" → suggests sudo or chmod alternatives
+
+- **Confidence-Based Self-Correction** - Quality tracking with automatic fixes
+  - `ValidationResult` struct with confidence score (0.0-1.0) and correction hints
+  - Penalty system: hallucination (-0.25), contradiction (-0.30), uncertainty (-0.10), too generic (-0.15)
+  - `CORRECTION_THRESHOLD = 0.5` triggers automatic answer improvement
+  - `add_token_with_confidence()` updates score during streaming
+  - `get_correction_summary()` explains what needs fixing
+
+- **Proactive Insights** - Surface relevant issues during conversations
+  - `get_proactive_insights()` checks IssueStore for active system issues
+  - Matches by topic keywords and question content
+  - Shows "Note: There's an active issue that might be relevant..." before answers
+  - Connects session pattern mining (v0.0.896) to user experience
+
 ## [0.0.896] - 2026-01-09
 
 ### Changed
