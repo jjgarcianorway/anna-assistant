@@ -2,6 +2,38 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Intent categories for question classification
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum IntentCategory {
+    /// Simple factual question ("what is my kernel version?", "how much RAM?")
+    Factual,
+    /// How-to question ("how do I install X?", "how to configure Y?")
+    HowTo,
+    /// Troubleshooting problem ("X not working", "error when Y")
+    Troubleshoot,
+    /// Multiple questions combined ("what's my disk AND how do I install Y?")
+    Multi,
+    /// Unclear or ambiguous question requiring clarification
+    Unclear,
+}
+
+/// Result of LLM-based intent classification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntentClassification {
+    /// Primary intent category
+    pub category: IntentCategory,
+    /// Confidence score (0.0 - 1.0)
+    pub confidence: f32,
+    /// For MULTI: decomposed sub-questions
+    pub sub_questions: Option<Vec<String>>,
+    /// For UNCLEAR: suggested clarification question
+    pub clarification: Option<String>,
+    /// Detected entities (packages, services, files mentioned)
+    pub entities: Vec<String>,
+    /// Detected topic (network, audio, storage, etc.)
+    pub topic: Option<String>,
+}
+
 /// RPC methods supported by the daemon
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RpcMethod {
@@ -106,6 +138,12 @@ pub struct AskResult {
     pub commands_executed: Vec<String>,
     /// Full dialogue for transparency
     pub dialogue: Vec<DialogueStep>,
+    /// If true, the question was unclear and needs clarification
+    #[serde(default)]
+    pub needs_clarification: bool,
+    /// The clarification question to ask the user (when needs_clarification is true)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clarification_question: Option<String>,
 }
 
 /// A single step in the dialogue
@@ -122,6 +160,10 @@ pub struct DialogueStep {
 pub enum StepType {
     /// User's original question
     UserQuestion,
+    /// Intent classification being performed
+    IntentClassifying,
+    /// Intent classification result
+    IntentResult,
     /// Searching Arch Wiki
     WikiSearch,
     /// Wiki search results
@@ -148,4 +190,8 @@ pub enum StepType {
     ClarificationQuestion,
     /// User's clarification response
     ClarificationResponse,
+    /// Sub-question being processed (for MULTI intent)
+    SubQuestion,
+    /// Sub-question result
+    SubQuestionResult,
 }

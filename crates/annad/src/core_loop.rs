@@ -13,7 +13,7 @@
 use anna_shared::memory::{ExperienceContext, Memory};
 use anna_shared::profile::{self, SystemProfile};
 use anna_shared::recipe::{Recipe, RecipeBook};
-use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
+use anna_shared::rpc::{AskResult, DialogueStep, IntentCategory, StepType, StreamingResponse};
 use anna_shared::user_context;
 use anna_shared::wiki;
 use anyhow::{anyhow, Result};
@@ -22,6 +22,7 @@ use std::sync::RwLock;
 use tokio::io::AsyncWriteExt;
 use tracing::{info, warn, debug};
 
+use crate::intent;
 use crate::ollama;
 
 /// Cached system profile (refreshable)
@@ -1233,6 +1234,8 @@ Answer:"#,
         iterations,
         commands_executed,
         dialogue,
+        needs_clarification: false,
+        clarification_question: None,
     })
 }
 
@@ -1343,6 +1346,71 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     };
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // PHASE 0: Intent Classification - understand what the user is asking
+    let step = DialogueStep {
+        step_type: StepType::IntentClassifying,
+        content: question.to_string(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    let intent_result = match intent::classify_intent(model, question, None).await {
+        Ok(i) => i,
+        Err(e) => {
+            warn!("Intent classification failed: {}, using fallback", e);
+            intent::fallback_classification(question)
+        }
+    };
+
+    // Send intent result
+    let step = DialogueStep {
+        step_type: StepType::IntentResult,
+        content: intent::format_intent_result(&intent_result),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    info!("Intent: {:?} (confidence: {:.0}%)", intent_result.category, intent_result.confidence * 100.0);
+
+    // Handle special intents
+    match intent_result.category {
+        IntentCategory::Unclear => {
+            // Question needs clarification - ask user
+            let clarification = intent_result.clarification.as_deref()
+                .unwrap_or("Could you please be more specific about what you're asking?");
+
+            let step = DialogueStep {
+                step_type: StepType::ClarificationQuestion,
+                content: clarification.to_string(),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+            // Return with needs_clarification flag
+            let result = AskResult {
+                answer: format!("I need more information to help you: {}", clarification),
+                success: false,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue,
+                needs_clarification: true,
+                clarification_question: Some(clarification.to_string()),
+            };
+            send_streaming(writer, &StreamingResponse::Done { result }).await?;
+            return Ok(());
+        }
+        IntentCategory::Multi => {
+            // Multiple questions - handle separately
+            if let Some(ref sub_questions) = intent_result.sub_questions {
+                return handle_multi_question(model, question, sub_questions, writer, dialogue).await;
+            }
+            // If no sub_questions extracted, fall through to normal processing
+        }
+        _ => {
+            // FACTUAL, HOWTO, TROUBLESHOOT - continue with normal flow
+        }
+    }
 
     // PHASE 1: Gather system context first (like a technician checking the environment)
     info!("Gathering system context...");
@@ -1717,6 +1785,153 @@ Answer:"#,
         iterations,
         commands_executed,
         dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+    };
+    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+
+    Ok(())
+}
+
+/// Handle multi-question intent - process each sub-question and combine answers
+async fn handle_multi_question<W: AsyncWriteExt + Unpin>(
+    model: &str,
+    _original_question: &str,
+    sub_questions: &[String],
+    writer: &mut W,
+    mut dialogue: Vec<DialogueStep>,
+) -> Result<()> {
+    let mut combined_answer = String::new();
+    let mut all_commands = Vec::new();
+    let mut total_iterations = 0;
+
+    for (i, sub_q) in sub_questions.iter().enumerate() {
+        // Send SubQuestion step
+        let step = DialogueStep {
+            step_type: StepType::SubQuestion,
+            content: format!("Question {}: {}", i + 1, sub_q),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Process this sub-question - simplified inline approach
+        // Run a quick command discovery for this specific question
+        let brief_context = get_system_profile().brief_summary();
+        let command_prompt = format!(
+            r#"System: {}
+Question: "{}"
+
+Reply with 1-3 shell commands ONLY (no markdown, no explanations).
+NEVER use: top, htop, vim, nano, less (they need a terminal).
+Output NONE if no commands needed.
+
+Commands:"#,
+            brief_context, sub_q
+        );
+
+        let commands_response = ollama::chat_with_timeout(model, &command_prompt, LLM_TIMEOUT_SECS).await?;
+        let commands_response = commands_response.trim();
+
+        let mut sub_output = String::new();
+
+        if commands_response != "NONE" && !commands_response.is_empty() {
+            // Parse and execute commands
+            let commands_to_run: Vec<String> = commands_response
+                .lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with('`'))
+                .filter(|l| {
+                    let first_word = l.split_whitespace().next().unwrap_or("");
+                    !["top", "htop", "vim", "nano", "less", "vi", "more"].contains(&first_word)
+                })
+                .take(3)
+                .collect();
+
+            for cmd in &commands_to_run {
+                if is_dangerous_command(cmd) {
+                    continue;
+                }
+                all_commands.push(cmd.clone());
+
+                let step = DialogueStep {
+                    step_type: StepType::CommandExec,
+                    content: cmd.to_string(),
+                };
+                dialogue.push(step.clone());
+                send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+                match execute_command(cmd) {
+                    Ok(output) => {
+                        let step = DialogueStep {
+                            step_type: StepType::CommandOutput,
+                            content: output.clone(),
+                        };
+                        dialogue.push(step.clone());
+                        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                        sub_output.push_str(&format!("$ {}\n{}\n", cmd, output));
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Error: {}", e);
+                        let step = DialogueStep {
+                            step_type: StepType::CommandOutput,
+                            content: error_msg.clone(),
+                        };
+                        dialogue.push(step.clone());
+                        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                    }
+                }
+            }
+            total_iterations += 1;
+        }
+
+        // Generate answer for this sub-question
+        let answer_prompt = if sub_output.is_empty() {
+            format!(r#"Question: "{}"
+
+Answer briefly. RESPOND IN ENGLISH ONLY."#, sub_q)
+        } else {
+            format!(r#"Question: "{}"
+
+Command output:
+{}
+
+Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_output)
+        };
+
+        let sub_answer = ollama::chat_with_timeout(model, &answer_prompt, LLM_TIMEOUT_SECS).await?;
+
+        // Send SubQuestionResult step
+        let step = DialogueStep {
+            step_type: StepType::SubQuestionResult,
+            content: sub_answer.trim().to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Add to combined answer
+        if !combined_answer.is_empty() {
+            combined_answer.push_str("\n\n");
+        }
+        combined_answer.push_str(&format!("**{}**\n{}", sub_q, sub_answer.trim()));
+    }
+
+    // Send final answer step
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: combined_answer.clone(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Send done
+    let result = AskResult {
+        answer: combined_answer,
+        success: true,
+        iterations: total_iterations,
+        commands_executed: all_commands,
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
     };
     send_streaming(writer, &StreamingResponse::Done { result }).await?;
 

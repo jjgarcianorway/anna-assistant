@@ -89,7 +89,8 @@ async fn ask(question: &str) -> Result<AskResult> {
 }
 
 /// Send a question with streaming response
-async fn ask_streaming(question: &str) -> Result<()> {
+/// Returns the AskResult so caller can check for needs_clarification
+async fn ask_streaming(question: &str) -> Result<AskResult> {
     let socket_file = socket_path();
     let socket_path = std::path::Path::new(&socket_file);
 
@@ -128,7 +129,7 @@ async fn ask_streaming(question: &str) -> Result<()> {
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
     let mut in_answer = false;
-    let mut iterations = 0;
+    let mut final_result: Option<AskResult> = None;
 
     loop {
         line.clear();
@@ -167,7 +168,7 @@ async fn ask_streaming(question: &str) -> Result<()> {
                             println!();
                             println_colored("═══════════════════════════════════════", DIM);
                         }
-                        iterations = result.iterations;
+                        final_result = Some(result);
                         break;
                     }
                     Ok(StreamingResponse::Error { message }) => {
@@ -192,10 +193,15 @@ async fn ask_streaming(question: &str) -> Result<()> {
         }
     }
 
-    println!();
-    println_colored(&format!("({} iterations)", iterations), DIM);
+    let result = final_result.ok_or_else(|| anyhow!("No result received from daemon"))?;
 
-    Ok(())
+    // Only print iterations if not asking for clarification
+    if !result.needs_clarification {
+        println!();
+        println_colored(&format!("({} iterations)", result.iterations), DIM);
+    }
+
+    Ok(result)
 }
 
 /// Print a single dialogue step
@@ -305,6 +311,24 @@ fn print_step(step: &anna_shared::rpc::DialogueStep) {
             println!("{}", step.content);
             println!();
         }
+        StepType::IntentClassifying => {
+            print_colored("ANNA: ", BLUE);
+            println!("understanding question...");
+        }
+        StepType::IntentResult => {
+            print_colored("  intent: ", DIM);
+            println!("{}", step.content);
+        }
+        StepType::SubQuestion => {
+            println!();
+            print_colored("─── ", DIM);
+            print_colored(&step.content, YELLOW);
+            println!();
+        }
+        StepType::SubQuestionResult => {
+            print_colored("  → ", GREEN);
+            println!("{}", step.content);
+        }
     }
 }
 
@@ -320,6 +344,7 @@ fn println_colored(text: &str, color: &str) {
 const GREEN: &str = "\x1b[32m";
 const YELLOW: &str = "\x1b[33m";
 const RED: &str = "\x1b[31m";
+const BLUE: &str = "\x1b[34m";
 const CYAN: &str = "\x1b[36m";
 const MAGENTA: &str = "\x1b[35m";
 const DIM: &str = "\x1b[2m";
@@ -370,18 +395,62 @@ async fn print_status() {
     }
 }
 
-/// Handle a question
+/// Handle a question with clarification loop
 async fn handle_question(question: &str) {
+    handle_question_with_clarification(question, false).await;
+}
+
+/// Handle a question, with optional clarification support
+/// When in_repl is true, can prompt user for clarification
+async fn handle_question_with_clarification(question: &str, in_repl: bool) {
     // Clear line and start streaming
     println!();
 
-    match ask_streaming(question).await {
-        Ok(()) => {
-            // Done - iterations printed by ask_streaming
-        }
-        Err(e) => {
-            print_colored("Error: ", RED);
-            println!("{}", e);
+    let mut current_question = question.to_string();
+    let max_clarifications = 3; // Prevent infinite loops
+    let mut clarification_count = 0;
+
+    loop {
+        match ask_streaming(&current_question).await {
+            Ok(result) => {
+                if result.needs_clarification && in_repl && clarification_count < max_clarifications {
+                    // Display clarification question and prompt user
+                    println!();
+                    if let Some(ref clarification_q) = result.clarification_question {
+                        print_colored("ANNA needs clarification: ", YELLOW);
+                        println!("{}", clarification_q);
+                    }
+                    print_colored("> ", CYAN);
+                    io::stdout().flush().ok();
+
+                    // Read user's clarification response
+                    let mut response = String::new();
+                    if io::stdin().read_line(&mut response).is_ok() {
+                        let response = response.trim();
+                        if !response.is_empty() && response.to_lowercase() != "cancel" {
+                            // Append clarification to original question
+                            current_question = format!("{} (Context: {})", question, response);
+                            clarification_count += 1;
+                            println!();
+                            continue; // Re-submit with clarification
+                        }
+                    }
+                    // User cancelled or empty response
+                    println_colored("Clarification cancelled.", DIM);
+                } else if result.needs_clarification && !in_repl {
+                    // Non-REPL mode: just show the clarification question
+                    println!();
+                    print_colored("Note: ", YELLOW);
+                    println!("This question may need more context. Try running in interactive mode (annactl without arguments).");
+                }
+                // Done
+                break;
+            }
+            Err(e) => {
+                print_colored("Error: ", RED);
+                println!("{}", e);
+                break;
+            }
         }
     }
 }
@@ -498,6 +567,24 @@ fn print_dialogue(result: &AskResult) {
                 println!("{}", step.content);
                 println!();
             }
+            StepType::IntentClassifying => {
+                print_colored("ANNA: ", BLUE);
+                println!("understanding question...");
+            }
+            StepType::IntentResult => {
+                print_colored("  intent: ", DIM);
+                println!("{}", step.content);
+            }
+            StepType::SubQuestion => {
+                println!();
+                print_colored("─── ", DIM);
+                print_colored(&step.content, YELLOW);
+                println!();
+            }
+            StepType::SubQuestionResult => {
+                print_colored("  → ", GREEN);
+                println!("{}", step.content);
+            }
         }
     }
 }
@@ -548,7 +635,7 @@ async fn run_repl() -> Result<()> {
                         println!("Commands: status, help, quit");
                     }
                     _ => {
-                        handle_question(input).await;
+                        handle_question_with_clarification(input, true).await;
                     }
                 }
                 println!();

@@ -6,6 +6,7 @@
 //! - Unix socket server for client communication
 
 pub mod core_loop;
+pub mod intent;
 pub mod ollama;
 pub mod server;
 pub mod state;

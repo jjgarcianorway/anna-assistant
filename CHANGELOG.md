@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.875] - 2026-01-09
+
+### Added
+- **LLM-Based Intent Classification** - Replaces brittle keyword matching
+  - New `intent` module with `classify_intent()` function
+  - 5 intent categories: FACTUAL, HOWTO, TROUBLESHOOT, MULTI, UNCLEAR
+  - Uses quick LLM call (~100-150 tokens, <2s) for semantic understanding
+  - Fallback to keyword classification if LLM fails/times out
+  - Entities and topic detection (packages, services, files mentioned)
+
+- **Clarification Loop** - Anna asks for more context when questions are unclear
+  - UNCLEAR intent triggers clarification question
+  - In REPL mode: prompts user, re-submits with context appended
+  - Loop continues until intent becomes clear (max 3 attempts)
+  - Non-REPL mode: suggests using interactive mode
+
+- **Multi-Question Handling** - Decomposes complex questions
+  - MULTI intent extracts sub-questions from LLM response
+  - Each sub-question processed separately
+  - Sub-question/result steps displayed during execution
+  - Combined answer returned to user
+
+### Improved
+- Better understanding of user intent through semantic analysis
+- More accurate routing based on question type
+- New step types for transparency: IntentClassifying, IntentResult, SubQuestion, SubQuestionResult, ClarificationQuestion
+
 ## [0.0.873] - 2026-01-09
 
 ### Improved
