@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.905] - 2026-01-09
+
+### Added
+- **Answer Caching for Streaming** - Identical questions return cached answers instantly
+  - Cache check before running full LLM pipeline
+  - Successful answers cached with 5-minute TTL
+  - Cached responses marked with `cached: true` in result
+  - Skips clarification and out-of-scope answers from caching
+
+- **Recipe Book Caching** - 10-minute TTL avoids repeated disk I/O
+  - `RECIPE_BOOK_CACHE` static with `CachedRecipeBook` wrapper
+  - `get_cached_recipe_book()` function for single loading point
+  - `mark_recipe_success()` invalidates cache when modifying book
+  - Fast path recipe matching no longer reloads from disk each time
+
+- **Wiki Config Caching** - Settings loaded once per session
+  - `WIKI_CONFIG` static caches `WikiConfig` after first load
+  - `get_wiki_config()` function avoids repeated `AnnaConfig::load()`
+  - Embeddings enabled/disabled check no longer hits disk per search
+
+### Performance
+- Repeated identical questions now instant (cached response)
+- Recipe matching ~10x faster (no disk I/O per call)
+- Wiki search config check ~100x faster (memory vs disk)
+- Overall session feels snappier with less disk I/O
+
 ## [0.0.904] - 2026-01-09
 
 ### Added

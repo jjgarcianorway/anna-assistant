@@ -8,7 +8,7 @@ use std::path::Path;
 use tokio::fs;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{UnixListener, UnixStream};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::core_loop::{execute_question, init_system_profile, profile_refresh_loop, monitoring_loop};
 use crate::ollama;
@@ -376,6 +376,43 @@ async fn handle_streaming_request(
         question
     };
 
+    // v0.0.905: Check answer cache before running LLM
+    {
+        let state_guard = state.read().await;
+        if let Some(cached_answer) = state_guard.get_cached_answer(question_to_use) {
+            info!("Returning cached answer for: {}", question_to_use);
+
+            // Send cached response with dialogue showing it's cached
+            let step = DialogueStep {
+                step_type: StepType::UserQuestion,
+                content: question_to_use.to_string(),
+            };
+            let json = serde_json::to_string(&StreamingResponse::Step { step: step.clone() })?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let step = DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: cached_answer.clone(),
+            };
+            let json = serde_json::to_string(&StreamingResponse::Step { step: step.clone() })?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: cached_answer,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: true,
+            };
+            let json = serde_json::to_string(&StreamingResponse::Done { result })?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
+    }
+
     let result = execute_question_streaming(&model, question_to_use, session_context.as_deref(), &mut writer).await;
 
     // v0.0.892: Record full turn to session after execution
@@ -389,6 +426,11 @@ async fn handle_streaming_request(
                     &ask_result.answer,
                     ask_result.commands_executed.clone(),
                 );
+            }
+            // v0.0.905: Cache successful answers (only if not a clarification)
+            if ask_result.success && !ask_result.needs_clarification && !ask_result.answer.is_empty() {
+                state_guard.cache_answer(question_to_use, &ask_result.answer);
+                debug!("Cached answer for: {}", question_to_use);
             }
             // Cleanup old sessions periodically (also triggers periodic save to disk)
             state_guard.cleanup_sessions();

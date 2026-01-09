@@ -36,6 +36,9 @@ static SYSTEM_PROFILE: RwLock<Option<SystemProfile>> = RwLock::new(None);
 /// Cached performance config (loaded once at startup)
 static PERF_CONFIG: RwLock<Option<PerformanceConfig>> = RwLock::new(None);
 
+/// v0.0.905: Cached wiki config (embeddings setting)
+static WIKI_CONFIG: RwLock<Option<anna_shared::config::WikiConfig>> = RwLock::new(None);
+
 /// Command output cache (for performance - avoids re-running same commands)
 static COMMAND_CACHE: RwLock<Option<HashMap<String, CachedOutput>>> = RwLock::new(None);
 
@@ -45,6 +48,17 @@ struct CachedOutput {
     cached_at: Instant,
     is_static: bool,
 }
+
+/// v0.0.905: Cached recipe book (loaded once, reused)
+static RECIPE_BOOK_CACHE: RwLock<Option<CachedRecipeBook>> = RwLock::new(None);
+
+/// Recipe book with TTL
+struct CachedRecipeBook {
+    book: RecipeBook,
+    loaded_at: Instant,
+}
+
+const RECIPE_BOOK_TTL_SECS: u64 = 600; // 10 minutes - recipes don't change often
 
 /// v0.0.899: Resolution state machine for intelligent retry logic
 /// Replaces blind iteration count with explicit state tracking
@@ -188,6 +202,25 @@ pub fn reload_perf_config() {
     }
 }
 
+/// v0.0.905: Get cached wiki config
+fn get_wiki_config() -> anna_shared::config::WikiConfig {
+    // Check cache first
+    if let Ok(guard) = WIKI_CONFIG.read() {
+        if let Some(ref config) = *guard {
+            return config.clone();
+        }
+    }
+    // Load from disk
+    let config = AnnaConfig::load()
+        .map(|c| c.wiki)
+        .unwrap_or_default();
+    // Cache it
+    if let Ok(mut guard) = WIKI_CONFIG.write() {
+        *guard = Some(config.clone());
+    }
+    config
+}
+
 /// Check if a command is cacheable (static system info)
 fn is_static_command(cmd: &str) -> bool {
     let cmd_trimmed = cmd.trim();
@@ -243,6 +276,36 @@ fn cache_command(cmd: &str, output: &str) {
                 let ttl = if v.is_static { perf.static_command_cache_ttl_secs } else { perf.command_cache_ttl_secs };
                 v.cached_at.elapsed().as_secs() < ttl
             });
+        }
+    }
+}
+
+/// v0.0.905: Get cached recipe book or load it
+fn get_cached_recipe_book() -> Option<RecipeBook> {
+    // Check cache first
+    if let Ok(guard) = RECIPE_BOOK_CACHE.read() {
+        if let Some(ref cached) = *guard {
+            if cached.loaded_at.elapsed().as_secs() < RECIPE_BOOK_TTL_SECS {
+                debug!("Recipe book cache hit");
+                return Some(cached.book.clone());
+            }
+        }
+    }
+
+    // Cache miss or expired - load and cache
+    match RecipeBook::load() {
+        Ok(book) => {
+            if let Ok(mut guard) = RECIPE_BOOK_CACHE.write() {
+                *guard = Some(CachedRecipeBook {
+                    book: book.clone(),
+                    loaded_at: Instant::now(),
+                });
+            }
+            Some(book)
+        }
+        Err(e) => {
+            debug!("Failed to load recipe book: {}", e);
+            None
         }
     }
 }
@@ -1937,10 +2000,8 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         return None;
     }
 
-    // Load config to check if embeddings are enabled
-    let use_embeddings = anna_shared::config::AnnaConfig::load()
-        .map(|c| c.wiki.use_embeddings)
-        .unwrap_or(true);
+    // v0.0.905: Use cached wiki config
+    let use_embeddings = get_wiki_config().use_embeddings;
 
     // v0.0.893: Uses config timeout
     // v0.0.895: Uses centralized Ollama URL from config
@@ -2080,15 +2141,10 @@ struct WikiSearchResults {
 
 /// Try to answer using a recipe (fast path)
 /// Returns None if no suitable recipe found
+/// v0.0.905: Uses cached recipe book
 fn try_recipe_fast_path(question: &str) -> Option<(Recipe, String)> {
     let profile = get_system_profile();
-    let recipe_book = match RecipeBook::load() {
-        Ok(book) => book,
-        Err(e) => {
-            debug!("Failed to load recipe book: {}", e);
-            return None;
-        }
-    };
+    let recipe_book = get_cached_recipe_book()?;
 
     let matches = recipe_book.find_matches(question, &profile.system);
     if matches.is_empty() {
@@ -2125,12 +2181,28 @@ fn try_recipe_fast_path(question: &str) -> Option<(Recipe, String)> {
 }
 
 /// Mark a recipe as successful (for future matching)
+/// v0.0.905: Invalidates cache after modification
 fn mark_recipe_success(recipe_id: &str) {
-    if let Ok(mut book) = RecipeBook::load() {
-        book.mark_success(recipe_id);
-        if let Err(e) = book.save() {
-            warn!("Failed to save recipe book: {}", e);
+    // Use cached book if available, otherwise load
+    let mut book = match get_cached_recipe_book() {
+        Some(b) => b,
+        None => match RecipeBook::load() {
+            Ok(b) => b,
+            Err(e) => {
+                warn!("Failed to load recipe book: {}", e);
+                return;
+            }
         }
+    };
+
+    book.mark_success(recipe_id);
+    if let Err(e) = book.save() {
+        warn!("Failed to save recipe book: {}", e);
+    }
+
+    // Invalidate cache so next load gets fresh data
+    if let Ok(mut guard) = RECIPE_BOOK_CACHE.write() {
+        *guard = None;
     }
 }
 
