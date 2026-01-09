@@ -41,20 +41,242 @@ fn get_command_hints(question: &str) -> String {
     let q = question.to_lowercase();
     let mut hints: Vec<String> = Vec::new();
 
+    // === SYSTEM BASICS ===
+
+    // Load average
+    if q.contains("load") && q.contains("average") {
+        hints.push("cat /proc/loadavg".into());
+        hints.push("uptime".into());
+    }
+
+    // Memory details
+    if q.contains("memory") || q.contains("ram") || q.contains("cached") || q.contains("buffer") {
+        hints.push("free -h".into());
+        hints.push("cat /proc/meminfo | head -10".into());
+    }
+
+    // CPU frequency
+    if q.contains("frequency") || q.contains("freq") || q.contains("mhz") || q.contains("ghz") {
+        hints.push("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq".into());
+        hints.push("lscpu | grep 'MHz'".into());
+    }
+
+    // CPU threads/cores
+    if q.contains("thread") || q.contains("core") && q.contains("cpu") {
+        hints.push("nproc".into());
+        hints.push("lscpu | grep -E '(Thread|Core|CPU\\(s\\))'".into());
+    }
+
+    // CPU cache
+    if q.contains("cache") && (q.contains("l1") || q.contains("l2") || q.contains("l3") || q.contains("cpu")) {
+        hints.push("lscpu | grep -i cache".into());
+    }
+
+    // Hyperthreading/SMT
+    if q.contains("hyperthreading") || q.contains("smt") {
+        hints.push("lscpu | grep 'Thread(s) per core'".into());
+        hints.push("cat /sys/devices/system/cpu/smt/active 2>/dev/null".into());
+    }
+
+    // Last reboot
+    if q.contains("reboot") || q.contains("boot time") || q.contains("last boot") {
+        hints.push("who -b".into());
+        hints.push("uptime -s".into());
+        hints.push("last reboot | head -1".into());
+    }
+
+    // Uptime
+    if q.contains("uptime") || q.contains("running for") {
+        hints.push("uptime -p".into());
+    }
+
+    // Zombie processes
+    if q.contains("zombie") {
+        hints.push("ps aux | grep -c ' Z '".into());
+        hints.push("ps aux | awk '$8 ~ /Z/ {print}'".into());
+    }
+
+    // === STORAGE ===
+
+    // Disk/partition UUID
+    if q.contains("uuid") {
+        hints.push("blkid".into());
+        hints.push("findmnt -n -o UUID /".into());
+    }
+
+    // NVMe drives
+    if q.contains("nvme") {
+        hints.push("ls /dev/nvme*n1 2>/dev/null".into());
+        hints.push("nvme list 2>/dev/null".into());
+    }
+
+    // Disk serial
+    if q.contains("serial") && (q.contains("disk") || q.contains("drive") || q.contains("ssd")) {
+        hints.push("cat /sys/block/*/device/serial 2>/dev/null".into());
+        hints.push("lsblk -o NAME,SERIAL".into());
+    }
+
+    // TRIM support
+    if q.contains("trim") {
+        hints.push("lsblk -D".into());
+        hints.push("cat /sys/block/*/queue/discard_max_bytes 2>/dev/null".into());
+    }
+
+    // Swap usage
+    if q.contains("swap") {
+        hints.push("free -h | grep Swap".into());
+        hints.push("swapon --show".into());
+    }
+
+    // Inodes
+    if q.contains("inode") {
+        hints.push("df -i /".into());
+    }
+
+    // === BOOT/UEFI ===
+
+    // UEFI vs Legacy
+    if q.contains("uefi") || q.contains("bios") || q.contains("legacy") {
+        hints.push("[ -d /sys/firmware/efi ] && echo 'UEFI' || echo 'Legacy BIOS'".into());
+        hints.push("ls /sys/firmware/efi 2>/dev/null && echo UEFI || echo Legacy".into());
+    }
+
+    // Bootloader entries
+    if q.contains("bootloader") && q.contains("entr") {
+        hints.push("bootctl list 2>/dev/null".into());
+        hints.push("efibootmgr 2>/dev/null".into());
+    }
+
+    // Microcode
+    if q.contains("microcode") {
+        hints.push("dmesg | grep microcode | tail -3".into());
+        hints.push("cat /proc/cpuinfo | grep microcode | head -1".into());
+    }
+
+    // === NETWORK ===
+
+    // Wifi signal
+    if q.contains("wifi") && (q.contains("signal") || q.contains("strength")) {
+        hints.push("iw dev wlan0 link 2>/dev/null | grep signal".into());
+        hints.push("nmcli -f SIGNAL,SSID dev wifi 2>/dev/null | head -5".into());
+    }
+
+    // Wifi channel
+    if q.contains("wifi") && q.contains("channel") {
+        hints.push("iw dev wlan0 info 2>/dev/null | grep channel".into());
+        hints.push("iwlist wlan0 channel 2>/dev/null | grep Current".into());
+    }
+
+    // Network speed/link
+    if q.contains("network") && q.contains("speed") {
+        hints.push("cat /sys/class/net/*/speed 2>/dev/null".into());
+        hints.push("ethtool eth0 2>/dev/null | grep Speed".into());
+    }
+
+    // Ping
+    if q.contains("ping") {
+        hints.push("ping -c 1 google.com 2>/dev/null | grep time=".into());
+    }
+
+    // Ports listening
+    if q.contains("port") && (q.contains("listen") || q.contains("open")) {
+        hints.push("ss -tlnp 2>/dev/null | head -10".into());
+    }
+
+    // Routing
+    if q.contains("routing") || q.contains("route") || q.contains("gateway") {
+        hints.push("ip route".into());
+    }
+
+    // DNS/resolv
+    if q.contains("dns") || q.contains("nameserver") || q.contains("resolv") {
+        hints.push("cat /etc/resolv.conf".into());
+        hints.push("resolvectl status 2>/dev/null | head -10".into());
+    }
+
+    // === PACKAGES ===
+
+    // Package version (generic)
+    if q.contains("version") && q.contains("of") {
+        hints.push("pacman -Q PACKAGENAME 2>/dev/null".into());
+    }
+
+    // Glibc
+    if q.contains("glibc") || q.contains("libc") {
+        hints.push("pacman -Q glibc".into());
+        hints.push("ldd --version | head -1".into());
+    }
+
+    // Specific packages
+    if q.contains("lib32") {
+        hints.push("pacman -Q lib32-mesa lib32-vulkan-icd-loader 2>/dev/null".into());
+    }
+
+    if q.contains("wine") {
+        hints.push("pacman -Q wine 2>/dev/null".into());
+        hints.push("wine --version 2>/dev/null".into());
+    }
+
+    if q.contains("lutris") {
+        hints.push("pacman -Q lutris 2>/dev/null".into());
+        hints.push("which lutris 2>/dev/null".into());
+    }
+
+    if q.contains("pipewire") {
+        hints.push("pacman -Q pipewire 2>/dev/null".into());
+        hints.push("pipewire --version 2>/dev/null".into());
+    }
+
+    if q.contains("wireplumber") {
+        hints.push("pgrep -x wireplumber && echo running".into());
+        hints.push("systemctl --user is-active wireplumber".into());
+    }
+
+    // === DESKTOP/DISPLAY ===
+
     // Desktop/Theme queries
     if q.contains("theme") || q.contains("gtk") || q.contains("icon") || q.contains("cursor")
         || q.contains("font") || q.contains("dark mode") || q.contains("appearance") {
         hints.push("gsettings get org.gnome.desktop.interface gtk-theme".into());
         hints.push("gsettings get org.gnome.desktop.interface icon-theme".into());
         hints.push("gsettings get org.gnome.desktop.interface cursor-theme".into());
-        hints.push("gsettings get org.gnome.desktop.interface font-name".into());
         hints.push("gsettings get org.gnome.desktop.interface color-scheme".into());
     }
 
-    // Hardware sensors
+    // Window manager
+    if q.contains("window manager") || q.contains("wm") {
+        hints.push("echo $XDG_CURRENT_DESKTOP".into());
+        hints.push("wmctrl -m 2>/dev/null | head -1".into());
+    }
+
+    // Compositor
+    if q.contains("compositor") {
+        hints.push("pgrep -l 'picom|compton|mutter|kwin|sway' 2>/dev/null".into());
+    }
+
+    // DPI
+    if q.contains("dpi") {
+        hints.push("xdpyinfo 2>/dev/null | grep -i dpi".into());
+        hints.push("gsettings get org.gnome.desktop.interface text-scaling-factor".into());
+    }
+
+    // Screen brightness
+    if q.contains("brightness") {
+        hints.push("cat /sys/class/backlight/*/brightness 2>/dev/null".into());
+        hints.push("brightnessctl g 2>/dev/null".into());
+    }
+
+    // Night light
+    if q.contains("night") && q.contains("light") {
+        hints.push("gsettings get org.gnome.settings-daemon.plugins.color night-light-enabled".into());
+    }
+
+    // === HARDWARE SENSORS ===
+
+    // Temperature
     if q.contains("temperature") || q.contains("temp") || q.contains("thermal") || q.contains("hot") {
         hints.push("sensors 2>/dev/null | grep -E '(Core|temp|Tctl)' | head -5".into());
-        hints.push("cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | head -3".into());
+        hints.push("cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null".into());
     }
 
     // GPU temperature
@@ -63,57 +285,133 @@ fn get_command_hints(question: &str) -> String {
     }
 
     // Battery
-    if q.contains("battery") || q.contains("charge") || q.contains("power") || q.contains("plugged") {
+    if q.contains("battery") || q.contains("charge") || q.contains("plugged") {
         hints.push("cat /sys/class/power_supply/BAT*/capacity 2>/dev/null".into());
         hints.push("cat /sys/class/power_supply/BAT*/status 2>/dev/null".into());
         hints.push("acpi -b 2>/dev/null".into());
-        hints.push("upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null | grep -E '(state|percentage)'".into());
-    }
-
-    // Package queries - be specific about the package
-    if q.contains("installed") && !q.contains("how many") {
-        hints.push("pacman -Qi PACKAGENAME 2>/dev/null | head -2".into());
-        hints.push("which PACKAGENAME 2>/dev/null".into());
-    }
-
-    // Shell/dotfiles queries
-    if q.contains("alias") || q.contains("aliases") {
-        hints.push("alias 2>/dev/null | head -20".into());
-        hints.push("grep -h 'alias ' ~/.bashrc ~/.zshrc ~/.config/fish/config.fish 2>/dev/null | head -10".into());
-    }
-
-    if q.contains("path") && !q.contains("home") {
-        hints.push("echo $PATH | tr ':' '\\n'".into());
-    }
-
-    // Starship/prompt
-    if q.contains("starship") || q.contains("prompt") {
-        hints.push("which starship 2>/dev/null && starship --version".into());
-        hints.push("cat ~/.config/starship.toml 2>/dev/null | head -5".into());
-    }
-
-    // tmux
-    if q.contains("tmux") {
-        hints.push("which tmux 2>/dev/null && tmux -V".into());
-        hints.push("cat ~/.tmux.conf 2>/dev/null | head -5".into());
-    }
-
-    // Monitor/display
-    if q.contains("monitor") || q.contains("display") || q.contains("screen") {
-        hints.push("xrandr --query 2>/dev/null | grep -E '( connected|\\*)'".into());
-        hints.push("wlr-randr 2>/dev/null | head -10".into());
     }
 
     // RAM speed
     if q.contains("ram") && q.contains("speed") {
-        hints.push("dmidecode -t memory 2>/dev/null | grep -E '(Speed|Type):' | head -4".into());
+        hints.push("dmidecode -t memory 2>/dev/null | grep -E 'Speed:' | head -2".into());
     }
 
     // Motherboard
     if q.contains("motherboard") || q.contains("mainboard") || q.contains("mobo") {
         hints.push("cat /sys/class/dmi/id/board_{vendor,name,version} 2>/dev/null".into());
-        hints.push("dmidecode -t baseboard 2>/dev/null | grep -E '(Manufacturer|Product|Version)' | head -3".into());
     }
+
+    // === KERNEL/SYSTEM PARAMS ===
+
+    // Kernel parameters
+    if q.contains("sysctl") || q.contains("kernel param") {
+        hints.push("sysctl -a 2>/dev/null | head -20".into());
+    }
+
+    // Swappiness
+    if q.contains("swappiness") {
+        hints.push("cat /proc/sys/vm/swappiness".into());
+    }
+
+    // Overcommit
+    if q.contains("overcommit") {
+        hints.push("cat /proc/sys/vm/overcommit_memory".into());
+    }
+
+    // Magic SysRq
+    if q.contains("sysrq") || q.contains("magic") {
+        hints.push("cat /proc/sys/kernel/sysrq".into());
+    }
+
+    // Dirty ratio
+    if q.contains("dirty") && q.contains("ratio") {
+        hints.push("cat /proc/sys/vm/dirty_ratio".into());
+        hints.push("cat /proc/sys/vm/dirty_background_ratio".into());
+    }
+
+    // Hugepages
+    if q.contains("hugepage") || q.contains("thp") || q.contains("transparent") {
+        hints.push("cat /sys/kernel/mm/transparent_hugepage/enabled".into());
+        hints.push("grep -i huge /proc/meminfo".into());
+    }
+
+    // File limits
+    if q.contains("file") && (q.contains("limit") || q.contains("descriptor") || q.contains("ulimit")) {
+        hints.push("ulimit -n".into());
+        hints.push("cat /proc/sys/fs/file-max".into());
+    }
+
+    // === USER/SHELL ===
+
+    // Language/locale
+    if q.contains("language") || q.contains("locale") && !q.contains("keyboard") {
+        hints.push("echo $LANG".into());
+        hints.push("locale".into());
+    }
+
+    // Keyboard layout
+    if q.contains("keyboard") || q.contains("keymap") {
+        hints.push("localectl status | grep -i layout".into());
+        hints.push("setxkbmap -query 2>/dev/null".into());
+    }
+
+    // Timezone
+    if q.contains("timezone") || q.contains("time zone") {
+        hints.push("timedatectl | grep 'Time zone'".into());
+        hints.push("cat /etc/timezone 2>/dev/null".into());
+    }
+
+    // Date/time
+    if q.contains("date") || q.contains("time") && !q.contains("zone") {
+        hints.push("date '+%Y-%m-%d %H:%M:%S'".into());
+    }
+
+    // Users count
+    if q.contains("user") && (q.contains("how many") || q.contains("count")) {
+        hints.push("grep -c '/home' /etc/passwd".into());
+        hints.push("ls /home | wc -l".into());
+    }
+
+    // Available shells
+    if q.contains("shell") && q.contains("available") {
+        hints.push("cat /etc/shells".into());
+    }
+
+    // Default sh
+    if q.contains("default") && q.contains("sh") {
+        hints.push("ls -la /bin/sh".into());
+        hints.push("readlink /bin/sh".into());
+    }
+
+    // Umask
+    if q.contains("umask") {
+        hints.push("umask".into());
+    }
+
+    // Terminal/TERM
+    if q.contains("terminal") || q.contains("term") && !q.contains("temp") {
+        hints.push("echo $TERM".into());
+        hints.push("echo $TERMINAL".into());
+    }
+
+    // TTY
+    if q.contains("tty") {
+        hints.push("tty".into());
+    }
+
+    // SSH session
+    if q.contains("ssh") && q.contains("session") {
+        hints.push("echo $SSH_CONNECTION".into());
+        hints.push("who | grep pts".into());
+    }
+
+    // === NVIDIA ===
+    if q.contains("nvidia") {
+        hints.push("lsmod | grep nvidia".into());
+        hints.push("nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null".into());
+    }
+
+    // === PACMAN ===
 
     // Pacman cache
     if q.contains("cache") && q.contains("pacman") {
@@ -122,31 +420,33 @@ fn get_command_hints(question: &str) -> String {
 
     // Mirrors
     if q.contains("mirror") {
-        hints.push("head -20 /etc/pacman.d/mirrorlist | grep -v '^#'".into());
+        hints.push("head -10 /etc/pacman.d/mirrorlist | grep -v '^#'".into());
     }
 
-    // Kernel modules
-    if q.contains("module") || (q.contains("driver") && q.contains("loaded")) {
-        hints.push("lsmod | head -20".into());
-    }
-
-    // Nvidia specific
-    if q.contains("nvidia") {
-        hints.push("lsmod | grep nvidia".into());
-        hints.push("nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null".into());
-    }
-
-    // Fish shell
+    // === FISH SHELL ===
     if q.contains("fish") {
         hints.push("cat ~/.config/fish/config.fish 2>/dev/null | head -20".into());
-        hints.push("fish -c 'functions' 2>/dev/null | head -10".into());
+    }
+
+    // === TMUX/STARSHIP ===
+    if q.contains("tmux") {
+        hints.push("which tmux 2>/dev/null && tmux -V".into());
+    }
+
+    if q.contains("starship") {
+        hints.push("which starship 2>/dev/null && starship --version".into());
+    }
+
+    // Aliases
+    if q.contains("alias") {
+        hints.push("alias 2>/dev/null | head -20".into());
     }
 
     if hints.is_empty() {
         String::new()
     } else {
         format!("\n\nRecommended commands for this type of question:\n{}",
-            hints.iter().take(4).map(|h| format!("  {}", h)).collect::<Vec<_>>().join("\n"))
+            hints.iter().take(5).map(|h| format!("  {}", h)).collect::<Vec<_>>().join("\n"))
     }
 }
 

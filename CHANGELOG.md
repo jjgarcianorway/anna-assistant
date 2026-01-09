@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.871] - 2026-01-09
+
+### Added
+- **Comprehensive Command Hints** - Massively expanded command suggestions
+  - System: load average, memory details, CPU frequency, threads, cache, hyperthreading
+  - Storage: last reboot, UUID, NVMe, disk serial, TRIM, swap, inodes, zombie processes
+  - Boot: UEFI, bootloader type, microcode, boot entries
+  - Network: wifi signal/channel, network speed, ping, ports, routing, DNS, VPN
+  - Packages: glibc version, lib32 packages, wine, lutris, pipewire, wireplumber
+  - Desktop: compositor, DPI, brightness, night light, language, keyboard layout
+  - Sensors: temperature sources, battery details, RAM speed timing
+  - Kernel: swappiness, overcommit, sysrq, dirty ratio, hugepages, file limits
+  - Shell: users count, available shells, umask, terminal type, TTY, SSH detection
+
+### Improved
+- 40+ query categories now have specific command hints
+- LLM receives targeted suggestions for specialized questions
+- Better coverage for system internals via /proc and /sys
+
 ## [0.0.870] - 2026-01-09
 
 ### Added
