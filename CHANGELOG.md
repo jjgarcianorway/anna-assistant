@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.902] - 2026-01-09
+
+### Added
+- **Skip Known-Failure Commands** - Check memory before execution
+  - Loads known failures at start of each iteration
+  - Skips commands that failed on similar system tags
+  - Prevents wasting time on commands that already failed before
+
+- **Penalize Bad Experiences** - Reduce usefulness_score on contradictions
+  - When validation detects contradiction, finds related experiences
+  - Reduces usefulness_score (but keeps minimum 1)
+  - Bad experiences naturally sink in recall priority
+
+- **Auto-Compact Memory** - Automatic maintenance above 800 experiences
+  - Triggers compact when memory exceeds 800 experiences
+  - Keeps 700 most valuable (by usefulness and recency)
+  - Prevents memory bloat and performance degradation
+
+- **Smart Timeout Recovery** - Command-specific simplification hints
+  - `find` → suggest `locate` or `-maxdepth`
+  - `grep/rg` → suggest `head -20` limit
+  - `du` → suggest `-d1` depth or `df`
+  - `journalctl` → suggest `--since` or `--lines`
+  - Generic fallback: `timeout 5s` prefix or `| head -20`
+
+- **Single-Word Query Matching** - "RAM?" now matches memory clusters
+  - Short queries (< 2 words) get higher weight on semantic groups
+  - Single keyword match gives 0.4 score boost
+  - Semantic group match weight: 0.5 (vs 0.2 for longer queries)
+
 ## [0.0.901] - 2026-01-09
 
 ### Changed

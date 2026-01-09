@@ -697,13 +697,30 @@ pub fn validate_and_learn(answer: &str, command_output: &str, source_cmd: Option
     }
 
     // v0.0.899: Record contradictions for future prevention
+    // v0.0.902: Also penalize experiences that led to contradictions
     if !detected_contradictions.is_empty() {
         let cmd = source_cmd.unwrap_or("unknown");
         let mut store = ContradictionStore::load();
-        for (claim_type, wrong, correct) in detected_contradictions {
-            store.record(&claim_type, &wrong, &correct, cmd);
+        for (claim_type, wrong, correct) in &detected_contradictions {
+            store.record(claim_type, wrong, correct, cmd);
         }
         let _ = store.save();
+
+        // Penalize experiences that suggested this command
+        if let Ok(mut memory) = anna_shared::memory::Memory::load() {
+            let mut penalized = false;
+            for exp in memory.experiences.iter_mut() {
+                if exp.successful_commands.iter().any(|c| c == cmd || cmd.starts_with(c.split_whitespace().next().unwrap_or(""))) {
+                    // Reduce usefulness but don't go below 1
+                    exp.usefulness_score = exp.usefulness_score.saturating_sub(1).max(1);
+                    penalized = true;
+                }
+            }
+            if penalized {
+                let _ = memory.save();
+                tracing::debug!("Penalized experiences for contradiction from command: {}", cmd);
+            }
+        }
     }
 
     confidence = confidence.max(0.0);

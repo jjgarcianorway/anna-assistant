@@ -834,6 +834,7 @@ fn extract_semantic_groups(question: &str) -> Vec<String> {
 
 /// Calculate similarity between a question and a cluster
 /// v0.0.893: Fixed edge case for very short questions
+/// v0.0.902: Better handling of single-word queries via semantic groups
 fn calculate_cluster_similarity(question: &str, cluster: &QuestionCluster) -> f32 {
     let q_lower = question.to_lowercase();
     let q_canonical = canonicalize_question(question);
@@ -849,24 +850,36 @@ fn calculate_cluster_similarity(question: &str, cluster: &QuestionCluster) -> f3
     let canonical_words: Vec<&str> = cluster.canonical.split_whitespace().collect();
     let q_words: Vec<&str> = q_canonical.split_whitespace().collect();
     let max_words = canonical_words.len().max(q_words.len()).max(1);
+
+    // v0.0.902: For short queries, rely more on semantic groups
+    let is_short_query = q_words.len() < 2 || q_keywords.len() < 2;
+
     if canonical_words.len() >= 2 && q_words.len() >= 2 {
         let common_words = canonical_words.iter().filter(|w| q_words.contains(w)).count();
         score += (common_words as f32 / max_words as f32) * 0.4;
     }
 
-    // v0.0.893: Require minimum 2 keywords
+    // v0.0.893: Require minimum 2 keywords (unless short query)
     let max_kw = q_keywords.len().max(cluster.keywords.len()).max(1);
     if q_keywords.len() >= 2 && cluster.keywords.len() >= 2 {
         let keyword_matches = q_keywords.iter().filter(|k| cluster.keywords.contains(k)).count();
         score += (keyword_matches as f32 / max_kw as f32) * 0.3;
+    } else if is_short_query && !q_keywords.is_empty() {
+        // v0.0.902: Single-keyword match for short queries (e.g., "RAM?" matching "ram" keyword)
+        let keyword_matches = q_keywords.iter().filter(|k| cluster.keywords.contains(k)).count();
+        if keyword_matches > 0 {
+            score += 0.4;  // Strong signal for single keyword match on short query
+        }
     }
 
-    // Semantic group overlap (groups are already aggregated, no min needed)
+    // Semantic group overlap - v0.0.902: Higher weight for short queries
     let cluster_groups = extract_semantic_groups(&cluster.canonical);
     let max_groups = q_groups.len().max(cluster_groups.len()).max(1);
     if !q_groups.is_empty() && !cluster_groups.is_empty() {
         let group_matches = q_groups.iter().filter(|g| cluster_groups.contains(g)).count();
-        score += (group_matches as f32 / max_groups as f32) * 0.2;
+        // Short queries rely more on semantic groups (0.5 vs 0.2)
+        let weight = if is_short_query { 0.5 } else { 0.2 };
+        score += (group_matches as f32 / max_groups as f32) * weight;
     }
 
     // Check variation similarity

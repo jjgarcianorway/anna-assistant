@@ -635,10 +635,25 @@ fn get_recovery_prompt(error_type: &CommandErrorType, cmd: &str) -> String {
             "Path not found in '{}'. Suggest: 1) Commands to find the correct path, OR 2) Alternative locations to check.",
             cmd
         ),
-        CommandErrorType::Timeout => format!(
-            "Command '{}' timed out. Suggest: 1) A faster alternative, OR 2) A way to limit scope (e.g., specific directory).",
-            cmd
-        ),
+        CommandErrorType::Timeout => {
+            // v0.0.902: Smart timeout recovery with specific simplification suggestions
+            let base_cmd = cmd.split_whitespace().next().unwrap_or(cmd);
+            let suggestions = match base_cmd {
+                "find" => "Use 'locate' instead, or add '-maxdepth 2' to limit search depth",
+                "grep" | "rg" => "Add 'head -20' to limit output, or search specific files instead of recursive",
+                "du" => "Use 'du -d1' to limit depth, or 'df' for quick disk overview",
+                "ls" => "Use 'ls -la | head -20' to limit output",
+                "journalctl" => "Add '--since \"1 hour ago\"' or '--lines=50' to limit scope",
+                "ps" => "Use 'ps -ef | head -30' or 'ps --pid $$' for specific process",
+                "pacman" => "Use 'pacman -Qs' for local search instead of '-Ss' for remote",
+                "systemctl" => "Add '--no-pager' and target specific unit",
+                _ => "Try with 'timeout 5s' prefix, or limit output with '| head -20'"
+            };
+            format!(
+                "Command '{}' timed out. {}. Suggest a simpler/faster alternative.",
+                cmd, suggestions
+            )
+        },
         CommandErrorType::SyntaxError => format!(
             "Syntax error in '{}'. Suggest the corrected command with proper flags/syntax.",
             cmd
@@ -2115,12 +2130,21 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
     if memory_result.was_recovered {
         warn!("Memory recovered from failure: {}", memory_result.error.as_deref().unwrap_or("unknown"));
     }
-    let memory = memory_result.memory;
+    let mut memory = memory_result.memory;
 
     // Check memory health and log any issues
     let health_issues = memory.health_check();
     for issue in &health_issues {
         warn!("Memory health: {}", issue);
+    }
+
+    // v0.0.902: Auto-compact if memory is getting too large
+    if memory.experiences.len() > 800 {
+        info!("Auto-compacting memory ({} experiences)", memory.experiences.len());
+        memory.compact(700);  // Keep 700 most valuable experiences
+        if let Err(e) = memory.save() {
+            warn!("Failed to save compacted memory: {}", e);
+        }
     }
 
     let recalled = memory.recall_with_clusters(question, 3);  // Enhanced with cluster awareness
@@ -3211,9 +3235,32 @@ Commands:"#,
         // v0.0.891: Limit alternative LLM calls to 2 per iteration
         let mut alternatives_budget: u32 = 2;
 
+        // v0.0.902: Load known failures once per iteration to skip commands that failed before
+        let known_failures: Vec<String> = Memory::load()
+            .ok()
+            .map(|m| {
+                m.experiences.iter()
+                    .flat_map(|e| e.context.failed_commands.iter())
+                    .filter(|fc| {
+                        // Check if failed on similar system
+                        let current_tags = ExperienceContext::current_system_tags();
+                        fc.system_tags.iter().any(|t| current_tags.iter().any(|ct| ct.contains(t) || t.contains(ct)))
+                    })
+                    .map(|fc| fc.command.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+
         let mut combined_output = String::new();
         for cmd in &commands_to_run {
             let cmd = cmd.as_str();
+
+            // v0.0.902: Skip commands known to fail on this system
+            if known_failures.iter().any(|f| cmd.starts_with(f) || f.starts_with(cmd.split_whitespace().next().unwrap_or(""))) {
+                info!("Skipping known-failure command: {}", cmd);
+                continue;
+            }
+
             // Security check - reject dangerous commands
             if is_dangerous_command(cmd) {
                 warn!("Rejected dangerous command: {}", cmd);
