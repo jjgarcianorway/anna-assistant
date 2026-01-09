@@ -658,9 +658,51 @@ fn get_recovery_prompt(error_type: &CommandErrorType, cmd: &str) -> String {
     }
 }
 
+/// v0.0.900: Record a command failure in memory for future avoidance
+fn record_command_failure(cmd: &str, error_type: &CommandErrorType) {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    static mut FAILURES_THIS_SESSION: Option<std::sync::Mutex<Vec<(String, String)>>> = None;
+
+    // Initialize storage once
+    INIT.call_once(|| {
+        unsafe {
+            FAILURES_THIS_SESSION = Some(std::sync::Mutex::new(Vec::new()));
+        }
+    });
+
+    // Avoid recording too many failures per session
+    let failure_key = (cmd.to_string(), format!("{:?}", error_type));
+    unsafe {
+        if let Some(ref failures) = FAILURES_THIS_SESSION {
+            let mut guard = failures.lock().unwrap();
+            if guard.contains(&failure_key) {
+                return; // Already recorded this session
+            }
+            if guard.len() > 50 {
+                return; // Rate limit
+            }
+            guard.push(failure_key);
+        }
+    }
+
+    // Load memory and record failure
+    if let Ok(mut memory) = Memory::load() {
+        // Find experiences that suggested this command and mark it as failed
+        for exp in memory.experiences.iter_mut() {
+            if exp.successful_commands.contains(&cmd.to_string()) {
+                exp.context.record_failure(cmd, &format!("{:?}", error_type));
+            }
+        }
+        let _ = memory.save();
+        debug!("Recorded command failure: {} ({:?})", cmd, error_type);
+    }
+}
+
 /// Execute a command with retry logic - tries alternatives if first attempt fails
 /// v0.0.891: Added alternatives_budget to rate-limit LLM calls
 /// v0.0.897: Added error classification for intelligent recovery
+/// v0.0.900: Added failure recording for learning
 async fn execute_command_with_retry(
     model: &str,
     cmd: &str,
@@ -689,6 +731,9 @@ async fn execute_command_with_retry(
             if error_type == CommandErrorType::Unknown && !output.trim().is_empty() {
                 return (output, all_commands);
             }
+
+            // v0.0.900: Record this failure in memory for future avoidance
+            record_command_failure(cmd, &error_type);
 
             // v0.0.891: Check budget before asking LLM for alternatives
             if *alternatives_budget == 0 {
@@ -736,6 +781,9 @@ async fn execute_command_with_retry(
             let error_msg = format!("Error: {}", e);
             let (error_type, hint) = classify_command_error("", Some(&error_msg));
             let recovery_hint = get_recovery_prompt(&error_type, cmd);
+
+            // v0.0.900: Record this failure in memory
+            record_command_failure(cmd, &error_type);
 
             warn!("Command '{}' failed ({:?}): {}. Recovery: {}", cmd, error_type, hint, recovery_hint);
 
@@ -2635,6 +2683,10 @@ fn extract_context_from_question(question: &str) -> ExperienceContext {
     let q_lower = question.to_lowercase();
     let mut context = ExperienceContext::default();
 
+    // v0.0.900: Add current system tags for environment-aware learning
+    context.system_tags = ExperienceContext::current_system_tags();
+    context.record_success(); // Record which system tags were present on success
+
     // Detect if about a specific package
     if q_lower.contains("install") || q_lower.contains("pacman") {
         // Try to extract package name
@@ -2934,10 +2986,9 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     let system_context = gather_system_context();
     debug!("System context: {}", system_context);
 
-    // SPEED OPTIMIZATION: Skip wiki search for high-confidence FACTUAL queries
-    // v0.0.893: Uses config threshold
-    let skip_wiki = understanding.category == IntentCategory::Factual
-        && understanding.confidence >= get_perf_config().high_confidence_threshold;
+    // SPEED OPTIMIZATION: Skip wiki search for queries that don't need it
+    // v0.0.900: Enhanced intent-aware wiki pre-filtering
+    let skip_wiki = should_skip_wiki(&understanding, question);
 
     let mut wiki_context = String::new();
     let mut wiki_commands: Vec<String> = Vec::new();
@@ -4332,6 +4383,82 @@ fn execute_command(cmd: &str) -> Result<String> {
     }
 
     Ok(result)
+}
+
+/// v0.0.900: Enhanced wiki pre-filtering based on intent and question type
+/// Skip wiki for queries that can be answered from commands alone
+fn should_skip_wiki(understanding: &anna_shared::rpc::DeepUnderstanding, question: &str) -> bool {
+    use anna_shared::rpc::IntentCategory;
+
+    let q_lower = question.to_lowercase();
+
+    // 1. High-confidence factual queries (original behavior)
+    if understanding.category == IntentCategory::Factual
+        && understanding.confidence >= get_perf_config().high_confidence_threshold {
+        info!("Skip wiki: high-confidence factual query");
+        return true;
+    }
+
+    // 2. System status queries - always answerable from commands
+    let system_status_patterns = [
+        "how much ram", "how much memory", "memory usage", "ram usage",
+        "disk space", "disk usage", "free space", "storage",
+        "what kernel", "kernel version", "uname",
+        "cpu", "processor", "cores", "threads",
+        "uptime", "how long", "been running",
+        "running services", "active services", "failed services",
+        "installed packages", "package count", "how many packages",
+        "ip address", "network interface", "mac address",
+        "hostname", "what is my host",
+        "gpu", "graphics card", "video card",
+        "temperature", "fan speed", "sensors",
+        "battery", "power", "charging",
+        "users logged", "who is logged",
+        "process", "pid", "running apps",
+    ];
+
+    if system_status_patterns.iter().any(|p| q_lower.contains(p)) {
+        info!("Skip wiki: system status query matches pattern");
+        return true;
+    }
+
+    // 3. Questions with specific entity checks (is X installed/running)
+    let entity_check_patterns = [
+        "is .* installed", "is .* running", "is .* active", "is .* enabled",
+        "status of", "check if", "do i have",
+    ];
+
+    for pattern in entity_check_patterns {
+        if let Ok(re) = regex::Regex::new(&format!("(?i){}", pattern)) {
+            if re.is_match(question) {
+                info!("Skip wiki: entity check query");
+                return true;
+            }
+        }
+    }
+
+    // 4. Simple HOWTO with known system context
+    if understanding.category == IntentCategory::HowTo {
+        // Skip wiki for basic package operations - we know pacman
+        let simple_howto = [
+            "install ", "uninstall ", "remove ", "update ", "upgrade ",
+            "enable ", "disable ", "start ", "stop ", "restart ",
+        ];
+
+        if simple_howto.iter().any(|p| q_lower.contains(p))
+            && understanding.confidence >= 0.7 {
+            info!("Skip wiki: simple howto with known system context");
+            return true;
+        }
+    }
+
+    // 5. Circuit breaker open - don't waste time
+    if is_wiki_circuit_open() {
+        info!("Skip wiki: circuit breaker open");
+        return true;
+    }
+
+    false
 }
 
 /// Check if a command is safe to cache (read-only, no side effects)

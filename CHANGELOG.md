@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.900] - 2026-01-09
+
+### Added
+- **Intent-Aware Wiki Pre-filtering** - Skips wiki search for simple system queries
+  - `should_skip_wiki()` detects factual system queries that don't need wiki
+  - Pattern detection for: status queries (RAM, disk, CPU), entity checks (is X installed?)
+  - Respects DeepUnderstanding confidence - only skips for high-confidence factual queries
+  - Reduces latency by 1-2s for simple "what is my RAM?" type questions
+
+- **System-Context Command Tracking** - Environment-aware learning
+  - `ExperienceContext::current_system_tags()` detects GPU (nvidia/amd/intel), display server (wayland/x11), DE (gnome/kde/hyprland), filesystem (btrfs/ext4/zfs)
+  - `system_match_score()` boosts recall relevance for matching system contexts
+  - `record_success()` and `record_failure()` track which commands work where
+  - `is_known_failure()` checks if a command has failed on similar systems
+
+- **Command Success/Failure Memory** - Learn what works where
+  - `FailedCommand` struct records: command, error_type, system_tags, timestamp
+  - `record_command_failure()` persists failures when commands fail with retry
+  - Rate-limited to 50 failures/session to avoid memory bloat
+  - Experiences now track both success_tags and failed_commands per context
+
 ## [0.0.899] - 2026-01-09
 
 ### Added

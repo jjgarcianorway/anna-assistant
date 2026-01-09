@@ -75,6 +75,140 @@ pub struct ExperienceContext {
 
     /// System-specific context (e.g., "wayland", "nvidia", "btrfs")
     pub system_tags: Vec<String>,
+
+    /// v0.0.900: Commands that failed on this system context
+    #[serde(default)]
+    pub failed_commands: Vec<FailedCommand>,
+
+    /// v0.0.900: System tags where commands succeeded
+    #[serde(default)]
+    pub success_tags: Vec<String>,
+}
+
+/// v0.0.900: Record of a command that failed in a specific context
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedCommand {
+    pub command: String,
+    pub error_type: String,
+    pub system_tags: Vec<String>,
+    pub failed_at: String,
+}
+
+impl ExperienceContext {
+    /// v0.0.900: Get current system tags from profile
+    pub fn current_system_tags() -> Vec<String> {
+        use crate::profile::SystemProfile;
+
+        let mut tags = Vec::new();
+
+        if let Ok(profile) = SystemProfile::load() {
+            // GPU - check PCI devices for VGA controllers
+            for pci in &profile.hardware.pci_devices {
+                // Check class for VGA (030000) or Display (0380xx) or 3D (0302xx)
+                let class_lower = pci.class.to_lowercase();
+                let device_lower = pci.device.to_lowercase();
+                let vendor_lower = pci.vendor.to_lowercase();
+
+                if class_lower.contains("vga") || class_lower.contains("display") || class_lower.contains("3d") {
+                    if vendor_lower.contains("nvidia") || device_lower.contains("nvidia") {
+                        tags.push("nvidia".to_string());
+                    } else if vendor_lower.contains("amd") || vendor_lower.contains("advanced micro") || device_lower.contains("radeon") {
+                        tags.push("amd-gpu".to_string());
+                    } else if vendor_lower.contains("intel") {
+                        tags.push("intel-gpu".to_string());
+                    }
+                    break; // Only need first GPU
+                }
+            }
+        }
+
+        // Display server (infer from environment)
+        if std::env::var("WAYLAND_DISPLAY").is_ok() {
+            tags.push("wayland".to_string());
+        } else if std::env::var("DISPLAY").is_ok() {
+            tags.push("x11".to_string());
+        }
+
+        // Desktop environment
+        if let Ok(de) = std::env::var("XDG_CURRENT_DESKTOP") {
+            let de_lower = de.to_lowercase();
+            if de_lower.contains("gnome") {
+                tags.push("gnome".to_string());
+            } else if de_lower.contains("kde") || de_lower.contains("plasma") {
+                tags.push("kde".to_string());
+            } else if de_lower.contains("hyprland") {
+                tags.push("hyprland".to_string());
+            } else if de_lower.contains("sway") {
+                tags.push("sway".to_string());
+            }
+        }
+
+        // Filesystem (check root)
+        if let Ok(output) = std::process::Command::new("findmnt")
+            .args(["-n", "-o", "FSTYPE", "/"])
+            .output()
+        {
+            let fstype = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
+            if fstype == "btrfs" {
+                tags.push("btrfs".to_string());
+            } else if fstype == "ext4" {
+                tags.push("ext4".to_string());
+            } else if fstype == "zfs" {
+                tags.push("zfs".to_string());
+            }
+        }
+
+        tags
+    }
+
+    /// v0.0.900: Check if a command has failed on current system
+    pub fn is_known_failure(&self, command: &str) -> bool {
+        let current_tags = Self::current_system_tags();
+
+        self.failed_commands.iter().any(|fc| {
+            fc.command == command &&
+            fc.system_tags.iter().any(|t| current_tags.contains(t))
+        })
+    }
+
+    /// v0.0.900: Record a command failure
+    pub fn record_failure(&mut self, command: &str, error_type: &str) {
+        let tags = Self::current_system_tags();
+
+        // Don't duplicate
+        if !self.failed_commands.iter().any(|fc| fc.command == command) {
+            self.failed_commands.push(FailedCommand {
+                command: command.to_string(),
+                error_type: error_type.to_string(),
+                system_tags: tags,
+                failed_at: chrono::Utc::now().to_rfc3339(),
+            });
+        }
+    }
+
+    /// v0.0.900: Record success tags
+    pub fn record_success(&mut self) {
+        let tags = Self::current_system_tags();
+        for tag in tags {
+            if !self.success_tags.contains(&tag) {
+                self.success_tags.push(tag);
+            }
+        }
+    }
+
+    /// v0.0.900: Score boost for matching system context
+    pub fn system_match_score(&self) -> f32 {
+        let current_tags = Self::current_system_tags();
+        if current_tags.is_empty() || self.success_tags.is_empty() {
+            return 0.0;
+        }
+
+        let matches = current_tags.iter()
+            .filter(|t| self.success_tags.contains(t))
+            .count();
+
+        (matches as f32 / current_tags.len() as f32) * 0.2  // Up to 20% boost
+    }
 }
 
 /// The memory store
