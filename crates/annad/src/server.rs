@@ -378,24 +378,28 @@ async fn handle_streaming_request(
 
     let result = execute_question_streaming(&model, question_to_use, session_context.as_deref(), &mut writer).await;
 
-    // Save turn to session after execution
-    if result.is_ok() {
-        let mut state_guard = state.write().await;
-        if let Some(session) = state_guard.sessions.sessions.get_mut(session_id) {
-            // We don't have the answer here since it was streamed, but we can at least record the question
-            // The full turn recording would need to be done inside execute_question_streaming
-            session.last_activity = chrono::Utc::now().to_rfc3339();
+    // v0.0.892: Record full turn to session after execution
+    match &result {
+        Ok(ask_result) => {
+            let mut state_guard = state.write().await;
+            if let Some(session) = state_guard.sessions.sessions.get_mut(session_id) {
+                // Record the full turn: question, answer, and commands
+                session.add_turn(
+                    question,
+                    &ask_result.answer,
+                    ask_result.commands_executed.clone(),
+                );
+            }
+            // Cleanup old sessions periodically (also triggers periodic save to disk)
+            state_guard.cleanup_sessions();
         }
-        // Cleanup old sessions periodically (also triggers periodic save to disk)
-        state_guard.cleanup_sessions();
-    }
-
-    if let Err(e) = result {
-        let response = StreamingResponse::Error {
-            message: format!("Execution error: {}", e),
-        };
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        Err(e) => {
+            let response = StreamingResponse::Error {
+                message: format!("Execution error: {}", e),
+            };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        }
     }
 
     Ok(())

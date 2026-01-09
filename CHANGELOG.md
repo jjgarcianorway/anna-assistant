@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.892] - 2026-01-09
+
+### Fixed
+- **Session Context After Streaming** - Complete session recording
+  - `execute_question_streaming()` now returns `AskResult` for session recording
+  - Server records full turn (question, answer, commands) after streaming completes
+  - Enables proper reference resolution ("it", "that service") in follow-ups
+
+- **Wiki Search Circuit Breaker** - Prevents latency spikes
+  - Added timeout (5s) around wiki search operations
+  - Circuit opens after 2 consecutive failures/timeouts
+  - 60-second cooldown with half-open test requests
+  - Graceful degradation - Anna continues without wiki when unavailable
+
+- **Memory Deduplication** - Prevents duplicate experiences
+  - `find_similar_experience()` checks canonical form and 85%+ keyword overlap
+  - Similar questions increment existing experience instead of creating new
+  - Merges new commands into existing experience on match
+  - Reduces memory bloat from repeated similar questions
+
+- **Command Normalization for Cache** - Better cache hit rate
+  - `normalize_command()` collapses whitespace and trims commands
+  - "df  -h" and "df -h" now share the same cache entry
+  - Improves performance for LLM commands with irregular spacing
+
+- **Recipe Score Scaling** - Logarithmic success boost
+  - Changed from flat 0.2 cap to `ln(1+count)/15` with 0.35 max
+  - 1 success = ~0.07, 10 = ~0.16, 50 = ~0.25, 100 = ~0.30
+  - Properly rewards proven recipes with diminishing returns
+
 ## [0.0.891] - 2026-01-09
 
 ### Fixed

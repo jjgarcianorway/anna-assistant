@@ -302,8 +302,45 @@ impl Memory {
     }
 
     /// Learn from a successful interaction
+    /// v0.0.892: Added deduplication - merges similar experiences instead of creating duplicates
     pub fn learn(&mut self, question: &str, commands: Vec<String>, answer: &str, context: ExperienceContext) {
         let keywords = extract_keywords(question);
+        let canonical = canonicalize_question(question);
+
+        // v0.0.892: Check for near-duplicate experience first
+        if let Some(existing) = self.find_similar_experience(&canonical, &keywords) {
+            // Merge into existing experience
+            let exp_id = existing.to_string();
+            if let Some(exp) = self.experiences.iter_mut().find(|e| e.id == exp_id) {
+                exp.usefulness_score += 1;
+                exp.last_used = Some(chrono::Utc::now().to_rfc3339());
+
+                // Merge new commands into existing
+                for cmd in &commands {
+                    if !exp.successful_commands.contains(cmd) {
+                        exp.successful_commands.push(cmd.clone());
+                    }
+                }
+
+                // Update patterns with merged commands
+                self.update_patterns(&keywords, &commands);
+
+                // Find cluster and update its commands
+                if let Some(cluster) = self.clusters.iter_mut().find(|c| c.experience_ids.contains(&exp_id)) {
+                    for cmd in &commands {
+                        if let Some(cc) = cluster.effective_commands.iter_mut().find(|c| &c.command == cmd) {
+                            cc.success_count += 1;
+                        } else {
+                            cluster.effective_commands.push(ClusterCommand {
+                                command: cmd.clone(),
+                                success_count: 1,
+                            });
+                        }
+                    }
+                }
+                return;
+            }
+        }
 
         // Find or create a semantic cluster for this question (v0.0.889)
         let cluster_id = self.find_or_create_cluster(question, &keywords);
@@ -334,6 +371,31 @@ impl Memory {
 
         // Update patterns
         self.update_patterns(&keywords, &commands);
+    }
+
+    /// v0.0.892: Find a near-duplicate experience that should be merged instead of creating new
+    fn find_similar_experience(&self, canonical: &str, keywords: &[String]) -> Option<String> {
+        const SIMILARITY_THRESHOLD: f32 = 0.85;
+
+        for exp in &self.experiences {
+            let exp_canonical = canonicalize_question(&exp.question);
+
+            // Exact canonical match
+            if exp_canonical == *canonical {
+                return Some(exp.id.clone());
+            }
+
+            // Very high keyword overlap (85%+)
+            if !keywords.is_empty() && !exp.keywords.is_empty() {
+                let matching = keywords.iter().filter(|k| exp.keywords.contains(k)).count();
+                let overlap = matching as f32 / keywords.len().max(exp.keywords.len()) as f32;
+                if overlap >= SIMILARITY_THRESHOLD {
+                    return Some(exp.id.clone());
+                }
+            }
+        }
+
+        None
     }
 
     /// Update patterns based on new experience

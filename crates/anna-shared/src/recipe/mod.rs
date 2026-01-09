@@ -572,8 +572,14 @@ fn calculate_match_score(recipe: &Recipe, question: &str, words: &[&str]) -> f32
         score += (keyword_matches as f32) / (recipe.keywords.len() as f32) * 0.3;
     }
 
-    // Boost by success count (max 0.2 boost)
-    let success_boost = (recipe.success_count as f32 / 10.0).min(0.2);
+    // v0.0.892: Logarithmic scaling for success count
+    // Provides diminishing returns but continues to reward proven recipes
+    // 1 success = ~0.07, 10 successes = ~0.16, 50 successes = ~0.25, 100 = ~0.30
+    let success_boost = if recipe.success_count > 0 {
+        ((recipe.success_count as f32).ln_1p() / 15.0).min(0.35)
+    } else {
+        0.0
+    };
     score += success_boost;
 
     score

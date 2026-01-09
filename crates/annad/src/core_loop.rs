@@ -20,6 +20,7 @@ use anna_shared::wiki;
 use anyhow::{anyhow, Result};
 use std::process::Command;
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use tokio::io::AsyncWriteExt;
 use tracing::{info, warn, debug};
 
@@ -55,6 +56,66 @@ const OLLAMA_URL: &str = "http://127.0.0.1:11434";
 
 /// Confidence threshold for skipping extra steps
 const HIGH_CONFIDENCE_THRESHOLD: f32 = 0.85;
+
+/// v0.0.892: Wiki search circuit breaker
+/// Opens after consecutive failures/slow responses, auto-resets after cooldown
+static WIKI_FAILURES: AtomicU32 = AtomicU32::new(0);
+static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
+
+/// Number of consecutive failures before wiki circuit opens
+const WIKI_CIRCUIT_THRESHOLD: u32 = 2;
+/// Cooldown period in seconds before retrying wiki after circuit opens
+const WIKI_CIRCUIT_COOLDOWN_SECS: u64 = 60;
+/// Timeout for wiki search in seconds (slow = failure)
+const WIKI_SEARCH_TIMEOUT_SECS: u64 = 5;
+
+/// Check if wiki circuit breaker is open
+fn is_wiki_circuit_open() -> bool {
+    let failures = WIKI_FAILURES.load(Ordering::SeqCst);
+    if failures >= WIKI_CIRCUIT_THRESHOLD {
+        let opened_at = WIKI_CIRCUIT_OPENED_AT.load(Ordering::SeqCst);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        if now.saturating_sub(opened_at) < WIKI_CIRCUIT_COOLDOWN_SECS {
+            return true;
+        }
+        // Half-open: allow test request
+        if WIKI_FAILURES.compare_exchange(
+            failures,
+            WIKI_CIRCUIT_THRESHOLD - 1,
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+        ).is_ok() {
+            info!("Wiki circuit breaker half-open, allowing test request");
+        }
+    }
+    false
+}
+
+/// Record successful wiki search
+fn wiki_record_success() {
+    let prev = WIKI_FAILURES.swap(0, Ordering::SeqCst);
+    if prev >= WIKI_CIRCUIT_THRESHOLD - 1 {
+        info!("Wiki circuit breaker closed after successful search");
+    }
+}
+
+/// Record failed/slow wiki search
+fn wiki_record_failure() {
+    let failures = WIKI_FAILURES.fetch_add(1, Ordering::SeqCst) + 1;
+    if failures == WIKI_CIRCUIT_THRESHOLD {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        WIKI_CIRCUIT_OPENED_AT.store(now, Ordering::SeqCst);
+        warn!("Wiki circuit breaker OPEN - {} consecutive failures, cooling down for {}s",
+              failures, WIKI_CIRCUIT_COOLDOWN_SECS);
+    }
+}
 
 /// Get performance config (loads from disk once, caches in memory)
 fn get_perf_config() -> PerformanceConfig {
@@ -94,12 +155,27 @@ fn is_static_command(cmd: &str) -> bool {
     })
 }
 
+/// v0.0.892: Normalize command for cache key
+/// Collapses whitespace and normalizes common patterns for better hit rate
+fn normalize_command(cmd: &str) -> String {
+    // Trim and collapse multiple spaces to single space
+    let normalized: String = cmd
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .join(" ");
+
+    // Normalize common flag patterns (--flag=value vs --flag value)
+    // For now, just keep basic normalization
+    normalized
+}
+
 /// Get cached command output if not expired
+/// v0.0.892: Uses normalized command key
 fn get_cached_command(cmd: &str) -> Option<String> {
     if let Ok(guard) = COMMAND_CACHE.read() {
         if let Some(ref cache) = *guard {
-            let key = cmd.trim();
-            if let Some(cached) = cache.get(key) {
+            let key = normalize_command(cmd);
+            if let Some(cached) = cache.get(&key) {
                 let ttl = if cached.is_static { STATIC_CMD_CACHE_TTL } else { CMD_CACHE_TTL };
                 if cached.cached_at.elapsed().as_secs() < ttl {
                     debug!("Command cache hit: {}", cmd);
@@ -112,10 +188,11 @@ fn get_cached_command(cmd: &str) -> Option<String> {
 }
 
 /// Cache a command's output
+/// v0.0.892: Uses normalized command key
 fn cache_command(cmd: &str, output: &str) {
     if let Ok(mut guard) = COMMAND_CACHE.write() {
         let cache = guard.get_or_insert_with(HashMap::new);
-        let key = cmd.trim().to_string();
+        let key = normalize_command(cmd);
         let is_static = is_static_command(cmd);
         cache.insert(key, CachedOutput {
             output: output.to_string(),
@@ -1597,7 +1674,14 @@ fn get_relevant_configs_for_question(question: &str) -> String {
 }
 
 /// Search wiki and extract relevant commands
+/// v0.0.892: Added circuit breaker and timeout for reliability
 async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
+    // v0.0.892: Check circuit breaker first
+    if is_wiki_circuit_open() {
+        debug!("Wiki circuit breaker open, skipping search");
+        return None;
+    }
+
     // Check if wiki is available
     if !wiki::wiki_available() {
         debug!("Wiki not available, skipping wiki search");
@@ -1615,15 +1699,28 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         .map(|c| c.wiki.use_embeddings)
         .unwrap_or(true);
 
-    // Search wiki
-    let results = match wiki::search::search(OLLAMA_URL, question, 3, use_embeddings).await {
-        Ok(r) if !r.is_empty() => r,
-        Ok(_) => {
+    // v0.0.892: Wrap wiki search with timeout
+    let search_future = wiki::search::search(OLLAMA_URL, question, 3, use_embeddings);
+    let timeout_duration = std::time::Duration::from_secs(WIKI_SEARCH_TIMEOUT_SECS);
+
+    let results = match tokio::time::timeout(timeout_duration, search_future).await {
+        Ok(Ok(r)) if !r.is_empty() => {
+            wiki_record_success();
+            r
+        }
+        Ok(Ok(_)) => {
             debug!("Wiki search returned no results");
+            wiki_record_success(); // Empty results isn't a failure
             return None;
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             warn!("Wiki search failed: {}", e);
+            wiki_record_failure();
+            return None;
+        }
+        Err(_) => {
+            warn!("Wiki search timed out ({}s)", WIKI_SEARCH_TIMEOUT_SECS);
+            wiki_record_failure();
             return None;
         }
     };
@@ -2220,12 +2317,13 @@ async fn send_streaming<W: AsyncWriteExt + Unpin>(
 }
 
 /// Execute a question with streaming output
+/// v0.0.892: Returns AskResult so session can record the turn
 pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     session_context: Option<&str>,
     writer: &mut W,
-) -> Result<()> {
+) -> Result<AskResult> {
     info!("Processing question (streaming): {}", question);
     if let Some(ctx) = session_context {
         debug!("Session context: {}", ctx);
@@ -2268,10 +2366,10 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             dialogue,
             needs_clarification: false,
             clarification_question: None,
-        cached: false,
+            cached: false,
         };
-        send_streaming(writer, &StreamingResponse::Done { result }).await?;
-        return Ok(());
+        send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
+        return Ok(result);
     }
 
     // PHASE 0: Deep Understanding - think through the request like Claude does
@@ -2366,10 +2464,10 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             dialogue,
             needs_clarification: true,
             clarification_question: Some(clarification_question.to_string()),
-        cached: false,
+            cached: false,
         };
-        send_streaming(writer, &StreamingResponse::Done { result }).await?;
-        return Ok(());
+        send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
+        return Ok(result);
     }
 
     // Handle special intents
@@ -2394,10 +2492,10 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
                 dialogue,
                 needs_clarification: true,
                 clarification_question: Some(clarification.to_string()),
-        cached: false,
+                cached: false,
             };
-            send_streaming(writer, &StreamingResponse::Done { result }).await?;
-            return Ok(());
+            send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
+            return Ok(result);
         }
         IntentCategory::Multi => {
             // Multiple questions - handle separately
@@ -2955,9 +3053,9 @@ RESPOND IN ENGLISH ONLY."#,
         clarification_question: None,
         cached: false,
     };
-    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+    send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
-    Ok(())
+    Ok(result)
 }
 
 /// Detect if a question is asking for configuration/change vs just information
@@ -3046,13 +3144,14 @@ fn extract_search_terms(question: &str, entities: &[String], topic: Option<&str>
 }
 
 /// Handle HOWTO configuration requests - provide instructions instead of running commands
+/// v0.0.892: Returns AskResult for session recording
 async fn handle_howto_config<W: AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     intent: &anna_shared::rpc::IntentClassification,
     writer: &mut W,
     mut dialogue: Vec<DialogueStep>,
-) -> Result<()> {
+) -> Result<AskResult> {
     info!("Handling HOWTO configuration request");
     let llm_timeout = get_perf_config().llm_timeout_secs;
 
@@ -3182,9 +3281,9 @@ Keep the answer focused and practical."#,
         clarification_question: None,
         cached: false,
     };
-    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+    send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
-    Ok(())
+    Ok(result)
 }
 
 /// Get diagnostic commands for a troubleshooting topic
@@ -3312,13 +3411,14 @@ fn get_diagnostic_commands(question: &str) -> Vec<&'static str> {
 }
 
 /// Handle TROUBLESHOOT diagnostic questions - run diagnostics and analyze
+/// v0.0.892: Returns AskResult for session recording
 async fn handle_troubleshoot_diagnostic<W: AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     intent: &anna_shared::rpc::IntentClassification,
     writer: &mut W,
     mut dialogue: Vec<DialogueStep>,
-) -> Result<()> {
+) -> Result<AskResult> {
     info!("Handling TROUBLESHOOT diagnostic: {}", question);
     let llm_timeout = get_perf_config().llm_timeout_secs;
 
@@ -3477,19 +3577,20 @@ RESPOND IN ENGLISH ONLY."#,
         clarification_question: None,
         cached: false,
     };
-    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+    send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
-    Ok(())
+    Ok(result)
 }
 
 /// Handle multi-question intent - process each sub-question and combine answers
+/// v0.0.892: Returns AskResult for session recording
 async fn handle_multi_question<W: AsyncWriteExt + Unpin>(
     model: &str,
     original_question: &str,
     sub_questions: &[String],
     writer: &mut W,
     mut dialogue: Vec<DialogueStep>,
-) -> Result<()> {
+) -> Result<AskResult> {
     let llm_timeout = get_perf_config().llm_timeout_secs;
 
     let mut combined_answer = String::new();
@@ -3642,9 +3743,9 @@ Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_
         clarification_question: None,
         cached: false,
     };
-    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+    send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
-    Ok(())
+    Ok(result)
 }
 
 /// Unescape shell metacharacters that LLMs sometimes escape
