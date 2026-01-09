@@ -596,6 +596,109 @@ fn get_command_hints(question: &str) -> String {
         hints.push("cat /proc/cmdline".into());
     }
 
+    // === INIT SYSTEM ===
+    if q.contains("init") && q.contains("system") {
+        hints.push("ps -p 1 -o comm= 2>/dev/null".into());
+        hints.push("readlink /sbin/init 2>/dev/null".into());
+        hints.push("systemctl --version 2>/dev/null | head -1".into());
+    }
+
+    // === DISPLAY SERVER (wayland/xorg/x11) ===
+    if q.contains("display") && q.contains("server") || q.contains("wayland") || q.contains("x11") || q.contains("xorg") {
+        hints.push("echo $XDG_SESSION_TYPE 2>/dev/null".into());
+        hints.push("loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null".into());
+        hints.push("pgrep -x Xorg 2>/dev/null && echo 'X11' || echo 'not X11'".into());
+    }
+
+    // === AUDIO SERVER (pipewire/pulseaudio) ===
+    if q.contains("audio") && q.contains("server") || (q.contains("what") && q.contains("audio")) {
+        hints.push("pactl info 2>/dev/null | grep 'Server Name'".into());
+        hints.push("systemctl --user is-active pipewire pipewire-pulse 2>/dev/null".into());
+        hints.push("pgrep -l 'pipewire|pulseaudio' 2>/dev/null".into());
+    }
+
+    // === PACKAGE COUNT ===
+    if (q.contains("how many") || q.contains("count")) && q.contains("package") {
+        hints.push("pacman -Q 2>/dev/null | wc -l".into());
+        hints.push("pacman -Qe 2>/dev/null | wc -l".into());  // explicit
+    }
+
+    // === SHELL (current) ===
+    if q.contains("shell") && (q.contains("using") || q.contains("my") || q.contains("what")) && !q.contains("available") {
+        hints.push("basename $SHELL".into());
+        hints.push("echo $0".into());
+        hints.push("cat /etc/passwd | grep $(whoami) | cut -d: -f7".into());
+    }
+
+    // === GPU VRAM ===
+    if q.contains("vram") || (q.contains("gpu") && q.contains("memory")) {
+        hints.push("nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null".into());
+        hints.push("glxinfo 2>/dev/null | grep 'Video memory' | head -1".into());
+        hints.push("lspci -v 2>/dev/null | grep -A10 'VGA\\|3D' | grep -i 'memory\\|size'".into());
+    }
+
+    // === RECENT PACKAGES ===
+    if q.contains("recent") && q.contains("package") || q.contains("recently") && q.contains("install") {
+        hints.push("grep 'installed' /var/log/pacman.log 2>/dev/null | tail -10".into());
+        hints.push("expac --timefmt='%Y-%m-%d %T' '%l\t%n' 2>/dev/null | sort | tail -10".into());
+    }
+
+    // === ACTIVE TIMERS ===
+    if q.contains("timer") && q.contains("active") {
+        hints.push("systemctl list-timers --no-pager 2>/dev/null".into());
+        hints.push("systemctl --user list-timers --no-pager 2>/dev/null | head -10".into());
+    }
+
+    // === RUNNING PROCESSES (how-to) ===
+    if q.contains("running") && q.contains("process") || q.contains("see") && q.contains("process") {
+        hints.push("ps aux --sort=-%mem | head -10".into());
+        hints.push("ps aux --sort=-%cpu | head -10".into());
+    }
+
+    // === NETWORK CONNECTIONS (how-to) ===
+    if q.contains("network") && q.contains("connection") || q.contains("see") && q.contains("connection") {
+        hints.push("ss -tuln 2>/dev/null | head -20".into());
+        hints.push("netstat -tuln 2>/dev/null | head -20".into());
+    }
+
+    // === CPU USAGE (how-to) ===
+    if q.contains("cpu") && q.contains("usage") || q.contains("check") && q.contains("cpu") {
+        hints.push("ps aux --sort=-%cpu | head -10".into());
+        hints.push("cat /proc/loadavg".into());
+        hints.push("mpstat 2>/dev/null | tail -1".into());
+    }
+
+    // === KERNEL MESSAGES (how-to) ===
+    if q.contains("kernel") && q.contains("message") || q.contains("dmesg") {
+        hints.push("dmesg --level=err,warn 2>/dev/null | tail -20".into());
+        hints.push("journalctl -k --no-pager -n 20 2>/dev/null".into());
+    }
+
+    // === USB DEVICES (how-to) ===
+    if q.contains("usb") && q.contains("device") || q.contains("list") && q.contains("usb") {
+        hints.push("lsusb 2>/dev/null".into());
+        hints.push("ls /sys/bus/usb/devices/ 2>/dev/null".into());
+    }
+
+    // === ZSH/STEAM/OTHER PACKAGE CHECKS ===
+    if q.contains("zsh") && (q.contains("installed") || q.contains("have")) {
+        hints.push("pacman -Q zsh 2>/dev/null && echo 'installed' || echo 'not installed'".into());
+    }
+    if q.contains("steam") && (q.contains("installed") || q.contains("have")) {
+        hints.push("pacman -Q steam 2>/dev/null && echo 'installed' || echo 'not installed'".into());
+        hints.push("which steam 2>/dev/null && echo 'found' || echo 'not found'".into());
+    }
+    if q.contains("rust") && (q.contains("version") || q.contains("installed")) {
+        hints.push("rustc --version 2>/dev/null || echo 'not installed'".into());
+        hints.push("pacman -Q rust 2>/dev/null".into());
+    }
+    if q.contains("wayland") && q.contains("installed") {
+        hints.push("pacman -Q wayland 2>/dev/null && echo 'installed' || echo 'not installed'".into());
+    }
+    if q.contains("xorg") && q.contains("installed") {
+        hints.push("pacman -Q xorg-server 2>/dev/null && echo 'installed' || echo 'not installed'".into());
+    }
+
     if hints.is_empty() {
         String::new()
     } else {
@@ -1407,13 +1510,20 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             }
             // If no sub_questions extracted, fall through to normal processing
         }
-        IntentCategory::HowTo | IntentCategory::Troubleshoot => {
-            // Both HOWTO and TROUBLESHOOT can be configuration requests
+        IntentCategory::HowTo => {
             // Check if this is asking to change/configure something
             if is_configuration_request(question) {
                 return handle_howto_config(model, question, &intent_result, writer, dialogue).await;
             }
             // Queries/diagnostics fall through to normal command-execution flow
+        }
+        IntentCategory::Troubleshoot => {
+            // Configuration requests get instructions
+            if is_configuration_request(question) {
+                return handle_howto_config(model, question, &intent_result, writer, dialogue).await;
+            }
+            // Diagnostic questions get specialized handling
+            return handle_troubleshoot_diagnostic(model, question, &intent_result, writer, dialogue).await;
         }
         _ => {
             // FACTUAL - continue with command execution flow
@@ -2017,6 +2127,294 @@ Keep the answer focused and practical."#,
         success: true,
         iterations: 1,
         commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+    };
+    send_streaming(writer, &StreamingResponse::Done { result }).await?;
+
+    Ok(())
+}
+
+/// Get diagnostic commands for a troubleshooting topic
+fn get_diagnostic_commands(question: &str) -> Vec<&'static str> {
+    let q = question.to_lowercase();
+
+    // System slow / performance
+    if q.contains("slow") || q.contains("performance") || q.contains("lag") || q.contains("hang") {
+        return vec![
+            "cat /proc/loadavg",
+            "free -h",
+            "ps aux --sort=-%cpu | head -8",
+            "ps aux --sort=-%mem | head -8",
+            "df -h / /home 2>/dev/null",
+            "dmesg --level=err,warn 2>/dev/null | tail -10",
+        ];
+    }
+
+    // Audio not working
+    if q.contains("audio") || q.contains("sound") || q.contains("speaker") || q.contains("headphone") {
+        return vec![
+            "pactl info 2>/dev/null | grep -E 'Server Name|Default Sink'",
+            "systemctl --user is-active pipewire pipewire-pulse wireplumber 2>/dev/null",
+            "aplay -l 2>/dev/null",
+            "pactl list sinks short 2>/dev/null",
+            "journalctl --user -u pipewire -n 10 --no-pager 2>/dev/null",
+        ];
+    }
+
+    // WiFi / Network issues
+    if q.contains("wifi") || q.contains("network") || q.contains("internet") || q.contains("connect") {
+        return vec![
+            "nmcli general status 2>/dev/null",
+            "nmcli device wifi list 2>/dev/null | head -10",
+            "ip link show 2>/dev/null | grep -E 'wlan|wifi|wlp'",
+            "systemctl is-active NetworkManager 2>/dev/null",
+            "journalctl -u NetworkManager -n 10 --no-pager 2>/dev/null",
+            "rfkill list 2>/dev/null",
+        ];
+    }
+
+    // Package / update issues
+    if q.contains("package") || q.contains("update") || q.contains("pacman") || q.contains("install") {
+        return vec![
+            "pacman -Syy --print 2>&1 | head -5",
+            "cat /etc/pacman.d/mirrorlist | grep -v '^#' | head -3",
+            "df -h /var/cache/pacman 2>/dev/null",
+            "pacman -Q --check 2>&1 | head -10",
+            "journalctl -u pacman -n 10 --no-pager 2>/dev/null",
+        ];
+    }
+
+    // Disk space issues
+    if q.contains("disk") || q.contains("space") || q.contains("storage") || q.contains("full") {
+        return vec![
+            "df -h",
+            "du -sh /var/cache/pacman/pkg 2>/dev/null",
+            "du -sh /var/log 2>/dev/null",
+            "du -sh ~/.cache 2>/dev/null",
+            "journalctl --disk-usage 2>/dev/null",
+            "find /var/log -name '*.log' -size +50M 2>/dev/null | head -5",
+        ];
+    }
+
+    // GPU issues
+    if q.contains("gpu") || q.contains("graphics") || q.contains("nvidia") || q.contains("display") || q.contains("screen") {
+        return vec![
+            "lspci | grep -iE 'vga|3d'",
+            "lsmod | grep -E 'nvidia|nouveau|amdgpu|i915' | head -5",
+            "nvidia-smi 2>/dev/null | head -15 || echo 'nvidia-smi not available'",
+            "glxinfo 2>/dev/null | grep -E 'renderer|vendor' | head -3",
+            "journalctl -b -p err --no-pager 2>/dev/null | grep -i 'gpu\\|nvidia\\|drm' | tail -5",
+        ];
+    }
+
+    // Fonts / rendering
+    if q.contains("font") || q.contains("render") || q.contains("text") {
+        return vec![
+            "fc-list | wc -l",
+            "cat /etc/fonts/local.conf 2>/dev/null | head -20",
+            "gsettings get org.gnome.desktop.interface font-name 2>/dev/null",
+            "pacman -Q | grep -i font | head -10",
+        ];
+    }
+
+    // Screen flickering
+    if q.contains("flicker") || q.contains("tear") || q.contains("refresh") {
+        return vec![
+            "cat /sys/class/drm/*/status 2>/dev/null",
+            "xrandr 2>/dev/null | grep -E 'connected|\\*'",
+            "cat /etc/X11/xorg.conf.d/*.conf 2>/dev/null | head -20",
+            "journalctl -b -p err --no-pager 2>/dev/null | grep -i drm | tail -5",
+        ];
+    }
+
+    // Bluetooth
+    if q.contains("bluetooth") {
+        return vec![
+            "systemctl is-active bluetooth 2>/dev/null",
+            "bluetoothctl show 2>/dev/null | head -10",
+            "rfkill list bluetooth 2>/dev/null",
+            "journalctl -u bluetooth -n 10 --no-pager 2>/dev/null",
+            "lsmod | grep -i bluetooth | head -3",
+        ];
+    }
+
+    // Boot issues
+    if q.contains("boot") || q.contains("start") || q.contains("grub") || q.contains("systemd-boot") {
+        return vec![
+            "systemctl --failed 2>/dev/null",
+            "journalctl -b -p err --no-pager -n 15 2>/dev/null",
+            "cat /proc/cmdline",
+            "bootctl status 2>/dev/null | head -10 || echo 'not using systemd-boot'",
+        ];
+    }
+
+    // Generic fallback - check common issues
+    vec![
+        "systemctl --failed 2>/dev/null",
+        "journalctl -b -p err --no-pager -n 10 2>/dev/null",
+        "dmesg --level=err,warn 2>/dev/null | tail -10",
+        "free -h",
+        "df -h / /home 2>/dev/null",
+    ]
+}
+
+/// Handle TROUBLESHOOT diagnostic questions - run diagnostics and analyze
+async fn handle_troubleshoot_diagnostic<W: AsyncWriteExt + Unpin>(
+    model: &str,
+    question: &str,
+    intent: &anna_shared::rpc::IntentClassification,
+    writer: &mut W,
+    mut dialogue: Vec<DialogueStep>,
+) -> Result<()> {
+    info!("Handling TROUBLESHOOT diagnostic: {}", question);
+
+    // Get diagnostic commands for this issue type
+    let diagnostic_cmds = get_diagnostic_commands(question);
+
+    // Send diagnostic step
+    let step = DialogueStep {
+        step_type: StepType::AnnaToLlm,
+        content: format!("Running {} diagnostic commands...", diagnostic_cmds.len()),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Execute diagnostic commands
+    let mut diagnostic_output = String::new();
+    let mut commands_executed = Vec::new();
+
+    for cmd in diagnostic_cmds {
+        // Send command step
+        let step = DialogueStep {
+            step_type: StepType::CommandExec,
+            content: cmd.to_string(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        commands_executed.push(cmd.to_string());
+
+        match execute_command(cmd) {
+            Ok(output) => {
+                let step = DialogueStep {
+                    step_type: StepType::CommandOutput,
+                    content: output.clone(),
+                };
+                dialogue.push(step.clone());
+                send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                diagnostic_output.push_str(&format!("$ {}\n{}\n\n", cmd, output));
+            }
+            Err(e) => {
+                let error_msg = format!("Error: {}", e);
+                let step = DialogueStep {
+                    step_type: StepType::CommandOutput,
+                    content: error_msg.clone(),
+                };
+                dialogue.push(step.clone());
+                send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                diagnostic_output.push_str(&format!("$ {}\n{}\n\n", cmd, error_msg));
+            }
+        }
+    }
+
+    // Search wiki for context
+    let search_terms = extract_search_terms(
+        question,
+        &intent.entities,
+        intent.topic.as_deref(),
+    );
+
+    let wiki_context = if let Some(wiki_results) = search_wiki_for_commands(&search_terms).await {
+        let step = DialogueStep {
+            step_type: StepType::WikiResults,
+            content: wiki_results.article_titles.join("\n"),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        if wiki_results.context.len() > 2000 {
+            wiki_results.context[..2000].to_string()
+        } else {
+            wiki_results.context
+        }
+    } else {
+        String::new()
+    };
+
+    // Get system context
+    let profile = get_system_profile();
+    let system_summary = profile.brief_summary();
+
+    // Build analysis prompt
+    let analysis_prompt = format!(
+        r#"You are an Arch Linux troubleshooting expert. Analyze the diagnostic output and identify the issue.
+
+System: {system_summary}
+
+User's problem: "{question}"
+
+Diagnostic output:
+{diagnostic_output}
+{wiki_section}
+Based on this diagnostic information:
+1. Identify the likely cause of the problem
+2. Explain what the diagnostic output reveals
+3. Provide specific steps to fix the issue
+4. If you can't identify the issue, suggest additional diagnostics
+
+Be specific and actionable. Use the actual data from the diagnostic output.
+RESPOND IN ENGLISH ONLY."#,
+        system_summary = system_summary,
+        question = question,
+        diagnostic_output = diagnostic_output,
+        wiki_section = if !wiki_context.is_empty() {
+            format!("\n\nRelevant Arch Wiki information:\n{}", wiki_context)
+        } else {
+            String::new()
+        }
+    );
+
+    // Send prompt step
+    let step = DialogueStep {
+        step_type: StepType::FinalPrompt,
+        content: analysis_prompt.clone(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Stream the analysis
+    let answer = ollama::chat_streaming_to_writer(
+        model,
+        &analysis_prompt,
+        LLM_TIMEOUT_SECS,
+        writer,
+    ).await?;
+
+    // Fallback if empty
+    let answer = if answer.trim().is_empty() {
+        warn!("Streaming returned empty, retrying non-streaming");
+        ollama::chat_with_timeout(model, &analysis_prompt, LLM_TIMEOUT_SECS).await
+            .unwrap_or_else(|e| format!("Error generating analysis: {}", e))
+    } else {
+        answer
+    };
+
+    // Send final answer step
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.trim().to_string(),
+    };
+    dialogue.push(step.clone());
+    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+    // Send done
+    let result = AskResult {
+        answer: answer.trim().to_string(),
+        success: true,
+        iterations: 1,
+        commands_executed,
         dialogue,
         needs_clarification: false,
         clarification_question: None,

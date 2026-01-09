@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.878] - 2026-01-09
+
+### Added
+- **TROUBLESHOOT Diagnostic Handler** - Specialized handling for "why is X not working?" questions
+  - `get_diagnostic_commands()` returns targeted commands based on problem type:
+    - System slow: load average, memory, top CPU/memory processes
+    - Audio: pipewire/pulseaudio status, sinks, devices
+    - WiFi/Network: nmcli status, device list, rfkill
+    - Packages/Updates: mirrorlist, cache, pacman logs
+    - Disk space: df, du on common large directories
+    - GPU: lspci, driver modules, nvidia-smi, glxinfo
+    - Fonts: fc-list, font config, installed font packages
+    - Screen flickering: DRM status, xrandr, xorg config
+    - Bluetooth: service status, bluetoothctl, rfkill
+    - Boot: failed services, journal errors, cmdline
+  - `handle_troubleshoot_diagnostic()` runs diagnostics and analyzes output
+
+- **Extended Command Hints** - Added hints for previously failing categories:
+  - Init system: `ps -p 1`, `readlink /sbin/init`, `systemctl --version`
+  - Display server: `loginctl` session type, `XDG_SESSION_TYPE`
+  - Audio server: `pactl info`, `pipewire/pulseaudio` process detection
+  - Package count: `pacman -Q | wc -l` (Arch-specific)
+  - Shell detection: `$SHELL`, `/etc/passwd` lookup
+  - GPU VRAM: `nvidia-smi --query-gpu=memory.total`, `glxinfo`, `lspci -v`
+  - Recent packages: `pacman.log` grep, `expac` time-sorted
+  - Active timers: `systemctl list-timers`
+  - Running processes: `ps aux --sort=-%cpu/-%mem`
+  - Network connections: `ss -tuln`, `netstat -tuln`
+  - CPU usage: `ps aux --sort=-%cpu`, `/proc/loadavg`
+  - Kernel messages: `dmesg --level=err,warn`, `journalctl -k`
+  - USB devices: `lsusb`
+  - Package checks: zsh, steam, rust, wayland, xorg-server
+
+### Improved
+- TROUBLESHOOT routing: diagnostic questions now get specialized handling
+- Better coverage for Arch Linux-specific package queries
+
+## [0.0.877] - 2026-01-09
+
+### Fixed
+- **TROUBLESHOOT intent now checks for configuration requests** - Questions like
+  "can you apply 2x scale to GDM3" were classified as TROUBLESHOOT but not
+  routed to the configuration handler. Now both HOWTO and TROUBLESHOOT check
+  `is_configuration_request()` and route to `handle_howto_config()` if true.
+
 ## [0.0.876] - 2026-01-09
 
 ### Added
