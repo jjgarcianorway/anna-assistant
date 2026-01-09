@@ -1687,49 +1687,36 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         return None;
     }
 
-    // Skip wiki if best result has low confidence (garbage results)
-    // Score 0.5 means partial word match - likely not relevant
-    const MIN_WIKI_CONFIDENCE: f32 = 0.7;
+    // v0.0.896: Adaptive wiki confidence based on query complexity
+    // Short queries (few keywords) need higher confidence to avoid false matches
+    let query_words = question.split_whitespace().count();
+    let min_confidence = if query_words <= 3 {
+        0.85  // Short query = require high confidence
+    } else if query_words <= 5 {
+        0.75  // Medium query
+    } else {
+        0.65  // Long/complex query = more tolerant
+    };
+
     let top_score = results.first().map(|r| r.score).unwrap_or(0.0);
-    if top_score < MIN_WIKI_CONFIDENCE {
-        debug!("Wiki results low confidence ({:.2} < {:.2}), skipping", top_score, MIN_WIKI_CONFIDENCE);
+    if top_score < min_confidence {
+        debug!("Wiki results low confidence ({:.2} < {:.2} for {} words), skipping",
+               top_score, min_confidence, query_words);
         return None;
     }
 
-    // Extract commands from found articles in parallel using rayon
+    // Extract commands from found articles
     use rayon::prelude::*;
 
-    // Process each article in parallel
-    let article_results: Vec<_> = results
-        .par_iter()
-        .map(|result| {
-            let title = format!("{} (score: {:.2})", result.article.title, result.score);
+    // v0.0.896: Skip parallel overhead for small result sets
+    let use_parallel = results.len() > 3;
+    let article_results: Vec<_> = if use_parallel {
+        results.par_iter().map(|result| process_wiki_article(result, question)).collect()
+    } else {
+        results.iter().map(|result| process_wiki_article(result, question)).collect()
+    };
 
-            // Parse article into sections
-            let sections = wiki::sections::parse_sections(&result.article.content);
-
-            // Find relevant sections for this query
-            let relevant_sections = wiki::sections::find_relevant_sections(&sections, question, 2);
-
-            // Extract commands from relevant sections only
-            let mut commands = Vec::new();
-            for section in &relevant_sections {
-                let cmds = wiki::extract::extract_relevant_commands(
-                    &section.content,
-                    question,
-                    &result.article.title,
-                );
-                commands.extend(cmds);
-            }
-
-            // Get section context
-            let section_context = wiki::sections::format_sections_for_context(&relevant_sections, &result.article.title);
-
-            (title, commands, section_context)
-        })
-        .collect();
-
-    // Merge results from parallel processing
+    // Merge results from processing
     let mut all_commands = Vec::new();
     let mut article_titles = Vec::new();
     let mut wiki_context = String::new();
@@ -1745,6 +1732,9 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         }
 
         if !section_context.is_empty() {
+            if !wiki_context.is_empty() {
+                wiki_context.push_str("\n\n");
+            }
             wiki_context.push_str(&section_context);
         }
     }
@@ -1771,6 +1761,36 @@ async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
         commands: all_commands,
         context: wiki_context,
     })
+}
+
+/// v0.0.896: Process a single wiki article for commands and context
+fn process_wiki_article(
+    result: &wiki::WikiSearchResult,
+    question: &str,
+) -> (String, Vec<wiki::ExtractedCommand>, String) {
+    let title = format!("{} (score: {:.2})", result.article.title, result.score);
+
+    // Parse article into sections
+    let sections = wiki::sections::parse_sections(&result.article.content);
+
+    // Find relevant sections for this query
+    let relevant_sections = wiki::sections::find_relevant_sections(&sections, question, 2);
+
+    // Extract commands from relevant sections only
+    let mut commands = Vec::new();
+    for section in &relevant_sections {
+        let cmds = wiki::extract::extract_relevant_commands(
+            &section.content,
+            question,
+            &result.article.title,
+        );
+        commands.extend(cmds);
+    }
+
+    // Get section context
+    let section_context = wiki::sections::format_sections_for_context(&relevant_sections, &result.article.title);
+
+    (title, commands, section_context)
 }
 
 /// Results from wiki search

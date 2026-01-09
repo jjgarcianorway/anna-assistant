@@ -215,6 +215,7 @@ impl StateInner {
 
     /// Cleanup sessions and optionally persist to disk
     /// Saves every 5 interactions to avoid excessive disk writes
+    /// v0.0.896: Also mines patterns for recurring issue detection
     pub fn cleanup_sessions(&mut self) {
         self.sessions.cleanup_old_sessions();
 
@@ -222,10 +223,23 @@ impl StateInner {
         self.session_save_counter += 1;
         if self.session_save_counter >= 5 {
             self.session_save_counter = 0;
+
+            // v0.0.896: Mine patterns from session history for better suggestions
+            self.sessions.mine_patterns();
+
             if let Err(e) = self.sessions.save() {
                 warn!("Failed to persist sessions: {}", e);
             }
         }
+    }
+
+    /// v0.0.896: Check if a question matches a recurring issue pattern
+    pub fn check_recurring_issue(&self, question: &str) -> Option<String> {
+        self.sessions.is_recurring_issue(question)
+            .map(|issue| format!(
+                "This looks like a recurring issue: {} ({} occurrences, last seen: {})",
+                issue.description, issue.occurrences, issue.last_seen
+            ))
     }
 
     /// Force save sessions to disk (called on shutdown)

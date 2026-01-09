@@ -246,25 +246,61 @@ fn parse_understanding_response(response: &str, original_question: &str) -> Resu
 }
 
 /// Extract JSON from a response that may contain reasoning text
+/// v0.0.896: Robust extraction with proper brace matching
 fn extract_json_from_response(response: &str) -> String {
     let response = response.trim();
 
-    // Try to find JSON object in the response
-    if let Some(start) = response.find('{') {
-        if let Some(end) = response.rfind('}') {
-            if end > start {
-                return response[start..=end].to_string();
+    // First try: Clean markdown code blocks
+    let cleaned = response
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+
+    // Find all potential JSON start positions and try each until one parses
+    for (start_idx, _) in cleaned.char_indices().filter(|(_, c)| *c == '{') {
+        if let Some(json_str) = extract_balanced_json(&cleaned[start_idx..]) {
+            // Validate it's actually parseable JSON
+            if serde_json::from_str::<serde_json::Value>(&json_str).is_ok() {
+                return json_str;
             }
         }
     }
 
-    // Try handling markdown code blocks
-    response
-        .trim_start_matches("```json")
-        .trim_start_matches("```")
-        .trim_end_matches("```")
-        .trim()
-        .to_string()
+    // Fallback: return the cleaned string as-is (may fail parsing but provides debug info)
+    cleaned.to_string()
+}
+
+/// Extract a balanced JSON object by counting braces
+/// v0.0.896: Handles nested objects correctly
+fn extract_balanced_json(s: &str) -> Option<String> {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escape_next = false;
+    let mut end_idx = None;
+
+    for (idx, ch) in s.char_indices() {
+        if escape_next {
+            escape_next = false;
+            continue;
+        }
+
+        match ch {
+            '\\' if in_string => escape_next = true,
+            '"' => in_string = !in_string,
+            '{' if !in_string => depth += 1,
+            '}' if !in_string => {
+                depth -= 1;
+                if depth == 0 {
+                    end_idx = Some(idx);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    end_idx.map(|end| s[..=end].to_string())
 }
 
 /// Extract a string array from JSON
@@ -299,21 +335,11 @@ fn should_ask_confirmation(
         return false;
     }
 
-    // v0.0.894: HOWTO questions about common operations - don't ask for OS/tool clarification
-    // We already know it's Arch Linux from system context
+    // v0.0.896: HOWTO questions - comprehensive filtering of known context
+    // We already know the system context (Arch Linux, pacman, systemd)
     if matches!(category, IntentCategory::HowTo) {
-        // Filter out things we already know from system context
         let relevant_missing: Vec<&String> = missing_info.iter()
-            .filter(|m| {
-                let m_lower = m.to_lowercase();
-                // We already know the OS is Arch/CachyOS - don't ask
-                !m_lower.contains("operating") && !m_lower.contains("os") &&
-                !m_lower.contains("distro") && !m_lower.contains("distribution") &&
-                // We know the package manager is pacman
-                !m_lower.contains("package manager") && !m_lower.contains("update_tool") &&
-                // Generic "method" questions - just use the default Arch way
-                !m_lower.contains("method") && !m_lower.contains("tool_or")
-            })
+            .filter(|m| !is_known_system_context(m))
             .collect();
 
         // If no relevant missing info remains, don't ask for clarification
@@ -347,6 +373,61 @@ fn should_ask_confirmation(
         && question.split_whitespace().count() < 4
         && confidence < CLARIFICATION_THRESHOLD {
         info!("Short troubleshoot question with low confidence, will ask for more details");
+        return true;
+    }
+
+    false
+}
+
+/// v0.0.896: Check if a "missing info" item is actually known system context
+/// We already know: Arch Linux, pacman, systemd, etc. - no need to ask
+fn is_known_system_context(info: &str) -> bool {
+    let info_lower = info.to_lowercase();
+
+    // Operating system / distribution - we know it's Arch
+    let os_terms = [
+        "operating", "os", "distro", "distribution", "linux",
+        "platform", "system type", "which linux", "what linux",
+        "version of linux", "linux version", "unix", "flavor",
+    ];
+    if os_terms.iter().any(|t| info_lower.contains(t)) {
+        return true;
+    }
+
+    // Package manager - we know it's pacman (or paru/yay for AUR)
+    let pkg_terms = [
+        "package manager", "package tool", "update tool", "update_tool",
+        "install tool", "install_tool", "apt", "yum", "dnf", "pkg",
+        "how to install", "which package", "package system",
+    ];
+    if pkg_terms.iter().any(|t| info_lower.contains(t)) {
+        return true;
+    }
+
+    // Init system - we know it's systemd
+    let init_terms = [
+        "init system", "service manager", "init_system", "systemd",
+        "sysvinit", "openrc", "runit",
+    ];
+    if init_terms.iter().any(|t| info_lower.contains(t)) {
+        return true;
+    }
+
+    // Generic "method" / "approach" / "tool" questions - use Arch defaults
+    let generic_terms = [
+        "method", "approach", "tool_or", "which tool", "preferred",
+        "recommended", "default", "standard way", "best way",
+    ];
+    if generic_terms.iter().any(|t| info_lower.contains(t)) {
+        return true;
+    }
+
+    // Desktop environment - if they're asking, they have one; detect it
+    let de_terms = [
+        "desktop environment", "window manager", "de/wm", "desktop_env",
+        "display server", "wayland or x11",
+    ];
+    if de_terms.iter().any(|t| info_lower.contains(t)) {
         return true;
     }
 
@@ -729,5 +810,47 @@ mod tests {
         let response = "```json\n{\"category\":\"HOWTO\"}\n```";
         let json = extract_json_from_response(response);
         assert!(json.contains("HOWTO"));
+
+        // v0.0.896: Test nested objects (previously would fail)
+        let response = r#"Here's my analysis: {"outer": {"inner": "value"}, "category": "TEST"}"#;
+        let json = extract_json_from_response(response);
+        assert!(json.contains("inner"));
+        assert!(json.contains("TEST"));
+
+        // v0.0.896: Test with braces inside strings
+        let response = r#"{"message": "Use {braces} in config", "ok": true}"#;
+        let json = extract_json_from_response(response);
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["ok"], true);
+
+        // v0.0.896: Test malformed JSON before valid JSON
+        let response = r#"Thinking... {incomplete then {"valid": "json", "num": 42}"#;
+        let json = extract_json_from_response(response);
+        let parsed: Result<serde_json::Value, _> = serde_json::from_str(&json);
+        assert!(parsed.is_ok());
+    }
+
+    #[test]
+    fn test_known_system_context() {
+        // OS-related terms should be recognized as known context
+        assert!(is_known_system_context("operating system"));
+        assert!(is_known_system_context("which OS"));
+        assert!(is_known_system_context("Linux distribution"));
+
+        // Package manager terms
+        assert!(is_known_system_context("package manager"));
+        assert!(is_known_system_context("how to install"));
+
+        // Init system
+        assert!(is_known_system_context("init system"));
+        assert!(is_known_system_context("systemd or openrc"));
+
+        // Generic terms
+        assert!(is_known_system_context("preferred method"));
+        assert!(is_known_system_context("standard way"));
+
+        // Non-known context should return false
+        assert!(!is_known_system_context("specific file location"));
+        assert!(!is_known_system_context("which port number"));
     }
 }
