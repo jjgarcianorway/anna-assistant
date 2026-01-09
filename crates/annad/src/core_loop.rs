@@ -442,6 +442,109 @@ fn get_command_hints(question: &str) -> String {
         hints.push("alias 2>/dev/null | head -20".into());
     }
 
+    // === ADDITIONAL PACKAGES ===
+
+    // Package installed checks
+    if q.contains("installed") || q.contains("have") || q.contains("got") {
+        if q.contains("ffmpeg") {
+            hints.push("pacman -Q ffmpeg 2>/dev/null".into());
+        }
+        if q.contains("neovim") || q.contains("nvim") {
+            hints.push("pacman -Q neovim 2>/dev/null".into());
+        }
+        if q.contains("firefox") {
+            hints.push("pacman -Q firefox 2>/dev/null".into());
+        }
+        if q.contains("chromium") {
+            hints.push("pacman -Q chromium 2>/dev/null".into());
+        }
+        if q.contains("obs") {
+            hints.push("pacman -Q obs-studio 2>/dev/null".into());
+        }
+    }
+
+    // Default browser
+    if q.contains("default") && (q.contains("browser") || q.contains("firefox") || q.contains("chromium")) {
+        hints.push("xdg-settings get default-web-browser 2>/dev/null".into());
+        hints.push("echo $BROWSER".into());
+    }
+
+    // === FILESYSTEM TYPE ===
+    if q.contains("filesystem") || q.contains("fstype") || (q.contains("type") && (q.contains("root") || q.contains("partition"))) {
+        hints.push("findmnt -n -o FSTYPE /".into());
+        hints.push("df -T / | tail -1 | awk '{print $2}'".into());
+    }
+
+    // === SCREEN/RESOLUTION ===
+    if q.contains("resolution") || q.contains("screen size") || q.contains("display size") {
+        hints.push("wlr-randr 2>/dev/null || xrandr 2>/dev/null | grep '*' | head -1".into());
+        hints.push("swaymsg -t get_outputs 2>/dev/null | grep -A2 current_mode".into());
+    }
+
+    // === PROCESS/SYSTEM STATS ===
+
+    // Context switch rate
+    if q.contains("context") && q.contains("switch") {
+        hints.push("vmstat 1 2 | tail -1 | awk '{print $12}'".into());
+        hints.push("cat /proc/stat | grep ctxt".into());
+    }
+
+    // Cgroups
+    if q.contains("cgroup") {
+        hints.push("cat /proc/cgroups | head -10".into());
+        hints.push("systemd-cgls --no-pager | head -20 2>/dev/null".into());
+    }
+
+    // ionice class
+    if q.contains("ionice") {
+        hints.push("ionice -p $$".into());
+    }
+
+    // Interrupts
+    if q.contains("interrupt") {
+        hints.push("cat /proc/interrupts | head -15".into());
+        hints.push("vmstat 1 2 | tail -1 | awk '{print $11}'".into());
+    }
+
+    // Nice value
+    if q.contains("nice") && !q.contains("ionice") {
+        hints.push("nice".into());
+        hints.push("ps -o ni $$".into());
+    }
+
+    // === CURRENT DATE/TIME (improved) ===
+    if q.contains("current") && (q.contains("date") || q.contains("time")) {
+        hints.push("date '+%Y-%m-%d %H:%M:%S'".into());
+        hints.push("timedatectl status | head -5".into());
+    }
+
+    // === DAYLIGHT SAVING ===
+    if q.contains("daylight") || q.contains("dst") {
+        hints.push("timedatectl | grep 'DST active'".into());
+    }
+
+    // === TERM VARIABLE (improved) ===
+    if q.contains("term") && q.contains("variable") {
+        hints.push("echo $TERM".into());
+    }
+
+    // === MY TERMINAL ===
+    if q.contains("my terminal") || (q.contains("what") && q.contains("terminal")) {
+        hints.push("echo $TERM".into());
+        hints.push("ps -p $PPID -o comm= 2>/dev/null".into());
+    }
+
+    // === AUDIO SINKS ===
+    if q.contains("audio") && q.contains("sink") {
+        hints.push("pactl list sinks short 2>/dev/null".into());
+        hints.push("pw-cli list-objects Node 2>/dev/null | grep -i audio | head -10".into());
+    }
+
+    // === KERNEL PARAMS (boot) ===
+    if q.contains("kernel") && q.contains("param") {
+        hints.push("cat /proc/cmdline".into());
+    }
+
     if hints.is_empty() {
         String::new()
     } else {

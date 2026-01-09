@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.872] - 2026-01-09
+
+### Added
+- More command hints for gaps identified in testing
+  - Filesystem type queries (findmnt, df -T)
+  - Screen resolution with Wayland support (wlr-randr)
+  - Package install checks (ffmpeg, neovim, obs)
+  - Default browser query (xdg-settings)
+  - Context switch rate, cgroups, ionice, interrupts
+  - Improved date/time and terminal detection
+
+### Improved
+- Better package detection for common packages
+- Wayland-compatible resolution detection
+- More specific process stats commands
+
 ## [0.0.871] - 2026-01-09
 
 ### Added
