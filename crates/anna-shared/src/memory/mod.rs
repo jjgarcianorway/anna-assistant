@@ -96,65 +96,88 @@ pub struct FailedCommand {
 
 impl ExperienceContext {
     /// v0.0.900: Get current system tags from profile
+    /// v0.0.901: No hardcoding - capture actual system values and let learning handle patterns
     pub fn current_system_tags() -> Vec<String> {
         use crate::profile::SystemProfile;
 
         let mut tags = Vec::new();
 
+        // GPU - capture actual vendor/device, don't categorize
         if let Ok(profile) = SystemProfile::load() {
-            // GPU - check PCI devices for VGA controllers
             for pci in &profile.hardware.pci_devices {
-                // Check class for VGA (030000) or Display (0380xx) or 3D (0302xx)
                 let class_lower = pci.class.to_lowercase();
-                let device_lower = pci.device.to_lowercase();
-                let vendor_lower = pci.vendor.to_lowercase();
-
                 if class_lower.contains("vga") || class_lower.contains("display") || class_lower.contains("3d") {
-                    if vendor_lower.contains("nvidia") || device_lower.contains("nvidia") {
-                        tags.push("nvidia".to_string());
-                    } else if vendor_lower.contains("amd") || vendor_lower.contains("advanced micro") || device_lower.contains("radeon") {
-                        tags.push("amd-gpu".to_string());
-                    } else if vendor_lower.contains("intel") {
-                        tags.push("intel-gpu".to_string());
+                    // Capture actual vendor name (normalized)
+                    let vendor = pci.vendor.to_lowercase()
+                        .replace("corporation", "")
+                        .replace("inc.", "")
+                        .replace("ltd.", "")
+                        .trim()
+                        .to_string();
+                    if !vendor.is_empty() {
+                        tags.push(format!("gpu:{}", vendor.split_whitespace().next().unwrap_or(&vendor)));
                     }
-                    break; // Only need first GPU
+                    break;
                 }
             }
         }
 
-        // Display server (infer from environment)
+        // Display server - capture actual protocol
         if std::env::var("WAYLAND_DISPLAY").is_ok() {
-            tags.push("wayland".to_string());
+            tags.push("display:wayland".to_string());
         } else if std::env::var("DISPLAY").is_ok() {
-            tags.push("x11".to_string());
+            tags.push("display:x11".to_string());
         }
 
-        // Desktop environment
+        // Desktop/WM - capture whatever XDG_CURRENT_DESKTOP reports (could be anything!)
         if let Ok(de) = std::env::var("XDG_CURRENT_DESKTOP") {
-            let de_lower = de.to_lowercase();
-            if de_lower.contains("gnome") {
-                tags.push("gnome".to_string());
-            } else if de_lower.contains("kde") || de_lower.contains("plasma") {
-                tags.push("kde".to_string());
-            } else if de_lower.contains("hyprland") {
-                tags.push("hyprland".to_string());
-            } else if de_lower.contains("sway") {
-                tags.push("sway".to_string());
+            // Normalize: lowercase, take first component if colon-separated
+            let de_normalized = de.to_lowercase()
+                .split(':')
+                .next()
+                .unwrap_or(&de)
+                .trim()
+                .to_string();
+            if !de_normalized.is_empty() {
+                tags.push(format!("de:{}", de_normalized));
             }
         }
 
-        // Filesystem (check root)
+        // Session type (complements DE detection)
+        if let Ok(session) = std::env::var("XDG_SESSION_TYPE") {
+            tags.push(format!("session:{}", session.to_lowercase()));
+        }
+
+        // Filesystem - capture actual fstype, whatever it is
         if let Ok(output) = std::process::Command::new("findmnt")
             .args(["-n", "-o", "FSTYPE", "/"])
             .output()
         {
             let fstype = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
-            if fstype == "btrfs" {
-                tags.push("btrfs".to_string());
-            } else if fstype == "ext4" {
-                tags.push("ext4".to_string());
-            } else if fstype == "zfs" {
-                tags.push("zfs".to_string());
+            if !fstype.is_empty() {
+                tags.push(format!("fs:{}", fstype));
+            }
+        }
+
+        // Init system
+        if std::path::Path::new("/run/systemd/system").exists() {
+            tags.push("init:systemd".to_string());
+        } else if std::path::Path::new("/run/openrc").exists() {
+            tags.push("init:openrc".to_string());
+        } else if std::path::Path::new("/run/runit").exists() {
+            tags.push("init:runit".to_string());
+        }
+
+        // Distro (from /etc/os-release)
+        if let Ok(content) = std::fs::read_to_string("/etc/os-release") {
+            for line in content.lines() {
+                if let Some(id) = line.strip_prefix("ID=") {
+                    let distro = id.trim_matches('"').to_lowercase();
+                    if !distro.is_empty() {
+                        tags.push(format!("distro:{}", distro));
+                    }
+                    break;
+                }
             }
         }
 

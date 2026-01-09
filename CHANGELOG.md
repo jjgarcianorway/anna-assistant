@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.901] - 2026-01-09
+
+### Changed
+- **No Hardcoding System Tags** - Capture actual values, let learning find patterns
+  - Removed hardcoded DE list (gnome, kde, hyprland, sway) - now captures ANY XDG_CURRENT_DESKTOP
+  - Removed hardcoded GPU vendors - captures actual vendor name from PCI
+  - Removed hardcoded filesystem list - captures whatever findmnt reports
+  - Added distro detection from /etc/os-release (arch, endeavouros, fedora, etc.)
+  - Added init system detection (systemd, openrc, runit)
+  - Added XDG_SESSION_TYPE capture
+  - Format: `gpu:nvidia`, `de:hyprland`, `fs:btrfs`, `distro:arch`, `init:systemd`
+  - Anna learns patterns organically from experience, not from hardcoded lists
+
 ## [0.0.900] - 2026-01-09
 
 ### Added
