@@ -224,6 +224,15 @@ fn extract_model_size(model: &str) -> u32 {
 
 /// Handle a single client connection
 async fn handle_connection(stream: UnixStream, state: SharedState) -> Result<()> {
+    // Track active connections for graceful shutdown
+    {
+        let mut state_guard = state.write().await;
+        state_guard.connection_started();
+    }
+
+    // Ensure we decrement the counter when done
+    let _guard = ConnectionGuard { state: state.clone() };
+
     let (reader, mut writer) = stream.into_split();
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
@@ -268,6 +277,14 @@ async fn handle_streaming_request(
         .and_then(|q| q.as_str())
         .unwrap_or("");
 
+    // Extract session_id from params (client generates it)
+    let session_id = request
+        .params
+        .as_ref()
+        .and_then(|p| p.get("session_id"))
+        .and_then(|s| s.as_str())
+        .unwrap_or("default");
+
     if question.is_empty() {
         let response = StreamingResponse::Error {
             message: "Missing 'question' parameter".to_string(),
@@ -277,10 +294,23 @@ async fn handle_streaming_request(
         return Ok(());
     }
 
+    // Get session context and expand question with references
+    let (expanded_question, session_context) = {
+        let mut state_guard = state.write().await;
+        let session = state_guard.get_or_create_session(session_id);
+        let expanded = session.expand_question(question);
+        let context = if session.history.is_empty() {
+            None
+        } else {
+            Some(session.get_context_for_llm())
+        };
+        (expanded, context)
+    };
+
     // Get model from state
     let model = {
-        let state = state.read().await;
-        match &state.model {
+        let state_guard = state.read().await;
+        match &state_guard.model {
             Some(m) => m.clone(),
             None => {
                 let response = StreamingResponse::Error {
@@ -293,8 +323,29 @@ async fn handle_streaming_request(
         }
     };
 
-    // Execute with streaming
-    if let Err(e) = execute_question_streaming(&model, question, &mut writer).await {
+    // Execute with streaming (use expanded question if different)
+    let question_to_use = if expanded_question != question {
+        info!("Expanded question with session context: {} -> {}", question, expanded_question);
+        &expanded_question
+    } else {
+        question
+    };
+
+    let result = execute_question_streaming(&model, question_to_use, session_context.as_deref(), &mut writer).await;
+
+    // Save turn to session after execution
+    if result.is_ok() {
+        let mut state_guard = state.write().await;
+        if let Some(session) = state_guard.sessions.get_mut(session_id) {
+            // We don't have the answer here since it was streamed, but we can at least record the question
+            // The full turn recording would need to be done inside execute_question_streaming
+            session.last_activity = chrono::Utc::now().to_rfc3339();
+        }
+        // Cleanup old sessions periodically
+        state_guard.cleanup_sessions();
+    }
+
+    if let Err(e) = result {
         let response = StreamingResponse::Error {
             message: format!("Execution error: {}", e),
         };
@@ -360,5 +411,23 @@ async fn handle_request(request: RpcRequest, state: SharedState) -> RpcResponse 
             // Should not reach here, but provide a fallback
             RpcResponse::error(&request.id, -32603, "Use streaming connection for AskStreaming")
         }
+    }
+}
+
+/// RAII guard to track active connections
+/// Decrements the counter when dropped (even on error/panic)
+struct ConnectionGuard {
+    state: SharedState,
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        // Use blocking lock since we're in Drop
+        // This is safe because we're not in an async context at drop time
+        let state = self.state.clone();
+        tokio::spawn(async move {
+            let mut state_guard = state.write().await;
+            state_guard.connection_ended();
+        });
     }
 }

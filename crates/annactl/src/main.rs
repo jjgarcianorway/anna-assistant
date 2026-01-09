@@ -90,7 +90,7 @@ async fn ask(question: &str) -> Result<AskResult> {
 
 /// Send a question with streaming response
 /// Returns the AskResult so caller can check for needs_clarification
-async fn ask_streaming(question: &str) -> Result<AskResult> {
+async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult> {
     let socket_file = socket_path();
     let socket_path = std::path::Path::new(&socket_file);
 
@@ -111,8 +111,11 @@ async fn ask_streaming(question: &str) -> Result<AskResult> {
         )
     })?;
 
-    // Send request
-    let request = RpcRequest::new(RpcMethod::AskStreaming, Some(serde_json::json!({ "question": question })));
+    // Send request with session_id for context tracking
+    let request = RpcRequest::new(RpcMethod::AskStreaming, Some(serde_json::json!({
+        "question": question,
+        "session_id": session_id
+    })));
     let request_json = serde_json::to_string(&request)?;
 
     timeout(Duration::from_secs(5), async {
@@ -417,12 +420,14 @@ async fn print_status() {
 
 /// Handle a question with clarification loop
 async fn handle_question(question: &str) {
-    handle_question_with_clarification(question, false).await;
+    // Generate a one-time session ID for command-line mode
+    let session_id = uuid::Uuid::new_v4().to_string();
+    handle_question_with_clarification(question, false, &session_id).await;
 }
 
 /// Handle a question, with optional clarification support
 /// When in_repl is true, can prompt user for clarification
-async fn handle_question_with_clarification(question: &str, in_repl: bool) {
+async fn handle_question_with_clarification(question: &str, in_repl: bool, session_id: &str) {
     // Clear line and start streaming
     println!();
 
@@ -431,7 +436,7 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool) {
     let mut clarification_count = 0;
 
     loop {
-        match ask_streaming(&current_question).await {
+        match ask_streaming(&current_question, session_id).await {
             Ok(result) => {
                 if result.needs_clarification && in_repl && clarification_count < max_clarifications {
                     // Display clarification question and prompt user
@@ -635,6 +640,10 @@ async fn run_repl() -> Result<()> {
     print_status().await;
     println!();
 
+    // Generate a session_id that persists for this REPL session
+    // This enables context tracking across questions ("it", "that service", etc.)
+    let session_id = uuid::Uuid::new_v4().to_string();
+
     let username = std::env::var("USER").unwrap_or_else(|_| "you".to_string());
     let stdin = tokio::io::stdin();
     let mut reader = BufReader::new(stdin);
@@ -675,7 +684,7 @@ async fn run_repl() -> Result<()> {
                         println!("Commands: status, help, quit");
                     }
                     _ => {
-                        handle_question_with_clarification(input, true).await;
+                        handle_question_with_clarification(input, true, &session_id).await;
                     }
                 }
                 println!();

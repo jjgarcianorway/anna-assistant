@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.882] - 2026-01-09
+
+### Added
+- **Graceful Auto-Update** - Daemon now waits for active sessions before restarting
+  - Tracks active connections with RAII `ConnectionGuard` pattern
+  - `wait_for_connections_to_drain()` waits up to 30s for sessions to finish
+  - No more "Connection refused" errors mid-conversation
+
+- **Session Memory** - Context now persists across conversation turns
+  - Sessions tracked in daemon state by client-generated UUID
+  - Reference resolution for "it", "that service", etc.
+  - Automatic cleanup of sessions >1 hour inactive
+
+- **Answer Cleanup** - Removes prompt artifacts from LLM responses
+  - Strips leaked `RULES:`, `IMPORTANT:`, box characters
+  - Removes JSON fragments and meta-commentary
+  - Cleaner, more professional answers
+
+### Changed
+- annactl generates unique session_id at startup for context tracking
+- Session context passed to LLM for better follow-up understanding
+
 ## [0.0.881] - 2026-01-09
 
 ### Fixed

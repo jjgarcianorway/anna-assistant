@@ -266,6 +266,55 @@ fn is_useless_output(output: &str) -> bool {
         || (output_lower.contains("error") && output.len() < 50)
 }
 
+/// Clean prompt artifacts from LLM answers
+/// Removes leaked prompt fragments, rules, and formatting issues
+fn clean_answer(answer: &str) -> String {
+    let mut result = answer.to_string();
+
+    // Remove common prompt leakage patterns
+    let artifacts = [
+        "RULES:",
+        "RESPOND IN ENGLISH ONLY",
+        "Answer:",
+        "│",  // Box drawing from prompts
+        "┌",
+        "└",
+        "─",
+    ];
+
+    for artifact in artifacts {
+        result = result.replace(artifact, "");
+    }
+
+    // Remove lines that are clearly prompt fragments
+    let lines: Vec<&str> = result.lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            // Skip empty lines at start/end (keep middle ones)
+            // Skip numbered rule lines like "1. Answer BRIEFLY"
+            // Skip lines that look like prompt instructions
+            !trimmed.starts_with("1. Answer")
+                && !trimmed.starts_with("2. ONLY")
+                && !trimmed.starts_with("3. Do NOT")
+                && !trimmed.starts_with("4. Give")
+                && !trimmed.starts_with("5. If asked")
+                && !trimmed.starts_with("6. RESPOND")
+                && !trimmed.starts_with("Question:")
+                && !trimmed.starts_with("Command output:")
+                && !trimmed.starts_with("Based on this diagnostic")
+        })
+        .collect();
+
+    result = lines.join("\n");
+
+    // Clean up excessive whitespace
+    while result.contains("\n\n\n") {
+        result = result.replace("\n\n\n", "\n\n");
+    }
+
+    result.trim().to_string()
+}
+
 /// Check if a question is clearly out of scope (not about Linux/computers)
 /// Returns Some(response) if out of scope, None if in scope
 fn check_out_of_scope(question: &str) -> Option<String> {
@@ -1709,9 +1758,13 @@ async fn send_streaming<W: AsyncWriteExt + Unpin>(
 pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
+    session_context: Option<&str>,
     writer: &mut W,
 ) -> Result<()> {
     info!("Processing question (streaming): {}", question);
+    if let Some(ctx) = session_context {
+        debug!("Session context: {}", ctx);
+    }
 
     let mut iterations = 0;
     let mut commands_executed = Vec::new();
@@ -1757,7 +1810,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
-    let understanding = match intent::understand_request(model, question, None).await {
+    let understanding = match intent::understand_request(model, question, session_context).await {
         Ok(u) => u,
         Err(e) => {
             warn!("Understanding failed: {}, using fallback", e);
@@ -2303,17 +2356,20 @@ RESPOND IN ENGLISH ONLY."#,
         }
     }
 
+    // Clean prompt artifacts from the answer
+    let cleaned_answer = clean_answer(&final_answer);
+
     // Send the final answer step (for dialogue record)
     let step = DialogueStep {
         step_type: StepType::FinalAnswer,
-        content: final_answer.trim().to_string(),
+        content: cleaned_answer.clone(),
     };
     dialogue.push(step.clone());
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     // Send done
     let result = AskResult {
-        answer: final_answer.trim().to_string(),
+        answer: cleaned_answer,
         success: true,
         iterations,
         commands_executed,

@@ -106,6 +106,11 @@ async fn try_auto_update(state: &SharedState, latest_version: &str) {
         return;
     }
 
+    // Wait for active connections to finish before updating
+    // This prevents killing users mid-session
+    info!("Waiting for active connections to drain before update...");
+    state.wait_for_connections_to_drain(30).await;
+
     info!("Auto-update enabled, performing update...");
     match perform_update(latest_version).await {
         Ok(()) => {
