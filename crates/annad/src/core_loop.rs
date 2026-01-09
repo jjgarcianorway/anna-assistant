@@ -48,6 +48,7 @@ struct CachedOutput {
 
 /// v0.0.899: Resolution state machine for intelligent retry logic
 /// Replaces blind iteration count with explicit state tracking
+/// v0.0.903: Added tried_commands to prevent suggesting same alternatives
 #[derive(Debug, Clone, PartialEq)]
 enum ResolutionState {
     /// Initial state: gathering command output
@@ -62,6 +63,34 @@ enum ResolutionState {
     Complete,
     /// Unrecoverable error or max attempts reached
     Failed { reason: String },
+}
+
+/// v0.0.903: Track tried commands across iterations to prevent loops
+#[derive(Debug, Clone, Default)]
+struct TriedCommands {
+    commands: Vec<String>,
+}
+
+impl TriedCommands {
+    fn add(&mut self, cmd: &str) {
+        let normalized = cmd.split_whitespace().take(3).collect::<Vec<_>>().join(" ");
+        if !self.commands.iter().any(|c| c == &normalized || cmd.starts_with(c)) {
+            self.commands.push(normalized);
+        }
+    }
+
+    fn has_tried(&self, cmd: &str) -> bool {
+        let normalized = cmd.split_whitespace().take(3).collect::<Vec<_>>().join(" ");
+        self.commands.iter().any(|c| c == &normalized || cmd.starts_with(c) || normalized.starts_with(c))
+    }
+
+    fn as_exclusion_hint(&self) -> String {
+        if self.commands.is_empty() {
+            String::new()
+        } else {
+            format!("DO NOT suggest these commands (already tried and failed): {}", self.commands.join(", "))
+        }
+    }
 }
 
 impl ResolutionState {
@@ -2199,6 +2228,8 @@ pub async fn execute_question(model: &str, question: &str) -> Result<AskResult> 
     let mut resolution_state = ResolutionState::Gathering;
     let mut last_error_type: Option<CommandErrorType> = None;
     let mut failed_commands: Vec<String> = Vec::new();
+    // v0.0.903: Track tried commands to prevent suggesting same alternatives
+    let mut tried_cmds_tracker = TriedCommands::default();
 
     // If no recipe matched, use LLM to find commands
     while used_recipe.is_none() && iterations < max_iterations && resolution_state.can_continue() {
@@ -2251,6 +2282,7 @@ Commands:"#,
             )
         } else if let ResolutionState::Recovering { error_type, .. } = &resolution_state {
             // v0.0.899: Recovery-specific prompt with error context
+            // v0.0.903: Add exclusion hint from tried commands tracker
             let last_failed = failed_commands.last().map(|s| s.as_str()).unwrap_or("");
             let recovery_hint = get_recovery_prompt(error_type, last_failed);
             let failed_list = if !failed_commands.is_empty() {
@@ -2259,6 +2291,7 @@ Commands:"#,
             } else {
                 String::new()
             };
+            let exclusion_hint = tried_cmds_tracker.as_exclusion_hint();
 
             format!(
                 r#"Question: "{}"
@@ -2267,6 +2300,7 @@ Previous commands FAILED with error type: {:?}
 {}
 {}
 Recovery guidance: {}
+{}
 
 Output ALTERNATIVE commands that:
 1. Work around the error (different approach)
@@ -2276,14 +2310,17 @@ Output ALTERNATIVE commands that:
 If no alternatives exist, output: DONE
 
 Commands:"#,
-                question, error_type, last_output, failed_list, recovery_hint
+                question, error_type, last_output, failed_list, recovery_hint, exclusion_hint
             )
         } else {
             // Normal continuation prompt
+            // v0.0.903: Add exclusion hint to avoid re-suggesting failed commands
+            let exclusion_hint = tried_cmds_tracker.as_exclusion_hint();
             format!(
                 r#"Question: "{}"
 
 Previous command output (status: [OK]=success, [ERROR]=failed, [EMPTY OUTPUT]=no output, [TIMEOUT]=timed out):
+{}
 {}
 
 Need more information to fully answer the question.
@@ -2292,7 +2329,7 @@ Output additional commands (one per line, no explanations).
 If output above is sufficient, output: DONE
 
 Commands:"#,
-                question, last_output
+                question, last_output, exclusion_hint
             )
         };
 
@@ -2422,12 +2459,26 @@ Commands:"#,
                     });
 
                     // v0.0.899: Classify output to detect soft errors
+                    // v0.0.903: Better empty output classification
                     let (status, is_error) = if output.contains("timed out") {
                         detected_error_type = CommandErrorType::Timeout;
                         ("[TIMEOUT]", true)
                     } else if output.trim().is_empty() {
-                        detected_error_type = CommandErrorType::EmptyOutput;
-                        ("[EMPTY OUTPUT]", true)
+                        // v0.0.903: Distinguish "no results" from "failed silently"
+                        // Commands that legitimately return empty when nothing found
+                        let cmd_base = cmd.split_whitespace().next().unwrap_or("");
+                        let empty_is_valid = matches!(cmd_base,
+                            "grep" | "rg" | "find" | "locate" | "which" | "whereis" |
+                            "pgrep" | "pidof" | "fuser" | "lsof" | "ss" | "netstat"
+                        ) || cmd.contains("2>/dev/null") || cmd.contains("|| true");
+
+                        if empty_is_valid {
+                            // Legitimate "no results found" - not an error
+                            ("[NO RESULTS]", false)
+                        } else {
+                            detected_error_type = CommandErrorType::EmptyOutput;
+                            ("[EMPTY OUTPUT]", true)
+                        }
                     } else if output.contains("(stderr:") {
                         // Classify the error from stderr
                         let (err_type, _) = classify_command_error(&output, None);
@@ -2790,6 +2841,8 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
     let mut commands_executed = Vec::new();
     let mut last_output = String::new();
     let mut dialogue = Vec::new();
+    // v0.0.903: Track tried commands to prevent suggesting same alternatives
+    let mut tried_cmds_tracker = TriedCommands::default();
 
     // Record and send user's question
     let step = DialogueStep {
@@ -3275,6 +3328,8 @@ Commands:"#,
 
             info!("Executing: {}", cmd);
             commands_executed.push(cmd.to_string());
+            // v0.0.903: Track this command to prevent re-suggesting it
+            tried_cmds_tracker.add(cmd);
 
             // Record and send command execution
             let step = DialogueStep {
@@ -4692,6 +4747,30 @@ fn is_dangerous_command(cmd: &str) -> bool {
     // Check for piping to shell (curl/wget to sh/bash)
     if (cmd_lower.contains("curl") || cmd_lower.contains("wget"))
         && (cmd_lower.contains("| sh") || cmd_lower.contains("| bash")) {
+        return true;
+    }
+
+    // v0.0.903: Check for command injection via subshells
+    // Reject $(...) and backticks outside of safe contexts
+    if cmd.contains("$(") || cmd.contains('`') {
+        // Allow some safe uses of command substitution
+        let safe_subshell_patterns = [
+            "$(date",           // Date in filenames
+            "$(whoami)",        // Username
+            "$(hostname)",      // Hostname
+            "$(uname",          // System info
+            "$(pwd)",           // Current directory
+            "$(id ",            // User ID info
+        ];
+        let has_safe_pattern = safe_subshell_patterns.iter().any(|p| cmd.contains(p));
+        if !has_safe_pattern {
+            warn!("Rejected command with potentially unsafe subshell: {}", cmd);
+            return true;
+        }
+    }
+
+    // Check for eval (can execute arbitrary code)
+    if cmd_lower.starts_with("eval ") || cmd_lower.contains(" eval ") || cmd_lower.contains(";eval ") {
         return true;
     }
 

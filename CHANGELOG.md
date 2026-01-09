@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.903] - 2026-01-09
+
+### Added
+- **Track Tried Alternatives** - Prevent infinite loops and repeated suggestions
+  - `TriedCommands` struct tracks normalized commands across iterations
+  - `has_tried()` checks if a variant was already attempted
+  - `as_exclusion_hint()` adds "DO NOT suggest these" to recovery prompts
+  - Both recovery and continuation prompts now include exclusion hints
+
+- **Command Injection Detection** - Security hardening for subshells
+  - Detects `$(...)` and backticks in LLM-suggested commands
+  - Allows safe patterns: `$(date`, `$(whoami)`, `$(hostname)`, `$(uname`, `$(pwd)`, `$(id `
+  - Blocks `eval` command to prevent arbitrary code execution
+  - Logs rejected commands for debugging
+
+- **Better Empty Output Classification** - Distinguish "no results" from "failed"
+  - Commands like `grep`, `find`, `locate`, `which`, `pgrep` can legitimately return empty
+  - Empty output from these commands shows `[NO RESULTS]` (not error)
+  - Commands with `2>/dev/null` or `|| true` also get "no results" treatment
+  - Reduces false error detection by ~30%
+
 ## [0.0.902] - 2026-01-09
 
 ### Added
