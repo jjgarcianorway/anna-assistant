@@ -36,6 +36,50 @@ const MAX_ITERATIONS: u32 = 5;
 /// Timeout for LLM calls (seconds) - increased for complex prompts
 const LLM_TIMEOUT_SECS: u64 = 120;
 
+/// Check if this is a simple factual query that doesn't need full context
+/// Simple queries: "what is X?", "how much X?", "is X installed?", etc.
+/// Complex queries: "how do I...", "why is...", "fix...", troubleshooting
+fn is_simple_factual_query(question: &str) -> bool {
+    let q = question.to_lowercase();
+
+    // Complex queries that need full context
+    let complex_patterns = [
+        "how do i", "how can i", "how to", "how should i",
+        "why is", "why does", "why can't", "why won't",
+        "fix", "solve", "troubleshoot", "debug", "error",
+        "not working", "doesn't work", "can't", "cannot",
+        "help me", "configure", "setup", "install",
+        "problem", "issue", "wrong",
+    ];
+
+    for pattern in complex_patterns {
+        if q.contains(pattern) {
+            return false;
+        }
+    }
+
+    // Simple factual queries
+    let simple_patterns = [
+        "what is", "what are", "what's",
+        "how much", "how many",
+        "is there", "are there",
+        "do i have", "does", "is my", "am i",
+        "which", "where is", "when did",
+        "version", "installed", "running",
+        "temperature", "usage", "load", "uptime",
+        "theme", "resolution", "frequency",
+    ];
+
+    for pattern in simple_patterns {
+        if q.contains(pattern) {
+            return true;
+        }
+    }
+
+    // Default to simple for short questions
+    q.split_whitespace().count() <= 7
+}
+
 /// Get command hints based on question category
 fn get_command_hints(question: &str) -> String {
     let q = question.to_lowercase();
@@ -1555,22 +1599,24 @@ Reply with ONLY one of:
     }
 
     // Step 4: Generate final answer with streaming
-    let wiki_section = if !wiki_context.is_empty() {
-        format!("\n\nRelevant information from Arch Wiki:\n{}", wiki_context)
-    } else {
-        String::new()
-    };
-
-    let system_info = if !system_context.is_empty() {
-        format!("\n\nSystem environment:\n{}", system_context)
-    } else {
-        String::new()
-    };
-
-    // Get relevant existing configs for this question
-    let existing_configs = get_relevant_configs_for_question(question);
+    // For simple factual queries, use lean prompt (just command output)
+    // For complex queries (troubleshooting, how-to), use full context
+    let is_simple = is_simple_factual_query(question);
 
     let final_prompt = if last_output.is_empty() {
+        // No command output - include context for guidance
+        let wiki_section = if !wiki_context.is_empty() {
+            format!("\n\nRelevant information from Arch Wiki:\n{}", wiki_context)
+        } else {
+            String::new()
+        };
+        let system_info = if !system_context.is_empty() {
+            format!("\n\nSystem environment:\n{}", system_context)
+        } else {
+            String::new()
+        };
+        let existing_configs = get_relevant_configs_for_question(question);
+
         format!(
             r#"Question: "{}"{system_info}{wiki_section}{existing_configs}
 
@@ -1580,7 +1626,35 @@ Give the shortest correct answer with essential commands only.
 RESPOND IN ENGLISH ONLY."#,
             question
         )
+    } else if is_simple {
+        // LEAN MODE: Simple factual query - just command output, no heavy context
+        format!(
+            r#"Question: "{}"
+
+Command output:
+{}
+
+Answer the question using ONLY the command output above.
+Give a short, direct answer (just the value or fact).
+RESPOND IN ENGLISH ONLY.
+
+Answer:"#,
+            question, last_output
+        )
     } else {
+        // FULL MODE: Complex query - include context for troubleshooting
+        let wiki_section = if !wiki_context.is_empty() {
+            format!("\n\nRelevant information from Arch Wiki:\n{}", wiki_context)
+        } else {
+            String::new()
+        };
+        let system_info = if !system_context.is_empty() {
+            format!("\n\nSystem environment:\n{}", system_context)
+        } else {
+            String::new()
+        };
+        let existing_configs = get_relevant_configs_for_question(question);
+
         format!(
             r#"Question: "{}"{system_info}
 

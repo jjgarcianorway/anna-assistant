@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.873] - 2026-01-09
+
+### Improved
+- **SPEED: Lean prompt mode for simple queries** - Factual queries now use minimal context
+  - "what is X?", "how much X?", "is X installed?" use just command output
+  - No hardware list, no configs, no wiki for simple questions
+  - Complex queries (how to, troubleshooting) still get full context
+  - Significantly faster response times for factual questions
+
 ## [0.0.872] - 2026-01-09
 
 ### Added
