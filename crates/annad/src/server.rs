@@ -267,7 +267,7 @@ async fn handle_streaming_request(
     state: SharedState,
     mut writer: tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
-    use anna_shared::rpc::StreamingResponse;
+    use anna_shared::rpc::{StreamingResponse, DialogueStep, StepType};
     use crate::core_loop::execute_question_streaming;
 
     let question = request
@@ -292,6 +292,38 @@ async fn handle_streaming_request(
         let json = serde_json::to_string(&response)?;
         writer.write_all(format!("{}\n", json).as_bytes()).await?;
         return Ok(());
+    }
+
+    // Check cache for identical recent question
+    {
+        let state_guard = state.read().await;
+        if let Some(cached_answer) = state_guard.get_cached_answer(question) {
+            info!("Returning cached answer for: {}", question);
+            // Send cached answer as a quick streaming response
+            let step = DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: cached_answer.clone(),
+            };
+            let response = StreamingResponse::Step { step: step.clone() };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Send done with AskResult
+            let result = anna_shared::rpc::AskResult {
+                answer: cached_answer,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![step],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: true,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
     }
 
     // Get session context and expand question with references
@@ -336,12 +368,12 @@ async fn handle_streaming_request(
     // Save turn to session after execution
     if result.is_ok() {
         let mut state_guard = state.write().await;
-        if let Some(session) = state_guard.sessions.get_mut(session_id) {
+        if let Some(session) = state_guard.sessions.sessions.get_mut(session_id) {
             // We don't have the answer here since it was streamed, but we can at least record the question
             // The full turn recording would need to be done inside execute_question_streaming
             session.last_activity = chrono::Utc::now().to_rfc3339();
         }
-        // Cleanup old sessions periodically
+        // Cleanup old sessions periodically (also triggers periodic save to disk)
         state_guard.cleanup_sessions();
     }
 

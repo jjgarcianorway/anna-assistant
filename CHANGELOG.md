@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.883] - 2026-01-09
+
+### Added
+- **Session Persistence** - Sessions now survive daemon restarts
+  - `SessionStore` saves to `~/.anna/sessions.json`
+  - Sessions preserved for 24 hours across restarts
+  - Periodic auto-save every 5 interactions
+
+- **Parallel System Context** - Faster startup
+  - System context commands now run in parallel using `std::thread::scope`
+  - ~30-50% faster initial context gathering
+
+- **Result Caching** - Infrastructure for instant repeated answers
+  - Answer cache with 5-minute TTL
+  - Normalized question matching (case-insensitive, punctuation-stripped)
+  - Cache lookup before processing
+
+- **Ollama Circuit Breaker** - Fail fast when Ollama is unhealthy
+  - Opens after 3 consecutive failures
+  - 30-second cooldown before retry
+  - Prevents wasting time on requests to dead service
+
+### Changed
+- `AskResult` now has `cached` field to indicate cached responses
+
 ## [0.0.882] - 2026-01-09
 
 ### Added

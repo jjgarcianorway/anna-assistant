@@ -1178,7 +1178,7 @@ fn get_system_profile() -> SystemProfile {
     SystemProfile::default()
 }
 
-/// Gather basic system context
+/// Gather basic system context (parallelized for speed)
 fn gather_system_context() -> String {
     let mut context = String::new();
 
@@ -1190,13 +1190,27 @@ fn gather_system_context() -> String {
         context.push('\n');
     }
 
-    // Also run live commands for current state
-    for cmd in SYSTEM_CONTEXT_COMMANDS {
-        if let Ok(output) = execute_command(cmd) {
-            let output = output.trim();
-            if !output.is_empty() && !output.contains("command not found") {
-                context.push_str(&format!("$ {}\n{}\n", cmd, output));
-            }
+    // Run live commands in parallel for current state
+    let results: Vec<_> = std::thread::scope(|s| {
+        let handles: Vec<_> = SYSTEM_CONTEXT_COMMANDS
+            .iter()
+            .map(|cmd| {
+                let cmd = *cmd;
+                s.spawn(move || {
+                    execute_command(cmd).ok().map(|output| (cmd, output))
+                })
+            })
+            .collect();
+
+        handles.into_iter().map(|h| h.join().ok().flatten()).collect()
+    });
+
+    // Collect results in order
+    for result in results.into_iter().flatten() {
+        let (cmd, output) = result;
+        let output = output.trim();
+        if !output.is_empty() && !output.contains("command not found") {
+            context.push_str(&format!("$ {}\n{}\n", cmd, output));
         }
     }
 
@@ -1664,6 +1678,7 @@ Answer:"#,
         dialogue,
         needs_clarification: false,
         clarification_question: None,
+        cached: false,
     })
 }
 
@@ -1797,6 +1812,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             dialogue,
             needs_clarification: false,
             clarification_question: None,
+        cached: false,
         };
         send_streaming(writer, &StreamingResponse::Done { result }).await?;
         return Ok(());
@@ -1894,6 +1910,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             dialogue,
             needs_clarification: true,
             clarification_question: Some(clarification_question.to_string()),
+        cached: false,
         };
         send_streaming(writer, &StreamingResponse::Done { result }).await?;
         return Ok(());
@@ -1921,6 +1938,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
                 dialogue,
                 needs_clarification: true,
                 clarification_question: Some(clarification.to_string()),
+        cached: false,
             };
             send_streaming(writer, &StreamingResponse::Done { result }).await?;
             return Ok(());
@@ -2376,6 +2394,7 @@ RESPOND IN ENGLISH ONLY."#,
         dialogue,
         needs_clarification: false,
         clarification_question: None,
+        cached: false,
     };
     send_streaming(writer, &StreamingResponse::Done { result }).await?;
 
@@ -2601,6 +2620,7 @@ Keep the answer focused and practical."#,
         dialogue,
         needs_clarification: false,
         clarification_question: None,
+        cached: false,
     };
     send_streaming(writer, &StreamingResponse::Done { result }).await?;
 
@@ -2889,6 +2909,7 @@ RESPOND IN ENGLISH ONLY."#,
         dialogue,
         needs_clarification: false,
         clarification_question: None,
+        cached: false,
     };
     send_streaming(writer, &StreamingResponse::Done { result }).await?;
 
@@ -3034,6 +3055,7 @@ Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_
         dialogue,
         needs_clarification: false,
         clarification_question: None,
+        cached: false,
     };
     send_streaming(writer, &StreamingResponse::Done { result }).await?;
 

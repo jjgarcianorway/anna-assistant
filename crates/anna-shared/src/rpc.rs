@@ -171,6 +171,9 @@ pub struct AskResult {
     /// The clarification question to ask the user (when needs_clarification is true)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clarification_question: Option<String>,
+    /// If true, this answer was returned from cache (instant)
+    #[serde(default)]
+    pub cached: bool,
 }
 
 /// A single step in the dialogue

@@ -5,11 +5,65 @@
 use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::process::Command;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 
 const OLLAMA_API: &str = "http://127.0.0.1:11434";
 const ANNA_REGISTRY: &str = "/var/lib/anna/registry.json";
+
+/// Circuit breaker state for Ollama
+/// Opens after consecutive failures, auto-resets after cooldown
+static CONSECUTIVE_FAILURES: AtomicU32 = AtomicU32::new(0);
+static CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
+
+/// Number of consecutive failures before circuit opens
+const CIRCUIT_OPEN_THRESHOLD: u32 = 3;
+/// Cooldown period in seconds before retrying after circuit opens
+const CIRCUIT_COOLDOWN_SECS: u64 = 30;
+
+/// Check if circuit breaker is open (should fail fast)
+fn is_circuit_open() -> bool {
+    let failures = CONSECUTIVE_FAILURES.load(Ordering::Relaxed);
+    if failures >= CIRCUIT_OPEN_THRESHOLD {
+        let opened_at = CIRCUIT_OPENED_AT.load(Ordering::Relaxed);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        // Check if cooldown has passed
+        if now - opened_at < CIRCUIT_COOLDOWN_SECS {
+            return true;
+        }
+
+        // Cooldown passed - allow a test request (half-open state)
+        info!("Circuit breaker cooldown passed, allowing test request");
+    }
+    false
+}
+
+/// Record a successful request (closes circuit)
+fn record_success() {
+    let prev = CONSECUTIVE_FAILURES.swap(0, Ordering::Relaxed);
+    if prev >= CIRCUIT_OPEN_THRESHOLD {
+        info!("Circuit breaker closed after successful request");
+    }
+}
+
+/// Record a failed request (may open circuit)
+fn record_failure() {
+    let failures = CONSECUTIVE_FAILURES.fetch_add(1, Ordering::Relaxed) + 1;
+    if failures == CIRCUIT_OPEN_THRESHOLD {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        CIRCUIT_OPENED_AT.store(now, Ordering::Relaxed);
+        error!("Circuit breaker OPEN - Ollama has {} consecutive failures, cooling down for {}s",
+               failures, CIRCUIT_COOLDOWN_SECS);
+    }
+}
 
 /// Hardware capabilities detected on the system
 #[derive(Debug, Clone)]
@@ -430,7 +484,16 @@ pub async fn cleanup_anna_resources() -> Result<()> {
 }
 
 /// Send a chat request to Ollama with timeout and retry
+/// Uses circuit breaker to fail fast when Ollama is unhealthy
 pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
+    // Check circuit breaker first
+    if is_circuit_open() {
+        return Err(anyhow!(
+            "Circuit breaker OPEN - Ollama is unavailable (too many failures). \
+             Waiting for cooldown before retrying."
+        ));
+    }
+
     const MAX_RETRIES: u32 = 2;
     let mut last_error = None;
 
@@ -442,7 +505,10 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
         }
 
         match chat_single_attempt(model, prompt, timeout_secs).await {
-            Ok(response) => return Ok(response),
+            Ok(response) => {
+                record_success();
+                return Ok(response);
+            }
             Err(e) => {
                 warn!("LLM attempt {} failed: {}", attempt + 1, e);
                 last_error = Some(e);
@@ -450,6 +516,8 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
         }
     }
 
+    // All retries failed
+    record_failure();
     Err(last_error.unwrap_or_else(|| anyhow!("LLM request failed after retries")))
 }
 
@@ -486,6 +554,7 @@ pub async fn chat_single_attempt(model: &str, prompt: &str, timeout_secs: u64) -
 }
 
 /// Streaming LLM request - writes tokens to the provided async writer
+/// Uses circuit breaker to fail fast when Ollama is unhealthy
 pub async fn chat_streaming_to_writer<W>(
     model: &str,
     prompt: &str,
@@ -497,6 +566,14 @@ where
 {
     use anna_shared::rpc::StreamingResponse;
     use futures_util::StreamExt;
+
+    // Check circuit breaker first
+    if is_circuit_open() {
+        return Err(anyhow!(
+            "Circuit breaker OPEN - Ollama is unavailable (too many failures). \
+             Waiting for cooldown before retrying."
+        ));
+    }
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
@@ -515,6 +592,7 @@ where
         .await?;
 
     if !response.status().is_success() {
+        record_failure();
         return Err(anyhow!("Ollama request failed: {}", response.status()));
     }
 
@@ -522,7 +600,13 @@ where
     let mut stream = response.bytes_stream();
 
     while let Some(chunk) = stream.next().await {
-        let chunk = chunk?;
+        let chunk = match chunk {
+            Ok(c) => c,
+            Err(e) => {
+                record_failure();
+                return Err(anyhow!("Stream error: {}", e));
+            }
+        };
         let text = String::from_utf8_lossy(&chunk);
 
         // Ollama streams JSON objects, one per line
@@ -543,5 +627,6 @@ where
         }
     }
 
+    record_success();
     Ok(full_response)
 }
