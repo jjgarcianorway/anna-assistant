@@ -1,6 +1,10 @@
 //! Recovery scenario patterns - user clearly needs urgent help
+//! v0.0.913: Added suggested_commands with immediate recovery steps
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
+
+/// Pattern with keywords, description, and solution commands
+type RecoveryPattern = (&'static [&'static str], &'static str, &'static [&'static str]);
 
 /// Match recovery scenarios that need immediate help
 pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
@@ -24,25 +28,43 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
 }
 
 fn match_deletion(q: &str) -> Option<DeepUnderstanding> {
-    let patterns: &[(&[&str], &str)] = &[
-        (&["deleted", "/usr/bin"], "accidentally deleted /usr/bin"),
-        (&["deleted", "/usr"], "accidentally deleted /usr directory"),
-        (&["removed", "/usr"], "accidentally removed /usr directory"),
-        (&["deleted", "/etc"], "accidentally deleted /etc"),
-        (&["deleted", "/boot"], "accidentally deleted /boot"),
-        (&["accidentally", "deleted"], "accidental file deletion recovery"),
-        (&["accidentally", "removed"], "accidental file removal recovery"),
-        (&["accidentally", "rm", "-rf"], "accidental recursive deletion"),
+    let patterns: &[RecoveryPattern] = &[
+        (&["deleted", "/usr/bin"], "accidentally deleted /usr/bin",
+            &["echo 'EMERGENCY: Boot from Arch ISO, mount your root partition'",
+              "echo 'Then run: pacman -Qk | grep missing | pacman -S $(awk \"{print $1}\")'",
+              "echo 'Or reinstall all packages: pacman -Qqn | pacman -S -'"]),
+        (&["deleted", "/usr"], "accidentally deleted /usr directory",
+            &["echo 'EMERGENCY: Boot from Arch ISO, mount partitions'",
+              "echo 'Reinstall base system: pacstrap /mnt base linux linux-firmware'"]),
+        (&["removed", "/usr"], "accidentally removed /usr directory",
+            &["echo 'EMERGENCY: Boot from Arch ISO and reinstall'"]),
+        (&["deleted", "/etc"], "accidentally deleted /etc",
+            &["echo 'EMERGENCY: Boot from Arch ISO'",
+              "echo 'Reinstall: pacstrap /mnt base linux linux-firmware'"]),
+        (&["deleted", "/boot"], "accidentally deleted /boot",
+            &["echo 'EMERGENCY: Boot from Arch ISO, mount partitions'",
+              "echo 'Reinstall kernel: pacstrap /mnt linux linux-firmware'",
+              "echo 'Regenerate initramfs: arch-chroot /mnt mkinitcpio -P'"]),
+        (&["accidentally", "deleted"], "accidental file deletion recovery",
+            &["echo 'For btrfs: check snapshots with: sudo btrfs subvolume list /'",
+              "echo 'For ext4: consider testdisk or photorec for recovery'"]),
+        (&["accidentally", "removed"], "accidental file removal recovery",
+            &["echo 'Check snapshots or backups first'",
+              "echo 'For specific package files: pacman -Qkk <package>'"]),
+        (&["accidentally", "rm", "-rf"], "accidental recursive deletion",
+            &["echo 'Stop immediately! More writes = less recovery chance'",
+              "echo 'Boot live USB, use testdisk/photorec for data recovery'"]),
     ];
 
-    for (keywords, interpreted) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+    for (keywords, interpreted, commands) in patterns {
+        if keywords.iter().all(|kw| q.to_lowercase().contains(kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Troubleshoot,
                 confidence: 0.95,
                 topic: Some("recovery".to_string()),
                 needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
                 ..Default::default()
             });
         }
@@ -51,32 +73,63 @@ fn match_deletion(q: &str) -> Option<DeepUnderstanding> {
 }
 
 fn match_boot_failure(q: &str) -> Option<DeepUnderstanding> {
-    let patterns: &[(&[&str], &str)] = &[
-        (&["won't", "boot"], "system boot failure"),
-        (&["can't", "boot"], "system boot failure"),
-        (&["not", "boot"], "system not booting"),
-        (&["boot", "stuck"], "boot process stuck"),
-        (&["boot", "hang"], "boot process hanging"),
-        (&["grub", "rescue"], "GRUB rescue mode"),
-        (&["grub", "error"], "GRUB error"),
-        (&["kernel", "panic"], "kernel panic"),
-        (&["initramfs", "error"], "initramfs/mkinitcpio error"),
-        (&["mkinitcpio", "error"], "mkinitcpio error"),
-        (&["starting version"], "boot stuck at systemd version"),
-        (&["black", "screen"], "black screen issue"),
-        (&["display", "manager", "won't"], "display manager failure"),
-        (&["gdm", "not", "start"], "GDM not starting"),
-        (&["sddm", "not", "start"], "SDDM not starting"),
+    let patterns: &[RecoveryPattern] = &[
+        (&["won't", "boot"], "system boot failure",
+            &["echo 'Boot from Arch ISO, mount partitions, chroot'",
+              "echo 'Check: journalctl -xb --root=/mnt'",
+              "echo 'Try: arch-chroot /mnt mkinitcpio -P'"]),
+        (&["can't", "boot"], "system boot failure",
+            &["echo 'Boot from Arch ISO, mount root to /mnt'",
+              "echo 'arch-chroot /mnt && mkinitcpio -P'"]),
+        (&["not", "boot"], "system not booting",
+            &["echo 'Boot from Arch ISO, check: lsblk && mount /dev/sdX /mnt'"]),
+        (&["boot", "stuck"], "boot process stuck",
+            &["echo 'Add kernel param: systemd.unit=multi-user.target'",
+              "echo 'Or boot to rescue: systemd.unit=rescue.target'"]),
+        (&["boot", "hang"], "boot process hanging",
+            &["echo 'Add kernel param: nosplash debug'",
+              "echo 'Check: journalctl -b after booting'"]),
+        (&["grub", "rescue"], "GRUB rescue mode",
+            &["echo 'Boot Arch ISO, mount, then: grub-install /dev/sdX'",
+              "echo 'Then: grub-mkconfig -o /boot/grub/grub.cfg'"]),
+        (&["grub", "error"], "GRUB error",
+            &["echo 'Boot Arch ISO, chroot, reinstall GRUB'",
+              "echo 'grub-install --target=x86_64-efi --efi-directory=/boot'"]),
+        (&["kernel", "panic"], "kernel panic",
+            &["echo 'Boot older kernel from bootloader menu'",
+              "echo 'Then: sudo pacman -S linux linux-headers'"]),
+        (&["initramfs", "error"], "initramfs/mkinitcpio error",
+            &["echo 'Boot Arch ISO, chroot: arch-chroot /mnt'",
+              "echo 'Regenerate: mkinitcpio -P'"]),
+        (&["mkinitcpio", "error"], "mkinitcpio error",
+            &["echo 'Check hooks in /etc/mkinitcpio.conf'",
+              "echo 'Reinstall: pacman -S linux'"]),
+        (&["starting version"], "boot stuck at systemd version",
+            &["echo 'Boot to rescue: systemd.unit=rescue.target'",
+              "echo 'Check logs: journalctl -xb'"]),
+        (&["black", "screen"], "black screen issue",
+            &["echo 'Try Ctrl+Alt+F2 for TTY'",
+              "echo 'Add kernel params: nomodeset or nvidia-drm.modeset=1'"]),
+        (&["display", "manager", "won't"], "display manager failure",
+            &["echo 'Switch to TTY: Ctrl+Alt+F2'",
+              "echo 'Check: sudo systemctl status gdm'"]),
+        (&["gdm", "not", "start"], "GDM not starting",
+            &["systemctl status gdm", "journalctl -u gdm -b",
+              "echo 'Try: sudo systemctl restart gdm'"]),
+        (&["sddm", "not", "start"], "SDDM not starting",
+            &["systemctl status sddm", "journalctl -u sddm -b",
+              "echo 'Try: sudo systemctl restart sddm'"]),
     ];
 
-    for (keywords, interpreted) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+    for (keywords, interpreted, commands) in patterns {
+        if keywords.iter().all(|kw| q.to_lowercase().contains(kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Troubleshoot,
                 confidence: 0.95,
                 topic: Some("boot".to_string()),
                 needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
                 ..Default::default()
             });
         }
@@ -85,22 +138,34 @@ fn match_boot_failure(q: &str) -> Option<DeepUnderstanding> {
 }
 
 fn match_permission_disaster(q: &str) -> Option<DeepUnderstanding> {
-    let patterns: &[(&[&str], &str)] = &[
-        (&["chmod", "777", "-r"], "recursive chmod 777 recovery"),
-        (&["chmod", "777", "recursive"], "recursive chmod 777 recovery"),
-        (&["chmod", "-r", "/"], "recursive chmod on root"),
-        (&["chown", "-r", "/"], "recursive chown on root"),
-        (&["permission", "denied", "everywhere"], "widespread permission issues"),
+    let patterns: &[RecoveryPattern] = &[
+        (&["chmod", "777", "-r"], "recursive chmod 777 recovery",
+            &["echo 'DANGER: Files are now world-writable'",
+              "echo 'Restore from backup or reinstall affected packages'",
+              "echo 'For /usr: sudo pacman -S $(pacman -Qqn)'"]),
+        (&["chmod", "777", "recursive"], "recursive chmod 777 recovery",
+            &["echo 'Reset to sane defaults: find /path -type d -exec chmod 755 {} \\;'",
+              "echo 'Then: find /path -type f -exec chmod 644 {} \\;'"]),
+        (&["chmod", "-r", "/"], "recursive chmod on root",
+            &["echo 'EMERGENCY: Boot Arch ISO, reinstall all packages'",
+              "echo 'pacstrap /mnt base linux linux-firmware'"]),
+        (&["chown", "-r", "/"], "recursive chown on root",
+            &["echo 'EMERGENCY: System ownership corrupted'",
+              "echo 'Boot Arch ISO, reinstall packages to restore ownership'"]),
+        (&["permission", "denied", "everywhere"], "widespread permission issues",
+            &["echo 'Check: ls -la /usr/bin/sudo'",
+              "echo 'May need: chmod 4755 /usr/bin/sudo'"]),
     ];
 
-    for (keywords, interpreted) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+    for (keywords, interpreted, commands) in patterns {
+        if keywords.iter().all(|kw| q.to_lowercase().contains(kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Troubleshoot,
                 confidence: 0.95,
                 topic: Some("recovery".to_string()),
                 needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
                 ..Default::default()
             });
         }
@@ -108,33 +173,60 @@ fn match_permission_disaster(q: &str) -> Option<DeepUnderstanding> {
     None
 }
 
+/// Emergency patterns with topic information
+type EmergencyPattern = (&'static [&'static str], &'static str, &'static str, &'static [&'static str]);
+
 fn match_emergency(q: &str) -> Option<DeepUnderstanding> {
-    let patterns: &[(&[&str], &str, &str)] = &[
+    let patterns: &[EmergencyPattern] = &[
         // Password issues
-        (&["forgot", "password"], "forgotten password recovery", "security"),
-        (&["forgot", "root", "password"], "forgotten root password", "security"),
-        (&["reset", "password"], "password reset", "security"),
+        (&["forgot", "password"], "forgotten password recovery", "security",
+            &["echo 'Boot Arch ISO, mount root, chroot'",
+              "echo 'Then: passwd <username>'"]),
+        (&["forgot", "root", "password"], "forgotten root password", "security",
+            &["echo 'Add init=/bin/bash to kernel params'",
+              "echo 'Then: mount -o remount,rw / && passwd'"]),
+        (&["reset", "password"], "password reset", "security",
+            &["echo 'For current user: passwd'",
+              "echo 'For other user: sudo passwd <username>'"]),
         // Disk full
-        (&["disk", "full", "can't", "login"], "disk full preventing login", "storage"),
-        (&["filled", "disk"], "disk completely full", "storage"),
-        (&["no", "space", "left"], "no disk space left", "storage"),
+        (&["disk", "full", "can't", "login"], "disk full preventing login", "storage",
+            &["echo 'Boot single user: add single to kernel params'",
+              "echo 'Clear logs: journalctl --vacuum-size=100M'"]),
+        (&["filled", "disk"], "disk completely full", "storage",
+            &["df -h", "du -sh /* 2>/dev/null | sort -hr | head -10",
+              "echo 'Clear: paccache -rk1'"]),
+        (&["no", "space", "left"], "no disk space left", "storage",
+            &["df -h", "sudo journalctl --vacuum-size=100M",
+              "du -sh /var/cache/pacman/pkg"]),
         // System freeze
-        (&["freeze", "complete"], "complete system freeze", "hardware"),
-        (&["sysrq", "not", "work"], "system unresponsive to SysRq", "hardware"),
-        (&["system", "frozen"], "frozen system", "hardware"),
+        (&["freeze", "complete"], "complete system freeze", "hardware",
+            &["echo 'Try SysRq: Alt+SysRq+R+E+I+S+U+B'",
+              "echo 'Enable: echo 1 | sudo tee /proc/sys/kernel/sysrq'"]),
+        (&["sysrq", "not", "work"], "system unresponsive to SysRq", "hardware",
+            &["echo 'Hard power off may be only option'",
+              "echo 'After: check journalctl -b -1'"]),
+        (&["system", "frozen"], "frozen system", "hardware",
+            &["echo 'Try SysRq REISUB: Alt+SysRq+R,E,I,S,U,B'",
+              "echo 'Check after: journalctl -b -1 for cause'"]),
         // Can't login
-        (&["can't", "login"], "unable to login", "security"),
-        (&["login", "loop"], "login loop", "display"),
+        (&["can't", "login"], "unable to login", "security",
+            &["echo 'Try TTY: Ctrl+Alt+F2'",
+              "echo 'Check: faillock --user <username>'"]),
+        (&["login", "loop"], "login loop", "display",
+            &["echo 'Switch to TTY: Ctrl+Alt+F2'",
+              "echo 'Check: ~/.Xauthority permissions'",
+              "ls -la ~/.Xauthority"]),
     ];
 
-    for (keywords, interpreted, topic) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.to_lowercase().contains(kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Troubleshoot,
                 confidence: 0.95,
                 topic: Some(topic.to_string()),
                 needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
                 ..Default::default()
             });
         }

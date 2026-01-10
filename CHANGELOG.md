@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.913] - 2026-01-10
+
+### Added
+- **Instant Solutions for Common Issues** - Pattern-matched problems now include fix commands
+  - Pacman patterns: database locked, GPG errors, conflicts, orphans, mirrors
+  - Recovery patterns: deleted /usr/bin, boot failures, permission disasters
+  - Emergency patterns: forgot password, disk full, login loop, system freeze
+  - All patterns now bypass LLM command selection with pre-cached solutions
+
 ## [0.0.912] - 2026-01-10
 
 ### Changed
