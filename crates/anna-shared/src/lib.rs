@@ -2,6 +2,7 @@
 //! Contains types for daemon-client communication and shared functionality.
 
 pub mod config;
+pub mod deps;
 pub mod helpers;
 pub mod memory;
 pub mod monitor;

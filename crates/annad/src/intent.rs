@@ -9,6 +9,7 @@ use anyhow::Result;
 use tracing::{debug, info, warn};
 
 use crate::ollama;
+use crate::patterns;
 
 /// Timeout for quick classification (v0.0.895)
 const QUICK_TIMEOUT_SECS: u64 = 8;
@@ -22,13 +23,20 @@ const CLARIFICATION_THRESHOLD: f32 = 0.7;
 /// Confidence threshold above which we skip deep understanding (v0.0.895)
 const QUICK_CONFIDENCE_THRESHOLD: f32 = 0.8;
 
-/// v0.0.895: Two-tier understanding - quick first, deep only if needed
+/// v0.0.909: Three-tier understanding - patterns first, then quick, then deep
 pub async fn understand_request(
     model: &str,
     question: &str,
     session_context: Option<&str>,
 ) -> Result<DeepUnderstanding> {
-    // First try quick classification (3-5 seconds)
+    // v0.0.909: First check common patterns (instant, no LLM needed)
+    if let Some(understanding) = patterns::match_common_pattern(question) {
+        info!("Pattern matched: {} (confidence: {:.0}%)",
+              understanding.interpreted_as, understanding.confidence * 100.0);
+        return Ok(understanding);
+    }
+
+    // Then try quick classification (3-5 seconds)
     let quick_result = quick_classify(model, question).await;
 
     match quick_result {

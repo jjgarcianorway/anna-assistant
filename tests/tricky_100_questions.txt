@@ -1,0 +1,118 @@
+# 100 Tricky Real-World Linux Questions
+# These are edge cases, ambiguous queries, multi-step problems, and real user issues
+
+# Ambiguous System Queries (1-15)
+1|Ambiguous|something is wrong with my computer
+2|Ambiguous|it's slow
+3|Ambiguous|fix my wifi
+4|Ambiguous|the thing isn't working
+5|Ambiguous|help
+6|Ambiguous|why won't it start
+7|Ambiguous|my display is weird
+8|Ambiguous|make it faster
+9|Ambiguous|where did my files go
+10|Ambiguous|is this normal?
+11|Ambiguous|how do I undo what I just did
+12|Ambiguous|I think I broke something
+13|Ambiguous|nothing works
+14|Ambiguous|why is everything so small
+15|Ambiguous|can you check if everything is okay
+
+# Edge Case Diagnostics (16-30)
+16|EdgeCase|why does my fan spin up when the system is idle
+17|EdgeCase|my clock keeps drifting by a few minutes every day
+18|EdgeCase|occasionally my mouse cursor freezes for half a second
+19|EdgeCase|sometimes audio crackles for a moment then fixes itself
+20|EdgeCase|my laptop takes 3 seconds longer to boot than yesterday
+21|EdgeCase|the system uses more RAM after a week without reboot
+22|EdgeCase|why do I hear a clicking sound from my SSD
+23|EdgeCase|my screen flickers once every few hours
+24|EdgeCase|keyboard input lags only in certain applications
+25|EdgeCase|bluetooth headphones disconnect after exactly 30 minutes
+26|EdgeCase|why does resume from suspend take longer in winter
+27|EdgeCase|system becomes unresponsive every day at 3am
+28|EdgeCase|my GPU usage spikes to 100% randomly for 2 seconds
+29|EdgeCase|wifi signal drops when microwave is running
+30|EdgeCase|laptop battery drains faster when lid is closed
+
+# Multi-Step Problem Solving (31-45)
+31|MultiStep|I want to move my home directory to a separate partition without losing data
+32|MultiStep|how do I set up automatic backups to an external drive that only runs when the drive is connected
+33|MultiStep|I need to downgrade my kernel but keep current drivers working
+34|MultiStep|how do I migrate from ext4 to btrfs without reinstalling
+35|MultiStep|set up a local development environment with docker nginx and postgres
+36|MultiStep|I want to encrypt my existing home partition
+37|MultiStep|how do I set up wake-on-lan and test if it works
+38|MultiStep|configure automatic system updates that won't break anything
+39|MultiStep|I need to share a folder with a windows machine on my network
+40|MultiStep|how do I set up a vpn server on this machine
+41|MultiStep|create a bootable usb with persistence from this running system
+42|MultiStep|I want dual monitors with different refresh rates and scaling
+43|MultiStep|set up automatic git backup of my config files to github
+44|MultiStep|how do I run windows programs without a full vm
+45|MultiStep|configure power management to maximize battery life without sacrificing performance
+
+# Obscure But Real Issues (46-60)
+46|Obscure|pacman says database is locked
+47|Obscure|error: GPGME error: No data
+48|Obscure|systemd-resolved is conflicting with NetworkManager
+49|Obscure|cannot find nvidia module in dkms
+50|Obscure|xdg-open doesn't open files with the right application
+51|Obscure|electron apps are blurry on hidpi
+52|Obscure|steam games crash immediately with no error
+53|Obscure|pipewire and pulseaudio are fighting
+54|Obscure|journalctl shows thousands of kernel: pcieport errors
+55|Obscure|timeshift says btrfs detected but can't create snapshots
+56|Obscure|yay fails with git clone permission denied
+57|Obscure|gnome-keyring keeps asking for password on every boot
+58|Obscure|flatpak apps can't access my home folder files
+59|Obscure|docker containers can't resolve dns
+60|Obscure|locale errors everywhere after partial update
+
+# Security-Related Questions (61-70)
+61|Security|how do I know if someone has accessed my system
+62|Security|check if any of my files have been modified recently
+63|Security|is there any suspicious network activity
+64|Security|verify that my system hasn't been compromised
+65|Security|what processes are making network connections
+66|Security|find all setuid binaries on my system
+67|Security|check if my ssh keys are secure
+68|Security|are there any unauthorized users on my system
+69|Security|what information is my system leaking
+70|Security|audit my system for security vulnerabilities
+
+# Performance Optimization (71-80)
+71|Performance|my compilation times are slow, how do I speed them up
+72|Performance|reduce boot time without removing services
+73|Performance|optimize for a gaming session
+74|Performance|my IDE is slow, how do I find what's causing it
+75|Performance|reduce memory usage without closing applications
+76|Performance|why does switching workspaces stutter
+77|Performance|firefox uses too much memory with many tabs
+78|Performance|make my file manager faster for directories with many files
+79|Performance|optimize disk io for my database workload
+80|Performance|reduce latency for audio production
+
+# Recovery Scenarios (81-90)
+81|Recovery|I accidentally deleted /usr/bin
+82|Recovery|system won't boot after kernel update
+83|Recovery|I ran chmod 777 -R on /
+84|Recovery|my display manager won't start, just black screen
+85|Recovery|forgot my root password
+86|Recovery|accidentally removed important package and its dependencies
+87|Recovery|system freezes completely, not even magic sysrq works
+88|Recovery|boot gets stuck at "starting version xxx"
+89|Recovery|I filled my disk completely and now can't login
+90|Recovery|grub rescue prompt, unknown filesystem
+
+# Context-Dependent Questions (91-100)
+91|Context|what's using all my bandwidth right now
+92|Context|show me what changed since yesterday
+93|Context|why did my last command fail
+94|Context|what's the most recent thing that went wrong
+95|Context|compare my current config to the default
+96|Context|what's different about my system compared to a fresh install
+97|Context|find what's preventing my system from shutting down
+98|Context|why is this process still running after I closed the app
+99|Context|what triggered the out of memory killer recently
+100|Context|explain what just happened in the last minute of logs

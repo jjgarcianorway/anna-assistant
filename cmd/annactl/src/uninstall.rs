@@ -331,6 +331,41 @@ pub fn run(args: UninstallArgs, _cfg: &UiCfg, style: &Style) -> Result<()> {
         }
     }
 
+    // v0.0.909: Remove packages Anna installed
+    if !args.keep {
+        let installed = anna_shared::deps::read_installed_packages().unwrap_or_default();
+        if !installed.is_empty() {
+            println!(
+                "{}",
+                crate::ui::step(style, "Removing Anna-installed packages…")
+            );
+            log(&format!("Found {} Anna-installed packages", installed.len()));
+
+            match anna_shared::deps::remove_installed_packages() {
+                Ok(removed) if !removed.is_empty() => {
+                    println!(
+                        "{}",
+                        crate::ui::ok(style, &format!("Removed {} packages: {}", removed.len(), removed.join(", ")))
+                    );
+                    log(&format!("Removed packages: {:?}", removed));
+                }
+                Ok(_) => {
+                    println!(
+                        "{}",
+                        crate::ui::note(style, "No packages to remove (may have been removed manually)")
+                    );
+                }
+                Err(e) => {
+                    println!(
+                        "{}",
+                        crate::ui::warn(style, &format!("Failed to remove packages: {}", e))
+                    );
+                    log(&format!("Package removal failed: {}", e));
+                }
+            }
+        }
+    }
+
     // Remove data/config unless --keep
     if !args.keep {
         println!(

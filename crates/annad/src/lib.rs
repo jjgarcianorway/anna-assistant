@@ -9,6 +9,7 @@
 pub mod core_loop;
 pub mod intent;
 pub mod ollama;
+pub mod patterns;
 pub mod server;
 pub mod state;
 pub mod update;

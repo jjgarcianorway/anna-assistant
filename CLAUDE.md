@@ -16,6 +16,27 @@ Read `VISION.md` for the full product vision. This file contains development rul
 - Citations from Arch Wiki, man pages, --help (the bible)
 - Never give "not possible" unless truly impossible
 
+## Self-Sufficient Tool Management
+Anna should install whatever tools/helpers she needs to improve accuracy and give better answers.
+- If a diagnostic tool is missing (e.g., `bc`, `jq`, `htop`, `lsof`, `nethogs`), Anna should install it
+- Track all Anna-installed packages in `~/.anna/installed_deps.txt` (user) or `/var/lib/anna/installed_deps.txt` (system)
+- On uninstall, remove all packages Anna installed (unless user has explicitly used them)
+- Use pacman/yay for Arch, apt for Debian/Ubuntu, dnf for Fedora
+- Always ask before installing (unless auto-confirm is enabled)
+
+Example workflow:
+```
+User: "what's using my bandwidth?"
+Anna: nethogs not found. Installing... [y/N]
+      → pacman -S nethogs
+      → Logged to installed_deps.txt
+      → Runs nethogs, provides answer
+
+User: annactl uninstall
+      → Reads installed_deps.txt
+      → Removes: nethogs (and any other Anna-installed packages)
+```
+
 ## Release Workflow - CRITICAL - DO NOT SKIP ANY STEP!!!
 After completing any implementation work, run ALL these steps:
 
@@ -126,5 +147,25 @@ ANSWER displayed to user
 
 ## Current Testing Phase
 
-We are testing anna with 100 Arch Linux questions to evaluate and improve the system.
-No new functionality needed - focus on testing existing pipeline and identifying issues.
+We tested Anna with 100 tricky real-world questions. Key findings:
+
+### Test Results (2026-01-10)
+- **85% completed** within 60s timeout
+- **Median response: 9ms** (excellent!)
+- **BUT: 80% asked for clarification** instead of answering
+
+### Critical Issue: Over-Clarification
+Anna asks "Could you please be more specific?" on questions with obvious answers:
+- "pacman says database is locked" → Should suggest `rm /var/lib/pacman/db.lck`
+- "I accidentally deleted /usr/bin" → Should provide recovery steps
+- "why does my fan spin up when idle" → Should run diagnostics
+
+### Priority Fixes Needed
+1. **Add pattern matching for common errors** - well-known issues should get instant answers
+2. **Reduce NEEDS CONFIRMATION threshold** - many clear questions trigger unnecessary clarification
+3. **Install missing tools automatically** - don't fail when `bc`, `nethogs`, etc. are missing
+
+### Test Files
+- `tests/tricky_100_questions.txt` - 100 challenging questions by category
+- `tests/comparison_test.sh` - Test runner script
+- `tests/COMPARISON_REPORT.md` - Full analysis with recommendations

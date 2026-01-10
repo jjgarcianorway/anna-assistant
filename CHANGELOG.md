@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.909] - 2026-01-10
+
+### Added
+- **Pattern Matching for Common Issues** - 136 rules for instant answers without LLM
+  - Pacman/package errors (17 patterns): database locked, GPG errors, conflicts
+  - Recovery scenarios (27 patterns): deleted /usr/bin, boot failures, permission disasters
+  - Performance issues (54 patterns): thermal, memory, CPU, network problems
+  - Common errors (38 patterns): audio conflicts, NVIDIA drivers, Docker issues
+
+- **Self-Sufficient Tool Management** - Anna auto-installs tools she needs
+  - New `deps.rs` module tracks Anna-installed packages
+  - Installs missing diagnostic tools (bc, jq, htop, nethogs, etc.)
+  - Cleans up on uninstall via `installed_deps.txt` ledger
+
+### Fixed
+- **Over-Clarification Problem** - Reduced from 80% to expected <30%
+  - Known issues now get instant answers with 0.9-0.95 confidence
+  - LLM only used for truly ambiguous or complex questions
+
+### Changed
+- Intent system now checks patterns BEFORE calling LLM
+- Uninstaller removes Anna-installed packages automatically
+
 ## [0.0.908] - 2026-01-10
 
 ### Fixed
