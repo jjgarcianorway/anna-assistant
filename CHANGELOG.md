@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.917] - 2026-01-10
+
+### Added
+- **Security Pattern Diagnostics** - Security queries now have pre-cached commands
+  - Firewall: UFW, firewalld, iptables, nftables status and rules
+  - Permissions: chmod, chown, ACLs, SUID/SGID files, world-writable
+  - Users: list users, groups, sudo access, add/remove users, login history
+  - SSH: status, keys, config, troubleshooting (connection refused, timeout)
+  - Audit: security audit, open ports, cron jobs, SELinux/AppArmor status
+
 ## [0.0.916] - 2026-01-10
 
 ### Added

@@ -3,6 +3,7 @@
 //! v0.0.909: Added to reduce over-clarification (80% rate in testing).
 //! v0.0.910: Added factual patterns for instant answers to common info queries.
 //! v0.0.916: Added development patterns for git, docker, build tools.
+//! v0.0.917: Added security patterns for firewall, permissions, users, SSH.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -11,6 +12,7 @@ mod recovery;
 mod performance;
 mod factual;
 mod development;
+mod security;
 
 use anna_shared::rpc::DeepUnderstanding;
 
@@ -23,6 +25,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     // Factual queries first (fastest path for common info questions)
     factual::match_patterns(&q)
         .or_else(|| development::match_patterns(&q))
+        .or_else(|| security::match_patterns(&q))
         .or_else(|| pacman::match_patterns(&q))
         .or_else(|| recovery::match_patterns(&q))
         .or_else(|| errors::match_patterns(&q))
@@ -115,5 +118,24 @@ mod tests {
     fn test_dev_build_tools() {
         assert!(match_common_pattern("cargo version").is_some());
         assert!(match_common_pattern("node version").is_some());
+    }
+
+    // Security pattern tests
+    #[test]
+    fn test_sec_firewall() {
+        assert!(match_common_pattern("firewall status").is_some());
+        assert!(match_common_pattern("ufw status").is_some());
+    }
+
+    #[test]
+    fn test_sec_users() {
+        assert!(match_common_pattern("list all users").is_some());
+        assert!(match_common_pattern("who has sudo access").is_some());
+    }
+
+    #[test]
+    fn test_sec_ssh() {
+        assert!(match_common_pattern("ssh key").is_some());
+        assert!(match_common_pattern("ssh status").is_some());
     }
 }
