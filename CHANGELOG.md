@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.914] - 2026-01-10
+
+### Added
+- **Performance Pattern Diagnostics** - Performance issues now include diagnostic commands
+  - Thermal: sensors, thermal zones, CPU temp
+  - Memory: RAM usage, top processes, swap status
+  - CPU: process list sorted by CPU usage
+  - Services: failed services, port usage, shutdown issues
+  - Slowness: boot analysis, system load, network speed
+
 ## [0.0.913] - 2026-01-10
 
 ### Added
