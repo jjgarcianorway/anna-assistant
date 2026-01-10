@@ -2,6 +2,8 @@
 //!
 //! The daemon runs as root, but most commands should run as the
 //! logged-in user to get correct results (home dir, packages, etc.).
+//!
+//! When not running as root (e.g., dev testing), commands execute directly.
 
 use anyhow::{anyhow, Result};
 use std::process::Command;
@@ -135,23 +137,42 @@ impl UserContext {
     }
 
     /// Execute a command as this user with timeout.
-    /// Uses runuser for proper session setup.
+    /// Uses runuser for proper session setup when running as root.
+    /// When not running as root, executes command directly.
     pub fn execute(&self, cmd: &str) -> Result<String> {
+        // Check if we're running as root
+        let running_as_root = unsafe { libc::geteuid() } == 0;
+
         // Wrap with timeout to prevent hung commands
-        let output = Command::new("timeout")
-            .arg("--signal=KILL")
-            .arg(format!("{}s", COMMAND_TIMEOUT_SECS))
-            .arg("runuser")
-            .args([
-                "-u", &self.username,
-                "--",
-                "sh", "-c", cmd
-            ])
-            .env("HOME", &self.home)
-            .env("USER", &self.username)
-            .env("LOGNAME", &self.username)
-            .output()
-            .map_err(|e| anyhow!("runuser failed: {}", e))?;
+        let output = if running_as_root {
+            // Running as root - use runuser to drop to user
+            Command::new("timeout")
+                .arg("--signal=KILL")
+                .arg(format!("{}s", COMMAND_TIMEOUT_SECS))
+                .arg("runuser")
+                .args([
+                    "-u", &self.username,
+                    "--",
+                    "sh", "-c", cmd
+                ])
+                .env("HOME", &self.home)
+                .env("USER", &self.username)
+                .env("LOGNAME", &self.username)
+                .output()
+                .map_err(|e| anyhow!("runuser failed: {}", e))?
+        } else {
+            // Not running as root - execute directly
+            Command::new("timeout")
+                .arg("--signal=KILL")
+                .arg(format!("{}s", COMMAND_TIMEOUT_SECS))
+                .arg("sh")
+                .args(["-c", cmd])
+                .env("HOME", &self.home)
+                .env("USER", &self.username)
+                .env("LOGNAME", &self.username)
+                .output()
+                .map_err(|e| anyhow!("Command failed: {}", e))?
+        };
 
         // Check for timeout (exit code 137 = killed by SIGKILL, 124 = timeout)
         if output.status.code() == Some(137) || output.status.code() == Some(124) {

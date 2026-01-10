@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.911] - 2026-01-10
+
+### Fixed
+- **runuser Permission Error** - Fixed "runuser: may not be used by non-root users"
+  - Commands now execute directly when daemon runs as non-root (dev/testing)
+  - Only uses `runuser` to drop privileges when actually running as root
+  - Added `libc` dependency to check `geteuid()` at runtime
+
 ## [0.0.910] - 2026-01-10
 
 ### Added
