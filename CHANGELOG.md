@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.916] - 2026-01-10
+
+### Added
+- **Development Pattern Diagnostics** - Common dev tool queries now have pre-cached commands
+  - Git: status, log, branches, diff, conflicts, stash, push issues, detached HEAD
+  - Docker: containers, images, volumes, networks, logs, stats, compose, prune
+  - Build tools: cargo/rust, npm/node, pip/python, go, make, cmake
+  - Languages: compiler versions, environment variables, PATH
+
 ## [0.0.915] - 2026-01-10
 
 ### Added

@@ -2,6 +2,7 @@
 //!
 //! v0.0.909: Added to reduce over-clarification (80% rate in testing).
 //! v0.0.910: Added factual patterns for instant answers to common info queries.
+//! v0.0.916: Added development patterns for git, docker, build tools.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -9,6 +10,7 @@ mod errors;
 mod recovery;
 mod performance;
 mod factual;
+mod development;
 
 use anna_shared::rpc::DeepUnderstanding;
 
@@ -20,6 +22,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     // Check each pattern category (order matters - more specific first)
     // Factual queries first (fastest path for common info questions)
     factual::match_patterns(&q)
+        .or_else(|| development::match_patterns(&q))
         .or_else(|| pacman::match_patterns(&q))
         .or_else(|| recovery::match_patterns(&q))
         .or_else(|| errors::match_patterns(&q))
@@ -93,5 +96,24 @@ mod tests {
     fn test_factual_services() {
         assert!(match_common_pattern("list failed services").is_some());
         assert!(match_common_pattern("show running services").is_some());
+    }
+
+    // Development pattern tests
+    #[test]
+    fn test_dev_git() {
+        assert!(match_common_pattern("git status").is_some());
+        assert!(match_common_pattern("show git log").is_some());
+    }
+
+    #[test]
+    fn test_dev_docker() {
+        assert!(match_common_pattern("list docker containers").is_some());
+        assert!(match_common_pattern("docker images").is_some());
+    }
+
+    #[test]
+    fn test_dev_build_tools() {
+        assert!(match_common_pattern("cargo version").is_some());
+        assert!(match_common_pattern("node version").is_some());
     }
 }
