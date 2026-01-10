@@ -250,7 +250,8 @@ pub fn select_best_model(hw: &HardwareInfo) -> &'static str {
     // With GPU: use VRAM fully + some RAM for offload (hybrid execution)
     // Ollama handles this automatically - we just need to ensure total fits
 
-    let vram_gb = hw.vram_mb / 1024;
+    // Use ceiling division to avoid edge cases (8188MB should be treated as 8GB, not 7)
+    let vram_gb = (hw.vram_mb + 512) / 1024;  // Round to nearest GB
     let total_memory_gb = vram_gb + hw.ram_gb;
 
     match hw.gpu_type {

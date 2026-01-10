@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.908] - 2026-01-10
+
+### Fixed
+- **VRAM Detection Rounding Bug** - 8188MB VRAM was being detected as 7GB instead of 8GB
+  - Integer division `8188/1024=7` now correctly rounds to nearest GB
+  - RTX 4060 (8GB) users now correctly get qwen2.5:14b model selected
+
 ## [0.0.907] - 2026-01-10
 
 ### Added
