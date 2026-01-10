@@ -4,6 +4,7 @@
 //! v0.0.910: Added factual patterns for instant answers to common info queries.
 //! v0.0.916: Added development patterns for git, docker, build tools.
 //! v0.0.917: Added security patterns for firewall, permissions, users, SSH.
+//! v0.0.918: Added desktop patterns for GNOME, KDE, Wayland, X11.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -13,6 +14,7 @@ mod performance;
 mod factual;
 mod development;
 mod security;
+mod desktop;
 
 use anna_shared::rpc::DeepUnderstanding;
 
@@ -26,6 +28,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     factual::match_patterns(&q)
         .or_else(|| development::match_patterns(&q))
         .or_else(|| security::match_patterns(&q))
+        .or_else(|| desktop::match_patterns(&q))
         .or_else(|| pacman::match_patterns(&q))
         .or_else(|| recovery::match_patterns(&q))
         .or_else(|| errors::match_patterns(&q))
@@ -137,5 +140,30 @@ mod tests {
     fn test_sec_ssh() {
         assert!(match_common_pattern("ssh key").is_some());
         assert!(match_common_pattern("ssh status").is_some());
+    }
+
+    // Desktop pattern tests
+    #[test]
+    fn test_desktop_display_server() {
+        assert!(match_common_pattern("wayland or x11").is_some());
+        assert!(match_common_pattern("which desktop am I running").is_some());
+    }
+
+    #[test]
+    fn test_desktop_gnome() {
+        assert!(match_common_pattern("gnome version").is_some());
+        assert!(match_common_pattern("gnome extensions").is_some());
+    }
+
+    #[test]
+    fn test_desktop_kde() {
+        assert!(match_common_pattern("plasma version").is_some());
+        assert!(match_common_pattern("kde settings").is_some());
+    }
+
+    #[test]
+    fn test_desktop_monitors() {
+        assert!(match_common_pattern("list connected monitors").is_some());
+        assert!(match_common_pattern("screen resolution").is_some());
     }
 }

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.918] - 2026-01-10
+
+### Added
+- **Desktop Environment Patterns** - Desktop queries now have pre-cached commands
+  - Display server: Wayland vs X11 detection, session info, compositor
+  - GNOME: version, settings, extensions, themes, dark mode, restart/crash
+  - KDE/Plasma: version, settings, KWin compositor, themes
+  - Window managers: i3, Sway, Hyprland config and reload
+  - Display: monitors, resolution, refresh rate, DPI/HiDPI, multi-monitor
+
 ## [0.0.917] - 2026-01-10
 
 ### Added
