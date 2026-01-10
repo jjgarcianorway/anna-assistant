@@ -1,5 +1,8 @@
 //! Command execution and retry logic.
+//! v0.0.919: Added auto-tool installation when command not found
 
+use anna_shared::config::AnnaConfig;
+use anna_shared::deps::{command_exists, install_package};
 use anna_shared::memory::Memory;
 use anyhow::Result;
 use std::process::Command;
@@ -8,6 +11,60 @@ use tracing::{debug, info, warn};
 use super::cache::{cache_command, get_cached_command, get_perf_config};
 use super::safety::is_dangerous_command;
 use crate::ollama;
+
+/// Map commands to their package names (command -> package)
+/// v0.0.919: Used for auto-installation
+const COMMAND_TO_PACKAGE: &[(&str, &str)] = &[
+    // Calculators and processors
+    ("bc", "bc"),
+    ("jq", "jq"),
+    // System monitoring
+    ("htop", "htop"),
+    ("iotop", "iotop"),
+    ("nethogs", "nethogs"),
+    ("iftop", "iftop"),
+    ("bmon", "bmon"),
+    ("nload", "nload"),
+    // Process/file tools
+    ("lsof", "lsof"),
+    ("strace", "strace"),
+    ("ltrace", "ltrace"),
+    // Disk tools
+    ("smartctl", "smartmontools"),
+    ("iostat", "sysstat"),
+    ("mpstat", "sysstat"),
+    ("sar", "sysstat"),
+    // Network tools
+    ("netstat", "net-tools"),
+    ("ifconfig", "net-tools"),
+    ("nslookup", "bind"),
+    ("dig", "bind"),
+    ("host", "bind"),
+    ("traceroute", "traceroute"),
+    ("mtr", "mtr"),
+    ("tcpdump", "tcpdump"),
+    ("nmap", "nmap"),
+    ("ss", "iproute2"),
+    // Hardware info
+    ("lspci", "pciutils"),
+    ("lsusb", "usbutils"),
+    ("lshw", "lshw"),
+    ("dmidecode", "dmidecode"),
+    ("sensors", "lm_sensors"),
+    // Archive tools
+    ("unzip", "unzip"),
+    ("unrar", "unrar"),
+    ("7z", "p7zip"),
+    // Development
+    ("tree", "tree"),
+    ("ncdu", "ncdu"),
+    ("duf", "duf"),
+    // GPU
+    ("nvidia-smi", "nvidia-utils"),
+    ("glxinfo", "mesa-utils"),
+    ("vainfo", "libva-utils"),
+    ("vdpauinfo", "vdpauinfo"),
+];
 
 /// Error categories for intelligent recovery
 #[derive(Debug, Clone, PartialEq)]
@@ -23,16 +80,28 @@ pub enum CommandErrorType {
 }
 
 /// Execute a shell command and return its output
+/// v0.0.919: Added configurable timeout support
 pub fn execute_command(cmd: &str) -> Result<String> {
     // Check cache first
     if let Some(cached) = get_cached_command(cmd) {
         return Ok(cached);
     }
 
-    let output = Command::new("sh")
+    // Get timeout from config (default 30 seconds)
+    let timeout_secs = get_perf_config().command_timeout_secs;
+
+    // Use timeout wrapper to prevent hanging commands
+    let output = Command::new("timeout")
+        .arg(format!("{}s", timeout_secs))
+        .arg("sh")
         .arg("-c")
         .arg(cmd)
         .output()?;
+
+    // Check if command timed out (exit code 124)
+    if output.status.code() == Some(124) {
+        return Ok(format!("[TIMEOUT] Command timed out after {}s: {}", timeout_secs, cmd));
+    }
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -91,6 +160,57 @@ pub fn classify_command_error(output: &str, error: Option<&str>) -> (CommandErro
         (CommandErrorType::EmptyOutput, "Command produced no output")
     } else {
         (CommandErrorType::Unknown, "Unknown error - try alternative command")
+    }
+}
+
+/// Try to auto-install a missing command
+/// v0.0.919: Returns true if installation succeeded and command now exists
+pub fn try_auto_install(cmd: &str) -> bool {
+    // Extract the base command (first word)
+    let base_cmd = cmd.split_whitespace().next().unwrap_or(cmd);
+
+    // Check if auto-install is enabled
+    let config = AnnaConfig::load().unwrap_or_default();
+    if !config.auto_install_helpers {
+        debug!("Auto-install disabled in config");
+        return false;
+    }
+
+    // Already installed?
+    if command_exists(base_cmd) {
+        return true;
+    }
+
+    // Find the package for this command
+    let package = COMMAND_TO_PACKAGE
+        .iter()
+        .find(|(c, _)| *c == base_cmd)
+        .map(|(_, p)| *p);
+
+    let package = match package {
+        Some(p) => p,
+        None => {
+            debug!("No package mapping for command: {}", base_cmd);
+            // Try using the command name as package name (works for many tools)
+            base_cmd
+        }
+    };
+
+    info!("Auto-installing package '{}' for command '{}'", package, base_cmd);
+
+    match install_package(package) {
+        Ok(true) => {
+            info!("Successfully installed package: {}", package);
+            true
+        }
+        Ok(false) => {
+            // Already installed (shouldn't happen, but handle gracefully)
+            true
+        }
+        Err(e) => {
+            warn!("Failed to install package '{}': {}", package, e);
+            false
+        }
     }
 }
 
@@ -188,6 +308,7 @@ If no alternative exists, reply with "NONE"."#,
 }
 
 /// Execute a command with retry logic
+/// v0.0.919: Added auto-installation for missing commands
 pub async fn execute_command_with_retry(
     model: &str,
     cmd: &str,
@@ -208,6 +329,19 @@ pub async fn execute_command_with_retry(
             let (error_type, hint) = classify_command_error(&output, None);
             if error_type == CommandErrorType::Unknown && !output.trim().is_empty() {
                 return (output, all_commands);
+            }
+
+            // v0.0.919: Try auto-installing missing command before asking LLM
+            if error_type == CommandErrorType::CommandNotFound {
+                if try_auto_install(cmd) {
+                    // Retry the command after installation
+                    if let Ok(retry_output) = execute_command(cmd) {
+                        if !retry_output.trim().is_empty() && !retry_output.contains("command not found") {
+                            info!("Command succeeded after auto-install");
+                            return (retry_output, all_commands);
+                        }
+                    }
+                }
             }
             record_command_failure(cmd, &error_type);
 

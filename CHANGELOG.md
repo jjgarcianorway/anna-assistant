@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.919] - 2026-01-10
+
+### Added
+- **Auto-Tool Installation** - Missing commands are now auto-installed when needed
+  - Maps 45+ common commands to their Arch packages (bc, jq, htop, lsof, sensors, etc.)
+  - Respects `auto_install_helpers` config setting (default: true)
+  - Tracks installed packages in `~/.anna/installed_deps.txt` for clean uninstall
+  - Falls back to using command name as package name for unmapped tools
+- **Command Execution Timeout** - Commands now have configurable timeout (default 30s)
+  - Uses `command_timeout_secs` from performance config
+  - Prevents hanging on slow/stuck commands
+  - Returns `[TIMEOUT]` marker when exceeded
+
+### Changed
+- Command execution now wraps with `timeout` utility for reliability
+
 ## [0.0.918] - 2026-01-10
 
 ### Added
