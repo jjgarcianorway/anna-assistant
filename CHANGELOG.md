@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.920] - 2026-01-10
+
+### Added
+- **Answer Caching** - Final answers to questions are now cached
+  - Caches high-confidence answers (≥0.7) to avoid repeated LLM calls
+  - Configurable TTL via `answer_cache_ttl_secs` (default: 300s / 5 minutes)
+  - Normalizes questions for fuzzy matching (case-insensitive, punctuation-stripped)
+  - Automatic cache size management (max 50 entries, LRU eviction)
+  - Can be disabled by setting TTL to 0
+
+### Changed
+- Repeated questions now return cached answers instantly
+
 ## [0.0.919] - 2026-01-10
 
 ### Added

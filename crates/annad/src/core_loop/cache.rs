@@ -1,4 +1,5 @@
-//! Cache management for command outputs, configs, and recipe books.
+//! Cache management for command outputs, configs, recipe books, and answers.
+//! v0.0.920: Added answer caching for repeated questions
 
 use anna_shared::config::{AnnaConfig, PerformanceConfig};
 use anna_shared::recipe::RecipeBook;
@@ -19,6 +20,9 @@ static WIKI_CONFIG: RwLock<Option<anna_shared::config::WikiConfig>> = RwLock::ne
 /// Command output cache (for performance - avoids re-running same commands)
 static COMMAND_CACHE: RwLock<Option<HashMap<String, CachedOutput>>> = RwLock::new(None);
 
+/// v0.0.920: Answer cache (for repeated questions - saves LLM calls)
+static ANSWER_CACHE: RwLock<Option<HashMap<String, CachedAnswer>>> = RwLock::new(None);
+
 /// v0.0.905: Cached recipe book (loaded once, reused)
 static RECIPE_BOOK_CACHE: RwLock<Option<CachedRecipeBook>> = RwLock::new(None);
 
@@ -27,6 +31,7 @@ static WIKI_FAILURES: AtomicU32 = AtomicU32::new(0);
 static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
 
 const RECIPE_BOOK_TTL_SECS: u64 = 600;
+const MAX_ANSWER_CACHE_SIZE: usize = 50;
 
 /// Cached command output with timestamp
 struct CachedOutput {
@@ -39,6 +44,13 @@ struct CachedOutput {
 struct CachedRecipeBook {
     book: RecipeBook,
     loaded_at: Instant,
+}
+
+/// v0.0.920: Cached answer with metadata
+struct CachedAnswer {
+    answer: String,
+    cached_at: Instant,
+    confidence: f32,
 }
 
 /// Get performance config (loads from disk once, caches in memory)
@@ -225,5 +237,100 @@ pub fn get_cached_recipe_book() -> Option<RecipeBook> {
             debug!("Failed to load recipe book: {}", e);
             None
         }
+    }
+}
+
+/// v0.0.920: Normalize question for cache key (lowercase, trim, remove punctuation)
+fn normalize_question(question: &str) -> String {
+    question
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .join(" ")
+}
+
+/// v0.0.920: Get cached answer for a question
+pub fn get_cached_answer(question: &str) -> Option<(String, f32)> {
+    let perf = get_perf_config();
+    let ttl = perf.answer_cache_ttl_secs;
+
+    // Skip if TTL is 0 (caching disabled)
+    if ttl == 0 {
+        return None;
+    }
+
+    if let Ok(guard) = ANSWER_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            let key = normalize_question(question);
+            if let Some(cached) = cache.get(&key) {
+                if cached.cached_at.elapsed().as_secs() < ttl {
+                    info!("Answer cache HIT for: {}", &question[..question.len().min(50)]);
+                    return Some((cached.answer.clone(), cached.confidence));
+                }
+            }
+        }
+    }
+    None
+}
+
+/// v0.0.920: Cache an answer for a question
+pub fn cache_answer(question: &str, answer: &str, confidence: f32) {
+    let perf = get_perf_config();
+
+    // Skip if TTL is 0 (caching disabled) or low confidence
+    if perf.answer_cache_ttl_secs == 0 || confidence < 0.7 {
+        return;
+    }
+
+    // Don't cache very short answers (likely errors)
+    if answer.len() < 20 {
+        return;
+    }
+
+    if let Ok(mut guard) = ANSWER_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+        let key = normalize_question(question);
+
+        cache.insert(
+            key,
+            CachedAnswer {
+                answer: answer.to_string(),
+                cached_at: Instant::now(),
+                confidence,
+            },
+        );
+
+        // Limit cache size
+        if cache.len() > MAX_ANSWER_CACHE_SIZE {
+            let ttl = perf.answer_cache_ttl_secs;
+            cache.retain(|_, v| v.cached_at.elapsed().as_secs() < ttl);
+
+            // If still too large, remove oldest entries
+            if cache.len() > MAX_ANSWER_CACHE_SIZE {
+                let mut entries: Vec<_> = cache.iter().collect();
+                entries.sort_by(|a, b| b.1.cached_at.cmp(&a.1.cached_at));
+                let keys_to_remove: Vec<String> = entries
+                    .iter()
+                    .skip(MAX_ANSWER_CACHE_SIZE / 2)
+                    .map(|(k, _)| (*k).clone())
+                    .collect();
+                for key in keys_to_remove {
+                    cache.remove(&key);
+                }
+            }
+        }
+
+        debug!("Cached answer for: {} (confidence: {:.2})", &question[..question.len().min(50)], confidence);
+    }
+}
+
+/// v0.0.920: Clear the answer cache
+pub fn clear_answer_cache() {
+    if let Ok(mut guard) = ANSWER_CACHE.write() {
+        *guard = Some(HashMap::new());
+        info!("Answer cache cleared");
     }
 }
