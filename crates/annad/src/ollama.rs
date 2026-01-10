@@ -236,37 +236,67 @@ fn detect_ram() -> u64 {
 }
 
 /// Select the best model based on hardware
+/// v0.0.907: Considers GPU+RAM hybrid execution for larger models
+/// Ollama automatically offloads layers to CPU when VRAM is insufficient
 pub fn select_best_model(hw: &HardwareInfo) -> &'static str {
-    // Model selection based on available VRAM
-    // Larger models = better reasoning but need more VRAM
+    // Model memory requirements (approximate, in GB):
+    // qwen2.5:32b  ~20GB
+    // qwen2.5:14b  ~9GB
+    // qwen2.5:7b   ~5GB
+    // qwen2.5:3b   ~2GB
+    // qwen2.5:1.5b ~1GB
+
+    // Total usable memory = VRAM + (RAM for offload)
+    // With GPU: use VRAM fully + some RAM for offload (hybrid execution)
+    // Ollama handles this automatically - we just need to ensure total fits
+
+    let vram_gb = hw.vram_mb / 1024;
+    let total_memory_gb = vram_gb + hw.ram_gb;
 
     match hw.gpu_type {
         GpuType::NvidiaCuda | GpuType::AmdRocm | GpuType::IntelArc => {
-            if hw.vram_mb >= 16000 {
-                // 16GB+ VRAM: Can run 14B+ models
+            // GPU available - can use hybrid execution
+            // Prefer models that fit mostly in VRAM for speed, but allow offload
+
+            if vram_gb >= 24 {
+                // 24GB+ VRAM: Run 32B fully on GPU
+                "qwen2.5:32b"
+            } else if vram_gb >= 16 {
+                // 16GB+ VRAM: 14B on GPU
                 "qwen2.5:14b"
-            } else if hw.vram_mb >= 10000 {
-                // 10-16GB VRAM: 7-8B models comfortably
+            } else if vram_gb >= 8 && hw.ram_gb >= 24 {
+                // 8GB VRAM + 24GB+ RAM: Can run 14B with hybrid (GPU + CPU offload)
+                // This is your case! RTX 4060 8GB + 32GB RAM
+                "qwen2.5:14b"
+            } else if vram_gb >= 6 && hw.ram_gb >= 16 {
+                // 6GB VRAM + 16GB RAM: 7B hybrid comfortably
                 "qwen2.5:7b"
-            } else if hw.vram_mb >= 6000 {
-                // 6-10GB VRAM: 7B models with some offload
-                "qwen2.5:7b"
-            } else if hw.vram_mb >= 4000 {
-                // 4-6GB VRAM: smaller models
+            } else if vram_gb >= 4 {
+                // 4-6GB VRAM: 7B with heavy offload or 3B
+                if hw.ram_gb >= 16 {
+                    "qwen2.5:7b"
+                } else {
+                    "qwen2.5:3b"
+                }
+            } else if vram_gb >= 2 {
                 "qwen2.5:3b"
             } else {
-                // < 4GB: tiny models
                 "qwen2.5:1.5b"
             }
         }
         GpuType::CpuOnly => {
-            // CPU-only: depends on RAM
-            if hw.ram_gb >= 32 {
+            // CPU-only: depends entirely on RAM
+            // Models run slower but still work
+            if hw.ram_gb >= 48 {
+                "qwen2.5:14b"  // Plenty of RAM for 14B on CPU
+            } else if hw.ram_gb >= 32 {
                 "qwen2.5:7b"
             } else if hw.ram_gb >= 16 {
                 "qwen2.5:3b"
-            } else {
+            } else if hw.ram_gb >= 8 {
                 "qwen2.5:1.5b"
+            } else {
+                "qwen2.5:0.5b"
             }
         }
     }

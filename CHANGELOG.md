@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.907] - 2026-01-10
+
+### Added
+- **Smart Hardware-Based Model Selection** - Anna automatically uses the best model for your hardware
+  - Detects GPU type: NVIDIA CUDA, AMD ROCm, Intel Arc, or CPU-only
+  - Detects VRAM (via nvidia-smi, rocm-smi, or intel_gpu_top)
+  - Detects total system RAM
+  - Hybrid GPU+RAM execution: 8GB VRAM + 24GB RAM can run 14B models
+
+- **Automatic Model Pulling** - Missing models are pulled automatically
+  - If selected model not available, Anna pulls it before starting
+  - Progress shown during download
+  - Falls back to smaller model if pull fails
+
+### Model Selection Logic
+| Hardware | Model Selected |
+|----------|----------------|
+| 24GB+ VRAM | qwen2.5:32b |
+| 16GB+ VRAM | qwen2.5:14b |
+| 8GB VRAM + 24GB+ RAM | qwen2.5:14b (hybrid) |
+| 6GB VRAM + 16GB+ RAM | qwen2.5:7b |
+| 48GB+ RAM (CPU-only) | qwen2.5:14b |
+| 32GB+ RAM (CPU-only) | qwen2.5:7b |
+| 16GB+ RAM (CPU-only) | qwen2.5:3b |
+| <16GB RAM | qwen2.5:1.5b |
+
 ## [0.0.906] - 2026-01-10
 
 ### Fixed
