@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.915] - 2026-01-10
+
+### Added
+- **Error Pattern Diagnostics** - Common errors now include diagnostic/fix commands
+  - System conflicts: DNS, audio (PipeWire/PulseAudio), display scaling, XDG
+  - Hardware: NVIDIA drivers, PCIe errors, Bluetooth, WiFi, screen issues
+  - Services: Docker, Flatpak permissions, GNOME keyring, Steam/Proton
+
 ## [0.0.914] - 2026-01-10
 
 ### Added
