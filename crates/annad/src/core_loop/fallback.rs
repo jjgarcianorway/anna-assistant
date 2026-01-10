@@ -1,0 +1,194 @@
+//! Fallback command hints for when LLM is unavailable.
+
+use std::process::Command;
+use tracing::{debug, info};
+
+use super::cache::{cache_command, get_cached_command};
+
+/// Heuristic command hints for when LLM is unavailable (timeout fallback)
+pub fn get_fallback_commands(question: &str) -> Vec<&'static str> {
+    get_fallback_commands_with_intent(question, None)
+}
+
+/// Get fallback commands with optional intent category for smarter suggestions
+pub fn get_fallback_commands_with_intent(question: &str, intent: Option<&str>) -> Vec<&'static str> {
+    let q = question.to_lowercase();
+
+    // If we have intent, use category-specific commands
+    if let Some(category) = intent {
+        match category {
+            "TROUBLESHOOT" => {
+                if q.contains("network") {
+                    return vec!["journalctl -u NetworkManager --no-pager -n 30", "ip addr", "systemctl status NetworkManager"];
+                }
+                if q.contains("audio") || q.contains("sound") {
+                    return vec!["journalctl -u pipewire --no-pager -n 30", "pactl info", "wpctl status"];
+                }
+                if q.contains("boot") || q.contains("startup") {
+                    return vec!["journalctl -b -p err --no-pager -n 30", "systemctl --failed"];
+                }
+                return vec!["journalctl -p err -b --no-pager | tail -30", "systemctl --failed", "dmesg --level=err | tail -20"];
+            }
+            "HOWTO" => {
+                if q.contains("install") {
+                    return vec!["pacman -Ss", "checkupdates | head -10"];
+                }
+                if q.contains("enable") || q.contains("service") {
+                    return vec!["systemctl list-unit-files --type=service | head -20"];
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // System info
+    if q.contains("kernel") || q.contains("version") && q.contains("linux") {
+        return vec!["uname -r", "uname -a"];
+    }
+    if q.contains("hostname") || q.contains("host name") {
+        return vec!["hostname", "hostnamectl hostname"];
+    }
+    if q.contains("uptime") || q.contains("running") && q.contains("long") {
+        return vec!["uptime -p", "uptime"];
+    }
+    if q.contains("distribution") || q.contains("distro") || q.contains("os") && !q.contains("process") {
+        return vec!["cat /etc/os-release | head -5", "hostnamectl"];
+    }
+    if q.contains("architecture") || q.contains("arch") && q.contains("system") {
+        return vec!["uname -m", "arch"];
+    }
+    if q.contains("shell") && (q.contains("using") || q.contains("am i") || q.contains("my")) {
+        return vec!["echo $SHELL", "basename $SHELL"];
+    }
+    if q.contains("home") && q.contains("directory") {
+        return vec!["echo $HOME", "pwd"];
+    }
+    if q.contains("current") && (q.contains("directory") || q.contains("folder") || q.contains("cwd")) {
+        return vec!["pwd"];
+    }
+    if q.contains("username") || (q.contains("user") && q.contains("am i")) {
+        return vec!["whoami", "id -un"];
+    }
+    if q.contains("timezone") || q.contains("time zone") {
+        return vec!["timedatectl show -p Timezone --value", "cat /etc/timezone 2>/dev/null || timedatectl"];
+    }
+    if q.contains("locale") {
+        return vec!["locale", "echo $LANG"];
+    }
+    if q.contains("display") && q.contains("server") || q.contains("wayland") || q.contains("xorg") {
+        return vec!["echo $XDG_SESSION_TYPE", "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type --value 2>/dev/null || echo tty"];
+    }
+    if q.contains("desktop") && q.contains("environment") || q.contains(" de ") {
+        return vec!["echo $XDG_CURRENT_DESKTOP", "echo $DESKTOP_SESSION"];
+    }
+    if q.contains("resolution") || q.contains("screen size") {
+        return vec!["xrandr 2>/dev/null | grep '*' | head -1 | awk '{print $1}'", "wlr-randr 2>/dev/null | grep current | head -1"];
+    }
+    if q.contains("last") && q.contains("boot") {
+        return vec!["who -b", "uptime -s"];
+    }
+
+    // Hardware
+    if q.contains("cpu") || q.contains("processor") {
+        return vec!["lscpu | head -20", "cat /proc/cpuinfo | head -30"];
+    }
+    if q.contains("memory") || q.contains("ram") {
+        return vec!["free -h", "cat /proc/meminfo | head -10"];
+    }
+    if q.contains("gpu") || q.contains("graphics") || q.contains("video") {
+        return vec!["lspci | grep -i vga", "lspci | grep -i 3d"];
+    }
+    if q.contains("disk") || q.contains("storage") || q.contains("space") {
+        return vec!["df -h", "lsblk"];
+    }
+    if q.contains("usb") {
+        return vec!["lsusb"];
+    }
+    if q.contains("network") || q.contains("interface") {
+        return vec!["ip addr", "ip link"];
+    }
+    if q.contains("ip") && q.contains("address") {
+        return vec!["ip addr show | grep 'inet '"];
+    }
+
+    // Packages
+    if q.contains("installed") && q.contains("package") {
+        return vec!["pacman -Q | wc -l"];
+    }
+    if q.contains("update") && (q.contains("package") || q.contains("system")) {
+        return vec!["checkupdates | head -20"];
+    }
+    if q.contains("orphan") {
+        return vec!["pacman -Qdt"];
+    }
+
+    // Package version checks
+    let pkg_patterns = [
+        ("git", vec!["which git && git --version", "pacman -Q git 2>/dev/null"]),
+        ("neovim", vec!["which nvim && nvim --version | head -1", "pacman -Q neovim 2>/dev/null"]),
+        ("nvim", vec!["which nvim && nvim --version | head -1", "pacman -Q neovim 2>/dev/null"]),
+        ("docker", vec!["which docker && docker --version", "pacman -Q docker 2>/dev/null"]),
+        ("python", vec!["which python && python --version", "pacman -Q python 2>/dev/null"]),
+        ("node", vec!["which node && node --version", "pacman -Q nodejs 2>/dev/null"]),
+        ("rust", vec!["which rustc && rustc --version", "pacman -Q rust 2>/dev/null"]),
+    ];
+    for (pkg, cmds) in pkg_patterns {
+        if q.contains(pkg) && (q.contains("installed") || q.contains("version") || q.contains("have")) {
+            return cmds;
+        }
+    }
+
+    // Services
+    if q.contains("service") && q.contains("fail") {
+        return vec!["systemctl --failed"];
+    }
+    if q.contains("service") && q.contains("running") {
+        return vec!["systemctl list-units --type=service --state=running | head -20"];
+    }
+    if q.contains("service") && q.contains("enabled") {
+        return vec!["systemctl list-unit-files --state=enabled | head -20"];
+    }
+
+    // Troubleshooting
+    if q.contains("error") || q.contains("log") {
+        return vec!["journalctl -p err -b --no-pager | tail -30"];
+    }
+    if q.contains("process") && (q.contains("cpu") || q.contains("top")) {
+        return vec!["ps aux --sort=-%cpu | head -10"];
+    }
+    if q.contains("process") && q.contains("memory") {
+        return vec!["ps aux --sort=-%mem | head -10"];
+    }
+
+    vec![]
+}
+
+/// Warm up the command cache with static system info (called at daemon startup)
+pub fn warm_up_cache() {
+    info!("Warming up command cache with static system info...");
+
+    let static_commands = [
+        "uname -r", "uname -a", "hostname", "cat /etc/os-release",
+        "lscpu | head -20", "free -h", "df -h", "ip addr",
+    ];
+
+    let mut cached_count = 0;
+    for cmd in static_commands {
+        if get_cached_command(cmd).is_some() {
+            continue;
+        }
+        match Command::new("sh").arg("-c").arg(cmd).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    let result = String::from_utf8_lossy(&output.stdout).to_string();
+                    if !result.trim().is_empty() {
+                        cache_command(cmd, &result);
+                        cached_count += 1;
+                    }
+                }
+            }
+            Err(e) => debug!("Cache warm-up failed for '{}': {}", cmd, e),
+        }
+    }
+    info!("Cache warm-up complete: {} commands pre-cached", cached_count);
+}

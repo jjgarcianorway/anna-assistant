@@ -7,6 +7,7 @@
 //! - Streaming answer validation (v0.0.889)
 
 pub mod core_loop;
+mod core_loop_old;
 pub mod intent;
 pub mod ollama;
 pub mod patterns;
