@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.912] - 2026-01-10
+
+### Changed
+- **Skip LLM Validation for Pattern Queries** - Pattern-matched factual queries skip validation
+  - If all pattern commands return [OK] status, skip LLM validation call entirely
+  - Reduces latency by ~30s for simple factual queries (RAM, GPU, disk, etc.)
+  - Falls back to LLM validation if any command fails or has empty output
+
+### Fixed
+- **Overly Aggressive Known-Failure Matching** - Fixed commands being incorrectly skipped
+  - Previously: if `lspci -x` failed, ALL `lspci` commands were skipped
+  - Now: only exact matches or prefix+space matches are skipped
+  - Pattern commands like `lspci | grep -i vga` now execute correctly
+- **nvidia-smi Rejection** - Added GPU tools to valid simple commands list
+  - Added: nvidia-smi, rocm-smi, glxinfo, vainfo, vdpauinfo
+
 ## [0.0.911] - 2026-01-10
 
 ### Fixed

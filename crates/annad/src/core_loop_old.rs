@@ -3319,6 +3319,9 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         }
     } // End of !skip_wiki
 
+    // v0.0.912: Track if we used pattern commands (for skip-validation optimization)
+    let mut used_pattern_commands = false;
+
     while iterations < max_iterations {
         iterations += 1;
         info!("Iteration {}/{}", iterations, max_iterations);
@@ -3326,6 +3329,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         // v0.0.910: Use pre-cached commands from pattern matching (bypasses LLM entirely)
         let commands_response = if iterations == 1 && !understanding.suggested_commands.is_empty() {
             info!("Using {} pre-cached commands from pattern matching", understanding.suggested_commands.len());
+            used_pattern_commands = true;  // v0.0.912: Track for skip-validation
             let step = DialogueStep {
                 step_type: StepType::LlmCommands,
                 content: format!("[PATTERN] {}", understanding.suggested_commands.join("\n")),
@@ -3527,7 +3531,15 @@ Commands:"#,
             let cmd = cmd.as_str();
 
             // v0.0.902: Skip commands known to fail on this system
-            if known_failures.iter().any(|f| cmd.starts_with(f) || f.starts_with(cmd.split_whitespace().next().unwrap_or(""))) {
+            // v0.0.912: Fixed overly aggressive matching - only skip exact matches or prefix+space
+            // Previously: f.starts_with(first_word) caused ALL lspci commands to be skipped if any lspci failed
+            if known_failures.iter().any(|f| {
+                // Exact match
+                cmd == f ||
+                // Prefix match: cmd starts with failed command followed by space
+                // (e.g., skip "rm -rf /home" if "rm -rf" failed)
+                (cmd.starts_with(f) && cmd.len() > f.len() && cmd.chars().nth(f.len()) == Some(' '))
+            }) {
                 info!("Skipping known-failure command: {}", cmd);
                 continue;
             }
@@ -3606,10 +3618,27 @@ Commands:"#,
             combined_output.push_str(&format!("$ {} {}\n{}\n\n", cmd_used, status, output));
         }
 
-        last_output = combined_output;
+        last_output = combined_output.clone();
 
         // Step 3: Check if we have enough information
         if !last_output.is_empty() {
+            // v0.0.912: Skip LLM validation for pattern-matched queries with successful output
+            // If we used pattern commands AND all outputs have [OK] status, skip validation
+            let all_ok = !combined_output.contains("[ERROR]")
+                && !combined_output.contains("[EMPTY OUTPUT]")
+                && !combined_output.contains("[TIMEOUT]");
+
+            if used_pattern_commands && all_ok && iterations == 1 {
+                info!("Pattern commands succeeded with [OK] status - skipping LLM validation");
+                let step = DialogueStep {
+                    step_type: StepType::ValidationResponse,
+                    content: "[PATTERN-OK]".to_string(),
+                };
+                dialogue.push(step.clone());
+                send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                break;
+            }
+
             let validate_prompt = format!(
                 r#"The user asked: "{}"
 
@@ -4926,6 +4955,7 @@ fn is_valid_simple_command(cmd: &str) -> bool {
         "systemctl", "journalctl", "loginctl", "timedatectl", "localectl",
         // Hardware
         "lspci", "lsusb", "lscpu", "lsmod", "sensors", "hwinfo",
+        "nvidia-smi", "rocm-smi", "glxinfo", "vainfo", "vdpauinfo",
         // Files
         "ls", "tree", "file", "stat", "wc",
         // Misc
