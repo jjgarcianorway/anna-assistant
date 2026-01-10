@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.921] - 2026-01-10
+
+### Added
+- **Negative Learning** - Failed commands are now remembered and skipped
+  - Session-level failure cache (30-minute TTL)
+  - Skips known-failed commands immediately
+  - Records failures to both cache and long-term memory
+  - Base command matching for "command not found" errors
+  - Clears cache after successful package installation
+- **Wiki Search Caching** - Wiki search results are now cached
+  - 1-hour TTL for wiki search results
+  - Normalizes queries for fuzzy matching
+  - LRU eviction (max 30 cached queries)
+  - Saves expensive wiki searches for repeated HOWTO questions
+
+### Changed
+- Commands that previously failed now return `[SKIPPED]` marker
+- Faster repeated wiki-based questions via cache
+
 ## [0.0.920] - 2026-01-10
 
 ### Added

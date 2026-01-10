@@ -32,6 +32,30 @@ static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
 
 const RECIPE_BOOK_TTL_SECS: u64 = 600;
 const MAX_ANSWER_CACHE_SIZE: usize = 50;
+const FAILURE_CACHE_TTL_SECS: u64 = 1800; // 30 minutes
+const WIKI_CACHE_TTL_SECS: u64 = 3600; // 1 hour
+const MAX_WIKI_CACHE_SIZE: usize = 30;
+
+/// v0.0.921: Session-level command failure cache
+static FAILURE_CACHE: RwLock<Option<HashMap<String, CommandFailure>>> = RwLock::new(None);
+
+/// v0.0.921: Wiki search result cache
+static WIKI_CACHE: RwLock<Option<HashMap<String, CachedWikiResult>>> = RwLock::new(None);
+
+/// v0.0.921: Cached command failure
+struct CommandFailure {
+    error_type: String,
+    failed_at: Instant,
+}
+
+/// v0.0.921: Cached wiki search result
+#[derive(Clone)]
+pub struct CachedWikiResult {
+    pub commands: Vec<String>,
+    pub context: String,
+    pub sources: Vec<String>,
+    cached_at: Instant,
+}
 
 /// Cached command output with timestamp
 struct CachedOutput {
@@ -332,5 +356,151 @@ pub fn clear_answer_cache() {
     if let Ok(mut guard) = ANSWER_CACHE.write() {
         *guard = Some(HashMap::new());
         info!("Answer cache cleared");
+    }
+}
+
+/// v0.0.921: Check if a command is a known failure (negative learning)
+pub fn is_known_failed_command(cmd: &str) -> Option<String> {
+    if let Ok(guard) = FAILURE_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            // Extract base command for matching
+            let base_cmd = cmd.split_whitespace().next().unwrap_or(cmd);
+
+            // Check exact match first
+            if let Some(failure) = cache.get(cmd) {
+                if failure.failed_at.elapsed().as_secs() < FAILURE_CACHE_TTL_SECS {
+                    debug!("Skipping known-failed command: {}", cmd);
+                    return Some(failure.error_type.clone());
+                }
+            }
+
+            // Check base command match (e.g., "lspci" failed, skip "lspci -v")
+            if let Some(failure) = cache.get(base_cmd) {
+                if failure.failed_at.elapsed().as_secs() < FAILURE_CACHE_TTL_SECS {
+                    // Only skip if same base and failure was "command not found"
+                    if failure.error_type.contains("NotFound") {
+                        debug!("Skipping command with known-failed base: {} (base: {})", cmd, base_cmd);
+                        return Some(failure.error_type.clone());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// v0.0.921: Record a command failure (negative learning)
+pub fn record_command_failure_cache(cmd: &str, error_type: &str) {
+    if let Ok(mut guard) = FAILURE_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+
+        cache.insert(
+            cmd.to_string(),
+            CommandFailure {
+                error_type: error_type.to_string(),
+                failed_at: Instant::now(),
+            },
+        );
+
+        // Also record base command for CommandNotFound errors
+        if error_type.contains("NotFound") {
+            if let Some(base_cmd) = cmd.split_whitespace().next() {
+                if base_cmd != cmd {
+                    cache.insert(
+                        base_cmd.to_string(),
+                        CommandFailure {
+                            error_type: error_type.to_string(),
+                            failed_at: Instant::now(),
+                        },
+                    );
+                }
+            }
+        }
+
+        // Cleanup old entries
+        if cache.len() > 100 {
+            cache.retain(|_, v| v.failed_at.elapsed().as_secs() < FAILURE_CACHE_TTL_SECS);
+        }
+
+        debug!("Recorded command failure: {} ({})", cmd, error_type);
+    }
+}
+
+/// v0.0.921: Clear failure cache (e.g., after package install)
+pub fn clear_failure_cache() {
+    if let Ok(mut guard) = FAILURE_CACHE.write() {
+        *guard = Some(HashMap::new());
+        debug!("Failure cache cleared");
+    }
+}
+
+/// v0.0.921: Normalize query for wiki cache key
+fn normalize_wiki_query(query: &str) -> String {
+    query
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .join(" ")
+}
+
+/// v0.0.921: Get cached wiki search result
+pub fn get_cached_wiki_search(query: &str) -> Option<CachedWikiResult> {
+    if let Ok(guard) = WIKI_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            let key = normalize_wiki_query(query);
+            if let Some(cached) = cache.get(&key) {
+                if cached.cached_at.elapsed().as_secs() < WIKI_CACHE_TTL_SECS {
+                    info!("Wiki cache HIT for: {}", &query[..query.len().min(40)]);
+                    return Some(cached.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// v0.0.921: Cache wiki search result
+pub fn cache_wiki_search(query: &str, commands: Vec<String>, context: String, sources: Vec<String>) {
+    // Don't cache empty results
+    if commands.is_empty() && context.is_empty() {
+        return;
+    }
+
+    if let Ok(mut guard) = WIKI_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+        let key = normalize_wiki_query(query);
+
+        cache.insert(
+            key,
+            CachedWikiResult {
+                commands,
+                context,
+                sources,
+                cached_at: Instant::now(),
+            },
+        );
+
+        // Limit cache size
+        if cache.len() > MAX_WIKI_CACHE_SIZE {
+            cache.retain(|_, v| v.cached_at.elapsed().as_secs() < WIKI_CACHE_TTL_SECS);
+
+            if cache.len() > MAX_WIKI_CACHE_SIZE {
+                let mut entries: Vec<_> = cache.iter().collect();
+                entries.sort_by(|a, b| b.1.cached_at.cmp(&a.1.cached_at));
+                let keys_to_remove: Vec<String> = entries
+                    .iter()
+                    .skip(MAX_WIKI_CACHE_SIZE / 2)
+                    .map(|(k, _)| (*k).clone())
+                    .collect();
+                for key in keys_to_remove {
+                    cache.remove(&key);
+                }
+            }
+        }
+
+        debug!("Cached wiki search for: {}", &query[..query.len().min(40)]);
     }
 }

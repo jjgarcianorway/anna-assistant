@@ -8,7 +8,7 @@ use anyhow::Result;
 use std::process::Command;
 use tracing::{debug, info, warn};
 
-use super::cache::{cache_command, get_cached_command, get_perf_config};
+use super::cache::{cache_command, get_cached_command, get_perf_config, is_known_failed_command, record_command_failure_cache, clear_failure_cache};
 use super::safety::is_dangerous_command;
 use crate::ollama;
 
@@ -81,10 +81,17 @@ pub enum CommandErrorType {
 
 /// Execute a shell command and return its output
 /// v0.0.919: Added configurable timeout support
+/// v0.0.921: Added negative learning (skip known-failed commands)
 pub fn execute_command(cmd: &str) -> Result<String> {
     // Check cache first
     if let Some(cached) = get_cached_command(cmd) {
         return Ok(cached);
+    }
+
+    // v0.0.921: Check if this command is known to fail
+    if let Some(error_type) = is_known_failed_command(cmd) {
+        debug!("Skipping known-failed command: {} ({})", cmd, error_type);
+        return Ok(format!("[SKIPPED] Known failed command: {}", error_type));
     }
 
     // Get timeout from config (default 30 seconds)
@@ -201,6 +208,8 @@ pub fn try_auto_install(cmd: &str) -> bool {
     match install_package(package) {
         Ok(true) => {
             info!("Successfully installed package: {}", package);
+            // v0.0.921: Clear failure cache since new command is available
+            clear_failure_cache();
             true
         }
         Ok(false) => {
@@ -248,7 +257,12 @@ pub fn get_recovery_prompt(error_type: &CommandErrorType, cmd: &str) -> String {
 }
 
 /// Record a command failure in memory for future avoidance
+/// v0.0.921: Also records to session-level failure cache
 pub fn record_command_failure(cmd: &str, error_type: &CommandErrorType) {
+    // Record to session-level cache for immediate effect
+    record_command_failure_cache(cmd, &format!("{:?}", error_type));
+
+    // Also record to long-term memory
     if let Ok(mut memory) = Memory::load() {
         for exp in memory.experiences.iter_mut() {
             if exp.successful_commands.contains(&cmd.to_string()) {

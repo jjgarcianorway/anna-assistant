@@ -132,7 +132,17 @@ pub fn get_command_hints(question: &str) -> String {
 }
 
 /// Search wiki and extract relevant commands
+/// v0.0.921: Added wiki search caching (1 hour TTL)
 pub async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResults> {
+    // v0.0.921: Check cache first
+    if let Some(cached) = cache::get_cached_wiki_search(question) {
+        return Some(WikiSearchResults {
+            commands: cached.commands,
+            context: cached.context,
+            sources: cached.sources,
+        });
+    }
+
     if is_wiki_circuit_open() {
         debug!("Wiki circuit breaker open, skipping search");
         return None;
@@ -180,6 +190,9 @@ pub async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResult
                     }
                 }
             }
+
+            // v0.0.921: Cache the result
+            cache::cache_wiki_search(question, commands.clone(), context.clone(), sources.clone());
 
             Some(WikiSearchResults { commands, context, sources })
         }
