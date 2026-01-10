@@ -1,0 +1,10 @@
+{
+  "num": 10,
+  "category": "Error",
+  "question": "ata3: SATA link down",
+  "status": "timeout",
+  "answer_type": "none",
+  "response_time_ms": 60004,
+  "exit_code": 124,
+  "quality_score": 0
+}

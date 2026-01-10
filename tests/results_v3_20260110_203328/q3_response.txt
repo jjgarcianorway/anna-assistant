@@ -1,0 +1,4 @@
+
+[36mUSER: [0mACPI BIOS Error (bug): Could not resolve symbol
+
+[34mANNA: [0munderstanding question...

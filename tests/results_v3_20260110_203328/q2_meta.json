@@ -1,0 +1,10 @@
+{
+  "num": 2,
+  "category": "Error",
+  "question": "Failed to start Load Kernel Modules",
+  "status": "timeout",
+  "answer_type": "none",
+  "response_time_ms": 60004,
+  "exit_code": 124,
+  "quality_score": 0
+}

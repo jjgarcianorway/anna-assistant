@@ -7,6 +7,9 @@
 //!
 //! NO HARDCODING - We capture raw data and let the LLM interpret relevance.
 
+mod configs;
+mod detect;
+mod hardware;
 pub mod scan;
 
 use anyhow::Result;

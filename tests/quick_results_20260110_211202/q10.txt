@@ -1,0 +1,66 @@
+
+[36mUSER: [0mhow to enable ssh
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: brief paraphrase
+[2m  intent: [0mUnderstood as: brief paraphrase
+Category: HowTo
+Confidence: 90%
+Topic: services
+Entities: ssh
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: services ssh[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • (no relevant articles found)[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are an Arch Linux expert. The user wants to configure or change something on their system.[0m
+[2m│ [0m
+[2m│ System: CachyOS Linux, systemd-boot, editor:(stderr: runuser: may not be used by non-root users), shell:fish, btrfs[0m
+[2m│ [0m
+[2m│ User request: "how to enable ssh"[0m
+[2m│ [0m
+[2m│ Provide step-by-step instructions to accomplish this task. Include:[0m
+[2m│ 1. The exact commands to run (with sudo if needed)[0m
+[2m│ 2. Any config files to edit and what to add/change[0m
+[2m│ 3. How to make changes permanent if applicable[0m
+[2m│ 4. How to verify the change worked[0m
+[2m│ [0m
+[2m│ Be specific to this system. Use the Arch Wiki information if provided.[0m
+[2m│ If this requires GUI access or a reboot, mention that.[0m
+[2m│ [0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m│ Keep the answer focused and practical.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo[0m[32m enable[0m[32m SSH[0m[32m on[0m[32m your[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m system[0m[32m with[0m[32m systemd[0m[32m-boot[0m[32m and[0m[32m using[0m[32m the[0m[32m Fish[0m[32m shell[0m[32m,[0m[32m you[0m[32m'll[0m[32m need[0m[32m to[0m[32m follow[0m[32m these[0m[32m steps[0m[32m:
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m1[0m[32m:[0m[32m Install[0m[32m Open[0m[32mSSH[0m[32m
+
+[0m[32mFirst[0m[32m,[0m[32m install[0m[32m the[0m[32m `[0m[32mopens[0m[32msh[0m[32m`[0m[32m package[0m[32m if[0m[32m it[0m[32m's[0m[32m not[0m[32m already[0m[32m installed[0m[32m.
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m pacman[0m[32m -[0m[32mS[0m[32m opens[0m[32msh[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m2[0m[32m:[0m[32m Start[0m[32m and[0m[32m Enable[0m[32m SSH[0m[32m Service[0m[32m
+
+[0m[32mStart[0m[32m the[0m[32m SSH[0m[32m service[0m[32m immediately[0m[32m and[0m[32m ensure[0m[32m that[0m[32m it[0m[32m starts[0m[32m automatically[0m[32m on[0m[32m boot[0m[32m.
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m systemctl[0m[32m start[0m[32m ssh[0m[32md[0m[32m
+[0m[32msudo[0m[32m systemctl[0m[32m enable[0m[32m ssh[0m[32md[0m[32m
+[0m[32m``[0m[32m`
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m3[0m[32m:[0m[32m Check[0m[32m Firewall[0m[32m Rules[0m[32m ([0m[32mif[0m[32m applicable[0m[32m)
+
+[0m[32mIf[0m[32m you[0m[32m're[0m[32m running[0m[32m a[0m[32m firewall[0m[32m like[0m[32m `[0m[32mfire[0m[32mwal[0m[32mld[0m[32m`,[0m[32m make[0m[32m sure[0m[32m to[0m[32m allow[0m[32m SSH[0m[32m connections[0m[32m.[0m[32m If[0m[32m you[0m[32m don[0m[32m't[0m[32m have[0m[32m any[0m[32m firewall[0m[32m installed[0m[32m,[0m[32m this[0m[32m step[0m[32m is[0m[32m not[0m[32m necessary[0m[32m.
+
+[0m[32mFor[0m[32m example[0m[32m,[0m[32m if[0m[32m using[0m[32m fire[0m[32mwal[0m[32mld[0m[32m:
+
+[0m[32m```[0m[32mbash[0m[32m
+[0m[32msudo[0m[32m firewall[0m[32m-c[0m[32mmd[0m[32m --[0m[32mpermanent[0m[32m --[0m[32madd[0m[32m-service[0m[32m=[0m[32mssh[0m[32m
+[0m[32msudo[0m[32m firewall[0m[32m-c[0m[32mmd[0m[32m --[0m[32mreload[0m

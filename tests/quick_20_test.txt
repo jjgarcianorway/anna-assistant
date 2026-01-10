@@ -1,0 +1,34 @@
+# 20 Varied Real-World Questions - Quick Test
+# Format: num|category|question
+
+# Factual (quick lookup)
+1|Factual|what is my disk usage
+2|Factual|how much RAM do I have
+3|Factual|list failed systemd services
+4|Factual|what gpu do I have
+5|Factual|show my ip address
+
+# Error messages (pattern matching)
+6|Error|pacman says database is locked
+7|Error|error: target not found: yay
+8|Error|nvidia module not found
+
+# How-to questions
+9|HowTo|how do I install neovim
+10|HowTo|how to enable ssh
+11|HowTo|how do I check cpu temperature
+
+# Troubleshooting
+12|Troubleshoot|wifi not working
+13|Troubleshoot|no sound from speakers
+14|Troubleshoot|screen flickering
+
+# Performance
+15|Perf|what is using my cpu
+16|Perf|why is my system slow
+17|Perf|check memory usage
+
+# Ambiguous (should ask for clarification or make smart assumptions)
+18|Ambiguous|fix my network
+19|Ambiguous|something is wrong
+20|Ambiguous|it crashed

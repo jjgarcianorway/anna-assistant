@@ -3323,30 +3323,41 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         iterations += 1;
         info!("Iteration {}/{}", iterations, max_iterations);
 
-        // Build wiki hint for first iteration
-        let wiki_hint = if iterations == 1 && !wiki_commands.is_empty() {
-            format!(
-                "\n\nSuggested commands from Arch Wiki (use if relevant):\n{}",
-                wiki_commands.iter().take(5).map(|c| format!("  {}", c)).collect::<Vec<_>>().join("\n")
-            )
+        // v0.0.910: Use pre-cached commands from pattern matching (bypasses LLM entirely)
+        let commands_response = if iterations == 1 && !understanding.suggested_commands.is_empty() {
+            info!("Using {} pre-cached commands from pattern matching", understanding.suggested_commands.len());
+            let step = DialogueStep {
+                step_type: StepType::LlmCommands,
+                content: format!("[PATTERN] {}", understanding.suggested_commands.join("\n")),
+            };
+            dialogue.push(step.clone());
+            send_streaming(writer, &StreamingResponse::Step { step }).await?;
+            understanding.suggested_commands.join("\n")
         } else {
-            String::new()
-        };
+            // Build wiki hint for first iteration
+            let wiki_hint = if iterations == 1 && !wiki_commands.is_empty() {
+                format!(
+                    "\n\nSuggested commands from Arch Wiki (use if relevant):\n{}",
+                    wiki_commands.iter().take(5).map(|c| format!("  {}", c)).collect::<Vec<_>>().join("\n")
+                )
+            } else {
+                String::new()
+            };
 
-        // Get command hints based on question type
-        let cmd_hints = if iterations == 1 {
-            get_command_hints(question)
-        } else {
-            String::new()
-        };
+            // Get command hints based on question type
+            let cmd_hints = if iterations == 1 {
+                get_command_hints(question)
+            } else {
+                String::new()
+            };
 
-        // Build minimal context for command selection (full context saved for final answer)
-        let brief_context = get_system_profile().brief_summary();
+            // Build minimal context for command selection (full context saved for final answer)
+            let brief_context = get_system_profile().brief_summary();
 
-        // Ask LLM for commands - keep prompt SMALL for speed
-        let command_prompt = if iterations == 1 {
-            format!(
-                r#"System: {}
+            // Ask LLM for commands - keep prompt SMALL for speed
+            let command_prompt = if iterations == 1 {
+                format!(
+                    r#"System: {}
 Question: "{}"
 
 Reply with 1-3 shell commands ONLY (no markdown, no explanations).
@@ -3355,11 +3366,11 @@ For CPU: ps aux --sort=-%cpu | head -10
 Output NONE if no commands needed.{wiki_hint}{cmd_hints}
 
 Commands:"#,
-                brief_context, question
-            )
-        } else {
-            format!(
-                r#"Question: "{}"
+                    brief_context, question
+                )
+            } else {
+                format!(
+                    r#"Question: "{}"
 
 Previous command output (status: [OK]=success, [ERROR]=failed, [EMPTY OUTPUT]=no output, [TIMEOUT]=timed out):
 {}
@@ -3370,50 +3381,51 @@ Output additional commands (one per line, no explanations).
 If output above is sufficient, output: DONE
 
 Commands:"#,
-                question, last_output
-            )
-        };
+                    question, last_output
+                )
+            };
 
-        // Record and send prompt
-        let step = DialogueStep {
-            step_type: StepType::AnnaToLlm,
-            content: command_prompt.clone(),
-        };
-        dialogue.push(step.clone());
-        send_streaming(writer, &StreamingResponse::Step { step }).await?;
-
-        // Try LLM first, fall back to heuristic commands on timeout/error
-        let commands_response = match ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await {
-            Ok(response) => response.trim().to_string(),
-            Err(e) => {
-                // LLM failed - try heuristic fallback
-                warn!("LLM command selection failed ({}), trying heuristic fallback", e);
-                let fallback_cmds = get_fallback_commands(question);
-                if !fallback_cmds.is_empty() {
-                    info!("Using {} heuristic fallback command(s)", fallback_cmds.len());
-                    let step = DialogueStep {
-                        step_type: StepType::LlmCommands,
-                        content: format!("[FALLBACK] {}", fallback_cmds.join("\n")),
-                    };
-                    dialogue.push(step.clone());
-                    send_streaming(writer, &StreamingResponse::Step { step }).await?;
-                    fallback_cmds.join("\n")
-                } else {
-                    // No fallback available, propagate error
-                    return Err(e);
-                }
-            }
-        };
-
-        // Record and send LLM's response (if not already sent as fallback)
-        if !commands_response.starts_with("[FALLBACK]") {
+            // Record and send prompt
             let step = DialogueStep {
-                step_type: StepType::LlmCommands,
-                content: commands_response.to_string(),
+                step_type: StepType::AnnaToLlm,
+                content: command_prompt.clone(),
             };
             dialogue.push(step.clone());
             send_streaming(writer, &StreamingResponse::Step { step }).await?;
-        }
+
+            // Try LLM first, fall back to heuristic commands on timeout/error
+            match ollama::chat_with_timeout(model, &command_prompt, llm_timeout).await {
+                Ok(response) => {
+                    let r = response.trim().to_string();
+                    // Record and send LLM's response
+                    let step = DialogueStep {
+                        step_type: StepType::LlmCommands,
+                        content: r.clone(),
+                    };
+                    dialogue.push(step.clone());
+                    send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                    r
+                }
+                Err(e) => {
+                    // LLM failed - try heuristic fallback
+                    warn!("LLM command selection failed ({}), trying heuristic fallback", e);
+                    let fallback_cmds = get_fallback_commands(question);
+                    if !fallback_cmds.is_empty() {
+                        info!("Using {} heuristic fallback command(s)", fallback_cmds.len());
+                        let step = DialogueStep {
+                            step_type: StepType::LlmCommands,
+                            content: format!("[FALLBACK] {}", fallback_cmds.join("\n")),
+                        };
+                        dialogue.push(step.clone());
+                        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+                        fallback_cmds.join("\n")
+                    } else {
+                        // No fallback available, propagate error
+                        return Err(e);
+                    }
+                }
+            }
+        };
 
         // Check for special responses
         if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
@@ -3422,9 +3434,20 @@ Commands:"#,
 
         // Parse commands from LLM response (max 3 to keep responses fast)
         // Filter out markdown, explanations, and interactive commands
+        // v0.0.910: Strip [PATTERN] and [FALLBACK] prefixes
         let commands_to_run: Vec<String> = commands_response
             .lines()
-            .map(|l| l.trim().to_string())
+            .map(|l| {
+                let trimmed = l.trim();
+                // Strip prefixes from pattern/fallback commands
+                if trimmed.starts_with("[PATTERN] ") {
+                    trimmed.strip_prefix("[PATTERN] ").unwrap_or(trimmed).to_string()
+                } else if trimmed.starts_with("[FALLBACK] ") {
+                    trimmed.strip_prefix("[FALLBACK] ").unwrap_or(trimmed).to_string()
+                } else {
+                    trimmed.to_string()
+                }
+            })
             .filter(|l| {
                 !l.is_empty()
                     && !l.starts_with('#')

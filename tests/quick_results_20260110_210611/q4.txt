@@ -1,0 +1,12 @@
+
+[36mUSER: [0mwhat gpu do I have
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: what gpu do I have
+[2m  intent: [0mFACTUAL (50%) | NEEDS CONFIRMATION
+[33mANNA → USER: [0mI understood: "what gpu do I have"
+
+Could you please be more specific?
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

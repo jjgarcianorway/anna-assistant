@@ -1,0 +1,12 @@
+
+[36mUSER: [0merror: target not found: yay
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: error: target not found: yay
+[2m  intent: [0mTROUBLESHOOT (50%) | NEEDS CONFIRMATION
+[33mANNA → USER: [0mI understood: "error: target not found: yay"
+
+Could you please be more specific?
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

@@ -1,0 +1,10 @@
+{
+  "num": 12,
+  "category": "Error",
+  "question": "sp5100-tco: Watchdog hardware is disabled",
+  "status": "timeout",
+  "answer_type": "none",
+  "response_time_ms": 60003,
+  "exit_code": 124,
+  "quality_score": 0
+}

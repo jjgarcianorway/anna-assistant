@@ -1,0 +1,326 @@
+//! Factual query patterns - simple questions with known commands
+//!
+//! These are common "what is X" questions that can be answered immediately
+//! with pre-cached commands, bypassing the LLM command selection pipeline.
+
+use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
+
+/// Match factual queries that have simple, direct answers
+pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
+    // System info queries
+    if let Some(u) = match_system_info(q) {
+        return Some(u);
+    }
+    // Storage queries
+    if let Some(u) = match_storage(q) {
+        return Some(u);
+    }
+    // Network queries
+    if let Some(u) = match_network(q) {
+        return Some(u);
+    }
+    // Hardware queries
+    if let Some(u) = match_hardware(q) {
+        return Some(u);
+    }
+    // Package queries
+    if let Some(u) = match_packages(q) {
+        return Some(u);
+    }
+    // Service queries
+    if let Some(u) = match_services(q) {
+        return Some(u);
+    }
+    None
+}
+
+/// Pattern with keywords, description, topic, and pre-cached commands
+type FactualPattern = (&'static [&'static str], &'static str, &'static str, &'static [&'static str]);
+
+fn match_system_info(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Kernel
+        (&["kernel", "version"], "kernel version query", "system", &["uname -r"]),
+        (&["what", "kernel"], "kernel version query", "system", &["uname -r"]),
+        (&["running", "kernel"], "kernel version query", "system", &["uname -r"]),
+        (&["which", "kernel"], "kernel version query", "system", &["uname -r"]),
+        (&["uname"], "kernel info query", "system", &["uname -a"]),
+        // Hostname
+        (&["hostname"], "hostname query", "system", &["hostnamectl"]),
+        (&["computer", "name"], "hostname query", "system", &["hostnamectl"]),
+        (&["machine", "name"], "hostname query", "system", &["hostnamectl"]),
+        // Uptime
+        (&["uptime"], "system uptime query", "system", &["uptime -p"]),
+        (&["how", "long", "running"], "system uptime query", "system", &["uptime -p"]),
+        (&["last", "reboot"], "system uptime query", "system", &["uptime -s", "last reboot | head -5"]),
+        // Distro
+        (&["what", "distro"], "distribution query", "system", &["cat /etc/os-release | head -5"]),
+        (&["which", "distro"], "distribution query", "system", &["cat /etc/os-release | head -5"]),
+        (&["os", "version"], "OS version query", "system", &["cat /etc/os-release | head -5"]),
+        (&["linux", "version"], "distribution query", "system", &["cat /etc/os-release | head -5"]),
+        // Users
+        (&["who", "logged"], "logged users query", "system", &["who"]),
+        (&["current", "user"], "current user query", "system", &["whoami", "id"]),
+        (&["whoami"], "current user query", "system", &["whoami", "id"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+fn match_storage(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Disk usage
+        (&["disk", "usage"], "disk usage query", "storage", &["df -h"]),
+        (&["disk", "space"], "disk space query", "storage", &["df -h"]),
+        (&["how", "much", "disk"], "disk usage query", "storage", &["df -h"]),
+        (&["storage", "usage"], "disk usage query", "storage", &["df -h"]),
+        (&["free", "space"], "free disk space query", "storage", &["df -h"]),
+        (&["disk", "full"], "disk space query", "storage", &["df -h", "du -sh /* 2>/dev/null | sort -hr | head -10"]),
+        // Partitions
+        (&["partition"], "partition info query", "storage", &["lsblk -f"]),
+        (&["mount"], "mounted filesystems query", "storage", &["mount | grep -E '^/dev'"]),
+        (&["what", "mounted"], "mounted filesystems query", "storage", &["mount | grep -E '^/dev'"]),
+        (&["filesystem"], "filesystem info query", "storage", &["df -Th"]),
+        // Block devices
+        (&["list", "disk"], "disk list query", "storage", &["lsblk"]),
+        (&["lsblk"], "block device query", "storage", &["lsblk -f"]),
+        (&["what", "drive"], "drive info query", "storage", &["lsblk"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+fn match_network(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // IP address
+        (&["ip", "address"], "IP address query", "network", &["ip -4 addr show | grep inet | grep -v 127.0.0.1"]),
+        (&["my", "ip"], "IP address query", "network", &["ip -4 addr show | grep inet | grep -v 127.0.0.1"]),
+        (&["show", "ip"], "IP address query", "network", &["ip -4 addr show | grep inet | grep -v 127.0.0.1"]),
+        (&["what", "ip"], "IP address query", "network", &["ip -4 addr show | grep inet | grep -v 127.0.0.1"]),
+        // Network interfaces
+        (&["network", "interface"], "network interfaces query", "network", &["ip link show"]),
+        (&["list", "interface"], "network interfaces query", "network", &["ip link show"]),
+        // DNS
+        (&["dns", "server"], "DNS server query", "network", &["resolvectl status | head -20"]),
+        (&["nameserver"], "DNS server query", "network", &["cat /etc/resolv.conf"]),
+        // Gateway
+        (&["gateway"], "gateway query", "network", &["ip route | grep default"]),
+        (&["default", "route"], "default route query", "network", &["ip route | grep default"]),
+        // Connection status
+        (&["network", "status"], "network status query", "network", &["nmcli general status"]),
+        (&["connected", "network"], "network connection query", "network", &["nmcli connection show --active"]),
+        // Ports
+        (&["listening", "port"], "listening ports query", "network", &["ss -tlnp 2>/dev/null | head -20"]),
+        (&["open", "port"], "open ports query", "network", &["ss -tlnp 2>/dev/null | head -20"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+fn match_hardware(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // GPU
+        (&["what", "gpu"], "GPU info query", "hardware", &["lspci | grep -i vga", "lspci | grep -i 3d"]),
+        (&["which", "gpu"], "GPU info query", "hardware", &["lspci | grep -i vga", "lspci | grep -i 3d"]),
+        (&["graphics", "card"], "GPU info query", "hardware", &["lspci | grep -i vga"]),
+        (&["video", "card"], "GPU info query", "hardware", &["lspci | grep -i vga"]),
+        (&["nvidia"], "NVIDIA GPU query", "hardware", &["nvidia-smi 2>/dev/null || lspci | grep -i nvidia"]),
+        (&["amd", "gpu"], "AMD GPU query", "hardware", &["lspci | grep -i amd | grep -i vga"]),
+        // CPU
+        (&["what", "cpu"], "CPU info query", "hardware", &["lscpu | head -15"]),
+        (&["which", "cpu"], "CPU info query", "hardware", &["lscpu | head -15"]),
+        (&["processor"], "CPU info query", "hardware", &["lscpu | head -15"]),
+        (&["how", "many", "core"], "CPU cores query", "hardware", &["nproc", "lscpu | grep -E '^CPU\\(s\\)|Core'"]),
+        (&["cpu", "model"], "CPU model query", "hardware", &["lscpu | grep 'Model name'"]),
+        // RAM
+        (&["how", "much", "ram"], "RAM info query", "hardware", &["free -h"]),
+        (&["total", "memory"], "total memory query", "hardware", &["free -h"]),
+        (&["memory", "size"], "memory size query", "hardware", &["free -h"]),
+        (&["ram", "size"], "RAM size query", "hardware", &["free -h"]),
+        (&["how", "much", "memory"], "memory info query", "hardware", &["free -h"]),
+        // General hardware
+        (&["hardware", "info"], "hardware info query", "hardware", &["lscpu | head -10", "free -h", "lsblk"]),
+        (&["system", "spec"], "system specs query", "hardware", &["lscpu | head -10", "free -h", "lspci | grep -i vga"]),
+        // USB
+        (&["usb", "device"], "USB devices query", "hardware", &["lsusb"]),
+        (&["list", "usb"], "USB devices query", "hardware", &["lsusb"]),
+        // PCI
+        (&["pci", "device"], "PCI devices query", "hardware", &["lspci"]),
+        // Battery
+        (&["battery", "status"], "battery status query", "hardware", &["upower -i /org/freedesktop/UPower/devices/battery_BAT0 2>/dev/null || cat /sys/class/power_supply/BAT*/capacity 2>/dev/null"]),
+        (&["battery", "level"], "battery level query", "hardware", &["cat /sys/class/power_supply/BAT*/capacity 2>/dev/null"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+fn match_packages(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Installed packages
+        (&["installed", "package"], "installed packages query", "packages", &["pacman -Q | wc -l", "pacman -Qe | head -20"]),
+        (&["list", "package"], "package list query", "packages", &["pacman -Qe | head -30"]),
+        (&["how", "many", "package"], "package count query", "packages", &["pacman -Q | wc -l"]),
+        // Specific package check
+        (&["is", "installed"], "package installation check", "packages", &["pacman -Qs"]),
+        // Updates
+        (&["available", "update"], "available updates query", "packages", &["checkupdates 2>/dev/null | head -20 || pacman -Qu 2>/dev/null | head -20"]),
+        (&["pending", "update"], "pending updates query", "packages", &["checkupdates 2>/dev/null | wc -l || echo 'Install pacman-contrib for checkupdates'"]),
+        // Orphans
+        (&["orphan", "package"], "orphan packages query", "packages", &["pacman -Qtdq 2>/dev/null || echo 'No orphans found'"]),
+        // Recently installed
+        (&["recently", "installed"], "recent packages query", "packages", &["grep -E 'installed|upgraded' /var/log/pacman.log | tail -20"]),
+        (&["last", "installed"], "recent packages query", "packages", &["grep 'installed' /var/log/pacman.log | tail -10"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+fn match_services(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Failed services
+        (&["failed", "service"], "failed services query", "services", &["systemctl --failed"]),
+        (&["service", "status"], "service status query", "services", &["systemctl status"]),
+        // Running services
+        (&["running", "service"], "running services query", "services", &["systemctl list-units --type=service --state=running | head -20"]),
+        (&["active", "service"], "active services query", "services", &["systemctl list-units --type=service --state=active | head -20"]),
+        // List services
+        (&["list", "service"], "service list query", "services", &["systemctl list-unit-files --type=service | head -30"]),
+        // Timers
+        (&["systemd", "timer"], "systemd timers query", "services", &["systemctl list-timers"]),
+        (&["list", "timer"], "timer list query", "services", &["systemctl list-timers"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_disk_usage() {
+        let result = match_patterns("what is my disk usage");
+        assert!(result.is_some());
+        let u = result.unwrap();
+        assert!(!u.suggested_commands.is_empty());
+        assert!(u.suggested_commands.iter().any(|c| c.contains("df")));
+    }
+
+    #[test]
+    fn test_ram() {
+        let result = match_patterns("how much ram do I have");
+        assert!(result.is_some());
+        let u = result.unwrap();
+        assert!(u.suggested_commands.iter().any(|c| c.contains("free")));
+    }
+
+    #[test]
+    fn test_gpu() {
+        let result = match_patterns("what gpu do I have");
+        assert!(result.is_some());
+        let u = result.unwrap();
+        assert!(u.suggested_commands.iter().any(|c| c.contains("lspci")));
+    }
+
+    #[test]
+    fn test_ip() {
+        let result = match_patterns("what is my ip address");
+        assert!(result.is_some());
+        let u = result.unwrap();
+        assert!(u.suggested_commands.iter().any(|c| c.contains("ip")));
+    }
+
+    #[test]
+    fn test_kernel() {
+        let result = match_patterns("what kernel am I running");
+        assert!(result.is_some());
+        let u = result.unwrap();
+        assert!(u.suggested_commands.iter().any(|c| c.contains("uname")));
+    }
+
+    #[test]
+    fn test_failed_services() {
+        let result = match_patterns("list failed services");
+        assert!(result.is_some());
+        let u = result.unwrap();
+        assert!(u.suggested_commands.iter().any(|c| c.contains("systemctl")));
+    }
+}

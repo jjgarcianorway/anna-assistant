@@ -1,0 +1,83 @@
+
+[36mUSER: [0mkvm: disabled by bios
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: TROUBLESHOOT
+[2m  intent: [0mTROUBLESHOOT (90%) | entities: kvm
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: kvm[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • KVM (score: 1.00)[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are an Arch Linux expert. The user wants to configure or change something on their system.[0m
+[2m│ [0m
+[2m│ System: CachyOS Linux, systemd-boot, editor:vim, shell:fish, btrfs[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Relevant Arch Wiki information:[0m
+[2m│ --- From KVM ---[0m
+[2m│ [0m
+[2m│ ## modprobe kvm_intel nested=1[0m
+[2m│ To make it permanent (see Kernel modules#Setting module options):[0m
+[2m│ [0m
+[2m│ /etc/modprobe.d/kvm_intel.conf[0m
+[2m│ options kvm_intel nested=1[0m
+[2m│ Verify that feature is activated:[0m
+[2m│ [0m
+[2m│ $ cat /sys/module/kvm_intel/parameters/nested[0m
+[2m│ Y[0m
+[2m│ Enable the "host passthrough" mode to forward all CPU features to the guest system:[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ If using QEMU, run the guest virtual machine with the following command: qemu-system-x86_64 -enable-kvm -cpu host.[0m
+[2m│ If using virt-manager, change the CPU model to host-passthrough.[0m
+[2m│ If using virsh, use virsh edit vm-name and change the CPU line to <cpu mode='host-passthrough' check='partial'/>[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Boot the virtual machine and check if the vmx flag is present:[0m
+[2m│ [0m
+[2m│ $ grep -E --color=auto 'vmx|svm' /proc/cpuinfo[0m
+[2m│ [0m
+[2m│ Enabling huge pages[0m
+[2m│ [0m
+[2m│ This article or section is a candidate for merging with QEMU.[0m
+[2m│ [0m
+[2m│ Notes: qemu-kvm no longer exists. After the above issue is cleared, I suggest merging this section into QEMU. (Discuss in Talk:KVM)[0m
+[2m│ [0m
+[2m│ You may also want to enable hugepages to improve the performance of your virtual machine.[0m
+[2m│ With an up to date Arch Linux and a running KVM, you probably already have everything you need. Check if you have the directory /dev/hugepages. If not, create it.[0m
+[2m│ Now we need the right permissions to use this directory. The default permission is root's uid and gid with 0755, but we want anyone in the kvm group to have access to hugepages.[0m
+[2m│ [0m
+[2m│ Add to your /etc/fstab:[0m
+[2m│ [0m
+[2m│ /etc/fstab[0m
+[2m│ hugetlbfs       /dev/hugepages  hugetlbfs       mode=01770,gid=kvm        0 0[0m
+[2m│ Instead of specifying the group name...[0m
+[2m│ [0m
+[2m│ ## modprobe -r kvm_intel[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ User request: "kvm: disabled by bios"[0m
+[2m│ [0m
+[2m│ Provide step-by-step instructions to accomplish this task. Include:[0m
+[2m│ 1. The exact commands to run (with sudo if needed)[0m
+[2m│ 2. Any config files to edit and what to add/change[0m
+[2m│ 3. How to make changes permanent if applicable[0m
+[2m│ 4. How to verify the change worked[0m
+[2m│ [0m
+[2m│ Be specific to this system. Use the Arch Wiki information if provided.[0m
+[2m│ If this requires GUI access or a reboot, mention that.[0m
+[2m│ [0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m│ Keep the answer focused and practical.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mThe[0m[32m issue[0m[32m "[0m[32mk[0m[32mvm[0m[32m:[0m[32m disabled[0m[32m by[0m[32m bios[0m[32m"[0m[32m typically[0m[32m occurs[0m[32m when[0m[32m the[0m[32m BIOS[0m[32m/[0m[32mUE[0m[32mFI[0m[32m settings[0m[32m are[0m[32m preventing[0m[32m K[0m[32mVM[0m[32m from[0m[32m functioning[0m[32m properly[0m[32m.[0m[32m Since[0m[32m you[0m[32m're[0m[32m running[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m systemd[0m[32m-boot[0m[32m and[0m[32m using[0m[32m b[0m[32mtrfs[0m[32m,[0m[32m we[0m[32m'll[0m[32m focus[0m[32m on[0m[32m ensuring[0m[32m that[0m[32m K[0m[32mVM[0m[32m is[0m[32m enabled[0m[32m in[0m[32m your[0m[32m system[0m[32m's[0m[32m kernel[0m[32m module[0m[32m configuration[0m[32m,[0m[32m and[0m[32m also[0m[32m check[0m[32m if[0m[32m there[0m[32m are[0m[32m any[0m[32m BIOS[0m[32m-level[0m[32m settings[0m[32m that[0m[32m need[0m[32m to[0m[32m be[0m[32m changed[0m[32m.
+
+[0m[32m###[0m[32m Step[0m[32m-by[0m[32m-[0m[32mStep[0m[32m Instructions[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m Kernel[0m

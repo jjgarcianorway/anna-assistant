@@ -17,9 +17,9 @@ pub mod user_context;
 pub mod version;
 pub mod wiki;
 
-// Socket path
+// Socket path (can be overridden with ANNA_SOCKET env var)
 pub fn socket_path() -> String {
-    "/run/anna.sock".to_string()
+    std::env::var("ANNA_SOCKET").unwrap_or_else(|_| "/run/anna.sock".to_string())
 }
 
 // Version

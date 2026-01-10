@@ -1,0 +1,4 @@
+
+[36mUSER: [0msnd_hda_intel 0000:00:1f.3: no codecs found
+
+[34mANNA: [0munderstanding question...

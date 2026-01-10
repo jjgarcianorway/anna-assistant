@@ -1,0 +1,10 @@
+{
+  "num": 1,
+  "category": "Error",
+  "question": "error: failed to commit transaction (conflicting files) pacman",
+  "status": "timeout",
+  "answer_type": "none",
+  "response_time_ms": 60013,
+  "exit_code": 124,
+  "quality_score": 0
+}

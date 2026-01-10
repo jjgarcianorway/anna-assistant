@@ -60,6 +60,9 @@ pub struct DeepUnderstanding {
     pub clarification_needed: Option<String>,
     /// Whether Anna should confirm its understanding before proceeding
     pub needs_confirmation: bool,
+    /// Pre-cached commands for known queries (bypasses LLM command selection)
+    #[serde(default)]
+    pub suggested_commands: Vec<String>,
 }
 
 /// RPC methods supported by the daemon

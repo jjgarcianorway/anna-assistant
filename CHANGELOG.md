@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.910] - 2026-01-10
+
+### Added
+- **Factual Query Pattern Commands** - Pre-cached commands for instant factual answers
+  - System info: kernel, hostname, uptime, distro, users
+  - Storage: disk usage, partitions, mounts, block devices
+  - Network: IP address, interfaces, DNS, gateway, ports
+  - Hardware: GPU, CPU, RAM, USB, PCI, battery
+  - Packages: installed, updates, orphans, recently installed
+  - Services: failed, running, active, timers
+  - Bypasses LLM command selection entirely (~50% faster for factual queries)
+
+- **ANNA_SOCKET Environment Variable** - Custom socket path for dev/testing
+
+### Changed
+- HOWTO clarification threshold lowered from 0.50 to 0.45
+- DeepUnderstanding struct now includes `suggested_commands` field
+- Core pipeline uses pattern commands directly when available
+
+### Fixed
+- Pattern-matched questions no longer call LLM for command selection
+
 ## [0.0.909] - 2026-01-10
 
 ### Added

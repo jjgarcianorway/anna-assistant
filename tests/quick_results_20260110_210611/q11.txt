@@ -1,0 +1,12 @@
+
+[36mUSER: [0mhow do I check cpu temperature
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: how do I check cpu temperature
+[2m  intent: [0mHOWTO (50%) | NEEDS CONFIRMATION
+[33mANNA → USER: [0mI understood: "how do I check cpu temperature"
+
+Could you please be more specific?
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

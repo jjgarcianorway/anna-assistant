@@ -1,12 +1,14 @@
 //! Common Linux patterns that should get instant answers without clarification.
 //!
 //! v0.0.909: Added to reduce over-clarification (80% rate in testing).
+//! v0.0.910: Added factual patterns for instant answers to common info queries.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
 mod errors;
 mod recovery;
 mod performance;
+mod factual;
 
 use anna_shared::rpc::DeepUnderstanding;
 
@@ -16,7 +18,9 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     let q = question.to_lowercase();
 
     // Check each pattern category (order matters - more specific first)
-    pacman::match_patterns(&q)
+    // Factual queries first (fastest path for common info questions)
+    factual::match_patterns(&q)
+        .or_else(|| pacman::match_patterns(&q))
         .or_else(|| recovery::match_patterns(&q))
         .or_else(|| errors::match_patterns(&q))
         .or_else(|| performance::match_patterns(&q))
@@ -52,5 +56,42 @@ mod tests {
     fn test_no_match() {
         let result = match_common_pattern("what is the meaning of life");
         assert!(result.is_none());
+    }
+
+    // Factual pattern tests
+    #[test]
+    fn test_factual_disk_usage() {
+        assert!(match_common_pattern("what is my disk usage").is_some());
+        assert!(match_common_pattern("show disk space").is_some());
+    }
+
+    #[test]
+    fn test_factual_ram() {
+        assert!(match_common_pattern("how much ram do I have").is_some());
+        assert!(match_common_pattern("total memory").is_some());
+    }
+
+    #[test]
+    fn test_factual_gpu() {
+        assert!(match_common_pattern("what gpu do I have").is_some());
+        assert!(match_common_pattern("which graphics card").is_some());
+    }
+
+    #[test]
+    fn test_factual_ip() {
+        assert!(match_common_pattern("what is my ip address").is_some());
+        assert!(match_common_pattern("show my ip").is_some());
+    }
+
+    #[test]
+    fn test_factual_kernel() {
+        assert!(match_common_pattern("what kernel am I running").is_some());
+        assert!(match_common_pattern("kernel version").is_some());
+    }
+
+    #[test]
+    fn test_factual_services() {
+        assert!(match_common_pattern("list failed services").is_some());
+        assert!(match_common_pattern("show running services").is_some());
     }
 }

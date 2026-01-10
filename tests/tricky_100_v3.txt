@@ -1,0 +1,117 @@
+# 100 NEW Tricky Real-World Arch Linux Questions v3
+# Focus: realistic diagnostic scenarios, error messages, performance issues
+# Format: num|category|question
+
+# Exact Error Messages (1-20) - Real errors users copy-paste
+1|Error|error: failed to commit transaction (conflicting files) pacman
+2|Error|Failed to start Load Kernel Modules
+3|Error|ACPI BIOS Error (bug): Could not resolve symbol
+4|Error|nouveau 0000:01:00.0: bus: MMIO read of 00000000 FAULT
+5|Error|kvm: disabled by bios
+6|Error|E: Unable to locate package (wrong distro I know but still asked)
+7|Error|error: target not found: yay
+8|Error|SQUASHFS error: Unable to read page
+9|Error|/dev/sda1: recovering journal
+10|Error|ata3: SATA link down
+11|Error|iwlwifi: Microcode SW error detected
+12|Error|sp5100-tco: Watchdog hardware is disabled
+13|Error|snd_hda_intel 0000:00:1f.3: no codecs found
+14|Error|nfs: server not responding, still trying
+15|Error|XDG_RUNTIME_DIR not set in the environment
+16|Error|ALSA lib pcm.c:2664:(snd_pcm_open_noupdate) Unknown PCM
+17|Error|X Error of failed request: BadValue
+18|Error|dbus-daemon: message bus disconnected
+19|Error|systemd-coredump: Process crashed
+20|Error|cannot open shared object file: No such file or directory
+
+# Specific Hardware Issues (21-35)
+21|Hardware|my ryzen 7 5800x runs at 90C even at idle
+22|Hardware|rtx 4090 fans spin up to 100% randomly for a second
+23|Hardware|ax210 wifi card not detected after kernel update
+24|Hardware|m.2 nvme drive disappeared from system
+25|Hardware|usb devices disconnect when plugging in new device
+26|Hardware|bluetooth adapter shows up but cant scan for devices
+27|Hardware|second monitor works in bios but not in linux
+28|Hardware|laptop speakers work but headphone jack doesnt
+29|Hardware|fingerprint reader worked once then never again
+30|Hardware|thunderbolt dock only gives usb2 speeds
+31|Hardware|nvme temperatures 70C while idle
+32|Hardware|ram showing 16gb but only 8gb usable
+33|Hardware|cpu stuck at 400mhz wont boost
+34|Hardware|trackpad gestures stopped working after update
+35|Hardware|external gpu in enclosure not detected
+
+# Package/Dependency Hell (36-50)
+36|Package|pacman -Syu wants to remove half my packages
+37|Package|dependency cycle detected between mesa and lib32-mesa
+38|Package|package from AUR conflicts with official repo version
+39|Package|building yay fails with go module error
+40|Package|downgrading nvidia breaks cuda
+41|Package|python package needs older numpy than system provides
+42|Package|flatpak vs native version fighting over file associations
+43|Package|wine prefix broken after wine update
+44|Package|ros2 wont build because of cmake version mismatch
+45|Package|rust cargo build fails cant find openssl
+46|Package|npm install fails with EACCES permission denied
+47|Package|pipx installed tool not found in PATH
+48|Package|snapd taking 10 seconds on every boot
+49|Package|linker errors building against system qt
+50|Package|kernel headers dont match running kernel
+
+# Network/Connectivity Issues (51-65)
+51|Network|wifi connects but no internet, ethernet works fine
+52|Network|dns works for some sites but not others
+53|Network|wireguard connected but cant reach any hosts
+54|Network|ssh connection drops after exactly 60 seconds
+55|Network|local network printer discovered but wont print
+56|Network|samba share accessible from windows but not linux
+57|Network|port forwarding not working even though firewall allows it
+58|Network|ipv6 connectivity comes and goes randomly
+59|Network|vpn splits dns and breaks local resolution
+60|Network|NetworkManager keeps asking for wifi password
+61|Network|bridge interface for VMs breaks host networking
+62|Network|wake on lan works from same subnet but not across vlans
+63|Network|mdns avahi not discovering devices
+64|Network|network speed capped at 100mbps on gigabit hardware
+65|Network|cant reach 192.168.1.1 but can ping 8.8.8.8
+
+# Desktop/Display Problems (66-80)
+66|Display|wayland screen sharing shows black in discord
+67|Display|fractional scaling makes some apps blurry
+68|Display|gsync not working even though nvidia settings shows enabled
+69|Display|dpms not turning off display on wayland
+70|Display|tearing in videos but not games
+71|Display|kde plasma crashes when connecting external monitor
+72|Display|sddm shows on wrong monitor
+73|Display|cursor invisible on secondary monitor
+74|Display|hdr content looks washed out
+75|Display|vrr flickers at low framerates
+76|Display|screen locks immediately after unlocking
+77|Display|gtk apps look different than qt apps
+78|Display|dragging windows between monitors is laggy
+79|Display|screenshots capture wrong monitor
+80|Display|night light not activating automatically
+
+# Boot/Init Problems (81-90)
+81|Boot|boot hangs at "A start job is running for..."
+82|Boot|plymouth splash not showing
+83|Boot|systemd drops to emergency mode randomly
+84|Boot|initramfs unpacking failed
+85|Boot|resume from hibernation fails silently
+86|Boot|dual boot windows time is always wrong
+87|Boot|refind not detecting arch installation
+88|Boot|secure boot breaks after kernel update
+89|Boot|efi variables full cant boot
+90|Boot|mkinitcpio preset not generating fallback image
+
+# Performance/Resource Questions (91-100)
+91|Perf|kswapd0 using 100% cpu
+92|Perf|systemd-journald writing gigabytes to disk
+93|Perf|baloo_file eating cpu and io
+94|Perf|tracker-miner-fs running constantly
+95|Perf|electron apps using 2gb ram each
+96|Perf|system stutters every few seconds
+97|Perf|disk io wait constantly at 50%+
+98|Perf|memory pressure causing oom kills despite free ram
+99|Perf|gpu memory leak makes system unusable after few hours
+100|Perf|btrfs balance taking days to complete

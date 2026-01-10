@@ -1,0 +1,4 @@
+
+[36mUSER: [0mXDG_RUNTIME_DIR not set in the environment
+
+[34mANNA: [0munderstanding question...
