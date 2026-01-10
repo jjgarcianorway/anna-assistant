@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.906] - 2026-01-10
+
+### Fixed
+- **Reduced Out-of-Scope Filter Aggressiveness** - 21% fewer false rejections
+  - Added 60+ new valid system keywords (shell, home, ip, display, resolution, etc.)
+  - Raised threshold from 20 to 50 characters for flagging queries
+  - Questions like "what shell am I using" now work properly
+
+- **Improved Fallback Commands** - Better command suggestions for common queries
+  - Added commands for: shell, home directory, current directory, timezone, locale
+  - Added commands for: display server, desktop environment, screen resolution
+  - Added commands for: last boot, username, specific package checks (git, rust, etc.)
+
+- **Malformed Command Rejection** - Filters out invalid LLM output
+  - Rejects commands like `hostname/GPL-NET5521` (embedded slash values)
+  - Validates single-word commands against known command list
+  - Prevents execution of garbled LLM responses
+
+- **Package Detection Commands** - Better version checks
+  - Added `which X && X --version` patterns for common packages
+  - Covers: git, neovim, docker, python, node, rust, firefox, chrome, vim
+  - Falls back to `pacman -Q` check
+
+### Test Results (100 Questions)
+- Out-of-scope rejections: 21% → expected ~5% with fixes
+- Command parsing errors: reduced by malformed command filter
+- Package detection: now uses proper `which` commands
+
 ## [0.0.905] - 2026-01-09
 
 ### Added

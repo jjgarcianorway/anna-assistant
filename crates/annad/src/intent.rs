@@ -579,17 +579,40 @@ pub fn detect_off_topic(question: &str) -> Option<String> {
     }
 
     // Generic off-topic detection: questions with no technical keywords at all
+    // v0.0.906: Expanded keyword list to avoid false positives on valid system questions
     let has_tech_keywords = [
-        "install", "update", "package", "service", "file", "disk", "network",
-        "kernel", "boot", "driver", "cpu", "ram", "memory", "gpu", "audio",
-        "bluetooth", "wifi", "ssh", "sudo", "permission", "user", "group",
-        "systemd", "pacman", "aur", "config", "log", "error", "fail",
-        "mount", "partition", "grub", "systemd-boot", "firewall", "port",
-        "process", "kill", "running", "status", "version", "arch", "linux",
+        // Packages and updates
+        "install", "update", "package", "pacman", "aur", "yay", "paru",
+        // System services
+        "service", "systemd", "daemon", "unit", "timer", "socket",
+        // Files and storage
+        "file", "disk", "mount", "partition", "filesystem", "btrfs", "ext4", "nvme", "ssd",
+        "directory", "folder", "path", "home", "root",
+        // Hardware
+        "kernel", "boot", "driver", "cpu", "core", "thread", "ram", "memory", "swap",
+        "gpu", "nvidia", "amd", "intel", "audio", "sound", "bluetooth", "wifi", "network",
+        // System info - v0.0.906: Added missing keywords
+        "shell", "bash", "zsh", "fish", "terminal", "tty", "console",
+        "hostname", "host", "username", "user", "group", "uid", "gid",
+        "ip", "address", "mac", "interface", "gateway", "dns", "port",
+        "timezone", "locale", "language", "keyboard",
+        "resolution", "screen", "display", "monitor", "wayland", "xorg", "x11",
+        "temperature", "temp", "frequency", "load", "uptime",
+        "environment", "variable", "env",
+        // Actions
+        "ssh", "sudo", "permission", "config", "log", "error", "fail",
+        "grub", "systemd-boot", "firewall", "iptables",
+        "process", "kill", "running", "status", "version",
+        // Distro
+        "arch", "linux", "cachyos", "distro", "os",
+        // Generic system terms
+        "system", "computer", "machine", "server", "desktop",
+        "check", "show", "list", "what", "how much", "how many",
     ].iter().any(|kw| q.contains(kw));
 
-    if !has_tech_keywords && q.len() > 20 {
-        // Long question with no technical keywords - probably off-topic
+    // v0.0.906: Much higher threshold - only flag very long questions with zero technical terms
+    if !has_tech_keywords && q.len() > 50 {
+        // Very long question with no technical keywords - probably off-topic
         return Some("I'm specialized in Arch Linux system administration. Could you rephrase your question in terms of system configuration, troubleshooting, or Linux commands?".to_string());
     }
 

@@ -355,17 +355,49 @@ fn get_fallback_commands_with_intent(question: &str, intent: Option<&str>) -> Ve
     if q.contains("kernel") || q.contains("version") && q.contains("linux") {
         return vec!["uname -r", "uname -a"];
     }
-    if q.contains("hostname") {
-        return vec!["hostname"];
+    if q.contains("hostname") || q.contains("host name") {
+        return vec!["hostname", "hostnamectl hostname"];
     }
     if q.contains("uptime") || q.contains("running") && q.contains("long") {
         return vec!["uptime -p", "uptime"];
     }
-    if q.contains("distribution") || q.contains("distro") || q.contains("os") {
-        return vec!["cat /etc/os-release", "hostnamectl"];
+    if q.contains("distribution") || q.contains("distro") || q.contains("os") && !q.contains("process") {
+        return vec!["cat /etc/os-release | head -5", "hostnamectl"];
     }
     if q.contains("architecture") || q.contains("arch") && q.contains("system") {
         return vec!["uname -m", "arch"];
+    }
+
+    // v0.0.906: Added missing system info commands
+    if q.contains("shell") && (q.contains("using") || q.contains("am i") || q.contains("my")) {
+        return vec!["echo $SHELL", "basename $SHELL"];
+    }
+    if q.contains("home") && q.contains("directory") {
+        return vec!["echo $HOME", "pwd"];
+    }
+    if q.contains("current") && (q.contains("directory") || q.contains("folder") || q.contains("cwd")) {
+        return vec!["pwd"];
+    }
+    if q.contains("username") || (q.contains("user") && q.contains("am i")) {
+        return vec!["whoami", "id -un"];
+    }
+    if q.contains("timezone") || q.contains("time zone") {
+        return vec!["timedatectl show -p Timezone --value", "cat /etc/timezone 2>/dev/null || timedatectl"];
+    }
+    if q.contains("locale") {
+        return vec!["locale", "echo $LANG"];
+    }
+    if q.contains("display") && q.contains("server") || q.contains("wayland") || q.contains("xorg") {
+        return vec!["echo $XDG_SESSION_TYPE", "loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type --value 2>/dev/null || echo tty"];
+    }
+    if q.contains("desktop") && q.contains("environment") || q.contains(" de ") {
+        return vec!["echo $XDG_CURRENT_DESKTOP", "echo $DESKTOP_SESSION"];
+    }
+    if q.contains("resolution") || q.contains("screen size") {
+        return vec!["xrandr 2>/dev/null | grep '*' | head -1 | awk '{print $1}'", "wlr-randr 2>/dev/null | grep current | head -1"];
+    }
+    if q.contains("last") && q.contains("boot") {
+        return vec!["who -b", "uptime -s"];
     }
 
     // Hardware
@@ -400,6 +432,27 @@ fn get_fallback_commands_with_intent(question: &str, intent: Option<&str>) -> Ve
     }
     if q.contains("orphan") {
         return vec!["pacman -Qdt"];
+    }
+
+    // v0.0.906: Package version checks - use which and pacman -Q
+    // Detect "is X installed" or "X version" patterns
+    let pkg_check_patterns = [
+        ("git", vec!["which git && git --version", "pacman -Q git 2>/dev/null"]),
+        ("neovim", vec!["which nvim && nvim --version | head -1", "pacman -Q neovim 2>/dev/null"]),
+        ("nvim", vec!["which nvim && nvim --version | head -1", "pacman -Q neovim 2>/dev/null"]),
+        ("docker", vec!["which docker && docker --version", "pacman -Q docker 2>/dev/null"]),
+        ("python", vec!["which python && python --version", "pacman -Q python 2>/dev/null"]),
+        ("node", vec!["which node && node --version", "pacman -Q nodejs 2>/dev/null"]),
+        ("rust", vec!["which rustc && rustc --version", "pacman -Q rust 2>/dev/null"]),
+        ("cargo", vec!["which cargo && cargo --version", "pacman -Q rust 2>/dev/null"]),
+        ("firefox", vec!["which firefox && firefox --version", "pacman -Q firefox 2>/dev/null"]),
+        ("chrome", vec!["which google-chrome-stable 2>/dev/null || which chromium 2>/dev/null", "pacman -Q chromium 2>/dev/null || pacman -Q google-chrome 2>/dev/null"]),
+        ("vim", vec!["which vim && vim --version | head -1", "pacman -Q vim 2>/dev/null"]),
+    ];
+    for (pkg, cmds) in pkg_check_patterns {
+        if q.contains(pkg) && (q.contains("installed") || q.contains("version") || q.contains("have")) {
+            return cmds;
+        }
     }
 
     // Services
@@ -3388,6 +3441,22 @@ Commands:"#,
                 let first_word = l.split_whitespace().next().unwrap_or("");
                 !["top", "htop", "vim", "nano", "less", "vi", "more"].contains(&first_word)
             })
+            // v0.0.906: Reject malformed commands that look like command/answer
+            .filter(|l| {
+                let first_word = l.split_whitespace().next().unwrap_or("");
+                // Reject if first word contains / but doesn't start with / (not a path)
+                // e.g., "hostname/GPL-NET5521" is malformed
+                if first_word.contains('/') && !first_word.starts_with('/') && !first_word.starts_with("./") {
+                    warn!("Rejecting malformed command (embedded slash): {}", l);
+                    return false;
+                }
+                // Reject if command is just a value (no spaces and doesn't look like a command)
+                if !l.contains(' ') && !is_valid_simple_command(first_word) {
+                    warn!("Rejecting probable non-command: {}", l);
+                    return false;
+                }
+                true
+            })
             .take(3)
             .collect();
 
@@ -4810,6 +4879,40 @@ fn execute_as_root(cmd: &str) -> Result<String> {
     }
 
     Ok(result)
+}
+
+/// v0.0.906: Check if a single-word string is a valid simple command
+/// Used to filter out malformed LLM output that's not actually a command
+fn is_valid_simple_command(cmd: &str) -> bool {
+    // Known valid single-word commands (no arguments needed)
+    const VALID_SIMPLE_COMMANDS: &[&str] = &[
+        // System info
+        "hostname", "whoami", "pwd", "id", "arch", "uname", "uptime", "date",
+        "groups", "users", "who", "w", "last", "lastlog", "hostnamectl",
+        // Disk
+        "df", "lsblk", "mount", "findmnt", "blkid", "lsscsi",
+        // Memory
+        "free", "vmstat", "slabtop",
+        // Process
+        "ps", "pstree", "jobs", "fg", "bg",
+        // Network
+        "ip", "ss", "netstat", "ifconfig", "iwconfig", "nmcli", "route",
+        // Packages
+        "pacman", "yay", "paru", "checkupdates",
+        // Services
+        "systemctl", "journalctl", "loginctl", "timedatectl", "localectl",
+        // Hardware
+        "lspci", "lsusb", "lscpu", "lsmod", "sensors", "hwinfo",
+        // Files
+        "ls", "tree", "file", "stat", "wc",
+        // Misc
+        "echo", "cat", "head", "tail", "grep", "awk", "sed", "cut", "sort", "uniq",
+        "which", "whereis", "type", "locale", "env", "printenv", "set",
+        // Common paths (may appear as single word)
+        "true", "false", "test",
+    ];
+
+    VALID_SIMPLE_COMMANDS.contains(&cmd.to_lowercase().as_str())
 }
 
 /// Check if a command is potentially dangerous
