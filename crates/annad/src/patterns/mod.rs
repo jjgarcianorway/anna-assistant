@@ -17,6 +17,7 @@
 //! v0.0.959: Added audio patterns for PipeWire, PulseAudio, ALSA.
 //! v0.0.960: Added power patterns for battery, suspend, hibernate.
 //! v0.0.961: Added systemd patterns for services, units, timers, targets.
+//! v0.0.962: Added filesystem patterns for mounts, LVM, RAID, btrfs.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -37,6 +38,7 @@ mod logs;
 mod audio;
 mod power;
 mod systemd;
+mod filesystem;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -432,6 +434,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = systemd::match_patterns(q) {
         record_pattern_hit("systemd");
+        return Some(r);
+    }
+    if let Some(r) = filesystem::match_patterns(q) {
+        record_pattern_hit("filesystem");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1004,5 +1010,32 @@ mod tests {
         assert!(match_common_pattern("boot time").is_some());
         assert!(match_common_pattern("boot blame").is_some());
         assert!(match_common_pattern("slow boot").is_some());
+    }
+
+    // Filesystem pattern tests (v0.0.962)
+    #[test]
+    fn test_filesystem_mounts() {
+        assert!(match_common_pattern("list mounts").is_some());
+        assert!(match_common_pattern("fstab").is_some());
+        assert!(match_common_pattern("disk uuid").is_some());
+    }
+
+    #[test]
+    fn test_filesystem_lvm() {
+        assert!(match_common_pattern("lvm status").is_some());
+        assert!(match_common_pattern("logical volumes").is_some());
+    }
+
+    #[test]
+    fn test_filesystem_btrfs() {
+        assert!(match_common_pattern("btrfs status").is_some());
+        assert!(match_common_pattern("btrfs subvolumes").is_some());
+    }
+
+    #[test]
+    fn test_filesystem_general() {
+        assert!(match_common_pattern("inode usage").is_some());
+        assert!(match_common_pattern("large files").is_some());
+        assert!(match_common_pattern("directory sizes").is_some());
     }
 }

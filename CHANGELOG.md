@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.962] - 2026-01-11
+
+### Added
+- **Filesystem Patterns** - ~55 patterns for filesystem management
+  - Mounts: list, fstab, mount options, UUIDs, labels, failed mounts
+  - Permissions: file/directory permissions, SUID, SGID, world-writable, ACLs
+  - LVM: physical volumes, volume groups, logical volumes, free space
+  - RAID: mdadm status, arrays, health, rebuild status
+  - Btrfs: status, subvolumes, snapshots, usage, scrub, balance
+  - General: filesystem types, inodes, large files, directory sizes, disk I/O
+
+### Changed
+- 19 pattern categories now available (was 18)
+- Total instant-answer patterns: ~565+
+
 ## [0.0.961] - 2026-01-11
 
 ### Added
