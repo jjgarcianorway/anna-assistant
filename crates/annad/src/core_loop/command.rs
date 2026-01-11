@@ -546,6 +546,7 @@ pub fn clean_answer(answer: &str) -> String {
 }
 
 /// Verify answer quality (quick check + optional LLM verification)
+/// v0.0.929: Enhanced heuristics to reduce LLM verification calls
 pub async fn verify_answer_quality(model: &str, question: &str, answer: &str) -> bool {
     let answer_trimmed = answer.trim();
     if answer_trimmed.is_empty() {
@@ -572,7 +573,52 @@ pub async fn verify_answer_quality(model: &str, question: &str, answer: &str) ->
         && !answer_lower.contains("not found")
         && !answer_lower.contains("command not found");
 
-    if has_useful_content && answer_trimmed.len() < 500 {
+    // v0.0.929: Increased threshold and added success pattern detection
+    if has_useful_content && answer_trimmed.len() < 800 {
+        return true;
+    }
+
+    // v0.0.929: Heuristic success patterns - skip LLM for obvious good answers
+    let question_lower = question.to_lowercase();
+
+    // Factual questions with numeric data in answer
+    let is_factual = question_lower.contains("how much")
+        || question_lower.contains("how many")
+        || question_lower.contains("what is")
+        || question_lower.contains("what's")
+        || question_lower.contains("disk")
+        || question_lower.contains("memory")
+        || question_lower.contains("cpu")
+        || question_lower.contains("version");
+
+    // Answer contains data patterns (numbers, paths, sizes)
+    let has_data_patterns = answer_trimmed.chars().filter(|c| c.is_numeric()).count() > 3
+        || answer_trimmed.contains("/dev/")
+        || answer_trimmed.contains("/home/")
+        || answer_trimmed.contains("/etc/")
+        || answer_trimmed.contains(" GB")
+        || answer_trimmed.contains(" MB")
+        || answer_trimmed.contains(" KB")
+        || answer_trimmed.contains("%");
+
+    // Command output indicators (lines with consistent structure)
+    let lines: Vec<&str> = answer_trimmed.lines().collect();
+    let has_command_output = lines.len() > 2
+        && lines.iter().filter(|l| l.contains(':') || l.contains('\t')).count() > lines.len() / 3;
+
+    if is_factual && (has_data_patterns || has_command_output) {
+        debug!("Heuristic validation: factual question with data patterns, skipping LLM");
+        return true;
+    }
+
+    // v0.0.929: Skip LLM if answer has clear structure (lists, bullet points)
+    let has_list_structure = answer_trimmed.contains("\n- ")
+        || answer_trimmed.contains("\n* ")
+        || answer_trimmed.contains("\n1. ")
+        || answer_trimmed.contains("\n• ");
+
+    if has_useful_content && has_list_structure {
+        debug!("Heuristic validation: structured list answer, skipping LLM");
         return true;
     }
 

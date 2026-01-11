@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.929] - 2026-01-11
+
+### Added
+- **Heuristic Answer Validation** - Skip LLM verification for obvious good answers
+  - Increased auto-approve threshold from 500 to 800 characters
+  - Factual questions with numeric data auto-validate
+  - Answers with data patterns (/dev/, /etc/, GB, MB, %) pass heuristically
+  - Structured list answers (bullet points, numbered lists) skip LLM
+  - Command output patterns (colons, tabs) indicate valid response
+  - Saves ~10 seconds per query by avoiding LLM verification round-trip
+
+### Changed
+- Answer validation now checks question type for smarter heuristics
+- Debug logging added for heuristic validation paths
+
 ## [0.0.928] - 2026-01-11
 
 ### Added
