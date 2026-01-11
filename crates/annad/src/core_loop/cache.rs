@@ -607,3 +607,103 @@ pub fn cache_wiki_search(query: &str, commands: Vec<String>, context: String, so
         debug!("Cached wiki search for: {}", &query[..query.len().min(40)]);
     }
 }
+
+/// v0.0.926: Memory fast path result
+pub struct MemoryFastPathResult {
+    pub answer: String,
+    pub commands: Vec<String>,
+    pub confidence: f32,
+    pub experience_id: String,
+}
+
+/// v0.0.926: Check memory for high-confidence matches that can skip LLM
+/// Returns Some if a matching experience with high usefulness is found
+/// The answer may need to be refreshed by re-running the commands
+pub fn check_memory_fast_path(question: &str) -> Option<MemoryFastPathResult> {
+    use anna_shared::memory::Memory;
+
+    // Only for questions that are likely to have stable answers
+    // (HOWTO questions, not status queries)
+    let q_lower = question.to_lowercase();
+    let is_howto = q_lower.contains("how do i")
+        || q_lower.contains("how to")
+        || q_lower.contains("install")
+        || q_lower.contains("configure")
+        || q_lower.contains("setup")
+        || q_lower.contains("enable")
+        || q_lower.contains("disable");
+
+    // For status queries, commands need to be re-run so skip fast path
+    let is_status_query = q_lower.contains("status")
+        || q_lower.contains("running")
+        || q_lower.contains("usage")
+        || q_lower.contains("free")
+        || q_lower.contains("available")
+        || q_lower.starts_with("what is my")
+        || q_lower.starts_with("show me");
+
+    if is_status_query && !is_howto {
+        return None;
+    }
+
+    let memory = Memory::load().ok()?;
+
+    // Recall experiences with clusters for better matching
+    let experiences = memory.recall_with_clusters(question, 3);
+
+    for exp in experiences {
+        // Need high usefulness (used successfully multiple times)
+        if exp.usefulness_score < 3 {
+            continue;
+        }
+
+        // Calculate relevance score
+        let keywords = anna_shared::memory::extract_keywords(question);
+        let exp_keywords = &exp.keywords;
+
+        let keyword_match: usize = keywords
+            .iter()
+            .filter(|k| exp_keywords.iter().any(|ek| ek.contains(*k) || k.contains(ek)))
+            .count();
+
+        let relevance = if keywords.is_empty() {
+            0.0
+        } else {
+            keyword_match as f32 / keywords.len() as f32
+        };
+
+        // Need high relevance (>0.7) and substantial answer
+        if relevance > 0.7 && exp.answer.len() > 50 {
+            info!(
+                "Memory fast path: found high-confidence match (relevance={:.2}, usefulness={})",
+                relevance, exp.usefulness_score
+            );
+
+            return Some(MemoryFastPathResult {
+                answer: exp.answer.clone(),
+                commands: exp.successful_commands.clone(),
+                confidence: relevance,
+                experience_id: exp.id.clone(),
+            });
+        }
+    }
+
+    None
+}
+
+/// v0.0.926: Boost experience usefulness after successful fast path use
+pub fn boost_experience_usefulness(experience_id: &str) {
+    use anna_shared::memory::Memory;
+
+    if let Ok(mut memory) = Memory::load() {
+        if let Some(exp) = memory.experiences.iter_mut().find(|e| e.id == experience_id) {
+            exp.usefulness_score += 1;
+            exp.last_used = Some(chrono::Utc::now().to_rfc3339());
+            debug!("Boosted experience {} usefulness to {}", experience_id, exp.usefulness_score);
+
+            if let Err(e) = memory.save() {
+                warn!("Failed to save boosted experience: {}", e);
+            }
+        }
+    }
+}

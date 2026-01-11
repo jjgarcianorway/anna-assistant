@@ -1,5 +1,6 @@
 //! RPC request handlers and connection management.
 //! v0.0.922: Added request deduplication
+//! v0.0.926: Added memory fast path
 
 use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse};
 use anyhow::Result;
@@ -9,6 +10,7 @@ use tracing::{info, warn};
 
 use crate::core_loop::cache::{
     get_cached_answer, is_request_inflight, register_inflight_request, complete_inflight_request,
+    check_memory_fast_path, boost_experience_usefulness,
 };
 use crate::core_loop::execute_question;
 use crate::state::SharedState;
@@ -84,6 +86,30 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
 
             if question.is_empty() {
                 return RpcResponse::error(&request.id, -32602, "Missing 'question' parameter");
+            }
+
+            // v0.0.926: Check memory for high-confidence matches (fast path)
+            if let Some(memory_result) = check_memory_fast_path(question) {
+                info!("Memory fast path: returning learned answer (confidence={:.2})", memory_result.confidence);
+                // Boost the experience usefulness in background
+                let exp_id = memory_result.experience_id.clone();
+                tokio::spawn(async move {
+                    boost_experience_usefulness(&exp_id);
+                });
+                let result = anna_shared::rpc::AskResult {
+                    answer: memory_result.answer,
+                    success: true,
+                    iterations: 0,
+                    commands_executed: memory_result.commands,
+                    dialogue: vec![],
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: true, // Mark as cached since it's from memory
+                };
+                return match serde_json::to_value(&result) {
+                    Ok(v) => RpcResponse::success(&request.id, v),
+                    Err(e) => RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e)),
+                };
             }
 
             // v0.0.922: Check if this exact question is already being processed

@@ -22,6 +22,8 @@ pub use cache::{
     get_cached_command, cache_command, get_perf_config, reload_perf_config,
     get_wiki_config, is_wiki_circuit_open, wiki_record_success, wiki_record_failure,
     get_cached_recipe_book,
+    // v0.0.926: Memory fast path
+    check_memory_fast_path, boost_experience_usefulness, MemoryFastPathResult,
 };
 pub use command::{
     execute_command, execute_command_with_retry, execute_commands_parallel,

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.926] - 2026-01-11
+
+### Added
+- **Memory Fast Path** - Skip LLM entirely for high-confidence learned questions
+  - Recalls experiences with relevance >0.7 and usefulness score ≥3
+  - Returns stored answers instantly for HOWTO questions
+  - Boosts experience usefulness on successful fast path use
+  - Skips status queries (need fresh data) but handles instruction queries
+- **Pattern Pre-Execution** - Run suggested commands before LLM for grounded answers
+  - When patterns match with >0.85 confidence, pre-executes suggested commands
+  - Provides fresh command output to LLM without extra round-trip
+  - Skips dangerous commands (rm, dd, mkfs, sudo) for safety
+  - Up to 3 commands pre-executed per pattern match
+
+### Changed
+- Handler now checks memory before deduplication check for faster responses
+- Pattern matching now exports `match_and_preexec` for integrated command execution
+
 ## [0.0.925] - 2026-01-11
 
 ### Added
