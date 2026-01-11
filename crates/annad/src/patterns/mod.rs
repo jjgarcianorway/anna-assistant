@@ -13,6 +13,7 @@
 //! v0.0.951: Added boot patterns for GRUB, EFI, kernel, initramfs.
 //! v0.0.956: Added fuzzy matching for typo tolerance.
 //! v0.0.957: Added container patterns for Docker, Podman, VMs.
+//! v0.0.958: Added logs patterns for journalctl, dmesg, log analysis.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -29,6 +30,7 @@ mod hardware;
 mod gaming;
 mod boot;
 mod container;
+mod logs;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -408,6 +410,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = container::match_patterns(q) {
         record_pattern_hit("container");
+        return Some(r);
+    }
+    if let Some(r) = logs::match_patterns(q) {
+        record_pattern_hit("logs");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -895,5 +901,27 @@ mod tests {
         assert!(match_common_pattern("list vms").is_some());
         assert!(match_common_pattern("running vms").is_some());
         assert!(match_common_pattern("virtualization support").is_some());
+    }
+
+    // Log pattern tests (v0.0.958)
+    #[test]
+    fn test_logs_journalctl() {
+        assert!(match_common_pattern("recent logs").is_some());
+        assert!(match_common_pattern("boot logs").is_some());
+        assert!(match_common_pattern("error logs").is_some());
+        assert!(match_common_pattern("kernel logs").is_some());
+    }
+
+    #[test]
+    fn test_logs_dmesg() {
+        assert!(match_common_pattern("dmesg").is_some());
+        assert!(match_common_pattern("dmesg errors").is_some());
+    }
+
+    #[test]
+    fn test_logs_analysis() {
+        assert!(match_common_pattern("crash logs").is_some());
+        assert!(match_common_pattern("what happened").is_some());
+        assert!(match_common_pattern("sudo logs").is_some());
     }
 }

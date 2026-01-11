@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.958] - 2026-01-11
+
+### Added
+- **Log/Journalctl Patterns** - ~45 patterns for system log analysis
+  - Journalctl: recent logs, boot logs, error/warning/critical logs, kernel logs
+  - Time-based: today, last hour, yesterday logs
+  - Dmesg: kernel ring buffer, USB/disk/network specific logs
+  - Log files: syslog, auth log, pacman log, Xorg log
+  - Analysis: crash logs, panic, OOM, segfaults, coredumps, sudo history
+
+### Changed
+- 15 pattern categories now available (was 14)
+- Total instant-answer patterns: ~370+
+
 ## [0.0.957] - 2026-01-11
 
 ### Added
