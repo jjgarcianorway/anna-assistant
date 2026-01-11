@@ -24,6 +24,7 @@
 //! v0.0.966: Added time patterns for datetime, timezone, NTP.
 //! v0.0.967: Added printing patterns for CUPS, printers, print jobs.
 //! v0.0.968: Added backup patterns for rsync, borg, restic, tar.
+//! v0.0.969: Added locale patterns for keyboard, language, fonts.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -51,6 +52,7 @@ mod users;
 mod time;
 mod printing;
 mod backup;
+mod locale;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -474,6 +476,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = backup::match_patterns(q) {
         record_pattern_hit("backup");
+        return Some(r);
+    }
+    if let Some(r) = locale::match_patterns(q) {
+        record_pattern_hit("locale");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1196,5 +1202,23 @@ mod tests {
     fn test_backup_tar() {
         assert!(match_common_pattern("tar syntax").is_some());
         assert!(match_common_pattern("tar extract").is_some());
+    }
+
+    #[test]
+    fn test_locale() {
+        assert!(match_common_pattern("current locale").is_some());
+        assert!(match_common_pattern("available locales").is_some());
+    }
+
+    #[test]
+    fn test_keyboard() {
+        assert!(match_common_pattern("keyboard layout").is_some());
+        assert!(match_common_pattern("console keymap").is_some());
+    }
+
+    #[test]
+    fn test_fonts() {
+        assert!(match_common_pattern("installed fonts").is_some());
+        assert!(match_common_pattern("font families").is_some());
     }
 }

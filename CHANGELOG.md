@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.969] - 2026-01-11
+
+### Added
+- **Locale/Keyboard/Font Patterns** - ~45 patterns for internationalization
+  - Locale: current, system, available, generated, environment variables
+  - Keyboard: layout, console keymap, X11, available layouts/keymaps
+  - Language: system language, available, input methods (fcitx, ibus)
+  - Fonts: installed, families, system, user, cache, monospace, fontconfig
+
+### Changed
+- 26 pattern categories now available (was 25)
+- Total instant-answer patterns: ~860+
+
 ## [0.0.968] - 2026-01-11
 
 ### Added
