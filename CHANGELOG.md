@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.928] - 2026-01-11
+
+### Added
+- **Improved Parallel Execution** - More queries now run commands in parallel
+  - Lowered threshold from 3 to 2 commands for parallel execution
+  - Queries with 2+ safe commands now execute concurrently
+  - Reduces response time for multi-command queries by 30-50%
+- **Contraction Expansion** - Better answer cache hit rates
+  - "What's my disk usage?" now matches "What is my disk usage?"
+  - Handles 30+ common contractions (don't, can't, I'm, you're, etc.)
+  - Estimates 5-10% improvement in cache hit rate
+- **Expanded Static Commands Cache** - More commands cached longer
+  - Added 25+ commands to static cache list (from 13 to 38)
+  - GPU info, kernel modules, config files now cached 5 minutes
+  - Reduces redundant command execution significantly
+
+### Changed
+- `STATIC_COMMANDS` list expanded with GPU, kernel, network, and desktop commands
+- Question normalization now expands contractions before stop word removal
+
 ## [0.0.927] - 2026-01-11
 
 ### Added

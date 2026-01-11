@@ -278,6 +278,7 @@ pub fn get_cached_recipe_book() -> Option<RecipeBook> {
 
 /// v0.0.920: Normalize question for cache key (lowercase, trim, remove punctuation)
 /// v0.0.925: Improved normalization with stop word removal and synonym handling
+/// v0.0.928: Added contraction expansion for better cache hits
 fn normalize_question(question: &str) -> String {
     // Stop words to remove (common filler words)
     const STOP_WORDS: &[&str] = &[
@@ -309,8 +310,41 @@ fn normalize_question(question: &str) -> String {
         }
     }
 
-    let normalized: String = question
+    // v0.0.928: Expand contractions before normalization
+    let expanded = question
         .to_lowercase()
+        .replace("what's", "what is")
+        .replace("how's", "how is")
+        .replace("where's", "where is")
+        .replace("who's", "who is")
+        .replace("it's", "it is")
+        .replace("that's", "that is")
+        .replace("there's", "there is")
+        .replace("here's", "here is")
+        .replace("i'm", "i am")
+        .replace("i've", "i have")
+        .replace("i'll", "i will")
+        .replace("i'd", "i would")
+        .replace("you're", "you are")
+        .replace("you've", "you have")
+        .replace("you'll", "you will")
+        .replace("don't", "do not")
+        .replace("doesn't", "does not")
+        .replace("didn't", "did not")
+        .replace("won't", "will not")
+        .replace("wouldn't", "would not")
+        .replace("can't", "cannot")
+        .replace("couldn't", "could not")
+        .replace("shouldn't", "should not")
+        .replace("isn't", "is not")
+        .replace("aren't", "are not")
+        .replace("wasn't", "was not")
+        .replace("weren't", "were not")
+        .replace("haven't", "have not")
+        .replace("hasn't", "has not")
+        .replace("hadn't", "had not");
+
+    let normalized: String = expanded
         .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace())
         .collect();

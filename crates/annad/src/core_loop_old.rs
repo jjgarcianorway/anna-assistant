@@ -2522,8 +2522,8 @@ Commands:"#,
             });
         }
 
-        // Execute safe commands in parallel (3+ commands)
-        if safe_commands.len() >= 3 {
+        // v0.0.928: Execute safe commands in parallel (2+ commands, lowered from 3)
+        if safe_commands.len() >= 2 {
             info!("Executing {} commands in parallel", safe_commands.len());
             let results = execute_commands_parallel(&safe_commands);
 

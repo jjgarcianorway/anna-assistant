@@ -110,20 +110,50 @@ pub struct CachedAnswer {
 
 /// Commands that rarely change and can be cached longer (5 minutes)
 /// Used by core_loop.rs for cache TTL decisions
+/// v0.0.928: Expanded list for better cache hit rate
 pub const STATIC_COMMANDS: &[&str] = &[
+    // System info
     "uname -r",
     "uname -a",
+    "uname -m",
     "cat /etc/os-release",
-    "pacman -Q",
+    "hostnamectl",
+    "hostname",
+    // Hardware
     "lscpu",
     "lsblk",
-    "cat /proc/cpuinfo",
-    "cat /proc/meminfo",
-    "hostnamectl",
-    "free -h",
-    "df -h",
     "lspci",
     "lsusb",
+    "lsmod",
+    "cat /proc/cpuinfo",
+    "cat /proc/meminfo",
+    // GPU info
+    "lspci | grep -i vga",
+    "lspci | grep -i nvidia",
+    "lspci | grep -i amd",
+    // Package info
+    "pacman -Q",
+    "pacman -Qe",
+    "pacman -Qm",
+    // Resource usage (semi-static - changes slowly)
+    "free -h",
+    "df -h",
+    "findmnt",
+    // Config files (rarely change)
+    "cat /etc/fstab",
+    "cat /etc/hostname",
+    "cat /etc/locale.conf",
+    "cat /etc/vconsole.conf",
+    "cat /etc/mkinitcpio.conf",
+    // Kernel
+    "cat /proc/cmdline",
+    "cat /proc/version",
+    // Network config (changes infrequently)
+    "cat /etc/resolv.conf",
+    "ip link",
+    // Desktop environment
+    "echo $XDG_SESSION_TYPE",
+    "echo $XDG_CURRENT_DESKTOP",
 ];
 
 impl StateInner {
