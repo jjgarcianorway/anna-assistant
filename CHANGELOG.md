@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.932] - 2026-01-11
+
+### Added
+- **Profile-Based Command Suggestions** - Tailored commands based on detected hardware/software
+  - NVIDIA GPU detected → suggests `nvidia-smi`
+  - AMD GPU detected → suggests `radeontop`, GPU busy percent
+  - btrfs filesystem → suggests `btrfs filesystem df`, subvolume list
+  - ZFS filesystem → suggests `zpool status`, `zfs list`
+  - Pipewire audio → suggests `wpctl status`, `pw-top`
+  - PulseAudio → suggests `pactl info`, sink list
+  - GNOME desktop → suggests `gnome-extensions`, `gsettings`
+  - KDE desktop → suggests `plasmashell --version`
+  - Wayland → suggests `wlr-randr` instead of xrandr
+  - New function: `get_profile_based_commands()`
+
+- **Expanded Error Classification** - From 8 to 30+ error patterns
+  - More "command not found" variants (`: not found`, `no such command`)
+  - More permission patterns (`must be root`, `requires root`, `access denied`)
+  - More path errors (`cannot stat`, `failed to open`, `is a directory`)
+  - More syntax errors (`unknown option`, `missing argument`, `parse error`)
+  - Network errors (`connection refused`, `network unreachable`)
+  - Resource errors (`disk full`, `out of memory`, `device busy`)
+
+### Changed
+- `classify_command_error()` now catches many more error variations
+- Fallback commands now consider system profile for smarter suggestions
+
 ## [0.0.931] - 2026-01-11
 
 ### Added

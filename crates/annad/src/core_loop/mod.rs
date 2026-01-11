@@ -30,7 +30,7 @@ pub use command::{
     strip_ansi_codes, clean_answer, verify_answer_quality,
     CommandErrorType, classify_command_error, get_recovery_prompt,
 };
-pub use fallback::{get_fallback_commands, get_fallback_commands_with_intent, warm_up_cache};
+pub use fallback::{get_fallback_commands, get_fallback_commands_with_intent, get_profile_based_commands, warm_up_cache};
 pub use profile::{
     init_system_profile, refresh_profile_if_needed, profile_refresh_loop, monitoring_loop,
     get_system_profile, get_proactive_insights, gather_system_context,

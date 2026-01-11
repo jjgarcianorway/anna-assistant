@@ -1,9 +1,11 @@
 //! Fallback command hints for when LLM is unavailable.
+//! v0.0.932: Added profile-based command suggestions
 
 use std::process::Command;
 use tracing::{debug, info};
 
 use super::cache::{cache_command, get_cached_command};
+use super::profile::get_system_profile;
 
 /// Heuristic command hints for when LLM is unavailable (timeout fallback)
 pub fn get_fallback_commands(question: &str) -> Vec<&'static str> {
@@ -161,6 +163,108 @@ pub fn get_fallback_commands_with_intent(question: &str, intent: Option<&str>) -
     }
 
     vec![]
+}
+
+/// v0.0.932: Get profile-based command suggestions
+/// Returns commands tailored to the detected system configuration
+pub fn get_profile_based_commands(question: &str) -> Vec<String> {
+    let q = question.to_lowercase();
+    let profile = get_system_profile();
+    let mut commands = Vec::new();
+
+    // GPU-specific commands
+    let has_nvidia = profile.hardware.pci_devices.iter().any(|d| {
+        d.vendor.to_lowercase().contains("nvidia")
+    });
+    let has_amd_gpu = profile.hardware.pci_devices.iter().any(|d| {
+        let v = d.vendor.to_lowercase();
+        let c = d.class.to_lowercase();
+        (v.contains("amd") || v.contains("advanced micro")) &&
+        (c.contains("vga") || c.contains("display") || c.contains("3d"))
+    });
+
+    if q.contains("gpu") || q.contains("graphics") || q.contains("video") {
+        if has_nvidia {
+            commands.push("nvidia-smi".to_string());
+            commands.push("nvidia-smi -q | head -50".to_string());
+        }
+        if has_amd_gpu {
+            commands.push("radeontop -d - -l 1 2>/dev/null || echo 'radeontop not installed'".to_string());
+            commands.push("cat /sys/class/drm/card*/device/gpu_busy_percent 2>/dev/null".to_string());
+        }
+    }
+
+    // Filesystem-specific commands
+    let fs = profile.system.root_filesystem.as_deref().unwrap_or("");
+    if q.contains("disk") || q.contains("storage") || q.contains("filesystem") || q.contains("snapshot") {
+        match fs {
+            "btrfs" => {
+                commands.push("btrfs filesystem df /".to_string());
+                commands.push("btrfs subvolume list / 2>/dev/null | head -10".to_string());
+                if q.contains("snapshot") {
+                    commands.push("btrfs subvolume list -s / 2>/dev/null".to_string());
+                }
+            }
+            "zfs" => {
+                commands.push("zpool status".to_string());
+                commands.push("zfs list".to_string());
+            }
+            "xfs" => {
+                commands.push("xfs_info /".to_string());
+            }
+            _ => {}
+        }
+    }
+
+    // Audio system-specific commands
+    let audio = profile.system.audio_system.as_deref().unwrap_or("");
+    if q.contains("audio") || q.contains("sound") || q.contains("volume") {
+        match audio {
+            "pipewire" => {
+                commands.push("wpctl status".to_string());
+                commands.push("pw-top -b -n 1 2>/dev/null | head -20".to_string());
+            }
+            "pulseaudio" => {
+                commands.push("pactl info".to_string());
+                commands.push("pactl list sinks short".to_string());
+            }
+            _ => {
+                commands.push("aplay -l".to_string());
+            }
+        }
+    }
+
+    // Desktop environment-specific
+    let de = profile.system.desktop.as_deref().unwrap_or("").to_lowercase();
+    if q.contains("settings") || q.contains("theme") || q.contains("extension") {
+        if de.contains("gnome") {
+            commands.push("gnome-extensions list".to_string());
+            commands.push("gsettings list-recursively org.gnome.desktop.interface | head -20".to_string());
+        } else if de.contains("kde") || de.contains("plasma") {
+            commands.push("plasmashell --version".to_string());
+            commands.push("kreadconfig5 --file kdeglobals --group General --key ColorScheme".to_string());
+        }
+    }
+
+    // Display server-specific
+    let display = profile.system.display_server.as_deref().unwrap_or("");
+    if q.contains("display") || q.contains("monitor") || q.contains("screen") || q.contains("resolution") {
+        if display == "wayland" {
+            commands.push("wlr-randr 2>/dev/null || echo 'wlr-randr not available'".to_string());
+        } else {
+            commands.push("xrandr".to_string());
+        }
+    }
+
+    // AUR helper-specific
+    let aur = profile.system.aur_helper.as_deref().unwrap_or("");
+    if q.contains("aur") || (q.contains("install") && q.contains("aur")) {
+        if !aur.is_empty() && aur != "none" {
+            commands.push(format!("{} -Sua --devel", aur)); // Check AUR updates
+        }
+    }
+
+    commands
 }
 
 /// Warm up the command cache with static system info (called at daemon startup)
