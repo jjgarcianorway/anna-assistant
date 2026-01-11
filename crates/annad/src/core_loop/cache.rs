@@ -304,23 +304,84 @@ fn normalize_question(question: &str) -> String {
         "about", "much", "many", "some", "any", "using", "use", "currently",
     ];
 
-    // Common synonyms (map to canonical form)
+    // v0.0.934: Expanded semantic synonym groups (60+ mappings)
     fn canonicalize(word: &str) -> &str {
         match word {
-            "storage" | "space" | "drive" | "drives" => "disk",
-            "ram" | "mem" => "memory",
-            "cpu" | "processor" | "processors" => "cpu",
-            "net" | "wifi" | "ethernet" | "internet" => "network",
-            "pkg" | "package" | "packages" => "package",
-            "svc" | "service" | "services" | "daemon" | "daemons" => "service",
-            "proc" | "process" | "processes" => "process",
-            "running" | "active" | "started" => "running",
-            "stopped" | "inactive" | "dead" => "stopped",
-            "failing" | "failed" | "broken" | "error" | "errors" => "failed",
+            // Storage
+            "storage" | "space" | "drive" | "drives" | "hdd" | "ssd" | "nvme" | "partition" | "partitions" | "filesystem" | "fs" => "disk",
+            "mounted" | "mount" | "mounts" | "mounting" => "mount",
+            "free" | "available" | "remaining" | "left" => "free",
+            "used" | "usage" | "using" | "consumed" => "usage",
+
+            // Memory
+            "ram" | "mem" | "swap" | "cache" | "buffer" | "buffers" => "memory",
+
+            // CPU
+            "cpu" | "processor" | "processors" | "core" | "cores" | "thread" | "threads" => "cpu",
+            "load" | "loads" | "utilization" => "load",
+
+            // Network
+            "net" | "wifi" | "wlan" | "ethernet" | "eth" | "internet" | "lan" | "wan" | "interface" | "interfaces" => "network",
+            "ip" | "ipv4" | "ipv6" | "address" | "addr" => "ip",
+            "port" | "ports" | "socket" | "sockets" => "port",
+            "connection" | "connections" | "conn" | "conns" => "connection",
+            "bandwidth" | "throughput" | "speed" => "bandwidth",
+
+            // Packages
+            "pkg" | "package" | "packages" | "pacman" | "yay" | "paru" | "aur" => "package",
             "installed" | "install" | "installing" => "install",
-            "version" | "ver" => "version",
-            "kernel" | "linux" => "kernel",
-            "update" | "updates" | "upgrade" | "upgrades" => "update",
+            "remove" | "removing" | "uninstall" | "uninstalling" | "delete" | "deleting" => "remove",
+
+            // Services
+            "svc" | "service" | "services" | "daemon" | "daemons" | "systemd" | "unit" | "units" => "service",
+            "enabled" | "enable" | "enabling" => "enable",
+            "disabled" | "disable" | "disabling" => "disable",
+            "running" | "active" | "started" | "start" | "starting" => "running",
+            "stopped" | "inactive" | "dead" | "stop" | "stopping" => "stopped",
+            "restart" | "restarting" | "restarted" | "reload" | "reloading" => "restart",
+
+            // Processes
+            "proc" | "process" | "processes" | "pid" | "pids" | "task" | "tasks" => "process",
+            "kill" | "killing" | "killed" | "terminate" | "terminating" => "kill",
+
+            // Errors and problems
+            "failing" | "failed" | "broken" | "error" | "errors" | "issue" | "issues" | "problem" | "problems" => "failed",
+            "crash" | "crashed" | "crashing" | "hang" | "hanging" | "hung" | "freeze" | "frozen" | "stuck" => "crash",
+            "slow" | "sluggish" | "lag" | "lagging" | "laggy" | "latency" => "slow",
+
+            // System
+            "version" | "ver" | "release" => "version",
+            "kernel" | "linux" | "uname" => "kernel",
+            "update" | "updates" | "upgrade" | "upgrades" | "upgrading" | "updating" => "update",
+            "reboot" | "rebooting" | "rebooted" | "restart" | "poweroff" | "shutdown" => "reboot",
+            "boot" | "booting" | "booted" | "startup" | "grub" => "boot",
+
+            // Hardware
+            "gpu" | "graphics" | "video" | "nvidia" | "amd" | "radeon" | "intel" => "gpu",
+            "audio" | "sound" | "speaker" | "speakers" | "mic" | "microphone" | "headphone" | "headphones" => "audio",
+            "display" | "monitor" | "monitors" | "screen" | "screens" | "resolution" => "display",
+            "bluetooth" | "bt" => "bluetooth",
+            "usb" | "device" | "devices" | "peripheral" | "peripherals" => "device",
+            "fan" | "fans" | "cooling" | "temperature" | "temp" | "temps" | "thermal" => "thermal",
+            "battery" | "power" | "charging" | "acpi" => "power",
+
+            // Files
+            "file" | "files" | "folder" | "folders" | "directory" | "directories" | "dir" | "dirs" => "file",
+            "permission" | "permissions" | "perm" | "perms" | "chmod" | "chown" => "permission",
+            "owner" | "ownership" | "group" | "groups" => "owner",
+
+            // Logs
+            "log" | "logs" | "journal" | "journalctl" | "dmesg" | "syslog" => "log",
+
+            // Users
+            "user" | "users" | "account" | "accounts" | "sudo" | "root" => "user",
+            "password" | "passwd" | "pwd" | "credentials" => "password",
+
+            // Desktop
+            "desktop" | "de" | "gnome" | "kde" | "plasma" | "xfce" | "i3" | "sway" => "desktop",
+            "wayland" | "x11" | "xorg" | "xserver" => "display_server",
+            "window" | "windows" | "wm" | "compositor" => "window",
+
             _ => word,
         }
     }

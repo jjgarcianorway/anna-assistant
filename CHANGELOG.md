@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.934] - 2026-01-11
+
+### Added
+- **Expanded Semantic Synonym Groups** - From 19 to 30+ semantic categories
+  - Better question clustering for memory recall
+  - More synonyms per category for improved matching
+
+### Changed
+- Answer cache normalization now recognizes 60+ word mappings
+  - Storage: hdd, ssd, nvme, partition, filesystem, mount...
+  - Network: wlan, eth, lan, wan, interface, bandwidth, port...
+  - Hardware: gpu, nvidia, amd, radeon, thermal, fan, bluetooth...
+  - Files: chmod, chown, permission, owner, group...
+  - Security: firewall, iptables, nftables, ssh...
+  - Desktop: gnome, kde, plasma, xfce, i3, sway, wayland...
+- Memory clustering semantic groups expanded similarly
+- Questions like "what's my RAM?" now clusters with "show memory usage"
+
 ## [0.0.933] - 2026-01-11
 
 ### Added

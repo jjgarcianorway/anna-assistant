@@ -1,30 +1,71 @@
 //! Semantic question clustering for improved recall.
 //!
 //! v0.0.889: Questions like "What's my RAM?" and "How much memory?" cluster together
+//! v0.0.934: Expanded semantic groups from 19 to 30+ categories
 
 use super::types::{Experience, QuestionCluster};
 
 /// Semantic synonym groups - questions using any word in a group are considered related
+/// v0.0.934: Expanded to 30+ groups with more comprehensive synonyms
 const SEMANTIC_SYNONYMS: &[(&str, &[&str])] = &[
-    ("memory", &["ram", "memory", "mem", "swap"]),
-    ("disk", &["disk", "storage", "drive", "hdd", "ssd", "nvme", "partition", "space"]),
-    ("cpu", &["cpu", "processor", "cores", "threads", "load", "utilization"]),
-    ("network", &["network", "wifi", "ethernet", "connection", "internet", "ip", "dns"]),
-    ("audio", &["audio", "sound", "speaker", "volume", "microphone", "pulseaudio", "pipewire"]),
-    ("display", &["display", "screen", "monitor", "resolution", "brightness", "wayland", "xorg"]),
-    ("packages", &["package", "packages", "install", "pacman", "yay", "aur", "software", "app"]),
-    ("services", &["service", "services", "daemon", "systemd", "unit", "systemctl"]),
-    ("boot", &["boot", "startup", "grub", "kernel", "initramfs", "bootloader"]),
-    ("system", &["system", "os", "distro", "arch", "version", "hostname"]),
-    ("hardware", &["hardware", "device", "devices", "lspci", "lsusb", "gpu", "graphics"]),
-    ("battery", &["battery", "power", "charging", "acpi", "upower"]),
-    ("users", &["user", "users", "permission", "permissions", "sudo", "group"]),
-    ("files", &["file", "files", "directory", "folder", "path", "filesystem"]),
-    ("processes", &["process", "processes", "running", "pid", "kill", "ps", "htop"]),
-    ("errors", &["error", "errors", "fail", "failed", "failing", "issue", "problem", "broken"]),
-    ("logs", &["log", "logs", "journal", "journalctl", "dmesg"]),
-    ("config", &["config", "configuration", "settings", "configure", "setup"]),
-    ("kernel", &["kernel", "uname", "module", "modules", "driver", "drivers"]),
+    // Core system resources
+    ("memory", &["ram", "memory", "mem", "swap", "cache", "buffer", "buffers", "oom"]),
+    ("disk", &["disk", "storage", "drive", "hdd", "ssd", "nvme", "partition", "space", "filesystem", "fs", "mount", "mounted"]),
+    ("cpu", &["cpu", "processor", "cores", "core", "threads", "thread", "load", "utilization"]),
+
+    // Network
+    ("network", &["network", "net", "wifi", "wlan", "ethernet", "eth", "connection", "internet", "lan", "wan", "interface"]),
+    ("ip", &["ip", "ipv4", "ipv6", "address", "addr", "gateway", "route", "routing"]),
+    ("port", &["port", "ports", "socket", "sockets", "listening", "listen"]),
+    ("dns", &["dns", "nameserver", "resolve", "resolv", "domain"]),
+    ("bandwidth", &["bandwidth", "throughput", "speed", "traffic", "transfer"]),
+
+    // Audio/Video
+    ("audio", &["audio", "sound", "speaker", "speakers", "volume", "microphone", "mic", "headphone", "headphones", "pulseaudio", "pipewire", "alsa"]),
+    ("display", &["display", "screen", "monitor", "monitors", "resolution", "brightness", "wayland", "xorg", "x11"]),
+
+    // Packages and software
+    ("packages", &["package", "packages", "install", "installed", "pacman", "yay", "paru", "aur", "software", "app", "apps"]),
+    ("remove", &["remove", "uninstall", "delete", "purge"]),
+    ("update", &["update", "updates", "upgrade", "upgrades", "sync"]),
+
+    // Services and processes
+    ("services", &["service", "services", "daemon", "daemons", "systemd", "unit", "units", "systemctl"]),
+    ("processes", &["process", "processes", "running", "pid", "pids", "kill", "ps", "htop", "top", "task", "tasks"]),
+
+    // Boot and system
+    ("boot", &["boot", "startup", "grub", "kernel", "initramfs", "bootloader", "uefi", "bios"]),
+    ("system", &["system", "os", "distro", "arch", "version", "hostname", "uname"]),
+    ("reboot", &["reboot", "restart", "shutdown", "poweroff", "halt"]),
+
+    // Hardware
+    ("hardware", &["hardware", "device", "devices", "lspci", "lsusb", "peripheral", "peripherals"]),
+    ("gpu", &["gpu", "graphics", "video", "nvidia", "amd", "radeon", "intel", "mesa"]),
+    ("battery", &["battery", "power", "charging", "acpi", "upower", "tlp"]),
+    ("thermal", &["fan", "fans", "cooling", "temperature", "temp", "temps", "thermal", "heat"]),
+    ("bluetooth", &["bluetooth", "bt", "bluez"]),
+    ("usb", &["usb", "hub", "port"]),
+
+    // Files and permissions
+    ("files", &["file", "files", "directory", "folder", "folders", "path", "filesystem", "dir", "dirs"]),
+    ("permissions", &["permission", "permissions", "chmod", "chown", "access", "denied", "owner", "group"]),
+
+    // Users and security
+    ("users", &["user", "users", "account", "accounts", "sudo", "root", "login"]),
+    ("password", &["password", "passwd", "credentials", "auth", "authentication"]),
+    ("security", &["security", "firewall", "iptables", "nftables", "ufw", "selinux", "ssh"]),
+
+    // Logs and errors
+    ("logs", &["log", "logs", "journal", "journalctl", "dmesg", "syslog", "messages"]),
+    ("errors", &["error", "errors", "fail", "failed", "failing", "issue", "issues", "problem", "problems", "broken", "crash", "crashed"]),
+
+    // Config and setup
+    ("config", &["config", "configuration", "settings", "configure", "setup", "dotfiles"]),
+    ("kernel", &["kernel", "uname", "module", "modules", "driver", "drivers", "modprobe"]),
+
+    // Desktop
+    ("desktop", &["desktop", "gnome", "kde", "plasma", "xfce", "i3", "sway", "wm", "compositor"]),
+    ("window", &["window", "windows", "tiling", "floating"]),
 ];
 
 /// Canonicalize a question by replacing synonyms with canonical terms
