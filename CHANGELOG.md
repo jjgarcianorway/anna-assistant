@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.987] - 2026-01-11
+
+### Added
+- **SELinux/AppArmor Patterns** - ~50 patterns for Linux security modules
+  - SELinux: status, mode, config, policy, booleans, contexts, denials, modules
+  - AppArmor: status, profiles, enforce/complain, logs, config, tunables
+  - General MAC: LSM status, security labels, audit, seccomp, capabilities
+
+### Changed
+- 41 pattern categories now available (was 40)
+- Total instant-answer patterns: ~1630+
+
 ## [0.0.986] - 2026-01-11
 
 ### Added

@@ -41,6 +41,7 @@
 //! v0.0.984: Added kernel/module patterns for lsmod, modprobe, sysctl.
 //! v0.0.985: Added ZFS patterns for zpool, zfs, snapshots.
 //! v0.0.986: Added SMART disk health patterns for smartctl, nvme.
+//! v0.0.987: Added SELinux/AppArmor patterns for security modules.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -83,6 +84,7 @@ mod wm;
 mod kernel;
 mod zfs;
 mod smart;
+mod selinux;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -721,6 +723,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = smart::match_patterns(q) {
         record_pattern_hit("smart");
+        return Some(r);
+    }
+    if let Some(r) = selinux::match_patterns(q) {
+        record_pattern_hit("selinux");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1785,5 +1791,25 @@ mod tests {
     fn test_smart_nvme() {
         assert!(match_common_pattern("nvme health").is_some());
         assert!(match_common_pattern("nvme list").is_some());
+    }
+
+    #[test]
+    fn test_selinux() {
+        assert!(match_common_pattern("selinux status").is_some());
+        assert!(match_common_pattern("selinux mode").is_some());
+        assert!(match_common_pattern("selinux booleans").is_some());
+    }
+
+    #[test]
+    fn test_apparmor() {
+        assert!(match_common_pattern("apparmor status").is_some());
+        assert!(match_common_pattern("apparmor profiles").is_some());
+    }
+
+    #[test]
+    fn test_mac_general() {
+        assert!(match_common_pattern("which security module").is_some());
+        assert!(match_common_pattern("lsm").is_some());
+        assert!(match_common_pattern("audit log").is_some());
     }
 }
