@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.979] - 2026-01-11
+
+### Added
+- **Flatpak/Snap/AppImage Patterns** - ~50 patterns for containerized apps
+  - Flatpak: list, search, remotes, updates, runtimes, permissions, size
+  - Snap: list, search, version, refresh, connections, services, size
+  - AppImage: list, run, extract, integrate, FUSE requirements
+  - Troubleshooting: repair, clean, permissions, XDG portals
+
+### Changed
+- 35 pattern categories now available (was 34)
+- Total instant-answer patterns: ~1290+
+
 ## [0.0.978] - 2026-01-11
 
 ### Added

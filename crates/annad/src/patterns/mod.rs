@@ -33,6 +33,7 @@
 //! v0.0.976: Added encryption patterns for LUKS, GPG, disk encryption.
 //! v0.0.977: Added NVIDIA patterns for nvidia-smi, drivers, Optimus.
 //! v0.0.978: Added AUR patterns for yay, paru, makepkg.
+//! v0.0.979: Added Flatpak, Snap, AppImage patterns.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -69,6 +70,7 @@ mod display;
 mod encryption;
 mod nvidia;
 mod aur;
+mod appimage;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -662,6 +664,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = aur::match_patterns(q) {
         record_pattern_hit("aur");
+        return Some(r);
+    }
+    if let Some(r) = appimage::match_patterns(q) {
+        record_pattern_hit("appimage");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1560,5 +1566,23 @@ mod tests {
     fn test_aur_makepkg() {
         assert!(match_common_pattern("makepkg build").is_some());
         assert!(match_common_pattern("pkgbuild").is_some());
+    }
+
+    #[test]
+    fn test_flatpak() {
+        assert!(match_common_pattern("flatpak list").is_some());
+        assert!(match_common_pattern("flatpak remotes").is_some());
+    }
+
+    #[test]
+    fn test_snap() {
+        assert!(match_common_pattern("snap list").is_some());
+        assert!(match_common_pattern("snapd status").is_some());
+    }
+
+    #[test]
+    fn test_appimage() {
+        assert!(match_common_pattern("appimage list").is_some());
+        assert!(match_common_pattern("appimages").is_some());
     }
 }
