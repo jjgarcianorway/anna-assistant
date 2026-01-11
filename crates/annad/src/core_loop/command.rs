@@ -769,6 +769,81 @@ pub async fn verify_answer_quality(model: &str, question: &str, answer: &str) ->
         return true;
     }
 
+    // v0.0.936: Additional heuristic patterns
+    // Service status questions with clear status indicators
+    let is_service_question = question_lower.contains("service")
+        || question_lower.contains("running")
+        || question_lower.contains("status")
+        || question_lower.contains("systemd");
+
+    let has_service_indicators = answer_lower.contains("active (running)")
+        || answer_lower.contains("inactive")
+        || answer_lower.contains("enabled")
+        || answer_lower.contains("disabled")
+        || answer_lower.contains("loaded")
+        || answer_lower.contains("● ");
+
+    if is_service_question && has_service_indicators {
+        debug!("Heuristic validation: service status answer, skipping LLM");
+        return true;
+    }
+
+    // Package/install questions with version numbers
+    let is_package_question = question_lower.contains("install")
+        || question_lower.contains("package")
+        || question_lower.contains("pacman")
+        || question_lower.contains("version");
+
+    // Version patterns like "1.2.3" or "v1.0"
+    let version_regex_simple = answer_trimmed.contains(" v")
+        || regex::Regex::new(r"\d+\.\d+(\.\d+)?").ok().map(|r| r.is_match(answer_trimmed)).unwrap_or(false);
+
+    if is_package_question && version_regex_simple && has_useful_content {
+        debug!("Heuristic validation: package/version answer, skipping LLM");
+        return true;
+    }
+
+    // Network questions with IP/interface data
+    let is_network_question = question_lower.contains("ip")
+        || question_lower.contains("network")
+        || question_lower.contains("interface")
+        || question_lower.contains("connection");
+
+    let has_network_data = answer_trimmed.contains("inet ")
+        || answer_trimmed.contains("192.168.")
+        || answer_trimmed.contains("10.0.")
+        || answer_trimmed.contains("127.0.0.1")
+        || answer_trimmed.contains("eth0")
+        || answer_trimmed.contains("wlan")
+        || answer_trimmed.contains("enp")
+        || answer_trimmed.contains("wlp");
+
+    if is_network_question && has_network_data {
+        debug!("Heuristic validation: network info answer, skipping LLM");
+        return true;
+    }
+
+    // Hardware questions with clear hw identifiers
+    let is_hardware_question = question_lower.contains("gpu")
+        || question_lower.contains("graphics")
+        || question_lower.contains("cpu")
+        || question_lower.contains("hardware")
+        || question_lower.contains("pci");
+
+    let has_hardware_data = answer_trimmed.contains("VGA")
+        || answer_trimmed.contains("NVIDIA")
+        || answer_trimmed.contains("AMD")
+        || answer_trimmed.contains("Intel")
+        || answer_trimmed.contains("Radeon")
+        || answer_trimmed.contains("GeForce")
+        || answer_trimmed.contains("model name")
+        || answer_trimmed.contains("vendor_id");
+
+    if is_hardware_question && has_hardware_data {
+        debug!("Heuristic validation: hardware info answer, skipping LLM");
+        return true;
+    }
+
     // LLM verification for longer/questionable answers
     let prompt = format!(
         r#"Question: "{}"

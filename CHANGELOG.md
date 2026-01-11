@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.936] - 2026-01-11
+
+### Added
+- **Extended Heuristic Answer Validation** - More patterns to skip LLM verification
+  - Service status: detects `active (running)`, `inactive`, `enabled`, etc.
+  - Package/version: detects version patterns like `1.2.3` or `v1.0`
+  - Network info: detects `inet`, IP addresses, interface names
+  - Hardware info: detects `VGA`, `NVIDIA`, `AMD`, `Intel`, `model name`
+
+### Changed
+- `verify_answer_quality()` now recognizes 4 additional answer categories
+- Fewer LLM verification calls for common sysadmin queries
+- Faster response times for service, package, network, and hardware questions
+
 ## [0.0.935] - 2026-01-11
 
 ### Added
