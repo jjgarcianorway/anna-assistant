@@ -5,6 +5,7 @@
 //! - Deep COT (~700 tokens, 15-20s) only for complex/unclear cases
 //!
 //! v0.0.909: Three-tier system - patterns first for known issues
+//! v0.0.939: Four-tier system - adds intent cache layer
 
 mod classify;
 mod detect;
@@ -22,6 +23,7 @@ use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 use anyhow::Result;
 use tracing::{debug, info};
 
+use crate::core_loop::cache::{cache_intent, get_cached_intent};
 use crate::patterns;
 
 /// Confidence threshold above which we skip deep understanding (v0.0.895)
@@ -30,7 +32,20 @@ pub const QUICK_CONFIDENCE_THRESHOLD: f32 = 0.8;
 /// Confidence threshold below which we ask for clarification
 pub const CLARIFICATION_THRESHOLD: f32 = 0.7;
 
+/// v0.0.939: Convert category string back to IntentCategory enum
+fn parse_category(s: &str) -> IntentCategory {
+    match s.to_uppercase().as_str() {
+        "FACTUAL" => IntentCategory::Factual,
+        "HOWTO" => IntentCategory::HowTo,
+        "TROUBLESHOOT" => IntentCategory::Troubleshoot,
+        "MULTI" => IntentCategory::Multi,
+        "UNCLEAR" => IntentCategory::Unclear,
+        _ => IntentCategory::Unclear,
+    }
+}
+
 /// v0.0.909: Three-tier understanding - patterns first, then quick, then deep
+/// v0.0.939: Four-tier - patterns, cache, quick, deep
 pub async fn understand_request(
     model: &str,
     question: &str,
@@ -46,6 +61,24 @@ pub async fn understand_request(
         return Ok(understanding);
     }
 
+    // v0.0.939: Check intent cache (instant, no LLM needed)
+    if let Some(cached) = get_cached_intent(question) {
+        info!(
+            "Intent cache hit: {} (confidence: {:.0}%)",
+            cached.interpreted_as,
+            cached.confidence * 100.0
+        );
+        return Ok(DeepUnderstanding {
+            interpreted_as: cached.interpreted_as,
+            category: parse_category(&cached.category),
+            confidence: cached.confidence,
+            topic: cached.topic,
+            suggested_commands: cached.suggested_commands,
+            needs_confirmation: false,
+            ..Default::default()
+        });
+    }
+
     // Then try quick classification (3-5 seconds)
     let quick_result = quick_classify(model, question).await;
 
@@ -54,6 +87,15 @@ pub async fn understand_request(
             info!(
                 "Quick classification sufficient (confidence: {:.0}%)",
                 understanding.confidence * 100.0
+            );
+            // v0.0.939: Cache successful classification
+            cache_intent(
+                question,
+                &understanding.interpreted_as,
+                &format!("{:?}", understanding.category),
+                understanding.confidence,
+                understanding.topic.as_deref(),
+                &understanding.suggested_commands,
             );
             return Ok(understanding);
         }
@@ -67,6 +109,15 @@ pub async fn understand_request(
                 "Quick classification acceptable for {:?} (confidence: {:.0}%)",
                 understanding.category,
                 understanding.confidence * 100.0
+            );
+            // v0.0.939: Cache successful classification
+            cache_intent(
+                question,
+                &understanding.interpreted_as,
+                &format!("{:?}", understanding.category),
+                understanding.confidence,
+                understanding.topic.as_deref(),
+                &understanding.suggested_commands,
             );
             return Ok(understanding);
         }
@@ -82,7 +133,19 @@ pub async fn understand_request(
     }
 
     // Fall back to deep understanding for complex cases
-    deep_understand(model, question, session_context).await
+    let deep_result = deep_understand(model, question, session_context).await?;
+
+    // v0.0.939: Cache deep understanding result too
+    cache_intent(
+        question,
+        &deep_result.interpreted_as,
+        &format!("{:?}", deep_result.category),
+        deep_result.confidence,
+        deep_result.topic.as_deref(),
+        &deep_result.suggested_commands,
+    );
+
+    Ok(deep_result)
 }
 
 /// Format understanding result for display

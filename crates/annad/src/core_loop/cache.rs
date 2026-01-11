@@ -49,6 +49,13 @@ const MIN_CACHE_CONFIDENCE: f32 = 0.6;
 const LLM_MEMO_TTL_SECS: u64 = 300; // 5 minutes
 const MAX_LLM_MEMO_SIZE: usize = 100;
 
+/// v0.0.939: Intent classification cache settings
+const INTENT_CACHE_TTL_SECS: u64 = 600; // 10 minutes
+const MAX_INTENT_CACHE_SIZE: usize = 50;
+
+/// v0.0.939: Intent classification cache
+static INTENT_CACHE: RwLock<Option<HashMap<String, CachedIntent>>> = RwLock::new(None);
+
 /// v0.0.921: Session-level command failure cache
 static FAILURE_CACHE: RwLock<Option<HashMap<String, CommandFailure>>> = RwLock::new(None);
 
@@ -101,6 +108,16 @@ struct CachedAnswer {
 /// v0.0.933: Cached LLM response for memoization
 struct CachedLlmResponse {
     response: String,
+    cached_at: Instant,
+}
+
+/// v0.0.939: Cached intent classification result
+struct CachedIntent {
+    interpreted_as: String,
+    category: String,
+    confidence: f32,
+    topic: Option<String>,
+    suggested_commands: Vec<String>,
     cached_at: Instant,
 }
 
@@ -959,5 +976,90 @@ pub fn cache_llm_response(prompt: &str, response: &str) {
         }
 
         debug!("Cached LLM response (hash={}, len={})", key, response.len());
+    }
+}
+
+/// v0.0.939: Intent cache result for returning to caller
+pub struct CachedIntentResult {
+    pub interpreted_as: String,
+    pub category: String,
+    pub confidence: f32,
+    pub topic: Option<String>,
+    pub suggested_commands: Vec<String>,
+}
+
+/// v0.0.939: Get cached intent classification for a question
+pub fn get_cached_intent(question: &str) -> Option<CachedIntentResult> {
+    let key = normalize_question(question);
+
+    if let Ok(guard) = INTENT_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            if let Some(cached) = cache.get(&key) {
+                if cached.cached_at.elapsed().as_secs() < INTENT_CACHE_TTL_SECS {
+                    info!("Intent cache HIT for: {}", &question[..question.len().min(40)]);
+                    return Some(CachedIntentResult {
+                        interpreted_as: cached.interpreted_as.clone(),
+                        category: cached.category.clone(),
+                        confidence: cached.confidence,
+                        topic: cached.topic.clone(),
+                        suggested_commands: cached.suggested_commands.clone(),
+                    });
+                }
+            }
+        }
+    }
+    None
+}
+
+/// v0.0.939: Cache an intent classification result
+pub fn cache_intent(
+    question: &str,
+    interpreted_as: &str,
+    category: &str,
+    confidence: f32,
+    topic: Option<&str>,
+    suggested_commands: &[String],
+) {
+    // Only cache high-confidence results
+    if confidence < 0.7 {
+        return;
+    }
+
+    let key = normalize_question(question);
+
+    if let Ok(mut guard) = INTENT_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+
+        cache.insert(
+            key,
+            CachedIntent {
+                interpreted_as: interpreted_as.to_string(),
+                category: category.to_string(),
+                confidence,
+                topic: topic.map(|s| s.to_string()),
+                suggested_commands: suggested_commands.to_vec(),
+                cached_at: Instant::now(),
+            },
+        );
+
+        // Limit cache size
+        if cache.len() > MAX_INTENT_CACHE_SIZE {
+            cache.retain(|_, v| v.cached_at.elapsed().as_secs() < INTENT_CACHE_TTL_SECS);
+
+            if cache.len() > MAX_INTENT_CACHE_SIZE {
+                let mut entries: Vec<_> = cache.iter().collect();
+                entries.sort_by(|a, b| b.1.cached_at.cmp(&a.1.cached_at));
+                let keys_to_remove: Vec<String> = entries
+                    .iter()
+                    .skip(MAX_INTENT_CACHE_SIZE / 2)
+                    .map(|(k, _)| (*k).clone())
+                    .collect();
+                for key in keys_to_remove {
+                    cache.remove(&key);
+                }
+            }
+        }
+
+        debug!("Cached intent for: {} (confidence: {:.2})", &question[..question.len().min(40)], confidence);
     }
 }

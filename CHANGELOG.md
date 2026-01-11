@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.939] - 2026-01-11
+
+### Added
+- **Intent Classification Caching** - Four-tier understanding system
+  - Tier 1: Pattern matching (instant, ~100 patterns)
+  - Tier 2: Intent cache (instant, 10-min TTL, 50 entries max)
+  - Tier 3: Quick LLM classification (3-5s)
+  - Tier 4: Deep LLM understanding (15-20s)
+- Successful classifications cached for 10 minutes
+- Similar questions skip LLM entirely
+
+### Changed
+- `understand_request()` now checks cache before LLM
+- Repeated questions get instant responses
+- Reduces Ollama API load for similar queries
+
 ## [0.0.938] - 2026-01-11
 
 ### Added
