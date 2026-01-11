@@ -6,6 +6,7 @@
 //! - Patterns emerge organically from successful interactions
 //!
 //! v0.0.889: Added semantic question clustering
+//! v0.0.941: Enhanced deduplication and memory compaction
 
 mod cluster;
 mod persistence;
@@ -223,6 +224,150 @@ impl Memory {
         self.stats.total_experiences = self.experiences.len() as u32;
     }
 
+    /// v0.0.941: Aggressive deduplication - merges experiences with same canonical form
+    /// Call periodically or after batch learning to reduce memory bloat
+    pub fn deduplicate(&mut self) -> usize {
+        use std::collections::HashMap;
+        let initial_count = self.experiences.len();
+
+        // Group experiences by canonical form
+        let mut canonical_groups: HashMap<String, Vec<usize>> = HashMap::new();
+        for (idx, exp) in self.experiences.iter().enumerate() {
+            let canonical = canonicalize_question(&exp.question);
+            canonical_groups.entry(canonical).or_default().push(idx);
+        }
+
+        // Find groups with duplicates
+        let mut to_remove: Vec<usize> = Vec::new();
+        for (_canonical, indices) in &canonical_groups {
+            if indices.len() <= 1 {
+                continue;
+            }
+
+            // Keep the one with highest usefulness score, merge others into it
+            let mut sorted = indices.clone();
+            sorted.sort_by(|a, b| {
+                let exp_a = &self.experiences[*a];
+                let exp_b = &self.experiences[*b];
+                exp_b.usefulness_score.cmp(&exp_a.usefulness_score)
+            });
+
+            let keeper_idx = sorted[0];
+            let merge_indices = &sorted[1..];
+
+            // Merge commands and context from duplicates into keeper
+            let mut merged_commands: Vec<String> = self.experiences[keeper_idx].successful_commands.clone();
+            let mut merged_score = self.experiences[keeper_idx].usefulness_score;
+
+            for &idx in merge_indices {
+                let exp = &self.experiences[idx];
+                merged_score += exp.usefulness_score;
+                for cmd in &exp.successful_commands {
+                    if !merged_commands.contains(cmd) {
+                        merged_commands.push(cmd.clone());
+                    }
+                }
+                to_remove.push(idx);
+            }
+
+            // Update keeper
+            self.experiences[keeper_idx].successful_commands = merged_commands;
+            self.experiences[keeper_idx].usefulness_score = merged_score;
+        }
+
+        // Remove duplicates (in reverse order to preserve indices)
+        to_remove.sort();
+        to_remove.reverse();
+        for idx in to_remove {
+            self.experiences.remove(idx);
+        }
+
+        // Update stats
+        let removed = initial_count - self.experiences.len();
+        self.stats.total_experiences = self.experiences.len() as u32;
+
+        // Rebuild keyword index after deduplication
+        if removed > 0 {
+            self.rebuild_index();
+        }
+
+        removed
+    }
+
+    /// v0.0.941: Consolidate clusters with overlapping questions
+    pub fn consolidate_clusters(&mut self) -> usize {
+        let initial_count = self.clusters.len();
+        if initial_count <= 1 {
+            return 0;
+        }
+
+        // Build a map of canonical -> cluster indices
+        let mut canonical_to_cluster: std::collections::HashMap<String, Vec<usize>> = std::collections::HashMap::new();
+        for (idx, cluster) in self.clusters.iter().enumerate() {
+            canonical_to_cluster.entry(cluster.canonical.clone()).or_default().push(idx);
+        }
+
+        let mut to_remove: Vec<usize> = Vec::new();
+        for (_canonical, indices) in &canonical_to_cluster {
+            if indices.len() <= 1 {
+                continue;
+            }
+
+            // Merge all into the first one
+            let keeper_idx = indices[0];
+            for &merge_idx in &indices[1..] {
+                let merge_cluster = self.clusters[merge_idx].clone();
+
+                // Merge variations
+                for var in merge_cluster.variations {
+                    if !self.clusters[keeper_idx].variations.contains(&var) {
+                        self.clusters[keeper_idx].variations.push(var);
+                    }
+                }
+
+                // Merge keywords
+                for kw in merge_cluster.keywords {
+                    if !self.clusters[keeper_idx].keywords.contains(&kw) {
+                        self.clusters[keeper_idx].keywords.push(kw);
+                    }
+                }
+
+                // Merge experience IDs
+                for exp_id in merge_cluster.experience_ids {
+                    if !self.clusters[keeper_idx].experience_ids.contains(&exp_id) {
+                        self.clusters[keeper_idx].experience_ids.push(exp_id);
+                    }
+                }
+
+                // Merge effective commands
+                for cmd in merge_cluster.effective_commands {
+                    if let Some(existing) = self.clusters[keeper_idx]
+                        .effective_commands
+                        .iter_mut()
+                        .find(|c| c.command == cmd.command)
+                    {
+                        existing.success_count += cmd.success_count;
+                    } else {
+                        self.clusters[keeper_idx].effective_commands.push(cmd);
+                    }
+                }
+
+                to_remove.push(merge_idx);
+            }
+        }
+
+        // Remove merged clusters (in reverse order)
+        to_remove.sort();
+        to_remove.reverse();
+        for idx in to_remove {
+            self.clusters.remove(idx);
+        }
+
+        let removed = initial_count - self.clusters.len();
+        self.stats.total_clusters = self.clusters.len() as u32;
+        removed
+    }
+
     /// Find a matching cluster or create a new one
     pub fn find_or_create_cluster(&mut self, question: &str, keywords: &[String]) -> String {
         let canonical = canonicalize_question(question);
@@ -287,6 +432,15 @@ impl Memory {
                 .sort_by(|a, b| b.success_count.cmp(&a.success_count));
         }
     }
+
+    /// v0.0.941: Full memory optimization - dedup + cluster consolidation + compact
+    /// Returns (experiences_removed, clusters_removed)
+    pub fn optimize(&mut self, max_experiences: usize) -> (usize, usize) {
+        let exp_removed = self.deduplicate();
+        let clusters_removed = self.consolidate_clusters();
+        self.compact(max_experiences);
+        (exp_removed, clusters_removed)
+    }
 }
 
 /// Extract keywords from a question
@@ -311,4 +465,87 @@ pub fn extract_keywords(question: &str) -> Vec<String> {
         .filter(|w| w.len() > 2 && !stop_words.contains(w))
         .map(String::from)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_experience(question: &str, commands: Vec<&str>, score: u32) -> Experience {
+        Experience {
+            id: uuid::Uuid::new_v4().to_string(),
+            question: question.to_string(),
+            keywords: extract_keywords(question),
+            successful_commands: commands.iter().map(|s| s.to_string()).collect(),
+            answer: "test answer".to_string(),
+            context: ExperienceContext::default(),
+            usefulness_score: score,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            last_used: None,
+            embedding: None,
+        }
+    }
+
+    #[test]
+    fn test_deduplicate_same_canonical() {
+        let mut memory = Memory::default();
+        // These should canonicalize to the same thing (exact match after lowercasing)
+        memory.experiences.push(make_experience("check ram usage", vec!["free -h"], 1));
+        memory.experiences.push(make_experience("check ram usage", vec!["free -h", "cat /proc/meminfo"], 2));
+        memory.experiences.push(make_experience("Check RAM Usage", vec!["free"], 1));
+
+        assert_eq!(memory.experiences.len(), 3);
+        let removed = memory.deduplicate();
+
+        // Should merge all three (same canonical form after lowercasing)
+        assert_eq!(removed, 2, "Should have removed 2 duplicates");
+        assert_eq!(memory.experiences.len(), 1, "Should have 1 experience after dedup");
+    }
+
+    #[test]
+    fn test_deduplicate_preserves_commands() {
+        let mut memory = Memory::default();
+        // Same question (same canonical)
+        memory.experiences.push(make_experience("check memory", vec!["free -h"], 1));
+        memory.experiences.push(make_experience("check memory", vec!["cat /proc/meminfo"], 2));
+
+        memory.deduplicate();
+
+        // The surviving experience should have both commands
+        assert_eq!(memory.experiences.len(), 1);
+        let exp = &memory.experiences[0];
+        assert!(exp.successful_commands.contains(&"free -h".to_string()));
+        assert!(exp.successful_commands.contains(&"cat /proc/meminfo".to_string()));
+    }
+
+    #[test]
+    fn test_deduplicate_sums_usefulness() {
+        let mut memory = Memory::default();
+        // Same question (same canonical)
+        memory.experiences.push(make_experience("show kernel", vec!["uname -r"], 5));
+        memory.experiences.push(make_experience("show kernel", vec!["uname -a"], 3));
+
+        let initial_total: u32 = memory.experiences.iter().map(|e| e.usefulness_score).sum();
+        memory.deduplicate();
+
+        // Usefulness scores should be summed
+        assert_eq!(memory.experiences.len(), 1);
+        let final_total: u32 = memory.experiences.iter().map(|e| e.usefulness_score).sum();
+        assert_eq!(final_total, initial_total, "Usefulness scores should be preserved");
+    }
+
+    #[test]
+    fn test_optimize() {
+        let mut memory = Memory::default();
+        for i in 0..10 {
+            memory.experiences.push(make_experience(
+                &format!("question {}", i % 3), // Creates duplicates
+                vec!["cmd"],
+                1,
+            ));
+        }
+
+        let (exp_removed, _) = memory.optimize(5);
+        assert!(exp_removed > 0 || memory.experiences.len() <= 5);
+    }
 }

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.941] - 2026-01-11
+
+### Added
+- **Experience Deduplication** - Merges duplicate experiences to reduce memory bloat
+  - `deduplicate()` - Merges experiences with identical canonical questions
+  - Preserves all successful commands from duplicates
+  - Sums usefulness scores from merged experiences
+  - Automatically rebuilds keyword index after deduplication
+- **Cluster Consolidation** - Merges clusters with overlapping canonicals
+  - `consolidate_clusters()` - Merges clusters with same canonical form
+  - Combines variations, keywords, experience IDs, and commands
+  - Sums command success counts
+- **Memory Optimization** - Convenience method for full cleanup
+  - `optimize(max)` - Runs deduplicate + consolidate + compact in sequence
+  - Returns tuple of (experiences_removed, clusters_removed)
+
+### Changed
+- Memory file size reduced through aggressive duplicate elimination
+- Faster recall due to fewer redundant experiences to search
+- Cleaner memory structure with consolidated clusters
+
 ## [0.0.940] - 2026-01-11
 
 ### Added
