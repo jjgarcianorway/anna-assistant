@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.945] - 2026-01-11
+
+### Added
+- **Expanded Factual Patterns** - 3 new pattern categories for instant answers
+  - **Time/Date**: `what time`, `what date`, `timezone`, `calendar`, `ntp status`
+  - **Environment**: `what shell`, `home directory`, `PATH`, `env vars`, `locale`, `terminal`
+  - **Users/Groups**: `my username`, `my groups`, `list users`, `sudo access`, `login history`
+- Total of ~50 new instant-answer patterns (no LLM needed)
+
+### Changed
+- More questions bypass LLM entirely for faster responses
+- Factual patterns now cover 13 categories (up from 10)
+- Reduced LLM load for common system queries
+
 ## [0.0.944] - 2026-01-11
 
 ### Added

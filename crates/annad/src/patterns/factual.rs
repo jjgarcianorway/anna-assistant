@@ -3,6 +3,7 @@
 //! These are common "what is X" questions that can be answered immediately
 //! with pre-cached commands, bypassing the LLM command selection pipeline.
 //! v0.0.937: Added thermal, process, audio, and logs patterns
+//! v0.0.945: Added time/date, environment, and shell patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -46,6 +47,18 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     }
     // v0.0.937: Boot/log queries
     if let Some(u) = match_logs(q) {
+        return Some(u);
+    }
+    // v0.0.945: Time/date queries
+    if let Some(u) = match_time(q) {
+        return Some(u);
+    }
+    // v0.0.945: Environment/shell queries
+    if let Some(u) = match_environment(q) {
+        return Some(u);
+    }
+    // v0.0.945: User/group queries
+    if let Some(u) = match_users(q) {
         return Some(u);
     }
     None
@@ -415,6 +428,140 @@ fn match_logs(q: &str) -> Option<DeepUnderstanding> {
         // Kernel messages
         (&["kernel", "log"], "kernel log query", "logs", &["dmesg | tail -30"]),
         (&["kernel", "error"], "kernel errors query", "logs", &["dmesg --level=err,warn | tail -20"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.945: Time and date queries
+fn match_time(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Current time
+        (&["what", "time"], "current time query", "time", &["date +%H:%M:%S"]),
+        (&["current", "time"], "current time query", "time", &["date +%H:%M:%S"]),
+        (&["show", "time"], "current time query", "time", &["date +%H:%M:%S"]),
+        // Current date
+        (&["what", "date"], "current date query", "time", &["date +%Y-%m-%d"]),
+        (&["current", "date"], "current date query", "time", &["date +%Y-%m-%d"]),
+        (&["today", "date"], "current date query", "time", &["date +%Y-%m-%d"]),
+        // Full datetime
+        (&["date", "time"], "datetime query", "time", &["date"]),
+        // Timezone
+        (&["timezone"], "timezone query", "time", &["timedatectl | grep 'Time zone'"]),
+        (&["time", "zone"], "timezone query", "time", &["timedatectl | grep 'Time zone'"]),
+        (&["what", "tz"], "timezone query", "time", &["timedatectl | grep 'Time zone'"]),
+        // Calendar
+        (&["calendar"], "calendar query", "time", &["cal"]),
+        (&["what", "day"], "day of week query", "time", &["date +%A"]),
+        (&["what", "month"], "month query", "time", &["date +%B"]),
+        (&["what", "year"], "year query", "time", &["date +%Y"]),
+        // NTP status
+        (&["ntp", "status"], "NTP status query", "time", &["timedatectl | grep -E 'NTP|synchronized'"]),
+        (&["time", "sync"], "time sync status query", "time", &["timedatectl | grep -E 'NTP|synchronized'"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.945: Environment and shell queries
+fn match_environment(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Shell
+        (&["what", "shell"], "shell query", "environment", &["echo $SHELL", "basename $SHELL"]),
+        (&["which", "shell"], "shell query", "environment", &["echo $SHELL"]),
+        (&["my", "shell"], "shell query", "environment", &["echo $SHELL"]),
+        (&["default", "shell"], "default shell query", "environment", &["getent passwd $USER | cut -d: -f7"]),
+        // Home directory
+        (&["home", "directory"], "home directory query", "environment", &["echo $HOME"]),
+        (&["home", "folder"], "home directory query", "environment", &["echo $HOME"]),
+        // PATH
+        (&["show", "path"], "PATH query", "environment", &["echo $PATH | tr ':' '\\n'"]),
+        (&["what", "path"], "PATH query", "environment", &["echo $PATH | tr ':' '\\n'"]),
+        // Environment variables
+        (&["environment", "variable"], "env vars query", "environment", &["env | head -30"]),
+        (&["env", "var"], "env vars query", "environment", &["env | head -30"]),
+        (&["list", "env"], "env vars query", "environment", &["env | head -30"]),
+        // Editor
+        (&["default", "editor"], "editor query", "environment", &["echo $EDITOR", "echo $VISUAL"]),
+        (&["what", "editor"], "editor query", "environment", &["echo $EDITOR", "echo $VISUAL"]),
+        // Display
+        (&["display", "variable"], "display query", "environment", &["echo $DISPLAY", "echo $WAYLAND_DISPLAY"]),
+        (&["session", "type"], "session type query", "environment", &["echo $XDG_SESSION_TYPE"]),
+        // Locale
+        (&["locale"], "locale query", "environment", &["locale"]),
+        (&["language", "setting"], "locale query", "environment", &["echo $LANG", "locale"]),
+        // Terminal
+        (&["terminal", "emulator"], "terminal query", "environment", &["echo $TERM"]),
+        (&["what", "term"], "terminal query", "environment", &["echo $TERM"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.945: User and group queries
+fn match_users(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Current user
+        (&["my", "username"], "username query", "users", &["whoami"]),
+        (&["my", "user"], "user info query", "users", &["id"]),
+        (&["what", "user", "am"], "username query", "users", &["whoami", "id"]),
+        // User groups
+        (&["my", "group"], "groups query", "users", &["groups"]),
+        (&["what", "group"], "groups query", "users", &["groups"]),
+        (&["list", "group"], "all groups query", "users", &["cat /etc/group | cut -d: -f1 | head -20"]),
+        // All users
+        (&["list", "user"], "all users query", "users", &["cat /etc/passwd | cut -d: -f1 | head -20"]),
+        (&["system", "user"], "system users query", "users", &["cat /etc/passwd | awk -F: '$3 < 1000 {print $1}'"]),
+        // User info
+        (&["user", "id"], "user ID query", "users", &["id"]),
+        (&["uid"], "UID query", "users", &["id -u"]),
+        (&["gid"], "GID query", "users", &["id -g"]),
+        // Sudo
+        (&["sudo", "access"], "sudo access query", "users", &["sudo -l 2>&1 | head -10"]),
+        (&["can", "sudo"], "sudo capability query", "users", &["groups | grep -q sudo && echo 'Yes' || echo 'No'"]),
+        (&["sudoer"], "sudoers query", "users", &["getent group sudo wheel | cut -d: -f4"]),
+        // Login history
+        (&["login", "history"], "login history query", "users", &["last | head -10"]),
+        (&["last", "login"], "last login query", "users", &["lastlog -u $USER"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
