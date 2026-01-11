@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.981] - 2026-01-11
+
+### Fixed
+- **Critical pattern matching bug** - Short keywords caused false matches
+  - "bandwidth" was matching "id" pattern (id is substring)
+  - "what jobs" was matching "at jobs" pattern (at is substring of what)
+  - "idle" was matching "id" pattern
+  - Added `contains_word()` helper with word boundary checking for 1-2 char keywords
+  - Fixed users.rs: `["my", "id"]` → `["my", "userid"]` and `["my", "user", "id"]`
+  - Fixed cron.rs: `["at", "jobs"]` → `["atq"]` and `["atd", "jobs"]`
+
+### Changed
+- Pattern matching now uses word boundaries for short keywords (≤2 chars)
+- Prevents false positives from substring matches
+
 ## [0.0.980] - 2026-01-11
 
 ### Added

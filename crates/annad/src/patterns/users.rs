@@ -77,12 +77,16 @@ fn match_user_info(q: &str) -> Option<DeepUnderstanding> {
          &["whoami"]),
         (&["who", "am", "i"], "show who am i", "users",
          &["whoami", "id"]),
-        // User ID
+        // User ID - Note: avoid short keywords like "id" that match substrings (bandwidth, idle)
         (&["my", "uid"], "show my UID", "users",
          &["id -u"]),
         (&["my", "gid"], "show my GID", "users",
          &["id -g"]),
-        (&["my", "id"], "show my user ID", "users",
+        (&["my", "userid"], "show my user ID", "users",
+         &["id"]),
+        (&["my", "user", "id"], "show my user ID", "users",
+         &["id"]),
+        (&["show", "id"], "show user ID", "users",
          &["id"]),
         // User details
         (&["user", "details"], "show user details", "users",

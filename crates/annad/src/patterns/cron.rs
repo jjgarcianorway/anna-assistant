@@ -102,19 +102,24 @@ fn match_system_cron(q: &str) -> Option<DeepUnderstanding> {
 }
 
 /// At jobs patterns
+/// Note: Avoid short "at" keyword as it matches substring in "what", "that", etc.
 fn match_at_jobs(q: &str) -> Option<DeepUnderstanding> {
     let patterns: &[CronPattern] = &[
-        // List at jobs
-        (&["at", "jobs"], "list at jobs", "cron",
+        // List at jobs - use "atq" or "atd" to avoid "what/that" substring matches
+        (&["atq"], "list at jobs", "cron",
          &["atq"]),
-        (&["at", "queue"], "show at queue", "cron",
+        (&["atd", "jobs"], "show at daemon jobs", "cron",
+         &["atq"]),
+        (&["list", "atjobs"], "list at jobs", "cron",
          &["atq"]),
         (&["scheduled", "jobs"], "show scheduled jobs", "cron",
          &["atq", "systemctl list-timers"]),
         (&["pending", "jobs"], "show pending jobs", "cron",
          &["atq"]),
         // At service
-        (&["at", "service"], "show at service status", "cron",
+        (&["atd", "service"], "show atd service status", "cron",
+         &["systemctl status atd"]),
+        (&["atd", "status"], "show atd status", "cron",
          &["systemctl status atd"]),
         // Batch jobs
         (&["batch", "jobs"], "show batch jobs", "cron",
@@ -176,7 +181,8 @@ mod tests {
 
     #[test]
     fn test_at_jobs() {
-        assert!(match_patterns("at jobs").is_some());
+        assert!(match_patterns("atq").is_some());
+        assert!(match_patterns("atd jobs").is_some());
         assert!(match_patterns("scheduled jobs").is_some());
     }
 

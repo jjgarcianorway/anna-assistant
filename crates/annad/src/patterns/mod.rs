@@ -35,6 +35,7 @@
 //! v0.0.978: Added AUR patterns for yay, paru, makepkg.
 //! v0.0.979: Added Flatpak, Snap, AppImage patterns.
 //! v0.0.980: Added system info patterns for neofetch, inxi, dmidecode.
+//! v0.0.981: Fixed critical substring matching bugs (id, at) with word boundaries.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -78,6 +79,27 @@ use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use tracing::debug;
+
+/// v0.0.981: Check if query contains keyword as a whole word (not substring)
+/// Prevents "bandwidth" matching "id" or "what" matching "at"
+pub fn contains_word(query: &str, word: &str) -> bool {
+    // For very short words (1-2 chars), require word boundaries
+    if word.len() <= 2 {
+        // Use regex-like word boundary check
+        for (i, _) in query.match_indices(word) {
+            let before_ok = i == 0 || !query.as_bytes()[i - 1].is_ascii_alphanumeric();
+            let after_ok = i + word.len() >= query.len()
+                || !query.as_bytes()[i + word.len()].is_ascii_alphanumeric();
+            if before_ok && after_ok {
+                return true;
+            }
+        }
+        false
+    } else {
+        // For longer words, simple contains is fine
+        query.contains(word)
+    }
+}
 
 /// v0.0.954: Pattern usage statistics
 static PATTERN_STATS: RwLock<Option<HashMap<String, PatternStat>>> = RwLock::new(None);
@@ -800,6 +822,20 @@ mod tests {
         assert!(result.is_none());
     }
 
+    #[test]
+    fn test_contains_word() {
+        // Short words need word boundaries
+        assert!(contains_word("my id", "id"));
+        assert!(contains_word("show id", "id"));
+        assert!(!contains_word("bandwidth", "id")); // id is substring, not word
+        assert!(!contains_word("idle system", "id")); // id is substring of idle
+        assert!(contains_word("what at jobs", "at"));
+        assert!(!contains_word("what jobs", "at")); // at is substring of what
+        // Longer words use simple contains
+        assert!(contains_word("show kernel version", "kernel"));
+        assert!(contains_word("kernel", "kernel"));
+    }
+
     // Factual pattern tests
     #[test]
     fn test_factual_disk_usage() {
@@ -1327,7 +1363,8 @@ mod tests {
 
     #[test]
     fn test_cron_at() {
-        assert!(match_common_pattern("at jobs").is_some());
+        assert!(match_common_pattern("atq").is_some());
+        assert!(match_common_pattern("atd jobs").is_some());
         assert!(match_common_pattern("scheduled jobs").is_some());
     }
 
