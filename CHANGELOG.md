@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.922] - 2026-01-11
+
+### Added
+- **Request Deduplication** - Concurrent identical questions are now handled efficiently
+  - Tracks in-flight requests to prevent duplicate processing
+  - When a duplicate request arrives, waits for the original to complete
+  - Returns cached result from the first request (up to 6 second wait)
+  - Reduces LLM load when multiple clients ask the same question simultaneously
+
+### Changed
+- handlers.rs now checks for in-flight requests before starting work
+- Duplicate requests return cached results with `cached: true` flag
+
 ## [0.0.921] - 2026-01-10
 
 ### Added

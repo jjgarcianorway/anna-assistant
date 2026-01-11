@@ -1,11 +1,15 @@
 //! RPC request handlers and connection management.
+//! v0.0.922: Added request deduplication
 
 use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse};
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tracing::warn;
+use tracing::{info, warn};
 
+use crate::core_loop::cache::{
+    get_cached_answer, is_request_inflight, register_inflight_request, complete_inflight_request,
+};
 use crate::core_loop::execute_question;
 use crate::state::SharedState;
 
@@ -82,6 +86,35 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 return RpcResponse::error(&request.id, -32602, "Missing 'question' parameter");
             }
 
+            // v0.0.922: Check if this exact question is already being processed
+            if is_request_inflight(question) {
+                info!("Request deduplication: waiting for in-flight request");
+                // Wait a bit and check cache for result
+                for _ in 0..30 {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                    if let Some((cached_answer, _)) = get_cached_answer(question) {
+                        info!("Request deduplication: returning cached result");
+                        let result = anna_shared::rpc::AskResult {
+                            answer: cached_answer,
+                            success: true,
+                            iterations: 0,
+                            commands_executed: vec![],
+                            dialogue: vec![],
+                            needs_clarification: false,
+                            clarification_question: None,
+                            cached: true,
+                        };
+                        return match serde_json::to_value(&result) {
+                            Ok(v) => RpcResponse::success(&request.id, v),
+                            Err(e) => RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e)),
+                        };
+                    }
+                    if !is_request_inflight(question) {
+                        break;
+                    }
+                }
+            }
+
             // Get model from state
             let model = {
                 let state = state.read().await;
@@ -97,8 +130,11 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 }
             };
 
+            // v0.0.922: Register this request as in-flight
+            register_inflight_request(question);
+
             // Execute the question
-            match execute_question(&model, question).await {
+            let result = match execute_question(&model, question).await {
                 Ok(result) => match serde_json::to_value(&result) {
                     Ok(v) => RpcResponse::success(&request.id, v),
                     Err(e) => {
@@ -108,7 +144,12 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 Err(e) => {
                     RpcResponse::error(&request.id, -32603, &format!("Execution error: {}", e))
                 }
-            }
+            };
+
+            // v0.0.922: Mark request as complete
+            complete_inflight_request(question);
+
+            result
         }
         RpcMethod::AskStreaming => {
             // This is handled separately in handle_streaming_request
