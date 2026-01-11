@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.949] - 2026-01-11
+
+### Added
+- **Hardware Patterns** - ~55 new patterns for hardware monitoring
+  - **Temperature**: CPU temp, GPU temp, system sensors, fan speed, thermal throttling
+  - **Battery**: status, level, health, charging, time remaining, power usage
+  - **CPU**: frequency, governor, usage, load, info, model, cores, architecture
+  - **Storage**: disk health, SMART status, SSD TRIM, NVMe info, disk I/O
+  - **Devices**: PCI, USB, input, audio devices, block devices, hardware detection
+- Commands: sensors, upower, lscpu, smartctl, lspci, lsusb
+
+### Changed
+- Pattern system now covers 11 categories (up from 10)
+- Hardware monitoring queries get instant answers
+- Better diagnostics for system health checks
+
 ## [0.0.948] - 2026-01-11
 
 ### Added

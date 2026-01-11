@@ -8,6 +8,7 @@
 //! v0.0.926: Added pattern pre-execution for instant grounded answers.
 //! v0.0.947: Added howto patterns for common task instructions.
 //! v0.0.948: Added network patterns for connectivity and configuration.
+//! v0.0.949: Added hardware patterns for sensors, battery, CPU.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -20,6 +21,7 @@ mod security;
 mod desktop;
 mod howto;
 mod network;
+mod hardware;
 
 use anna_shared::rpc::DeepUnderstanding;
 use tracing::debug;
@@ -32,6 +34,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     // Check each pattern category (order matters - more specific first)
     // Factual queries first (fastest path for common info questions)
     factual::match_patterns(&q)
+        .or_else(|| hardware::match_patterns(&q))
         .or_else(|| network::match_patterns(&q))
         .or_else(|| development::match_patterns(&q))
         .or_else(|| security::match_patterns(&q))
@@ -291,5 +294,30 @@ mod tests {
     fn test_network_ports() {
         assert!(match_common_pattern("open ports").is_some());
         assert!(match_common_pattern("listening ports").is_some());
+    }
+
+    // Hardware pattern tests (v0.0.949)
+    #[test]
+    fn test_hardware_temperature() {
+        assert!(match_common_pattern("cpu temperature").is_some());
+        assert!(match_common_pattern("gpu temp").is_some());
+    }
+
+    #[test]
+    fn test_hardware_battery() {
+        assert!(match_common_pattern("battery status").is_some());
+        assert!(match_common_pattern("battery level").is_some());
+    }
+
+    #[test]
+    fn test_hardware_cpu() {
+        assert!(match_common_pattern("cpu frequency").is_some());
+        assert!(match_common_pattern("cpu usage").is_some());
+    }
+
+    #[test]
+    fn test_hardware_devices() {
+        assert!(match_common_pattern("usb devices").is_some());
+        assert!(match_common_pattern("pci devices").is_some());
     }
 }
