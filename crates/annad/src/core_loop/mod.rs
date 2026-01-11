@@ -30,6 +30,8 @@ pub use cache::{
     get_cached_intent, cache_intent, CachedIntentResult,
     // v0.0.943: LLM timeout fallback
     get_timeout_fallback, TimeoutFallbackResult,
+    // v0.0.944: Command failure tracking
+    record_command_failure, check_command_failure, record_command_success, get_failing_commands,
 };
 pub use command::{
     execute_command, execute_command_with_retry, execute_commands_parallel,

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.944] - 2026-01-11
+
+### Added
+- **Global Command Failure Tracking** - Remembers which commands frequently fail
+  - `record_command_failure()` - Records command failures with error type
+  - `check_command_failure()` - Checks if command has failed >= 3 times
+  - `record_command_success()` - Resets failure count on success
+  - `get_failing_commands()` - Lists frequently failing commands for diagnostics
+  - Smart normalization: groups similar commands (e.g., "pacman -S *" variants)
+  - 1-hour TTL - commands may start working after system changes
+
+### Changed
+- Commands that repeatedly fail are flagged to avoid repeated suggestion
+- Success resets failure tracking (commands can recover)
+- Failure cache limited to 200 entries, auto-cleaned
+
 ## [0.0.943] - 2026-01-11
 
 ### Added

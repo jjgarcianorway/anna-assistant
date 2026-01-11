@@ -2,6 +2,7 @@
 //! v0.0.920: Added answer caching for repeated questions
 //! v0.0.924: Increased cache sizes and improved TTLs
 //! v0.0.933: Added LLM response memoization
+//! v0.0.944: Added global command failure tracking
 
 use anna_shared::config::{AnnaConfig, PerformanceConfig};
 use anna_shared::recipe::RecipeBook;
@@ -30,6 +31,9 @@ static ANSWER_CACHE: RwLock<Option<HashMap<String, CachedAnswer>>> = RwLock::new
 /// v0.0.933: LLM response memoization cache
 static LLM_MEMO_CACHE: RwLock<Option<HashMap<u64, CachedLlmResponse>>> = RwLock::new(None);
 
+/// v0.0.944: Global command failure tracking
+static COMMAND_FAILURE_CACHE: RwLock<Option<HashMap<String, CommandFailureRecord>>> = RwLock::new(None);
+
 /// v0.0.905: Cached recipe book (loaded once, reused)
 static RECIPE_BOOK_CACHE: RwLock<Option<CachedRecipeBook>> = RwLock::new(None);
 
@@ -48,6 +52,10 @@ const MIN_CACHE_CONFIDENCE: f32 = 0.6;
 /// v0.0.933: LLM memoization settings
 const LLM_MEMO_TTL_SECS: u64 = 300; // 5 minutes
 const MAX_LLM_MEMO_SIZE: usize = 100;
+/// v0.0.944: Command failure tracking settings
+const CMD_FAILURE_TTL_SECS: u64 = 3600; // 1 hour - commands may start working
+const MAX_CMD_FAILURE_CACHE_SIZE: usize = 200;
+const CMD_FAILURE_THRESHOLD: u32 = 3; // After 3 failures, start warning
 
 /// v0.0.939: Intent classification cache settings
 const INTENT_CACHE_TTL_SECS: u64 = 600; // 10 minutes
@@ -96,6 +104,14 @@ struct CachedOutput {
 struct CachedRecipeBook {
     book: RecipeBook,
     loaded_at: Instant,
+}
+
+/// v0.0.944: Global command failure record
+struct CommandFailureRecord {
+    failure_count: u32,
+    last_error_type: String,
+    first_failed_at: Instant,
+    last_failed_at: Instant,
 }
 
 /// v0.0.920: Cached answer with metadata
@@ -1139,5 +1155,172 @@ pub fn cache_intent(
         }
 
         debug!("Cached intent for: {} (confidence: {:.2})", &question[..question.len().min(40)], confidence);
+    }
+}
+
+/// v0.0.944: Record a command failure globally
+/// Tracks which commands frequently fail to avoid suggesting them
+pub fn record_command_failure(command: &str, error_type: &str) {
+    // Normalize command (remove arguments for common patterns)
+    let normalized = normalize_command_for_cache(command);
+    if normalized.is_empty() {
+        return;
+    }
+
+    if let Ok(mut guard) = COMMAND_FAILURE_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+        let now = Instant::now();
+
+        if let Some(record) = cache.get_mut(&normalized) {
+            record.failure_count += 1;
+            record.last_error_type = error_type.to_string();
+            record.last_failed_at = now;
+
+            if record.failure_count >= CMD_FAILURE_THRESHOLD {
+                debug!(
+                    "Command '{}' has failed {} times ({})",
+                    normalized, record.failure_count, error_type
+                );
+            }
+        } else {
+            cache.insert(
+                normalized.clone(),
+                CommandFailureRecord {
+                    failure_count: 1,
+                    last_error_type: error_type.to_string(),
+                    first_failed_at: now,
+                    last_failed_at: now,
+                },
+            );
+        }
+
+        // Clean up old entries and limit size
+        if cache.len() > MAX_CMD_FAILURE_CACHE_SIZE {
+            cache.retain(|_, v| v.last_failed_at.elapsed().as_secs() < CMD_FAILURE_TTL_SECS);
+
+            if cache.len() > MAX_CMD_FAILURE_CACHE_SIZE {
+                // Keep only the most frequently failing commands
+                let mut entries: Vec<_> = cache.iter().collect();
+                entries.sort_by(|a, b| b.1.failure_count.cmp(&a.1.failure_count));
+                let keys_to_remove: Vec<String> = entries
+                    .iter()
+                    .skip(MAX_CMD_FAILURE_CACHE_SIZE / 2)
+                    .map(|(k, _)| (*k).clone())
+                    .collect();
+                for key in keys_to_remove {
+                    cache.remove(&key);
+                }
+            }
+        }
+    }
+}
+
+/// v0.0.944: Check if a command is known to fail frequently
+/// Returns Some(failure_count) if command has failed >= threshold times, None otherwise
+pub fn check_command_failure(command: &str) -> Option<u32> {
+    let normalized = normalize_command_for_cache(command);
+    if normalized.is_empty() {
+        return None;
+    }
+
+    if let Ok(guard) = COMMAND_FAILURE_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            if let Some(record) = cache.get(&normalized) {
+                // Ignore old failures (commands may work now)
+                if record.last_failed_at.elapsed().as_secs() < CMD_FAILURE_TTL_SECS
+                    && record.failure_count >= CMD_FAILURE_THRESHOLD
+                {
+                    return Some(record.failure_count);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// v0.0.944: Record a command success (resets failure count)
+pub fn record_command_success(command: &str) {
+    let normalized = normalize_command_for_cache(command);
+    if normalized.is_empty() {
+        return;
+    }
+
+    if let Ok(mut guard) = COMMAND_FAILURE_CACHE.write() {
+        if let Some(ref mut cache) = *guard {
+            // If command was in failure cache but now succeeds, remove it
+            if cache.remove(&normalized).is_some() {
+                debug!("Command '{}' succeeded, removed from failure cache", normalized);
+            }
+        }
+    }
+}
+
+/// v0.0.944: Get list of frequently failing commands for diagnostic purposes
+pub fn get_failing_commands() -> Vec<(String, u32, String)> {
+    let mut result = Vec::new();
+
+    if let Ok(guard) = COMMAND_FAILURE_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            for (cmd, record) in cache.iter() {
+                if record.failure_count >= CMD_FAILURE_THRESHOLD
+                    && record.last_failed_at.elapsed().as_secs() < CMD_FAILURE_TTL_SECS
+                {
+                    result.push((
+                        cmd.clone(),
+                        record.failure_count,
+                        record.last_error_type.clone(),
+                    ));
+                }
+            }
+        }
+    }
+
+    result.sort_by(|a, b| b.1.cmp(&a.1));
+    result
+}
+
+/// v0.0.944: Normalize command for failure cache key
+/// Strips variable parts like file paths and specific values
+fn normalize_command_for_cache(command: &str) -> String {
+    let cmd = command.trim();
+
+    // Skip empty or very short commands
+    if cmd.len() < 2 {
+        return String::new();
+    }
+
+    // Extract base command (first word)
+    let parts: Vec<&str> = cmd.split_whitespace().collect();
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    // For simple commands, keep the full command
+    // For complex commands with paths/args, keep base + first arg type
+    match parts[0] {
+        "cat" | "head" | "tail" | "less" | "grep" | "find" | "ls" => {
+            // Keep just the base command - paths vary too much
+            parts[0].to_string()
+        }
+        "systemctl" | "journalctl" => {
+            // Keep command + action (e.g., "systemctl status")
+            if parts.len() > 1 {
+                format!("{} {}", parts[0], parts[1])
+            } else {
+                parts[0].to_string()
+            }
+        }
+        "pacman" | "yay" | "paru" => {
+            // Keep command + flags (e.g., "pacman -Syu")
+            if parts.len() > 1 && parts[1].starts_with('-') {
+                format!("{} {}", parts[0], parts[1])
+            } else {
+                parts[0].to_string()
+            }
+        }
+        _ => {
+            // For most commands, keep full command up to 50 chars
+            cmd.chars().take(50).collect()
+        }
     }
 }
