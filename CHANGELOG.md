@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.954] - 2026-01-11
+
+### Added
+- **Periodic Health Checks** - Health monitoring runs every 5 minutes
+  - First check at startup, then every 5 minutes
+  - Keeps health status current for instant answers
+  - Runs in background async task
+- **Pattern Usage Statistics** - Tracks which patterns are most used
+  - `get_pattern_stats()` - Returns hit counts by category (sorted)
+  - `get_total_pattern_hits()` - Total patterns matched
+  - Useful for optimizing pattern order
+
+### Changed
+- Health checks now run continuously, not just at startup
+- Pattern matching records which category matched
+- Statistics help identify most valuable patterns
+
 ## [0.0.953] - 2026-01-11
 
 ### Added

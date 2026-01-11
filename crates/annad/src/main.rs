@@ -80,6 +80,20 @@ async fn main() -> Result<()> {
         annad::core_loop::run_health_checks();
     });
 
+    // v0.0.954: Periodic health checks (every 5 minutes)
+    tokio::spawn(async {
+        use std::time::Duration;
+        // Wait 5 minutes before first periodic check (initial check runs at startup)
+        tokio::time::sleep(Duration::from_secs(300)).await;
+        loop {
+            tokio::task::spawn_blocking(|| {
+                debug!("Running periodic health check...");
+                annad::core_loop::run_health_checks();
+            }).await.ok();
+            tokio::time::sleep(Duration::from_secs(300)).await; // Every 5 minutes
+        }
+    });
+
     // v0.0.924: Check for missing diagnostic tools
     let config = AnnaConfig::load().unwrap_or_default();
     if config.auto_install_helpers {

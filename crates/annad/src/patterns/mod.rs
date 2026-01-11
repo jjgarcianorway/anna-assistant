@@ -28,7 +28,53 @@ mod gaming;
 mod boot;
 
 use anna_shared::rpc::DeepUnderstanding;
+use std::collections::HashMap;
+use std::sync::RwLock;
 use tracing::debug;
+
+/// v0.0.954: Pattern usage statistics
+static PATTERN_STATS: RwLock<Option<HashMap<String, PatternStat>>> = RwLock::new(None);
+
+/// v0.0.954: Statistics for a pattern category
+#[derive(Clone, Debug, Default)]
+pub struct PatternStat {
+    pub hit_count: u64,
+    pub last_hit: Option<std::time::Instant>,
+}
+
+/// v0.0.954: Record a pattern hit for statistics
+fn record_pattern_hit(category: &str) {
+    if let Ok(mut guard) = PATTERN_STATS.write() {
+        let stats = guard.get_or_insert_with(HashMap::new);
+        let entry = stats.entry(category.to_string()).or_default();
+        entry.hit_count += 1;
+        entry.last_hit = Some(std::time::Instant::now());
+    }
+}
+
+/// v0.0.954: Get pattern usage statistics
+pub fn get_pattern_stats() -> Vec<(String, u64)> {
+    if let Ok(guard) = PATTERN_STATS.read() {
+        if let Some(ref stats) = *guard {
+            let mut result: Vec<_> = stats.iter()
+                .map(|(k, v)| (k.clone(), v.hit_count))
+                .collect();
+            result.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by hit count descending
+            return result;
+        }
+    }
+    Vec::new()
+}
+
+/// v0.0.954: Get total pattern hits
+pub fn get_total_pattern_hits() -> u64 {
+    if let Ok(guard) = PATTERN_STATS.read() {
+        if let Some(ref stats) = *guard {
+            return stats.values().map(|s| s.hit_count).sum();
+        }
+    }
+    0
+}
 
 /// v0.0.952: Synonym pairs for query expansion
 /// Each pair: (word, synonym) - if word is in query, also check with synonym
@@ -129,23 +175,65 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
 }
 
 /// Internal pattern matching (called with original and expanded queries)
+/// v0.0.954: Now tracks which category matched for statistics
 fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
-
     // Check each pattern category (order matters - more specific first)
-    // Factual queries first (fastest path for common info questions)
-    factual::match_patterns(&q)
-        .or_else(|| hardware::match_patterns(&q))
-        .or_else(|| network::match_patterns(&q))
-        .or_else(|| gaming::match_patterns(&q))
-        .or_else(|| boot::match_patterns(&q))
-        .or_else(|| development::match_patterns(&q))
-        .or_else(|| security::match_patterns(&q))
-        .or_else(|| desktop::match_patterns(&q))
-        .or_else(|| pacman::match_patterns(&q))
-        .or_else(|| recovery::match_patterns(&q))
-        .or_else(|| errors::match_patterns(&q))
-        .or_else(|| howto::match_patterns(&q))
-        .or_else(|| performance::match_patterns(&q))
+    // Track which category matched for statistics
+
+    if let Some(r) = factual::match_patterns(q) {
+        record_pattern_hit("factual");
+        return Some(r);
+    }
+    if let Some(r) = hardware::match_patterns(q) {
+        record_pattern_hit("hardware");
+        return Some(r);
+    }
+    if let Some(r) = network::match_patterns(q) {
+        record_pattern_hit("network");
+        return Some(r);
+    }
+    if let Some(r) = gaming::match_patterns(q) {
+        record_pattern_hit("gaming");
+        return Some(r);
+    }
+    if let Some(r) = boot::match_patterns(q) {
+        record_pattern_hit("boot");
+        return Some(r);
+    }
+    if let Some(r) = development::match_patterns(q) {
+        record_pattern_hit("development");
+        return Some(r);
+    }
+    if let Some(r) = security::match_patterns(q) {
+        record_pattern_hit("security");
+        return Some(r);
+    }
+    if let Some(r) = desktop::match_patterns(q) {
+        record_pattern_hit("desktop");
+        return Some(r);
+    }
+    if let Some(r) = pacman::match_patterns(q) {
+        record_pattern_hit("pacman");
+        return Some(r);
+    }
+    if let Some(r) = recovery::match_patterns(q) {
+        record_pattern_hit("recovery");
+        return Some(r);
+    }
+    if let Some(r) = errors::match_patterns(q) {
+        record_pattern_hit("errors");
+        return Some(r);
+    }
+    if let Some(r) = howto::match_patterns(q) {
+        record_pattern_hit("howto");
+        return Some(r);
+    }
+    if let Some(r) = performance::match_patterns(q) {
+        record_pattern_hit("performance");
+        return Some(r);
+    }
+
+    None
 }
 
 /// v0.0.926: Result of pattern pre-execution
