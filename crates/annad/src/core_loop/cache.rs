@@ -1,10 +1,13 @@
 //! Cache management for command outputs, configs, recipe books, and answers.
 //! v0.0.920: Added answer caching for repeated questions
 //! v0.0.924: Increased cache sizes and improved TTLs
+//! v0.0.933: Added LLM response memoization
 
 use anna_shared::config::{AnnaConfig, PerformanceConfig};
 use anna_shared::recipe::RecipeBook;
 use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::RwLock;
 use std::time::Instant;
@@ -24,6 +27,9 @@ static COMMAND_CACHE: RwLock<Option<HashMap<String, CachedOutput>>> = RwLock::ne
 /// v0.0.920: Answer cache (for repeated questions - saves LLM calls)
 static ANSWER_CACHE: RwLock<Option<HashMap<String, CachedAnswer>>> = RwLock::new(None);
 
+/// v0.0.933: LLM response memoization cache
+static LLM_MEMO_CACHE: RwLock<Option<HashMap<u64, CachedLlmResponse>>> = RwLock::new(None);
+
 /// v0.0.905: Cached recipe book (loaded once, reused)
 static RECIPE_BOOK_CACHE: RwLock<Option<CachedRecipeBook>> = RwLock::new(None);
 
@@ -39,6 +45,9 @@ const WIKI_CACHE_TTL_SECS: u64 = 3600; // 1 hour
 const MAX_WIKI_CACHE_SIZE: usize = 30;
 /// v0.0.924: Minimum confidence for caching (lowered from 0.7 to 0.6)
 const MIN_CACHE_CONFIDENCE: f32 = 0.6;
+/// v0.0.933: LLM memoization settings
+const LLM_MEMO_TTL_SECS: u64 = 300; // 5 minutes
+const MAX_LLM_MEMO_SIZE: usize = 100;
 
 /// v0.0.921: Session-level command failure cache
 static FAILURE_CACHE: RwLock<Option<HashMap<String, CommandFailure>>> = RwLock::new(None);
@@ -87,6 +96,12 @@ struct CachedAnswer {
     answer: String,
     cached_at: Instant,
     confidence: f32,
+}
+
+/// v0.0.933: Cached LLM response for memoization
+struct CachedLlmResponse {
+    response: String,
+    cached_at: Instant,
 }
 
 /// Get performance config (loads from disk once, caches in memory)
@@ -739,5 +754,81 @@ pub fn boost_experience_usefulness(experience_id: &str) {
                 warn!("Failed to save boosted experience: {}", e);
             }
         }
+    }
+}
+
+/// v0.0.933: Hash a prompt for LLM memoization cache key
+fn hash_prompt(prompt: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    prompt.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// v0.0.933: Get cached LLM response for identical prompt
+/// Only caches command extraction prompts (short-lived, deterministic)
+pub fn get_cached_llm_response(prompt: &str) -> Option<String> {
+    let key = hash_prompt(prompt);
+
+    if let Ok(guard) = LLM_MEMO_CACHE.read() {
+        if let Some(ref cache) = *guard {
+            if let Some(cached) = cache.get(&key) {
+                if cached.cached_at.elapsed().as_secs() < LLM_MEMO_TTL_SECS {
+                    debug!("LLM memo cache HIT (hash={})", key);
+                    return Some(cached.response.clone());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// v0.0.933: Cache an LLM response for memoization
+/// Only cache short prompts (command extraction) - not full conversations
+pub fn cache_llm_response(prompt: &str, response: &str) {
+    // Only cache prompts under 2000 chars (command extraction prompts)
+    // Full conversation prompts are too large and context-dependent
+    if prompt.len() > 2000 {
+        return;
+    }
+
+    // Don't cache very short responses (likely errors)
+    if response.len() < 5 {
+        return;
+    }
+
+    let key = hash_prompt(prompt);
+
+    if let Ok(mut guard) = LLM_MEMO_CACHE.write() {
+        let cache = guard.get_or_insert_with(HashMap::new);
+
+        cache.insert(
+            key,
+            CachedLlmResponse {
+                response: response.to_string(),
+                cached_at: Instant::now(),
+            },
+        );
+
+        // Limit cache size
+        if cache.len() > MAX_LLM_MEMO_SIZE {
+            // Remove expired entries first
+            cache.retain(|_, v| v.cached_at.elapsed().as_secs() < LLM_MEMO_TTL_SECS);
+
+            // If still too large, remove oldest half
+            if cache.len() > MAX_LLM_MEMO_SIZE {
+                let mut entries: Vec<_> = cache.iter().collect();
+                entries.sort_by(|a, b| b.1.cached_at.cmp(&a.1.cached_at));
+                let keys_to_remove: Vec<u64> = entries
+                    .iter()
+                    .skip(MAX_LLM_MEMO_SIZE / 2)
+                    .map(|(k, _)| **k)
+                    .collect();
+                for key in keys_to_remove {
+                    cache.remove(&key);
+                }
+            }
+        }
+
+        debug!("Cached LLM response (hash={}, len={})", key, response.len());
     }
 }

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.933] - 2026-01-11
+
+### Added
+- **LLM Response Memoization** - Cache identical prompts to avoid redundant API calls
+  - Uses hash-based cache key for O(1) lookup
+  - 5-minute TTL for cached responses
+  - Max 100 cached entries with LRU-style eviction
+  - Only caches short prompts (<2000 chars) for command extraction
+  - Skips caching for long conversational prompts (context-dependent)
+  - Automatic cache cleanup on size overflow
+
+### Changed
+- `chat_with_timeout()` now checks memoization cache before API call
+- Repeated identical questions within 5 minutes get instant responses
+- Reduces Ollama API load for duplicate requests
+
 ## [0.0.932] - 2026-01-11
 
 ### Added

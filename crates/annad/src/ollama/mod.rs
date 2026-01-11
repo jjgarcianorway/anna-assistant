@@ -103,7 +103,16 @@ fn is_transient_error(error: &anyhow::Error) -> bool {
 
 /// Send a chat request to Ollama with timeout and retry
 /// v0.0.923: Uses config settings for retry logic
+/// v0.0.933: Added memoization for repeated prompts
 pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
+    use crate::core_loop::cache::{get_cached_llm_response, cache_llm_response};
+
+    // v0.0.933: Check memoization cache first
+    if let Some(cached) = get_cached_llm_response(prompt) {
+        debug!("LLM memoization hit - skipping API call");
+        return Ok(cached);
+    }
+
     if is_circuit_open() {
         return Err(anyhow!(
             "Circuit breaker OPEN - Ollama is unavailable (too many failures). \
@@ -126,6 +135,8 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
         match chat_single_attempt(model, prompt, timeout_secs).await {
             Ok(response) => {
                 record_success();
+                // v0.0.933: Cache successful response
+                cache_llm_response(prompt, &response);
                 return Ok(response);
             }
             Err(e) => {

@@ -24,6 +24,8 @@ pub use cache::{
     get_cached_recipe_book,
     // v0.0.926: Memory fast path
     check_memory_fast_path, boost_experience_usefulness, MemoryFastPathResult,
+    // v0.0.933: LLM memoization
+    get_cached_llm_response, cache_llm_response,
 };
 pub use command::{
     execute_command, execute_command_with_retry, execute_commands_parallel,
