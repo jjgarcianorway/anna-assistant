@@ -1,5 +1,6 @@
 //! Common error patterns with known solutions
 //! v0.0.915: Added suggested_commands for diagnostics
+//! v0.0.946: Added common system error patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -18,6 +19,10 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     }
     // Service/container errors
     if let Some(u) = match_service_errors(q) {
+        return Some(u);
+    }
+    // v0.0.946: Common system errors
+    if let Some(u) = match_common_errors(q) {
         return Some(u);
     }
     None
@@ -175,6 +180,94 @@ fn match_service_errors(q: &str) -> Option<DeepUnderstanding> {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Troubleshoot,
+                confidence: 0.9,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.946: Common system error patterns
+fn match_common_errors(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[ErrorPattern] = &[
+        // Disk full
+        (&["disk", "full"], "disk full issue", "storage", IntentCategory::Troubleshoot,
+            &["df -h", "du -sh /* 2>/dev/null | sort -hr | head -10",
+              "journalctl --vacuum-size=100M", "pacman -Sc"]),
+        (&["no", "space", "left"], "no space left on device", "storage", IntentCategory::Troubleshoot,
+            &["df -h", "du -sh /var/log /var/cache /tmp 2>/dev/null",
+              "find /var/log -type f -size +100M 2>/dev/null"]),
+        (&["out", "of", "disk"], "out of disk space", "storage", IntentCategory::Troubleshoot,
+            &["df -h", "ncdu / 2>/dev/null || du -sh /* 2>/dev/null | sort -hr | head -10"]),
+        (&["storage", "full"], "storage full", "storage", IntentCategory::Troubleshoot,
+            &["df -h", "btrfs filesystem df / 2>/dev/null || df -h"]),
+        // Out of memory
+        (&["out", "of", "memory"], "out of memory issue", "memory", IntentCategory::Troubleshoot,
+            &["free -h", "dmesg | grep -i 'out of memory' | tail -5",
+              "ps aux --sort=-%mem | head -10"]),
+        (&["oom", "killer"], "OOM killer triggered", "memory", IntentCategory::Troubleshoot,
+            &["dmesg | grep -i oom | tail -10", "journalctl -k | grep -i oom | tail -10"]),
+        (&["system", "slow", "swap"], "system slow due to swapping", "memory", IntentCategory::Troubleshoot,
+            &["free -h", "cat /proc/meminfo | grep -E 'Swap|Mem'",
+              "echo 'Consider: sysctl vm.swappiness=10'"]),
+        (&["memory", "leak"], "memory leak detection", "memory", IntentCategory::Troubleshoot,
+            &["ps aux --sort=-%mem | head -10", "smem -tk 2>/dev/null | tail -10"]),
+        // Permission denied
+        (&["permission", "denied"], "permission denied error", "permissions", IntentCategory::Troubleshoot,
+            &["ls -la <file>", "stat <file>", "id",
+              "echo 'FIX: chmod/chown or check ACLs with getfacl'"]),
+        (&["operation", "not", "permitted"], "operation not permitted", "permissions", IntentCategory::Troubleshoot,
+            &["echo 'Check: immutable attr with lsattr'", "lsattr <file>",
+              "echo 'FIX: chattr -i <file>'"]),
+        (&["access", "denied"], "access denied error", "permissions", IntentCategory::Troubleshoot,
+            &["ls -la", "id", "groups"]),
+        // Network connectivity
+        (&["no", "internet"], "no internet connection", "network", IntentCategory::Troubleshoot,
+            &["ping -c 2 8.8.8.8", "ip addr", "nmcli general status",
+              "cat /etc/resolv.conf"]),
+        (&["network", "unreachable"], "network unreachable", "network", IntentCategory::Troubleshoot,
+            &["ip route", "ip addr", "nmcli connection show"]),
+        (&["connection", "refused"], "connection refused", "network", IntentCategory::Troubleshoot,
+            &["ss -tlnp | head -10", "systemctl status <service>",
+              "echo 'Check: firewall with iptables -L or nft list ruleset'"]),
+        (&["host", "not", "found"], "host not found", "network", IntentCategory::Troubleshoot,
+            &["cat /etc/resolv.conf", "nslookup <host>", "resolvectl status"]),
+        // File not found
+        (&["command", "not", "found"], "command not found", "packages", IntentCategory::Troubleshoot,
+            &["which <command>", "pacman -F <command>",
+              "echo 'Install package providing command'"]),
+        (&["file", "not", "found"], "file not found", "files", IntentCategory::Troubleshoot,
+            &["ls -la <path>", "locate <filename> 2>/dev/null",
+              "find / -name '<filename>' 2>/dev/null | head -5"]),
+        (&["no", "such", "file"], "no such file or directory", "files", IntentCategory::Troubleshoot,
+            &["ls -la", "pwd", "echo 'Check path spelling and permissions'"]),
+        // Package manager
+        (&["pacman", "lock"], "pacman database locked", "packages", IntentCategory::Troubleshoot,
+            &["ps aux | grep pacman", "rm /var/lib/pacman/db.lck"]),
+        (&["package", "conflict"], "package conflict", "packages", IntentCategory::Troubleshoot,
+            &["pacman -Qo <file>", "pacman -Syu --overwrite '*'"]),
+        (&["dependency", "error"], "package dependency error", "packages", IntentCategory::Troubleshoot,
+            &["pacman -Dk", "pacman -Syu"]),
+        (&["broken", "package"], "broken package", "packages", IntentCategory::Troubleshoot,
+            &["pacman -Qk | grep -v '0 missing'", "pacman -S <package>"]),
+        // Service failures
+        (&["service", "failed"], "service failed to start", "services", IntentCategory::Troubleshoot,
+            &["systemctl --failed", "journalctl -u <service> -n 30"]),
+        (&["unit", "failed"], "systemd unit failed", "services", IntentCategory::Troubleshoot,
+            &["systemctl --failed", "systemctl status <unit>"]),
+        (&["failed", "to", "start"], "failed to start service", "services", IntentCategory::Troubleshoot,
+            &["systemctl status <service>", "journalctl -xe"]),
+    ];
+
+    for (keywords, interpreted, topic, category, commands) in patterns {
+        if keywords.iter().all(|kw| q.to_lowercase().contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: category.clone(),
                 confidence: 0.9,
                 topic: Some(topic.to_string()),
                 needs_confirmation: false,

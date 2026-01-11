@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.946] - 2026-01-11
+
+### Added
+- **Common System Error Patterns** - ~25 new troubleshooting patterns
+  - **Disk/Storage**: `disk full`, `no space left`, `storage full`
+  - **Memory**: `out of memory`, `oom killer`, `memory leak`, `slow swap`
+  - **Permissions**: `permission denied`, `operation not permitted`, `access denied`
+  - **Network**: `no internet`, `network unreachable`, `connection refused`, `host not found`
+  - **Files**: `command not found`, `file not found`, `no such file`
+  - **Packages**: `pacman lock`, `package conflict`, `dependency error`, `broken package`
+  - **Services**: `service failed`, `unit failed`, `failed to start`
+
+### Changed
+- More error messages get instant diagnostic commands
+- Troubleshooting patterns now cover common Linux issues
+- Faster problem diagnosis without LLM
+
 ## [0.0.945] - 2026-01-11
 
 ### Added
