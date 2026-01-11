@@ -30,6 +30,7 @@
 //! v0.0.972: Added Bluetooth patterns for devices, audio, troubleshooting.
 //! v0.0.974: Added virtualization patterns for KVM, QEMU, libvirt.
 //! v0.0.975: Added display patterns for monitors, resolution, scaling.
+//! v0.0.976: Added encryption patterns for LUKS, GPG, disk encryption.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -63,6 +64,7 @@ mod memory;
 mod bluetooth;
 mod virtualization;
 mod display;
+mod encryption;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -644,6 +646,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = display::match_patterns(q) {
         record_pattern_hit("display");
+        return Some(r);
+    }
+    if let Some(r) = encryption::match_patterns(q) {
+        record_pattern_hit("encryption");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1487,5 +1493,23 @@ mod tests {
     fn test_display_scaling() {
         assert!(match_common_pattern("display dpi").is_some());
         assert!(match_common_pattern("refresh rate").is_some());
+    }
+
+    #[test]
+    fn test_encryption_luks() {
+        assert!(match_common_pattern("luks status").is_some());
+        assert!(match_common_pattern("encrypted partitions").is_some());
+    }
+
+    #[test]
+    fn test_encryption_gpg() {
+        assert!(match_common_pattern("gpg keys").is_some());
+        assert!(match_common_pattern("pacman keys").is_some());
+    }
+
+    #[test]
+    fn test_encryption_disk() {
+        assert!(match_common_pattern("disk encryption").is_some());
+        assert!(match_common_pattern("crypttab").is_some());
     }
 }

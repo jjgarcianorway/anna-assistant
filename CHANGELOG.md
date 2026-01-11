@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.976] - 2026-01-11
+
+### Added
+- **Encryption Patterns** - ~50 patterns for disk encryption, GPG, key management
+  - LUKS: status, info, devices, partitions, keyslots, version
+  - dm-crypt: status, mapped devices, device mapper, cryptsetup
+  - GPG: keys, secret keys, agent, config, pacman keyring
+  - Disk encryption: FDE, crypttab, home/root encryption, VeraCrypt
+  - Key management: GNOME Keyring, KWallet, pass, TPM, secure boot
+
+### Changed
+- 32 pattern categories now available (was 31)
+- Total instant-answer patterns: ~1140+
+
 ## [0.0.975] - 2026-01-11
 
 ### Added
