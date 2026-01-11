@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.950] - 2026-01-11
+
+### Added
+- **Gaming Patterns** - ~55 new patterns for Linux gaming
+  - **Steam**: installation, games, library, logs, errors, runtime, Proton versions
+  - **Wine/Proton**: Wine version, config, prefixes, Proton-GE, DXVK, VKD3D, Lutris
+  - **Controllers**: detect gamepads, Xbox, PlayStation, Steam controller, test/calibrate
+  - **Graphics**: Vulkan support, OpenGL version, MangoHud, GameMode, FPS monitoring
+  - **Emulation**: RetroArch, PCSX2, Dolphin, RPCS3, Switch emulators, BIOS files
+- Commands: steam, wine, vulkaninfo, glxinfo, jstest, evtest
+
+### Changed
+- Pattern system now covers 12 categories (up from 11)
+- Gaming questions get instant answers
+- Better support for Linux gaming troubleshooting
+
 ## [0.0.949] - 2026-01-11
 
 ### Added

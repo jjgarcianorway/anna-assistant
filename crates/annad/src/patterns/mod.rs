@@ -9,6 +9,7 @@
 //! v0.0.947: Added howto patterns for common task instructions.
 //! v0.0.948: Added network patterns for connectivity and configuration.
 //! v0.0.949: Added hardware patterns for sensors, battery, CPU.
+//! v0.0.950: Added gaming patterns for Steam, Wine, Proton, controllers.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -22,6 +23,7 @@ mod desktop;
 mod howto;
 mod network;
 mod hardware;
+mod gaming;
 
 use anna_shared::rpc::DeepUnderstanding;
 use tracing::debug;
@@ -36,6 +38,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     factual::match_patterns(&q)
         .or_else(|| hardware::match_patterns(&q))
         .or_else(|| network::match_patterns(&q))
+        .or_else(|| gaming::match_patterns(&q))
         .or_else(|| development::match_patterns(&q))
         .or_else(|| security::match_patterns(&q))
         .or_else(|| desktop::match_patterns(&q))
@@ -319,5 +322,30 @@ mod tests {
     fn test_hardware_devices() {
         assert!(match_common_pattern("usb devices").is_some());
         assert!(match_common_pattern("pci devices").is_some());
+    }
+
+    // Gaming pattern tests (v0.0.950)
+    #[test]
+    fn test_gaming_steam() {
+        assert!(match_common_pattern("steam installation").is_some());
+        assert!(match_common_pattern("steam games").is_some());
+    }
+
+    #[test]
+    fn test_gaming_wine_proton() {
+        assert!(match_common_pattern("wine version").is_some());
+        assert!(match_common_pattern("proton version").is_some());
+    }
+
+    #[test]
+    fn test_gaming_controllers() {
+        assert!(match_common_pattern("controller detect").is_some());
+        assert!(match_common_pattern("xbox controller").is_some());
+    }
+
+    #[test]
+    fn test_gaming_graphics() {
+        assert!(match_common_pattern("vulkan support").is_some());
+        assert!(match_common_pattern("opengl version").is_some());
     }
 }
