@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.960] - 2026-01-11
+
+### Added
+- **Power Management Patterns** - ~40 patterns for battery and power management
+  - Battery: status, level, health, charging, time remaining
+  - Suspend/Hibernate: modes, support, resume issues, logs
+  - Laptop: lid action, screen brightness, fan speed, thermal zones
+  - Power settings: TLP, power profiles, CPU governor, ACPI
+
+### Changed
+- 17 pattern categories now available (was 16)
+- Total instant-answer patterns: ~460+
+
 ## [0.0.959] - 2026-01-11
 
 ### Added

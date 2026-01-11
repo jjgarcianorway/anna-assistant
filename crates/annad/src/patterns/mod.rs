@@ -15,6 +15,7 @@
 //! v0.0.957: Added container patterns for Docker, Podman, VMs.
 //! v0.0.958: Added logs patterns for journalctl, dmesg, log analysis.
 //! v0.0.959: Added audio patterns for PipeWire, PulseAudio, ALSA.
+//! v0.0.960: Added power patterns for battery, suspend, hibernate.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -33,6 +34,7 @@ mod boot;
 mod container;
 mod logs;
 mod audio;
+mod power;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -420,6 +422,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = audio::match_patterns(q) {
         record_pattern_hit("audio");
+        return Some(r);
+    }
+    if let Some(r) = power::match_patterns(q) {
+        record_pattern_hit("power");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -949,5 +955,26 @@ mod tests {
     fn test_audio_alsa() {
         assert!(match_common_pattern("alsa devices").is_some());
         assert!(match_common_pattern("alsa mixer").is_some());
+    }
+
+    // Power pattern tests (v0.0.960)
+    #[test]
+    fn test_power_battery() {
+        assert!(match_common_pattern("battery status").is_some());
+        assert!(match_common_pattern("battery level").is_some());
+        assert!(match_common_pattern("charging status").is_some());
+    }
+
+    #[test]
+    fn test_power_suspend() {
+        assert!(match_common_pattern("suspend mode").is_some());
+        assert!(match_common_pattern("sleep modes").is_some());
+    }
+
+    #[test]
+    fn test_power_laptop() {
+        assert!(match_common_pattern("screen brightness").is_some());
+        assert!(match_common_pattern("fan speed").is_some());
+        assert!(match_common_pattern("cpu governor").is_some());
     }
 }
