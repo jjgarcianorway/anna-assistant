@@ -38,6 +38,7 @@
 //! v0.0.981: Fixed critical substring matching bugs (id, at) with word boundaries.
 //! v0.0.982: Added bandwidth/traffic monitoring patterns.
 //! v0.0.983: Added window manager patterns for Hyprland, Sway, i3.
+//! v0.0.984: Added kernel/module patterns for lsmod, modprobe, sysctl.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -77,6 +78,7 @@ mod aur;
 mod appimage;
 mod sysinfo;
 mod wm;
+mod kernel;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -703,6 +705,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = wm::match_patterns(q) {
         record_pattern_hit("wm");
+        return Some(r);
+    }
+    if let Some(r) = kernel::match_patterns(q) {
+        record_pattern_hit("kernel");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1687,5 +1693,39 @@ mod tests {
         assert!(match_common_pattern("picom config").is_some());
         assert!(match_common_pattern("screen tearing").is_some());
         assert!(match_common_pattern("compositor status").is_some());
+    }
+
+    #[test]
+    fn test_kernel_info() {
+        assert!(match_common_pattern("kernel version").is_some());
+        assert!(match_common_pattern("installed kernels").is_some());
+        assert!(match_common_pattern("running kernel").is_some());
+    }
+
+    #[test]
+    fn test_kernel_modules() {
+        assert!(match_common_pattern("loaded modules").is_some());
+        assert!(match_common_pattern("lsmod").is_some());
+        assert!(match_common_pattern("blacklisted modules").is_some());
+    }
+
+    #[test]
+    fn test_kernel_params() {
+        assert!(match_common_pattern("kernel parameters").is_some());
+        assert!(match_common_pattern("sysctl").is_some());
+        assert!(match_common_pattern("swappiness").is_some());
+    }
+
+    #[test]
+    fn test_kernel_dkms() {
+        assert!(match_common_pattern("dkms status").is_some());
+        assert!(match_common_pattern("dkms modules").is_some());
+    }
+
+    #[test]
+    fn test_kernel_debug() {
+        assert!(match_common_pattern("kernel errors").is_some());
+        assert!(match_common_pattern("kernel panic").is_some());
+        assert!(match_common_pattern("tainted kernel").is_some());
     }
 }

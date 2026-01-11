@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.984] - 2026-01-11
+
+### Added
+- **Kernel/Module Patterns** - ~55 patterns for kernel management
+  - Kernel info: version, installed kernels, running kernel, config
+  - Modules: lsmod, modinfo, blacklisted, module params, specific drivers
+  - Parameters: cmdline, sysctl, swappiness, inotify, file handles
+  - DKMS: status, list, modules, failures, errors
+  - Debug: kernel messages, errors, panic, oops, tainted, call traces, IRQ
+
+### Changed
+- 38 pattern categories now available (was 37)
+- Total instant-answer patterns: ~1470+
+
 ## [0.0.983] - 2026-01-11
 
 ### Added
