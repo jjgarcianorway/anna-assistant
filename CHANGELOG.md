@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.961] - 2026-01-11
+
+### Added
+- **Systemd Patterns** - ~50 patterns for systemd management
+  - Services: failed, running, enabled, disabled, user services
+  - Units: list, unit files, mounts, sockets, paths, slices
+  - Timers: list, active, user timers
+  - Targets: list, default, graphical, multi-user
+  - System: boot analysis, boot blame, hostname, time/date, locale
+
+### Changed
+- 18 pattern categories now available (was 17)
+- Total instant-answer patterns: ~510+
+
 ## [0.0.960] - 2026-01-11
 
 ### Added

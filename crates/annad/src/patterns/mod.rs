@@ -16,6 +16,7 @@
 //! v0.0.958: Added logs patterns for journalctl, dmesg, log analysis.
 //! v0.0.959: Added audio patterns for PipeWire, PulseAudio, ALSA.
 //! v0.0.960: Added power patterns for battery, suspend, hibernate.
+//! v0.0.961: Added systemd patterns for services, units, timers, targets.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -35,6 +36,7 @@ mod container;
 mod logs;
 mod audio;
 mod power;
+mod systemd;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -426,6 +428,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = power::match_patterns(q) {
         record_pattern_hit("power");
+        return Some(r);
+    }
+    if let Some(r) = systemd::match_patterns(q) {
+        record_pattern_hit("systemd");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -976,5 +982,27 @@ mod tests {
         assert!(match_common_pattern("screen brightness").is_some());
         assert!(match_common_pattern("fan speed").is_some());
         assert!(match_common_pattern("cpu governor").is_some());
+    }
+
+    // Systemd pattern tests (v0.0.961)
+    #[test]
+    fn test_systemd_services() {
+        assert!(match_common_pattern("failed services").is_some());
+        assert!(match_common_pattern("running services").is_some());
+        assert!(match_common_pattern("list services").is_some());
+    }
+
+    #[test]
+    fn test_systemd_units() {
+        assert!(match_common_pattern("list units").is_some());
+        assert!(match_common_pattern("list timers").is_some());
+        assert!(match_common_pattern("default target").is_some());
+    }
+
+    #[test]
+    fn test_systemd_boot() {
+        assert!(match_common_pattern("boot time").is_some());
+        assert!(match_common_pattern("boot blame").is_some());
+        assert!(match_common_pattern("slow boot").is_some());
     }
 }
