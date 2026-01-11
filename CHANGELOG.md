@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.977] - 2026-01-11
+
+### Added
+- **NVIDIA/GPU Patterns** - ~55 patterns for nvidia-smi, drivers, Optimus
+  - nvidia-smi: usage, memory, temperature, power, clocks, processes
+  - Drivers: version, CUDA, modules, nouveau vs nvidia
+  - Optimus/PRIME: status, prime-select, optimus-manager, bumblebee
+  - Config: nvidia-settings, xorg, persistence, power modes, Vulkan
+  - Troubleshooting: errors, logs, tearing, DRM modeset, fan control
+
+### Changed
+- 33 pattern categories now available (was 32)
+- Total instant-answer patterns: ~1195+
+
 ## [0.0.976] - 2026-01-11
 
 ### Added

@@ -31,6 +31,7 @@
 //! v0.0.974: Added virtualization patterns for KVM, QEMU, libvirt.
 //! v0.0.975: Added display patterns for monitors, resolution, scaling.
 //! v0.0.976: Added encryption patterns for LUKS, GPG, disk encryption.
+//! v0.0.977: Added NVIDIA patterns for nvidia-smi, drivers, Optimus.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -65,6 +66,7 @@ mod bluetooth;
 mod virtualization;
 mod display;
 mod encryption;
+mod nvidia;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -650,6 +652,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = encryption::match_patterns(q) {
         record_pattern_hit("encryption");
+        return Some(r);
+    }
+    if let Some(r) = nvidia::match_patterns(q) {
+        record_pattern_hit("nvidia");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1511,5 +1517,23 @@ mod tests {
     fn test_encryption_disk() {
         assert!(match_common_pattern("disk encryption").is_some());
         assert!(match_common_pattern("crypttab").is_some());
+    }
+
+    #[test]
+    fn test_nvidia_smi() {
+        assert!(match_common_pattern("nvidia smi").is_some());
+        assert!(match_common_pattern("gpu usage").is_some());
+    }
+
+    #[test]
+    fn test_nvidia_driver() {
+        assert!(match_common_pattern("nvidia driver version").is_some());
+        assert!(match_common_pattern("cuda version").is_some());
+    }
+
+    #[test]
+    fn test_nvidia_optimus() {
+        assert!(match_common_pattern("prime status").is_some());
+        assert!(match_common_pattern("hybrid graphics").is_some());
     }
 }
