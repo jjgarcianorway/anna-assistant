@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.986] - 2026-01-11
+
+### Added
+- **SMART Disk Health Patterns** - ~55 patterns for disk health monitoring
+  - Status: smart status, disk health, ssd/hdd health, scan, capability
+  - Attributes: all attributes, critical, reallocated sectors, bad sectors, temperature
+  - Tests: self-test log, error log, test capabilities, test time
+  - Disk health: failing, dying, problems, hdparm, model, serial, firmware
+  - NVMe: health, smart, list, info, temperature, wear, errors, firmware
+
+### Changed
+- 40 pattern categories now available (was 39)
+- Total instant-answer patterns: ~1580+
+
 ## [0.0.985] - 2026-01-11
 
 ### Added

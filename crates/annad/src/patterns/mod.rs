@@ -40,6 +40,7 @@
 //! v0.0.983: Added window manager patterns for Hyprland, Sway, i3.
 //! v0.0.984: Added kernel/module patterns for lsmod, modprobe, sysctl.
 //! v0.0.985: Added ZFS patterns for zpool, zfs, snapshots.
+//! v0.0.986: Added SMART disk health patterns for smartctl, nvme.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -81,6 +82,7 @@ mod sysinfo;
 mod wm;
 mod kernel;
 mod zfs;
+mod smart;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -715,6 +717,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = zfs::match_patterns(q) {
         record_pattern_hit("zfs");
+        return Some(r);
+    }
+    if let Some(r) = smart::match_patterns(q) {
+        record_pattern_hit("smart");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1760,5 +1766,24 @@ mod tests {
         assert!(match_common_pattern("zfs scrub").is_some());
         assert!(match_common_pattern("zfs errors").is_some());
         assert!(match_common_pattern("zfs arc").is_some());
+    }
+
+    #[test]
+    fn test_smart_status() {
+        assert!(match_common_pattern("smart status").is_some());
+        assert!(match_common_pattern("disk health").is_some());
+        assert!(match_common_pattern("ssd health").is_some());
+    }
+
+    #[test]
+    fn test_smart_attributes() {
+        assert!(match_common_pattern("smart attributes").is_some());
+        assert!(match_common_pattern("reallocated sectors").is_some());
+    }
+
+    #[test]
+    fn test_smart_nvme() {
+        assert!(match_common_pattern("nvme health").is_some());
+        assert!(match_common_pattern("nvme list").is_some());
     }
 }
