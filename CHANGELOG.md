@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.959] - 2026-01-11
+
+### Added
+- **Audio Patterns** - ~45 patterns for audio troubleshooting
+  - General: no sound, volume, audio devices, muted status
+  - PipeWire: status, nodes, devices, links, WirePlumber
+  - PulseAudio: status, sinks, sources, modules
+  - ALSA: devices, cards, mixer, volume, kernel modules
+  - Bluetooth: audio, headphones, speakers, codec, A2DP
+
+### Changed
+- 16 pattern categories now available (was 15)
+- Total instant-answer patterns: ~420+
+
 ## [0.0.958] - 2026-01-11
 
 ### Added

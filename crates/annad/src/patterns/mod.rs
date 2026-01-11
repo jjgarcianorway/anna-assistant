@@ -14,6 +14,7 @@
 //! v0.0.956: Added fuzzy matching for typo tolerance.
 //! v0.0.957: Added container patterns for Docker, Podman, VMs.
 //! v0.0.958: Added logs patterns for journalctl, dmesg, log analysis.
+//! v0.0.959: Added audio patterns for PipeWire, PulseAudio, ALSA.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -31,6 +32,7 @@ mod gaming;
 mod boot;
 mod container;
 mod logs;
+mod audio;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -414,6 +416,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = logs::match_patterns(q) {
         record_pattern_hit("logs");
+        return Some(r);
+    }
+    if let Some(r) = audio::match_patterns(q) {
+        record_pattern_hit("audio");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -923,5 +929,25 @@ mod tests {
         assert!(match_common_pattern("crash logs").is_some());
         assert!(match_common_pattern("what happened").is_some());
         assert!(match_common_pattern("sudo logs").is_some());
+    }
+
+    // Audio pattern tests (v0.0.959)
+    #[test]
+    fn test_audio_general() {
+        assert!(match_common_pattern("no sound").is_some());
+        assert!(match_common_pattern("audio devices").is_some());
+        assert!(match_common_pattern("volume level").is_some());
+    }
+
+    #[test]
+    fn test_audio_pipewire() {
+        assert!(match_common_pattern("pipewire status").is_some());
+        assert!(match_common_pattern("pipewire version").is_some());
+    }
+
+    #[test]
+    fn test_audio_alsa() {
+        assert!(match_common_pattern("alsa devices").is_some());
+        assert!(match_common_pattern("alsa mixer").is_some());
     }
 }
