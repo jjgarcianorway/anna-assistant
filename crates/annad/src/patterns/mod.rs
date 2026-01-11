@@ -27,6 +27,7 @@
 //! v0.0.969: Added locale patterns for keyboard, language, fonts.
 //! v0.0.970: Added SSH patterns for connections, config, troubleshooting.
 //! v0.0.971: Added memory patterns for RAM, swap, cache, OOM.
+//! v0.0.972: Added Bluetooth patterns for devices, audio, troubleshooting.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -57,6 +58,7 @@ mod backup;
 mod locale;
 mod ssh;
 mod memory;
+mod bluetooth;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -492,6 +494,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = memory::match_patterns(q) {
         record_pattern_hit("memory");
+        return Some(r);
+    }
+    if let Some(r) = bluetooth::match_patterns(q) {
+        record_pattern_hit("bluetooth");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1268,5 +1274,23 @@ mod tests {
     fn test_memory_oom() {
         assert!(match_common_pattern("oom killer").is_some());
         assert!(match_common_pattern("memory pressure").is_some());
+    }
+
+    #[test]
+    fn test_bluetooth_status() {
+        assert!(match_common_pattern("bluetooth status").is_some());
+        assert!(match_common_pattern("bluetooth adapter").is_some());
+    }
+
+    #[test]
+    fn test_bluetooth_devices() {
+        assert!(match_common_pattern("paired devices").is_some());
+        assert!(match_common_pattern("bluetooth devices").is_some());
+    }
+
+    #[test]
+    fn test_bluetooth_audio() {
+        assert!(match_common_pattern("bluetooth headphones").is_some());
+        assert!(match_common_pattern("bluetooth audio").is_some());
     }
 }

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.972] - 2026-01-11
+
+### Added
+- **Bluetooth Patterns** - ~40 patterns for Bluetooth management
+  - Status: enabled/disabled, service, adapter, controller, rfkill
+  - Devices: paired, connected, all devices, nearby, trusted
+  - Audio: headphones, speakers, A2DP, HSP/HFP, microphone
+  - Troubleshooting: logs, errors, firmware, driver, kernel modules
+
+### Changed
+- 29 pattern categories now available (was 28)
+- Total instant-answer patterns: ~1000+
+
 ## [0.0.971] - 2026-01-11
 
 ### Added
