@@ -18,6 +18,7 @@
 //! v0.0.960: Added power patterns for battery, suspend, hibernate.
 //! v0.0.961: Added systemd patterns for services, units, timers, targets.
 //! v0.0.962: Added filesystem patterns for mounts, LVM, RAID, btrfs.
+//! v0.0.963: Added process patterns for ps, top, kill, zombies.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -39,6 +40,7 @@ mod audio;
 mod power;
 mod systemd;
 mod filesystem;
+mod process;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -438,6 +440,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = filesystem::match_patterns(q) {
         record_pattern_hit("filesystem");
+        return Some(r);
+    }
+    if let Some(r) = process::match_patterns(q) {
+        record_pattern_hit("process");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1037,5 +1043,27 @@ mod tests {
         assert!(match_common_pattern("inode usage").is_some());
         assert!(match_common_pattern("large files").is_some());
         assert!(match_common_pattern("directory sizes").is_some());
+    }
+
+    // Process pattern tests (v0.0.963)
+    #[test]
+    fn test_process_list() {
+        assert!(match_common_pattern("all processes").is_some());
+        assert!(match_common_pattern("process tree").is_some());
+        assert!(match_common_pattern("my processes").is_some());
+    }
+
+    #[test]
+    fn test_process_resources() {
+        assert!(match_common_pattern("cpu hogs").is_some());
+        assert!(match_common_pattern("memory hogs").is_some());
+        assert!(match_common_pattern("system load").is_some());
+    }
+
+    #[test]
+    fn test_process_zombie() {
+        assert!(match_common_pattern("zombie processes").is_some());
+        assert!(match_common_pattern("stuck processes").is_some());
+        assert!(match_common_pattern("background jobs").is_some());
     }
 }

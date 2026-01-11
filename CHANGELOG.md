@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.963] - 2026-01-11
+
+### Added
+- **Process Management Patterns** - ~45 patterns for process troubleshooting
+  - List: all processes, process tree, user processes, process count
+  - Resources: CPU hogs, memory hogs, system load, what's using resources
+  - Info: find process, process files, connections, environment, limits
+  - Troubleshooting: zombies, stuck/uninterruptible, orphans, nice values
+
+### Changed
+- 20 pattern categories now available (was 19)
+- Total instant-answer patterns: ~610+
+
 ## [0.0.962] - 2026-01-11
 
 ### Added
