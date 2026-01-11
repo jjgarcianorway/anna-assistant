@@ -1,5 +1,6 @@
 //! Anna daemon - simplified version.
 //! v0.0.924: Added proactive helper tool installation on startup
+//! v0.0.927: Added LLM warmup on startup for faster first query
 
 use anna_shared::config::{get_ollama_url, AnnaConfig};
 use anna_shared::deps::{missing_diagnostic_tools, install_missing_diagnostic_tools};
@@ -9,6 +10,7 @@ use anyhow::Result;
 use tracing::{debug, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
+use annad::ollama;
 use annad::server::Server;
 use annad::state::SharedState;
 
@@ -99,6 +101,27 @@ async fn main() -> Result<()> {
             debug!("{} diagnostic tools not installed (enable auto_install_helpers to install)", missing.len());
         }
     }
+
+    // v0.0.927: Warm up LLM connection in background (loads model into memory)
+    tokio::spawn(async {
+        // Wait a bit for Ollama to be fully ready
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+        if ollama::is_running().await {
+            info!("Warming up LLM connection...");
+            // Send a minimal prompt to load the model
+            match ollama::chat_with_timeout(
+                "llama3.2",  // Default model, will be overridden by actual config
+                "Hi",
+                10,
+            ).await {
+                Ok(_) => info!("LLM warmup complete - model loaded"),
+                Err(e) => debug!("LLM warmup skipped: {}", e),
+            }
+        } else {
+            debug!("Ollama not running, skipping LLM warmup");
+        }
+    });
 
     // Create shared state
     let state = SharedState::new();

@@ -168,7 +168,38 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                     }
                 },
                 Err(e) => {
-                    RpcResponse::error(&request.id, -32603, &format!("Execution error: {}", e))
+                    // v0.0.927: Graceful degradation with helpful error messages
+                    let err_str = e.to_string().to_lowercase();
+                    let user_message = if err_str.contains("circuit breaker") {
+                        "Ollama is temporarily unavailable (too many failures). \
+                         Please wait a moment and try again, or check 'systemctl status ollama'."
+                    } else if err_str.contains("timeout") {
+                        "The request timed out. Ollama may be overloaded or the model is loading. \
+                         Try again in a few seconds."
+                    } else if err_str.contains("connection") || err_str.contains("refused") {
+                        "Cannot connect to Ollama. Please ensure it's running: 'systemctl start ollama'"
+                    } else if err_str.contains("model") && err_str.contains("not found") {
+                        "The configured model is not available. Run 'ollama pull llama3.2' to download it."
+                    } else {
+                        // Return original error for unknown cases
+                        return RpcResponse::error(&request.id, -32603, &format!("Execution error: {}", e));
+                    };
+
+                    // Return a helpful response instead of cryptic error
+                    let result = anna_shared::rpc::AskResult {
+                        answer: user_message.to_string(),
+                        success: false,
+                        iterations: 0,
+                        commands_executed: vec![],
+                        dialogue: vec![],
+                        needs_clarification: false,
+                        clarification_question: None,
+                        cached: false,
+                    };
+                    match serde_json::to_value(&result) {
+                        Ok(v) => RpcResponse::success(&request.id, v),
+                        Err(e) => RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e)),
+                    }
                 }
             };
 

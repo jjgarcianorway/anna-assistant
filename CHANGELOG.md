@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.927] - 2026-01-11
+
+### Added
+- **LLM Warmup on Startup** - Pre-loads model for faster first query
+  - Sends minimal prompt 3 seconds after daemon starts
+  - Loads model into GPU memory before user's first question
+  - Reduces first query latency significantly
+- **Graceful Degradation** - Helpful error messages instead of cryptic failures
+  - Circuit breaker errors → "Ollama temporarily unavailable, try again"
+  - Timeout errors → "Request timed out, Ollama may be overloaded"
+  - Connection errors → "Cannot connect to Ollama, check 'systemctl start ollama'"
+  - Model not found → "Run 'ollama pull llama3.2' to download the model"
+
+### Changed
+- Handler returns user-friendly responses even on LLM failures
+- Daemon warmup runs asynchronously to not block startup
+
 ## [0.0.926] - 2026-01-11
 
 ### Added
