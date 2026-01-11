@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.985] - 2026-01-11
+
+### Added
+- **ZFS Patterns** - ~55 patterns for OpenZFS on Linux
+  - Zpool: status, list, info, space, history, iostat, version, features
+  - Datasets: list, properties, compression, quota, space, mountpoints, encryption
+  - Snapshots: list, size, recent, latest, diff, bookmarks
+  - Health: scrub, errors, resilver, degraded, faulted, ARC, L2ARC, SLOG, events
+  - General: version, install check, module, services, send/receive, cache
+
+### Changed
+- 39 pattern categories now available (was 38)
+- Total instant-answer patterns: ~1525+
+
 ## [0.0.984] - 2026-01-11
 
 ### Added

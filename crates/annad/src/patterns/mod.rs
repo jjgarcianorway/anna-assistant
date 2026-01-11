@@ -39,6 +39,7 @@
 //! v0.0.982: Added bandwidth/traffic monitoring patterns.
 //! v0.0.983: Added window manager patterns for Hyprland, Sway, i3.
 //! v0.0.984: Added kernel/module patterns for lsmod, modprobe, sysctl.
+//! v0.0.985: Added ZFS patterns for zpool, zfs, snapshots.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -79,6 +80,7 @@ mod appimage;
 mod sysinfo;
 mod wm;
 mod kernel;
+mod zfs;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -709,6 +711,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = kernel::match_patterns(q) {
         record_pattern_hit("kernel");
+        return Some(r);
+    }
+    if let Some(r) = zfs::match_patterns(q) {
+        record_pattern_hit("zfs");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1727,5 +1733,32 @@ mod tests {
         assert!(match_common_pattern("kernel errors").is_some());
         assert!(match_common_pattern("kernel panic").is_some());
         assert!(match_common_pattern("tainted kernel").is_some());
+    }
+
+    #[test]
+    fn test_zfs_pool() {
+        assert!(match_common_pattern("zpool status").is_some());
+        assert!(match_common_pattern("zpool list").is_some());
+        assert!(match_common_pattern("zpool iostat").is_some());
+    }
+
+    #[test]
+    fn test_zfs_dataset() {
+        assert!(match_common_pattern("zfs list").is_some());
+        assert!(match_common_pattern("zfs compression").is_some());
+        assert!(match_common_pattern("zfs mount").is_some());
+    }
+
+    #[test]
+    fn test_zfs_snapshot() {
+        assert!(match_common_pattern("zfs snapshots").is_some());
+        assert!(match_common_pattern("list snapshots").is_some());
+    }
+
+    #[test]
+    fn test_zfs_health() {
+        assert!(match_common_pattern("zfs scrub").is_some());
+        assert!(match_common_pattern("zfs errors").is_some());
+        assert!(match_common_pattern("zfs arc").is_some());
     }
 }
