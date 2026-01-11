@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.937] - 2026-01-11
+
+### Added
+- **Expanded Factual Patterns** - 4 new pattern categories for instant answers
+  - Thermal: `cpu temp`, `temperature`, `fan speed`, `sensors`
+  - Processes: `cpu usage`, `load average`, `what's using cpu/memory`, `zombie process`
+  - Audio: `audio device`, `volume`, `muted`, `microphone`, `pipewire/pulseaudio status`
+  - Logs: `boot time`, `boot log`, `dmesg`, `system log`, `recent error`, `journalctl`
+
+### Changed
+- Factual patterns now cover 10 categories (up from 6)
+- More questions get instant pre-executed answers without LLM command selection
+- ~40 new patterns total across thermal, process, audio, and log queries
+
 ## [0.0.936] - 2026-01-11
 
 ### Added

@@ -2,6 +2,7 @@
 //!
 //! These are common "what is X" questions that can be answered immediately
 //! with pre-cached commands, bypassing the LLM command selection pipeline.
+//! v0.0.937: Added thermal, process, audio, and logs patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -29,6 +30,22 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     }
     // Service queries
     if let Some(u) = match_services(q) {
+        return Some(u);
+    }
+    // v0.0.937: Thermal/temperature queries
+    if let Some(u) = match_thermal(q) {
+        return Some(u);
+    }
+    // v0.0.937: Process/load queries
+    if let Some(u) = match_processes(q) {
+        return Some(u);
+    }
+    // v0.0.937: Audio/sound queries
+    if let Some(u) = match_audio(q) {
+        return Some(u);
+    }
+    // v0.0.937: Boot/log queries
+    if let Some(u) = match_logs(q) {
         return Some(u);
     }
     None
@@ -253,6 +270,151 @@ fn match_services(q: &str) -> Option<DeepUnderstanding> {
         // Timers
         (&["systemd", "timer"], "systemd timers query", "services", &["systemctl list-timers"]),
         (&["list", "timer"], "timer list query", "services", &["systemctl list-timers"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.937: Temperature and thermal queries
+fn match_thermal(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // CPU temperature
+        (&["cpu", "temp"], "CPU temperature query", "thermal", &["sensors 2>/dev/null | grep -E 'Core|Tctl|temp' || cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null"]),
+        (&["temperature"], "system temperature query", "thermal", &["sensors 2>/dev/null || cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null"]),
+        (&["how", "hot"], "temperature query", "thermal", &["sensors 2>/dev/null | head -20"]),
+        // Fan speed
+        (&["fan", "speed"], "fan speed query", "thermal", &["sensors 2>/dev/null | grep -i fan"]),
+        (&["fan", "status"], "fan status query", "thermal", &["sensors 2>/dev/null | grep -i fan"]),
+        // Thermal sensors
+        (&["sensor"], "sensor readings query", "thermal", &["sensors 2>/dev/null"]),
+        (&["lm_sensor"], "lm_sensors query", "thermal", &["sensors 2>/dev/null"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.937: Process and system load queries
+fn match_processes(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // CPU usage
+        (&["cpu", "usage"], "CPU usage query", "processes", &["top -bn1 | head -15"]),
+        (&["cpu", "load"], "CPU load query", "processes", &["uptime", "cat /proc/loadavg"]),
+        (&["system", "load"], "system load query", "processes", &["uptime", "cat /proc/loadavg"]),
+        (&["load", "average"], "load average query", "processes", &["uptime"]),
+        // Memory usage
+        (&["memory", "usage"], "memory usage query", "processes", &["free -h", "ps aux --sort=-%mem | head -10"]),
+        (&["what", "using", "memory"], "memory consumers query", "processes", &["ps aux --sort=-%mem | head -10"]),
+        (&["what", "using", "ram"], "RAM consumers query", "processes", &["ps aux --sort=-%mem | head -10"]),
+        // Process list
+        (&["running", "process"], "running processes query", "processes", &["ps aux --sort=-%cpu | head -15"]),
+        (&["list", "process"], "process list query", "processes", &["ps aux | head -20"]),
+        (&["top", "process"], "top processes query", "processes", &["ps aux --sort=-%cpu | head -10"]),
+        // What's using CPU
+        (&["what", "using", "cpu"], "CPU consumers query", "processes", &["ps aux --sort=-%cpu | head -10"]),
+        (&["high", "cpu"], "high CPU usage query", "processes", &["ps aux --sort=-%cpu | head -10"]),
+        // Zombie processes
+        (&["zombie", "process"], "zombie processes query", "processes", &["ps aux | grep -w Z | grep -v grep || echo 'No zombies found'"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.937: Audio and sound queries
+fn match_audio(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Audio status
+        (&["audio", "device"], "audio devices query", "audio", &["pactl list sinks short 2>/dev/null || wpctl status 2>/dev/null | head -30"]),
+        (&["sound", "device"], "sound devices query", "audio", &["pactl list sinks short 2>/dev/null || wpctl status 2>/dev/null | head -30"]),
+        (&["audio", "output"], "audio output query", "audio", &["pactl get-default-sink 2>/dev/null || wpctl status 2>/dev/null | head -20"]),
+        // Volume
+        (&["volume"], "volume level query", "audio", &["pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null || wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null"]),
+        (&["audio", "level"], "audio level query", "audio", &["pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null"]),
+        // Muted
+        (&["muted"], "mute status query", "audio", &["pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null"]),
+        // Microphone
+        (&["microphone"], "microphone query", "audio", &["pactl list sources short 2>/dev/null | grep -v monitor"]),
+        (&["mic"], "mic query", "audio", &["pactl list sources short 2>/dev/null | grep -v monitor"]),
+        // Pipewire/Pulse
+        (&["pipewire", "status"], "Pipewire status query", "audio", &["systemctl --user status pipewire", "wpctl status | head -30"]),
+        (&["pulseaudio", "status"], "PulseAudio status query", "audio", &["pactl info | head -15"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.95,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+/// v0.0.937: Boot and log queries
+fn match_logs(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[FactualPattern] = &[
+        // Boot time
+        (&["boot", "time"], "boot time query", "logs", &["systemd-analyze"]),
+        (&["startup", "time"], "startup time query", "logs", &["systemd-analyze"]),
+        (&["boot", "slow"], "slow boot analysis", "logs", &["systemd-analyze blame | head -15"]),
+        // Boot logs
+        (&["boot", "log"], "boot log query", "logs", &["journalctl -b -p err..warning | head -30"]),
+        (&["boot", "error"], "boot errors query", "logs", &["journalctl -b -p err | head -20"]),
+        (&["dmesg"], "kernel messages query", "logs", &["dmesg | tail -30"]),
+        // System logs
+        (&["system", "log"], "system log query", "logs", &["journalctl -p err..warning --since '1 hour ago' | head -30"]),
+        (&["error", "log"], "error log query", "logs", &["journalctl -p err --since '1 hour ago' | head -30"]),
+        (&["recent", "error"], "recent errors query", "logs", &["journalctl -p err --since '1 hour ago' | head -20"]),
+        // Journal
+        (&["journal"], "journal query", "logs", &["journalctl --since '1 hour ago' | tail -30"]),
+        (&["journalctl"], "journalctl query", "logs", &["journalctl --since '1 hour ago' | tail -30"]),
+        // Kernel messages
+        (&["kernel", "log"], "kernel log query", "logs", &["dmesg | tail -30"]),
+        (&["kernel", "error"], "kernel errors query", "logs", &["dmesg --level=err,warn | tail -20"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
