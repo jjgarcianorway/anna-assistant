@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.968] - 2026-01-11
+
+### Added
+- **Backup Patterns** - ~40 patterns for backup tools
+  - Rsync: version, syntax, options, progress
+  - Borg: version, repos, list, info, mount, check, compact
+  - Restic: version, snapshots, stats, check, mount, forget
+  - Tar: syntax, options, list, extract
+  - General: installed tools, timeshift, snapper, backup status
+
+### Changed
+- 25 pattern categories now available (was 24)
+- Total instant-answer patterns: ~815+
+
 ## [0.0.967] - 2026-01-11
 
 ### Added

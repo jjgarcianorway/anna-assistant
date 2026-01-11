@@ -23,6 +23,7 @@
 //! v0.0.965: Added users patterns for user/group management.
 //! v0.0.966: Added time patterns for datetime, timezone, NTP.
 //! v0.0.967: Added printing patterns for CUPS, printers, print jobs.
+//! v0.0.968: Added backup patterns for rsync, borg, restic, tar.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -49,6 +50,7 @@ mod cron;
 mod users;
 mod time;
 mod printing;
+mod backup;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -468,6 +470,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = printing::match_patterns(q) {
         record_pattern_hit("printing");
+        return Some(r);
+    }
+    if let Some(r) = backup::match_patterns(q) {
+        record_pattern_hit("backup");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1172,5 +1178,23 @@ mod tests {
         assert!(match_common_pattern("cups status").is_some());
         assert!(match_common_pattern("cups logs").is_some());
         assert!(match_common_pattern("cups config").is_some());
+    }
+
+    #[test]
+    fn test_backup_rsync() {
+        assert!(match_common_pattern("rsync version").is_some());
+        assert!(match_common_pattern("rsync syntax").is_some());
+    }
+
+    #[test]
+    fn test_backup_borg_restic() {
+        assert!(match_common_pattern("borg version").is_some());
+        assert!(match_common_pattern("restic snapshots").is_some());
+    }
+
+    #[test]
+    fn test_backup_tar() {
+        assert!(match_common_pattern("tar syntax").is_some());
+        assert!(match_common_pattern("tar extract").is_some());
     }
 }
