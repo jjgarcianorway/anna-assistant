@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.964] - 2026-01-11
+
+### Added
+- **Cron/Scheduled Task Patterns** - ~35 patterns for scheduled tasks
+  - Crontab: user crontab, list entries, syntax help, root crontab, all crontabs
+  - System cron: directories, daily/hourly/weekly/monthly jobs, /etc/crontab, service status, logs
+  - At jobs: queue, scheduled jobs, pending jobs, service status, batch jobs
+  - Anacron: config, status, timestamps, last runs
+
+### Changed
+- 21 pattern categories now available (was 20)
+- Total instant-answer patterns: ~645+
+
 ## [0.0.963] - 2026-01-11
 
 ### Added

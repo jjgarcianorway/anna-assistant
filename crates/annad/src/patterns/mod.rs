@@ -19,6 +19,7 @@
 //! v0.0.961: Added systemd patterns for services, units, timers, targets.
 //! v0.0.962: Added filesystem patterns for mounts, LVM, RAID, btrfs.
 //! v0.0.963: Added process patterns for ps, top, kill, zombies.
+//! v0.0.964: Added cron patterns for crontab, at, anacron.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -41,6 +42,7 @@ mod power;
 mod systemd;
 mod filesystem;
 mod process;
+mod cron;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -444,6 +446,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = process::match_patterns(q) {
         record_pattern_hit("process");
+        return Some(r);
+    }
+    if let Some(r) = cron::match_patterns(q) {
+        record_pattern_hit("cron");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1065,5 +1071,26 @@ mod tests {
         assert!(match_common_pattern("zombie processes").is_some());
         assert!(match_common_pattern("stuck processes").is_some());
         assert!(match_common_pattern("background jobs").is_some());
+    }
+
+    // Cron pattern tests (v0.0.964)
+    #[test]
+    fn test_cron_crontab() {
+        assert!(match_common_pattern("my crontab").is_some());
+        assert!(match_common_pattern("crontab list").is_some());
+        assert!(match_common_pattern("crontab syntax").is_some());
+    }
+
+    #[test]
+    fn test_cron_system() {
+        assert!(match_common_pattern("system cron").is_some());
+        assert!(match_common_pattern("cron daily").is_some());
+        assert!(match_common_pattern("cron logs").is_some());
+    }
+
+    #[test]
+    fn test_cron_at() {
+        assert!(match_common_pattern("at jobs").is_some());
+        assert!(match_common_pattern("scheduled jobs").is_some());
     }
 }
