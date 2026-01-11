@@ -437,7 +437,52 @@ fn normalize_question(question: &str) -> String {
     sorted_words.join(" ")
 }
 
+/// v0.0.935: Simple edit distance for fuzzy matching (Levenshtein)
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let a_len = a_chars.len();
+    let b_len = b_chars.len();
+
+    // Quick check for identical strings
+    if a == b {
+        return 0;
+    }
+
+    // Quick check for empty strings
+    if a_len == 0 {
+        return b_len;
+    }
+    if b_len == 0 {
+        return a_len;
+    }
+
+    // Only compute for strings of similar length (optimization)
+    let len_diff = if a_len > b_len { a_len - b_len } else { b_len - a_len };
+    if len_diff > 3 {
+        return len_diff; // Too different in length
+    }
+
+    // Use two-row approach for memory efficiency
+    let mut prev_row: Vec<usize> = (0..=b_len).collect();
+    let mut curr_row: Vec<usize> = vec![0; b_len + 1];
+
+    for (i, a_char) in a_chars.iter().enumerate() {
+        curr_row[0] = i + 1;
+        for (j, b_char) in b_chars.iter().enumerate() {
+            let cost = if a_char == b_char { 0 } else { 1 };
+            curr_row[j + 1] = (prev_row[j + 1] + 1)
+                .min(curr_row[j] + 1)
+                .min(prev_row[j] + cost);
+        }
+        std::mem::swap(&mut prev_row, &mut curr_row);
+    }
+
+    prev_row[b_len]
+}
+
 /// v0.0.920: Get cached answer for a question
+/// v0.0.935: Added fuzzy matching for typo tolerance
 pub fn get_cached_answer(question: &str) -> Option<(String, f32)> {
     let perf = get_perf_config();
     let ttl = perf.answer_cache_ttl_secs;
@@ -450,10 +495,33 @@ pub fn get_cached_answer(question: &str) -> Option<(String, f32)> {
     if let Ok(guard) = ANSWER_CACHE.read() {
         if let Some(ref cache) = *guard {
             let key = normalize_question(question);
+
+            // Try exact match first
             if let Some(cached) = cache.get(&key) {
                 if cached.cached_at.elapsed().as_secs() < ttl {
                     info!("Answer cache HIT for: {}", &question[..question.len().min(50)]);
                     return Some((cached.answer.clone(), cached.confidence));
+                }
+            }
+
+            // v0.0.935: Try fuzzy match (edit distance <= 2) for typo tolerance
+            // Only if key is long enough (short keys could match too broadly)
+            if key.len() >= 8 {
+                for (cached_key, cached) in cache.iter() {
+                    if cached.cached_at.elapsed().as_secs() >= ttl {
+                        continue;
+                    }
+                    let distance = edit_distance(&key, cached_key);
+                    // Allow up to 2 edits for keys of similar length
+                    if distance > 0 && distance <= 2 {
+                        info!(
+                            "Answer cache FUZZY HIT (dist={}) for: {}",
+                            distance,
+                            &question[..question.len().min(50)]
+                        );
+                        // Return with slightly lower confidence for fuzzy matches
+                        return Some((cached.answer.clone(), cached.confidence * 0.9));
+                    }
                 }
             }
         }

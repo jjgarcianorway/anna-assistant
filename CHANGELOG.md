@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.935] - 2026-01-11
+
+### Added
+- **Fuzzy Answer Cache Matching** - Typo tolerance for cached questions
+  - Uses Levenshtein edit distance algorithm
+  - Allows up to 2 character differences for cache hits
+  - Memory-efficient two-row implementation
+  - Only applies to normalized keys >= 8 characters (to avoid over-matching)
+  - Fuzzy matches return 90% of original confidence
+
+### Changed
+- `get_cached_answer()` now attempts fuzzy match after exact match fails
+- Questions like "whats my disk usgae" now match "what's my disk usage"
+
 ## [0.0.934] - 2026-01-11
 
 ### Added
