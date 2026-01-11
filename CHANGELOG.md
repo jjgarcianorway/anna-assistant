@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.965] - 2026-01-11
+
+### Added
+- **User/Group Management Patterns** - ~50 patterns for user administration
+  - List users: all users, system users, human users, logged in, count
+  - User info: current user, UID/GID, home directory, environment, PATH
+  - Groups: my groups, all groups, wheel/sudo, group members, sudoers
+  - Password: status, expiry, aging, locked accounts, policy
+  - Login history: last logins, failed logins, lastlog, sessions, reboot/shutdown
+  - Shells: current shell, available shells, shell version
+
+### Changed
+- 22 pattern categories now available (was 21)
+- Total instant-answer patterns: ~695+
+
 ## [0.0.964] - 2026-01-11
 
 ### Added

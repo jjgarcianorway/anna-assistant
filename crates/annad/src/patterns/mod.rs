@@ -20,6 +20,7 @@
 //! v0.0.962: Added filesystem patterns for mounts, LVM, RAID, btrfs.
 //! v0.0.963: Added process patterns for ps, top, kill, zombies.
 //! v0.0.964: Added cron patterns for crontab, at, anacron.
+//! v0.0.965: Added users patterns for user/group management.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -43,6 +44,7 @@ mod systemd;
 mod filesystem;
 mod process;
 mod cron;
+mod users;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -450,6 +452,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = cron::match_patterns(q) {
         record_pattern_hit("cron");
+        return Some(r);
+    }
+    if let Some(r) = users::match_patterns(q) {
+        record_pattern_hit("users");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1092,5 +1098,26 @@ mod tests {
     fn test_cron_at() {
         assert!(match_common_pattern("at jobs").is_some());
         assert!(match_common_pattern("scheduled jobs").is_some());
+    }
+
+    #[test]
+    fn test_users_list() {
+        assert!(match_common_pattern("all users").is_some());
+        assert!(match_common_pattern("list users").is_some());
+        assert!(match_common_pattern("logged in users").is_some());
+    }
+
+    #[test]
+    fn test_users_info() {
+        assert!(match_common_pattern("current user").is_some());
+        assert!(match_common_pattern("my groups").is_some());
+        assert!(match_common_pattern("my shell").is_some());
+    }
+
+    #[test]
+    fn test_users_login() {
+        assert!(match_common_pattern("last logins").is_some());
+        assert!(match_common_pattern("failed logins").is_some());
+        assert!(match_common_pattern("login history").is_some());
     }
 }
