@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.923] - 2026-01-11
+
+### Added
+- **Configurable LLM Retry Logic** - LLM calls now have configurable retry behavior
+  - `llm_max_retries` - Maximum retry attempts (default: 2)
+  - `llm_retry_delay_ms` - Base delay for exponential backoff (default: 500ms)
+  - `llm_circuit_threshold` - Failures before circuit opens (default: 3)
+  - `llm_circuit_cooldown_secs` - Cooldown before retry (default: 30s)
+- **Transient Error Detection** - Smarter retry logic that only retries transient errors
+  - Network errors (timeout, connection, reset, broken pipe)
+  - Server errors (502, 503, 504)
+  - Non-transient errors fail immediately without wasting retries
+- **Streaming Retry** - Streaming LLM requests now retry on connection failures
+  - Retries the initial connection with exponential backoff
+  - Once streaming starts, mid-stream errors still fail (can't resume stream)
+
+### Changed
+- Circuit breaker now uses config settings instead of hardcoded values
+- LLM retry logic uses exponential backoff from config
+
 ## [0.0.922] - 2026-01-11
 
 ### Added

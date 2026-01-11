@@ -102,6 +102,19 @@ pub struct PerformanceConfig {
     /// Maximum session history turns to keep
     #[serde(default = "default_max_session_history")]
     pub max_session_history: usize,
+    /// v0.0.923: LLM retry settings
+    /// Maximum number of retry attempts for LLM calls
+    #[serde(default = "default_llm_max_retries")]
+    pub llm_max_retries: u32,
+    /// Base delay for exponential backoff in milliseconds
+    #[serde(default = "default_llm_retry_delay_ms")]
+    pub llm_retry_delay_ms: u64,
+    /// LLM circuit breaker threshold (failures before open)
+    #[serde(default = "default_llm_circuit_threshold")]
+    pub llm_circuit_threshold: u32,
+    /// LLM circuit breaker cooldown in seconds
+    #[serde(default = "default_llm_circuit_cooldown")]
+    pub llm_circuit_cooldown_secs: u64,
 }
 
 fn default_max_iterations() -> u32 { 3 }
@@ -116,6 +129,10 @@ fn default_wiki_circuit_threshold() -> u32 { 4 } // v0.0.895: Increased from 2 (
 fn default_wiki_circuit_cooldown() -> u64 { 60 }
 fn default_high_confidence() -> f32 { 0.85 }
 fn default_max_session_history() -> usize { 20 }
+fn default_llm_max_retries() -> u32 { 2 }
+fn default_llm_retry_delay_ms() -> u64 { 500 }
+fn default_llm_circuit_threshold() -> u32 { 3 }
+fn default_llm_circuit_cooldown() -> u64 { 30 }
 
 impl Default for PerformanceConfig {
     fn default() -> Self {
@@ -132,6 +149,10 @@ impl Default for PerformanceConfig {
             wiki_circuit_cooldown_secs: default_wiki_circuit_cooldown(),
             high_confidence_threshold: default_high_confidence(),
             max_session_history: default_max_session_history(),
+            llm_max_retries: default_llm_max_retries(),
+            llm_retry_delay_ms: default_llm_retry_delay_ms(),
+            llm_circuit_threshold: default_llm_circuit_threshold(),
+            llm_circuit_cooldown_secs: default_llm_circuit_cooldown(),
         }
     }
 }

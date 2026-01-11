@@ -1,6 +1,7 @@
 //! Ollama management - install, run, and interact with Ollama.
 //!
 //! Includes hardware detection and automatic model selection.
+//! v0.0.923: Configurable retry logic and improved error handling
 
 mod hardware;
 mod service;
@@ -14,16 +15,15 @@ pub use service::{
 use anyhow::{anyhow, Result};
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::time::Duration;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
+
+use crate::core_loop::cache::get_perf_config;
 
 pub(crate) const OLLAMA_API: &str = "http://127.0.0.1:11434";
 
 /// Circuit breaker state for Ollama
 static CONSECUTIVE_FAILURES: AtomicU32 = AtomicU32::new(0);
 static CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
-
-const CIRCUIT_OPEN_THRESHOLD: u32 = 3;
-const CIRCUIT_COOLDOWN_SECS: u64 = 30;
 
 /// Get current time as seconds since epoch
 fn now_secs() -> u64 {
@@ -33,27 +33,32 @@ fn now_secs() -> u64 {
         .as_secs()
 }
 
-/// Check if circuit breaker is open
+/// v0.0.923: Check if circuit breaker is open (uses config)
 fn is_circuit_open() -> bool {
+    let perf = get_perf_config();
+    let threshold = perf.llm_circuit_threshold;
+    let cooldown = perf.llm_circuit_cooldown_secs;
+
     let failures = CONSECUTIVE_FAILURES.load(Ordering::SeqCst);
-    if failures >= CIRCUIT_OPEN_THRESHOLD {
+    if failures >= threshold {
         let opened_at = CIRCUIT_OPENED_AT.load(Ordering::SeqCst);
         let now = now_secs();
 
-        if now.saturating_sub(opened_at) < CIRCUIT_COOLDOWN_SECS {
+        if now.saturating_sub(opened_at) < cooldown {
             return true;
         }
 
+        // Half-open: allow one test request
         if CONSECUTIVE_FAILURES
             .compare_exchange(
                 failures,
-                CIRCUIT_OPEN_THRESHOLD - 1,
+                threshold - 1,
                 Ordering::SeqCst,
                 Ordering::SeqCst,
             )
             .is_ok()
         {
-            info!("Circuit breaker half-open, allowing test request");
+            info!("LLM circuit breaker half-open, allowing test request");
         }
     }
     false
@@ -61,25 +66,43 @@ fn is_circuit_open() -> bool {
 
 /// Record a successful request
 fn record_success() {
+    let threshold = get_perf_config().llm_circuit_threshold;
     let prev = CONSECUTIVE_FAILURES.swap(0, Ordering::SeqCst);
-    if prev >= CIRCUIT_OPEN_THRESHOLD - 1 {
-        info!("Circuit breaker closed after successful request");
+    if prev >= threshold - 1 {
+        info!("LLM circuit breaker closed after successful request");
     }
 }
 
 /// Record a failed request
 fn record_failure() {
+    let perf = get_perf_config();
     let failures = CONSECUTIVE_FAILURES.fetch_add(1, Ordering::SeqCst) + 1;
-    if failures == CIRCUIT_OPEN_THRESHOLD {
+    if failures == perf.llm_circuit_threshold {
         CIRCUIT_OPENED_AT.store(now_secs(), Ordering::SeqCst);
         error!(
-            "Circuit breaker OPEN - Ollama has {} consecutive failures, cooling down for {}s",
-            failures, CIRCUIT_COOLDOWN_SECS
+            "LLM circuit breaker OPEN - {} consecutive failures, cooling down for {}s",
+            failures, perf.llm_circuit_cooldown_secs
         );
     }
 }
 
+/// v0.0.923: Check if an error is transient and retryable
+fn is_transient_error(error: &anyhow::Error) -> bool {
+    let err_str = error.to_string().to_lowercase();
+    // Network/timeout errors are transient
+    err_str.contains("timeout")
+        || err_str.contains("connection")
+        || err_str.contains("network")
+        || err_str.contains("temporarily")
+        || err_str.contains("503")  // Service unavailable
+        || err_str.contains("502")  // Bad gateway
+        || err_str.contains("504")  // Gateway timeout
+        || err_str.contains("reset")
+        || err_str.contains("broken pipe")
+}
+
 /// Send a chat request to Ollama with timeout and retry
+/// v0.0.923: Uses config settings for retry logic
 pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
     if is_circuit_open() {
         return Err(anyhow!(
@@ -88,13 +111,15 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
         ));
     }
 
-    const MAX_RETRIES: u32 = 2;
+    let perf = get_perf_config();
+    let max_retries = perf.llm_max_retries;
+    let base_delay_ms = perf.llm_retry_delay_ms;
     let mut last_error = None;
 
-    for attempt in 0..=MAX_RETRIES {
+    for attempt in 0..=max_retries {
         if attempt > 0 {
-            let delay_ms = 500 * (1 << (attempt - 1));
-            info!("LLM retry {} after {}ms delay", attempt, delay_ms);
+            let delay_ms = base_delay_ms * (1 << (attempt - 1));
+            debug!("LLM retry {} after {}ms delay", attempt, delay_ms);
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
         }
 
@@ -104,14 +129,24 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
                 return Ok(response);
             }
             Err(e) => {
-                warn!("LLM attempt {} failed: {}", attempt + 1, e);
+                let is_transient = is_transient_error(&e);
+                if attempt < max_retries && is_transient {
+                    debug!("LLM attempt {} failed (transient): {}", attempt + 1, e);
+                } else if attempt < max_retries {
+                    // Non-transient error, skip remaining retries
+                    warn!("LLM request failed (non-transient): {}", e);
+                    record_failure();
+                    return Err(e);
+                } else {
+                    warn!("LLM attempt {} failed: {}", attempt + 1, e);
+                }
                 last_error = Some(e);
             }
         }
     }
 
     record_failure();
-    Err(last_error.unwrap_or_else(|| anyhow!("LLM request failed after retries")))
+    Err(last_error.unwrap_or_else(|| anyhow!("LLM request failed after {} retries", max_retries)))
 }
 
 /// Single LLM request attempt
@@ -160,6 +195,7 @@ where
 }
 
 /// Streaming LLM request with validation (v0.0.889)
+/// v0.0.923: Added retry logic for connection failures
 pub async fn chat_streaming_validated<W>(
     model: &str,
     prompt: &str,
@@ -181,6 +217,10 @@ where
         ));
     }
 
+    let perf = get_perf_config();
+    let max_retries = perf.llm_max_retries;
+    let base_delay_ms = perf.llm_retry_delay_ms;
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
         .build()?;
@@ -191,16 +231,58 @@ where
         "stream": true
     });
 
-    let response = client
-        .post(format!("{}/api/generate", OLLAMA_API))
-        .json(&body)
-        .send()
-        .await?;
+    // v0.0.923: Retry logic for initial connection
+    let mut last_error = None;
+    let mut response_opt = None;
 
-    if !response.status().is_success() {
-        record_failure();
-        return Err(anyhow!("Ollama request failed: {}", response.status()));
+    for attempt in 0..=max_retries {
+        if attempt > 0 {
+            let delay_ms = base_delay_ms * (1 << (attempt - 1));
+            debug!("Streaming LLM retry {} after {}ms delay", attempt, delay_ms);
+            tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+        }
+
+        match client
+            .post(format!("{}/api/generate", OLLAMA_API))
+            .json(&body)
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                response_opt = Some(resp);
+                break;
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let err = anyhow!("Ollama request failed: {}", status);
+                if attempt < max_retries && is_transient_error(&err) {
+                    debug!("Streaming attempt {} failed (transient): {}", attempt + 1, status);
+                    last_error = Some(err);
+                } else {
+                    record_failure();
+                    return Err(err);
+                }
+            }
+            Err(e) => {
+                let err = anyhow::Error::from(e);
+                if attempt < max_retries && is_transient_error(&err) {
+                    debug!("Streaming attempt {} failed (transient): {}", attempt + 1, err);
+                    last_error = Some(err);
+                } else {
+                    record_failure();
+                    return Err(err);
+                }
+            }
+        }
     }
+
+    let response = match response_opt {
+        Some(r) => r,
+        None => {
+            record_failure();
+            return Err(last_error.unwrap_or_else(|| anyhow!("Streaming request failed after retries")));
+        }
+    };
 
     let mut full_response = String::new();
     let mut stream = response.bytes_stream();
