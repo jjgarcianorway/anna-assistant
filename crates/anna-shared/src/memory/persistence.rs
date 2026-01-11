@@ -8,11 +8,13 @@ use crate::config::anna_data_dir;
 
 impl Memory {
     /// Load memory from disk
+    /// v0.0.930: Rebuilds keyword index after loading
     pub fn load() -> Result<Self> {
         let path = memory_path();
         if path.exists() {
             let content = std::fs::read_to_string(&path)?;
-            let memory: Memory = serde_json::from_str(&content)?;
+            let mut memory: Memory = serde_json::from_str(&content)?;
+            memory.rebuild_index(); // v0.0.930: Build index for fast recall
             Ok(memory)
         } else {
             Ok(Memory::default())
@@ -33,11 +35,14 @@ impl Memory {
 
         match std::fs::read_to_string(&path) {
             Ok(content) => match serde_json::from_str::<Memory>(&content) {
-                Ok(memory) => MemoryLoadResult {
-                    memory,
-                    was_recovered: false,
-                    error: None,
-                },
+                Ok(mut memory) => {
+                    memory.rebuild_index(); // v0.0.930: Build index for fast recall
+                    MemoryLoadResult {
+                        memory,
+                        was_recovered: false,
+                        error: None,
+                    }
+                }
                 Err(e) => {
                     let error_msg = format!("Memory corruption detected: {}", e);
                     let backup_path = memory_path().with_extension("json.corrupted");

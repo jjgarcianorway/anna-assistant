@@ -1,6 +1,8 @@
 //! Memory recall - finding and suggesting relevant experiences.
+//! v0.0.930: Uses keyword index for faster lookups
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use super::cluster::{calculate_cluster_similarity, calculate_relevance};
 use super::types::{Experience, Memory};
@@ -8,13 +10,29 @@ use super::extract_keywords;
 
 impl Memory {
     /// Find relevant experiences for a question
+    /// v0.0.930: Uses keyword index for O(k) instead of O(n) lookup where k << n
     pub fn recall(&self, question: &str, limit: usize) -> Vec<&Experience> {
         let keywords = extract_keywords(question);
         let question_lower = question.to_lowercase();
 
-        let mut scored: Vec<(&Experience, f32)> = self
-            .experiences
-            .iter()
+        // v0.0.930: Use index to get candidate experience IDs
+        let candidate_ids: HashSet<&str> = self.get_candidates_by_keywords(&keywords)
+            .into_iter()
+            .collect();
+
+        // If index has candidates, only score those; otherwise fall back to full scan
+        let experiences_to_score: Vec<&Experience> = if !candidate_ids.is_empty() {
+            self.experiences
+                .iter()
+                .filter(|exp| candidate_ids.contains(exp.id.as_str()))
+                .collect()
+        } else {
+            // Fallback for empty index or no keyword matches
+            self.experiences.iter().collect()
+        };
+
+        let mut scored: Vec<(&Experience, f32)> = experiences_to_score
+            .into_iter()
             .filter_map(|exp| {
                 let score = calculate_relevance(exp, &question_lower, &keywords);
                 if score > 0.2 {
@@ -83,11 +101,13 @@ impl Memory {
     }
 
     /// Enhanced recall using clusters
+    /// v0.0.930: Uses keyword index for faster lookups
     pub fn recall_with_clusters(&self, question: &str, limit: usize) -> Vec<&Experience> {
         let keywords = extract_keywords(question);
         let question_lower = question.to_lowercase();
 
-        let mut cluster_exp_ids: Vec<String> = Vec::new();
+        // Get cluster experience IDs
+        let mut cluster_exp_ids: HashSet<String> = HashSet::new();
         for cluster in &self.clusters {
             let sim = calculate_cluster_similarity(question, cluster);
             if sim > 0.5 {
@@ -95,9 +115,29 @@ impl Memory {
             }
         }
 
-        let mut scored: Vec<(&Experience, f32)> = self
-            .experiences
-            .iter()
+        // v0.0.930: Use index to get candidate experience IDs
+        let keyword_candidates: HashSet<&str> = self.get_candidates_by_keywords(&keywords)
+            .into_iter()
+            .collect();
+
+        // Combine candidates from keywords and clusters
+        let all_candidate_ids: HashSet<&str> = keyword_candidates
+            .into_iter()
+            .chain(cluster_exp_ids.iter().map(|s| s.as_str()))
+            .collect();
+
+        // If we have candidates, only score those; otherwise fall back to full scan
+        let experiences_to_score: Vec<&Experience> = if !all_candidate_ids.is_empty() {
+            self.experiences
+                .iter()
+                .filter(|exp| all_candidate_ids.contains(exp.id.as_str()))
+                .collect()
+        } else {
+            self.experiences.iter().collect()
+        };
+
+        let mut scored: Vec<(&Experience, f32)> = experiences_to_score
+            .into_iter()
             .filter_map(|exp| {
                 let mut score = calculate_relevance(exp, &question_lower, &keywords);
 

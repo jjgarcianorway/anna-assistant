@@ -92,6 +92,9 @@ impl Memory {
         self.experiences.push(experience);
         self.stats.total_experiences += 1;
 
+        // v0.0.930: Add to keyword index
+        self.index_experience(&experience_id, &keywords);
+
         if let Some(cluster) = self.clusters.iter_mut().find(|c| c.id == cluster_id) {
             cluster.experience_ids.push(experience_id);
         }
@@ -101,20 +104,37 @@ impl Memory {
     }
 
     /// v0.0.892: Find a near-duplicate experience
+    /// v0.0.930: Uses keyword index for faster lookup
     fn find_similar_experience(&self, canonical: &str, keywords: &[String]) -> Option<String> {
         const SIMILARITY_THRESHOLD: f32 = 0.85;
 
-        for exp in &self.experiences {
-            let exp_canonical = canonicalize_question(&exp.question);
+        // v0.0.930: Use index to get candidates first
+        let candidate_ids = self.get_candidates_by_keywords(keywords);
 
-            if exp_canonical == *canonical {
-                return Some(exp.id.clone());
+        // Check candidates first (most likely matches)
+        for exp_id in &candidate_ids {
+            if let Some(exp) = self.experiences.iter().find(|e| &e.id == exp_id) {
+                let exp_canonical = canonicalize_question(&exp.question);
+
+                if exp_canonical == *canonical {
+                    return Some(exp.id.clone());
+                }
+
+                if !keywords.is_empty() && !exp.keywords.is_empty() {
+                    let matching = keywords.iter().filter(|k| exp.keywords.contains(k)).count();
+                    let overlap = matching as f32 / keywords.len().max(exp.keywords.len()) as f32;
+                    if overlap >= SIMILARITY_THRESHOLD {
+                        return Some(exp.id.clone());
+                    }
+                }
             }
+        }
 
-            if !keywords.is_empty() && !exp.keywords.is_empty() {
-                let matching = keywords.iter().filter(|k| exp.keywords.contains(k)).count();
-                let overlap = matching as f32 / keywords.len().max(exp.keywords.len()) as f32;
-                if overlap >= SIMILARITY_THRESHOLD {
+        // Fallback: check canonical match in remaining experiences
+        for exp in &self.experiences {
+            if !candidate_ids.contains(&exp.id.as_str()) {
+                let exp_canonical = canonicalize_question(&exp.question);
+                if exp_canonical == *canonical {
                     return Some(exp.id.clone());
                 }
             }

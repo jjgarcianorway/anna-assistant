@@ -1,6 +1,8 @@
 //! Memory data types and structures.
+//! v0.0.930: Added keyword index for faster recall
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// The main memory storage structure
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -17,6 +19,54 @@ pub struct Memory {
     /// Question clusters for semantic grouping
     #[serde(default)]
     pub clusters: Vec<QuestionCluster>,
+
+    /// v0.0.930: Keyword index for O(1) candidate lookup
+    /// Maps keyword -> list of experience IDs containing that keyword
+    #[serde(skip)]
+    pub keyword_index: HashMap<String, Vec<String>>,
+}
+
+impl Memory {
+    /// v0.0.930: Rebuild keyword index from experiences
+    pub fn rebuild_index(&mut self) {
+        self.keyword_index.clear();
+        for exp in &self.experiences {
+            for keyword in &exp.keywords {
+                self.keyword_index
+                    .entry(keyword.clone())
+                    .or_default()
+                    .push(exp.id.clone());
+            }
+        }
+    }
+
+    /// v0.0.930: Add experience to keyword index
+    pub fn index_experience(&mut self, exp_id: &str, keywords: &[String]) {
+        for keyword in keywords {
+            self.keyword_index
+                .entry(keyword.clone())
+                .or_default()
+                .push(exp_id.to_string());
+        }
+    }
+
+    /// v0.0.930: Get candidate experience IDs by keywords (fast path)
+    pub fn get_candidates_by_keywords(&self, keywords: &[String]) -> Vec<&str> {
+        let mut candidates: HashMap<&str, usize> = HashMap::new();
+
+        for keyword in keywords {
+            if let Some(exp_ids) = self.keyword_index.get(keyword) {
+                for exp_id in exp_ids {
+                    *candidates.entry(exp_id.as_str()).or_insert(0) += 1;
+                }
+            }
+        }
+
+        // Return candidates sorted by keyword match count (most matches first)
+        let mut sorted: Vec<_> = candidates.into_iter().collect();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+        sorted.into_iter().map(|(id, _)| id).collect()
+    }
 }
 
 /// A learned experience from a past interaction

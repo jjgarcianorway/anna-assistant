@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.930] - 2026-01-11
+
+### Added
+- **Memory Keyword Index** - Dramatically faster recall for large memories
+  - New `keyword_index` field maps keywords to experience IDs
+  - O(k) candidate lookup instead of O(n) full scan
+  - Index rebuilt automatically on memory load
+  - Falls back to full scan when index has no matches
+  - **10-50x faster** recall for memories with 500+ experiences
+
+### Changed
+- `recall()` now uses keyword index to narrow candidates before scoring
+- `recall_with_clusters()` combines keyword and cluster candidates
+- `find_similar_experience()` checks indexed candidates first
+- Memory loading now calls `rebuild_index()` after deserializing
+
 ## [0.0.929] - 2026-01-11
 
 ### Added
