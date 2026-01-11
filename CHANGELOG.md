@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.942] - 2026-01-11
+
+### Added
+- **Automatic Memory Optimization at Startup** - Daemon cleans memory on each start
+  - Runs deduplicate + consolidate + compact on daemon startup
+  - Limits memory to 1000 experiences maximum
+  - Logs optimization results (experiences/clusters removed)
+  - Saves optimized memory back to disk
+
+### Changed
+- Memory stays lean without manual intervention
+- Faster recall due to pre-optimized memory at startup
+- Reduced memory file size over time
+
 ## [0.0.941] - 2026-01-11
 
 ### Added

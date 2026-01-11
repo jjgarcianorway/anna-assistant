@@ -1,9 +1,11 @@
 //! Anna daemon - simplified version.
 //! v0.0.924: Added proactive helper tool installation on startup
 //! v0.0.927: Added LLM warmup on startup for faster first query
+//! v0.0.942: Added memory optimization on startup
 
 use anna_shared::config::{get_ollama_url, AnnaConfig};
 use anna_shared::deps::{missing_diagnostic_tools, install_missing_diagnostic_tools};
+use anna_shared::memory::Memory;
 use anna_shared::VERSION;
 use anna_shared::wiki;
 use anyhow::Result;
@@ -120,6 +122,33 @@ async fn main() -> Result<()> {
             }
         } else {
             debug!("Ollama not running, skipping LLM warmup");
+        }
+    });
+
+    // v0.0.942: Optimize memory on startup (deduplicate and compact)
+    std::thread::spawn(|| {
+        match Memory::load() {
+            Ok(mut memory) => {
+                let initial_exp = memory.experiences.len();
+                let initial_clusters = memory.clusters.len();
+
+                if initial_exp > 0 {
+                    let (exp_removed, clusters_removed) = memory.optimize(1000); // Max 1000 experiences
+                    if exp_removed > 0 || clusters_removed > 0 {
+                        info!(
+                            "Memory optimized: {} experiences ({} removed), {} clusters ({} removed)",
+                            memory.experiences.len(), exp_removed,
+                            memory.clusters.len(), clusters_removed
+                        );
+                        if let Err(e) = memory.save() {
+                            warn!("Failed to save optimized memory: {}", e);
+                        }
+                    } else {
+                        debug!("Memory already optimized: {} experiences, {} clusters", initial_exp, initial_clusters);
+                    }
+                }
+            }
+            Err(e) => debug!("No memory to optimize: {}", e),
         }
     });
 
