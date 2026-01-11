@@ -14,26 +14,38 @@ use crate::ollama;
 
 /// Map commands to their package names (command -> package)
 /// v0.0.919: Used for auto-installation
+/// v0.0.931: Expanded from 40 to 80+ tools
 const COMMAND_TO_PACKAGE: &[(&str, &str)] = &[
     // Calculators and processors
     ("bc", "bc"),
     ("jq", "jq"),
+    ("yq", "yq"),
     // System monitoring
     ("htop", "htop"),
+    ("btop", "btop"),
     ("iotop", "iotop"),
     ("nethogs", "nethogs"),
     ("iftop", "iftop"),
     ("bmon", "bmon"),
     ("nload", "nload"),
+    ("bandwhich", "bandwhich"),
+    ("procs", "procs"),
     // Process/file tools
     ("lsof", "lsof"),
     ("strace", "strace"),
     ("ltrace", "ltrace"),
+    ("fuser", "psmisc"),
+    ("pstree", "psmisc"),
+    ("killall", "psmisc"),
     // Disk tools
     ("smartctl", "smartmontools"),
     ("iostat", "sysstat"),
     ("mpstat", "sysstat"),
     ("sar", "sysstat"),
+    ("dust", "dust"),
+    ("duf", "duf"),
+    ("ncdu", "ncdu"),
+    ("gdu", "gdu"),
     // Network tools
     ("netstat", "net-tools"),
     ("ifconfig", "net-tools"),
@@ -45,25 +57,72 @@ const COMMAND_TO_PACKAGE: &[(&str, &str)] = &[
     ("tcpdump", "tcpdump"),
     ("nmap", "nmap"),
     ("ss", "iproute2"),
+    ("curl", "curl"),
+    ("wget", "wget"),
+    ("httpie", "httpie"),
+    ("socat", "socat"),
+    ("netcat", "gnu-netcat"),
     // Hardware info
     ("lspci", "pciutils"),
     ("lsusb", "usbutils"),
     ("lshw", "lshw"),
     ("dmidecode", "dmidecode"),
     ("sensors", "lm_sensors"),
+    ("inxi", "inxi"),
+    ("hwinfo", "hwinfo"),
     // Archive tools
     ("unzip", "unzip"),
     ("unrar", "unrar"),
     ("7z", "p7zip"),
+    ("tar", "tar"),
+    ("gzip", "gzip"),
+    ("bzip2", "bzip2"),
+    ("xz", "xz"),
+    ("zstd", "zstd"),
+    // Modern CLI tools
+    ("rg", "ripgrep"),
+    ("ripgrep", "ripgrep"),
+    ("fd", "fd"),
+    ("bat", "bat"),
+    ("eza", "eza"),
+    ("exa", "eza"),
+    ("fzf", "fzf"),
+    ("delta", "git-delta"),
+    ("sd", "sd"),
+    ("hyperfine", "hyperfine"),
+    ("tokei", "tokei"),
     // Development
     ("tree", "tree"),
-    ("ncdu", "ncdu"),
-    ("duf", "duf"),
+    ("git", "git"),
+    ("make", "make"),
+    ("cmake", "cmake"),
+    ("clang", "clang"),
+    ("gcc", "gcc"),
+    ("gdb", "gdb"),
+    ("valgrind", "valgrind"),
+    // Text processing
+    ("awk", "gawk"),
+    ("sed", "sed"),
+    ("grep", "grep"),
+    ("ag", "the_silver_searcher"),
     // GPU
     ("nvidia-smi", "nvidia-utils"),
     ("glxinfo", "mesa-utils"),
     ("vainfo", "libva-utils"),
     ("vdpauinfo", "vdpauinfo"),
+    ("vulkaninfo", "vulkan-tools"),
+    // Audio
+    ("pactl", "libpulse"),
+    ("wpctl", "wireplumber"),
+    ("pw-top", "pipewire"),
+    ("alsamixer", "alsa-utils"),
+    // Bluetooth
+    ("bluetoothctl", "bluez-utils"),
+    // Power/battery
+    ("acpi", "acpi"),
+    ("upower", "upower"),
+    ("powertop", "powertop"),
+    ("tlp-stat", "tlp"),
 ];
 
 /// Error categories for intelligent recovery

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.931] - 2026-01-11
+
+### Added
+- **Temporal Decay for Memory** - Older unused experiences score lower
+  - Experiences used within 7 days: no decay (1.0x)
+  - 7-30 days old: slight decay (0.9x)
+  - 30-90 days old: moderate decay (0.75x)
+  - >90 days old: significant decay (0.5x)
+  - Uses `last_used` timestamp if available, else `created_at`
+  - Ensures fresh patterns are preferred over stale ones
+- **Expanded Auto-Install Tools** - From 40 to 95+ supported tools
+  - Modern CLI: ripgrep, fd, bat, eza, fzf, delta, dust, procs
+  - Development: git, make, cmake, clang, gcc, gdb, valgrind
+  - Audio: pactl, wpctl, pw-top, alsamixer
+  - Power: acpi, upower, powertop, tlp-stat
+  - Archives: tar, gzip, bzip2, xz, zstd
+  - And many more common utilities
+
+### Changed
+- `calculate_relevance()` now applies temporal decay factor
+- Tool list now covers more modern Rust-based CLI tools
+
 ## [0.0.930] - 2026-01-11
 
 ### Added

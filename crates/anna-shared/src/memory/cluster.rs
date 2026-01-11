@@ -142,6 +142,7 @@ pub fn calculate_cluster_similarity(question: &str, cluster: &QuestionCluster) -
 }
 
 /// Calculate relevance score between experience and question
+/// v0.0.931: Added temporal decay - older unused experiences score lower
 pub fn calculate_relevance(experience: &Experience, question: &str, keywords: &[String]) -> f32 {
     let mut score = 0.0;
 
@@ -163,5 +164,45 @@ pub fn calculate_relevance(experience: &Experience, question: &str, keywords: &[
     // Boost by usefulness
     score += (experience.usefulness_score as f32).min(10.0) / 100.0;
 
+    // v0.0.931: Apply temporal decay based on last_used or created_at
+    let decay_factor = calculate_temporal_decay(experience);
+    score *= decay_factor;
+
     score
+}
+
+/// v0.0.931: Calculate temporal decay factor (0.5 to 1.0)
+/// - Experiences used within 7 days: no decay (1.0)
+/// - Experiences 7-30 days old: slight decay (0.9)
+/// - Experiences 30-90 days old: moderate decay (0.75)
+/// - Experiences >90 days old: significant decay (0.5)
+fn calculate_temporal_decay(experience: &Experience) -> f32 {
+    use chrono::{DateTime, Utc};
+
+    // Use last_used if available, otherwise created_at
+    let reference_time = experience
+        .last_used
+        .as_ref()
+        .unwrap_or(&experience.created_at);
+
+    let parsed = DateTime::parse_from_rfc3339(reference_time)
+        .ok()
+        .map(|dt| dt.with_timezone(&Utc));
+
+    let Some(timestamp) = parsed else {
+        return 1.0; // If can't parse, no decay
+    };
+
+    let now = Utc::now();
+    let age_days = (now - timestamp).num_days();
+
+    if age_days < 7 {
+        1.0 // Recent - no decay
+    } else if age_days < 30 {
+        0.9 // Week to month - slight decay
+    } else if age_days < 90 {
+        0.75 // 1-3 months - moderate decay
+    } else {
+        0.5 // Older than 3 months - significant decay
+    }
 }
