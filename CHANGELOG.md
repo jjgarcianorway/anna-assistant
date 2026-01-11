@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.938] - 2026-01-11
+
+### Added
+- **Command Output Truncation** - Reduces LLM context usage for long outputs
+  - Limits output to 100 lines / 8000 characters
+  - Preserves first ~60% and last ~40% of output
+  - Inserts clear truncation marker with line/char count
+  - Prevents LLM context overflow on commands like `pacman -Q` or `journalctl`
+
+### Changed
+- `execute_command()` now automatically truncates very long outputs
+- Long command outputs no longer consume excessive LLM context
+- Faster LLM responses when commands produce verbose output
+
 ## [0.0.937] - 2026-01-11
 
 ### Added
