@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.988] - 2026-01-11
+
+### Added
+- **Xorg Patterns** - ~60 patterns for X server and display configuration
+  - Xrandr: info, monitors, resolution, refresh rate, modes, providers, DPI
+  - X server: version, xdpyinfo, session, logs, errors, extensions, GLX
+  - Input: xinput, mouse, touchpad, keyboard, libinput, pointer devices
+  - Config: xorg.conf, Xresources, Xdefaults, Xmodmap, xinitrc, xauth
+  - Tools: xev, xprop, xwininfo, xkill, xclip, xset, DPMS, font path
+
+### Changed
+- 42 pattern categories now available (was 41)
+- Total instant-answer patterns: ~1690+
+
 ## [0.0.987] - 2026-01-11
 
 ### Added

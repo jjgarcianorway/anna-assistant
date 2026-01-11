@@ -42,6 +42,7 @@
 //! v0.0.985: Added ZFS patterns for zpool, zfs, snapshots.
 //! v0.0.986: Added SMART disk health patterns for smartctl, nvme.
 //! v0.0.987: Added SELinux/AppArmor patterns for security modules.
+//! v0.0.988: Added Xorg patterns for X server, xrandr, input devices.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -85,6 +86,7 @@ mod kernel;
 mod zfs;
 mod smart;
 mod selinux;
+mod xorg;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -727,6 +729,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = selinux::match_patterns(q) {
         record_pattern_hit("selinux");
+        return Some(r);
+    }
+    if let Some(r) = xorg::match_patterns(q) {
+        record_pattern_hit("xorg");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1811,5 +1817,31 @@ mod tests {
         assert!(match_common_pattern("which security module").is_some());
         assert!(match_common_pattern("lsm").is_some());
         assert!(match_common_pattern("audit log").is_some());
+    }
+
+    #[test]
+    fn test_xrandr() {
+        assert!(match_common_pattern("xrandr").is_some());
+        assert!(match_common_pattern("xrandr monitors").is_some());
+        assert!(match_common_pattern("screen resolution").is_some());
+    }
+
+    #[test]
+    fn test_xorg_server() {
+        assert!(match_common_pattern("xorg version").is_some());
+        assert!(match_common_pattern("xdpyinfo").is_some());
+        assert!(match_common_pattern("xorg log").is_some());
+    }
+
+    #[test]
+    fn test_xorg_input() {
+        assert!(match_common_pattern("xinput").is_some());
+        assert!(match_common_pattern("xinput list").is_some());
+    }
+
+    #[test]
+    fn test_xorg_config() {
+        assert!(match_common_pattern("xorg config").is_some());
+        assert!(match_common_pattern("xresources").is_some());
     }
 }
