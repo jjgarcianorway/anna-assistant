@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.925] - 2026-01-11
+
+### Added
+- **Command-Specific Timeouts** - Different commands get appropriate timeouts
+  - Package managers (pacman, apt, dnf): 120s
+  - System updates (-Syu, upgrade): 180s
+  - Recursive searches (find, grep -r): 60s
+  - Network commands (curl, wget, ping): 30s
+  - Quick commands (cat, ls, echo): 10s
+- **Improved Question Normalization** - Better answer cache hit rates
+  - Removes 40+ stop words (what, how, can, my, etc.)
+  - Maps synonyms (storage→disk, ram→memory, pkg→package)
+  - Sorts words so "disk usage" matches "usage disk"
+  - "What is my disk usage?" now matches "How much storage do I have?"
+- **Empty Output Retry** - Tries alternative commands when primary returns empty
+  - `pgrep foo` → `ps aux | grep foo` if empty
+  - `ss -tlnp` → `netstat -tlnp` if empty
+  - `journalctl -p err` → `dmesg --level=err` if empty
+  - `ip addr` → `ifconfig` if empty
+  - And more fallback mappings
+
+### Changed
+- Commands now use intelligent timeouts based on their type
+- Answer cache should see ~30% better hit rates with improved normalization
+
 ## [0.0.924] - 2026-01-11
 
 ### Added

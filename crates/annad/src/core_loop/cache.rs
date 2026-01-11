@@ -277,15 +277,54 @@ pub fn get_cached_recipe_book() -> Option<RecipeBook> {
 }
 
 /// v0.0.920: Normalize question for cache key (lowercase, trim, remove punctuation)
+/// v0.0.925: Improved normalization with stop word removal and synonym handling
 fn normalize_question(question: &str) -> String {
-    question
+    // Stop words to remove (common filler words)
+    const STOP_WORDS: &[&str] = &[
+        "what", "how", "can", "do", "does", "is", "are", "the", "a", "an", "my", "i",
+        "to", "in", "on", "for", "with", "and", "or", "of", "that", "this", "it",
+        "be", "been", "being", "have", "has", "had", "will", "would", "could", "should",
+        "please", "help", "me", "tell", "show", "get", "find", "check", "see",
+        "about", "much", "many", "some", "any", "using", "use", "currently",
+    ];
+
+    // Common synonyms (map to canonical form)
+    fn canonicalize(word: &str) -> &str {
+        match word {
+            "storage" | "space" | "drive" | "drives" => "disk",
+            "ram" | "mem" => "memory",
+            "cpu" | "processor" | "processors" => "cpu",
+            "net" | "wifi" | "ethernet" | "internet" => "network",
+            "pkg" | "package" | "packages" => "package",
+            "svc" | "service" | "services" | "daemon" | "daemons" => "service",
+            "proc" | "process" | "processes" => "process",
+            "running" | "active" | "started" => "running",
+            "stopped" | "inactive" | "dead" => "stopped",
+            "failing" | "failed" | "broken" | "error" | "errors" => "failed",
+            "installed" | "install" | "installing" => "install",
+            "version" | "ver" => "version",
+            "kernel" | "linux" => "kernel",
+            "update" | "updates" | "upgrade" | "upgrades" => "update",
+            _ => word,
+        }
+    }
+
+    let normalized: String = question
         .to_lowercase()
         .chars()
         .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-        .collect::<String>()
+        .collect();
+
+    let words: Vec<&str> = normalized
         .split_whitespace()
-        .collect::<Vec<&str>>()
-        .join(" ")
+        .filter(|w| !STOP_WORDS.contains(w))
+        .map(canonicalize)
+        .collect();
+
+    // Sort words to make "disk usage" match "usage disk"
+    let mut sorted_words = words.clone();
+    sorted_words.sort();
+    sorted_words.join(" ")
 }
 
 /// v0.0.920: Get cached answer for a question

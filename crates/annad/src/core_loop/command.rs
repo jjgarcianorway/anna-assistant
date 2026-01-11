@@ -82,6 +82,58 @@ pub enum CommandErrorType {
 /// Execute a shell command and return its output
 /// v0.0.919: Added configurable timeout support
 /// v0.0.921: Added negative learning (skip known-failed commands)
+/// v0.0.925: Get command-specific timeout based on command type
+fn get_command_timeout(cmd: &str) -> u64 {
+    let base_timeout = get_perf_config().command_timeout_secs;
+    let cmd_lower = cmd.to_lowercase();
+
+    // Package managers need more time (downloads, installs)
+    if cmd_lower.starts_with("pacman ")
+        || cmd_lower.starts_with("yay ")
+        || cmd_lower.starts_with("paru ")
+        || cmd_lower.starts_with("apt ")
+        || cmd_lower.starts_with("dnf ")
+        || cmd_lower.starts_with("zypper ")
+    {
+        return 120.max(base_timeout);
+    }
+
+    // Recursive searches can take a while
+    if cmd_lower.contains("find ") && (cmd_lower.contains(" /") || cmd_lower.contains(" ~"))
+        || cmd_lower.contains("grep -r")
+        || cmd_lower.contains("rg ")
+    {
+        return 60.max(base_timeout);
+    }
+
+    // System updates need even more time
+    if cmd_lower.contains("-syu") || cmd_lower.contains("upgrade") || cmd_lower.contains("update") {
+        return 180.max(base_timeout);
+    }
+
+    // Network commands with potential delays
+    if cmd_lower.starts_with("ping ")
+        || cmd_lower.starts_with("curl ")
+        || cmd_lower.starts_with("wget ")
+        || cmd_lower.starts_with("ssh ")
+    {
+        return 30.max(base_timeout);
+    }
+
+    // Quick read-only commands can use shorter timeout
+    if cmd_lower.starts_with("cat ")
+        || cmd_lower.starts_with("head ")
+        || cmd_lower.starts_with("tail ")
+        || cmd_lower.starts_with("echo ")
+        || cmd_lower.starts_with("ls ")
+        || cmd_lower.starts_with("stat ")
+    {
+        return 10.min(base_timeout);
+    }
+
+    base_timeout
+}
+
 pub fn execute_command(cmd: &str) -> Result<String> {
     // Check cache first
     if let Some(cached) = get_cached_command(cmd) {
@@ -94,8 +146,8 @@ pub fn execute_command(cmd: &str) -> Result<String> {
         return Ok(format!("[SKIPPED] Known failed command: {}", error_type));
     }
 
-    // Get timeout from config (default 30 seconds)
-    let timeout_secs = get_perf_config().command_timeout_secs;
+    // v0.0.925: Get command-specific timeout
+    let timeout_secs = get_command_timeout(cmd);
 
     // Use timeout wrapper to prevent hanging commands
     let output = Command::new("timeout")
@@ -119,9 +171,72 @@ pub fn execute_command(cmd: &str) -> Result<String> {
         stdout
     };
 
+    // v0.0.925: If empty output and no error, try alternative command
+    if result.trim().is_empty() && output.status.success() {
+        if let Some(alt_cmd) = get_alternative_command(cmd) {
+            debug!("Empty output from '{}', trying alternative: {}", cmd, alt_cmd);
+            let alt_output = Command::new("timeout")
+                .arg(format!("{}s", timeout_secs))
+                .arg("sh")
+                .arg("-c")
+                .arg(&alt_cmd)
+                .output();
+
+            if let Ok(alt_out) = alt_output {
+                let alt_stdout = String::from_utf8_lossy(&alt_out.stdout).to_string();
+                if !alt_stdout.trim().is_empty() {
+                    let cleaned = strip_ansi_codes(&alt_stdout);
+                    cache_command(cmd, &cleaned);
+                    return Ok(cleaned);
+                }
+            }
+        }
+    }
+
     let cleaned = strip_ansi_codes(&result);
     cache_command(cmd, &cleaned);
     Ok(cleaned)
+}
+
+/// v0.0.925: Get alternative command when primary returns empty output
+fn get_alternative_command(cmd: &str) -> Option<String> {
+    let cmd_lower = cmd.to_lowercase();
+
+    // systemctl alternatives
+    if cmd_lower.contains("systemctl list-units") && cmd_lower.contains("--failed") {
+        return Some("systemctl --failed 2>/dev/null || journalctl -p err -n 5".to_string());
+    }
+
+    // Process listing alternatives
+    if cmd_lower.starts_with("pgrep ") {
+        let pattern = cmd_lower.strip_prefix("pgrep ").unwrap_or("");
+        return Some(format!("ps aux | grep -i '{}' | grep -v grep", pattern.trim()));
+    }
+
+    // Network alternatives
+    if cmd_lower.starts_with("ss ") {
+        return Some(cmd.replace("ss ", "netstat "));
+    }
+    if cmd_lower.starts_with("ip addr") {
+        return Some("ifconfig 2>/dev/null || hostname -I".to_string());
+    }
+
+    // Disk alternatives
+    if cmd_lower.starts_with("lsblk") && cmd_lower.contains("-f") {
+        return Some("blkid 2>/dev/null || df -Th".to_string());
+    }
+
+    // Memory alternatives
+    if cmd_lower.starts_with("free ") {
+        return Some("cat /proc/meminfo | head -10".to_string());
+    }
+
+    // Log alternatives
+    if cmd_lower.starts_with("journalctl") && cmd_lower.contains("-p err") {
+        return Some("dmesg --level=err,warn 2>/dev/null | tail -20".to_string());
+    }
+
+    None
 }
 
 /// Strip ANSI escape codes from text
