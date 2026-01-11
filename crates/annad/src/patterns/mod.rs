@@ -111,10 +111,12 @@ pub fn get_total_pattern_hits() -> u64 {
 
 /// v0.0.952: Synonym pairs for query expansion
 /// Each pair: (word, synonym) - if word is in query, also check with synonym
+/// v0.0.973: Expanded synonym mappings for better query coverage
 const SYNONYMS: &[(&str, &str)] = &[
     // Memory
     ("memory", "ram"),
     ("ram", "memory"),
+    ("mem", "memory"),
     // Storage
     ("disk", "storage"),
     ("storage", "disk"),
@@ -122,45 +124,131 @@ const SYNONYMS: &[(&str, &str)] = &[
     ("ssd", "disk"),
     ("hdd", "disk"),
     ("nvme", "disk"),
+    ("hard drive", "disk"),
+    ("filesystem", "disk"),
     // Network
     ("internet", "network"),
     ("network", "internet"),
     ("wifi", "wireless"),
     ("wireless", "wifi"),
     ("ethernet", "wired"),
+    ("lan", "network"),
+    ("wan", "network"),
+    ("connection", "network"),
+    ("connectivity", "connection"),
     // CPU
     ("processor", "cpu"),
     ("cpu", "processor"),
+    ("cores", "cpu"),
     // GPU
     ("graphics", "gpu"),
     ("gpu", "graphics"),
     ("video card", "gpu"),
+    ("nvidia", "gpu"),
+    ("amd", "gpu"),
+    ("intel", "gpu"),
     // Temperature
     ("temperature", "temp"),
     ("temp", "temperature"),
     ("hot", "temperature"),
     ("overheating", "temperature"),
+    ("thermal", "temperature"),
+    ("heat", "temperature"),
     // Power
     ("power", "battery"),
     ("charging", "battery"),
+    ("suspend", "sleep"),
+    ("sleep", "suspend"),
+    ("hibernate", "suspend"),
     // Package management
     ("package", "packages"),
     ("packages", "package"),
     ("software", "package"),
+    ("app", "package"),
+    ("application", "package"),
+    ("program", "package"),
     // Service
     ("daemon", "service"),
     ("service", "daemon"),
+    ("unit", "service"),
     // User
     ("account", "user"),
     ("user", "account"),
+    ("login", "user"),
     // Files
     ("folder", "directory"),
     ("directory", "folder"),
     ("file", "files"),
     ("files", "file"),
+    ("path", "directory"),
     // Boot
     ("bootloader", "grub"),
     ("startup", "boot"),
+    ("reboot", "boot"),
+    // Audio
+    ("audio", "sound"),
+    ("sound", "audio"),
+    ("speaker", "audio"),
+    ("speakers", "audio"),
+    ("volume", "audio"),
+    ("headphone", "audio"),
+    ("headphones", "audio"),
+    ("microphone", "audio"),
+    ("mic", "microphone"),
+    // Display
+    ("screen", "display"),
+    ("display", "screen"),
+    ("monitor", "display"),
+    ("monitors", "display"),
+    ("resolution", "display"),
+    // Printing
+    ("printer", "print"),
+    ("print", "printer"),
+    ("printing", "print"),
+    ("cups", "printer"),
+    // Time/Date
+    ("clock", "time"),
+    ("time", "clock"),
+    ("date", "time"),
+    ("timezone", "time"),
+    // Processes
+    ("process", "processes"),
+    ("processes", "process"),
+    ("task", "process"),
+    ("tasks", "process"),
+    ("running", "process"),
+    ("pid", "process"),
+    // Configuration
+    ("config", "configuration"),
+    ("configuration", "config"),
+    ("settings", "config"),
+    ("options", "config"),
+    ("preferences", "settings"),
+    // Logs
+    ("log", "logs"),
+    ("logs", "log"),
+    ("journal", "logs"),
+    ("journalctl", "logs"),
+    ("dmesg", "logs"),
+    // SSH
+    ("ssh", "remote"),
+    ("remote", "ssh"),
+    // Backup
+    ("backup", "backups"),
+    ("backups", "backup"),
+    ("restore", "backup"),
+    // Security
+    ("firewall", "security"),
+    ("password", "security"),
+    ("permissions", "security"),
+    // Cron/Schedule
+    ("cron", "schedule"),
+    ("schedule", "cron"),
+    ("scheduled", "cron"),
+    ("crontab", "cron"),
+    // Swap
+    ("swap", "swapfile"),
+    ("swapfile", "swap"),
     // Common verbs
     ("show", "list"),
     ("display", "show"),
@@ -170,6 +258,23 @@ const SYNONYMS: &[(&str, &str)] = &[
     ("find", "search"),
     ("search", "find"),
     ("look for", "find"),
+    ("start", "enable"),
+    ("stop", "disable"),
+    ("restart", "reload"),
+    ("install", "add"),
+    ("remove", "uninstall"),
+    ("delete", "remove"),
+    ("update", "upgrade"),
+    ("upgrade", "update"),
+    // Common adjectives
+    ("current", "active"),
+    ("active", "running"),
+    ("failed", "error"),
+    ("broken", "failed"),
+    ("slow", "performance"),
+    ("fast", "performance"),
+    ("high", "usage"),
+    ("low", "usage"),
 ];
 
 /// v0.0.952: Expand query with synonyms for better pattern matching
@@ -218,17 +323,19 @@ fn normalize_query(q: &str) -> String {
 
 /// v0.0.956: Common misspellings of Linux/tech terms
 /// Format: (misspelling, correct_spelling)
+/// v0.0.973: Expanded typo corrections
 const TYPO_CORRECTIONS: &[(&str, &str)] = &[
     // Package managers
     ("pacaman", "pacman"), ("pacmn", "pacman"), ("packman", "pacman"),
     ("pamcan", "pacman"), ("pacmam", "pacman"),
     ("systemclt", "systemctl"), ("sytemctl", "systemctl"), ("systemcl", "systemctl"),
-    ("systmctl", "systemctl"), ("systemd", "systemctl"),
+    ("systmctl", "systemctl"),
     ("journalclt", "journalctl"), ("journctl", "journalctl"), ("jounalctl", "journalctl"),
     // Common terms
     ("kernal", "kernel"), ("kerne", "kernel"), ("kernle", "kernel"),
-    ("wifi", "wifi"), ("wif", "wifi"), ("wfii", "wifi"), ("wiif", "wifi"),
+    ("wif", "wifi"), ("wfii", "wifi"), ("wiif", "wifi"),
     ("bluetoth", "bluetooth"), ("bluethooth", "bluetooth"), ("blutooth", "bluetooth"),
+    ("bluetooh", "bluetooth"), ("bluettoth", "bluetooth"),
     ("netwrok", "network"), ("newtork", "network"), ("netowrk", "network"),
     ("memroy", "memory"), ("memeory", "memory"), ("memor", "memory"),
     ("stoarge", "storage"), ("stroage", "storage"), ("sotrage", "storage"),
@@ -236,16 +343,17 @@ const TYPO_CORRECTIONS: &[(&str, &str)] = &[
     ("permisions", "permissions"), ("permsisions", "permissions"), ("permssions", "permissions"),
     ("temperture", "temperature"), ("temprature", "temperature"), ("tempurature", "temperature"),
     // Commands
-    ("grub", "grub"), ("grb", "grub"), ("grbu", "grub"),
-    ("docker", "docker"), ("dokcer", "docker"), ("docekr", "docker"),
+    ("grb", "grub"), ("grbu", "grub"),
+    ("dokcer", "docker"), ("docekr", "docker"), ("dcoker", "docker"),
     ("firwall", "firewall"), ("firewll", "firewall"), ("firewal", "firewall"),
+    ("crontba", "crontab"), ("corntab", "crontab"), ("crontb", "crontab"),
     // Hardware
     ("grahpics", "graphics"), ("grpahics", "graphics"), ("graphcis", "graphics"),
     ("processer", "processor"), ("procesor", "processor"), ("proccessor", "processor"),
     ("baterry", "battery"), ("battrey", "battery"), ("batery", "battery"),
     // Services
     ("servcie", "service"), ("serivce", "service"), ("sevice", "service"),
-    ("daemon", "daemon"), ("deamon", "daemon"), ("dameon", "daemon"),
+    ("deamon", "daemon"), ("dameon", "daemon"),
     // Actions
     ("instal", "install"), ("intall", "install"), ("isntall", "install"),
     ("uninstal", "uninstall"), ("unintall", "uninstall"),
@@ -257,6 +365,32 @@ const TYPO_CORRECTIONS: &[(&str, &str)] = &[
     ("partiton", "partition"), ("parttion", "partition"), ("parition", "partition"),
     ("formating", "formatting"), ("fomratting", "formatting"),
     ("mountig", "mounting"), ("moutning", "mounting"),
+    // Audio
+    ("pipewrie", "pipewire"), ("pipewie", "pipewire"), ("pipwire", "pipewire"),
+    ("pulsaudio", "pulseaudio"), ("pusleaudio", "pulseaudio"), ("pulseadio", "pulseaudio"),
+    ("headpohnes", "headphones"), ("headhpones", "headphones"), ("headphons", "headphones"),
+    ("spekaers", "speakers"), ("spaekers", "speakers"), ("spekers", "speakers"),
+    // Printing
+    ("pritner", "printer"), ("printr", "printer"), ("prniter", "printer"),
+    // SSH
+    ("shh", "ssh"), ("shs", "ssh"),
+    // Time
+    ("timezoen", "timezone"), ("timezon", "timezone"), ("tiemzone", "timezone"),
+    // Users
+    ("passwrod", "password"), ("pasword", "password"), ("passowrd", "password"),
+    ("usernmae", "username"), ("usernam", "username"), ("usrname", "username"),
+    // Backup
+    ("rsynce", "rsync"), ("rsynv", "rsync"),
+    ("bakup", "backup"), ("bakcup", "backup"), ("backpu", "backup"),
+    // Locale
+    ("keyboad", "keyboard"), ("keybord", "keyboard"), ("keybaord", "keyboard"),
+    ("langauge", "language"), ("languge", "language"), ("langage", "language"),
+    // Swap
+    ("swpa", "swap"), ("sawp", "swap"),
+    ("swappines", "swappiness"), ("swapiness", "swappiness"),
+    // Process
+    ("proceses", "processes"), ("porcess", "process"), ("proccess", "process"),
+    ("zombi", "zombie"), ("zombies", "zombie"), ("zombei", "zombie"),
 ];
 
 /// v0.0.956: Apply typo corrections to query
@@ -872,6 +1006,19 @@ mod tests {
         assert!(match_common_pattern("graphics temp").is_some());
         // "wireless" should match patterns with "wifi"
         assert!(match_common_pattern("wireless status").is_some());
+    }
+
+    #[test]
+    fn test_expanded_synonyms() {
+        // Audio synonyms
+        assert!(match_common_pattern("sound status").is_some() ||
+                match_common_pattern("audio status").is_some());
+        // Display synonyms
+        assert!(match_common_pattern("screen resolution").is_some() ||
+                match_common_pattern("display resolution").is_some());
+        // Process synonyms
+        assert!(match_common_pattern("task manager").is_some() ||
+                match_common_pattern("running processes").is_some());
     }
 
     #[test]

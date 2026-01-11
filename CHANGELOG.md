@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.973] - 2026-01-11
+
+### Improved
+- **Expanded Synonym Mappings** - 2.5x more synonyms for better query matching
+  - Audio: sound, speaker, volume, headphones, microphone
+  - Display: screen, monitor, resolution
+  - Process: task, running, pid
+  - Config: settings, options, preferences
+  - Logs: journal, journalctl, dmesg
+  - And 60+ more synonym pairs for common variations
+- **Expanded Typo Corrections** - 30+ new typo fixes
+  - Audio: pipewire, pulseaudio, headphones, speakers
+  - SSH, printing, time, users, backup, locale, swap, process terms
+
+### Changed
+- Synonyms: 50 → 130+ pairs (160% increase)
+- Typo corrections: 50 → 80+ entries (60% increase)
+
 ## [0.0.972] - 2026-01-11
 
 ### Added
