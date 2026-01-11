@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.956] - 2026-01-11
+
+### Added
+- **Fuzzy Matching for Typo Tolerance** - Users can make spelling mistakes and still get instant pattern matches
+  - 50+ common typo corrections (pacaman→pacman, kernal→kernel, memroy→memory, etc.)
+  - Levenshtein edit distance algorithm for unknown typos (max 2 edits)
+  - 40 fuzzy target terms for edit-distance matching
+  - Combined with existing synonym expansion and normalization
+
+### Changed
+- Pattern matching now tries 6 variations: direct → synonyms → normalized → normalized+synonyms → typo-fixed → fuzzy
+- "kernal version" now matches kernel patterns
+- "packman database locked" now matches pacman patterns
+- "baterry status" now matches battery patterns
+- More forgiving pattern matching for natural queries
+
 ## [0.0.955] - 2026-01-11
 
 ### Added

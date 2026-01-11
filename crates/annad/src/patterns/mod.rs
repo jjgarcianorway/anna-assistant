@@ -11,6 +11,7 @@
 //! v0.0.949: Added hardware patterns for sensors, battery, CPU.
 //! v0.0.950: Added gaming patterns for Steam, Wine, Proton, controllers.
 //! v0.0.951: Added boot patterns for GRUB, EFI, kernel, initramfs.
+//! v0.0.956: Added fuzzy matching for typo tolerance.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -183,6 +184,135 @@ fn normalize_query(q: &str) -> String {
     result.trim().to_string()
 }
 
+/// v0.0.956: Common misspellings of Linux/tech terms
+/// Format: (misspelling, correct_spelling)
+const TYPO_CORRECTIONS: &[(&str, &str)] = &[
+    // Package managers
+    ("pacaman", "pacman"), ("pacmn", "pacman"), ("packman", "pacman"),
+    ("pamcan", "pacman"), ("pacmam", "pacman"),
+    ("systemclt", "systemctl"), ("sytemctl", "systemctl"), ("systemcl", "systemctl"),
+    ("systmctl", "systemctl"), ("systemd", "systemctl"),
+    ("journalclt", "journalctl"), ("journctl", "journalctl"), ("jounalctl", "journalctl"),
+    // Common terms
+    ("kernal", "kernel"), ("kerne", "kernel"), ("kernle", "kernel"),
+    ("wifi", "wifi"), ("wif", "wifi"), ("wfii", "wifi"), ("wiif", "wifi"),
+    ("bluetoth", "bluetooth"), ("bluethooth", "bluetooth"), ("blutooth", "bluetooth"),
+    ("netwrok", "network"), ("newtork", "network"), ("netowrk", "network"),
+    ("memroy", "memory"), ("memeory", "memory"), ("memor", "memory"),
+    ("stoarge", "storage"), ("stroage", "storage"), ("sotrage", "storage"),
+    ("direcotry", "directory"), ("dirctory", "directory"), ("directroy", "directory"),
+    ("permisions", "permissions"), ("permsisions", "permissions"), ("permssions", "permissions"),
+    ("temperture", "temperature"), ("temprature", "temperature"), ("tempurature", "temperature"),
+    // Commands
+    ("grub", "grub"), ("grb", "grub"), ("grbu", "grub"),
+    ("docker", "docker"), ("dokcer", "docker"), ("docekr", "docker"),
+    ("firwall", "firewall"), ("firewll", "firewall"), ("firewal", "firewall"),
+    // Hardware
+    ("grahpics", "graphics"), ("grpahics", "graphics"), ("graphcis", "graphics"),
+    ("processer", "processor"), ("procesor", "processor"), ("proccessor", "processor"),
+    ("baterry", "battery"), ("battrey", "battery"), ("batery", "battery"),
+    // Services
+    ("servcie", "service"), ("serivce", "service"), ("sevice", "service"),
+    ("daemon", "daemon"), ("deamon", "daemon"), ("dameon", "daemon"),
+    // Actions
+    ("instal", "install"), ("intall", "install"), ("isntall", "install"),
+    ("uninstal", "uninstall"), ("unintall", "uninstall"),
+    ("updte", "update"), ("udpate", "update"), ("upate", "update"),
+    ("upgarde", "upgrade"), ("upgrad", "upgrade"), ("upgade", "upgrade"),
+    ("rebbot", "reboot"), ("reobot", "reboot"), ("reeboot", "reboot"),
+    ("shutdwon", "shutdown"), ("shudown", "shutdown"), ("shutodwn", "shutdown"),
+    // File system
+    ("partiton", "partition"), ("parttion", "partition"), ("parition", "partition"),
+    ("formating", "formatting"), ("fomratting", "formatting"),
+    ("mountig", "mounting"), ("moutning", "mounting"),
+];
+
+/// v0.0.956: Apply typo corrections to query
+fn fix_typos(q: &str) -> String {
+    let mut result = q.to_string();
+    for (typo, correction) in TYPO_CORRECTIONS {
+        if result.contains(typo) {
+            result = result.replace(typo, correction);
+        }
+    }
+    result
+}
+
+/// v0.0.956: Calculate simple edit distance (Levenshtein) for short strings
+/// Returns the minimum number of single-character edits needed
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let len_a = a_chars.len();
+    let len_b = b_chars.len();
+
+    // Quick exit for empty strings
+    if len_a == 0 { return len_b; }
+    if len_b == 0 { return len_a; }
+
+    // Don't compute for long strings (performance)
+    if len_a > 15 || len_b > 15 { return usize::MAX; }
+
+    let mut matrix = vec![vec![0usize; len_b + 1]; len_a + 1];
+
+    for i in 0..=len_a { matrix[i][0] = i; }
+    for j in 0..=len_b { matrix[0][j] = j; }
+
+    for i in 1..=len_a {
+        for j in 1..=len_b {
+            let cost = if a_chars[i-1] == b_chars[j-1] { 0 } else { 1 };
+            matrix[i][j] = (matrix[i-1][j] + 1)
+                .min(matrix[i][j-1] + 1)
+                .min(matrix[i-1][j-1] + cost);
+        }
+    }
+
+    matrix[len_a][len_b]
+}
+
+/// v0.0.956: Key terms that patterns commonly check for
+/// If user types something close to these, we can fuzzy-match
+const FUZZY_TARGETS: &[&str] = &[
+    "disk", "memory", "cpu", "gpu", "ram", "storage", "network", "wifi",
+    "bluetooth", "battery", "temperature", "kernel", "services", "processes",
+    "packages", "installed", "running", "failed", "errors", "logs", "boot",
+    "grub", "partition", "mount", "firewall", "ports", "ssh", "docker",
+    "steam", "wine", "proton", "vulkan", "opengl", "audio", "sound",
+    "display", "monitor", "resolution", "wayland", "gnome", "kde", "plasma",
+];
+
+/// v0.0.956: Try to fuzzy-match query words to known terms
+fn fuzzy_correct_query(q: &str) -> Option<String> {
+    let words: Vec<&str> = q.split_whitespace().collect();
+    let mut corrected = false;
+    let mut result_words = Vec::new();
+
+    for word in words {
+        let mut best_match = word.to_string();
+        let mut best_distance = 3; // Track best match (allow up to 2 edits)
+
+        // Only try to correct words that are 4+ characters
+        if word.len() >= 4 {
+            for target in FUZZY_TARGETS {
+                let dist = edit_distance(word, target);
+                if dist > 0 && dist <= 2 && dist < best_distance {
+                    // Allow at most 2 edits, prefer closer matches
+                    best_match = target.to_string();
+                    best_distance = dist;
+                    corrected = true;
+                }
+            }
+        }
+        result_words.push(best_match);
+    }
+
+    if corrected {
+        Some(result_words.join(" "))
+    } else {
+        None
+    }
+}
+
 /// Check if a question matches a common pattern that has a known solution.
 /// Returns Some(DeepUnderstanding) with high confidence if matched.
 pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
@@ -215,6 +345,33 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
             if let Some(result) = match_patterns_internal(&norm_expanded) {
                 return Some(result);
             }
+        }
+    }
+
+    // v0.0.956: Try with known typo corrections
+    let typo_fixed = fix_typos(&q);
+    if typo_fixed != q {
+        debug!("Pattern: trying typo correction: {} -> {}", q, typo_fixed);
+        if let Some(result) = match_patterns_internal(&typo_fixed) {
+            return Some(result);
+        }
+        // Try typo-fixed + synonyms
+        let typo_expanded = expand_with_synonyms(&typo_fixed);
+        if let Some(result) = match_patterns_internal(&typo_expanded) {
+            return Some(result);
+        }
+    }
+
+    // v0.0.956: Try fuzzy matching (edit distance) as last resort
+    if let Some(fuzzy_corrected) = fuzzy_correct_query(&q) {
+        debug!("Pattern: trying fuzzy correction: {} -> {}", q, fuzzy_corrected);
+        if let Some(result) = match_patterns_internal(&fuzzy_corrected) {
+            return Some(result);
+        }
+        // Try fuzzy + synonyms
+        let fuzzy_expanded = expand_with_synonyms(&fuzzy_corrected);
+        if let Some(result) = match_patterns_internal(&fuzzy_expanded) {
+            return Some(result);
         }
     }
 
@@ -654,5 +811,61 @@ mod tests {
         assert!(match_common_pattern("Can you show me the cpu temperature?").is_some());
         // Filler-heavy queries should still match
         assert!(match_common_pattern("Help me, I need to check battery status!").is_some());
+    }
+
+    // Fuzzy matching tests (v0.0.956)
+    #[test]
+    fn test_edit_distance() {
+        // Same strings
+        assert_eq!(edit_distance("disk", "disk"), 0);
+        // One character different
+        assert_eq!(edit_distance("disk", "dsk"), 1);
+        assert_eq!(edit_distance("memory", "memroy"), 2); // swap
+        // Two characters different
+        assert_eq!(edit_distance("kernel", "kernal"), 1);
+    }
+
+    #[test]
+    fn test_fix_typos() {
+        // Common typos should be fixed
+        assert!(fix_typos("pacaman").contains("pacman"));
+        assert!(fix_typos("kernal version").contains("kernel"));
+        assert!(fix_typos("systemclt status").contains("systemctl"));
+        assert!(fix_typos("memroy usage").contains("memory"));
+    }
+
+    #[test]
+    fn test_fuzzy_correct_query() {
+        // Should correct "diks" to "disk"
+        let corrected = fuzzy_correct_query("diks usage");
+        assert!(corrected.is_some());
+        assert!(corrected.unwrap().contains("disk"));
+
+        // Should correct "memry" to "memory"
+        let corrected2 = fuzzy_correct_query("memry usage");
+        assert!(corrected2.is_some());
+        assert!(corrected2.unwrap().contains("memory"));
+
+        // Should not correct correct words
+        let corrected3 = fuzzy_correct_query("disk usage");
+        assert!(corrected3.is_none());
+    }
+
+    #[test]
+    fn test_fuzzy_pattern_matching() {
+        // Typos in common terms should still match
+        assert!(match_common_pattern("kernal version").is_some()); // kernel typo
+        assert!(match_common_pattern("what is my diks usage").is_some()); // disk typo
+        assert!(match_common_pattern("memry usage").is_some()); // memory typo
+        assert!(match_common_pattern("packman database locked").is_some()); // pacman typo
+    }
+
+    #[test]
+    fn test_typo_pattern_matching() {
+        // Pre-defined typos should match
+        assert!(match_common_pattern("baterry status").is_some()); // battery
+        assert!(match_common_pattern("temperture check").is_some()); // temperature
+        assert!(match_common_pattern("firwall status").is_some()); // firewall
+        assert!(match_common_pattern("netwrok connection").is_some()); // network
     }
 }
