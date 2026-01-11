@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.975] - 2026-01-11
+
+### Added
+- **Display/Monitor Patterns** - ~45 patterns for xrandr, resolution, multi-monitor
+  - Resolution: current, screen, available, native, supported
+  - Monitors: connected, list, info, primary, external, multi/dual, names
+  - Scaling: display scaling, DPI, HiDPI, fractional scaling
+  - Refresh rate: current, available, Hz
+  - Config: xrandr, display server, Wayland/X11, brightness, night mode
+
+### Changed
+- 31 pattern categories now available (was 30)
+- Total instant-answer patterns: ~1090+
+
 ## [0.0.974] - 2026-01-11
 
 ### Added
