@@ -26,6 +26,7 @@
 //! v0.0.968: Added backup patterns for rsync, borg, restic, tar.
 //! v0.0.969: Added locale patterns for keyboard, language, fonts.
 //! v0.0.970: Added SSH patterns for connections, config, troubleshooting.
+//! v0.0.971: Added memory patterns for RAM, swap, cache, OOM.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -55,6 +56,7 @@ mod printing;
 mod backup;
 mod locale;
 mod ssh;
+mod memory;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -486,6 +488,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = ssh::match_patterns(q) {
         record_pattern_hit("ssh");
+        return Some(r);
+    }
+    if let Some(r) = memory::match_patterns(q) {
+        record_pattern_hit("memory");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1244,5 +1250,23 @@ mod tests {
     fn test_ssh_config() {
         assert!(match_common_pattern("ssh config").is_some());
         assert!(match_common_pattern("sshd config").is_some());
+    }
+
+    #[test]
+    fn test_memory_ram() {
+        assert!(match_common_pattern("memory usage").is_some());
+        assert!(match_common_pattern("free memory").is_some());
+    }
+
+    #[test]
+    fn test_memory_swap() {
+        assert!(match_common_pattern("swap usage").is_some());
+        assert!(match_common_pattern("swappiness").is_some());
+    }
+
+    #[test]
+    fn test_memory_oom() {
+        assert!(match_common_pattern("oom killer").is_some());
+        assert!(match_common_pattern("memory pressure").is_some());
     }
 }

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.971] - 2026-01-11
+
+### Added
+- **Memory/Swap Patterns** - ~55 patterns for memory management
+  - RAM: usage, free, used, available, percentage, low memory
+  - Swap: usage, status, file/partition, swappiness, zram, zswap
+  - Cache: page cache, buffers, slab, dirty pages, writeback
+  - OOM: killer logs, scores, memory pressure, overcommit
+  - Info: total, type, slots, speed, huge pages, THP, NUMA
+
+### Changed
+- 28 pattern categories now available (was 27)
+- Total instant-answer patterns: ~960+
+
 ## [0.0.970] - 2026-01-11
 
 ### Added
