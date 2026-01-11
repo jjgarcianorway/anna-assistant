@@ -7,6 +7,7 @@
 //! v0.0.918: Added desktop patterns for GNOME, KDE, Wayland, X11.
 //! v0.0.926: Added pattern pre-execution for instant grounded answers.
 //! v0.0.947: Added howto patterns for common task instructions.
+//! v0.0.948: Added network patterns for connectivity and configuration.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -18,6 +19,7 @@ mod development;
 mod security;
 mod desktop;
 mod howto;
+mod network;
 
 use anna_shared::rpc::DeepUnderstanding;
 use tracing::debug;
@@ -30,6 +32,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     // Check each pattern category (order matters - more specific first)
     // Factual queries first (fastest path for common info questions)
     factual::match_patterns(&q)
+        .or_else(|| network::match_patterns(&q))
         .or_else(|| development::match_patterns(&q))
         .or_else(|| security::match_patterns(&q))
         .or_else(|| desktop::match_patterns(&q))
@@ -263,5 +266,30 @@ mod tests {
     fn test_howto_system_config() {
         assert!(match_common_pattern("how to change hostname").is_some());
         assert!(match_common_pattern("how to reboot").is_some());
+    }
+
+    // Network pattern tests (v0.0.948)
+    #[test]
+    fn test_network_connection() {
+        assert!(match_common_pattern("am i connected").is_some());
+        assert!(match_common_pattern("wifi status").is_some());
+    }
+
+    #[test]
+    fn test_network_ip() {
+        assert!(match_common_pattern("what is my ip").is_some());
+        assert!(match_common_pattern("public ip").is_some());
+    }
+
+    #[test]
+    fn test_network_dns() {
+        assert!(match_common_pattern("dns servers").is_some());
+        assert!(match_common_pattern("flush dns cache").is_some());
+    }
+
+    #[test]
+    fn test_network_ports() {
+        assert!(match_common_pattern("open ports").is_some());
+        assert!(match_common_pattern("listening ports").is_some());
     }
 }

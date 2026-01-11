@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.948] - 2026-01-11
+
+### Added
+- **Network Patterns** - ~50 new patterns for network queries
+  - **Connection Status**: `am i connected`, `wifi status`, `network interface`, `ethernet`
+  - **IP Configuration**: `my ip`, `public ip`, `external ip`, `gateway`, `mac address`
+  - **Network Stats**: `network speed`, `bandwidth usage`, `network traffic`
+  - **DNS**: `dns servers`, `lookup dns`, `test dns`, `flush dns cache`
+  - **VPN**: `vpn status`, `list vpn`, `wireguard status`
+  - **Ports**: `open ports`, `listening ports`, `what's using port`, `active connections`
+- Each pattern provides diagnostic commands (ip, nmcli, ss, ping, etc.)
+
+### Changed
+- Pattern system now covers 10 categories (up from 9)
+- Network queries get instant answers without LLM
+- Better coverage of common connectivity questions
+
 ## [0.0.947] - 2026-01-11
 
 ### Added
