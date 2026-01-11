@@ -12,6 +12,7 @@
 //! v0.0.950: Added gaming patterns for Steam, Wine, Proton, controllers.
 //! v0.0.951: Added boot patterns for GRUB, EFI, kernel, initramfs.
 //! v0.0.956: Added fuzzy matching for typo tolerance.
+//! v0.0.957: Added container patterns for Docker, Podman, VMs.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -27,6 +28,7 @@ mod network;
 mod hardware;
 mod gaming;
 mod boot;
+mod container;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -402,6 +404,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = boot::match_patterns(q) {
         record_pattern_hit("boot");
+        return Some(r);
+    }
+    if let Some(r) = container::match_patterns(q) {
+        record_pattern_hit("container");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -867,5 +873,27 @@ mod tests {
         assert!(match_common_pattern("temperture check").is_some()); // temperature
         assert!(match_common_pattern("firwall status").is_some()); // firewall
         assert!(match_common_pattern("netwrok connection").is_some()); // network
+    }
+
+    // Container pattern tests (v0.0.957)
+    #[test]
+    fn test_container_docker() {
+        assert!(match_common_pattern("docker containers").is_some());
+        assert!(match_common_pattern("docker images").is_some());
+        assert!(match_common_pattern("docker version").is_some());
+    }
+
+    #[test]
+    fn test_container_podman() {
+        assert!(match_common_pattern("podman containers").is_some());
+        assert!(match_common_pattern("podman images").is_some());
+        assert!(match_common_pattern("podman pods").is_some());
+    }
+
+    #[test]
+    fn test_container_vms() {
+        assert!(match_common_pattern("list vms").is_some());
+        assert!(match_common_pattern("running vms").is_some());
+        assert!(match_common_pattern("virtualization support").is_some());
     }
 }

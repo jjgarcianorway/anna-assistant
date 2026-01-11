@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.957] - 2026-01-11
+
+### Added
+- **Container/Virtualization Patterns** - ~55 patterns for Docker, Podman, and VMs
+  - Docker: containers, images, disk usage, networks, volumes, prune, stats
+  - Podman: containers, images, pods, networks, volumes
+  - VMs: virsh, QEMU, VirtualBox, libvirt, snapshots, networks
+  - Docker Compose: services status, logs, config
+  - Virtualization: KVM check, VT-x/AMD-V support detection
+
+### Changed
+- 14 pattern categories now available (was 13)
+- Total instant-answer patterns: ~320+
+
 ## [0.0.956] - 2026-01-11
 
 ### Added
