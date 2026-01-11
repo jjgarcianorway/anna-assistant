@@ -10,6 +10,7 @@
 //! v0.0.948: Added network patterns for connectivity and configuration.
 //! v0.0.949: Added hardware patterns for sensors, battery, CPU.
 //! v0.0.950: Added gaming patterns for Steam, Wine, Proton, controllers.
+//! v0.0.951: Added boot patterns for GRUB, EFI, kernel, initramfs.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -24,6 +25,7 @@ mod howto;
 mod network;
 mod hardware;
 mod gaming;
+mod boot;
 
 use anna_shared::rpc::DeepUnderstanding;
 use tracing::debug;
@@ -39,6 +41,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
         .or_else(|| hardware::match_patterns(&q))
         .or_else(|| network::match_patterns(&q))
         .or_else(|| gaming::match_patterns(&q))
+        .or_else(|| boot::match_patterns(&q))
         .or_else(|| development::match_patterns(&q))
         .or_else(|| security::match_patterns(&q))
         .or_else(|| desktop::match_patterns(&q))
@@ -347,5 +350,30 @@ mod tests {
     fn test_gaming_graphics() {
         assert!(match_common_pattern("vulkan support").is_some());
         assert!(match_common_pattern("opengl version").is_some());
+    }
+
+    // Boot pattern tests (v0.0.951)
+    #[test]
+    fn test_boot_grub() {
+        assert!(match_common_pattern("grub config").is_some());
+        assert!(match_common_pattern("update grub").is_some());
+    }
+
+    #[test]
+    fn test_boot_efi() {
+        assert!(match_common_pattern("efi boot entry").is_some());
+        assert!(match_common_pattern("boot order").is_some());
+    }
+
+    #[test]
+    fn test_boot_kernel() {
+        assert!(match_common_pattern("kernel version").is_some());
+        assert!(match_common_pattern("kernel parameters").is_some());
+    }
+
+    #[test]
+    fn test_boot_issues() {
+        assert!(match_common_pattern("boot time").is_some());
+        assert!(match_common_pattern("boot errors").is_some());
     }
 }

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.951] - 2026-01-11
+
+### Added
+- **Boot Patterns** - ~50 new patterns for boot troubleshooting
+  - **GRUB**: config, menu entries, timeout, regenerate, reinstall, theme, rescue
+  - **EFI/UEFI**: variables, boot entries, boot order, EFI partition, Secure Boot
+  - **Kernel**: version, info, installed kernels, parameters, modules, DKMS
+  - **Boot Issues**: boot time, slow boot, boot logs, boot errors, boot stages
+  - **Initramfs**: info, regenerate, rebuild, mkinitcpio, dracut
+- Commands: efibootmgr, grub-mkconfig, mkinitcpio, systemd-analyze
+
+### Changed
+- Pattern system now covers 13 categories (up from 12)
+- Boot/kernel questions get instant answers
+- Better diagnostics for boot issues
+
 ## [0.0.950] - 2026-01-11
 
 ### Added
