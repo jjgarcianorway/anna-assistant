@@ -21,6 +21,7 @@
 //! v0.0.963: Added process patterns for ps, top, kill, zombies.
 //! v0.0.964: Added cron patterns for crontab, at, anacron.
 //! v0.0.965: Added users patterns for user/group management.
+//! v0.0.966: Added time patterns for datetime, timezone, NTP.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -45,6 +46,7 @@ mod filesystem;
 mod process;
 mod cron;
 mod users;
+mod time;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -456,6 +458,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = users::match_patterns(q) {
         record_pattern_hit("users");
+        return Some(r);
+    }
+    if let Some(r) = time::match_patterns(q) {
+        record_pattern_hit("time");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1119,5 +1125,26 @@ mod tests {
         assert!(match_common_pattern("last logins").is_some());
         assert!(match_common_pattern("failed logins").is_some());
         assert!(match_common_pattern("login history").is_some());
+    }
+
+    #[test]
+    fn test_time_current() {
+        assert!(match_common_pattern("current time").is_some());
+        assert!(match_common_pattern("system uptime").is_some());
+        assert!(match_common_pattern("unix timestamp").is_some());
+    }
+
+    #[test]
+    fn test_time_timezone() {
+        assert!(match_common_pattern("current timezone").is_some());
+        assert!(match_common_pattern("list timezones").is_some());
+        assert!(match_common_pattern("time utc").is_some());
+    }
+
+    #[test]
+    fn test_time_ntp() {
+        assert!(match_common_pattern("ntp status").is_some());
+        assert!(match_common_pattern("time sync").is_some());
+        assert!(match_common_pattern("chrony status").is_some());
     }
 }

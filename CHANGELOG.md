@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.966] - 2026-01-11
+
+### Added
+- **Time/Date/Timezone Patterns** - ~45 patterns for time management
+  - Current: time, date, datetime, uptime, ISO format, Unix timestamp
+  - Timezone: current, list, UTC offset, localtime
+  - NTP: status, sync, timesyncd, chrony, servers
+  - Hardware clock: RTC time, BIOS time, UTC/local, drift
+  - Calendar: month, year, week number, day of year
+
+### Changed
+- 23 pattern categories now available (was 22)
+- Total instant-answer patterns: ~740+
+
 ## [0.0.965] - 2026-01-11
 
 ### Added
