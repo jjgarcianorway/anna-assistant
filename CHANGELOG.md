@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.974] - 2026-01-11
+
+### Added
+- **Virtualization Patterns** - ~45 patterns for KVM/QEMU/libvirt
+  - KVM: support, enabled, modules, nested virtualization, CPU support
+  - Libvirt: status, version, networks, storage pools, virsh
+  - QEMU: version, images, running processes
+  - VMs: list, info, state, disks, snapshots, virt-manager
+  - Troubleshooting: logs, IOMMU, GPU/PCI passthrough, capabilities
+
+### Changed
+- 30 pattern categories now available (was 29)
+- Total instant-answer patterns: ~1045+
+
 ## [0.0.973] - 2026-01-11
 
 ### Improved

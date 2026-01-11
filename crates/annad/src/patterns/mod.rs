@@ -28,6 +28,7 @@
 //! v0.0.970: Added SSH patterns for connections, config, troubleshooting.
 //! v0.0.971: Added memory patterns for RAM, swap, cache, OOM.
 //! v0.0.972: Added Bluetooth patterns for devices, audio, troubleshooting.
+//! v0.0.974: Added virtualization patterns for KVM, QEMU, libvirt.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -59,6 +60,7 @@ mod locale;
 mod ssh;
 mod memory;
 mod bluetooth;
+mod virtualization;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -632,6 +634,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = bluetooth::match_patterns(q) {
         record_pattern_hit("bluetooth");
+        return Some(r);
+    }
+    if let Some(r) = virtualization::match_patterns(q) {
+        record_pattern_hit("virtualization");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1439,5 +1445,23 @@ mod tests {
     fn test_bluetooth_audio() {
         assert!(match_common_pattern("bluetooth headphones").is_some());
         assert!(match_common_pattern("bluetooth audio").is_some());
+    }
+
+    #[test]
+    fn test_virtualization_kvm() {
+        assert!(match_common_pattern("kvm support").is_some());
+        assert!(match_common_pattern("kvm enabled").is_some());
+    }
+
+    #[test]
+    fn test_virtualization_libvirt() {
+        assert!(match_common_pattern("libvirt status").is_some());
+        assert!(match_common_pattern("list vms").is_some());
+    }
+
+    #[test]
+    fn test_virtualization_qemu() {
+        assert!(match_common_pattern("qemu version").is_some());
+        assert!(match_common_pattern("virtual machines").is_some());
     }
 }
