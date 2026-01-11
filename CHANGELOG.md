@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.943] - 2026-01-11
+
+### Added
+- **LLM Timeout Fallback** - Provides answers when LLM times out
+  - `get_timeout_fallback()` - Finds best available answer from memory/patterns
+  - Uses lower thresholds than normal fast path (0.5 vs 0.7 relevance)
+  - Falls back to heuristic commands if no memory match
+  - Adds note indicating fallback was used
+  - Returns `TimeoutFallbackResult` with answer, commands, confidence, source
+
+### Changed
+- Users get useful answers even when Ollama is slow or unresponsive
+- Heuristic fallback commands always available for common questions
+- Memory matches used with discounted confidence (0.8x)
+
 ## [0.0.942] - 2026-01-11
 
 ### Added

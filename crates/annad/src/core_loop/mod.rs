@@ -28,6 +28,8 @@ pub use cache::{
     get_cached_llm_response, cache_llm_response,
     // v0.0.939: Intent classification caching
     get_cached_intent, cache_intent, CachedIntentResult,
+    // v0.0.943: LLM timeout fallback
+    get_timeout_fallback, TimeoutFallbackResult,
 };
 pub use command::{
     execute_command, execute_command_with_retry, execute_commands_parallel,

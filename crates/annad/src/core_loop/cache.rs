@@ -903,6 +903,84 @@ pub fn boost_experience_usefulness(experience_id: &str) {
     }
 }
 
+/// v0.0.943: Result from timeout fallback search
+#[derive(Debug, Clone)]
+pub struct TimeoutFallbackResult {
+    pub answer: String,
+    pub commands: Vec<String>,
+    pub confidence: f32,
+    pub source: String, // "memory" or "pattern"
+}
+
+/// v0.0.943: Fallback when LLM times out - find best available answer from memory/patterns
+/// This uses lower thresholds than check_memory_fast_path since it's "better than nothing"
+pub fn get_timeout_fallback(question: &str) -> Option<TimeoutFallbackResult> {
+    use anna_shared::memory::Memory;
+
+    let q_lower = question.to_lowercase();
+
+    // First, try pattern-based fallback commands
+    let fallback_cmds = super::get_fallback_commands(question);
+    if !fallback_cmds.is_empty() {
+        // We have fallback commands but need to generate an answer
+        // Return commands for execution, caller will construct answer from output
+        return Some(TimeoutFallbackResult {
+            answer: format!(
+                "LLM timed out, but I can suggest running these commands: {}",
+                fallback_cmds.join(", ")
+            ),
+            commands: fallback_cmds.iter().map(|s| s.to_string()).collect(),
+            confidence: 0.5,
+            source: "fallback_commands".to_string(),
+        });
+    }
+
+    // Try memory with lower thresholds (0.5 relevance instead of 0.7)
+    let memory = Memory::load().ok()?;
+    let experiences = memory.recall_with_clusters(question, 5);
+
+    for exp in experiences {
+        // Lower usefulness threshold (1 instead of 3)
+        if exp.usefulness_score < 1 {
+            continue;
+        }
+
+        let keywords = anna_shared::memory::extract_keywords(question);
+        let exp_keywords = &exp.keywords;
+
+        let keyword_match: usize = keywords
+            .iter()
+            .filter(|k| exp_keywords.iter().any(|ek| ek.contains(*k) || k.contains(ek)))
+            .count();
+
+        let relevance = if keywords.is_empty() {
+            0.0
+        } else {
+            keyword_match as f32 / keywords.len() as f32
+        };
+
+        // Lower relevance threshold (0.5 instead of 0.7) and answer length (30 instead of 50)
+        if relevance > 0.5 && exp.answer.len() > 30 {
+            info!(
+                "Timeout fallback: found memory match (relevance={:.2}, usefulness={})",
+                relevance, exp.usefulness_score
+            );
+
+            return Some(TimeoutFallbackResult {
+                answer: format!(
+                    "{}\n\n_Note: This answer is from a similar past question (LLM timed out)._",
+                    exp.answer
+                ),
+                commands: exp.successful_commands.clone(),
+                confidence: relevance * 0.8, // Discount confidence for fallback
+                source: "memory".to_string(),
+            });
+        }
+    }
+
+    None
+}
+
 /// v0.0.933: Hash a prompt for LLM memoization cache key
 fn hash_prompt(prompt: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
