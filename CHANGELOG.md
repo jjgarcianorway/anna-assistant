@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.970] - 2026-01-11
+
+### Added
+- **SSH Connection Patterns** - ~45 patterns for SSH management
+  - Service: sshd status, running, version, port
+  - Connections: active sessions, SSH agent, known hosts
+  - Config: ssh config, sshd config, hosts, password/root settings
+  - Keys: list keys, fingerprints, host keys, key types
+  - Troubleshooting: logs, failed logins, errors, permissions, debug
+
+### Changed
+- 27 pattern categories now available (was 26)
+- Total instant-answer patterns: ~905+
+
 ## [0.0.969] - 2026-01-11
 
 ### Added

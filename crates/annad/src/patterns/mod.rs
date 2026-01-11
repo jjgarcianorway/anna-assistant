@@ -25,6 +25,7 @@
 //! v0.0.967: Added printing patterns for CUPS, printers, print jobs.
 //! v0.0.968: Added backup patterns for rsync, borg, restic, tar.
 //! v0.0.969: Added locale patterns for keyboard, language, fonts.
+//! v0.0.970: Added SSH patterns for connections, config, troubleshooting.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -53,6 +54,7 @@ mod time;
 mod printing;
 mod backup;
 mod locale;
+mod ssh;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -480,6 +482,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = locale::match_patterns(q) {
         record_pattern_hit("locale");
+        return Some(r);
+    }
+    if let Some(r) = ssh::match_patterns(q) {
+        record_pattern_hit("ssh");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1220,5 +1226,23 @@ mod tests {
     fn test_fonts() {
         assert!(match_common_pattern("installed fonts").is_some());
         assert!(match_common_pattern("font families").is_some());
+    }
+
+    #[test]
+    fn test_ssh_service() {
+        assert!(match_common_pattern("sshd status").is_some());
+        assert!(match_common_pattern("ssh version").is_some());
+    }
+
+    #[test]
+    fn test_ssh_connections() {
+        assert!(match_common_pattern("ssh connections").is_some());
+        assert!(match_common_pattern("ssh agent").is_some());
+    }
+
+    #[test]
+    fn test_ssh_config() {
+        assert!(match_common_pattern("ssh config").is_some());
+        assert!(match_common_pattern("sshd config").is_some());
     }
 }
