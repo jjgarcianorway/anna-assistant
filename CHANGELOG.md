@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.940] - 2026-01-11
+
+### Added
+- **Expanded Proactive Cache Warming** - Pre-populates command cache at startup
+  - Expanded from 8 to 25+ static commands
+  - System info: `uname`, `hostname`, `hostnamectl`, `/etc/os-release`, `uptime`
+  - CPU: `lscpu`, `nproc`, `loadavg`
+  - Memory: `free -h`
+  - Disk: `df -h`, `lsblk`, `df -Th`
+  - Network: `ip addr`, default route, IP addresses
+  - Hardware: VGA/3D devices from lspci
+  - Services: `systemctl --failed`
+  - Boot: `systemd-analyze`
+  - Profile-specific: `nvidia-smi` (if NVIDIA), `wpctl/pactl` (audio), `sensors`
+
+### Changed
+- First questions about common system info get instant cached answers
+- Reduced LLM load by pre-caching frequently asked info
+- 2-second timeout per warmup command prevents startup hangs
+
 ## [0.0.939] - 2026-01-11
 
 ### Added
