@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.980] - 2026-01-11
+
+### Added
+- **System Info Patterns** - ~50 patterns for system information tools
+  - Fetch tools: neofetch, fastfetch, screenfetch, inxi, hwinfo
+  - Hardware info: lshw, lscpu, lspci, lsusb, lsblk, motherboard
+  - OS info: os-release, lsb_release, distro, hostnamectl, uname
+  - BIOS/UEFI: dmidecode, BIOS version, firmware, EFI variables
+  - Summary: system info, specs, overview, computer info
+
+### Changed
+- 36 pattern categories now available (was 35)
+- Total instant-answer patterns: ~1340+
+
 ## [0.0.979] - 2026-01-11
 
 ### Added

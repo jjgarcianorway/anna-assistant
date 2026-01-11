@@ -34,6 +34,7 @@
 //! v0.0.977: Added NVIDIA patterns for nvidia-smi, drivers, Optimus.
 //! v0.0.978: Added AUR patterns for yay, paru, makepkg.
 //! v0.0.979: Added Flatpak, Snap, AppImage patterns.
+//! v0.0.980: Added system info patterns for neofetch, inxi, dmidecode.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -71,6 +72,7 @@ mod encryption;
 mod nvidia;
 mod aur;
 mod appimage;
+mod sysinfo;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -668,6 +670,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = appimage::match_patterns(q) {
         record_pattern_hit("appimage");
+        return Some(r);
+    }
+    if let Some(r) = sysinfo::match_patterns(q) {
+        record_pattern_hit("sysinfo");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1584,5 +1590,23 @@ mod tests {
     fn test_appimage() {
         assert!(match_common_pattern("appimage list").is_some());
         assert!(match_common_pattern("appimages").is_some());
+    }
+
+    #[test]
+    fn test_sysinfo_fetch() {
+        assert!(match_common_pattern("neofetch").is_some());
+        assert!(match_common_pattern("inxi").is_some());
+    }
+
+    #[test]
+    fn test_sysinfo_hardware() {
+        assert!(match_common_pattern("lshw").is_some());
+        assert!(match_common_pattern("lspci").is_some());
+    }
+
+    #[test]
+    fn test_sysinfo_summary() {
+        assert!(match_common_pattern("system info").is_some());
+        assert!(match_common_pattern("my specs").is_some());
     }
 }
