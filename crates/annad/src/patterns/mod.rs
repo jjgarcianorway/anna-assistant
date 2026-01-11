@@ -152,6 +152,37 @@ fn expand_with_synonyms(query: &str) -> String {
     expanded
 }
 
+/// v0.0.955: Normalize query for better pattern matching
+/// Removes extra whitespace, punctuation, and common filler words
+fn normalize_query(q: &str) -> String {
+    let mut result = q.to_lowercase();
+
+    // Remove common punctuation
+    result = result.replace(['?', '!', '.', ',', ':', ';', '"', '\''], " ");
+
+    // Remove filler words that don't add meaning
+    let fillers = ["please", "can you", "could you", "would you", "i want to",
+                   "i need to", "help me", "tell me", "show me how to",
+                   "how do i", "how can i", "what's the", "what is the"];
+    for filler in fillers {
+        result = result.replace(filler, " ");
+    }
+
+    // Collapse multiple spaces into one
+    let mut prev_space = false;
+    result = result.chars().filter(|c| {
+        if c.is_whitespace() {
+            if prev_space { return false; }
+            prev_space = true;
+        } else {
+            prev_space = false;
+        }
+        true
+    }).collect();
+
+    result.trim().to_string()
+}
+
 /// Check if a question matches a common pattern that has a known solution.
 /// Returns Some(DeepUnderstanding) with high confidence if matched.
 pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
@@ -168,6 +199,22 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
         debug!("Pattern: trying synonym expansion: {} -> {}", q, expanded);
         if let Some(result) = match_patterns_internal(&expanded) {
             return Some(result);
+        }
+    }
+
+    // v0.0.955: Try with normalized query
+    let normalized = normalize_query(&q);
+    if normalized != q {
+        debug!("Pattern: trying normalized query: {} -> {}", q, normalized);
+        if let Some(result) = match_patterns_internal(&normalized) {
+            return Some(result);
+        }
+        // Try normalized + synonyms
+        let norm_expanded = expand_with_synonyms(&normalized);
+        if norm_expanded != normalized {
+            if let Some(result) = match_patterns_internal(&norm_expanded) {
+                return Some(result);
+            }
         }
     }
 
@@ -581,5 +628,31 @@ mod tests {
 
         let expanded2 = expand_with_synonyms("processor info");
         assert!(expanded2.contains("cpu"));
+    }
+
+    // Query normalization tests (v0.0.955)
+    #[test]
+    fn test_normalize_query() {
+        // Removes punctuation
+        let norm = normalize_query("what is my disk usage?");
+        assert!(!norm.contains("?"));
+
+        // Removes filler words
+        let norm2 = normalize_query("please show me disk usage");
+        assert!(!norm2.contains("please"));
+
+        // Collapses spaces
+        let norm3 = normalize_query("disk    usage");
+        assert_eq!(norm3, "disk usage");
+    }
+
+    #[test]
+    fn test_normalized_pattern_matching() {
+        // "Please check my disk usage?" should match disk patterns
+        assert!(match_common_pattern("Please check my disk usage?").is_some());
+        // "Can you show me the cpu temperature?" should match
+        assert!(match_common_pattern("Can you show me the cpu temperature?").is_some());
+        // Filler-heavy queries should still match
+        assert!(match_common_pattern("Help me, I need to check battery status!").is_some());
     }
 }

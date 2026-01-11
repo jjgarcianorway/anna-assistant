@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.955] - 2026-01-11
+
+### Added
+- **Query Normalization** - Preprocesses queries for better pattern matching
+  - Removes punctuation (`?`, `!`, `.`, `,`, etc.)
+  - Removes filler words (`please`, `can you`, `help me`, `show me how to`, etc.)
+  - Collapses multiple spaces into one
+  - Tries: direct match → synonyms → normalized → normalized+synonyms
+
+### Changed
+- Pattern matching now tries 4 variations of each query
+- "Please check my disk usage?" now matches disk patterns
+- "Can you show me the cpu temperature?" works correctly
+- Higher pattern hit rate for natural language queries
+
 ## [0.0.954] - 2026-01-11
 
 ### Added
