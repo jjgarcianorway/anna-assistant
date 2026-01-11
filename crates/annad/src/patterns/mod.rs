@@ -36,6 +36,7 @@
 //! v0.0.979: Added Flatpak, Snap, AppImage patterns.
 //! v0.0.980: Added system info patterns for neofetch, inxi, dmidecode.
 //! v0.0.981: Fixed critical substring matching bugs (id, at) with word boundaries.
+//! v0.0.982: Added bandwidth/traffic monitoring patterns.
 //! These are well-known issues with standard solutions.
 
 mod pacman;

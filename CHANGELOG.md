@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.982] - 2026-01-11
+
+### Added
+- **Bandwidth/Traffic Monitoring Patterns** - ~15 patterns for network monitoring
+  - Bandwidth: usage, what's using bandwidth, network usage
+  - Traffic: network traffic, monitor, per-process network
+  - Speed: download/upload speed, network speed tests
+  - Stats: data usage, network statistics, interface bandwidth
+  - Real-time: live monitoring, realtime network
+
+### Changed
+- 36 pattern categories now have ~1355+ patterns
+- Better coverage for "what's using my bandwidth" type questions
+
 ## [0.0.981] - 2026-01-11
 
 ### Fixed

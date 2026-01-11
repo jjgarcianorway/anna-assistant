@@ -1,5 +1,6 @@
 //! Network patterns - connectivity, configuration, and diagnostic queries
 //! v0.0.948: Initial network patterns for common networking tasks
+//! v0.0.982: Added bandwidth/traffic monitoring patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -26,6 +27,10 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     }
     // Ports and connections
     if let Some(u) = match_ports(q) {
+        return Some(u);
+    }
+    // Bandwidth and traffic monitoring
+    if let Some(u) = match_bandwidth(q) {
         return Some(u);
     }
     None
@@ -232,6 +237,58 @@ fn match_ports(q: &str) -> Option<DeepUnderstanding> {
     None
 }
 
+/// Bandwidth and traffic monitoring patterns
+fn match_bandwidth(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[NetworkPattern] = &[
+        // Bandwidth usage
+        (&["bandwidth", "usage"], "show bandwidth usage", "network",
+            &["nethogs -t -c 3 2>/dev/null || echo 'Install nethogs: pacman -S nethogs'",
+              "iftop -t -s 3 2>/dev/null || echo 'Install iftop: pacman -S iftop'"]),
+        (&["using", "bandwidth"], "show what's using bandwidth", "network",
+            &["nethogs -t -c 3 2>/dev/null || ss -tp | head -20",
+              "iftop -t -s 3 2>/dev/null || echo 'Install iftop'"]),
+        (&["network", "usage"], "show network usage", "network",
+            &["ss -s", "cat /proc/net/dev", "vnstat 2>/dev/null || echo 'Install vnstat for stats'"]),
+        // Traffic monitoring
+        (&["network", "traffic"], "show network traffic", "network",
+            &["iftop -t -s 3 2>/dev/null || ss -tp | head -20", "vnstat -l 2>/dev/null"]),
+        (&["traffic", "monitor"], "monitor network traffic", "network",
+            &["iftop 2>/dev/null || nethogs 2>/dev/null || echo 'Install iftop or nethogs'"]),
+        // Per-process network
+        (&["process", "network"], "show per-process network usage", "network",
+            &["nethogs -t -c 3 2>/dev/null || ss -tp | head -30"]),
+        (&["which", "process", "network"], "show which process using network", "network",
+            &["nethogs -t -c 3 2>/dev/null || ss -tp"]),
+        // Download/upload speed
+        (&["download", "speed"], "check download speed", "network",
+            &["curl -o /dev/null -w 'Speed: %{speed_download} bytes/sec' https://speed.cloudflare.com/__down?bytes=10000000 2>/dev/null"]),
+        (&["upload", "speed"], "check upload speed", "network",
+            &["echo 'Use: speedtest-cli or fast-cli for speed test'"]),
+        (&["network", "speed"], "check network speed", "network",
+            &["speedtest-cli --simple 2>/dev/null || echo 'Install speedtest-cli'"]),
+        // Data usage
+        (&["data", "usage"], "show data usage", "network",
+            &["vnstat 2>/dev/null || cat /proc/net/dev"]),
+        (&["network", "stats"], "show network statistics", "network",
+            &["ss -s", "vnstat 2>/dev/null || cat /proc/net/dev"]),
+        // Interface bandwidth
+        (&["interface", "bandwidth"], "show interface bandwidth", "network",
+            &["cat /proc/net/dev", "ip -s link"]),
+        // Real-time monitoring
+        (&["live", "network"], "live network monitoring", "network",
+            &["watch -n1 'cat /proc/net/dev'", "bmon 2>/dev/null || iftop 2>/dev/null"]),
+        (&["realtime", "network"], "realtime network monitoring", "network",
+            &["iftop 2>/dev/null || bmon 2>/dev/null || watch 'ss -s'"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(make_understanding(interpreted, topic, commands));
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +327,13 @@ mod tests {
         assert!(match_patterns("open ports").is_some());
         assert!(match_patterns("listening ports").is_some());
         assert!(match_patterns("active connections").is_some());
+    }
+
+    #[test]
+    fn test_bandwidth() {
+        assert!(match_patterns("bandwidth usage").is_some());
+        assert!(match_patterns("using bandwidth").is_some());
+        assert!(match_patterns("network traffic").is_some());
+        assert!(match_patterns("network speed").is_some());
     }
 }
