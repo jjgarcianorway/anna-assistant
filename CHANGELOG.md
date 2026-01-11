@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.952] - 2026-01-11
+
+### Added
+- **Synonym Expansion** - Pattern matching now expands queries with synonyms
+  - Memory: `ram` ↔ `memory`
+  - Storage: `disk` ↔ `storage` ↔ `drive` ↔ `ssd` ↔ `nvme`
+  - Network: `internet` ↔ `network`, `wifi` ↔ `wireless`
+  - CPU: `processor` ↔ `cpu`
+  - GPU: `graphics` ↔ `gpu` ↔ `video card`
+  - Temperature: `temp` ↔ `temperature` ↔ `hot` ↔ `overheating`
+  - And 30+ more synonym pairs
+
+### Changed
+- Pattern matching now tries direct match first, then expands with synonyms
+- More natural language queries now match patterns
+- "check my ram" now matches memory patterns
+- "processor temperature" now matches CPU temp patterns
+- Improved pattern hit rate for varied phrasings
+
 ## [0.0.951] - 2026-01-11
 
 ### Added

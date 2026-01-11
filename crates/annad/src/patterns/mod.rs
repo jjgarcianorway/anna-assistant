@@ -30,10 +30,106 @@ mod boot;
 use anna_shared::rpc::DeepUnderstanding;
 use tracing::debug;
 
+/// v0.0.952: Synonym pairs for query expansion
+/// Each pair: (word, synonym) - if word is in query, also check with synonym
+const SYNONYMS: &[(&str, &str)] = &[
+    // Memory
+    ("memory", "ram"),
+    ("ram", "memory"),
+    // Storage
+    ("disk", "storage"),
+    ("storage", "disk"),
+    ("drive", "disk"),
+    ("ssd", "disk"),
+    ("hdd", "disk"),
+    ("nvme", "disk"),
+    // Network
+    ("internet", "network"),
+    ("network", "internet"),
+    ("wifi", "wireless"),
+    ("wireless", "wifi"),
+    ("ethernet", "wired"),
+    // CPU
+    ("processor", "cpu"),
+    ("cpu", "processor"),
+    // GPU
+    ("graphics", "gpu"),
+    ("gpu", "graphics"),
+    ("video card", "gpu"),
+    // Temperature
+    ("temperature", "temp"),
+    ("temp", "temperature"),
+    ("hot", "temperature"),
+    ("overheating", "temperature"),
+    // Power
+    ("power", "battery"),
+    ("charging", "battery"),
+    // Package management
+    ("package", "packages"),
+    ("packages", "package"),
+    ("software", "package"),
+    // Service
+    ("daemon", "service"),
+    ("service", "daemon"),
+    // User
+    ("account", "user"),
+    ("user", "account"),
+    // Files
+    ("folder", "directory"),
+    ("directory", "folder"),
+    ("file", "files"),
+    ("files", "file"),
+    // Boot
+    ("bootloader", "grub"),
+    ("startup", "boot"),
+    // Common verbs
+    ("show", "list"),
+    ("display", "show"),
+    ("check", "show"),
+    ("view", "show"),
+    ("get", "show"),
+    ("find", "search"),
+    ("search", "find"),
+    ("look for", "find"),
+];
+
+/// v0.0.952: Expand query with synonyms for better pattern matching
+fn expand_with_synonyms(query: &str) -> String {
+    let mut expanded = query.to_string();
+    for (word, synonym) in SYNONYMS {
+        if query.contains(word) && !query.contains(synonym) {
+            // Add synonym to query for pattern matching
+            expanded.push(' ');
+            expanded.push_str(synonym);
+        }
+    }
+    expanded
+}
+
 /// Check if a question matches a common pattern that has a known solution.
 /// Returns Some(DeepUnderstanding) with high confidence if matched.
 pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
     let q = question.to_lowercase();
+
+    // Try direct match first
+    if let Some(result) = match_patterns_internal(&q) {
+        return Some(result);
+    }
+
+    // v0.0.952: Try with synonym expansion
+    let expanded = expand_with_synonyms(&q);
+    if expanded != q {
+        debug!("Pattern: trying synonym expansion: {} -> {}", q, expanded);
+        if let Some(result) = match_patterns_internal(&expanded) {
+            return Some(result);
+        }
+    }
+
+    None
+}
+
+/// Internal pattern matching (called with original and expanded queries)
+fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
 
     // Check each pattern category (order matters - more specific first)
     // Factual queries first (fastest path for common info questions)
@@ -375,5 +471,27 @@ mod tests {
     fn test_boot_issues() {
         assert!(match_common_pattern("boot time").is_some());
         assert!(match_common_pattern("boot errors").is_some());
+    }
+
+    // Synonym expansion tests (v0.0.952)
+    #[test]
+    fn test_synonym_expansion() {
+        // "ram" should match patterns with "memory"
+        assert!(match_common_pattern("how much ram").is_some());
+        // "processor" should match patterns with "cpu"
+        assert!(match_common_pattern("processor temperature").is_some());
+        // "graphics" should match patterns with "gpu"
+        assert!(match_common_pattern("graphics temp").is_some());
+        // "wireless" should match patterns with "wifi"
+        assert!(match_common_pattern("wireless status").is_some());
+    }
+
+    #[test]
+    fn test_expand_with_synonyms() {
+        let expanded = expand_with_synonyms("check my ram usage");
+        assert!(expanded.contains("memory"));
+
+        let expanded2 = expand_with_synonyms("processor info");
+        assert!(expanded2.contains("cpu"));
     }
 }
