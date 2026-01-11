@@ -22,6 +22,7 @@
 //! v0.0.964: Added cron patterns for crontab, at, anacron.
 //! v0.0.965: Added users patterns for user/group management.
 //! v0.0.966: Added time patterns for datetime, timezone, NTP.
+//! v0.0.967: Added printing patterns for CUPS, printers, print jobs.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -47,6 +48,7 @@ mod process;
 mod cron;
 mod users;
 mod time;
+mod printing;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -462,6 +464,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = time::match_patterns(q) {
         record_pattern_hit("time");
+        return Some(r);
+    }
+    if let Some(r) = printing::match_patterns(q) {
+        record_pattern_hit("printing");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1146,5 +1152,25 @@ mod tests {
         assert!(match_common_pattern("ntp status").is_some());
         assert!(match_common_pattern("time sync").is_some());
         assert!(match_common_pattern("chrony status").is_some());
+    }
+
+    #[test]
+    fn test_printing_printers() {
+        assert!(match_common_pattern("list printers").is_some());
+        assert!(match_common_pattern("default printer").is_some());
+        assert!(match_common_pattern("printer status").is_some());
+    }
+
+    #[test]
+    fn test_printing_jobs() {
+        assert!(match_common_pattern("print queue").is_some());
+        assert!(match_common_pattern("print jobs").is_some());
+    }
+
+    #[test]
+    fn test_printing_cups() {
+        assert!(match_common_pattern("cups status").is_some());
+        assert!(match_common_pattern("cups logs").is_some());
+        assert!(match_common_pattern("cups config").is_some());
     }
 }

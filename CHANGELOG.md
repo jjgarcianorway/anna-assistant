@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.967] - 2026-01-11
+
+### Added
+- **Printing/CUPS Patterns** - ~35 patterns for printer management
+  - Printers: list, default, status, info, drivers, network discovery
+  - Print jobs: queue, pending, my jobs, all jobs, history
+  - CUPS service: status, version, logs, web interface
+  - Configuration: printer options, PPD files, CUPS config
+
+### Changed
+- 24 pattern categories now available (was 23)
+- Total instant-answer patterns: ~775+
+
 ## [0.0.966] - 2026-01-11
 
 ### Added
