@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.947] - 2026-01-11
+
+### Added
+- **HowTo Patterns** - ~60 new patterns for common Linux task instructions
+  - **Package Management**: install, update, remove, search, list, clean, orphans, AUR
+  - **Service Management**: enable, disable, start, stop, restart, status, logs
+  - **User Management**: add user, delete user, password, groups, sudo access, switch user
+  - **File Operations**: permissions, ownership, find, mkdir, copy, move, rename, symlink
+  - **System Configuration**: hostname, timezone, locale, keyboard, reboot, shutdown, mount, firewall
+- Each pattern provides ready-to-use pacman/systemctl/chmod commands
+- HowTo category gives instant instructional answers without LLM
+
+### Changed
+- Pattern system now covers 9 categories (up from 8)
+- "How do I..." questions get instant command suggestions
+- Reduced need for LLM on common administrative tasks
+
 ## [0.0.946] - 2026-01-11
 
 ### Added

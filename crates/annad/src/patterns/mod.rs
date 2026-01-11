@@ -6,6 +6,7 @@
 //! v0.0.917: Added security patterns for firewall, permissions, users, SSH.
 //! v0.0.918: Added desktop patterns for GNOME, KDE, Wayland, X11.
 //! v0.0.926: Added pattern pre-execution for instant grounded answers.
+//! v0.0.947: Added howto patterns for common task instructions.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -16,6 +17,7 @@ mod factual;
 mod development;
 mod security;
 mod desktop;
+mod howto;
 
 use anna_shared::rpc::DeepUnderstanding;
 use tracing::debug;
@@ -34,6 +36,7 @@ pub fn match_common_pattern(question: &str) -> Option<DeepUnderstanding> {
         .or_else(|| pacman::match_patterns(&q))
         .or_else(|| recovery::match_patterns(&q))
         .or_else(|| errors::match_patterns(&q))
+        .or_else(|| howto::match_patterns(&q))
         .or_else(|| performance::match_patterns(&q))
 }
 
@@ -223,5 +226,42 @@ mod tests {
     fn test_desktop_monitors() {
         assert!(match_common_pattern("list connected monitors").is_some());
         assert!(match_common_pattern("screen resolution").is_some());
+    }
+
+    // HowTo pattern tests (v0.0.947)
+    #[test]
+    fn test_howto_install_package() {
+        assert!(match_common_pattern("how do I install a package").is_some());
+        assert!(match_common_pattern("install package").is_some());
+    }
+
+    #[test]
+    fn test_howto_update_system() {
+        assert!(match_common_pattern("how to update system").is_some());
+        assert!(match_common_pattern("upgrade system").is_some());
+    }
+
+    #[test]
+    fn test_howto_enable_service() {
+        assert!(match_common_pattern("how to enable a service").is_some());
+        assert!(match_common_pattern("how to restart service").is_some());
+    }
+
+    #[test]
+    fn test_howto_add_user() {
+        assert!(match_common_pattern("how to add a user").is_some());
+        assert!(match_common_pattern("give sudo access").is_some());
+    }
+
+    #[test]
+    fn test_howto_file_permissions() {
+        assert!(match_common_pattern("how to change permissions").is_some());
+        assert!(match_common_pattern("make file executable").is_some());
+    }
+
+    #[test]
+    fn test_howto_system_config() {
+        assert!(match_common_pattern("how to change hostname").is_some());
+        assert!(match_common_pattern("how to reboot").is_some());
     }
 }
