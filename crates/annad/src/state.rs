@@ -266,6 +266,9 @@ impl StateInner {
     }
 
     pub fn to_status(&self) -> anna_shared::status::DaemonStatus {
+        // v0.0.924: Get memory health info
+        let (memory_experiences, memory_health_issues) = Self::get_memory_health();
+
         anna_shared::status::DaemonStatus {
             state: self.state,
             version: VERSION.to_string(),
@@ -274,6 +277,22 @@ impl StateInner {
             uptime_secs: self.uptime_secs(),
             gpu: self.gpu.clone(),
             vram_mb: self.vram_mb,
+            memory_experiences,
+            memory_health_issues,
+        }
+    }
+
+    /// v0.0.924: Get memory health statistics
+    fn get_memory_health() -> (usize, Vec<String>) {
+        use anna_shared::memory::Memory;
+
+        match Memory::load() {
+            Ok(memory) => {
+                let experiences = memory.experiences.len();
+                let health_issues = memory.health_check();
+                (experiences, health_issues)
+            }
+            Err(_) => (0, vec!["Memory not loaded".to_string()])
         }
     }
 }

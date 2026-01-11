@@ -1,10 +1,12 @@
 //! Anna daemon - simplified version.
+//! v0.0.924: Added proactive helper tool installation on startup
 
-use anna_shared::config::get_ollama_url;
+use anna_shared::config::{get_ollama_url, AnnaConfig};
+use anna_shared::deps::{missing_diagnostic_tools, install_missing_diagnostic_tools};
 use anna_shared::VERSION;
 use anna_shared::wiki;
 use anyhow::Result;
-use tracing::{info, warn, Level};
+use tracing::{debug, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
 use annad::server::Server;
@@ -71,6 +73,32 @@ async fn main() -> Result<()> {
     std::thread::spawn(|| {
         annad::core_loop::warm_up_cache();
     });
+
+    // v0.0.924: Check for missing diagnostic tools
+    let config = AnnaConfig::load().unwrap_or_default();
+    if config.auto_install_helpers {
+        tokio::spawn(async move {
+            let missing = missing_diagnostic_tools();
+            if !missing.is_empty() {
+                info!("Found {} missing diagnostic tools, installing...", missing.len());
+                for (tool, desc) in &missing {
+                    debug!("Missing: {} - {}", tool, desc);
+                }
+                let installed = tokio::task::spawn_blocking(install_missing_diagnostic_tools)
+                    .await
+                    .unwrap_or_default();
+                if !installed.is_empty() {
+                    info!("Installed diagnostic tools: {}", installed.join(", "));
+                }
+            }
+        });
+    } else {
+        // Just log if tools are missing but auto-install is disabled
+        let missing = missing_diagnostic_tools();
+        if !missing.is_empty() {
+            debug!("{} diagnostic tools not installed (enable auto_install_helpers to install)", missing.len());
+        }
+    }
 
     // Create shared state
     let state = SharedState::new();

@@ -121,7 +121,7 @@ fn default_max_iterations() -> u32 { 3 }
 fn default_llm_timeout() -> u64 { 120 }
 fn default_fast_timeout() -> u64 { 30 }
 fn default_command_timeout() -> u64 { 10 }
-fn default_answer_cache_ttl() -> u64 { 300 }
+fn default_answer_cache_ttl() -> u64 { 600 }  // v0.0.924: Increased from 300s to 600s
 fn default_command_cache_ttl() -> u64 { 60 }
 fn default_static_cache_ttl() -> u64 { 300 }
 fn default_wiki_timeout() -> u64 { 5 }

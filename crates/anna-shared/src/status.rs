@@ -1,4 +1,5 @@
 //! Daemon status types.
+//! v0.0.924: Added memory health fields
 
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +13,12 @@ pub struct DaemonStatus {
     pub uptime_secs: u64,
     pub gpu: Option<String>,
     pub vram_mb: Option<u64>,
+    /// v0.0.924: Number of experiences in memory
+    #[serde(default)]
+    pub memory_experiences: usize,
+    /// v0.0.924: Memory health issues (if any)
+    #[serde(default)]
+    pub memory_health_issues: Vec<String>,
 }
 
 /// Daemon state

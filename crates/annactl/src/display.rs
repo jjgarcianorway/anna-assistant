@@ -60,6 +60,24 @@ pub async fn print_status() {
                     println!("VRAM: {} MB", vram);
                 }
             }
+            // v0.0.924: Memory health
+            print!("Memory: ");
+            if status.memory_experiences == 0 {
+                println_colored("empty", DIM);
+            } else {
+                print_colored(&format!("{} experiences", status.memory_experiences), GREEN);
+                if !status.memory_health_issues.is_empty() {
+                    print_colored(" (", DIM);
+                    print_colored(&format!("{} issues", status.memory_health_issues.len()), YELLOW);
+                    print_colored(")", DIM);
+                }
+                println!();
+            }
+            // Show health issues if any
+            for issue in &status.memory_health_issues {
+                print_colored("  ⚠ ", YELLOW);
+                println!("{}", issue);
+            }
         }
         Err(e) => {
             print_colored("Error: ", RED);

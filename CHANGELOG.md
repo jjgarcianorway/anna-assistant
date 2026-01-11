@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.924] - 2026-01-11
+
+### Added
+- **Improved Answer Caching** - Better cache hit rates
+  - Increased cache size from 50 to 200 entries
+  - Increased default TTL from 300s to 600s (10 minutes)
+  - Lowered confidence threshold from 0.7 to 0.6 for more caching
+- **Proactive Helper Installation** - Missing diagnostic tools installed on daemon startup
+  - When `auto_install_helpers` is enabled, daemon checks for missing tools on startup
+  - Installs common diagnostic tools (bc, jq, htop, lsof, etc.) automatically
+  - Logs which tools were installed for transparency
+- **Memory Health in Status** - `annactl status` now shows memory health
+  - Displays number of experiences stored in memory
+  - Shows health issues (if any) with warnings
+  - Helps diagnose memory-related problems
+
+### Changed
+- Daemon logs missing diagnostic tools on startup (debug level) even if auto-install is disabled
+- Status output now includes memory statistics
+
 ## [0.0.923] - 2026-01-11
 
 ### Added

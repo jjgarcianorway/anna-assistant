@@ -194,6 +194,48 @@ pub fn missing_diagnostic_tools() -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
+/// v0.0.924: Proactively install missing diagnostic tools
+/// Returns the list of tools that were successfully installed
+pub fn install_missing_diagnostic_tools() -> Vec<String> {
+    let missing = missing_diagnostic_tools();
+    if missing.is_empty() {
+        return vec![];
+    }
+
+    let mut installed = Vec::new();
+
+    for (tool, _desc) in missing {
+        // Map tool name to package name (some differ)
+        let package = match tool {
+            "bc" => "bc",
+            "jq" => "jq",
+            "htop" => "htop",
+            "iotop" => "iotop",
+            "nethogs" => "nethogs",
+            "lsof" => "lsof",
+            "strace" => "strace",
+            "sysstat" => "sysstat",
+            "smartmontools" => "smartmontools",
+            "net-tools" => "net-tools",
+            _ => tool,
+        };
+
+        match install_package(package) {
+            Ok(true) => {
+                installed.push(tool.to_string());
+            }
+            Ok(false) => {
+                // Already installed, just tool name differs from command
+            }
+            Err(_) => {
+                // Failed to install, skip
+            }
+        }
+    }
+
+    installed
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

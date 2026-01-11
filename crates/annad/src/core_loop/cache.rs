@@ -1,5 +1,6 @@
 //! Cache management for command outputs, configs, recipe books, and answers.
 //! v0.0.920: Added answer caching for repeated questions
+//! v0.0.924: Increased cache sizes and improved TTLs
 
 use anna_shared::config::{AnnaConfig, PerformanceConfig};
 use anna_shared::recipe::RecipeBook;
@@ -31,10 +32,13 @@ static WIKI_FAILURES: AtomicU32 = AtomicU32::new(0);
 static WIKI_CIRCUIT_OPENED_AT: AtomicU64 = AtomicU64::new(0);
 
 const RECIPE_BOOK_TTL_SECS: u64 = 600;
-const MAX_ANSWER_CACHE_SIZE: usize = 50;
+/// v0.0.924: Increased from 50 to 200 for better cache hit rate
+const MAX_ANSWER_CACHE_SIZE: usize = 200;
 const FAILURE_CACHE_TTL_SECS: u64 = 1800; // 30 minutes
 const WIKI_CACHE_TTL_SECS: u64 = 3600; // 1 hour
 const MAX_WIKI_CACHE_SIZE: usize = 30;
+/// v0.0.924: Minimum confidence for caching (lowered from 0.7 to 0.6)
+const MIN_CACHE_CONFIDENCE: f32 = 0.6;
 
 /// v0.0.921: Session-level command failure cache
 static FAILURE_CACHE: RwLock<Option<HashMap<String, CommandFailure>>> = RwLock::new(None);
@@ -313,7 +317,8 @@ pub fn cache_answer(question: &str, answer: &str, confidence: f32) {
     let perf = get_perf_config();
 
     // Skip if TTL is 0 (caching disabled) or low confidence
-    if perf.answer_cache_ttl_secs == 0 || confidence < 0.7 {
+    // v0.0.924: Use MIN_CACHE_CONFIDENCE constant instead of hardcoded 0.7
+    if perf.answer_cache_ttl_secs == 0 || confidence < MIN_CACHE_CONFIDENCE {
         return;
     }
 
