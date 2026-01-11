@@ -32,6 +32,7 @@
 //! v0.0.975: Added display patterns for monitors, resolution, scaling.
 //! v0.0.976: Added encryption patterns for LUKS, GPG, disk encryption.
 //! v0.0.977: Added NVIDIA patterns for nvidia-smi, drivers, Optimus.
+//! v0.0.978: Added AUR patterns for yay, paru, makepkg.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -67,6 +68,7 @@ mod virtualization;
 mod display;
 mod encryption;
 mod nvidia;
+mod aur;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -656,6 +658,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = nvidia::match_patterns(q) {
         record_pattern_hit("nvidia");
+        return Some(r);
+    }
+    if let Some(r) = aur::match_patterns(q) {
+        record_pattern_hit("aur");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1535,5 +1541,24 @@ mod tests {
     fn test_nvidia_optimus() {
         assert!(match_common_pattern("prime status").is_some());
         assert!(match_common_pattern("hybrid graphics").is_some());
+    }
+
+    #[test]
+    fn test_aur_helpers() {
+        assert!(match_common_pattern("yay version").is_some());
+        assert!(match_common_pattern("paru version").is_some());
+        assert!(match_common_pattern("aur helper").is_some());
+    }
+
+    #[test]
+    fn test_aur_packages() {
+        assert!(match_common_pattern("aur packages").is_some());
+        assert!(match_common_pattern("foreign packages").is_some());
+    }
+
+    #[test]
+    fn test_aur_makepkg() {
+        assert!(match_common_pattern("makepkg build").is_some());
+        assert!(match_common_pattern("pkgbuild").is_some());
     }
 }

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.978] - 2026-01-11
+
+### Added
+- **AUR Patterns** - ~45 patterns for yay, paru, makepkg, AUR helpers
+  - yay: search, install, update, version, stats, cache
+  - paru: search, install, update, version, review
+  - makepkg: build, install, clean, PKGBUILD, dependencies
+  - General: AUR helpers, packages, updates, cache, orphans
+  - Troubleshooting: build failures, PGP keys, checksums, conflicts
+
+### Changed
+- 34 pattern categories now available (was 33)
+- Total instant-answer patterns: ~1240+
+
 ## [0.0.977] - 2026-01-11
 
 ### Added
