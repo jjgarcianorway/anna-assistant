@@ -37,6 +37,7 @@
 //! v0.0.980: Added system info patterns for neofetch, inxi, dmidecode.
 //! v0.0.981: Fixed critical substring matching bugs (id, at) with word boundaries.
 //! v0.0.982: Added bandwidth/traffic monitoring patterns.
+//! v0.0.983: Added window manager patterns for Hyprland, Sway, i3.
 //! These are well-known issues with standard solutions.
 
 mod pacman;
@@ -75,6 +76,7 @@ mod nvidia;
 mod aur;
 mod appimage;
 mod sysinfo;
+mod wm;
 
 use anna_shared::rpc::DeepUnderstanding;
 use std::collections::HashMap;
@@ -697,6 +699,10 @@ fn match_patterns_internal(q: &str) -> Option<DeepUnderstanding> {
     }
     if let Some(r) = sysinfo::match_patterns(q) {
         record_pattern_hit("sysinfo");
+        return Some(r);
+    }
+    if let Some(r) = wm::match_patterns(q) {
+        record_pattern_hit("wm");
         return Some(r);
     }
     if let Some(r) = development::match_patterns(q) {
@@ -1646,5 +1652,40 @@ mod tests {
     fn test_sysinfo_summary() {
         assert!(match_common_pattern("system info").is_some());
         assert!(match_common_pattern("my specs").is_some());
+    }
+
+    #[test]
+    fn test_wm_hyprland() {
+        assert!(match_common_pattern("hyprland config").is_some());
+        assert!(match_common_pattern("hyprland monitors").is_some());
+        assert!(match_common_pattern("hyprctl").is_some());
+    }
+
+    #[test]
+    fn test_wm_sway() {
+        assert!(match_common_pattern("sway config").is_some());
+        assert!(match_common_pattern("sway workspaces").is_some());
+        assert!(match_common_pattern("swaymsg").is_some());
+    }
+
+    #[test]
+    fn test_wm_i3() {
+        assert!(match_common_pattern("i3 config").is_some());
+        assert!(match_common_pattern("i3 workspaces").is_some());
+        assert!(match_common_pattern("i3-msg").is_some());
+    }
+
+    #[test]
+    fn test_wm_general() {
+        assert!(match_common_pattern("which window manager").is_some());
+        assert!(match_common_pattern("waybar config").is_some());
+        assert!(match_common_pattern("polybar config").is_some());
+    }
+
+    #[test]
+    fn test_wm_compositor() {
+        assert!(match_common_pattern("picom config").is_some());
+        assert!(match_common_pattern("screen tearing").is_some());
+        assert!(match_common_pattern("compositor status").is_some());
     }
 }

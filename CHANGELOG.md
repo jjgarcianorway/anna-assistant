@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.983] - 2026-01-11
+
+### Added
+- **Window Manager Patterns** - ~60 patterns for WM configuration and control
+  - Hyprland: config, monitors, workspaces, windows, binds, devices, layers, info
+  - Sway: config, outputs, workspaces, inputs, windows, bindings
+  - i3: config, workspaces, outputs, tree, bindings, i3bar, i3status
+  - General: which WM, openbox, bspwm, awesome, dwm, waybar, polybar
+  - Compositors: picom, compton, screen tearing, transparency, blur
+
+### Changed
+- 37 pattern categories now available (was 36)
+- Total instant-answer patterns: ~1415+
+
 ## [0.0.982] - 2026-01-11
 
 ### Added
