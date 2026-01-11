@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.953] - 2026-01-11
+
+### Added
+- **Proactive Health Checks** - System health monitoring at daemon startup
+  - Disk space check (warning at 85%, critical at 95%)
+  - Memory usage check (warning at 85%, critical at 95%)
+  - Failed services detection
+  - System load monitoring (compared to CPU count)
+  - Recent journal errors scan
+- `run_health_checks()` - Runs all health checks and caches results
+- `get_health_summary()` - Returns formatted health status
+- `get_cached_health()` - Gets cached health check results
+
+### Changed
+- Health checks run automatically at daemon startup (after cache warm-up)
+- Instant answers available for "system health" / "is system ok" queries
+- Warnings logged if issues detected at startup
+
 ## [0.0.952] - 2026-01-11
 
 ### Added

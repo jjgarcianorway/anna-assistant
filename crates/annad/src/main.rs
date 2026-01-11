@@ -76,6 +76,8 @@ async fn main() -> Result<()> {
     // Warm up command cache in background (pre-cache static system info)
     std::thread::spawn(|| {
         annad::core_loop::warm_up_cache();
+        // v0.0.953: Run proactive health checks after cache warm-up
+        annad::core_loop::run_health_checks();
     });
 
     // v0.0.924: Check for missing diagnostic tools
