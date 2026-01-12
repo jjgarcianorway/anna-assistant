@@ -312,7 +312,7 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         iterations: iteration,
         commands_executed: state.commands,
         dialogue,
-        needs_clarification: state.confidence < 0.5,
+        needs_clarification: state.confidence < 0.3, // v0.1.6: Lowered from 0.5 to reduce note spam
         clarification_question: state.not_done_reason,
         cached: false,
     })
@@ -676,7 +676,7 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         iterations: iteration,
         commands_executed: state.commands,
         dialogue,
-        needs_clarification: state.confidence < 0.5,
+        needs_clarification: state.confidence < 0.3, // v0.1.6: Lowered from 0.5 to reduce note spam
         clarification_question: state.not_done_reason,
         cached: false,
     };

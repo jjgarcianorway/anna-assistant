@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-01-12
+
+### Fixed
+- **Note Spam** - Lowered confidence threshold for clarification notes from 50% to 30%
+  - Good answers no longer show "may need more context" note
+
 ## [0.1.6] - 2026-01-12
 
 ### Fixed
