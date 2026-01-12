@@ -294,43 +294,16 @@ pub async fn handle_streaming_request(
         }
     }
 
-    // v0.0.993: Check if this is a known problem that Anna can auto-fix
+    // v0.2.0: DISABLED pattern-based autofix shortcut
+    // The LLM now investigates and suggests fixes based on actual findings
+    // rather than keyword matching. Keeping code commented for reference.
+    /*
     if let Some(autofix) = find_autofix(question) {
-        // Check if the problem actually exists
         if check_autofix_needed(autofix) {
-            info!("AutoFix available: {} for question '{}'", autofix.id, question);
-
-            // Tell the user about the fix offer
-            let offer = format_autofix_offer(autofix);
-            let step = DialogueStep {
-                step_type: StepType::ConfirmationRequest,
-                content: offer,
-            };
-            let response = StreamingResponse::Step { step };
-            let json = serde_json::to_string(&response)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            // v0.0.994: Store pending autofix so we can execute it on "yes"
-            set_pending_autofix(session_id, autofix.id);
-
-            // Return with needs_clarification to prompt user for yes/no
-            // The next message from user will trigger the fix
-            let result = anna_shared::rpc::AskResult {
-                answer: format!("I found a fix for this: {}", autofix.description),
-                success: true,
-                iterations: 0,
-                commands_executed: vec![],
-                dialogue: vec![],
-                needs_clarification: true,
-                clarification_question: Some("Want me to fix it? (yes/no)".to_string()),
-                cached: false,
-            };
-            let done = StreamingResponse::Done { result };
-            let json = serde_json::to_string(&done)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-            return Ok(());
+            // ... autofix shortcut logic removed ...
         }
     }
+    */
 
     // Check cache for identical recent question
     {
