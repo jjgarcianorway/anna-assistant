@@ -12,8 +12,10 @@
 //! v0.1.1: Initial implementation
 //! v0.2.6: Added fast-path for common single-command queries
 //! v0.2.9: Added team dispatch - IT department fly-on-the-wall experience
+//! v0.3.0: Added automatic recipe learning from successful answers
 
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
+use anna_shared::recipe::{Recipe, RecipeBook, RecipeCommand, RecipeContext, RecipeSource};
 use anyhow::Result;
 use tracing::{debug, info, warn};
 
@@ -1527,6 +1529,9 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 content: answer.clone(),
             });
 
+            // v0.3.0: Learn recipe from successful answer
+            learn_recipe_from_answer(question, &state.commands, eval.confidence);
+
             // Send done
             let result = AskResult {
                 answer,
@@ -1619,6 +1624,119 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len])
     }
+}
+
+/// v0.3.0: Learn a recipe from a successful answer
+/// Only learns if the answer involved actual commands and has high confidence
+fn learn_recipe_from_answer(question: &str, commands: &[String], confidence: f32) {
+    // Only learn from high-confidence answers with actual commands
+    if confidence < 0.8 || commands.is_empty() || commands.len() > 5 {
+        return;
+    }
+
+    // Extract keywords from question (significant words)
+    let keywords: Vec<String> = question
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() > 2 && !is_common_word(w))
+        .map(|s| s.to_string())
+        .collect();
+
+    // Need at least 2 keywords to create a recipe
+    if keywords.len() < 2 {
+        return;
+    }
+
+    // Load existing recipe book
+    let mut book = match RecipeBook::load() {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("Failed to load recipe book: {}", e);
+            return;
+        }
+    };
+
+    // Check if similar recipe already exists (same keywords)
+    let existing = book.recipes.iter().any(|r| {
+        let matching_keywords = r.keywords.iter()
+            .filter(|k| keywords.contains(k))
+            .count();
+        matching_keywords >= 2
+    });
+
+    if existing {
+        debug!("Similar recipe already exists, skipping");
+        return;
+    }
+
+    // Generate unique ID (timestamp + hash of question)
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    question.hash(&mut hasher);
+    let hash = hasher.finish();
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let id = format!("learned_{}_{:x}", timestamp, hash);
+
+    // Create recipe commands
+    let recipe_commands: Vec<RecipeCommand> = commands.iter().map(|cmd| {
+        RecipeCommand {
+            command: cmd.clone(),
+            description: format!("Learned from successful answer"),
+            modifies_system: is_modifying_command(cmd),
+            backup_file: None,
+            needs_root: cmd.starts_with("sudo "),
+        }
+    }).collect();
+
+    // Create the recipe
+    let recipe = Recipe {
+        id: id.clone(),
+        name: format!("Learned: {}", truncate(question, 40)),
+        keywords,
+        patterns: vec![question.to_lowercase()],
+        context: RecipeContext::default(),
+        commands: recipe_commands,
+        verification: None,
+        source: RecipeSource::Llm { model: "ollama".to_string() },
+        success_count: 1,
+        last_used: Some(chrono::Utc::now().to_rfc3339()),
+        enabled: true,
+    };
+
+    book.add_recipe(recipe);
+    if let Err(e) = book.save() {
+        warn!("Failed to save recipe book: {}", e);
+    } else {
+        info!("Learned new recipe: {}", id);
+        // Record for RPG stats
+        crate::department::rpg::record_recipe_learned();
+    }
+}
+
+/// Check if a word is too common to be a keyword
+fn is_common_word(word: &str) -> bool {
+    const COMMON: &[&str] = &[
+        "the", "and", "for", "that", "this", "with", "have", "are", "from",
+        "what", "how", "why", "when", "where", "who", "which", "can", "could",
+        "would", "should", "will", "does", "did", "has", "had", "been", "being",
+        "was", "were", "not", "but", "all", "any", "some", "its", "into", "out",
+        "your", "you", "don", "isn", "does", "doesn", "please", "help", "want",
+    ];
+    COMMON.contains(&word)
+}
+
+/// Check if a command modifies the system
+fn is_modifying_command(cmd: &str) -> bool {
+    let modifiers = [
+        "rm ", "mv ", "cp ", "mkdir ", "rmdir ", "touch ", "chmod ", "chown ",
+        "install ", "pacman -S", "pacman -R", "yay -S", "yay -R", "systemctl ",
+        "echo ", "printf ", "cat >", "sed -i", "tee ", "ln -s",
+    ];
+    modifiers.iter().any(|m| cmd.contains(m))
 }
 
 #[cfg(test)]

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-01-12
+
+### Added
+- **Automatic Recipe Learning** - Anna learns from successful answers
+  - High-confidence answers (>=80%) with commands are saved as recipes
+  - Recipes are stored in ~/.local/share/anna/recipes.json
+  - Avoids duplicates by checking existing recipe keywords
+  - RPG stats track recipes learned
+
 ## [0.3.0] - 2026-01-12
 
 ### Added
