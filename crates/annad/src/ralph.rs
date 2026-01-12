@@ -11,6 +11,7 @@
 //!
 //! v0.1.1: Initial implementation
 //! v0.2.6: Added fast-path for common single-command queries
+//! v0.2.9: Added team dispatch - IT department fly-on-the-wall experience
 
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anyhow::Result;
@@ -20,6 +21,8 @@ use crate::core_loop::{
     execute_command, strip_ansi_codes,
 };
 use crate::ollama;
+use crate::department;
+use crate::team_speak;
 
 /// v0.2.7: Instant responses for well-known error patterns
 /// These are common issues that have known solutions - no need to investigate
@@ -1431,6 +1434,28 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
     };
     dialogue.push(step.clone());
     send_step(writer, step).await?;
+
+    // v0.2.9: Dispatch to appropriate specialist for fly-on-the-wall experience
+    let specialist = department::get_specialist_for_topic(question);
+    if let Some(spec) = specialist {
+        // Send assignment message (Anna -> Specialist)
+        let assignment = team_speak::anna_assigns_to(spec, question);
+        let step = DialogueStep {
+            step_type: StepType::TeamDispatch,
+            content: format!("Anna -> {}", assignment),
+        };
+        dialogue.push(step.clone());
+        send_step(writer, step).await?;
+
+        // Send acknowledgment (Specialist responds)
+        let ack = team_speak::specialist_acknowledges(spec);
+        let step = DialogueStep {
+            step_type: StepType::SpecialistWorking,
+            content: format!("{}: {}", spec.name, ack),
+        };
+        dialogue.push(step.clone());
+        send_step(writer, step).await?;
+    }
 
     // THE RALPH LOOP
     while iteration < criteria.max_iterations {

@@ -395,6 +395,15 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
             print_colored("  ↑ Escalating: ", YELLOW);
             println!("{}", step.content);
         }
+        // v0.2.9: Team dispatch and specialist working
+        StepType::TeamDispatch => {
+            print_colored("  ", DIM);
+            println!("{}", step.content);
+        }
+        StepType::SpecialistWorking => {
+            print_colored("  ", DIM);
+            println_colored(&step.content, CYAN);
+        }
 
         // DEBUG ONLY
         StepType::AnnaToLlm => {

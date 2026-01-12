@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-12
+
+### Added
+- **IT Department Team Dispatch** - Fly-on-the-wall experience
+  - Questions are dispatched to appropriate specialists (Network, Desktop, System, etc.)
+  - Each specialist has a name and role (Junior/Senior)
+  - Shows team dialogue: "Anna -> Hey Michael! Got a network question..."
+  - Specialists acknowledge with personality: "On it! Let me check a few things..."
+  - 8 departments: Network, Desktop, System, Packages, Hardware, Audio, Storage, Security
+  - 16 specialists total (8 juniors, 8 seniors) with diverse human names
+
 ## [0.2.9] - 2026-01-12
 
 ### Fixed

@@ -357,4 +357,8 @@ pub enum StepType {
     TeamDialogue,
     /// v0.0.999: Specialist escalates to senior
     TeamEscalation,
+    /// v0.2.9: Anna dispatches question to specialist
+    TeamDispatch,
+    /// v0.2.9: Specialist acknowledges and works on question
+    SpecialistWorking,
 }
