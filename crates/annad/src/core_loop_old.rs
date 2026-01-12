@@ -2746,20 +2746,30 @@ Reply with ONLY one of:
         }
     };
 
+    // v0.1.4: Include Arch Linux context to avoid apt/brew suggestions
     let final_prompt = if last_output.is_empty() {
         format!(
-            r#"Question: "{}"
+            r#"You are Anna, an AI assistant for Arch Linux systems.
+This is an Arch Linux system using pacman for packages.
+Do NOT suggest apt, brew, or other package managers.
+
+Question: "{}"
 {}
 {}
-Provide a helpful, complete answer. Include relevant commands if needed.
+Provide a helpful, complete answer. Include relevant pacman commands if needed.
 RESPOND IN ENGLISH ONLY."#,
             question,
             if pref_guidance.is_empty() { "Be helpful and clear. Answer the question directly.".to_string() } else { pref_guidance.clone() },
             contradiction_warnings
         )
     } else {
+        // v0.1.4: Include Arch Linux context to avoid apt/brew suggestions
         format!(
-            r#"Question: "{}"
+            r#"You are Anna, an AI assistant for Arch Linux systems.
+This is an Arch Linux system using pacman for packages.
+Do NOT suggest apt, brew, or other package managers.
+
+Question: "{}"
 
 Command output:
 {}

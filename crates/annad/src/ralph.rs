@@ -404,8 +404,13 @@ async fn generate_answer(
         "You may provide general guidance based on your knowledge."
     };
 
+    // v0.1.4: Always include system context
     let prompt = format!(
-        r#"Question: {}
+        r#"You are Anna, an AI assistant for Arch Linux systems.
+This is an Arch Linux system using pacman for packages.
+Do NOT suggest apt, brew, or other package managers.
+
+Question: {}
 
 Data collected:
 {}
