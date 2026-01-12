@@ -146,6 +146,55 @@ pub async fn print_status() {
                 println!();
             }
 
+            // RPG STATS
+            println_colored("STATS", CYAN);
+            let rpg = &status.rpg_stats;
+
+            // Title and XP bar
+            print!("  ");
+            print_colored(&rpg.title, MAGENTA);
+            print!(" ");
+            println_colored(&rpg.xp_bar(), DIM);
+
+            // Questions answered
+            if rpg.total_questions > 0 {
+                print!("  Questions:     ");
+                print!("{}", rpg.total_questions);
+                if rpg.instant_answers > 0 || rpg.memory_answers > 0 {
+                    let fast = rpg.instant_answers + rpg.memory_answers;
+                    let pct = (fast as f64 / rpg.total_questions as f64 * 100.0) as u32;
+                    print_colored(&format!(" ({}% instant)", pct), DIM);
+                }
+                println!();
+            }
+
+            // Response times
+            if rpg.avg_response_ms > 0 {
+                print!("  Response:      ");
+                print!("avg {}ms", rpg.avg_response_ms);
+                println_colored(&format!(" (fast: {}ms, slow: {}ms)", rpg.fastest_response_ms, rpg.slowest_response_ms), DIM);
+            }
+
+            // Recipes learned
+            if rpg.recipes_learned > 0 {
+                println!("  Recipes:       {} learned", rpg.recipes_learned);
+            }
+
+            // Reliability
+            if rpg.total_questions > 10 {
+                print!("  Reliability:   ");
+                let rel_pct = (rpg.reliability * 100.0) as u32;
+                let rel_color = if rel_pct >= 90 { GREEN } else if rel_pct >= 70 { YELLOW } else { RED };
+                println_colored(&format!("{}%", rel_pct), rel_color);
+            }
+
+            // Total uptime
+            if rpg.total_uptime_secs > 0 {
+                print!("  Total uptime:  ");
+                println_colored(&format_duration(rpg.total_uptime_secs), DIM);
+            }
+            println!();
+
             // CONFIG
             println_colored("CONFIG", CYAN);
             print!("  Debug Mode:    ");

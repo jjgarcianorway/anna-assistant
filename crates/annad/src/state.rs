@@ -303,6 +303,11 @@ impl StateInner {
         let pattern_count = crate::patterns::total_pattern_count();
         let recipe_count = Self::get_recipe_count();
 
+        // v0.2.7: Get RPG stats
+        let rpg_stats = anna_shared::stats::PersistentStats::load()
+            .map(|s| s.get_rpg_stats())
+            .unwrap_or_default();
+
         anna_shared::status::DaemonStatus {
             state: self.state,
             version: VERSION.to_string(),
@@ -321,6 +326,7 @@ impl StateInner {
             update_state: self.update.check_state,
             pattern_count,
             recipe_count,
+            rpg_stats,
         }
     }
 

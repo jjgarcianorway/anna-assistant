@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-01-12
+
+### Added
+- **RPG Stats System** - Gamification with XP and titles
+  - XP bar (0-100) with non-linear progression
+  - 13 fun titles: "Novice Apprentice" to "Omniscient Oracle"
+  - Tracks: questions answered, instant vs LLM answers
+  - Response times: average, fastest, slowest
+  - Recipes learned, reliability score
+  - Total uptime since installation
+  - Stats persist across daemon restarts
+
+- **Stats Display in Status** - New STATS section in `annactl status`
+  - Shows current title and XP progress bar
+  - Question count with instant answer percentage
+  - Response time statistics
+  - Reliability percentage with color coding
+
 ## [0.2.7] - 2026-01-12
 
 ### Added

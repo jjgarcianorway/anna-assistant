@@ -12,6 +12,7 @@ pub mod rpc;
 pub mod safe_ops;
 pub mod session;
 pub mod status;
+pub mod stats;
 pub mod update_ledger;
 pub mod user_context;
 pub mod version;
