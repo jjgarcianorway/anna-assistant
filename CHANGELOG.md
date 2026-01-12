@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-01-12
+
+### Fixed
+- **Settings Recipe False Positives** - Fixed questions being incorrectly routed to settings
+  - "Show detailed memory usage" no longer triggers verbosity change
+  - "Show DNS configuration" no longer shows conversation settings
+  - Settings now require explicit Anna context ("be verbose", "anna settings", etc.)
+  - System questions with "detailed", "config", "show" now correctly go to LLM
+
 ## [0.2.4] - 2026-01-12
 
 ### Fixed

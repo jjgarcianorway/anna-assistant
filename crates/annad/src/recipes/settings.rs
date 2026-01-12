@@ -69,43 +69,52 @@ impl ConversationSettings {
 }
 
 /// Try to match a settings-related request
+/// v0.2.5: Fixed false positives - requires explicit Anna/conversation context
 pub fn try_recipe(q: &str) -> Option<RecipeResult> {
     let q_lower = q.to_lowercase();
 
-    // Verbosity settings
-    if q_lower.contains("verbose") || q_lower.contains("more detail") || q_lower.contains("detailed") {
-        return Some(set_verbosity("verbose"));
-    }
-    if q_lower.contains("brief") || q_lower.contains("concise") || q_lower.contains("short") {
-        if q_lower.contains("answer") || q_lower.contains("response") || q_lower.contains("output") || q_lower.contains("be ") {
+    // v0.2.5: Must contain context indicating this is about Anna's behavior, not system info
+    // Words that indicate user is talking TO Anna about her behavior
+    let anna_context = q_lower.contains("be ") || q_lower.contains("anna") ||
+        q_lower.contains("your ") || q_lower.contains("you ") ||
+        q_lower.contains("conversation") || q_lower.contains("answer") ||
+        q_lower.contains("response") || q_lower.contains("explain");
+
+    // Verbosity settings - must have context indicating this is about Anna's output
+    if anna_context {
+        if q_lower.contains("verbose") || q_lower.contains("more detail") {
+            return Some(set_verbosity("verbose"));
+        }
+        if q_lower.contains("brief") || q_lower.contains("concise") || q_lower.contains("short") {
             return Some(set_verbosity("brief"));
         }
     }
-    if q_lower.contains("normal") && (q_lower.contains("verbosity") || q_lower.contains("mode")) {
+    if q_lower.contains("normal") && q_lower.contains("verbosity") {
         return Some(set_verbosity("normal"));
     }
 
-    // Command display
-    if q_lower.contains("show") && q_lower.contains("command") {
+    // Command display - "show commands" vs "show your commands"
+    // Only match when clearly about Anna's command display
+    if q_lower.contains("show") && q_lower.contains("command") && anna_context {
         return Some(set_show_commands(true));
     }
-    if (q_lower.contains("hide") || q_lower.contains("don't show") || q_lower.contains("no ")) && q_lower.contains("command") {
+    if (q_lower.contains("hide") || q_lower.contains("don't show")) && q_lower.contains("command") {
         return Some(set_show_commands(false));
     }
 
-    // Confirmation settings
-    if q_lower.contains("confirm") || q_lower.contains("ask") {
-        if q_lower.contains("disable") || q_lower.contains("don't") || q_lower.contains("no ") || q_lower.contains("skip") {
+    // Confirmation settings - must have skip/disable context
+    if q_lower.contains("confirm") {
+        if q_lower.contains("skip") || (q_lower.contains("disable") && anna_context) {
             return Some(set_confirmations(false));
         }
-        if q_lower.contains("enable") || q_lower.contains("always") {
+        if q_lower.contains("enable") && anna_context {
             return Some(set_confirmations(true));
         }
     }
 
-    // Wiki display
-    if q_lower.contains("wiki") {
-        if q_lower.contains("hide") || q_lower.contains("don't") || q_lower.contains("no ") {
+    // Wiki display - specific to Anna's wiki search feature
+    if q_lower.contains("wiki") && q_lower.contains("search") {
+        if q_lower.contains("hide") || q_lower.contains("don't") {
             return Some(set_show_wiki(false));
         }
         if q_lower.contains("show") {
@@ -113,15 +122,22 @@ pub fn try_recipe(q: &str) -> Option<RecipeResult> {
         }
     }
 
-    // Show current settings
-    if (q_lower.contains("show") || q_lower.contains("what") || q_lower.contains("current")) &&
-       (q_lower.contains("setting") || q_lower.contains("preference") || q_lower.contains("config")) {
-        return Some(show_settings());
+    // Show current settings - must be specifically about Anna's settings
+    // v0.2.5: Only match "anna settings", "your settings", "conversation settings"
+    // NOT "DNS configuration" or "system config"
+    if q_lower.contains("setting") || q_lower.contains("preference") {
+        if anna_context || q_lower.contains("anna") {
+            if q_lower.contains("show") || q_lower.contains("what") || q_lower.contains("current") {
+                return Some(show_settings());
+            }
+        }
     }
 
     // Reset settings
-    if q_lower.contains("reset") && (q_lower.contains("setting") || q_lower.contains("preference") || q_lower.contains("default")) {
-        return Some(reset_settings());
+    if q_lower.contains("reset") && (q_lower.contains("setting") || q_lower.contains("preference")) {
+        if anna_context || q_lower.contains("default") {
+            return Some(reset_settings());
+        }
     }
 
     None
