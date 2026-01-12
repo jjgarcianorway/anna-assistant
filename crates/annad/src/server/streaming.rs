@@ -9,6 +9,7 @@ use tracing::{debug, info};
 use crate::autofix::{
     find_autofix, check_autofix_needed, format_autofix_offer, execute_autofix,
     set_pending_autofix, take_pending_autofix, is_yes_response, is_no_response,
+    get_fix_history_summary,
 };
 use crate::core_loop::execute_question_streaming;
 use crate::state::SharedState;
@@ -111,6 +112,35 @@ pub async fn handle_streaming_request(
             return Ok(());
         }
         // Not a yes/no - continue with normal processing
+    }
+
+    // v0.0.997: Check if user is asking about fix history
+    if is_fix_history_question(question) {
+        info!("User asking about fix history");
+        let summary = get_fix_history_summary();
+
+        let step = DialogueStep {
+            step_type: StepType::FinalAnswer,
+            content: summary.clone(),
+        };
+        let response = StreamingResponse::Step { step };
+        let json = serde_json::to_string(&response)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+        let result = anna_shared::rpc::AskResult {
+            answer: summary,
+            success: true,
+            iterations: 0,
+            commands_executed: vec![],
+            dialogue: vec![],
+            needs_clarification: false,
+            clarification_question: None,
+            cached: false,
+        };
+        let done = StreamingResponse::Done { result };
+        let json = serde_json::to_string(&done)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        return Ok(());
     }
 
     // Check for pending critical system alerts and notify user
@@ -312,4 +342,36 @@ pub async fn handle_streaming_request(
     }
 
     Ok(())
+}
+
+/// v0.0.997: Check if question is asking about fix history
+fn is_fix_history_question(question: &str) -> bool {
+    let q = question.to_lowercase();
+
+    // Two-word patterns
+    let two_word = [
+        ("fix", "history"),
+        ("what", "fixed"),
+        ("fixes", "done"),
+        ("show", "fixes"),
+        ("list", "fixes"),
+        ("recent", "fixes"),
+        ("repair", "history"),
+        ("auto", "fixes"),
+    ];
+
+    for (a, b) in &two_word {
+        if q.contains(*a) && q.contains(*b) {
+            return true;
+        }
+    }
+
+    // Three-word patterns
+    if (q.contains("what") && q.contains("anna") && q.contains("fix"))
+        || (q.contains("what") && q.contains("have") && q.contains("fix"))
+    {
+        return true;
+    }
+
+    false
 }
