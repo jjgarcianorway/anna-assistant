@@ -6,7 +6,10 @@ use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 
-use crate::autofix::{find_autofix, check_autofix_needed, format_autofix_offer};
+use crate::autofix::{
+    find_autofix, check_autofix_needed, format_autofix_offer, execute_autofix,
+    set_pending_autofix, take_pending_autofix, is_yes_response, is_no_response,
+};
 use crate::core_loop::execute_question_streaming;
 use crate::state::SharedState;
 
@@ -42,6 +45,74 @@ pub async fn handle_streaming_request(
         return Ok(());
     }
 
+    // v0.0.994: Check if this is a response to a pending autofix
+    if let Some(pending_fix) = take_pending_autofix(session_id) {
+        if is_yes_response(question) {
+            info!("Executing autofix {} (user confirmed)", pending_fix.id);
+
+            // Save fix_cmd before moving pending_fix
+            let fix_cmd = pending_fix.fix_cmd.to_string();
+
+            // Show what we're doing
+            let step = DialogueStep {
+                step_type: StepType::UnderstandingCheck,
+                content: format!("Running fix: {}", fix_cmd),
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Execute the fix
+            let result_msg = match execute_autofix(pending_fix) {
+                Ok(msg) => msg,
+                Err(e) => format!("Fix failed: {}", e),
+            };
+
+            // Return the result
+            let result = anna_shared::rpc::AskResult {
+                answer: result_msg,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![fix_cmd],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        } else if is_no_response(question) {
+            info!("Autofix {} cancelled by user", pending_fix.id);
+
+            // Show cancellation message
+            let step = DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: "No problem, I won't make any changes.".to_string(),
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: "No problem, I won't make any changes.".to_string(),
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
+        // Not a yes/no - continue with normal processing
+    }
+
     // Check for pending critical system alerts and notify user
     if let Some(alerts) = get_pending_alerts() {
         for alert in alerts {
@@ -70,6 +141,9 @@ pub async fn handle_streaming_request(
             let response = StreamingResponse::Step { step };
             let json = serde_json::to_string(&response)?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // v0.0.994: Store pending autofix so we can execute it on "yes"
+            set_pending_autofix(session_id, autofix.id);
 
             // Return with needs_clarification to prompt user for yes/no
             // The next message from user will trigger the fix

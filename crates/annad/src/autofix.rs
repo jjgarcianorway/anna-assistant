@@ -1,11 +1,50 @@
 //! Auto-fix module - Anna offers to fix known issues automatically.
 //! v0.0.993: Initial implementation
+//! v0.0.994: Added pending autofix tracking and yes/no handling
 //!
 //! When Anna detects a well-known problem, she can offer to fix it
 //! with user confirmation.
 
+use std::collections::HashMap;
 use std::process::Command;
+use std::sync::RwLock;
 use tracing::{debug, info};
+
+/// Track pending autofixes by session ID
+static PENDING_FIXES: RwLock<Option<HashMap<String, &'static str>>> = RwLock::new(None);
+
+/// Set a pending autofix for a session
+pub fn set_pending_autofix(session_id: &str, fix_id: &'static str) {
+    if let Ok(mut guard) = PENDING_FIXES.write() {
+        let map = guard.get_or_insert_with(HashMap::new);
+        map.insert(session_id.to_string(), fix_id);
+        debug!("Set pending autofix {} for session {}", fix_id, session_id);
+    }
+}
+
+/// Get and clear pending autofix for a session
+pub fn take_pending_autofix(session_id: &str) -> Option<&'static AutoFix> {
+    if let Ok(mut guard) = PENDING_FIXES.write() {
+        if let Some(map) = guard.as_mut() {
+            if let Some(fix_id) = map.remove(session_id) {
+                return AUTO_FIXES.iter().find(|f| f.id == fix_id);
+            }
+        }
+    }
+    None
+}
+
+/// Check if question is a "yes" confirmation
+pub fn is_yes_response(question: &str) -> bool {
+    let q = question.trim().to_lowercase();
+    matches!(q.as_str(), "yes" | "y" | "yeah" | "yep" | "sure" | "ok" | "do it" | "fix it" | "go ahead")
+}
+
+/// Check if question is a "no" rejection
+pub fn is_no_response(question: &str) -> bool {
+    let q = question.trim().to_lowercase();
+    matches!(q.as_str(), "no" | "n" | "nope" | "cancel" | "nevermind" | "never mind" | "don't" | "dont")
+}
 
 /// A known problem that Anna can fix automatically
 #[derive(Debug, Clone)]

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.994] - 2026-01-12
+
+### Added
+- **Interactive Auto-Fix Execution** - Users can confirm fixes with natural responses
+  - "yes", "y", "yeah", "sure", "ok", "do it", "fix it", "go ahead" to execute
+  - "no", "n", "nope", "cancel", "nevermind" to decline
+  - Pending autofix tracked per session for proper yes/no handling
+  - Fix commands shown before execution for transparency
+
+### Fixed
+- Bug where fix command was used after being moved (ownership issue)
+
 ## [0.0.993] - 2026-01-12
 
 ### Added

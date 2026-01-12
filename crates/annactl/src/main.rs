@@ -12,8 +12,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 /// Handle a question with clarification loop
 async fn handle_question(question: &str) {
-    // Generate a one-time session ID for command-line mode
-    let session_id = uuid::Uuid::new_v4().to_string();
+    // v0.0.994: Use stable session ID for non-interactive mode
+    // This allows pending autofixes to persist between CLI calls
+    let session_id = "cli".to_string();
     handle_question_with_clarification(question, false, &session_id).await;
 }
 
