@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-01-12
+
+### Added
+- **Instant Error Responses** - Known issues get immediate solutions without LLM
+  - Pacman database lock, GPGME errors, deleted /usr/bin recovery
+  - Forgot root password, chmod 777 disaster, kernel won't boot
+  - Disk full can't login, black screen/display manager issues
+  - Electron HiDPI blurry, Steam games crash, Docker DNS issues
+  - Flatpak permissions, xdg-open wrong app, Pipewire/PulseAudio conflict
+  - GRUB rescue - 15+ instant solutions total
+
+- **Diagnostic Patterns for Ambiguous Queries** - Runs diagnostics instead of asking
+  - "it's slow" - runs uptime, free, top, df
+  - "fix my wifi" / "no internet" - checks ip, ping, DNS
+  - "something is wrong" / "nothing works" - systemctl failed, journalctl errors
+  - "why won't it start" - checks failed services, recent errors
+  - "display is weird" - checks session type, xrandr, GPU driver
+  - "fan is loud" - checks temperature, top processes
+  - "help" - shows system status overview
+  - Plus: bandwidth usage, CPU hogs, memory hogs, security check
+
+- **Expanded Fast-Paths** - 30+ instant query patterns
+  - Public IP, GPU, CPU model, distro/OS, disk space, boot time
+  - Current user, audio system, AUR helper, battery level
+  - CPU temperature, load average, process count
+  - Orphan packages, explicit packages, display resolution
+
 ## [0.2.6] - 2026-01-12
 
 ### Added

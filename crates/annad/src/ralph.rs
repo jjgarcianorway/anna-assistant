@@ -21,6 +21,393 @@ use crate::core_loop::{
 };
 use crate::ollama;
 
+/// v0.2.7: Instant responses for well-known error patterns
+/// These are common issues that have known solutions - no need to investigate
+fn get_instant_error_response(question: &str) -> Option<&'static str> {
+    let q = question.to_lowercase();
+
+    // Pacman database lock
+    if q.contains("pacman") && (q.contains("lock") || q.contains("locked")) {
+        return Some(
+            "The pacman database is locked. This usually happens when another package operation is running or crashed.\n\n\
+            **Solution:**\n\
+            1. Check if pacman is running: `pgrep -a pacman`\n\
+            2. If not running, remove the lock: `sudo rm /var/lib/pacman/db.lck`\n\
+            3. If pacman is running, wait for it to finish or kill it: `sudo pkill pacman`\n\n\
+            **Note:** Only remove the lock if you're certain no package operation is in progress."
+        );
+    }
+
+    // GPGME error
+    if q.contains("gpgme") || (q.contains("gpg") && q.contains("no data")) {
+        return Some(
+            "GPGME/GPG 'No data' error usually means corrupted or missing package keys.\n\n\
+            **Solution:**\n\
+            1. Refresh keys: `sudo pacman-key --refresh-keys`\n\
+            2. If that fails, reinitialize: `sudo pacman-key --init && sudo pacman-key --populate archlinux`\n\
+            3. Update keyring: `sudo pacman -Sy archlinux-keyring`\n\n\
+            **Note:** This can take a few minutes. If using CachyOS, also run `sudo pacman-key --populate cachyos`."
+        );
+    }
+
+    // Deleted /usr/bin
+    if q.contains("deleted") && q.contains("/usr/bin") {
+        return Some(
+            "Accidentally deleted /usr/bin is serious but recoverable.\n\n\
+            **Recovery steps:**\n\
+            1. Boot from Arch/CachyOS live USB\n\
+            2. Mount your root partition: `mount /dev/sdXY /mnt`\n\
+            3. Chroot: `arch-chroot /mnt`\n\
+            4. Reinstall base packages: `pacman -S base base-devel`\n\
+            5. Reinstall all explicitly installed packages: `pacman -Qeq | pacman -S -`\n\n\
+            **Note:** If /usr/bin/bash is gone, use `busybox sh` from a rescue environment."
+        );
+    }
+
+    // Forgot root password
+    if q.contains("forgot") && (q.contains("root") || q.contains("password")) {
+        return Some(
+            "To reset root password:\n\n\
+            1. Reboot and at GRUB, press 'e' to edit boot entry\n\
+            2. Find the line starting with 'linux' and add `init=/bin/bash` at the end\n\
+            3. Press Ctrl+X to boot\n\
+            4. Remount root: `mount -o remount,rw /`\n\
+            5. Set new password: `passwd`\n\
+            6. Reboot: `exec /sbin/init` or `reboot -f`\n\n\
+            **Note:** For systemd-boot, edit the loader entry similarly."
+        );
+    }
+
+    // chmod 777 -R disaster
+    if q.contains("chmod") && q.contains("777") && q.contains("/") {
+        return Some(
+            "Running chmod 777 -R on system directories is serious but recoverable.\n\n\
+            **Recovery steps:**\n\
+            1. Boot from live USB (system may not boot normally)\n\
+            2. Mount your root partition: `mount /dev/sdXY /mnt`\n\
+            3. Reinstall all packages to fix permissions:\n\
+               `arch-chroot /mnt pacman -Qkk 2>&1 | grep 'Permissions mismatch' | awk '{print $2}' | xargs pacman -S --noconfirm`\n\
+            4. Or reinstall everything: `pacman -Qnq | pacman -S --noconfirm -`\n\n\
+            **Note:** This may take a while. Check /etc/shadow permissions manually: should be 640."
+        );
+    }
+
+    // Kernel won't boot
+    if (q.contains("won't boot") || q.contains("can't boot") || q.contains("not boot")) && q.contains("kernel") {
+        return Some(
+            "System won't boot after kernel update:\n\n\
+            **Quick fix:**\n\
+            1. At GRUB, select a previous kernel from 'Advanced options'\n\
+            2. Or at boot, press 'e' and change kernel version in linux line\n\n\
+            **From live USB:**\n\
+            1. Mount root and chroot\n\
+            2. Downgrade kernel: `pacman -U /var/cache/pacman/pkg/linux-<version>.pkg.tar.zst`\n\
+            3. Or regenerate initramfs: `mkinitcpio -P`\n\n\
+            **Note:** nvidia-dkms users should also downgrade nvidia drivers or wait for dkms rebuild."
+        );
+    }
+
+    // Disk full can't login
+    if q.contains("disk") && q.contains("full") && (q.contains("login") || q.contains("can't")) {
+        return Some(
+            "Disk full, can't login:\n\n\
+            **Recovery:**\n\
+            1. At login prompt, press Ctrl+Alt+F2 for TTY (may work)\n\
+            2. Or boot with `systemd.unit=rescue.target` kernel param\n\
+            3. Or use live USB and mount your partition\n\n\
+            **Clear space:**\n\
+            ```\n\
+            sudo rm -rf /var/cache/pacman/pkg/*  # Clear package cache\n\
+            sudo journalctl --vacuum-size=100M    # Trim logs\n\
+            sudo rm -rf /tmp/*                    # Clear temp\n\
+            ```\n\n\
+            **Find big files:** `du -h / 2>/dev/null | sort -h | tail -20`"
+        );
+    }
+
+    // Black screen / display manager won't start
+    if (q.contains("black screen") || q.contains("display manager") || q.contains("dm won't start") || q.contains("sddm") || q.contains("gdm"))
+        && (q.contains("won't") || q.contains("not") || q.contains("blank"))
+    {
+        return Some(
+            "Display manager won't start / black screen:\n\n\
+            **Quick diagnosis:**\n\
+            1. Press Ctrl+Alt+F2 for TTY login\n\
+            2. Check DM status: `systemctl status sddm` (or gdm/lightdm)\n\
+            3. Check Xorg logs: `cat /var/log/Xorg.0.log | grep EE`\n\
+            4. Check journal: `journalctl -b -p err | grep -i 'x11\\|wayland\\|nvidia\\|amd'`\n\n\
+            **Common fixes:**\n\
+            - Nvidia: reinstall drivers `pacman -S nvidia nvidia-dkms`\n\
+            - Permissions: `chmod 0660 /dev/dri/*` \n\
+            - Restart DM: `systemctl restart sddm`"
+        );
+    }
+
+    // Electron apps blurry HiDPI
+    if q.contains("electron") && (q.contains("blurry") || q.contains("hidpi") || q.contains("fuzzy") || q.contains("scaling")) {
+        return Some(
+            "Electron apps blurry on HiDPI:\n\n\
+            **Solution:**\n\
+            Add `--force-device-scale-factor=1.5` (adjust to your scale) to the app's .desktop file.\n\n\
+            For system-wide: create `~/.config/electron-flags.conf`:\n\
+            ```\n\
+            --enable-features=UseOzonePlatform\n\
+            --ozone-platform=wayland\n\
+            ```\n\n\
+            Or for X11:\n\
+            ```\n\
+            --force-device-scale-factor=1.5\n\
+            ```\n\n\
+            **Note:** VSCode, Discord, Slack all use Electron. Check per-app config too."
+        );
+    }
+
+    // Steam games crash
+    if q.contains("steam") && (q.contains("crash") || q.contains("won't") || q.contains("launch") || q.contains("error")) {
+        return Some(
+            "Steam games crashing:\n\n\
+            **Common fixes:**\n\
+            1. Enable Proton: Game -> Properties -> Compatibility -> Force Proton\n\
+            2. Verify game files: Right-click -> Properties -> Local Files -> Verify\n\
+            3. Try different Proton: Use Proton-GE from ProtonUp-Qt\n\
+            4. Check dependencies: `pacman -S lib32-vulkan-icd-loader vulkan-tools`\n\n\
+            **For native games:**\n\
+            - Launch options: `LD_PRELOAD='' %command%`\n\
+            - Missing libs: `ldd ~/.steam/steam/steamapps/common/Game/game.exe`\n\n\
+            Check ProtonDB for game-specific fixes."
+        );
+    }
+
+    // Docker DNS
+    if q.contains("docker") && q.contains("dns") {
+        return Some(
+            "Docker containers can't resolve DNS:\n\n\
+            **Fix 1 - Specify DNS in daemon config:**\n\
+            Create/edit `/etc/docker/daemon.json`:\n\
+            ```json\n\
+            {\"dns\": [\"8.8.8.8\", \"1.1.1.1\"]}\n\
+            ```\n\
+            Then: `sudo systemctl restart docker`\n\n\
+            **Fix 2 - For systemd-resolved users:**\n\
+            ```bash\n\
+            sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf\n\
+            ```\n\n\
+            **Fix 3 - Per-container:**\n\
+            `docker run --dns 8.8.8.8 ...`"
+        );
+    }
+
+    // Flatpak can't access home
+    if q.contains("flatpak") && (q.contains("access") || q.contains("permission") || q.contains("home") || q.contains("folder")) {
+        return Some(
+            "Flatpak apps can't access home folder:\n\n\
+            **Grant filesystem access:**\n\
+            ```bash\n\
+            flatpak override --user --filesystem=home com.app.Name\n\
+            # Or for all apps:\n\
+            flatpak override --user --filesystem=home\n\
+            ```\n\n\
+            **Using Flatseal (GUI):**\n\
+            ```bash\n\
+            flatpak install flathub com.github.tchx84.Flatseal\n\
+            ```\n\
+            Then enable 'All user files' in Flatseal for the app.\n\n\
+            **Note:** Some apps need `--filesystem=/` for full access."
+        );
+    }
+
+    // xdg-open wrong app
+    if q.contains("xdg-open") && (q.contains("wrong") || q.contains("right") || q.contains("application") || q.contains("doesn't")) {
+        return Some(
+            "xdg-open doesn't open files with the right application:\n\n\
+            **Check current associations:**\n\
+            ```bash\n\
+            xdg-mime query default text/html  # Example for HTML\n\
+            ```\n\n\
+            **Set default app:**\n\
+            ```bash\n\
+            xdg-mime default firefox.desktop text/html\n\
+            xdg-mime default org.kde.dolphin.desktop inode/directory\n\
+            ```\n\n\
+            **Fix mimeapps.list:**\n\
+            Edit `~/.config/mimeapps.list` and remove conflicting entries.\n\n\
+            **Rebuild MIME database:**\n\
+            `update-mime-database ~/.local/share/mime`"
+        );
+    }
+
+    // Pipewire vs PulseAudio
+    if (q.contains("pipewire") && q.contains("pulseaudio")) || (q.contains("audio") && q.contains("fighting")) {
+        return Some(
+            "Pipewire and PulseAudio conflict:\n\n\
+            **Choose Pipewire (recommended):**\n\
+            ```bash\n\
+            sudo pacman -S pipewire pipewire-alsa pipewire-pulse pipewire-jack wireplumber\n\
+            systemctl --user disable pulseaudio\n\
+            systemctl --user enable pipewire pipewire-pulse wireplumber\n\
+            systemctl --user start pipewire pipewire-pulse wireplumber\n\
+            ```\n\n\
+            **Or choose PulseAudio:**\n\
+            ```bash\n\
+            sudo pacman -Rns pipewire-pulse\n\
+            sudo pacman -S pulseaudio\n\
+            systemctl --user enable pulseaudio\n\
+            ```\n\n\
+            Reboot after switching."
+        );
+    }
+
+    // GRUB rescue
+    if q.contains("grub") && q.contains("rescue") {
+        return Some(
+            "GRUB rescue / unknown filesystem:\n\n\
+            **At grub rescue prompt:**\n\
+            ```\n\
+            ls                      # List partitions\n\
+            ls (hd0,gpt2)/          # Find your root (look for /boot)\n\
+            set prefix=(hd0,gpt2)/boot/grub\n\
+            set root=(hd0,gpt2)\n\
+            insmod normal\n\
+            normal\n\
+            ```\n\n\
+            **Permanent fix (from live USB):**\n\
+            ```bash\n\
+            mount /dev/sdXY /mnt\n\
+            mount /dev/sdXZ /mnt/boot/efi  # If EFI\n\
+            arch-chroot /mnt\n\
+            grub-install --target=x86_64-efi --efi-directory=/boot/efi\n\
+            grub-mkconfig -o /boot/grub/grub.cfg\n\
+            ```"
+        );
+    }
+
+    None
+}
+
+/// v0.2.7: Diagnostic commands for ambiguous queries
+/// Returns (commands, intro_text) for running diagnostics
+fn get_diagnostic_path(question: &str) -> Option<(&'static [&'static str], &'static str)> {
+    let q = question.to_lowercase();
+
+    // "it's slow" / "make it faster" / "system is slow"
+    if (q.contains("slow") || q.contains("faster") || q.contains("laggy") || q.contains("sluggish"))
+        && !q.contains("boot") && !q.contains("start")
+    {
+        return Some((
+            &["uptime", "free -h", "top -bn1 | head -15", "df -h | grep -E '^/dev'"],
+            "Running performance diagnostics to identify the bottleneck..."
+        ));
+    }
+
+    // "fix my wifi" / "wifi not working" / "no internet"
+    if q.contains("wifi") || q.contains("internet") || (q.contains("network") && !q.contains("what")) {
+        return Some((
+            &["ip link show", "ip -4 addr show", "ping -c 2 8.8.8.8 2>&1", "cat /etc/resolv.conf | grep nameserver"],
+            "Checking network connectivity..."
+        ));
+    }
+
+    // "something is wrong" / "nothing works" / "I broke something"
+    if q.contains("something is wrong") || q.contains("nothing works") || q.contains("broke something")
+        || q.contains("broken") || q.contains("check if everything")
+    {
+        return Some((
+            &["systemctl --failed", "journalctl -p err -b --no-pager | head -20", "df -h | grep -E '^/dev'", "free -h"],
+            "Running general health check..."
+        ));
+    }
+
+    // "why won't it start" / "not starting" / "can't start"
+    if (q.contains("won't start") || q.contains("not start") || q.contains("can't start") || q.contains("doesn't start"))
+        && !q.contains("specific")
+    {
+        return Some((
+            &["systemctl --failed", "journalctl -p err -b --no-pager | head -20", "dmesg | tail -20"],
+            "Checking for startup failures..."
+        ));
+    }
+
+    // "display is weird" / "screen problem"
+    if (q.contains("display") || q.contains("screen") || q.contains("monitor"))
+        && (q.contains("weird") || q.contains("problem") || q.contains("issue") || q.contains("wrong"))
+    {
+        return Some((
+            &["echo $XDG_SESSION_TYPE", "xrandr 2>/dev/null || wlr-randr 2>/dev/null", "lsmod | grep -E 'nvidia|amdgpu|i915'", "journalctl -b | grep -iE 'drm|gpu' | tail -10"],
+            "Checking display configuration..."
+        ));
+    }
+
+    // "fan is loud" / "fan spinning"
+    if q.contains("fan") && (q.contains("loud") || q.contains("spin") || q.contains("noise")) {
+        return Some((
+            &["cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | head -5", "top -bn1 | head -10", "sensors 2>/dev/null | head -20"],
+            "Checking CPU temperature and load..."
+        ));
+    }
+
+    // "where did my files go" / "files missing"
+    if (q.contains("files") || q.contains("folder") || q.contains("directory"))
+        && (q.contains("gone") || q.contains("missing") || q.contains("where") || q.contains("disappeared"))
+    {
+        return Some((
+            &["df -h | grep -E '^/dev'", "mount | grep -E '^/dev'", "ls -la ~ | head -15"],
+            "Checking filesystem and mount points..."
+        ));
+    }
+
+    // "help" alone
+    if q.trim() == "help" || q.trim() == "help me" || q.trim() == "i need help" {
+        return Some((
+            &["systemctl --failed", "df -h | grep -E '^/dev'", "free -h"],
+            "What can I help you with? Here's your system status:"
+        ));
+    }
+
+    // "what's using bandwidth" / "bandwidth hog"
+    if q.contains("bandwidth") || (q.contains("network") && q.contains("using")) {
+        return Some((
+            &["ss -tunp | head -20", "nethogs -t -c 3 2>/dev/null | head -15 || echo 'nethogs not installed - run: pacman -S nethogs'"],
+            "Checking network usage..."
+        ));
+    }
+
+    // "what's using CPU" / "CPU hog"
+    if (q.contains("cpu") || q.contains("processor")) && (q.contains("using") || q.contains("hog") || q.contains("100%")) {
+        return Some((
+            &["top -bn1 | head -15", "ps aux --sort=-%cpu | head -10"],
+            "Checking CPU usage..."
+        ));
+    }
+
+    // "what's using memory/RAM"
+    if (q.contains("memory") || q.contains("ram")) && (q.contains("using") || q.contains("hog") || q.contains("eating")) {
+        return Some((
+            &["free -h", "ps aux --sort=-%mem | head -10"],
+            "Checking memory usage..."
+        ));
+    }
+
+    // "why did X fail" / "last error"
+    if (q.contains("why did") && q.contains("fail")) || q.contains("last error") || q.contains("recent error")
+        || q.contains("what went wrong") || q.contains("what failed")
+    {
+        return Some((
+            &["systemctl --failed", "journalctl -p err -b --no-pager | tail -20"],
+            "Checking recent failures..."
+        ));
+    }
+
+    // "is my system compromised" / "security check"
+    if q.contains("compromised") || q.contains("hacked") || q.contains("security check") || q.contains("suspicious") {
+        return Some((
+            &["last -10", "who", "ss -tunp | grep ESTABLISHED | head -10", "find /tmp -type f -perm -111 2>/dev/null | head -5"],
+            "Running basic security check..."
+        ));
+    }
+
+    None
+}
+
 /// v0.2.6: Fast-path lookup table for common queries
 /// Maps question patterns to (command, answer_template)
 /// Template uses {output} placeholder for command output
@@ -108,7 +495,170 @@ fn get_fast_path(question: &str) -> Option<(&'static str, &'static str)> {
         return Some(("ip -4 addr show | grep inet | grep -v 127.0.0.1 | awk '{print $2}'", "Local IP: {output}"));
     }
 
+    // Public IP
+    if (q.contains("ip") || q.contains("address")) && q.contains("public") {
+        return Some(("curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com", "Public IP: {output}"));
+    }
+
+    // GPU
+    if q.contains("gpu") && (q.contains("what") || q.contains("which") || q.contains("have") || q.contains("using")) {
+        return Some(("lspci | grep -i vga", "GPU: {output}"));
+    }
+
+    // CPU
+    if q.contains("cpu") && (q.contains("what") || q.contains("which") || q.contains("have") || q.contains("model")) && !q.contains("using") {
+        return Some(("lscpu | grep 'Model name' | cut -d: -f2 | xargs", "CPU: {output}"));
+    }
+
+    // Distro / OS
+    if (q.contains("distro") || q.contains("distribution") || q.contains("os ") || q.contains("operating system"))
+        && (q.contains("what") || q.contains("which") || q.contains("running"))
+    {
+        return Some(("cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d '\"'", "OS: {output}"));
+    }
+
+    // Disk space
+    if (q.contains("disk") || q.contains("storage")) && (q.contains("space") || q.contains("free") || q.contains("available")) {
+        return Some(("df -h / | tail -1 | awk '{print $4 \" free of \" $2}'", "Root partition: {output}"));
+    }
+
+    // Boot time
+    if (q.contains("boot") || q.contains("startup")) && (q.contains("time") || q.contains("how long") || q.contains("fast")) {
+        return Some(("systemd-analyze | head -1", "{output}"));
+    }
+
+    // Current user
+    if q.contains("user") && (q.contains("who am i") || q.contains("logged") || q.contains("current")) {
+        return Some(("whoami", "You are logged in as: {output}"));
+    }
+
+    // Audio system
+    if (q.contains("audio") || q.contains("sound")) && (q.contains("what") || q.contains("which") || q.contains("using")) && !q.contains("problem") {
+        return Some(("pactl info 2>/dev/null | grep 'Server Name' | cut -d: -f2 | xargs || echo 'PulseAudio/Pipewire not running'", "Audio server: {output}"));
+    }
+
+    // AUR helper
+    if q.contains("aur") && (q.contains("helper") || q.contains("what") || q.contains("which")) {
+        return Some(("which yay paru 2>/dev/null | head -1 || echo 'No AUR helper found'", "AUR helper: {output}"));
+    }
+
+    // Battery
+    if q.contains("battery") && (q.contains("level") || q.contains("charge") || q.contains("status") || q.contains("how much")) {
+        return Some(("cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo 'No battery detected'", "Battery: {output}%"));
+    }
+
+    // Temperature
+    if (q.contains("temperature") || q.contains("temp") || q.contains("hot")) && (q.contains("cpu") || q.contains("system")) {
+        return Some(("cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null | awk '{print $1/1000 \"C\"}' || sensors 2>/dev/null | grep -m1 'Core 0' | awk '{print $3}'", "CPU temperature: {output}"));
+    }
+
+    // Load average
+    if q.contains("load") && (q.contains("average") || q.contains("system")) {
+        return Some(("uptime | awk -F'load average:' '{print $2}'", "Load average:{output}"));
+    }
+
+    // Process count
+    if q.contains("process") && (q.contains("how many") || q.contains("running") || q.contains("count")) {
+        return Some(("ps aux | wc -l", "Running processes: {output}"));
+    }
+
+    // Orphan packages
+    if q.contains("orphan") && q.contains("package") {
+        return Some(("pacman -Qtdq | wc -l", "Orphan packages: {output}"));
+    }
+
+    // Explicitly installed packages
+    if q.contains("explicit") && q.contains("package") {
+        return Some(("pacman -Qe | wc -l", "Explicitly installed packages: {output}"));
+    }
+
+    // Resolution
+    if (q.contains("resolution") || q.contains("display size")) && (q.contains("what") || q.contains("my") || q.contains("screen")) {
+        return Some(("xrandr 2>/dev/null | grep '*' | awk '{print $1}' | head -1 || wlr-randr 2>/dev/null | grep current | awk '{print $1}'", "Display resolution: {output}"));
+    }
+
+    // Hostname
+    if q.contains("hostname") || (q.contains("computer") && q.contains("name")) {
+        return Some(("hostname", "Hostname: {output}"));
+    }
+
     None
+}
+
+/// v0.2.7: Try instant error response for known issues
+fn try_instant_error(question: &str) -> Option<AskResult> {
+    let answer = get_instant_error_response(question)?;
+
+    info!("Instant response: known error pattern matched");
+
+    Some(AskResult {
+        answer: answer.to_string(),
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue: vec![
+            DialogueStep {
+                step_type: StepType::UserQuestion,
+                content: question.to_string(),
+            },
+            DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: answer.to_string(),
+            },
+        ],
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+    })
+}
+
+/// v0.2.7: Try diagnostic path for ambiguous queries
+/// Runs pre-selected diagnostics instead of asking for clarification
+fn try_diagnostic_path(question: &str) -> Option<(Vec<String>, Vec<String>, &'static str, Vec<DialogueStep>)> {
+    let (commands, intro) = get_diagnostic_path(question)?;
+
+    info!("Diagnostic path: running {} commands", commands.len());
+
+    let mut outputs = Vec::new();
+    let mut executed = Vec::new();
+    let mut dialogue = vec![
+        DialogueStep {
+            step_type: StepType::UserQuestion,
+            content: question.to_string(),
+        },
+    ];
+
+    for cmd in commands {
+        dialogue.push(DialogueStep {
+            step_type: StepType::CommandExec,
+            content: cmd.to_string(),
+        });
+
+        match execute_command(cmd) {
+            Ok(output) => {
+                let clean = strip_ansi_codes(&output);
+                let truncated = if clean.len() > 500 {
+                    format!("{}...", &clean[..500])
+                } else {
+                    clean.clone()
+                };
+                dialogue.push(DialogueStep {
+                    step_type: StepType::CommandOutput,
+                    content: truncated,
+                });
+                outputs.push(clean);
+                executed.push(cmd.to_string());
+            }
+            Err(e) => {
+                dialogue.push(DialogueStep {
+                    step_type: StepType::CommandOutput,
+                    content: format!("Error: {}", e),
+                });
+            }
+        }
+    }
+
+    Some((executed, outputs, intro, dialogue))
 }
 
 /// v0.2.6: Try fast-path for simple queries
@@ -321,10 +871,64 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
 /// 2. Loop: attempt answer, self-evaluate, improve
 /// 3. Stop when criteria met or max iterations reached
 pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
+    // v0.2.7: Try instant error response first for known issues
+    if let Some(result) = try_instant_error(question) {
+        info!("Instant error response completed");
+        return Ok(result);
+    }
+
     // v0.2.6: Try fast-path first for simple queries
     if let Some(result) = try_fast_path(question).await {
         info!("Fast-path completed in 0 iterations");
         return Ok(result);
+    }
+
+    // v0.2.7: Try diagnostic path for ambiguous queries
+    if let Some((executed, outputs, intro, mut dialogue)) = try_diagnostic_path(question) {
+        info!("Diagnostic path: analyzing {} outputs", outputs.len());
+
+        // Use LLM to interpret the diagnostic results
+        let data_context = outputs.join("\n---\n");
+        let prompt = format!(
+            r#"You are Anna, an AI assistant for Arch Linux systems.
+
+The user asked: "{}"
+
+I ran diagnostic commands. Here are the results:
+{}
+
+Based on these diagnostics, provide a helpful analysis. Be specific:
+- If there's a problem, explain what it is and how to fix it
+- If everything looks normal, say so with specific evidence
+- Reference actual values from the output
+
+Be concise but complete. Start your response with "{}" (without quotes)."#,
+            question, data_context, intro
+        );
+
+        match ollama::chat_with_timeout(model, &prompt, 60).await {
+            Ok(answer) => {
+                dialogue.push(DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: answer.clone(),
+                });
+
+                return Ok(AskResult {
+                    answer,
+                    success: true,
+                    iterations: 1,
+                    commands_executed: executed,
+                    dialogue,
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                });
+            }
+            Err(e) => {
+                warn!("Diagnostic path LLM failed: {}, falling back to normal loop", e);
+                // Fall through to normal loop
+            }
+        }
     }
 
     let criteria = determine_criteria(question);
@@ -684,6 +1288,26 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 ) -> Result<AskResult> {
     use anna_shared::rpc::StreamingResponse;
 
+    // v0.2.7: Try instant error response first for known issues
+    if let Some(mut result) = try_instant_error(question) {
+        info!("Instant error response streaming completed");
+
+        // Send the dialogue steps
+        for step in &result.dialogue {
+            send_step(writer, step.clone()).await?;
+        }
+
+        // Send done
+        let resp = StreamingResponse::Done {
+            result: result.clone(),
+        };
+        let json = serde_json::to_string(&resp)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        writer.flush().await?;
+
+        return Ok(result);
+    }
+
     // v0.2.6: Try fast-path first for simple queries
     if let Some(mut result) = try_fast_path(question).await {
         info!("Fast-path streaming completed");
@@ -710,6 +1334,84 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         writer.flush().await?;
 
         return Ok(result);
+    }
+
+    // v0.2.7: Try diagnostic path for ambiguous queries (streaming)
+    if let Some((executed, outputs, intro, mut dialogue)) = try_diagnostic_path(question) {
+        info!("Diagnostic path streaming: analyzing {} outputs", outputs.len());
+
+        // Send the dialogue steps we've collected
+        for step in &dialogue {
+            send_step(writer, step.clone()).await?;
+        }
+
+        // Use LLM to interpret the diagnostic results
+        let data_context = outputs.join("\n---\n");
+        let prompt = format!(
+            r#"You are Anna, an AI assistant for Arch Linux systems.
+
+The user asked: "{}"
+
+I ran diagnostic commands. Here are the results:
+{}
+
+Based on these diagnostics, provide a helpful analysis. Be specific:
+- If there's a problem, explain what it is and how to fix it
+- If everything looks normal, say so with specific evidence
+- Reference actual values from the output
+
+Be concise but complete. Start your response with "{}" (without quotes)."#,
+            question, data_context, intro
+        );
+
+        match ollama::chat_with_timeout(model, &prompt, 60).await {
+            Ok(answer) => {
+                // Stream the answer token by token
+                let step = DialogueStep {
+                    step_type: StepType::FinalPrompt,
+                    content: String::new(),
+                };
+                send_step(writer, step).await?;
+
+                for token in answer.split_inclusive(' ') {
+                    let resp = StreamingResponse::Token {
+                        token: token.to_string(),
+                    };
+                    let json = serde_json::to_string(&resp)?;
+                    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+                    writer.flush().await?;
+                }
+
+                dialogue.push(DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: answer.clone(),
+                });
+
+                let result = AskResult {
+                    answer,
+                    success: true,
+                    iterations: 1,
+                    commands_executed: executed,
+                    dialogue,
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                };
+
+                let resp = StreamingResponse::Done {
+                    result: result.clone(),
+                };
+                let json = serde_json::to_string(&resp)?;
+                writer.write_all(format!("{}\n", json).as_bytes()).await?;
+                writer.flush().await?;
+
+                return Ok(result);
+            }
+            Err(e) => {
+                warn!("Diagnostic path LLM failed: {}, falling back to normal loop", e);
+                // Fall through to normal loop
+            }
+        }
     }
 
     let criteria = determine_criteria(question);
