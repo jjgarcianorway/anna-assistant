@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-01-12
+
+### Fixed
+- **Stats Recording Integration** - Fixed missing `start_time` variable in streaming pipeline
+  - Stats now properly record on every query answered
+  - XP and titles update automatically as you use Anna
+
 ## [0.2.8] - 2026-01-12
 
 ### Added
@@ -17,13 +24,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Response times: average, fastest, slowest
   - Recipes learned, reliability score
   - Total uptime since installation
-  - Stats persist across daemon restarts
+  - Stats persist across daemon restarts in `~/.anna/stats.json`
 
 - **Stats Display in Status** - New STATS section in `annactl status`
   - Shows current title and XP progress bar
   - Question count with instant answer percentage
   - Response time statistics
   - Reliability percentage with color coding
+
+- **Automatic Stats Recording** - Stats recorded on every query
+  - Tracks response time per query
+  - Classifies answers: instant, memory (cached), or LLM
+  - Updates XP and title progression automatically
 
 ## [0.2.7] - 2026-01-12
 

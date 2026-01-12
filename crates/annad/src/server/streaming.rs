@@ -65,6 +65,9 @@ pub async fn handle_streaming_request(
         .and_then(|s| s.as_str())
         .unwrap_or("default");
 
+    // v0.2.8: Track response time for RPG stats
+    let start_time = std::time::Instant::now();
+
     if question.is_empty() {
         let response = StreamingResponse::Error {
             message: "Missing 'question' parameter".to_string(),
@@ -452,6 +455,21 @@ pub async fn handle_streaming_request(
             }
             // Cleanup old sessions periodically (also triggers periodic save to disk)
             state_guard.cleanup_sessions();
+
+            // v0.2.8: Record RPG stats
+            let elapsed = start_time.elapsed();
+            let response_ms = elapsed.as_millis() as u64;
+            let answer_type = if ask_result.iterations == 0 {
+                anna_shared::stats::AnswerType::Instant
+            } else if ask_result.cached {
+                anna_shared::stats::AnswerType::Memory
+            } else {
+                anna_shared::stats::AnswerType::Llm
+            };
+            if let Ok(mut stats) = anna_shared::stats::PersistentStats::load() {
+                stats.record_answer(response_ms, answer_type);
+                let _ = stats.save();
+            }
         }
         Err(e) => {
             let response = StreamingResponse::Error {
