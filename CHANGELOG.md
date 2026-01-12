@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.992] - 2026-01-12
+
+### Added
+- **Proactive Monitoring Integration** - Daemon runs comprehensive system checks
+  - Runs full monitoring checks every 5 minutes in background
+  - Saves detected issues for display when user opens annactl
+  - Natural language alerts: "I noticed some issues while monitoring your system"
+- **Alert Display in REPL** - Shows unacknowledged issues when annactl starts
+  - Critical issues shown with fix suggestions
+  - Warnings limited to 3 most recent
+  - Alerts marked as shown to avoid repetition
+
+### Changed
+- Health check system now uses full monitoring module
+- Issues persisted to ~/.local/share/anna/issues.json
+
 ## [0.0.991] - 2026-01-12
 
 ### Added

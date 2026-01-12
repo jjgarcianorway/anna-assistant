@@ -1,11 +1,41 @@
 //! Fallback command hints for when LLM is unavailable.
 //! v0.0.932: Added profile-based command suggestions
+//! v0.0.992: Integrated comprehensive monitoring system
 
 use std::process::Command;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::cache::{cache_command, get_cached_command};
 use super::profile::get_system_profile;
+
+/// v0.0.992: Run the comprehensive monitoring system and save issues
+fn run_comprehensive_monitoring() {
+    use anna_shared::monitor::{run_checks, IssueStore, MonitorThresholds};
+
+    let thresholds = MonitorThresholds::default();
+    let results = run_checks(&thresholds);
+
+    // Save issues to store for display in REPL
+    match IssueStore::load() {
+        Ok(mut store) => {
+            store.update(results);
+            if let Err(e) = store.save() {
+                warn!("Failed to save monitoring issues: {}", e);
+            } else {
+                let unnotified = store.get_unnotified().len();
+                let critical = store.get_critical().len();
+                if critical > 0 {
+                    info!("Monitoring: {} critical issues detected", critical);
+                } else if unnotified > 0 {
+                    debug!("Monitoring: {} new issues detected", unnotified);
+                }
+            }
+        }
+        Err(e) => {
+            warn!("Failed to load issue store: {}", e);
+        }
+    }
+}
 
 /// Heuristic command hints for when LLM is unavailable (timeout fallback)
 pub fn get_fallback_commands(question: &str) -> Vec<&'static str> {
@@ -414,9 +444,13 @@ pub enum HealthStatus {
 static HEALTH_CACHE: std::sync::RwLock<Option<Vec<HealthCheckResult>>> = std::sync::RwLock::new(None);
 
 /// v0.0.953: Run proactive health checks and cache results
+/// v0.0.992: Integrated with comprehensive monitoring system
 /// Called at startup and can be called periodically
 pub fn run_health_checks() -> Vec<HealthCheckResult> {
     info!("Running proactive health checks...");
+
+    // v0.0.992: Run comprehensive monitoring and save issues
+    run_comprehensive_monitoring();
     let mut results = Vec::new();
 
     // Check disk space

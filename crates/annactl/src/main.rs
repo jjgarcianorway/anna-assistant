@@ -77,6 +77,12 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool, sessi
 async fn run_repl() -> Result<()> {
     print_greeting();
     print_status().await;
+
+    // v0.0.992: Show proactive alerts from monitoring
+    if show_proactive_alerts() {
+        mark_alerts_shown();
+    }
+
     println!();
 
     // Generate a session_id that persists for this REPL session
