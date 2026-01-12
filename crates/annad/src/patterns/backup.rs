@@ -1,5 +1,6 @@
 //! Backup patterns for rsync, borg, restic, tar.
 //! v0.0.968: Initial implementation.
+//! v0.0.989: Expanded patterns for better coverage.
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -61,6 +62,9 @@ fn match_borg(q: &str) -> Option<DeepUnderstanding> {
          &["borg --version 2>/dev/null || echo 'borg not installed'"]),
         (&["borg", "installed"], "check if borg is installed", "backup",
          &["which borg && borg --version"]),
+        // Borg backups (general)
+        (&["borg", "backup"], "show borg backup info", "backup",
+         &["borg --version", "echo 'List: borg list REPO'", "echo 'Create: borg create REPO::NAME /path'"]),
         // Borg repos
         (&["borg", "repos"], "list borg repositories", "backup",
          &["echo 'Borg repos are typically at ~/.borg or /path/to/backup'", "ls -la ~/.borg 2>/dev/null"]),
@@ -80,6 +84,12 @@ fn match_borg(q: &str) -> Option<DeepUnderstanding> {
         // Borg compact
         (&["borg", "compact"], "compact borg repository", "backup",
          &["echo 'Use: borg compact /path/to/repo'"]),
+        // Borg restore
+        (&["borg", "restore"], "how to restore borg backup", "backup",
+         &["echo 'Use: borg extract /path/to/repo::archive'", "echo 'Or mount: borg mount /path/to/repo::archive /mnt'"]),
+        // Borg prune
+        (&["borg", "prune"], "manage borg retention", "backup",
+         &["echo 'Use: borg prune --keep-daily 7 --keep-weekly 4 /path/to/repo'"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {
@@ -128,6 +138,9 @@ fn match_restic(q: &str) -> Option<DeepUnderstanding> {
 /// Tar patterns
 fn match_tar(q: &str) -> Option<DeepUnderstanding> {
     let patterns: &[BackupPattern] = &[
+        // Tar archives (general)
+        (&["tar", "archive"], "tar archive info", "backup",
+         &["echo 'Create: tar -cvf archive.tar files'", "echo 'Extract: tar -xvf archive.tar'", "echo 'List: tar -tvf archive.tar'"]),
         // Tar syntax
         (&["tar", "syntax"], "show tar syntax", "backup",
          &["echo 'Create: tar -cvf archive.tar files'; echo 'Extract: tar -xvf archive.tar'; echo 'Compressed: tar -czvf archive.tar.gz files'"]),
@@ -141,6 +154,12 @@ fn match_tar(q: &str) -> Option<DeepUnderstanding> {
         // Tar extract
         (&["tar", "extract"], "how to extract tar archive", "backup",
          &["echo 'tar -xvf archive.tar (regular)'; echo 'tar -xzvf archive.tar.gz (gzip)'; echo 'tar -xjvf archive.tar.bz2 (bzip2)'; echo 'tar -xJvf archive.tar.xz (xz)'"]),
+        // Tar create
+        (&["tar", "create"], "how to create tar archive", "backup",
+         &["echo 'tar -cvf archive.tar files/'", "echo 'tar -czvf archive.tar.gz files/ (gzip)'", "echo 'tar -cJvf archive.tar.xz files/ (xz)'"]),
+        // Tar compress
+        (&["tar", "compress"], "tar compression options", "backup",
+         &["echo '-z = gzip (.tar.gz)'; echo '-j = bzip2 (.tar.bz2)'; echo '-J = xz (.tar.xz)'; echo '--zstd = zstd (.tar.zst)'"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {
@@ -159,6 +178,24 @@ fn match_general_backup(q: &str) -> Option<DeepUnderstanding> {
          &["which rsync borg restic duplicity timeshift 2>/dev/null | xargs -I{} basename {}"]),
         (&["backup", "software"], "show backup software", "backup",
          &["pacman -Qs 'backup\\|rsync\\|borg\\|restic\\|timeshift' 2>/dev/null | head -20"]),
+        // Backup schedule
+        (&["backup", "schedule"], "show backup schedules", "backup",
+         &["systemctl list-timers | grep -iE 'backup|borg|restic|rsync'", "crontab -l 2>/dev/null | grep -iE 'backup|borg|restic|rsync'"]),
+        (&["scheduled", "backup"], "show scheduled backups", "backup",
+         &["systemctl list-timers | grep -i backup", "crontab -l 2>/dev/null | grep -i backup"]),
+        // Incremental backup
+        (&["incremental", "backup"], "incremental backup info", "backup",
+         &["echo 'rsync: rsync -av --link-dest=PREV src/ dst/'", "echo 'borg: borg create (always incremental)'", "echo 'restic: restic backup (always incremental)'"]),
+        // Restore backup
+        (&["restore", "backup"], "how to restore backup", "backup",
+         &["echo 'rsync: rsync -av backup/ destination/'", "echo 'borg: borg extract REPO::ARCHIVE'", "echo 'restic: restic restore SNAPSHOT --target /'"]),
+        (&["backup", "restore"], "how to restore from backup", "backup",
+         &["echo 'rsync: rsync -av backup/ destination/'", "echo 'borg: borg extract REPO::ARCHIVE'", "echo 'restic: restic restore SNAPSHOT --target /'"]),
+        // Backup verification
+        (&["backup", "verification"], "verify backup integrity", "backup",
+         &["echo 'borg: borg check REPO'", "echo 'restic: restic check'", "echo 'rsync: rsync -avnc src/ dst/ (dry-run checksum)'"]),
+        (&["verify", "backup"], "verify backup", "backup",
+         &["echo 'borg: borg check REPO'", "echo 'restic: restic check'", "echo 'Compare: diff -r original/ backup/'"]),
         // Timeshift
         (&["timeshift", "status"], "show timeshift status", "backup",
          &["timeshift --list 2>/dev/null || echo 'timeshift not installed'"]),
@@ -174,6 +211,9 @@ fn match_general_backup(q: &str) -> Option<DeepUnderstanding> {
          &["ps aux | grep -E 'rsync|borg|restic|duplicity|timeshift' | grep -v grep"]),
         (&["backup", "progress"], "show backup progress", "backup",
          &["ps aux | grep -E 'rsync|borg|restic|duplicity' | grep -v grep"]),
+        // Backup size
+        (&["backup", "size"], "check backup size", "backup",
+         &["du -sh /path/to/backup 2>/dev/null", "echo 'borg: borg info REPO'", "echo 'restic: restic stats'"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {

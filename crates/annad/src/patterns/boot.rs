@@ -1,5 +1,6 @@
 //! Boot patterns - bootloader, GRUB, EFI, kernel, and boot diagnostics
 //! v0.0.951: Initial boot patterns for boot troubleshooting
+//! v0.0.989: Added plymouth, boot splash, silent boot, bootloader check
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -26,6 +27,10 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     }
     // Initramfs
     if let Some(u) = match_initramfs(q) {
+        return Some(u);
+    }
+    // Plymouth and boot splash
+    if let Some(u) = match_plymouth(q) {
         return Some(u);
     }
     None
@@ -69,6 +74,50 @@ fn match_grub(q: &str) -> Option<DeepUnderstanding> {
         (&["grub", "rescue"], "GRUB rescue mode help", "boot",
             &["echo 'In GRUB rescue: ls, set root=(hdX,Y), insmod normal, normal'",
               "echo 'Or boot live USB to reinstall GRUB'"]),
+        // GRUB password
+        (&["grub", "password"], "GRUB password setup", "boot",
+            &["echo 'Generate hash: grub-mkpasswd-pbkdf2'",
+              "echo 'Add to /etc/grub.d/40_custom:'",
+              "echo 'set superusers=\"admin\"'",
+              "echo 'password_pbkdf2 admin <hash>'"]),
+        // Boot menu timeout
+        (&["boot", "menu", "timeout"], "boot menu timeout setting", "boot",
+            &["grep GRUB_TIMEOUT /etc/default/grub",
+              "echo 'Change: GRUB_TIMEOUT=X in /etc/default/grub'",
+              "echo 'Then: sudo grub-mkconfig -o /boot/grub/grub.cfg'"]),
+        // Boot entries
+        (&["boot", "entries"], "list boot entries", "boot",
+            &["efibootmgr -v", "grep menuentry /boot/grub/grub.cfg",
+              "bootctl list 2>/dev/null"]),
+        (&["boot", "entry"], "show boot entries", "boot",
+            &["efibootmgr", "grep -E '^menuentry' /boot/grub/grub.cfg"]),
+        // Dual boot
+        (&["dual", "boot"], "dual boot configuration", "boot",
+            &["efibootmgr -v", "os-prober 2>/dev/null",
+              "cat /boot/grub/grub.cfg | grep -i windows",
+              "echo 'Run: sudo os-prober && sudo grub-mkconfig -o /boot/grub/grub.cfg'"]),
+        // Boot repair
+        (&["boot", "repair"], "boot repair information", "boot",
+            &["echo 'Boot from live USB, mount root partition'",
+              "echo 'arch-chroot /mnt'",
+              "echo 'grub-install --target=x86_64-efi --efi-directory=/boot'",
+              "echo 'grub-mkconfig -o /boot/grub/grub.cfg'"]),
+        // Boot partition
+        (&["boot", "partition"], "boot partition information", "boot",
+            &["lsblk -f | grep -E 'boot|efi'",
+              "df -Th /boot /boot/efi 2>/dev/null",
+              "findmnt /boot"]),
+        // Boot device
+        (&["boot", "device"], "show boot device", "boot",
+            &["lsblk -o NAME,FSTYPE,MOUNTPOINT | grep -E '/boot|/efi'",
+              "efibootmgr | grep BootCurrent",
+              "cat /proc/cmdline | grep -oE 'root=[^ ]+'"]),
+        (&["show", "boot", "device"], "show boot device info", "boot",
+            &["findmnt /boot", "efibootmgr | head -5"]),
+        // Systemd boot analysis
+        (&["systemd", "boot", "analysis"], "systemd boot analysis", "boot",
+            &["systemd-analyze", "systemd-analyze blame | head -15",
+              "systemd-analyze critical-chain"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
@@ -227,6 +276,69 @@ fn match_initramfs(q: &str) -> Option<DeepUnderstanding> {
         (&["dracut"], "dracut status", "boot",
             &["dracut --list-modules 2>/dev/null || echo 'dracut not installed (Arch uses mkinitcpio)'",
               "pacman -Qs dracut"]),
+        // Show initrd contents
+        (&["initrd", "content"], "show initrd contents", "boot",
+            &["lsinitcpio /boot/initramfs-linux.img 2>/dev/null | head -50",
+              "lsinitrd /boot/initramfs-*.img 2>/dev/null | head -50"]),
+        (&["show", "initrd"], "show initrd contents", "boot",
+            &["lsinitcpio /boot/initramfs-linux.img | head -50"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(make_understanding(interpreted, topic, commands));
+        }
+    }
+    None
+}
+
+/// Plymouth and boot splash patterns
+fn match_plymouth(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[BootPattern] = &[
+        // Plymouth status
+        (&["plymouth", "status"], "check Plymouth status", "boot",
+            &["plymouth --ping 2>/dev/null && echo 'Plymouth running' || echo 'Plymouth not running'",
+              "pacman -Q plymouth 2>/dev/null || echo 'plymouth not installed'"]),
+        (&["plymouth", "theme"], "list Plymouth themes", "boot",
+            &["plymouth-set-default-theme --list 2>/dev/null || ls /usr/share/plymouth/themes",
+              "plymouth-set-default-theme 2>/dev/null"]),
+        // Boot splash
+        (&["boot", "splash"], "boot splash configuration", "boot",
+            &["grep -i splash /etc/default/grub",
+              "plymouth-set-default-theme 2>/dev/null || echo 'plymouth not installed'"]),
+        (&["splash", "config"], "boot splash config", "boot",
+            &["cat /etc/default/grub | grep -i splash",
+              "cat /etc/mkinitcpio.conf | grep plymouth"]),
+        // Silent boot
+        (&["silent", "boot"], "silent boot setup", "boot",
+            &["echo 'In /etc/default/grub: GRUB_CMDLINE_LINUX_DEFAULT=\"quiet loglevel=3\"'",
+              "echo 'For plymouth: add splash to kernel params'",
+              "echo 'Regenerate: sudo grub-mkconfig -o /boot/grub/grub.cfg'"]),
+        (&["quiet", "boot"], "quiet boot configuration", "boot",
+            &["grep quiet /etc/default/grub",
+              "echo 'Set: GRUB_CMDLINE_LINUX_DEFAULT=\"quiet loglevel=3 vga=current\"'"]),
+        // Check bootloader
+        (&["check", "bootloader"], "check bootloader status", "boot",
+            &["bootctl status 2>/dev/null || echo 'systemd-boot not installed'",
+              "grub-install --version 2>/dev/null || echo 'GRUB not installed'",
+              "efibootmgr 2>/dev/null | head -10"]),
+        (&["bootloader", "info"], "bootloader information", "boot",
+            &["bootctl status 2>/dev/null || efibootmgr 2>/dev/null | head -10",
+              "ls /boot/grub 2>/dev/null && echo 'GRUB installed'"]),
+        (&["which", "bootloader"], "identify bootloader", "boot",
+            &["[ -d /boot/grub ] && echo 'GRUB detected'",
+              "[ -d /boot/loader ] && echo 'systemd-boot detected'",
+              "bootctl status 2>/dev/null | head -5"]),
+        // systemd-boot
+        (&["systemd-boot"], "systemd-boot status", "boot",
+            &["bootctl status", "ls /boot/loader/entries"]),
+        (&["bootctl"], "bootctl status", "boot",
+            &["bootctl status", "bootctl list"]),
+        // Install plymouth
+        (&["install", "plymouth"], "install Plymouth", "boot",
+            &["echo 'Install: sudo pacman -S plymouth'",
+              "echo 'Add plymouth to HOOKS in /etc/mkinitcpio.conf'",
+              "echo 'Regenerate: sudo mkinitcpio -P'"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
@@ -273,5 +385,14 @@ mod tests {
     fn test_initramfs() {
         assert!(match_patterns("initramfs info").is_some());
         assert!(match_patterns("regenerate initramfs").is_some());
+        assert!(match_patterns("show initrd").is_some());
+    }
+
+    #[test]
+    fn test_plymouth() {
+        assert!(match_patterns("plymouth status").is_some());
+        assert!(match_patterns("boot splash").is_some());
+        assert!(match_patterns("silent boot").is_some());
+        assert!(match_patterns("check bootloader").is_some());
     }
 }

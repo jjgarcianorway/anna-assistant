@@ -1,6 +1,7 @@
 //! Common error patterns with known solutions
 //! v0.0.915: Added suggested_commands for diagnostics
 //! v0.0.946: Added common system error patterns
+//! v0.0.989: Added segfault, kernel panic, library errors, more audio/boot errors
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -261,6 +262,64 @@ fn match_common_errors(q: &str) -> Option<DeepUnderstanding> {
             &["systemctl --failed", "systemctl status <unit>"]),
         (&["failed", "to", "start"], "failed to start service", "services", IntentCategory::Troubleshoot,
             &["systemctl status <service>", "journalctl -xe"]),
+        // Segmentation fault
+        (&["segmentation", "fault"], "segmentation fault crash", "crash", IntentCategory::Troubleshoot,
+            &["coredumpctl list", "dmesg | tail -20",
+              "echo 'Run with: gdb <program> core'"]),
+        (&["segfault"], "segmentation fault", "crash", IntentCategory::Troubleshoot,
+            &["coredumpctl list", "journalctl -b | grep -i segfault | tail -10"]),
+        // Memory allocation
+        (&["cannot", "allocate", "memory"], "cannot allocate memory", "memory", IntentCategory::Troubleshoot,
+            &["free -h", "dmesg | grep -i memory | tail -10",
+              "cat /proc/meminfo | head -10"]),
+        (&["allocat", "memory"], "memory allocation failure", "memory", IntentCategory::Troubleshoot,
+            &["free -h", "ps aux --sort=-%mem | head -10"]),
+        // Kernel panic
+        (&["kernel", "panic"], "kernel panic", "kernel", IntentCategory::Troubleshoot,
+            &["journalctl -b -1 | grep -i panic | tail -20",
+              "dmesg | grep -i panic",
+              "echo 'Check: /var/log/journal for previous boot logs'"]),
+        // Grub/Boot errors
+        (&["grub", "error"], "GRUB boot error", "boot", IntentCategory::Troubleshoot,
+            &["cat /boot/grub/grub.cfg 2>/dev/null | head -30",
+              "echo 'Rescue: boot from live USB and reinstall grub'"]),
+        (&["grub", "unknown", "filesystem"], "GRUB unknown filesystem error", "boot", IntentCategory::Troubleshoot,
+            &["lsblk -f", "echo 'FIX: Boot live USB, mount partitions, grub-install'"]),
+        (&["unable", "find", "entry"], "unable to find expected entry", "boot", IntentCategory::Troubleshoot,
+            &["efibootmgr -v", "ls /boot/efi/EFI/ 2>/dev/null"]),
+        // Dependency resolution
+        (&["dependency", "resolution"], "dependency resolution failed", "packages", IntentCategory::Troubleshoot,
+            &["pacman -Syu", "pacman -Dk", "echo 'Try: pacman -Syu --ignore <pkg>'"]),
+        // PulseAudio/Audio errors
+        (&["pulseaudio", "connection"], "PulseAudio connection error", "audio", IntentCategory::Troubleshoot,
+            &["systemctl --user status pulseaudio",
+              "pulseaudio -k && pulseaudio --start",
+              "pactl info"]),
+        (&["pulseaudio", "refused"], "PulseAudio connection refused", "audio", IntentCategory::Troubleshoot,
+            &["systemctl --user status pulseaudio pipewire",
+              "echo 'If using PipeWire: systemctl --user restart pipewire-pulse'"]),
+        // D-Bus errors
+        (&["dbus", "connection"], "D-Bus connection error", "system", IntentCategory::Troubleshoot,
+            &["systemctl status dbus", "echo $DBUS_SESSION_BUS_ADDRESS",
+              "dbus-monitor --session 2>&1 | head -5"]),
+        (&["dbus", "failed"], "D-Bus failure", "system", IntentCategory::Troubleshoot,
+            &["systemctl status dbus", "systemctl restart dbus"]),
+        // Library errors
+        (&["glibc", "version"], "glibc version mismatch", "libraries", IntentCategory::Troubleshoot,
+            &["ldd --version", "pacman -Q glibc",
+              "echo 'FIX: sudo pacman -Syu to update all packages'"]),
+        (&["libstdc++", "not", "found"], "libstdc++ not found", "libraries", IntentCategory::Troubleshoot,
+            &["pacman -Q gcc-libs", "ldconfig -p | grep libstdc++",
+              "echo 'FIX: sudo pacman -S gcc-libs'"]),
+        (&["library", "not", "found"], "shared library not found", "libraries", IntentCategory::Troubleshoot,
+            &["ldd <binary>", "ldconfig -p | grep <lib>",
+              "echo 'FIX: Find package with pacman -F <library>'"]),
+        (&["lib", "not", "found"], "library not found", "libraries", IntentCategory::Troubleshoot,
+            &["ldconfig -p | head -20", "pacman -F <library>"]),
+        // Permission with sudo
+        (&["permission", "denied", "sudo"], "permission denied with sudo", "permissions", IntentCategory::Troubleshoot,
+            &["sudo -l", "cat /etc/sudoers.d/*",
+              "echo 'Add user to wheel: usermod -aG wheel <user>'"]),
     ];
 
     for (keywords, interpreted, topic, category, commands) in patterns {

@@ -1,5 +1,6 @@
 //! Desktop environment patterns
 //! v0.0.918: GNOME, KDE, Wayland, X11, and display server queries
+//! v0.0.989: Added input, screensaver, clipboard, fonts, notifications patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -18,6 +19,12 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
         return Some(u);
     }
     if let Some(u) = match_display(q) {
+        return Some(u);
+    }
+    if let Some(u) = match_input_devices(q) {
+        return Some(u);
+    }
+    if let Some(u) = match_desktop_utils(q) {
         return Some(u);
     }
     None
@@ -247,6 +254,181 @@ fn match_display(q: &str) -> Option<DeepUnderstanding> {
     None
 }
 
+fn match_input_devices(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[DesktopPattern] = &[
+        // Input devices listing
+        (&["input", "devices"], "list input devices", "input",
+            &["xinput list 2>/dev/null || libinput list-devices 2>/dev/null | grep Device"]),
+        (&["list", "keyboard"], "list keyboards", "input",
+            &["xinput list 2>/dev/null | grep -i keyboard || libinput list-devices 2>/dev/null | grep -A1 Keyboard"]),
+        // Mouse/touchpad
+        (&["mouse", "setting"], "mouse settings", "input",
+            &["xinput list-props $(xinput list | grep -i mouse | head -1 | sed 's/.*id=\\([0-9]*\\).*/\\1/') 2>/dev/null | head -20"]),
+        (&["touchpad", "setting"], "touchpad settings", "input",
+            &["xinput list-props $(xinput list | grep -i touchpad | head -1 | sed 's/.*id=\\([0-9]*\\).*/\\1/') 2>/dev/null | head -20"]),
+        (&["disable", "touchpad"], "disable touchpad", "input",
+            &["echo 'X11: xinput disable <touchpad-id>'",
+              "echo 'Find ID: xinput list | grep -i touchpad'"]),
+        (&["enable", "touchpad"], "enable touchpad", "input",
+            &["echo 'X11: xinput enable <touchpad-id>'",
+              "echo 'Find ID: xinput list | grep -i touchpad'"]),
+        // Keyboard layout
+        (&["keyboard", "layout"], "keyboard layout", "input",
+            &["setxkbmap -query 2>/dev/null || localectl status | grep -i keymap"]),
+        (&["change", "keyboard", "layout"], "change keyboard layout", "input",
+            &["echo 'X11: setxkbmap <layout> (e.g., setxkbmap us)'",
+              "echo 'Permanent: localectl set-x11-keymap <layout>'"]),
+        (&["keyboard", "map"], "keyboard mapping", "input",
+            &["xmodmap -pke 2>/dev/null | head -20", "setxkbmap -query 2>/dev/null"]),
+        // Mouse speed/accel
+        (&["mouse", "speed"], "mouse speed settings", "input",
+            &["xinput list-props $(xinput list | grep -i mouse | head -1 | sed 's/.*id=\\([0-9]*\\).*/\\1/') 2>/dev/null | grep -i accel"]),
+        (&["mouse", "acceleration"], "mouse acceleration", "input",
+            &["xinput list-props $(xinput list | grep -i mouse | head -1 | sed 's/.*id=\\([0-9]*\\).*/\\1/') 2>/dev/null | grep -i accel"]),
+        // Scroll direction
+        (&["natural", "scrolling"], "natural scrolling setting", "input",
+            &["xinput list-props $(xinput list | grep -i touchpad | head -1 | sed 's/.*id=\\([0-9]*\\).*/\\1/') 2>/dev/null | grep -i natural"]),
+        // Tap to click
+        (&["tap", "click"], "tap to click setting", "input",
+            &["xinput list-props $(xinput list | grep -i touchpad | head -1 | sed 's/.*id=\\([0-9]*\\).*/\\1/') 2>/dev/null | grep -i tap"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.9,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
+fn match_desktop_utils(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[DesktopPattern] = &[
+        // Screensaver/screen lock
+        (&["screensaver", "setting"], "screensaver settings", "desktop",
+            &["gsettings get org.gnome.desktop.screensaver lock-enabled 2>/dev/null",
+              "gsettings get org.gnome.desktop.session idle-delay 2>/dev/null"]),
+        (&["screen", "lock"], "screen lock settings", "desktop",
+            &["gsettings get org.gnome.desktop.screensaver lock-enabled 2>/dev/null",
+              "echo 'Lock now: loginctl lock-session'"]),
+        (&["disable", "screen", "lock"], "disable screen lock", "desktop",
+            &["echo 'GNOME: gsettings set org.gnome.desktop.screensaver lock-enabled false'",
+              "echo 'KDE: Check System Settings > Screen Locking'"]),
+        (&["lock", "timeout"], "screen lock timeout", "desktop",
+            &["gsettings get org.gnome.desktop.session idle-delay 2>/dev/null",
+              "gsettings get org.gnome.desktop.screensaver lock-delay 2>/dev/null"]),
+        // Clipboard
+        (&["clipboard", "content"], "clipboard contents", "desktop",
+            &["xclip -o -selection clipboard 2>/dev/null || wl-paste 2>/dev/null"]),
+        (&["clipboard", "history"], "clipboard history", "desktop",
+            &["echo 'Install clipboard manager: parcellite, copyq, or gpaste'"]),
+        (&["copy", "clipboard"], "copy to clipboard", "desktop",
+            &["echo 'X11: echo text | xclip -selection clipboard'",
+              "echo 'Wayland: echo text | wl-copy'"]),
+        // Fonts
+        (&["installed", "fonts"], "list installed fonts", "desktop",
+            &["fc-list | head -30"]),
+        (&["system", "fonts"], "list system fonts", "desktop",
+            &["fc-list : family | sort -u | head -30"]),
+        (&["font", "cache"], "rebuild font cache", "desktop",
+            &["echo 'Run: fc-cache -fv'"]),
+        (&["font", "config"], "font configuration", "desktop",
+            &["cat /etc/fonts/local.conf 2>/dev/null || ls /etc/fonts/conf.d/"]),
+        // Notifications
+        (&["notification", "setting"], "notification settings", "desktop",
+            &["gsettings get org.gnome.desktop.notifications show-banners 2>/dev/null",
+              "echo 'Check: notify-send \"test\" for testing'"]),
+        (&["do", "not", "disturb"], "do not disturb mode", "desktop",
+            &["gsettings get org.gnome.desktop.notifications show-banners 2>/dev/null",
+              "echo 'GNOME: Toggle in notification panel'"]),
+        (&["test", "notification"], "test notification", "desktop",
+            &["notify-send 'Test' 'This is a test notification'"]),
+        // Screenshots
+        (&["screenshot", "tool"], "screenshot tools", "desktop",
+            &["echo 'gnome-screenshot, spectacle (KDE), flameshot, grim (Wayland)'",
+              "echo 'Quick: gnome-screenshot -i or flameshot gui'"]),
+        (&["take", "screenshot"], "take screenshot", "desktop",
+            &["echo 'X11: gnome-screenshot or scrot or flameshot gui'",
+              "echo 'Wayland: grim or spectacle'"]),
+        // Autostart
+        (&["autostart", "apps"], "autostart applications", "desktop",
+            &["ls ~/.config/autostart/ 2>/dev/null",
+              "ls /etc/xdg/autostart/ 2>/dev/null | head -20"]),
+        (&["startup", "applications"], "startup applications", "desktop",
+            &["ls ~/.config/autostart/ 2>/dev/null"]),
+        (&["add", "autostart"], "add to autostart", "desktop",
+            &["echo 'Create .desktop file in ~/.config/autostart/'"]),
+        // Default apps
+        (&["default", "browser"], "default browser", "desktop",
+            &["xdg-settings get default-web-browser"]),
+        (&["default", "application"], "default applications", "desktop",
+            &["xdg-mime query default text/html",
+              "xdg-mime query default application/pdf"]),
+        (&["set", "default", "app"], "set default application", "desktop",
+            &["echo 'Use: xdg-mime default <app.desktop> <mimetype>'",
+              "echo 'Example: xdg-mime default firefox.desktop text/html'"]),
+        // Cursors
+        (&["cursor", "theme"], "cursor theme", "desktop",
+            &["gsettings get org.gnome.desktop.interface cursor-theme 2>/dev/null",
+              "echo $XCURSOR_THEME"]),
+        (&["cursor", "size"], "cursor size", "desktop",
+            &["gsettings get org.gnome.desktop.interface cursor-size 2>/dev/null",
+              "echo $XCURSOR_SIZE"]),
+        // Display manager
+        (&["display", "manager"], "show display manager", "desktop",
+            &["cat /etc/systemd/system/display-manager.service 2>/dev/null | grep ExecStart",
+              "systemctl status display-manager"]),
+        (&["show", "display", "manager"], "display manager info", "desktop",
+            &["systemctl status display-manager",
+              "echo 'Common: gdm, sddm, lightdm'"]),
+        // Installed themes
+        (&["installed", "themes"], "list installed themes", "desktop",
+            &["ls /usr/share/themes/ 2>/dev/null",
+              "ls ~/.themes/ 2>/dev/null",
+              "ls ~/.local/share/themes/ 2>/dev/null"]),
+        (&["list", "themes"], "list available themes", "desktop",
+            &["ls /usr/share/themes/", "ls ~/.themes/ 2>/dev/null"]),
+        // Plasma settings
+        (&["plasma", "setting"], "KDE Plasma settings", "kde",
+            &["echo 'Open: systemsettings5'",
+              "cat ~/.config/kdeglobals 2>/dev/null | head -30"]),
+        // Desktop shortcuts
+        (&["desktop", "shortcut"], "desktop keyboard shortcuts", "desktop",
+            &["gsettings list-recursively org.gnome.desktop.wm.keybindings 2>/dev/null | head -20",
+              "echo 'KDE: Check System Settings > Shortcuts'"]),
+        // Taskbar
+        (&["taskbar", "config"], "taskbar configuration", "desktop",
+            &["echo 'GNOME: Use gnome-extensions or dconf-editor'",
+              "echo 'KDE: Right-click panel > Edit Panel'"]),
+        // Desktop icons
+        (&["desktop", "icons"], "desktop icons settings", "desktop",
+            &["gsettings get org.gnome.desktop.background show-desktop-icons 2>/dev/null",
+              "echo 'GNOME 40+: Install desktop-icons-ng extension'"]),
+    ];
+
+    for (keywords, interpreted, topic, commands) in patterns {
+        if keywords.iter().all(|kw| q.contains(kw)) {
+            return Some(DeepUnderstanding {
+                interpreted_as: interpreted.to_string(),
+                category: IntentCategory::Factual,
+                confidence: 0.9,
+                topic: Some(topic.to_string()),
+                needs_confirmation: false,
+                suggested_commands: commands.iter().map(|s| s.to_string()).collect(),
+                ..Default::default()
+            });
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,5 +455,28 @@ mod tests {
     fn test_monitors() {
         let result = match_patterns("list connected monitors");
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_input_devices() {
+        assert!(match_patterns("input devices").is_some());
+        assert!(match_patterns("mouse settings").is_some());
+        assert!(match_patterns("touchpad settings").is_some());
+        assert!(match_patterns("keyboard layout").is_some());
+        assert!(match_patterns("disable touchpad").is_some());
+        assert!(match_patterns("natural scrolling").is_some());
+    }
+
+    #[test]
+    fn test_desktop_utils() {
+        assert!(match_patterns("screensaver settings").is_some());
+        assert!(match_patterns("screen lock").is_some());
+        assert!(match_patterns("clipboard contents").is_some());
+        assert!(match_patterns("installed fonts").is_some());
+        assert!(match_patterns("notification settings").is_some());
+        assert!(match_patterns("screenshot tool").is_some());
+        assert!(match_patterns("autostart apps").is_some());
+        assert!(match_patterns("default browser").is_some());
+        assert!(match_patterns("cursor theme").is_some());
     }
 }

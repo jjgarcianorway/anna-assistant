@@ -25,6 +25,52 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
         .or_else(|| match_os_info(q))
         .or_else(|| match_bios_info(q))
         .or_else(|| match_system_summary(q))
+        .or_else(|| match_health_check(q))
+}
+
+/// v0.0.990: System health check patterns
+fn match_health_check(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[SysinfoPattern] = &[
+        // Health checks
+        (&["system", "health"], "show system health", "health",
+         &["systemctl --failed", "free -h | head -2", "df -h / | tail -1", "cat /proc/loadavg", "sensors 2>/dev/null | grep -E '°C|°F' | head -5"]),
+        (&["health", "check"], "run health check", "health",
+         &["systemctl --failed", "journalctl -p err -b --no-pager -n 5", "df -h | grep -E '(9[0-9]|100)%'", "free -h"]),
+        (&["health", "status"], "show health status", "health",
+         &["systemctl --failed", "uptime", "free -h | head -2", "sensors 2>/dev/null | head -10"]),
+        // What's wrong
+        (&["what", "wrong"], "check what's wrong", "health",
+         &["systemctl --failed", "journalctl -p err -b --no-pager -n 10", "dmesg --level=err | tail -10"]),
+        (&["any", "problems"], "check for problems", "health",
+         &["systemctl --failed", "journalctl -p err -b --no-pager -n 5"]),
+        (&["any", "issues"], "check for issues", "health",
+         &["systemctl --failed", "journalctl -p err -b --no-pager -n 5", "df -h | grep -E '(9[0-9]|100)%'"]),
+        // System status
+        (&["system", "status"], "show system status", "health",
+         &["uptime", "free -h | head -2", "df -h / | tail -1", "systemctl --failed"]),
+        // Check system
+        (&["check", "system"], "check system status", "health",
+         &["systemctl --failed", "free -h", "df -h /", "cat /proc/loadavg"]),
+        // Is system ok
+        (&["system", "ok"], "check if system is ok", "health",
+         &["systemctl --failed", "journalctl -p err -b --no-pager -n 3"]),
+        (&["everything", "ok"], "check if everything ok", "health",
+         &["systemctl --failed", "uptime", "free -h | head -2"]),
+        // What changed
+        (&["what", "changed"], "check what changed", "health",
+         &["tail -20 /var/log/pacman.log | grep -E '\\[ALPM\\]'", "journalctl -b --no-pager -n 20", "last -5"]),
+        (&["recent", "changes"], "show recent changes", "health",
+         &["tail -30 /var/log/pacman.log | grep -E '\\[ALPM\\] (installed|upgraded|removed)'", "last -5"]),
+        (&["changes", "detected"], "show detected changes", "health",
+         &["tail -20 /var/log/pacman.log | grep -E '\\[ALPM\\]'", "journalctl --since '24 hours ago' -p warning --no-pager -n 10"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
 }
 
 /// Fetch tool patterns (neofetch, fastfetch, etc.)

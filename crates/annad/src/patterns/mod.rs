@@ -828,6 +828,9 @@ pub fn match_and_preexec(question: &str) -> Option<PatternPreExecResult> {
 }
 
 #[cfg(test)]
+mod test_500;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

@@ -1,5 +1,6 @@
 //! Process management patterns for ps, top, kill, nice.
 //! v0.0.963: Initial implementation.
+//! v0.0.989: Added threads, I/O, memory map, signals patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -23,6 +24,7 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     match_list_processes(q)
         .or_else(|| match_resource_usage(q))
         .or_else(|| match_process_info(q))
+        .or_else(|| match_process_inspection(q))
         .or_else(|| match_zombie_orphan(q))
 }
 
@@ -152,6 +154,81 @@ fn match_process_info(q: &str) -> Option<DeepUnderstanding> {
     None
 }
 
+/// Advanced process inspection patterns
+fn match_process_inspection(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[ProcessPattern] = &[
+        // Process threads
+        (&["process", "threads"], "show process threads", "process",
+         &["echo 'Use: ps -T -p <PID>'", "echo 'Or: cat /proc/<PID>/status | grep Threads'"]),
+        (&["thread", "count"], "count threads for process", "process",
+         &["echo 'Use: ps -T -p <PID> | wc -l'", "echo 'Or: ls /proc/<PID>/task | wc -l'"]),
+        (&["list", "threads"], "list all threads", "process",
+         &["ps -eLf | head -30"]),
+        // Process I/O
+        (&["process", "io"], "show process I/O", "process",
+         &["echo 'Use: cat /proc/<PID>/io'", "echo 'Or: iotop -p <PID>'"]),
+        (&["io", "stats"], "show I/O statistics", "process",
+         &["iotop -o 2>/dev/null | head -20 || echo 'Install: sudo pacman -S iotop'"]),
+        (&["disk", "io", "process"], "show disk I/O by process", "process",
+         &["iotop -o 2>/dev/null || pidstat -d 1 3"]),
+        // Process open files (expanded)
+        (&["process", "open", "files"], "show open files for process", "process",
+         &["echo 'Use: lsof -p <PID>'", "echo 'Or: ls -l /proc/<PID>/fd'"]),
+        (&["open", "files"], "list open files", "process",
+         &["lsof 2>/dev/null | head -30", "echo 'For specific process: lsof -p <PID>'"]),
+        (&["file", "descriptors"], "show file descriptors", "process",
+         &["echo 'Use: ls -l /proc/<PID>/fd'", "lsof | head -30"]),
+        // Process CPU time
+        (&["process", "cpu", "time"], "show process CPU time", "process",
+         &["echo 'Use: ps -o pid,etime,cputime -p <PID>'",
+           "echo 'etime=elapsed time, cputime=CPU time used'"]),
+        (&["cpu", "time"], "show CPU time statistics", "process",
+         &["ps -eo pid,etime,cputime,cmd --sort=-cputime | head -15"]),
+        // Process memory map
+        (&["process", "memory", "map"], "show process memory map", "process",
+         &["echo 'Use: pmap -x <PID>'", "echo 'Or: cat /proc/<PID>/maps'"]),
+        (&["memory", "map"], "show memory mappings", "process",
+         &["echo 'Use: pmap <PID> or cat /proc/<PID>/smaps'"]),
+        (&["pmap"], "pmap usage", "process",
+         &["echo 'pmap -x <PID> for extended info'", "echo 'pmap -X <PID> for extra details'"]),
+        // Process signals
+        (&["process", "signals"], "show process signal handling", "process",
+         &["echo 'Use: cat /proc/<PID>/status | grep -i sig'",
+           "echo 'Send signals with: kill -<signal> <PID>'"]),
+        (&["signal", "list"], "list available signals", "process",
+         &["kill -l"]),
+        (&["pending", "signals"], "show pending signals", "process",
+         &["echo 'Use: cat /proc/<PID>/status | grep SigPnd'"]),
+        // Process user
+        (&["process", "user"], "show process owner", "process",
+         &["echo 'Use: ps -o pid,user,cmd -p <PID>'",
+           "ps aux | head -20"]),
+        (&["process", "owner"], "find process owner", "process",
+         &["echo 'Use: ps -o user= -p <PID>'", "ps aux | grep <process>"]),
+        // Strace
+        (&["strace", "process"], "trace process system calls", "process",
+         &["echo 'Use: strace -p <PID>'", "echo 'Or for new: strace <command>'"]),
+        (&["system", "calls"], "trace system calls", "process",
+         &["echo 'Use: strace -c -p <PID> (summary)'",
+           "echo 'Or: strace -f <command> (follow forks)'"]),
+        // ltrace
+        (&["ltrace"], "trace library calls", "process",
+         &["echo 'Use: ltrace -p <PID>'", "echo 'Or: ltrace <command>'"]),
+        // /proc info
+        (&["proc", "info"], "show /proc process info", "process",
+         &["echo 'Status: cat /proc/<PID>/status'",
+           "echo 'Command: cat /proc/<PID>/cmdline'",
+           "echo 'CWD: ls -l /proc/<PID>/cwd'"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
 /// Zombie and orphan process patterns
 fn match_zombie_orphan(q: &str) -> Option<DeepUnderstanding> {
     let patterns: &[ProcessPattern] = &[
@@ -226,5 +303,16 @@ mod tests {
         assert!(match_patterns("stuck processes").is_some());
         assert!(match_patterns("background jobs").is_some());
         assert!(match_patterns("nice values").is_some());
+    }
+
+    #[test]
+    fn test_process_inspection() {
+        assert!(match_patterns("process threads").is_some());
+        assert!(match_patterns("process io").is_some());
+        assert!(match_patterns("process open files").is_some());
+        assert!(match_patterns("process cpu time").is_some());
+        assert!(match_patterns("process memory map").is_some());
+        assert!(match_patterns("process signals").is_some());
+        assert!(match_patterns("process user").is_some());
     }
 }

@@ -1,5 +1,6 @@
 //! Systemd patterns for services, units, timers, targets.
 //! v0.0.961: Initial implementation.
+//! v0.0.989: Added journal, coredump, resolved, resource control patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -25,6 +26,8 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
         .or_else(|| match_timers(q))
         .or_else(|| match_targets(q))
         .or_else(|| match_system(q))
+        .or_else(|| match_journal(q))
+        .or_else(|| match_systemd_advanced(q))
 }
 
 /// Service patterns
@@ -54,6 +57,52 @@ fn match_services(q: &str) -> Option<DeepUnderstanding> {
          &["systemctl --user list-units --type=service"]),
         (&["user", "failed"], "list failed user services", "systemd",
          &["systemctl --user --failed"]),
+        // Enable/disable
+        (&["enable", "disable", "service"], "enable/disable service info", "systemd",
+         &["echo 'Enable: systemctl enable <service>'",
+           "echo 'Disable: systemctl disable <service>'",
+           "echo 'Start: systemctl start <service>'"]),
+        // Mask/unmask
+        (&["mask", "unmask", "service"], "mask/unmask service info", "systemd",
+         &["echo 'Mask: systemctl mask <service>'",
+           "echo 'Unmask: systemctl unmask <service>'",
+           "systemctl list-unit-files --state=masked"]),
+        (&["mask", "service"], "mask service", "systemd",
+         &["echo 'Run: sudo systemctl mask <service>'",
+           "echo 'This prevents the service from being started'"]),
+        // Service config
+        (&["service", "config"], "show service configuration", "systemd",
+         &["echo 'Use: systemctl cat <service>'",
+           "echo 'Or: systemctl show <service>'"]),
+        (&["show", "service", "config"], "display service config", "systemd",
+         &["echo 'Run: systemctl cat <service>'"]),
+        // Service environment
+        (&["service", "environment"], "show service environment variables", "systemd",
+         &["echo 'Use: systemctl show <service> --property=Environment'",
+           "echo 'Edit: systemctl edit <service> to add Environment='"]),
+        // Service resource limits
+        (&["service", "resource", "limit"], "show service resource limits", "systemd",
+         &["echo 'Use: systemctl show <service> | grep -E \"Limit|Memory|CPU\"'",
+           "echo 'Edit: systemctl edit <service> to add MemoryMax=, CPUQuota='"]),
+        // Restart policy
+        (&["service", "restart", "policy"], "show service restart policy", "systemd",
+         &["echo 'Use: systemctl show <service> --property=Restart'",
+           "echo 'Options: no, on-success, on-failure, always'"]),
+        (&["restart", "policy"], "service restart configuration", "systemd",
+         &["echo 'Restart=on-failure in [Service] section'",
+           "echo 'RestartSec=5 for delay between restarts'"]),
+        // Transient services
+        (&["transient", "service"], "transient systemd services", "systemd",
+         &["echo 'Create: systemd-run --unit=myservice <command>'",
+           "echo 'With scope: systemd-run --scope <command>'"]),
+        // Service ordering
+        (&["service", "ordering"], "service start ordering", "systemd",
+         &["echo 'Use After=, Before=, Requires=, Wants= in unit file'",
+           "echo 'Check: systemctl list-dependencies <service>'"]),
+        // Scope units
+        (&["scope", "unit"], "systemd scope units", "systemd",
+         &["systemctl list-units --type=scope",
+           "echo 'Scopes group processes started externally'"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {
@@ -214,6 +263,148 @@ fn match_system(q: &str) -> Option<DeepUnderstanding> {
     None
 }
 
+/// Journal/logging patterns
+fn match_journal(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[SystemdPattern] = &[
+        // Journal logs
+        (&["journal", "logs"], "show journal logs", "systemd",
+         &["journalctl -n 50 --no-pager"]),
+        (&["system", "logs"], "show system logs", "systemd",
+         &["journalctl -b --no-pager -n 50"]),
+        (&["boot", "logs"], "show boot logs", "systemd",
+         &["journalctl -b --no-pager | head -100"]),
+        (&["previous", "boot", "logs"], "show previous boot logs", "systemd",
+         &["journalctl -b -1 --no-pager | head -100"]),
+        // Journal errors
+        (&["journal", "errors"], "show journal errors", "systemd",
+         &["journalctl -p err -b --no-pager -n 50"]),
+        (&["system", "errors"], "show system errors", "systemd",
+         &["journalctl -p err -b --no-pager -n 30"]),
+        (&["kernel", "errors"], "show kernel errors", "systemd",
+         &["journalctl -k -p err -b --no-pager -n 30"]),
+        // Journal for unit
+        (&["service", "logs"], "show service logs", "systemd",
+         &["echo 'Use: journalctl -u <service> -n 50'"]),
+        (&["unit", "logs"], "show unit logs", "systemd",
+         &["echo 'Use: journalctl -u <unit> -n 50'"]),
+        // Journal disk usage
+        (&["journal", "size"], "show journal disk usage", "systemd",
+         &["journalctl --disk-usage"]),
+        (&["journal", "disk"], "show journal disk space", "systemd",
+         &["journalctl --disk-usage"]),
+        // Journal follow
+        (&["follow", "logs"], "follow system logs", "systemd",
+         &["echo 'Use: journalctl -f'"]),
+        (&["tail", "logs"], "tail system logs", "systemd",
+         &["journalctl -f -n 20"]),
+        // Journal cleanup
+        (&["journal", "cleanup"], "cleanup journal logs", "systemd",
+         &["echo 'Vacuum: sudo journalctl --vacuum-size=500M'",
+           "echo 'Or by time: sudo journalctl --vacuum-time=7d'"]),
+        (&["journal", "vacuum"], "vacuum journal", "systemd",
+         &["journalctl --disk-usage",
+           "echo 'Run: sudo journalctl --vacuum-size=500M'"]),
+        // Journal boots
+        (&["list", "boots"], "list recorded boots", "systemd",
+         &["journalctl --list-boots"]),
+        (&["boot", "history"], "show boot history", "systemd",
+         &["journalctl --list-boots"]),
+        // Kernel messages
+        (&["kernel", "messages"], "show kernel messages", "systemd",
+         &["journalctl -k -b --no-pager | tail -50"]),
+        (&["dmesg", "errors"], "show dmesg errors", "systemd",
+         &["journalctl -k -p err -b --no-pager"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
+/// Advanced systemd patterns (coredump, resolved, resource control)
+fn match_systemd_advanced(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[SystemdPattern] = &[
+        // Coredump
+        (&["coredump", "list"], "list coredumps", "systemd",
+         &["coredumpctl list"]),
+        (&["core", "dumps"], "show core dumps", "systemd",
+         &["coredumpctl list"]),
+        (&["crash", "dumps"], "show crash dumps", "systemd",
+         &["coredumpctl list"]),
+        (&["coredump", "info"], "show coredump info", "systemd",
+         &["coredumpctl info", "echo 'For specific: coredumpctl info <PID>'"]),
+        // Resolved (DNS)
+        (&["resolved", "status"], "show systemd-resolved status", "systemd",
+         &["resolvectl status"]),
+        (&["dns", "status"], "show DNS resolver status", "systemd",
+         &["resolvectl status", "resolvectl dns"]),
+        (&["dns", "servers"], "show configured DNS servers", "systemd",
+         &["resolvectl dns"]),
+        (&["dns", "cache"], "show DNS cache statistics", "systemd",
+         &["resolvectl statistics"]),
+        (&["flush", "dns"], "flush DNS cache", "systemd",
+         &["echo 'Run: sudo resolvectl flush-caches'"]),
+        // Networkd
+        (&["networkd", "status"], "show systemd-networkd status", "systemd",
+         &["networkctl status"]),
+        (&["network", "interfaces"], "list network interfaces", "systemd",
+         &["networkctl list"]),
+        // Resource control / cgroups
+        (&["cgroup", "tree"], "show cgroup tree", "systemd",
+         &["systemd-cgls"]),
+        (&["resource", "usage"], "show resource usage by service", "systemd",
+         &["systemd-cgtop -n 1"]),
+        (&["service", "resources"], "show service resource usage", "systemd",
+         &["systemd-cgtop -n 1"]),
+        (&["memory", "usage", "service"], "show memory usage by service", "systemd",
+         &["systemd-cgtop -n 1 --order=memory"]),
+        // Machine/container
+        (&["machines", "list"], "list systemd machines", "systemd",
+         &["machinectl list"]),
+        (&["container", "list"], "list systemd-nspawn containers", "systemd",
+         &["machinectl list"]),
+        // Inhibitors
+        (&["inhibitor", "list"], "list shutdown inhibitors", "systemd",
+         &["systemd-inhibit --list"]),
+        (&["what", "blocking", "shutdown"], "what blocks shutdown", "systemd",
+         &["systemd-inhibit --list"]),
+        // Systemctl show
+        (&["service", "properties"], "show service properties", "systemd",
+         &["echo 'Use: systemctl show <service>'"]),
+        (&["unit", "properties"], "show unit properties", "systemd",
+         &["echo 'Use: systemctl show <unit>'"]),
+        // Service analysis
+        (&["service", "security"], "analyze service security", "systemd",
+         &["systemd-analyze security | head -30"]),
+        (&["security", "score"], "show service security scores", "systemd",
+         &["systemd-analyze security | head -30"]),
+        // Portablectl
+        (&["portable", "services"], "list portable services", "systemd",
+         &["portablectl list 2>/dev/null || echo 'No portable services'"]),
+        // Systemd version
+        (&["systemd", "version"], "show systemd version", "systemd",
+         &["systemctl --version"]),
+        // Environment
+        (&["systemd", "environment"], "show systemd environment", "systemd",
+         &["systemctl show-environment"]),
+        // Reloads
+        (&["reload", "daemon"], "reload systemd daemon", "systemd",
+         &["echo 'Run: sudo systemctl daemon-reload'"]),
+        (&["daemon", "reexec"], "re-execute systemd daemon", "systemd",
+         &["echo 'Run: sudo systemctl daemon-reexec'"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +443,35 @@ mod tests {
         assert!(match_patterns("slow boot").is_some());
         assert!(match_patterns("hostname info").is_some());
         assert!(match_patterns("time date").is_some());
+    }
+
+    #[test]
+    fn test_journal() {
+        assert!(match_patterns("journal logs").is_some());
+        assert!(match_patterns("system logs").is_some());
+        assert!(match_patterns("boot logs").is_some());
+        assert!(match_patterns("journal errors").is_some());
+        assert!(match_patterns("system errors").is_some());
+        assert!(match_patterns("kernel errors").is_some());
+        assert!(match_patterns("journal size").is_some());
+        assert!(match_patterns("journal cleanup").is_some());
+        assert!(match_patterns("list boots").is_some());
+        assert!(match_patterns("kernel messages").is_some());
+    }
+
+    #[test]
+    fn test_systemd_advanced() {
+        assert!(match_patterns("coredump list").is_some());
+        assert!(match_patterns("core dumps").is_some());
+        assert!(match_patterns("resolved status").is_some());
+        assert!(match_patterns("dns status").is_some());
+        assert!(match_patterns("dns servers").is_some());
+        assert!(match_patterns("flush dns").is_some());
+        assert!(match_patterns("cgroup tree").is_some());
+        assert!(match_patterns("resource usage").is_some());
+        assert!(match_patterns("machines list").is_some());
+        assert!(match_patterns("inhibitor list").is_some());
+        assert!(match_patterns("service security").is_some());
+        assert!(match_patterns("systemd version").is_some());
     }
 }

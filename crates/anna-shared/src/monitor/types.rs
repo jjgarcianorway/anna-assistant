@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Types of issues Anna can detect
+/// v0.0.990: Added security, hardware, and behavioral issue types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum IssueType {
     /// Disk space below threshold
@@ -23,6 +24,61 @@ pub enum IssueType {
     PermissionIssue,
     /// Network issue
     NetworkIssue,
+
+    // v0.0.990: Security issues
+    /// SSH configuration security issue
+    SshSecurity,
+    /// Firewall not active
+    FirewallInactive,
+    /// Suspicious login attempt
+    SuspiciousLogin,
+    /// Open port detected
+    OpenPort,
+    /// File permission too permissive
+    PermissivePerm,
+    /// Root login enabled
+    RootLoginEnabled,
+
+    // v0.0.990: Hardware changes
+    /// New hardware detected
+    HardwareAdded,
+    /// Hardware removed
+    HardwareRemoved,
+    /// Hardware error (SMART, sensors)
+    HardwareError,
+    /// Thermal throttling
+    ThermalThrottling,
+
+    // v0.0.990: Performance anomalies
+    /// Performance degradation detected
+    PerformanceDegraded,
+    /// Unusual process behavior
+    UnusualProcess,
+    /// Boot time increased
+    SlowBoot,
+
+    // v0.0.990: Software changes
+    /// Package unexpectedly removed
+    PackageRemoved,
+    /// Config file changed
+    ConfigChanged,
+    /// Cron job added
+    CronAdded,
+
+    // v0.0.990: Learning-based detections
+    /// New packages installed
+    PackagesInstalled,
+    /// Packages upgraded
+    PackagesUpgraded,
+    /// Boot time changed significantly
+    BootTimeChanged,
+    /// Unusual shell command detected
+    UnusualCommand,
+    /// Performance anomaly vs learned baseline
+    PerformanceAnomaly,
+    /// I/O bottleneck detected
+    IoBottleneck,
+
     /// Custom detected issue
     Custom(String),
 }

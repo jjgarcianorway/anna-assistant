@@ -129,10 +129,12 @@ fn default_wiki_circuit_threshold() -> u32 { 4 } // v0.0.895: Increased from 2 (
 fn default_wiki_circuit_cooldown() -> u64 { 60 }
 fn default_high_confidence() -> f32 { 0.85 }
 fn default_max_session_history() -> usize { 20 }
-fn default_llm_max_retries() -> u32 { 2 }
-fn default_llm_retry_delay_ms() -> u64 { 500 }
-fn default_llm_circuit_threshold() -> u32 { 3 }
-fn default_llm_circuit_cooldown() -> u64 { 30 }
+// v0.0.990: Increased retries to 3, reduced initial delay to 300ms
+fn default_llm_max_retries() -> u32 { 3 }
+fn default_llm_retry_delay_ms() -> u64 { 300 }
+// v0.0.990: Increased threshold (5), decreased cooldown (15s) for better resilience
+fn default_llm_circuit_threshold() -> u32 { 5 }
+fn default_llm_circuit_cooldown() -> u64 { 15 }
 
 impl Default for PerformanceConfig {
     fn default() -> Self {

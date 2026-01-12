@@ -1,5 +1,6 @@
 //! Container and virtualization patterns for Docker, Podman, VMs.
 //! v0.0.957: Initial implementation.
+//! v0.0.989: Added container logs, inspect, prune, kubernetes, swarm
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -22,6 +23,7 @@ type ContainerPattern<'a> = (&'a [&'a str], &'a str, &'a str, &'a [&'a str]);
 pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     match_docker(q)
         .or_else(|| match_podman(q))
+        .or_else(|| match_container_advanced(q))
         .or_else(|| match_vms(q))
         .or_else(|| match_compose(q))
 }
@@ -107,6 +109,83 @@ fn match_podman(q: &str) -> Option<DeepUnderstanding> {
          &["podman --version"]),
         (&["podman", "info"], "show Podman system info", "podman",
          &["podman info"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
+/// Advanced container patterns (logs, inspect, health, kubernetes, swarm)
+fn match_container_advanced(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[ContainerPattern] = &[
+        // Container logs
+        (&["container", "logs"], "view container logs", "docker",
+         &["echo 'docker logs <container>'", "echo 'docker logs -f <container> (follow)'"]),
+        (&["docker", "logs"], "view Docker container logs", "docker",
+         &["echo 'docker logs <container_id>'"]),
+        // Container stats
+        (&["container", "stats"], "show container statistics", "docker",
+         &["docker stats --no-stream"]),
+        (&["container", "resource"], "show container resource usage", "docker",
+         &["docker stats --no-stream", "docker system df"]),
+        // Running containers
+        (&["running", "containers"], "list running containers", "docker",
+         &["docker ps", "podman ps"]),
+        // Container ports
+        (&["container", "ports"], "show container port mappings", "docker",
+         &["docker ps --format 'table {{.Names}}\\t{{.Ports}}'",
+           "docker port <container>"]),
+        // Docker inspect
+        (&["docker", "inspect"], "inspect container details", "docker",
+         &["echo 'docker inspect <container>'",
+           "echo 'docker inspect --format=\"{{.State.Status}}\" <container>'"]),
+        // Container environment
+        (&["container", "environment"], "show container environment vars", "docker",
+         &["echo 'docker inspect --format=\"{{.Config.Env}}\" <container>'"]),
+        // Container filesystem
+        (&["container", "filesystem"], "explore container filesystem", "docker",
+         &["echo 'docker exec -it <container> sh'",
+           "echo 'docker cp <container>:/path /local/path'"]),
+        // Container health
+        (&["container", "health"], "check container health", "docker",
+         &["docker inspect --format='{{.State.Health.Status}}' <container>",
+           "docker ps --filter health=unhealthy"]),
+        // Docker prune
+        (&["docker", "prune"], "docker prune cleanup info", "docker",
+         &["echo 'Cleanup: docker system prune'",
+           "echo 'More aggressive: docker system prune -a --volumes'",
+           "docker system df"]),
+        // Docker registry
+        (&["docker", "registry"], "docker registry info", "docker",
+         &["docker info | grep Registry", "echo 'Login: docker login <registry>'"]),
+        // Docker build cache
+        (&["docker", "build", "cache"], "show docker build cache", "docker",
+         &["docker builder prune -a --force",
+           "docker system df"]),
+        // Container runtime
+        (&["container", "runtime"], "show container runtime info", "docker",
+         &["docker info | grep -i runtime", "containerd --version 2>/dev/null"]),
+        // Docker swarm
+        (&["docker", "swarm"], "show Docker Swarm status", "docker",
+         &["docker info | grep Swarm", "docker node ls 2>/dev/null || echo 'Not in swarm mode'"]),
+        (&["swarm", "status"], "Docker Swarm status", "docker",
+         &["docker node ls 2>/dev/null || echo 'Swarm not initialized'"]),
+        // Kubernetes
+        (&["kubernetes", "pods"], "list Kubernetes pods", "kubernetes",
+         &["kubectl get pods", "kubectl get pods -A"]),
+        (&["kubectl", "pods"], "show kubectl pods", "kubernetes",
+         &["kubectl get pods -A"]),
+        (&["k8s", "pods"], "show K8s pods", "kubernetes",
+         &["kubectl get pods"]),
+        (&["kubernetes", "status"], "show Kubernetes cluster status", "kubernetes",
+         &["kubectl cluster-info", "kubectl get nodes"]),
+        // List containers (generic)
+        (&["list", "containers"], "list all containers", "docker",
+         &["docker ps -a 2>/dev/null || podman ps -a"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {

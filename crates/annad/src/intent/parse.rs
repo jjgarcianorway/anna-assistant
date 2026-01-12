@@ -39,7 +39,14 @@ pub fn parse_quick_response(response: &str, original_question: &str) -> Result<D
             .filter(|t| !t.is_empty() && *t != "null")
             .map(String::from);
 
-        let needs_confirmation = confidence < 0.5 || matches!(category, IntentCategory::Unclear);
+        // v0.0.990: Use the improved should_ask_confirmation for quick responses too
+        let needs_confirmation = super::classify::should_ask_confirmation(
+            confidence,
+            &[],  // No missing_info in quick classify
+            &[],  // No ambiguities in quick classify
+            &category,
+            original_question,
+        );
 
         return Ok(DeepUnderstanding {
             interpreted_as,

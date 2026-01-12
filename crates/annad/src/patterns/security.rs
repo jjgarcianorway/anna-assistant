@@ -1,5 +1,6 @@
 //! Security and permissions patterns
 //! v0.0.917: Firewall, permissions, users, and security queries
+//! v0.0.989: Added rootkit, malware scan, intrusion detection, file integrity patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -270,6 +271,94 @@ fn match_audit(q: &str) -> Option<DeepUnderstanding> {
             &["getenforce 2>/dev/null || echo 'SELinux not installed'"]),
         (&["apparmor", "status"], "AppArmor status", "security",
             &["sudo aa-status 2>/dev/null || echo 'AppArmor not installed'"]),
+        // Firewall rules
+        (&["firewall", "rule"], "list firewall rules", "security",
+            &["sudo iptables -L -n 2>/dev/null || sudo nft list ruleset 2>/dev/null",
+              "sudo ufw status verbose 2>/dev/null"]),
+        (&["list", "firewall"], "list firewall rules", "security",
+            &["sudo iptables -L -n -v | head -30", "sudo nft list ruleset 2>/dev/null | head -30"]),
+        // Active connections
+        (&["active", "connection"], "show active connections", "security",
+            &["ss -tp | head -30", "netstat -tp 2>/dev/null | head -30"]),
+        (&["show", "active", "connection"], "show active network connections", "security",
+            &["ss -tp state established"]),
+        // Sudo audit
+        (&["audit", "sudo"], "audit sudo usage", "security",
+            &["sudo journalctl _COMM=sudo | tail -30",
+              "grep sudo /var/log/auth.log 2>/dev/null | tail -30"]),
+        (&["sudo", "log"], "sudo usage logs", "security",
+            &["sudo journalctl _COMM=sudo | tail -30"]),
+        // Rootkit check
+        (&["rootkit"], "check for rootkits", "security",
+            &["sudo rkhunter --check 2>/dev/null || echo 'Install: pacman -S rkhunter'",
+              "sudo chkrootkit 2>/dev/null || echo 'Install: pacman -S chkrootkit'"]),
+        (&["check", "rootkit"], "rootkit scan", "security",
+            &["sudo rkhunter --check --skip-keypress 2>/dev/null | tail -50",
+              "echo 'Install rkhunter: sudo pacman -S rkhunter'"]),
+        // Passwd permissions
+        (&["passwd", "permission"], "show passwd file permissions", "security",
+            &["ls -la /etc/passwd /etc/shadow /etc/group",
+              "stat /etc/passwd /etc/shadow"]),
+        (&["show", "passwd"], "show passwd permissions", "security",
+            &["ls -la /etc/passwd /etc/shadow"]),
+        // Listening services
+        (&["listening", "service"], "list listening services", "security",
+            &["ss -tlnp", "systemctl list-units --type=socket --state=active"]),
+        (&["list", "listening"], "list listening services", "security",
+            &["ss -tlnp | head -30"]),
+        // SSH brute force
+        (&["ssh", "brute"], "SSH brute force attempts", "security",
+            &["sudo journalctl -u sshd | grep -i 'failed\\|invalid' | tail -30",
+              "sudo lastb | head -20 2>/dev/null"]),
+        (&["brute", "force"], "brute force login attempts", "security",
+            &["sudo journalctl -u sshd | grep -i failed | tail -30",
+              "grep -i 'failed' /var/log/auth.log 2>/dev/null | tail -30"]),
+        // File integrity
+        (&["file", "integrity"], "check file integrity", "security",
+            &["sudo aide --check 2>/dev/null || echo 'Install AIDE: pacman -S aide'",
+              "pacman -Qkk 2>/dev/null | grep -v '0 altered' | head -20"]),
+        (&["check", "file", "integrity"], "file integrity check", "security",
+            &["pacman -Qkk 2>/dev/null | grep -v '0 altered' | head -20",
+              "echo 'Use AIDE for full integrity monitoring'"]),
+        // Intrusion detection
+        (&["intrusion", "detection"], "intrusion detection info", "security",
+            &["echo 'Install: fail2ban, snort, or suricata'",
+              "systemctl status fail2ban 2>/dev/null || echo 'fail2ban not installed'"]),
+        (&["intrusion"], "intrusion detection status", "security",
+            &["systemctl status fail2ban 2>/dev/null",
+              "sudo fail2ban-client status 2>/dev/null"]),
+        // Malware scan
+        (&["malware", "scan"], "malware scan", "security",
+            &["sudo clamscan -r --infected /home 2>/dev/null || echo 'Install: pacman -S clamav'",
+              "echo 'Full scan: clamscan -r /'"]),
+        (&["virus", "scan"], "virus scan", "security",
+            &["sudo freshclam && sudo clamscan -r --infected / 2>/dev/null",
+              "echo 'Install ClamAV: pacman -S clamav'"]),
+        // v0.0.991: System access investigation - "how do I know if someone accessed my system"
+        (&["someone", "accessed"], "check for unauthorized access", "security",
+            &["last -20", "lastlog | grep -v 'Never'", "sudo lastb 2>/dev/null | head -10",
+              "journalctl -u sshd --since '7 days ago' | grep -i 'accepted\\|failed' | tail -20"]),
+        (&["accessed", "system"], "check system access history", "security",
+            &["last -30", "who", "w", "journalctl _COMM=sudo --since '7 days ago' | tail -20"]),
+        (&["unauthorized", "access"], "detect unauthorized access", "security",
+            &["last -30", "sudo lastb 2>/dev/null | head -20",
+              "journalctl -u sshd | grep -i 'failed\\|invalid' | tail -20",
+              "sudo ausearch -m LOGIN --start today 2>/dev/null | tail -20"]),
+        (&["how", "know", "if", "someone"], "detect if someone accessed the system", "security",
+            &["echo '=== Login History ==='", "last -20",
+              "echo '=== Failed Logins ==='", "sudo lastb 2>/dev/null | head -10",
+              "echo '=== SSH Attempts ==='", "journalctl -u sshd | grep -E 'Accepted|Failed' | tail -15",
+              "echo '=== Recent Sudo ==='", "journalctl _COMM=sudo | tail -10"]),
+        (&["who", "logged", "in"], "who logged into the system", "security",
+            &["last -30", "lastlog | grep -v 'Never logged in'", "who"]),
+        (&["login", "attempt"], "show login attempts", "security",
+            &["last -20", "sudo lastb 2>/dev/null | head -15",
+              "journalctl -u sshd | grep -i 'attempt\\|failed' | tail -20"]),
+        (&["check", "access"], "check who accessed the system", "security",
+            &["last -30", "w", "sudo journalctl _COMM=sudo | tail -20"]),
+        (&["detect", "intruder"], "detect intruder on system", "security",
+            &["last -30", "ss -tp | grep ESTAB", "ps auxf | head -30",
+              "sudo lsof -i -P | grep ESTABLISHED | head -20"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {

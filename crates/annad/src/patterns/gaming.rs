@@ -1,5 +1,6 @@
 //! Gaming patterns - Steam, Wine, Proton, controllers, and gaming diagnostics
 //! v0.0.950: Initial gaming patterns for Linux gaming
+//! v0.0.989: Added gamepad, shader cache, esync/fsync, vkbasalt, gaming performance
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -73,6 +74,14 @@ fn match_steam(q: &str) -> Option<DeepUnderstanding> {
         (&["steam", "proton"], "list Proton versions in Steam", "gaming",
             &["ls ~/.steam/steam/steamapps/common/ 2>/dev/null | grep -i proton",
               "ls ~/.steam/steam/compatibilitytools.d/ 2>/dev/null"]),
+        // Steam games list
+        (&["steam", "games", "list"], "list Steam games", "gaming",
+            &["ls ~/.steam/steam/steamapps/common/ 2>/dev/null",
+              "find ~/.steam/steam/steamapps -name '*.acf' -exec basename {} \\;"]),
+        // Steam library location
+        (&["steam", "library", "location"], "show Steam library location", "gaming",
+            &["cat ~/.steam/steam/steamapps/libraryfolders.vdf 2>/dev/null",
+              "ls ~/.steam/steam/steamapps/common/"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
@@ -165,6 +174,21 @@ fn match_controllers(q: &str) -> Option<DeepUnderstanding> {
         (&["calibrate", "controller"], "calibrate controller", "gaming",
             &["jscal-store /dev/input/js0 2>/dev/null || echo 'Install: pacman -S joyutils'",
               "echo 'Use jstest-gtk for GUI calibration'"]),
+        // Gamepad devices
+        (&["gamepad", "device"], "show gamepad devices", "gaming",
+            &["ls /dev/input/js* 2>/dev/null", "cat /proc/bus/input/devices | grep -B2 -A5 -i gamepad"]),
+        (&["show", "gamepad"], "show gamepad devices", "gaming",
+            &["ls /dev/input/js* 2>/dev/null", "evtest --list 2>/dev/null | grep -i game"]),
+        // Controller configuration
+        (&["controller", "config"], "controller configuration", "gaming",
+            &["echo 'Use: antimicrox for button mapping'",
+              "echo 'Steam: use Steam Input for controller config'",
+              "ls /usr/share/applications/*antimicro* 2>/dev/null"]),
+        // Gaming mouse
+        (&["gaming", "mouse"], "gaming mouse setup", "gaming",
+            &["xinput list 2>/dev/null | grep -i mouse",
+              "echo 'Use: piper for Logitech mice, or libratbag'",
+              "pacman -Qs piper libratbag 2>/dev/null"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
@@ -213,6 +237,72 @@ fn match_gaming_graphics(q: &str) -> Option<DeepUnderstanding> {
         (&["frame", "time"], "check frame timing", "gaming",
             &["echo 'Use: MANGOHUD=1 MANGOHUD_DLSYM=1 <game> for frame time'",
               "echo 'Or: vkcube --present_mode 2 for Vulkan test'"]),
+        // MangoHud stats
+        (&["mangohud", "stats"], "show MangoHud stats configuration", "gaming",
+            &["cat ~/.config/MangoHud/MangoHud.conf 2>/dev/null | head -30",
+              "echo 'Usage: MANGOHUD=1 <game>'",
+              "pacman -Q mangohud 2>/dev/null"]),
+        (&["show", "mangohud"], "MangoHud info", "gaming",
+            &["which mangohud", "cat ~/.config/MangoHud/MangoHud.conf 2>/dev/null"]),
+        // vkBasalt
+        (&["vkbasalt"], "check vkBasalt", "gaming",
+            &["pacman -Q vkbasalt 2>/dev/null || echo 'Install: yay -S vkbasalt'",
+              "cat ~/.config/vkBasalt/vkBasalt.conf 2>/dev/null | head -20",
+              "echo 'Usage: ENABLE_VKBASALT=1 <game>'"]),
+        (&["check", "vkbasalt"], "check vkBasalt status", "gaming",
+            &["pacman -Qs vkbasalt", "ls /usr/share/vkBasalt 2>/dev/null"]),
+        // Gaming performance
+        (&["gaming", "performance"], "check gaming performance settings", "gaming",
+            &["cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq",
+              "gamemoded -s 2>/dev/null",
+              "echo 'Use: gamemode + mangohud for best performance'"]),
+        // GPU usage
+        (&["gpu", "usage", "gaming"], "show GPU usage while gaming", "gaming",
+            &["nvidia-smi 2>/dev/null | head -20 || radeontop 2>/dev/null",
+              "echo 'Use: MANGOHUD=1 for in-game GPU stats'"]),
+        (&["show", "gpu", "usage"], "show GPU usage", "gaming",
+            &["nvidia-smi 2>/dev/null || radeontop -d- -l1 2>/dev/null || intel_gpu_top 2>/dev/null"]),
+        // Esync/Fsync
+        (&["esync", "fsync"], "esync vs fsync info", "gaming",
+            &["cat /proc/sys/fs/file-max",
+              "ulimit -Hn",
+              "echo 'Fsync is newer, better. Requires kernel 5.16+'",
+              "echo 'Set WINEFSYNC=1 or WINEESYNC=1'"]),
+        (&["esync"], "check esync support", "gaming",
+            &["ulimit -Hn", "echo 'Need 524288+ for esync'",
+              "cat /etc/security/limits.conf | grep nofile"]),
+        (&["fsync"], "check fsync support", "gaming",
+            &["uname -r", "echo 'Fsync requires kernel 5.16+'",
+              "echo 'Enable: WINEFSYNC=1'"]),
+        // Shader cache
+        (&["shader", "cache"], "show shader cache", "gaming",
+            &["du -sh ~/.local/share/Steam/steamapps/shadercache 2>/dev/null",
+              "ls ~/.cache/mesa_shader_cache 2>/dev/null | head -10",
+              "ls ~/.nv/GLCache 2>/dev/null | head -10"]),
+        (&["show", "shader", "cache"], "show shader cache location", "gaming",
+            &["echo 'Steam: ~/.local/share/Steam/steamapps/shadercache'",
+              "echo 'Mesa: ~/.cache/mesa_shader_cache'",
+              "echo 'NVIDIA: ~/.nv/GLCache'"]),
+        // NVIDIA Prime
+        (&["nvidia", "prime"], "NVIDIA Prime status", "gaming",
+            &["prime-run --help 2>/dev/null || echo 'prime-run not available'",
+              "cat /etc/prime-discrete 2>/dev/null",
+              "echo 'Use: prime-run <game> for NVIDIA GPU'"]),
+        // AMD gaming
+        (&["amd", "gpu", "gaming"], "AMD GPU gaming setup", "gaming",
+            &["pacman -Q mesa vulkan-radeon amdvlk 2>/dev/null",
+              "echo 'Enable ACO: RADV_PERFTEST=aco'",
+              "vulkaninfo 2>/dev/null | grep -i amd | head -5"]),
+        // ProtonDB
+        (&["protondb", "compatib"], "ProtonDB compatibility info", "gaming",
+            &["echo 'Check: https://www.protondb.com for game compatibility'",
+              "echo 'Use Proton-GE for better compatibility'"]),
+        // Gaming latency
+        (&["gaming", "latency"], "check gaming latency", "gaming",
+            &["echo 'Low latency tips:'",
+              "echo '1. Use gamemode'",
+              "echo '2. Disable compositor'",
+              "echo '3. Set CPU governor to performance'"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {

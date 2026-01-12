@@ -1,5 +1,6 @@
 //! Audio patterns for PipeWire, PulseAudio, ALSA troubleshooting.
 //! v0.0.959: Initial implementation.
+//! v0.0.989: Expanded patterns for JACK, MIDI, latency, routing.
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -24,6 +25,8 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
         .or_else(|| match_pipewire(q))
         .or_else(|| match_pulseaudio(q))
         .or_else(|| match_alsa(q))
+        .or_else(|| match_jack(q))
+        .or_else(|| match_midi(q))
         .or_else(|| match_bluetooth_audio(q))
 }
 
@@ -65,6 +68,45 @@ fn match_general_audio(q: &str) -> Option<DeepUnderstanding> {
          &["pactl info | head -5", "pipewire --version 2>/dev/null", "pulseaudio --version 2>/dev/null"]),
         (&["sound", "server"], "show sound server info", "audio",
          &["pactl info"]),
+        // Latency and sample rate
+        (&["audio", "latency"], "check audio latency", "audio",
+         &["pw-top 2>/dev/null || echo 'Use pw-top or check JACK for latency'", "cat /proc/asound/card*/pcm*/sub*/hw_params 2>/dev/null | head -20"]),
+        (&["sample", "rate"], "check audio sample rate", "audio",
+         &["pactl info | grep 'Default Sample'", "pw-cli info all 2>/dev/null | grep -i rate | head -5"]),
+        (&["audio", "routing"], "show audio routing", "audio",
+         &["pw-link -l 2>/dev/null || pactl list sinks short", "pactl list sink-inputs short"]),
+        // Speaker test
+        (&["speaker", "test"], "test speakers", "audio",
+         &["echo 'Run: speaker-test -c 2 -t wav (stereo test)'", "echo 'Or: speaker-test -D default -c 2 (specific device)'"]),
+        // Headphone detection
+        (&["headphone", "detection"], "check headphone detection", "audio",
+         &["pactl list sinks | grep -A3 'Active Port'", "cat /proc/asound/card*/codec* 2>/dev/null | grep -i 'jack\\|headphone' | head -10"]),
+        (&["headphones", "detected"], "check if headphones detected", "audio",
+         &["pactl list sinks | grep -A3 'Active Port'", "dmesg | grep -i 'headphone\\|jack' | tail -5"]),
+        // Audio codecs
+        (&["audio", "codecs"], "show audio codecs", "audio",
+         &["cat /proc/asound/card*/codec* 2>/dev/null | head -30", "pactl list sinks | grep -i codec"]),
+        // Equalizer
+        (&["equalizer", "settings"], "check equalizer settings", "audio",
+         &["pactl list modules | grep -i equalizer", "pw-cli ls Module 2>/dev/null | grep -i eq"]),
+        (&["audio", "equalizer"], "show audio equalizer", "audio",
+         &["echo 'PulseAudio: pacmd list-modules | grep equalizer'", "echo 'EasyEffects: flatpak list | grep easyeffects'"]),
+        // Audio profiles
+        (&["audio", "profiles"], "list audio profiles", "audio",
+         &["pactl list cards | grep -A5 'Profiles:'", "pactl list cards | grep 'Active Profile'"]),
+        (&["sound", "profiles"], "show sound profiles", "audio",
+         &["pactl list cards | grep -A5 'Profiles:'"]),
+        // Default device
+        (&["default", "audio"], "show default audio device", "audio",
+         &["pactl get-default-sink", "pactl get-default-source"]),
+        // Audio troubleshooting
+        (&["audio", "troubleshoot"], "troubleshoot audio issues", "audio",
+         &["pactl info", "aplay -l", "amixer sget Master", "systemctl --user status pipewire pipewire-pulse 2>/dev/null"]),
+        (&["sound", "troubleshoot"], "troubleshoot sound problems", "audio",
+         &["pactl info", "aplay -l", "journalctl --user -u pipewire -n 20"]),
+        // Audio mixing
+        (&["audio", "mixing"], "show audio mixer info", "audio",
+         &["pactl list sink-inputs", "pw-top 2>/dev/null || pavucontrol --help 2>&1 | head -1"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {
@@ -207,6 +249,87 @@ fn match_bluetooth_audio(q: &str) -> Option<DeepUnderstanding> {
     None
 }
 
+/// JACK audio patterns
+fn match_jack(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[AudioPattern] = &[
+        // JACK status
+        (&["jack", "status"], "show JACK audio status", "audio",
+         &["jack_lsp 2>/dev/null || echo 'JACK not running'", "ps aux | grep jackd | grep -v grep"]),
+        (&["jack", "audio"], "check JACK audio", "audio",
+         &["jack_lsp 2>/dev/null || pw-jack --version 2>/dev/null || echo 'JACK not available'"]),
+        (&["jack", "running"], "check if JACK is running", "audio",
+         &["jack_wait -c 2>/dev/null || ps aux | grep jackd"]),
+        // JACK connections
+        (&["jack", "connections"], "show JACK connections", "audio",
+         &["jack_lsp -c 2>/dev/null"]),
+        (&["jack", "ports"], "list JACK ports", "audio",
+         &["jack_lsp 2>/dev/null || pw-jack jack_lsp 2>/dev/null"]),
+        // JACK latency
+        (&["jack", "latency"], "check JACK latency", "audio",
+         &["jack_bufsize 2>/dev/null", "jack_samplerate 2>/dev/null", "echo 'Latency = buffer_size / sample_rate'"]),
+        // JACK settings
+        (&["jack", "settings"], "show JACK settings", "audio",
+         &["jack_samplerate 2>/dev/null", "jack_bufsize 2>/dev/null", "cat ~/.jackdrc 2>/dev/null"]),
+        // JACK start
+        (&["start", "jack"], "how to start JACK", "audio",
+         &["echo 'jackd -d alsa -r 48000 -p 1024'", "echo 'Or with PipeWire: pw-jack'"]),
+        // JACK transport
+        (&["jack", "transport"], "check JACK transport", "audio",
+         &["jack_transport 2>/dev/null || echo 'JACK transport not available'"]),
+        // PipeWire JACK
+        (&["pipewire", "jack"], "check PipeWire JACK emulation", "audio",
+         &["pw-jack --version 2>/dev/null", "systemctl --user status pipewire-jack"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
+/// MIDI patterns
+fn match_midi(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[AudioPattern] = &[
+        // MIDI devices
+        (&["midi", "devices"], "list MIDI devices", "audio",
+         &["aconnect -l", "cat /proc/asound/seq/clients 2>/dev/null"]),
+        (&["midi", "ports"], "list MIDI ports", "audio",
+         &["aconnect -i", "aconnect -o"]),
+        // MIDI connections
+        (&["midi", "connections"], "show MIDI connections", "audio",
+         &["aconnect -l"]),
+        (&["connect", "midi"], "how to connect MIDI devices", "audio",
+         &["echo 'List: aconnect -l'", "echo 'Connect: aconnect sender:port receiver:port'"]),
+        // MIDI through
+        (&["midi", "through"], "MIDI through info", "audio",
+         &["modprobe snd-virmidi 2>/dev/null; aconnect -l | grep -i 'through\\|virtual'"]),
+        // MIDI monitor
+        (&["midi", "monitor"], "monitor MIDI input", "audio",
+         &["echo 'Use: aseqdump -p CLIENT:PORT'", "echo 'Or: amidi -l to list, then amidi -d -p hw:X,X,X'"]),
+        // USB MIDI
+        (&["usb", "midi"], "check USB MIDI devices", "audio",
+         &["lsusb | grep -i midi", "aconnect -l | grep -i usb"]),
+        // MIDI keyboard
+        (&["midi", "keyboard"], "check MIDI keyboard", "audio",
+         &["aconnect -l", "lsusb | grep -i 'midi\\|keyboard'"]),
+        // Virtual MIDI
+        (&["virtual", "midi"], "setup virtual MIDI", "audio",
+         &["echo 'Load module: sudo modprobe snd-virmidi'", "aconnect -l | grep -i virtual"]),
+        // ALSA MIDI
+        (&["alsa", "midi"], "check ALSA MIDI", "audio",
+         &["amidi -l", "aconnect -l"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,6 +340,20 @@ mod tests {
         assert!(match_patterns("no sound").is_some());
         assert!(match_patterns("audio devices").is_some());
         assert!(match_patterns("volume level").is_some());
+    }
+
+    #[test]
+    fn test_audio_expanded() {
+        assert!(match_patterns("audio latency").is_some());
+        assert!(match_patterns("sample rate").is_some());
+        assert!(match_patterns("audio routing").is_some());
+        assert!(match_patterns("speaker test").is_some());
+        assert!(match_patterns("headphone detection").is_some());
+        assert!(match_patterns("audio codecs").is_some());
+        assert!(match_patterns("equalizer settings").is_some());
+        assert!(match_patterns("audio profiles").is_some());
+        assert!(match_patterns("audio troubleshoot").is_some());
+        assert!(match_patterns("audio mixing").is_some());
     }
 
     #[test]
@@ -237,6 +374,24 @@ mod tests {
         assert!(match_patterns("alsa devices").is_some());
         assert!(match_patterns("alsa mixer").is_some());
         assert!(match_patterns("sound modules").is_some());
+    }
+
+    #[test]
+    fn test_jack() {
+        assert!(match_patterns("jack status").is_some());
+        assert!(match_patterns("jack audio").is_some());
+        assert!(match_patterns("jack latency").is_some());
+        assert!(match_patterns("jack connections").is_some());
+        assert!(match_patterns("pipewire jack").is_some());
+    }
+
+    #[test]
+    fn test_midi() {
+        assert!(match_patterns("midi devices").is_some());
+        assert!(match_patterns("midi ports").is_some());
+        assert!(match_patterns("midi connections").is_some());
+        assert!(match_patterns("usb midi").is_some());
+        assert!(match_patterns("alsa midi").is_some());
     }
 
     #[test]

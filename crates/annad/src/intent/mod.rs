@@ -30,7 +30,8 @@ use crate::patterns;
 pub const QUICK_CONFIDENCE_THRESHOLD: f32 = 0.8;
 
 /// Confidence threshold below which we ask for clarification
-pub const CLARIFICATION_THRESHOLD: f32 = 0.7;
+/// v0.0.990: Lowered from 0.7 to 0.5 to reduce over-clarification
+pub const CLARIFICATION_THRESHOLD: f32 = 0.5;
 
 /// v0.0.939: Convert category string back to IntentCategory enum
 fn parse_category(s: &str) -> IntentCategory {

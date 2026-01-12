@@ -1,6 +1,7 @@
 //! Network patterns - connectivity, configuration, and diagnostic queries
 //! v0.0.948: Initial network patterns for common networking tasks
 //! v0.0.982: Added bandwidth/traffic monitoring patterns
+//! v0.0.989: Added ping, traceroute, arp, routing, netstat patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -279,6 +280,50 @@ fn match_bandwidth(q: &str) -> Option<DeepUnderstanding> {
             &["watch -n1 'cat /proc/net/dev'", "bmon 2>/dev/null || iftop 2>/dev/null"]),
         (&["realtime", "network"], "realtime network monitoring", "network",
             &["iftop 2>/dev/null || bmon 2>/dev/null || watch 'ss -s'"]),
+        // Ping statistics
+        (&["ping", "stat"], "show ping statistics", "network",
+            &["ping -c 5 8.8.8.8", "ping -c 5 google.com"]),
+        // Traceroute
+        (&["traceroute"], "traceroute to host", "network",
+            &["traceroute google.com 2>/dev/null || tracepath google.com",
+              "echo 'Use: traceroute <host> or mtr <host>'"]),
+        (&["trace", "route"], "trace route to host", "network",
+            &["traceroute 8.8.8.8 2>/dev/null || tracepath 8.8.8.8"]),
+        // Routing table
+        (&["routing", "table"], "show routing table", "network",
+            &["ip route", "route -n 2>/dev/null || ip route show"]),
+        (&["show", "routing"], "show routing table", "network",
+            &["ip route show", "ip route get 8.8.8.8"]),
+        // WiFi networks
+        (&["wifi", "network"], "list WiFi networks", "network",
+            &["nmcli device wifi list", "iw dev wlan0 scan 2>/dev/null | grep -E 'SSID|signal'"]),
+        (&["list", "wifi"], "list available WiFi networks", "network",
+            &["nmcli device wifi list", "nmcli device wifi rescan && nmcli device wifi list"]),
+        // Network latency
+        (&["network", "latency"], "check network latency", "network",
+            &["ping -c 5 8.8.8.8 | tail -1", "mtr -r -c 5 8.8.8.8 2>/dev/null"]),
+        (&["latency", "check"], "check latency", "network",
+            &["ping -c 5 google.com | grep -E 'min|avg|max'"]),
+        // ARP table
+        (&["arp", "table"], "show ARP table", "network",
+            &["ip neigh", "arp -a 2>/dev/null || ip neigh show"]),
+        (&["show", "arp"], "show ARP entries", "network",
+            &["ip neigh show", "cat /proc/net/arp"]),
+        // Packet loss
+        (&["packet", "loss"], "check for packet loss", "network",
+            &["ping -c 20 8.8.8.8 | tail -2", "mtr -r -c 10 8.8.8.8 2>/dev/null"]),
+        (&["check", "packet"], "check packet loss", "network",
+            &["ping -c 10 google.com | grep -E 'loss|transmitted'"]),
+        // Interface statistics
+        (&["interface", "stat"], "show interface statistics", "network",
+            &["ip -s link", "cat /proc/net/dev"]),
+        (&["network", "interface", "stat"], "network interface statistics", "network",
+            &["ip -s link show", "netstat -i 2>/dev/null || ip -s link"]),
+        // Netstat
+        (&["netstat", "output"], "show netstat output", "network",
+            &["netstat -tulnp 2>/dev/null || ss -tulnp", "netstat -s 2>/dev/null | head -50"]),
+        (&["show", "netstat"], "show netstat", "network",
+            &["netstat -tulnp 2>/dev/null || ss -tulnp"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {

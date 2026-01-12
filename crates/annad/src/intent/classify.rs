@@ -4,7 +4,7 @@ use anna_shared::rpc::{DeepUnderstanding, IntentCategory, IntentClassification};
 use anyhow::Result;
 use tracing::{debug, info};
 
-use super::detect::{is_known_system_context, is_semantically_destructive};
+use super::detect::{has_specific_symptom, is_clear_error_report, is_investigation_question, is_known_system_context, is_semantically_destructive};
 use super::fallback::fallback_decompose;
 use super::parse::{extract_json_array_from_response, parse_quick_response, parse_understanding_response};
 use super::CLARIFICATION_THRESHOLD;
@@ -138,6 +138,19 @@ pub fn should_ask_confirmation(
         return true;
     }
 
+    // v0.0.990: Detect clear error reports - these don't need clarification
+    // This is generic detection, not per-error hardcoding
+    if is_clear_error_report(&q_lower) {
+        debug!("Clear error report detected, proceeding without clarification");
+        return false;
+    }
+
+    // v0.0.990: Investigation/audit questions - user wants to check something
+    if is_investigation_question(&q_lower) {
+        debug!("Investigation question detected, proceeding without clarification");
+        return false;
+    }
+
     // FACTUAL questions with decent confidence - just answer
     if matches!(category, IntentCategory::Factual) && confidence >= 0.6 {
         return false;
@@ -158,8 +171,18 @@ pub fn should_ask_confirmation(
         }
     }
 
+    // v0.0.990: TROUBLESHOOT questions with clear problem statement
+    // If the user describes a specific symptom, proceed without clarification
+    if matches!(category, IntentCategory::Troubleshoot) && confidence >= 0.5 {
+        let has_specific_symptom = has_specific_symptom(&q_lower);
+        if has_specific_symptom {
+            debug!("TROUBLESHOOT with specific symptom, proceeding");
+            return false;
+        }
+    }
+
     // Very low confidence
-    if confidence < 0.5 {
+    if confidence < 0.4 {
         info!(
             "Confidence {:.0}% very low, will ask for clarification",
             confidence * 100.0
@@ -224,16 +247,18 @@ mod tests {
 
     #[test]
     fn test_needs_confirmation_very_low_confidence() {
+        // v0.0.990: Threshold lowered to 0.4, so use 0.3 to trigger
         let result =
-            should_ask_confirmation(0.4, &[], &[], &IntentCategory::HowTo, "do something");
+            should_ask_confirmation(0.3, &[], &[], &IntentCategory::HowTo, "do something");
         assert!(result);
     }
 
     #[test]
     fn test_needs_confirmation_missing_info_with_low_confidence() {
+        // v0.0.990: CLARIFICATION_THRESHOLD lowered to 0.5, so use 0.4 to trigger
         let missing = vec!["which service".to_string()];
         let result = should_ask_confirmation(
-            0.6,
+            0.4,
             &missing,
             &[],
             &IntentCategory::HowTo,

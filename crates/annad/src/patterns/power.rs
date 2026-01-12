@@ -1,5 +1,6 @@
 //! Power management patterns for battery, suspend, hibernate, laptop power.
 //! v0.0.960: Initial implementation.
+//! v0.0.989: Added power button, WoL, power saving, auto suspend patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -24,6 +25,7 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
         .or_else(|| match_power_state(q))
         .or_else(|| match_laptop(q))
         .or_else(|| match_power_settings(q))
+        .or_else(|| match_power_advanced(q))
 }
 
 /// Battery patterns
@@ -92,6 +94,13 @@ fn match_power_state(q: &str) -> Option<DeepUnderstanding> {
          &["journalctl -b | grep -i 'suspend' | tail -10"]),
         (&["last", "sleep"], "show last sleep event", "power",
          &["journalctl -b | grep -i 'suspend\\|sleep' | tail -10"]),
+        // Suspend settings
+        (&["suspend", "settings"], "show suspend settings", "power",
+         &["cat /sys/power/mem_sleep", "cat /etc/systemd/sleep.conf 2>/dev/null | grep -v '^#' | grep -v '^$'"]),
+        // Hibernate config
+        (&["hibernate", "config"], "show hibernate configuration", "power",
+         &["cat /sys/power/disk", "grep swap /etc/fstab",
+           "cat /etc/mkinitcpio.conf | grep resume"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {
@@ -148,6 +157,8 @@ fn match_power_settings(q: &str) -> Option<DeepUnderstanding> {
         // Power profiles
         (&["power", "profile"], "show power profile", "power",
          &["powerprofilesctl get 2>/dev/null || echo 'power-profiles-daemon not installed'"]),
+        (&["power", "profiles"], "list power profiles", "power",
+         &["powerprofilesctl list 2>/dev/null || echo 'power-profiles-daemon not installed'"]),
         (&["performance", "mode"], "check performance mode", "power",
          &["powerprofilesctl get", "cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor | uniq"]),
         // CPU governor
@@ -165,6 +176,71 @@ fn match_power_settings(q: &str) -> Option<DeepUnderstanding> {
          &["acpi -V"]),
         (&["acpi", "events"], "show ACPI events", "power",
          &["journalctl -b | grep -i acpi | tail -20"]),
+        // Thermal throttling
+        (&["thermal", "throttling"], "check thermal throttling", "power",
+         &["dmesg | grep -i throttl", "journalctl -b | grep -i 'thermal\\|throttl' | tail -15"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
+}
+
+/// Advanced power patterns
+fn match_power_advanced(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[PowerPattern] = &[
+        // Power button action
+        (&["power", "button"], "show power button action", "power",
+         &["cat /etc/systemd/logind.conf | grep -i powerkey",
+           "echo 'Configure in /etc/systemd/logind.conf: HandlePowerKey='"]),
+        (&["power", "button", "action"], "configure power button action", "power",
+         &["cat /etc/systemd/logind.conf | grep -i handle",
+           "echo 'Options: ignore, poweroff, reboot, halt, suspend, hibernate'"]),
+        // Lid switch
+        (&["lid", "switch", "action"], "show lid switch action", "power",
+         &["cat /etc/systemd/logind.conf | grep -i lid",
+           "loginctl show | grep -i lid"]),
+        // Wake on LAN
+        (&["wake", "on", "lan"], "check Wake on LAN status", "power",
+         &["sudo ethtool <interface> | grep -i wake",
+           "echo 'Enable: sudo ethtool -s <interface> wol g'"]),
+        (&["wol", "status"], "check WoL status", "power",
+         &["ip link show", "sudo ethtool eth0 2>/dev/null | grep -i wake || echo 'Check interface name'"]),
+        // Power saving tips
+        (&["power", "saving"], "power saving tips", "power",
+         &["echo 'Install TLP: sudo pacman -S tlp && sudo systemctl enable --now tlp'",
+           "echo 'Use powertop: sudo pacman -S powertop && sudo powertop --auto-tune'",
+           "echo 'Reduce brightness, disable Bluetooth/WiFi when not needed'"]),
+        (&["save", "power"], "how to save power", "power",
+         &["echo 'TLP for laptops: sudo pacman -S tlp'",
+           "echo 'Check current: powertop'"]),
+        // Auto suspend
+        (&["auto", "suspend"], "configure auto suspend", "power",
+         &["cat /etc/systemd/logind.conf | grep -i idle",
+           "echo 'IdleAction=suspend in /etc/systemd/logind.conf'",
+           "echo 'IdleActionSec=30min'"]),
+        // Battery calibration
+        (&["battery", "calibration"], "battery calibration info", "power",
+         &["echo 'To calibrate:'",
+           "echo '1. Charge to 100%'",
+           "echo '2. Drain to ~5% (don\\'t let it die)'",
+           "echo '3. Charge to 100% uninterrupted'"]),
+        // Power statistics
+        (&["power", "statistics"], "show power statistics", "power",
+         &["upower -d", "upower --dump"]),
+        (&["power", "stats"], "show power stats", "power",
+         &["upower -i /org/freedesktop/UPower/devices/battery_BAT0"]),
+        // Powertop
+        (&["powertop"], "powertop power analysis", "power",
+         &["sudo powertop 2>/dev/null || echo 'Install: sudo pacman -S powertop'"]),
+        // Sleep inhibitors
+        (&["sleep", "inhibitor"], "show sleep inhibitors", "power",
+         &["systemd-inhibit --list"]),
+        (&["prevent", "sleep"], "check what prevents sleep", "power",
+         &["systemd-inhibit --list", "cat /proc/acpi/wakeup"]),
     ];
 
     for (keywords, desc, topic, commands) in patterns {
@@ -206,5 +282,16 @@ mod tests {
         assert!(match_patterns("tlp status").is_some());
         assert!(match_patterns("power profile").is_some());
         assert!(match_patterns("cpu governor").is_some());
+        assert!(match_patterns("thermal throttling").is_some());
+    }
+
+    #[test]
+    fn test_power_advanced() {
+        assert!(match_patterns("power button action").is_some());
+        assert!(match_patterns("wake on lan").is_some());
+        assert!(match_patterns("power saving").is_some());
+        assert!(match_patterns("auto suspend").is_some());
+        assert!(match_patterns("battery calibration").is_some());
+        assert!(match_patterns("power statistics").is_some());
     }
 }

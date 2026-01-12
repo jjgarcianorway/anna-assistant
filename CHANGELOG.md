@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.991] - 2026-01-12
+
+### Added
+- **System Access Investigation Patterns** - 8 new patterns for security auditing
+  - "how do I know if someone accessed my system" - runs last, lastlog, lastb, journalctl
+  - "unauthorized access", "who logged in", "login attempts", "detect intruder"
+- **Post-Update Slowdown Patterns** - 5 new patterns for troubleshooting
+  - "slow after update" - checks pacman.log, failed services, error logs
+  - "slow since update", "update broke", "last update slow"
+- **I/O Delta Calculation** - Proper rate calculation for disk/network monitoring
+  - IoBaseline now tracks raw values and timestamps for accurate KB/s rates
+  - Enables meaningful anomaly detection for I/O bottlenecks
+
+### Changed
+- Learning system now computes actual I/O rates instead of raw cumulative values
+- Total instant-answer patterns: ~1700+
+
 ## [0.0.988] - 2026-01-11
 
 ### Added
