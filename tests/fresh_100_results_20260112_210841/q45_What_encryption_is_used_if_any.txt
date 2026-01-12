@@ -1,0 +1,35 @@
+
+[36mYou: [0mWhat encryption is used if any?
+
+[2m  $ [0mcat /etc/ssl/openssl.cnf | grep default\_CA
+[2m  [0m
+[2m  $ [0mcryptsetup --help
+[2m  cryptsetup 2.8.3 flags: UDEV BLKID KEYRING KERNEL_CAPI HW_OPAL 
+Usage: cryptsetup [OPTION...] <action> <action-specific>
+
+Help options:
+  -?, --help                              Show this help message
+      --usage                             Display brief usage
+  -V, --version                           Print package version
+      --active-name=STRING                Override device autodetection of dm
+                                          device to be reencrypted
+      --align-payload=SECTOR...[0m
+[2m  $ [0mlsblk -f
+[2m  NAME        FSTYPE FSVER LABEL UUID                                 FSAVAIL FSUSE% MOUNTPOINTS
+zram0       swap   1     zram0 6a50d8b8-775c-4dc1-95b8-73ffa83e9ee2                [SWAP]
+nvme0n1                                                                            
+├─nvme0n1p1 vfat   FAT32       89F3-0BAD                               1,4G    32% /boot
+└─nvme0n1p2 btrfs              3c5e632a-8ae9-4e92-b60b-be6710e71b6c  778,1G    18% /var/tmp
+                                          ...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mno [0m[32mspecific [0m[32mencryption [0m[32mis [0m[32menabled [0m[32mby [0m[32mdefault [0m[32mor [0m[32mmentioned [0m[32mfor [0m[32many [0m[32mof [0m[32mthe [0m[32mpartitions. [0m[32mThe [0m[32m`cryptsetup` [0m[32mtool [0m[32mis [0m[32mavailable [0m[32mand [0m[32mcan [0m[32mbe [0m[32mused [0m[32mto [0m[32mmanage [0m[32mLUKS-encrypted [0m[32mdevices, [0m[32mbut [0m[32mthere [0m[32mis [0m[32mno [0m[32mindication [0m[32mthat [0m[32many [0m[32mdevices [0m[32mare [0m[32mcurrently [0m[32mencrypted.
+
+The [0m[32moutput [0m[32mfrom [0m[32m`cryptsetup` [0m[32mshows [0m[32ma [0m[32mvariety [0m[32mof [0m[32moptions [0m[32mrelated [0m[32mto [0m[32mencryption [0m[32mand [0m[32mmanagement [0m[32mof [0m[32mLUKS-encrypted [0m[32mdevices, [0m[32msuch [0m[32mas [0m[32mformatting [0m[32m(`luksFormat`), [0m[32madding [0m[32mkeys [0m[32m(`luksAddKey`), [0m[32mchanging [0m[32mkeys [0m[32m(`luksChangeKey`), [0m[32mreencrypting [0m[32m(`reencrypt`), [0m[32merasing [0m[32mkeys [0m[32m(`erase`), [0m[32mand [0m[32mmore. [0m[32mHowever, [0m[32mno [0m[32mactions [0m[32mhave [0m[32mbeen [0m[32mtaken [0m[32mto [0m[32mencrypt [0m[32many [0m[32mpartitions [0m[32mor [0m[32mdevices.
+
+If [0m[32myou [0m[32mneed [0m[32mto [0m[32menable [0m[32mencryption [0m[32mfor [0m[32ma [0m[32mdevice [0m[32musing [0m[32m`cryptsetup`, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse [0m[32mthe [0m[32m`luksFormat` [0m[32mcommand [0m[32mfollowed [0m[32mby [0m[32mmounting [0m[32mand [0m[32munlocking [0m[32mthe [0m[32mdevice [0m[32mwith [0m[32m`cryptsetup [0m[32mopen`.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 45.087087770s
+EXIT: 0

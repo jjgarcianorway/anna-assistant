@@ -1,0 +1,23 @@
+
+[36mYou: [0mWhat are the 5 largest installed packages?
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32mdetermine [0m[32mthe [0m[32m5 [0m[32mlargest [0m[32minstalled [0m[32mpackages [0m[32min [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32m`pacman`, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32mcommand:
+
+```sh
+sudo [0m[32mpacman [0m[32m-Qi [0m[32m| [0m[32mawk [0m[32m'/Name/ [0m[32m{name=$3} [0m[32m/Install [0m[32mSize/ [0m[32m{size=$4; [0m[32mnext} [0m[32m/^$/ [0m[32m{print [0m[32msize, [0m[32mname; [0m[32mnextfile}' [0m[32m| [0m[32msort [0m[32m-nr [0m[32m| [0m[32mhead [0m[32m-n [0m[32m5
+```
+
+This [0m[32mcommand [0m[32mworks [0m[32mas [0m[32mfollows:
+1. [0m[32m`pacman [0m[32m-Qi` [0m[32mlists [0m[32mall [0m[32minstalled [0m[32mpackages [0m[32mwith [0m[32mtheir [0m[32minformation.
+2. [0m[32m`awk` [0m[32mprocesses [0m[32mthe [0m[32moutput [0m[32mto [0m[32mextract [0m[32mpackage [0m[32mnames [0m[32mand [0m[32minstallation [0m[32msizes.
+3. [0m[32m`sort [0m[32m-nr` [0m[32msorts [0m[32mthe [0m[32mresults [0m[32min [0m[32mnumerical [0m[32mreverse [0m[32morder [0m[32m(largest [0m[32mfirst).
+4. [0m[32m`head [0m[32m-n [0m[32m5` [0m[32mlimits [0m[32mthe [0m[32moutput [0m[32mto [0m[32mthe [0m[32mtop [0m[32m5 [0m[32mlargest [0m[32mpackages.
+
+Run [0m[32mthis [0m[32mcommand [0m[32min [0m[32myour [0m[32mterminal [0m[32mto [0m[32mget [0m[32mthe [0m[32m5 [0m[32mlargest [0m[32minstalled [0m[32mpackages [0m[32mon [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 11.877981319s
+EXIT: 0

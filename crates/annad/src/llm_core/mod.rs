@@ -513,23 +513,46 @@ fn is_valid_command(cmd: &str) -> bool {
     }
 
     // EXACT valid commands (not prefixes - prevents systemd-analyzeblade)
+    // v0.2.6: Expanded command list
     let valid_commands = [
+        // Core utils
         "ls", "cat", "head", "tail", "grep", "awk", "sed", "find", "df", "du",
+        "wc", "sort", "uniq", "cut", "tr", "tee", "xargs", "basename", "dirname",
+        "cp", "mv", "touch", "mkdir", "rm", "ln", "readlink",
+        // System info
         "free", "ps", "uptime", "uname", "lscpu", "lspci", "lsblk", "lsusb", "lsof",
-        "systemctl", "journalctl", "systemd-analyze", "ip", "ss", "ping", "curl", "wget",
-        "pacman", "yay", "paru", "makepkg", "sudo", "which", "whereis", "file", "type",
-        "stat", "mount", "umount", "fdisk", "blkid", "smartctl", "nvidia-smi", "glxinfo",
-        "lsmod", "modinfo", "modprobe", "dmesg", "sensors", "pactl", "pipewire", "pw-cli",
-        "nmcli", "iwctl", "rfkill", "bluetoothctl", "loginctl", "timedatectl", "fwupdmgr",
-        "hostnamectl", "localectl", "nft", "iptables", "firewall-cmd", "ufw", "ss",
-        "id", "whoami", "groups", "passwd", "chown", "chmod", "mkdir", "rm", "wc",
-        "cp", "mv", "touch", "echo", "printf", "test", "true", "false", "xargs",
-        "sort", "uniq", "cut", "tr", "tee", "xdg-open", "systemd-cat", "logger",
-        "getent", "printenv", "env", "set", "export", "read", "date", "cal",
-        "acpi", "upower", "powertop", "tlp-stat", "cpupower", "turbostat",
-        "xrandr", "wlr-randr", "swaymsg", "hyprctl", "loginctl",
+        "hostnamectl", "timedatectl", "localectl", "locale", "hwinfo",
+        // Storage
+        "mount", "umount", "findmnt", "swapon", "swapoff", "mkswap",
+        "fdisk", "gdisk", "parted", "blkid", "smartctl", "hdparm",
+        "zpool", "zfs", "btrfs", "cryptsetup", "lvm", "mdadm", "lvs", "vgs", "pvs",
+        // Systemd
+        "systemctl", "journalctl", "systemd-analyze", "loginctl", "coredumpctl",
+        // Network
+        "ip", "ss", "ping", "curl", "wget", "traceroute", "dig", "nslookup", "host",
+        "nmcli", "iwctl", "rfkill", "iw", "ethtool", "netstat", "arp",
+        "nft", "iptables", "firewall-cmd", "ufw",
+        // Packages
+        "pacman", "yay", "paru", "makepkg", "pkgfile", "pacsearch",
+        // Hardware
+        "nvidia-smi", "glxinfo", "vulkaninfo", "vainfo", "vdpauinfo",
+        "lsmod", "modinfo", "modprobe", "dmesg", "sensors", "acpi", "dmidecode",
+        "upower", "powertop", "tlp-stat", "cpupower", "turbostat",
+        // Audio
+        "pactl", "pipewire", "pw-cli", "pw-dump", "wpctl", "aplay", "arecord", "amixer",
+        // Display
+        "xrandr", "wlr-randr", "swaymsg", "hyprctl", "xdpyinfo", "xwininfo",
+        // Users/Auth
+        "id", "whoami", "groups", "passwd", "chown", "chmod", "chsh",
+        "getent", "last", "lastlog", "w", "who", "users",
+        // Environment
+        "printenv", "env", "echo", "printf", "test", "true", "false", "set", "export",
+        // Other system
+        "sudo", "which", "whereis", "file", "type", "stat", "date", "cal",
+        "logger", "xdg-open", "fwupdmgr", "bluetoothctl",
+        // Printing
         "cupsd", "lpstat", "lpq", "lp", "cancel",
-        "zpool", "zfs", "btrfs", "cryptsetup", "lvm", "mdadm",
+        // Monitoring (interactive but useful output)
         "top", "htop", "btop", "iotop", "nethogs", "iftop",
     ];
 

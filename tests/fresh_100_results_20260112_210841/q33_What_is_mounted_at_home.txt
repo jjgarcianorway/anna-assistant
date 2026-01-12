@@ -1,0 +1,25 @@
+
+[36mYou: [0mWhat is mounted at /home?
+
+[2m  $ [0mls -l /mnt /media /home
+[2m  /home:
+total 0
+drwx------ 1 lhoqvso lhoqvso 746 jan.  12 21:22 lhoqvso
+
+/mnt:
+total 0[0m
+[2m  $ [0mmount
+[2m  /dev/nvme0n1p2 on / type btrfs (rw,noatime,compress=zstd:3,ssd,discard=async,space_cache=v2,commit=120,subvolid=256,subvol=/@)
+devtmpfs on /dev type devtmpfs (rw,nosuid,size=16161860k,nr_inodes=4040465,mode=755,inode64)
+tmpfs on /dev/shm type tmpfs (rw,nosuid,nodev,inode64,usrquota)
+devpts on /dev/pts type devpts (rw,nosuid,noexec,relatime,gid=5,mode=600,ptmxmode=000)
+sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)
+securityfs on /sys/kernel/security type securityfs (rw,nosuid,nodev,no...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32m`/home` [0m[32mdirectory [0m[32mis [0m[32mmounted [0m[32mat [0m[32m`/dev/nvme0n1p2`, [0m[32mspecifically [0m[32mas [0m[32mpart [0m[32mof [0m[32mthe [0m[32mBtrfs [0m[32mfilesystem [0m[32mwith [0m[32mthe [0m[32msubvolume [0m[32mID [0m[32m257 [0m[32mand [0m[32msubvol [0m[32mpath [0m[32m`/@home`. [0m[32mThe [0m[32mmount [0m[32moptions [0m[32minclude [0m[32m`rw,noatime,compress=zstd:3,ssd,discard=async,space_cache=v2,commit=120`.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 36.472701457s
+EXIT: 0

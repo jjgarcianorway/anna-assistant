@@ -1,0 +1,31 @@
+
+[36mYou: [0mIs mDNS/Avahi running?
+
+[2m  $ [0msystemctl status avahi-daemon
+[2m  ● avahi-daemon.service - Avahi mDNS/DNS-SD Stack
+     Loaded: loaded (/usr/lib/systemd/system/avahi-daemon.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:08 CET; 1h 15min ago
+ Invocation: f692439c3e274f09a2977e3cee1bfc2c
+TriggeredBy: ● avahi-daemon.socket
+   Main PID: 1130 (avahi-daemon)
+     Status: "avahi-daemon 0.8 starting up."
+      Tasks: 2 (limit: 37882)
+     Memory: 1.2M (peak: 2.7M)
+        CPU: 61ms
+     CGroup: /system.slice/avahi-daem...[0m
+[2m  $ [0msystemctl status mDNSResponder
+[2m  Unit mDNSResponder.service could not be found.[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32msystem [0m[32mlogs [0m[32mand [0m[32mservice [0m[32mstatus [0m[32mprovided:
+
+- [0m[32mThe [0m[32m`avahi-daemon` [0m[32mservice [0m[32mis [0m[32mactive [0m[32mand [0m[32mrunning.
+- [0m[32mIt [0m[32mhas [0m[32msuccessfully [0m[32mregistered [0m[32mmDNS [0m[32m(mDNSResponder) [0m[32mservices [0m[32mon [0m[32mboth [0m[32mIPv4 [0m[32m(`10.0.0.2`) [0m[32mand [0m[32mIPv6 [0m[32minterfaces [0m[32m(`fe80::631e:5142:6cf0:4028`).
+- [0m[32mThe [0m[32m`avahi-daemon` [0m[32mis [0m[32mconfigured [0m[32mto [0m[32madvertise [0m[32mthe [0m[32mhostname [0m[32m`razorback.local` [0m[32mover [0m[32mmDNS.
+
+Therefore, [0m[32mmDNS/Avahi [0m[32mis [0m[32mrunning [0m[32mand [0m[32mfunctional [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 37.829781520s
+EXIT: 0

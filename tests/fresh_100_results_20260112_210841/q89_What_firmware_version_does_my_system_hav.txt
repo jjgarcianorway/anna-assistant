@@ -1,0 +1,67 @@
+
+[36mYou: [0mWhat firmware version does my system have?
+
+[2m  $ [0mpacman -Qv efivars
+[2m  Root      : /
+Conf File : /etc/pacman.conf
+DB Path   : /var/lib/pacman/
+Cache Dirs: /var/cache/pacman/pkg/  
+Hook Dirs : /usr/share/libalpm/hooks/  /etc/pacman.d/hooks/  
+Lock File : /var/lib/pacman/db.lck
+Log File  : /var/log/pacman.log
+GPG Dir   : /etc/pacman.d/gnupg/
+Targets   : efivars[0m
+[2m  $ [0mmicrocode_ctl --version
+[2m  sh: line 1: microcode_ctl: command not found[0m
+[2m  $ [0mefibootmgr -v
+[2m  BootCurrent: 0003
+Timeout: 0 seconds
+BootOrder: 0003,0001,2001,2002,2003
+Boot0001* EFI Hard Drive (SAMSUNG MZVL21T0HCLR-00BL2)	PciRoot(0x0)/Pci(0x6,0x0)/Pci(0x0,0x0)/NVMe(0x1,00-25-38-BB-31-B6-71-01)/HD(1,GPT,df5db4b3-d276-4610-a170-b162a247b6ee,0x1000,0x400000)RC
+      dp: 02 01 0c 00 d0 41 03 0a 00 00 00 00 / 01 01 06 00 00 06 / 01 01 06 00 00 00 / 03 17 10 00 01 00 00 00 00 25 38 bb 31 b6 71 01 / 04 01 2a 00 01 00 00 00 00 10 00 00 00 00 00 00 00 00 40 00 00 00 00 00 b3 b4 5d df 76 d2 10 46 a...[0m
+[2m  $ [0mefivars -l | grep firmwareVersion
+[2m  sh: line 1: efivars: command not found[0m
+[2m  $ [0mgrep 'microcode version' /proc/cpuinfo
+[2m  [0m
+[2m  $ [0msudo dmidecode -t bios
+[2m  # dmidecode 3.7
+Getting SMBIOS data from sysfs.
+SMBIOS 3.4 present.
+
+Handle 0x0000, DMI type 0, 26 bytes
+Platform Firmware Information
+	Vendor: LENOVO
+	Version: P5CN28WW
+	Release Date: 04/04/2025
+	Address: 0xE0000
+	Runtime Size: 128 KiB
+	ROM Size: 16 MiB
+	Characteristics:
+		PCI is supported
+		Firmware is upgradeable
+		Firmware shadowing is allowed
+		Boot from CD is supported
+		Selectable boot is supported
+		EDD is supported
+		Japanese floppy for NEC 9800 1.2 MB is supported (int 13h)
+		Japanese ...[0m
+[2m  $ [0mcat /sys/class/dmi/id/bios_version
+[2m  P5CN28WW[0m
+[2m  $ [0mpacman -Q efivars
+[2m  error: package 'efivars' was not found[0m
+[2m  $ [0mefibootmgr -v 2>/dev/null | grep -oP '(?<=firmware revision: ).*'
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthe [0m[32mfirmware [0m[32mversion [0m[32mfor [0m[32mthe [0m[32msystem [0m[32mis [0m[32m`1.28`. [0m[32mThis [0m[32mcan [0m[32mbe [0m[32mseen [0m[32min [0m[32mthe [0m[32moutput [0m[32mof [0m[32m`dmidecode`, [0m[32mspecifically [0m[32munder [0m[32mthe [0m[32mhandle [0m[32m0x0000, [0m[32mwhere [0m[32mit [0m[32mlists:
+
+```
+Platform [0m[32mFirmware [0m[32mRevision: [0m[32m1.28
+```
+
+This [0m[32mindicates [0m[32mthat [0m[32mthe [0m[32mfirmware [0m[32mrevision [0m[32mof [0m[32myour [0m[32mLenovo [0m[32msystem [0m[32mis [0m[32m1.28.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 43.809698879s
+EXIT: 0

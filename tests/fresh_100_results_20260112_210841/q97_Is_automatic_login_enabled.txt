@@ -1,0 +1,11 @@
+
+[36mYou: [0mIs automatic login enabled?
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided [0m[32mand [0m[32mwithout [0m[32many [0m[32mcommand [0m[32moutput, [0m[32mI [0m[32mcannot [0m[32mdetermine [0m[32mif [0m[32mautomatic [0m[32mlogin [0m[32mis [0m[32menabled [0m[32mfor [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mTo [0m[32mcheck [0m[32mthis, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse [0m[32mcommands [0m[32mlike [0m[32m`grep` [0m[32mto [0m[32msearch [0m[32mrelevant [0m[32mconfiguration [0m[32mfiles [0m[32msuch [0m[32mas [0m[32m`/etc/lightdm.conf` [0m[32mor [0m[32m`/etc/gdm/custom.conf`, [0m[32mdepending [0m[32mon [0m[32mwhich [0m[32mdisplay [0m[32mmanager [0m[32mis [0m[32mbeing [0m[32mused. [0m[32mHowever, [0m[32msince [0m[32mno [0m[32moutput [0m[32mfrom [0m[32mrunning [0m[32mthese [0m[32mcommands [0m[32mis [0m[32mavailable, [0m[32mI [0m[32mcannot [0m[32mprovide [0m[32ma [0m[32mdefinitive [0m[32manswer.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 2.605816404s
+EXIT: 0

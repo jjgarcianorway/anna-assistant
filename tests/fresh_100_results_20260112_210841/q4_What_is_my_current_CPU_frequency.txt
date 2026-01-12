@@ -1,0 +1,65 @@
+
+[36mYou: [0mWhat is my current CPU frequency?
+
+[2m  $ [0mCAT /SYS/DEVICES/SYSTEM/CPU/CPU0/CPUFREQ/SCALING_CUR_FREQ
+[2m  sh: line 1: CAT: command not found[0m
+[2m  $ [0m```sh
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0mcat /proc/cpuinfo | grep 'cpu MHz'
+[2m  cpu MHz		: 2284.805
+cpu MHz		: 2111.000
+cpu MHz		: 2173.838
+cpu MHz		: 2093.183
+cpu MHz		: 2400.000
+cpu MHz		: 2400.000
+cpu MHz		: 2142.575
+cpu MHz		: 2091.332
+cpu MHz		: 2078.926
+cpu MHz		: 2097.660
+cpu MHz		: 2400.110
+cpu MHz		: 2323.797
+cpu MHz		: 2400.101
+cpu MHz		: 2400.000
+cpu MHz		: 2137.823
+cpu MHz		: 2400.169
+cpu MHz		: 2124.156
+cpu MHz		: 2190.781
+cpu MHz		: 2113.498
+cpu MHz		: 1942.293
+cpu MHz		: 2399.975
+cpu MHz		: 2400.770
+cpu MHz		: 2181.746
+cpu MHz		: 2400.217
+cpu MHz		: 2399.493
+...[0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0mcat /proc/cpuinfo | grep 'cpu MHz'
+[2m  cpu MHz		: 2284.805
+cpu MHz		: 2111.000
+cpu MHz		: 2173.838
+cpu MHz		: 2093.183
+cpu MHz		: 2400.000
+cpu MHz		: 2400.000
+cpu MHz		: 2142.575
+cpu MHz		: 2091.332
+cpu MHz		: 2078.926
+cpu MHz		: 2097.660
+cpu MHz		: 2400.110
+cpu MHz		: 2323.797
+cpu MHz		: 2400.101
+cpu MHz		: 2400.000
+cpu MHz		: 2137.823
+cpu MHz		: 2400.169
+cpu MHz		: 2124.156
+cpu MHz		: 2190.781
+cpu MHz		: 2113.498
+cpu MHz		: 1942.293
+cpu MHz		: 2399.975
+cpu MHz		: 2400.770
+cpu MHz		: 2181.746
+cpu MHz		: 2400.217
+cpu MHz		: 2399.493
+...[0m
+TIME: 60.003401978s
+EXIT: 124

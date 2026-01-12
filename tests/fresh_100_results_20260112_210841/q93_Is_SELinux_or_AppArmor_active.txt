@@ -1,0 +1,20 @@
+
+[36mYou: [0mIs SELinux or AppArmor active?
+
+[2m  $ [0msystemctl status apparmor.service
+[2m  Unit apparmor.service could not be found.[0m
+[2m  $ [0msestatus
+[2m  sh: line 1: sestatus: command not found[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided:
+
+- [0m[32mThe [0m[32m`apparmor.service` [0m[32munit [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound.
+- [0m[32mThe [0m[32m`sestatus` [0m[32mcommand [0m[32mis [0m[32mnot [0m[32mavailable.
+
+This [0m[32mindicates [0m[32mthat [0m[32mneither [0m[32mAppArmor [0m[32mnor [0m[32mSELinux [0m[32mappears [0m[32mto [0m[32mbe [0m[32mactive [0m[32mor [0m[32mconfigured [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 8.772905663s
+EXIT: 0

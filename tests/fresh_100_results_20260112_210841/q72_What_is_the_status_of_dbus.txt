@@ -1,0 +1,44 @@
+
+[36mYou: [0mWhat is the status of dbus?
+
+[2m  $ [0msystemctl status dbus-done
+[2m  Unit dbus-done.service could not be found.[0m
+[2m  $ [0msystemctl status dbus.service
+[2m  ● dbus-broker.service - D-Bus System Message Bus
+     Loaded: loaded (/usr/lib/systemd/system/dbus-broker.service; disabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:08 CET; 1h 20min ago
+ Invocation: 181247173eff4067ad3275ba163fbb9c
+TriggeredBy: ● dbus.socket
+       Docs: man:dbus-broker-launch(1)
+   Main PID: 1126 (dbus-broker-lau)
+      Tasks: 2 (limit: 37882)
+     Memory: 6.3M (peak: 12.8M)
+        CPU: 19.275s
+     CGroup: /system.slice/dbus-broker.servi...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32msystem [0m[32mdata:
+
+- [0m[32mThe [0m[32m`dbus-broker.service` [0m[32mis [0m[32mactive [0m[32mand [0m[32mrunning.
+- [0m[32mIt [0m[32mwas [0m[32mstarted [0m[32mabout [0m[32man [0m[32mhour [0m[32mand [0m[32m20 [0m[32mminutes [0m[32mago.
+- [0m[32mThere [0m[32mare [0m[32mno [0m[32missues [0m[32mwith [0m[32mthe [0m[32mdbus [0m[32mservice [0m[32mitself, [0m[32mas [0m[32mit [0m[32mis [0m[32mmarked [0m[32mas [0m[32m"active [0m[32m(running)".
+- [0m[32mHowever, [0m[32mthere [0m[32mare [0m[32msome [0m[32mactivation [0m[32mrequest [0m[32mfailures [0m[32mfor [0m[32mspecific [0m[32mD-Bus [0m[32mservices [0m[32m(`org.freedesktop.home1` [0m[32mand [0m[32m`org.freedesktop.ModemManager1`). [0m[32mThese [0m[32mfailures [0m[32mindicate [0m[32mthat [0m[32mthe [0m[32mcorresponding [0m[32msystemd [0m[32munits [0m[32mdo [0m[32mnot [0m[32mexist [0m[32mor [0m[32mare [0m[32mdisabled.
+
+To [0m[32mresolve [0m[32mthese [0m[32missues, [0m[32myou [0m[32mmay [0m[32mneed [0m[32mto [0m[32mcheck [0m[32mif [0m[32mthe [0m[32mrequired [0m[32mpackages [0m[32mfor [0m[32mthose [0m[32mservices [0m[32m(`home1` [0m[32mand [0m[32m`ModemManager1`) [0m[32mare [0m[32minstalled. [0m[32mYou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32mcommand [0m[32mto [0m[32msee [0m[32mif [0m[32mthey [0m[32mare [0m[32mavailable:
+
+```sh
+pacman [0m[32m-Qs [0m[32mhome1 [0m[32mModemManager1
+```
+
+If [0m[32mthe [0m[32mpackages [0m[32mare [0m[32mnot [0m[32mfound, [0m[32myou [0m[32mmight [0m[32mneed [0m[32mto [0m[32minstall [0m[32mthem [0m[32musing:
+
+```sh
+sudo [0m[32mpacman [0m[32m-S [0m[32m<package-name>
+```
+
+Replace [0m[32m`<package-name>` [0m[32mwith [0m[32mthe [0m[32mactual [0m[32mpackage [0m[32mnames [0m[32mif [0m[32mthey [0m[32mexist [0m[32min [0m[32myour [0m[32mrepositories.[0m
+
+
+[2m(2 iterations)[0m
+TIME: 22.548017781s
+EXIT: 0

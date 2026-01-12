@@ -1,0 +1,30 @@
+
+
+[33mSYSTEM ALERT[0m
+  🔴 CRITICAL: High temperature: 95°C
+     Suggested fix: Improve cooling immediately
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: USB removed: Apple, Inc. Apple MagSafe Charger
+     Suggested fix: Check if device was intentionally removed
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: Load unusually high: 7.88 (avg: 2.00)
+     Suggested fix: Check: htop or ps aux --sort=-%cpu | head -10
+
+[36mYou: [0mWhat version of mesa is installed?
+
+[2m  $ [0mpacman -Qi mesa | grep Version
+[2m  Version         : 1:25.3.3-4[0m
+[2m  $ [0mpacman -Qi mesa | grep Version
+[2m  Version         : 1:25.3.3-4[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32minstalled [0m[32mversion [0m[32mof [0m[32mMesa [0m[32mis [0m[32m1:25.3.3-4.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 24.711818006s
+EXIT: 0

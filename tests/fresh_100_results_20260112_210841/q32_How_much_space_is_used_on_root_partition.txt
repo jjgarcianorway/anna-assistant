@@ -1,0 +1,14 @@
+
+[36mYou: [0mHow much space is used on root part/bootion?
+
+[2m  $ [0mdf -h /boot
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p1  2,0G  656M  1,4G  33% /boot[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mOn [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem, [0m[32mthe [0m[32mroot [0m[32mpartition [0m[32m`/dev/nvme0n1p1` [0m[32mis [0m[32musing [0m[32m656 [0m[32mMB [0m[32mof [0m[32mits [0m[32m2.0 [0m[32mGB [0m[32msize, [0m[32mwhich [0m[32mis [0m[32mapproximately [0m[32m33% [0m[32mutilized. [0m[32mThis [0m[32mpartition [0m[32mis [0m[32mmounted [0m[32mat [0m[32m`/boot`.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 7.482025661s
+EXIT: 0

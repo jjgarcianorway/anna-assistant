@@ -1,0 +1,27 @@
+
+[36mYou: [0mIs Bluetooth enabled?
+
+[2m  $ [0msystemctl status bluetooth.service
+[2m  ● bluetooth.service - Bluetooth service
+     Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:08 CET; 1h 13min ago
+ Invocation: 74f555ebf3114c71b0efe4268d5d6d18
+       Docs: man:bluetoothd(8)
+   Main PID: 1131 (bluetoothd)
+     Status: "Running"
+      Tasks: 1 (limit: 37882)
+     Memory: 2.5M (peak: 4.6M)
+        CPU: 44ms
+     CGroup: /system.slice/bluetooth.service
+             └─1131 /usr/lib/b...[0m
+[2m  $ [0mlsmod | grep -w bluetooth
+[2m  bluetooth            1146880  44 btrtl,btmtk,btintel,btbcm,bnep,btusb,rfcomm
+rfkill                 45056  10 iwlmvm,bluetooth,ideapad_laptop,cfg80211[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32msystem [0m[32mlogs [0m[32mand [0m[32mdata [0m[32mprovided, [0m[32mBluetooth [0m[32mis [0m[32menabled [0m[32mand [0m[32mrunning [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThe [0m[32m`bluetooth.service` [0m[32mis [0m[32mactive [0m[32m(running) [0m[32msince [0m[32mJanuary [0m[32m12, [0m[32m2026, [0m[32mand [0m[32mthere [0m[32mare [0m[32malso [0m[32mrelevant [0m[32mkernel [0m[32mmodules [0m[32m(`btusb`, [0m[32m`rfkill`, [0m[32metc.) [0m[32mloaded [0m[32mthat [0m[32mindicate [0m[32mBluetooth [0m[32mfunctionality.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 35.454681051s
+EXIT: 0

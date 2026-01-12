@@ -1,0 +1,29 @@
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: USB removed: Apple, Inc. Apple MagSafe Charger
+     Suggested fix: Check if device was intentionally removed
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: Load unusually high: 9.74 (avg: 1.85)
+     Suggested fix: Check: htop or ps aux --sort=-%cpu | head -10
+
+[36mYou: [0mWhat groups am I a member of?
+
+[2m  $ [0mgroups
+[2m  root[0m
+[2m  $ [0mgroups
+[2m  root[0m
+[2m  $ [0mgroups
+[2m  root[0m
+[2m  $ [0mgroups
+[2m  root[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32myou [0m[32mare [0m[32ma [0m[32mmember [0m[32mof [0m[32mthe [0m[32m`root` [0m[32mgroup.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 30.192798927s
+EXIT: 0

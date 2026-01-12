@@ -1,0 +1,37 @@
+
+[36mYou: [0mShow packages installed explicinstalledly by user
+
+[2m  $ [0mpacman -Ql | grep /usr/local/
+[2m  cuda /opt/cuda/gds-tools/usr/local/
+cuda /opt/cuda/gds-tools/usr/local/gds/
+cuda /opt/cuda/gds/usr/local/
+cuda /opt/cuda/gds/usr/local/gds/
+filesystem /usr/local/
+filesystem /usr/local/bin/
+filesystem /usr/local/etc/
+filesystem /usr/local/games/
+filesystem /usr/local/include/
+filesystem /usr/local/lib/
+filesystem /usr/local/man/
+filesystem /usr/local/sbin/
+filesystem /usr/local/share/
+filesystem /usr/local/share/man
+filesystem /usr/local/src/[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mno [0m[32mpackages [0m[32mwere [0m[32minstalled [0m[32mexplicitly [0m[32mby [0m[32mthe [0m[32muser [0m[32musing [0m[32m`pacman`. [0m[32mThe [0m[32mdirectories [0m[32mand [0m[32mfiles [0m[32mlisted [0m[32mare [0m[32mprimarily [0m[32min [0m[32m`/opt`, [0m[32mwhich [0m[32mis [0m[32mtypically [0m[32mused [0m[32mfor [0m[32msoftware [0m[32minstallations [0m[32mthat [0m[32mdo [0m[32mnot [0m[32mgo [0m[32mthrough [0m[32m`pacman`. [0m[32m
+
+The [0m[32mdirectories [0m[32min [0m[32m`/usr/local` [0m[32msuggest [0m[32mmanual [0m[32minstallation [0m[32mor [0m[32mcustom [0m[32msetup [0m[32mby [0m[32ma [0m[32muser, [0m[32mbut [0m[32mthey [0m[32mdon't [0m[32mindicate [0m[32many [0m[32mpackage [0m[32minstalled [0m[32mvia [0m[32m`pacman`.
+
+If [0m[32myou [0m[32mneed [0m[32mto [0m[32mverify [0m[32mexplicitly [0m[32mwhat [0m[32mpackages [0m[32mwere [0m[32minstalled [0m[32mby [0m[32mthe [0m[32muser [0m[32musing [0m[32m`pacman`, [0m[32myou [0m[32mcan [0m[32mcheck [0m[32mthe [0m[32moutput [0m[32mof:
+
+```bash
+pacman [0m[32m-Qq [0m[32m| [0m[32mgrep [0m[32m<user-installed-packages>
+```
+
+However, [0m[32mbased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthere [0m[32mare [0m[32mno [0m[32mexplicit [0m[32muser [0m[32minstallations [0m[32mthrough [0m[32m`pacman`.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 13.642589721s
+EXIT: 0

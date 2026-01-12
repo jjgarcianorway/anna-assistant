@@ -1,0 +1,28 @@
+
+[36mYou: [0mIs my disk using GPT or MBR?
+
+[2m  $ [0m```bash
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0msudo fdisk -l | grep 'Disk label type'
+[2m  [0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0m```bash
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0msudo fdisk -l | grep 'Disk label type'
+[2m  [0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0m```bash
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0msudo fdisk -l | grep 'Disk /dev'
+[2m  Disk /dev/nvme0n1: 953,87 GiB, 1024209543168 bytes, 2000409264 sectors
+Disk /dev/zram0: 31,04 GiB, 33334231040 bytes, 8138240 sectors[0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0msudo parted /dev/nvme0n1 print | grep 'Model:'
+[2m  Model: SAMSUNG MZVL21T0HCLR-00BL2 (nvme)[0m
+[2m  $ [0msudo fdisk -l | grep 'Disk label type'
+[2m  [0m
+TIME: 60.003707915s
+EXIT: 124

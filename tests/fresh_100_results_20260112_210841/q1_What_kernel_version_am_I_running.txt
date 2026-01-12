@@ -1,0 +1,13 @@
+
+[36mYou: [0mWhat kernel version am I running?
+
+[2m  $ [0mcat /proc/version
+[2m  Linux version 6.18.5-2-cachyos (linux-cachyos@cachyos) (clang version 21.1.6, LLD 21.1.6) #1 SMP PREEMPT_DYNAMIC Mon, 12 Jan 2026 12:52:54 +0000[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mYou [0m[32mare [0m[32mrunning [0m[32mLinux [0m[32mkernel [0m[32mversion [0m[32m6.18.5-2-cachyos.[0m
+
+
+[2m(1 iterations)[0m
+TIME: 8.807657992s
+EXIT: 0

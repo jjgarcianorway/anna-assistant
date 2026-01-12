@@ -1,0 +1,26 @@
+
+[36mYou: [0mIs flatpak or snap installed?
+
+[2m  $ [0mflatpak list
+[2m  [0m
+[2m  $ [0msnap list
+[2m  sh: line 1: snap: command not found[0m
+[2m  $ [0mflatpak list
+[2m  [0m
+[2m  $ [0mflatpak list
+[2m  [0m
+[2m  $ [0mflatpak --version
+[2m  Flatpak 1.16.2[0m
+[2m  $ [0mflatpak list
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided:
+
+- [0m[32m`snap` [0m[32mis [0m[32mnot [0m[32minstalled [0m[32mas [0m[32mthe [0m[32mcommand [0m[32mwas [0m[32mnot [0m[32mfound.
+- [0m[32mFlatpak [0m[32m1.16.2 [0m[32mis [0m[32minstalled.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 48.971842662s
+EXIT: 0

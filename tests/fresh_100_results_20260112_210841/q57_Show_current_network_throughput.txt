@@ -1,0 +1,33 @@
+
+[36mYou: [0mShow current network throughput
+
+[2m  $ [0mifconfig
+[2m  lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 131539  bytes 18717519 (17.8 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 131539  bytes 18717519 (17.8 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.0.0.2  net...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mnetwork [0m[32minterface [0m[32minformation, [0m[32mhere's [0m[32ma [0m[32msummary [0m[32mof [0m[32mcurrent [0m[32mthroughput [0m[32mfor [0m[32m`wlan0`:
+
+- [0m[32m**Received [0m[32m(RX) [0m[32mTraffic:**
+ [0m[32m [0m[32m- [0m[32mPackets: [0m[32m1,917,694
+ [0m[32m [0m[32m- [0m[32mBytes: [0m[32m2,777,557,280 [0m[32m(2.5 [0m[32mGiB)
+
+- [0m[32m**Transmitted [0m[32m(TX) [0m[32mTraffic:**
+ [0m[32m [0m[32m- [0m[32mPackets: [0m[32m982,517
+ [0m[32m [0m[32m- [0m[32mBytes: [0m[32m234,531,192 [0m[32m(223.6 [0m[32mMiB)
+
+This [0m[32mdata [0m[32mindicates [0m[32mthat [0m[32mthe [0m[32m`wlan0` [0m[32minterface [0m[32mhas [0m[32mbeen [0m[32mactive [0m[32mwith [0m[32msignificant [0m[32mtraffic, [0m[32mreceiving [0m[32mapproximately [0m[32m2.5 [0m[32mGiB [0m[32mand [0m[32mtransmitting [0m[32mabout [0m[32m223.6 [0m[32mMiB [0m[32mof [0m[32mdata [0m[32msince [0m[32mits [0m[32mlast [0m[32mreset [0m[32mor [0m[32mboot.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 15.368410684s
+EXIT: 0

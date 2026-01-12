@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-01-12
+
+### Added
+- **Fast-Path for Common Queries** - Instant responses for simple questions
+  - Kernel version, uptime, shell, DE/WM, hostname, timezone, locale
+  - Package count, failed services, IP address, swap, user info
+  - Response time: 0.004s - 0.012s (was 25s median)
+
+### Fixed
+- **Service Recipe False Positives** - "What services failed" no longer tries to start "what" service
+  - Questions about services now correctly route to LLM investigation
+  - Added question detection to prevent command misinterpretation
+- **Expanded Command Reference** - Better command selection in prompts
+  - Added `echo $XDG_CURRENT_DESKTOP` for DE detection
+  - Added `echo $XDG_SESSION_TYPE` for display server
+  - Added `timedatectl`, `locale`, `findmnt`, `swapon`, `id`, `groups`
+  - Organized by category for better LLM comprehension
+- **Expanded Valid Commands List** - 120+ commands now recognized
+  - Added `findmnt`, `locale`, `swapon`, `gdisk`, `parted`, `lvs`, `vgs`, `pvs`
+  - Added audio tools: `wpctl`, `aplay`, `amixer`
+  - Added network tools: `dig`, `nslookup`, `traceroute`
+
 ## [0.2.5] - 2026-01-12
 
 ### Fixed

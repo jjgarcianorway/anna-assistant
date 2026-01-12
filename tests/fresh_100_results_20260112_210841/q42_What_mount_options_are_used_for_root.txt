@@ -1,0 +1,33 @@
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: USB removed: Apple, Inc. Apple MagSafe Charger
+     Suggested fix: Check if device was intentionally removed
+
+[36mYou: [0mWhat mount options are used for root?
+
+[2m  $ [0mcat /etc/fstab | grep '\/' | awk '{print $4}'
+[2m  file
+defaults,umask=0077
+subvol=/@,defaults,noatime,compress=zstd,commit=120
+subvol=/@home,defaults,noatime,compress=zstd,commit=120
+subvol=/@root,defaults,noatime,compress=zstd,commit=120
+subvol=/@srv,defaults,noatime,compress=zstd,commit=120
+subvol=/@cache,defaults,noatime,compress=zstd,commit=120
+subvol=/@tmp,defaults,noatime,compress=zstd,commit=120
+subvol=/@log,defaults,noatime,compress=zstd,commit=120
+defaults,noatime,mode=1777[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mmount [0m[32moptions, [0m[32mthe [0m[32mroot [0m[32mfilesystem [0m[32mis [0m[32mmounted [0m[32mwith [0m[32mthe [0m[32mfollowing [0m[32moptions:
+
+```
+defaults,noatime,compress=zstd,commit=120
+```
+
+This [0m[32mconfiguration [0m[32mapplies [0m[32mto [0m[32msubvolumes [0m[32m`/@`, [0m[32m`/@root`, [0m[32m`/@srv`, [0m[32m`/@cache`, [0m[32m`/@tmp`, [0m[32mand [0m[32m`/@log`. [0m[32mAdditionally, [0m[32mthe [0m[32m`mode=1777` [0m[32moption [0m[32mis [0m[32mapplied [0m[32mfor [0m[32mthe [0m[32m`/@tmp` [0m[32msubvolume.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 15.684621007s
+EXIT: 0

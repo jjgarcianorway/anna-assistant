@@ -1,0 +1,35 @@
+
+[36mYou: [0mAre there any btrfs subvolumes?
+
+[2m  $ [0mbtrfs subvolume list /
+[2m  ID 256 gen 5941 top level 5 path @
+ID 257 gen 5941 top level 5 path @home
+ID 258 gen 5941 top level 5 path @root
+ID 259 gen 2763 top level 5 path @srv
+ID 260 gen 5927 top level 5 path @cache
+ID 261 gen 5941 top level 5 path @tmp
+ID 262 gen 5941 top level 5 path @log
+ID 263 gen 2763 top level 256 path var/lib/portables
+ID 264 gen 2763 top level 256 path var/lib/machines
+ID 265 gen 5929 top level 256 path .snapshots
+ID 420 gen 5619 top level 265 path .snapshots/155/snapshot
+ID 421 gen 5621 top lev...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mYes, [0m[32mthere [0m[32mare [0m[32mbtrfs [0m[32msubvolumes [0m[32mpresent [0m[32min [0m[32mthe [0m[32msystem. [0m[32mThe [0m[32msubvolumes [0m[32minclude:
+
+- [0m[32m`@`
+- [0m[32m`@home`
+- [0m[32m`@root`
+- [0m[32m`@srv`
+- [0m[32m`@cache`
+- [0m[32m`@tmp`
+- [0m[32m`@log`
+- [0m[32mVarious [0m[32m`.snapshots` [0m[32mdirectories [0m[32mwith [0m[32mnumerical [0m[32mIDs.
+
+These [0m[32mindicate [0m[32mthat [0m[32mbtrfs [0m[32msnapshot [0m[32mfunctionality [0m[32mis [0m[32mbeing [0m[32mused, [0m[32mparticularly [0m[32mfor [0m[32mthe [0m[32m`.snapshots` [0m[32mdirectory.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 42.436783085s
+EXIT: 0

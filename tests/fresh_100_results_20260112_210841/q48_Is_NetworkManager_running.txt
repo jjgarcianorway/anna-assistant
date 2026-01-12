@@ -1,0 +1,47 @@
+
+[36mYou: [0mIs NetworkManager running?
+
+[2m  $ [0msystemctl status NetworkManager
+[2m  ● NetworkManager.service - Network Manager
+     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:09 CET; 1h 9min ago
+ Invocation: 49ab0496632c4102bdc5af1c5d5a295e
+       Docs: man:NetworkManager(8)
+   Main PID: 1129 (NetworkManager)
+      Tasks: 4 (limit: 37882)
+     Memory: 21.6M (peak: 24.1M)
+        CPU: 461ms
+     CGroup: /system.slice/NetworkManager.service
+             └─1129 /usr/bin/N...[0m
+[2m  $ [0msystemctl status NetworkManager
+[2m  ● NetworkManager.service - Network Manager
+     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:09 CET; 1h 9min ago
+ Invocation: 49ab0496632c4102bdc5af1c5d5a295e
+       Docs: man:NetworkManager(8)
+   Main PID: 1129 (NetworkManager)
+      Tasks: 4 (limit: 37882)
+     Memory: 21.6M (peak: 24.1M)
+        CPU: 461ms
+     CGroup: /system.slice/NetworkManager.service
+             └─1129 /usr/bin/N...[0m
+[2m  $ [0msystemctl status NetworkManager.service
+[2m  ● NetworkManager.service - Network Manager
+     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:09 CET; 1h 10min ago
+ Invocation: 49ab0496632c4102bdc5af1c5d5a295e
+       Docs: man:NetworkManager(8)
+   Main PID: 1129 (NetworkManager)
+      Tasks: 4 (limit: 37882)
+     Memory: 21.6M (peak: 24.1M)
+        CPU: 462ms
+     CGroup: /system.slice/NetworkManager.service
+             └─1129 /usr/bin/...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mNetworkManager [0m[32mis [0m[32mindeed [0m[32mrunning [0m[32mand [0m[32mactive [0m[32mon [0m[32mthis [0m[32msystem. [0m[32mThe [0m[32m`Active` [0m[32mstatus [0m[32min [0m[32mthe [0m[32mservice [0m[32mdescription [0m[32mshows [0m[32m`active [0m[32m(running)`, [0m[32mand [0m[32mthere [0m[32mare [0m[32mlogs [0m[32mindicating [0m[32mits [0m[32moperation, [0m[32msuch [0m[32mas [0m[32mdevice [0m[32mactivation [0m[32mand [0m[32mDHCP [0m[32mlease [0m[32mchanges.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 49.323145374s
+EXIT: 0

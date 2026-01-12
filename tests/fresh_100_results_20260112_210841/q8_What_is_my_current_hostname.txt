@@ -1,0 +1,86 @@
+
+[36mYou: [0mWhat is my current hostname?
+
+[2m  $ [0mhostnamectl
+[2m  Static hostname: razorback
+        Icon name: computer-laptop
+          Chassis: laptop 💻
+Chassis Asset Tag: NO Asset Tag
+       Machine ID: 63fbc0dbc2f74d71928e90b4be3823d7
+          Boot ID: b76ee69f245243abb337ae278ffb34c9
+     Product UUID: ca17b597-9811-4f3d-800d-c4c6e61268d3
+ Operating System: CachyOS
+           Kernel: Linux 6.18.5-2-cachyos
+     Architecture: x86-64
+  Hardware Vendor: Lenovo
+   Hardware Model: ThinkBook 16p G5 IRX
+  Hardware Serial: PF4WYNH9
+     Hardware SKU: LENOVO_...[0m
+[2m  $ [0mhostnamectl
+[2m  Static hostname: razorback
+        Icon name: computer-laptop
+          Chassis: laptop 💻
+Chassis Asset Tag: NO Asset Tag
+       Machine ID: 63fbc0dbc2f74d71928e90b4be3823d7
+          Boot ID: b76ee69f245243abb337ae278ffb34c9
+     Product UUID: ca17b597-9811-4f3d-800d-c4c6e61268d3
+ Operating System: CachyOS
+           Kernel: Linux 6.18.5-2-cachyos
+     Architecture: x86-64
+  Hardware Vendor: Lenovo
+   Hardware Model: ThinkBook 16p G5 IRX
+  Hardware Serial: PF4WYNH9
+     Hardware SKU: LENOVO_...[0m
+[2m  $ [0mhostnamectl
+[2m  Static hostname: razorback
+        Icon name: computer-laptop
+          Chassis: laptop 💻
+Chassis Asset Tag: NO Asset Tag
+       Machine ID: 63fbc0dbc2f74d71928e90b4be3823d7
+          Boot ID: b76ee69f245243abb337ae278ffb34c9
+     Product UUID: ca17b597-9811-4f3d-800d-c4c6e61268d3
+ Operating System: CachyOS
+           Kernel: Linux 6.18.5-2-cachyos
+     Architecture: x86-64
+  Hardware Vendor: Lenovo
+   Hardware Model: ThinkBook 16p G5 IRX
+  Hardware Serial: PF4WYNH9
+     Hardware SKU: LENOVO_...[0m
+[2m  $ [0mhostnamectl
+[2m  Static hostname: razorback
+        Icon name: computer-laptop
+          Chassis: laptop 💻
+Chassis Asset Tag: NO Asset Tag
+       Machine ID: 63fbc0dbc2f74d71928e90b4be3823d7
+          Boot ID: b76ee69f245243abb337ae278ffb34c9
+     Product UUID: ca17b597-9811-4f3d-800d-c4c6e61268d3
+ Operating System: CachyOS
+           Kernel: Linux 6.18.5-2-cachyos
+     Architecture: x86-64
+  Hardware Vendor: Lenovo
+   Hardware Model: ThinkBook 16p G5 IRX
+  Hardware Serial: PF4WYNH9
+     Hardware SKU: LENOVO_...[0m
+[2m  $ [0mhostnamectl
+[2m  Static hostname: razorback
+        Icon name: computer-laptop
+          Chassis: laptop 💻
+Chassis Asset Tag: NO Asset Tag
+       Machine ID: 63fbc0dbc2f74d71928e90b4be3823d7
+          Boot ID: b76ee69f245243abb337ae278ffb34c9
+     Product UUID: ca17b597-9811-4f3d-800d-c4c6e61268d3
+ Operating System: CachyOS
+           Kernel: Linux 6.18.5-2-cachyos
+     Architecture: x86-64
+  Hardware Vendor: Lenovo
+   Hardware Model: ThinkBook 16p G5 IRX
+  Hardware Serial: PF4WYNH9
+     Hardware SKU: LENOVO_...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mYour [0m[32mcurrent [0m[32mhostname [0m[32mis [0m[32m`razorback`.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 45.494253287s
+EXIT: 0

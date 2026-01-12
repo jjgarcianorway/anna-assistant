@@ -19,7 +19,20 @@ struct PendingServiceChange {
 }
 
 /// Try to match a service-related recipe
+/// v0.2.6: Fixed false positives - questions about services should not trigger recipes
 pub fn try_recipe(q: &str) -> Option<RecipeResult> {
+    // v0.2.6: Skip if this looks like a question ABOUT services, not a command TO services
+    // Questions like "what services failed" should NOT match
+    let is_question = q.contains("what ") || q.contains("which ") ||
+        q.contains("why ") || q.contains("how ") ||
+        q.contains("show ") || q.contains("list ") ||
+        q.contains("check ") || q.contains("is ") ||
+        q.starts_with("are ");
+
+    if is_question {
+        return None;
+    }
+
     // Restart service
     if q.contains("restart") {
         if let Some(service) = extract_service_name(q) {
@@ -27,15 +40,15 @@ pub fn try_recipe(q: &str) -> Option<RecipeResult> {
         }
     }
 
-    // Start service
-    if q.contains("start") && !q.contains("restart") {
+    // Start service - require action context (not just contains "start")
+    if (q.starts_with("start ") || q.contains(" start ")) && !q.contains("restart") {
         if let Some(service) = extract_service_name(q) {
             return Some(offer_start_service(&service));
         }
     }
 
     // Stop service
-    if q.contains("stop") {
+    if q.starts_with("stop ") || q.contains(" stop ") {
         if let Some(service) = extract_service_name(q) {
             return Some(offer_stop_service(&service));
         }
@@ -82,7 +95,15 @@ fn extract_service_name(text: &str) -> Option<String> {
     for cap in re.captures_iter(&text_lower) {
         let name = &cap[1];
         // Skip common words that aren't services
-        if !["restart", "start", "stop", "enable", "disable", "service", "the", "my", "please"].contains(&name) {
+        // v0.2.6: Added more question words to prevent false matches
+        let skip_words = [
+            "restart", "start", "stop", "enable", "disable", "service", "services",
+            "the", "my", "please", "can", "could", "would", "should",
+            "what", "which", "why", "how", "when", "where", "who",
+            "failed", "failing", "running", "stopped", "enabled", "disabled",
+            "status", "check", "show", "list", "are", "is", "was", "were",
+        ];
+        if !skip_words.contains(&name) {
             return Some(name.to_string());
         }
     }

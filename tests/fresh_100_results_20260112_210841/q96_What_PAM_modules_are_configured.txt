@@ -1,0 +1,31 @@
+
+[36mYou: [0mWhat PAM modules are configured?
+
+[2m  $ [0mcat /etc/pam.d/common-auth | grep ^auth
+[2m  cat: /etc/pam.d/common-auth: No such file or directory[0m
+[2m  $ [0mcat /etc/pam.d/common-account | grep ^account
+[2m  cat: /etc/pam.d/common-account: No such file or directory[0m
+[2m  $ [0mcat /etc/pam.d/common-session | grep ^session
+[2m  cat: /etc/pam.d/common-session: No such file or directory[0m
+[2m  $ [0mcat /etc/pam.d/login | grep ^auth
+[2m  auth       requisite    pam_nologin.so
+auth       include      system-local-login[0m
+[2m  $ [0mcat /etc/pam.d/login | grep ^account
+[2m  account    include      system-local-login[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mhere [0m[32mare [0m[32mthe [0m[32mPAM [0m[32m(Pluggable [0m[32mAuthentication [0m[32mModules) [0m[32mconfigurations [0m[32mfor [0m[32mArch [0m[32mLinux:
+
+- [0m[32m`auth` [0m[32msection:
+ [0m[32m [0m[32m- [0m[32m`requisite [0m[32mpam_nologin.so`: [0m[32mThis [0m[32mmodule [0m[32mchecks [0m[32mif [0m[32mthe [0m[32muser's [0m[32maccount [0m[32mis [0m[32mlocked [0m[32mdue [0m[32mto [0m[32man [0m[32mincorrect [0m[32mnumber [0m[32mof [0m[32mlogin [0m[32mattempts.
+ [0m[32m [0m[32m- [0m[32m`include [0m[32msystem-local-login`: [0m[32mThis [0m[32mincludes [0m[32msettings [0m[32mfrom [0m[32m`/etc/pam.d/system-local-login`.
+
+- [0m[32m`account` [0m[32msection:
+ [0m[32m [0m[32m- [0m[32m`include [0m[32msystem-local-login`: [0m[32mThis [0m[32mincludes [0m[32msettings [0m[32mfrom [0m[32m`/etc/pam.d/system-local-login`.
+
+The [0m[32mfiles [0m[32m`/etc/pam.d/common-auth`, [0m[32m`/etc/pam.d/common-account`, [0m[32mand [0m[32m`/etc/pam.d/common-session` [0m[32mdo [0m[32mnot [0m[32mexist [0m[32min [0m[32mthe [0m[32mcurrent [0m[32mconfiguration, [0m[32mso [0m[32mtheir [0m[32mdefault [0m[32mor [0m[32mfallback [0m[32mconfigurations [0m[32m(such [0m[32mas [0m[32mthose [0m[32mdefined [0m[32min [0m[32m`system-local-login`) [0m[32mare [0m[32mbeing [0m[32mused.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 9.386696676s
+EXIT: 0

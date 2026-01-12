@@ -1,0 +1,17 @@
+
+[36mYou: [0mIs docker or podman running?
+
+[2m  $ [0msystemctl status docker
+[2m  Unit docker.service could not be found.[0m
+[2m  $ [0msystemctl status podman
+[2m  Unit podman.service could not be found.[0m
+[2m  $ [0msystemctl list-units --type=service --state=loaded | grep -E 'docker|podman'
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mneither [0m[32mDocker [0m[32mnor [0m[32mPodman [0m[32mis [0m[32mrunning [0m[32mor [0m[32minstalled [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThe [0m[32munits [0m[32m`docker.service` [0m[32mand [0m[32m`podman.service` [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound, [0m[32mindicating [0m[32mthat [0m[32mthese [0m[32mservices [0m[32mare [0m[32meither [0m[32mnot [0m[32minstalled [0m[32mor [0m[32mnot [0m[32mbeing [0m[32mmanaged [0m[32mby [0m[32msystemd [0m[32mas [0m[32msystem [0m[32mservices.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 11.753067517s
+EXIT: 0

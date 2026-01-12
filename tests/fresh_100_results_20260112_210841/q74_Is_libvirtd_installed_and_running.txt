@@ -1,0 +1,28 @@
+
+[36mYou: [0mIs libvirtd installed and running?
+
+[2m  $ [0msystemctl status libvirtd
+[2m  Unit libvirtd.service could not be found.[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthe [0m[32m`libvirtd` [0m[32mservice [0m[32munit [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThis [0m[32msuggests [0m[32mthat [0m[32m`libvirtd` [0m[32mis [0m[32meither [0m[32mnot [0m[32minstalled [0m[32mor [0m[32mnot [0m[32mrecognized [0m[32mby [0m[32mthe [0m[32msystem. [0m[32m
+
+To [0m[32mcheck [0m[32mif [0m[32m`libvirtd` [0m[32mis [0m[32minstalled, [0m[32myou [0m[32mcan [0m[32muse:
+```sh
+pacman [0m[32m-Q [0m[32mlibvirt
+```
+
+If [0m[32mit [0m[32mreturns [0m[32mno [0m[32mresults, [0m[32mthen [0m[32m`libvirtd` [0m[32mis [0m[32mnot [0m[32minstalled.
+
+To [0m[32mstart [0m[32mand [0m[32menable [0m[32mthe [0m[32mservice [0m[32m(assuming [0m[32mit's [0m[32mavailable), [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse:
+```sh
+sudo [0m[32msystemctl [0m[32mstart [0m[32mlibvirtd
+sudo [0m[32msystemctl [0m[32menable [0m[32mlibvirtd
+```
+
+However, [0m[32msince [0m[32mthe [0m[32munit [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound, [0m[32mthese [0m[32mcommands [0m[32mwill [0m[32mnot [0m[32mwork [0m[32mas [0m[32mexpected [0m[32muntil [0m[32m`libvirt` [0m[32mis [0m[32mproperly [0m[32minstalled.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 8.268791966s
+EXIT: 0

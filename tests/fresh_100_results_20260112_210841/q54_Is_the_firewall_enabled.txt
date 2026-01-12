@@ -1,0 +1,24 @@
+
+[36mYou: [0mIs the firewall enabled?
+
+[2m  $ [0msystemctl status firewalld.service
+[2m  Unit firewalld.service could not be found.[0m
+[2m  $ [0mnetstat -tnlp | grep firewall
+[2m  [0m
+[2m  $ [0msystemctl is-active --quiet firewalld.service && systemctl is-enabled firewalld.service
+[2m  [0m
+[2m  $ [0mls /etc/firewal* 2>/dev/null | grep -q firewall &ussystrace: inject syscall: write fd=1 args="DONE\n"
+[2m  sh: line 1: ussystrace:: command not found[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided:
+
+- [0m[32mThe [0m[32m`firewalld.service` [0m[32munit [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound.
+- [0m[32mThe [0m[32mcommand [0m[32m`ussystrace` [0m[32mwas [0m[32mnot [0m[32mrecognized.
+
+This [0m[32msuggests [0m[32mthat [0m[32mthe [0m[32mfirewall [0m[32mservice [0m[32m`firewalld` [0m[32mis [0m[32mnot [0m[32minstalled [0m[32mor [0m[32menabled [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mSince [0m[32mthere's [0m[32mno [0m[32mevidence [0m[32mof [0m[32man [0m[32malternative [0m[32mfirewall [0m[32mservice, [0m[32mwe [0m[32mcan [0m[32mconclude [0m[32mthat [0m[32mthe [0m[32mfirewall [0m[32mis [0m[32mlikely [0m[32mnot [0m[32menabled.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 20.052180230s
+EXIT: 0

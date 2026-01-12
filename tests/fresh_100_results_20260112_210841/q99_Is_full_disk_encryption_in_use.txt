@@ -1,0 +1,29 @@
+
+[36mYou: [0mIs full disk encryption in use?
+
+[2m  $ [0mls /dev/mapper | grep -E "cryptroot|cryptlvm"
+[2m  [0m
+[2m  $ [0msystemctl list-units --all | grep encrypted
+[2m  [0m
+[2m  $ [0mpacman -Q | grep cryptsetup
+[2m  cryptsetup 2.8.3-1.1[0m
+[2m  $ [0mlsblk | grep crypt
+[2m  [0m
+[2m  $ [0mdmsetup ls --target crypt)initiatorname
+[2m  sh: -c: line 1: syntax error near unexpected token `)'
+sh: -c: line 1: `dmsetup ls --target crypt)initiatorname'[0m
+[2m  $ [0mpacman -Q | grep cryptsetup
+[2m  cryptsetup 2.8.3-1.1[0m
+[2m  $ [0mdmsetup ls --target cryptinitiatorname | grep -E "\/cryptroot|\/cryptlvm"
+[2m  grep: warning: stray \ before /
+grep: warning: stray \ before /[0m
+[2m  $ [0mpacman -Q | grep cryptsetup
+[2m  cryptsetup 2.8.3-1.1[0m
+[2m  $ [0mls /dev/mapper | grep -E "cryptroot|cryptlvm"
+[2m  [0m
+[2m  $ [0msystemctl list-units --all | grep encrypted
+[2m  [0m
+[2m  $ [0mlsblk | grep crypt
+[2m  [0m
+TIME: 60.003179265s
+EXIT: 124

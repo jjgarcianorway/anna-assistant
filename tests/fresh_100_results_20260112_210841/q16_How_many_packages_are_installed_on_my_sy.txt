@@ -1,0 +1,39 @@
+
+[36mYou: [0mHow many packages are installed on my system?
+
+[2m  $ [0mdpkg -l
+[2m  sh: line 1: dpkg: command not found[0m
+[2m  $ [0mpacman -Q
+[2m  7zip 25.01-1.1
+a52dec 0.8.0-2.1
+aalib 1.4rc5-19.1
+abseil-cpp 20250814.1-1.1
+accountsservice 23.13.9-2.1
+acl 2.3.2-1.1
+adwaita-cursors 49.0-1
+adwaita-fonts 49.0-2
+adwaita-icon-theme 49.0-1
+adwaita-icon-theme-legacy 46.2-3
+alacritty 0.16.1-1.1
+alsa-card-profiles 1:1.4.9-2.1
+alsa-firmware 1.2.4-4
+alsa-lib 1.2.15.2-1.1
+alsa-plugins 1:1.2.12-5.1
+alsa-topology-conf 1.2.5.1-4
+alsa-ucm-conf 1.2.15.2-1
+alsa-utils 1.2.15.2-1.1
+ananicy-cpp 1.1.1-9.1
+aom 3.13.1-2.1
+apache 2.4.66-1.1
+appstream 1.1.1-1.1
+apr ...[0m
+[2m  $ [0mrpm -qa
+[2m  sh: line 1: rpm: command not found[0m
+[2m  $ [0mDNF list installed
+[2m  sh: line 1: DNF: command not found[0m
+[2m  $ [0mzypper se --installed-only
+[2m  sh: line 1: zypper: command not found[0m
+[2m  $ [0mrpm -qa | grep -i installed
+[2m  sh: line 1: rpm: command not found[0m
+TIME: 60.002973711s
+EXIT: 124

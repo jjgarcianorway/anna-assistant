@@ -106,28 +106,80 @@ PROBLEM: <what's wrong>
 EXPLAIN: <why this fixes it>
 
 COMMAND REFERENCE (use these exact commands):
-- RAM: free -h
-- CPU info: lscpu
-- CPU usage: ps aux --sort=-%cpu | head -10
-- Disk space: df -h
-- Disk usage by folder: du -sh /* 2>/dev/null | sort -h
+=== System Info ===
 - Kernel: uname -r
+- Uptime: uptime -p
+- Hostname: hostnamectl
 - System load: uptime
-- Boot time analysis: systemd-analyze blame | head -20
-- Services: systemctl list-units --type=service --state=running
-- Failed services: systemctl --failed
-- Errors from logs: journalctl -p err -b | head -50
-- Network interfaces: ip addr show
-- Network connectivity: ping -c 3 8.8.8.8
-- DNS: cat /etc/resolv.conf
+- Boot time analysis: systemd-analyze blame | head -10
+
+=== Hardware ===
+- CPU info: lscpu | head -20
+- CPU freq: cat /proc/cpuinfo | grep MHz | head -4
+- RAM: free -h
 - GPU: lspci | grep -i vga
 - GPU driver: lsmod | grep -E 'nvidia|amdgpu|i915'
-- Audio: pactl info 2>/dev/null || pipewire --version 2>/dev/null
-- Firewall: sudo iptables -L -n 2>/dev/null | head -20
-- Packages by size: pacman -Qi | awk '/^Name/{{name=$3}}/^Installed Size/{{print $4,$5,name}}' | sort -h | tail -20
-- Orphaned packages: pacman -Qtdq
-- Database check: pacman -Dk
+- USB devices: lsusb
+- PCI devices: lspci | head -20
+- Temperatures: cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null
 - Battery: cat /sys/class/power_supply/BAT*/capacity 2>/dev/null
+
+=== Desktop Environment ===
+- DE/WM: echo $XDG_CURRENT_DESKTOP
+- Display server: echo $XDG_SESSION_TYPE
+- Display resolution: xrandr 2>/dev/null | grep '*' || wlr-randr 2>/dev/null | grep current
+
+=== User/Shell ===
+- Current shell: echo $SHELL
+- Username/UID: id
+- Groups: groups
+- Locale: locale
+- Timezone: timedatectl | grep "Time zone"
+
+=== Storage ===
+- Disk space: df -h
+- Disk usage: du -sh /* 2>/dev/null | sort -h | head -10
+- Partitions: lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT
+- Mount options: findmnt / -o OPTIONS
+- GPT/MBR: sudo fdisk -l 2>/dev/null | grep -E 'Disklabel|GPT|DOS' | head -3
+- Swap: swapon --show
+- Btrfs subvols: btrfs subvolume list / 2>/dev/null
+
+=== Network ===
+- IP address: ip -4 addr show | grep inet | grep -v 127.0.0.1
+- Interfaces: ip link show
+- DNS: cat /etc/resolv.conf
+- Gateway: ip route | grep default
+- Listening ports: ss -tlnp 2>/dev/null | head -15
+- Public IP: curl -s ifconfig.me 2>/dev/null
+
+=== Services ===
+- Running services: systemctl list-units --type=service --state=running | head -20
+- Failed services: systemctl --failed
+- Service status: systemctl status <service>
+- Active timers: systemctl list-timers --no-pager | head -10
+
+=== Packages ===
+- Package count: pacman -Q | wc -l
+- Installed packages: pacman -Qe | head -30
+- Package info: pacman -Qi <package>
+- Package owner: pacman -Qo <file>
+- Orphaned packages: pacman -Qtdq | head -10
+- Recently installed: tail -20 /var/log/pacman.log | grep "installed"
+- Cache size: du -sh /var/cache/pacman/pkg/
+
+=== Logs/Errors ===
+- Recent errors: journalctl -p err -b --no-pager | head -30
+- Boot logs: journalctl -b --no-pager | head -50
+- dmesg errors: dmesg | grep -iE 'error|fail|warn' | tail -20
+
+=== Audio ===
+- Audio server: pactl info 2>/dev/null | head -5 || pipewire --version
+
+=== Security ===
+- SSH keys: ls -la ~/.ssh/*.pub 2>/dev/null
+- SUID files: find /usr/bin -perm -4000 2>/dev/null | head -10
+- Users: cat /etc/passwd | grep -v nologin | tail -5
 
 RULES:
 1. NO interactive commands (top, htop, vim, nano, less, man)

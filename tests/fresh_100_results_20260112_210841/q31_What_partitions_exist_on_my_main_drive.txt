@@ -1,0 +1,91 @@
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: USB removed: Apple, Inc. Apple MagSafe Charger
+     Suggested fix: Check if device was intentionally removed
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: Load unusually high: 9.47 (avg: 2.18)
+     Suggested fix: Check: htop or ps aux --sort=-%cpu | head -10
+
+[36mYou: [0mWhat part1-2ions exist on my main drive?
+
+[2m  $ [0mlsblk
+[2m  NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+zram0       253:0    0    31G  0 disk [SWAP]
+nvme0n1     259:0    0 953,9G  0 disk 
+├─nvme0n1p1 259:1    0     2G  0 part /boot
+└─nvme0n1p2 259:2    0 951,9G  0 part /var/tmp
+                                      /var/log
+                                      /var/cache
+                                      /home
+                                      /root
+                                      /srv
+                                      /[0m
+[2m  $ [0mdf -Tényielding:
+[2m  df: invalid option -- '�'
+Try 'df --help' for more information.[0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0mlsblk
+[2m  NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+zram0       253:0    0    31G  0 disk [SWAP]
+nvme0n1     259:0    0 953,9G  0 disk 
+├─nvme0n1p1 259:1    0     2G  0 part /boot
+└─nvme0n1p2 259:2    0 951,9G  0 part /var/tmp
+                                      /var/log
+                                      /var/cache
+                                      /home
+                                      /root
+                                      /srv
+                                      /[0m
+[2m  $ [0mfdisk -l
+[2m  Disk /dev/nvme0n1: 953,87 GiB, 1024209543168 bytes, 2000409264 sectors
+Disk model: SAMSUNG MZVL21T0HCLR-00BL2              
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: gpt
+Disk identifier: E425B37F-4497-4D32-966F-1CADEB9EB5DF
+
+Device           Start        End    Sectors   Size Type
+/dev/nvme0n1p1    4096    4198399    4194304     2G EFI System
+/dev/nvme0n1p2 4198400 2000409197 19962...[0m
+[2m  $ [0mparted -l
+[2m  Model: SAMSUNG MZVL21T0HCLR-00BL2 (nvme)
+Disk /dev/nvme0n1: 1024GB
+Sector size (logical/physical): 512B/512B
+Partition Table: gpt
+Disk Flags: 
+
+Number  Start   End     Size    File system  Name  Flags
+ 1      2097kB  2150MB  2147MB  fat32              boot, esp
+ 2      2150MB  1024GB  1022GB  btrfs        root
+
+
+Model: Unknown (unknown)
+Disk /dev/zram0: 33,3GB
+Sector size (logical/physical): 4096B/4096B
+Partition Table: loop
+Disk Flags: 
+
+Number  Start  End     Size    File system     Flags
+ 1  ...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthe [0m[32mpartitions [0m[32mexisting [0m[32mon [0m[32myour [0m[32mmain [0m[32mdrive [0m[32m(`/dev/nvme0n1`) [0m[32mare:
+
+- [0m[32m`/dev/nvme0n1p1`: [0m[32m2 [0m[32mGiB, [0m[32mtype [0m[32m`EFI [0m[32mSystem`
+- [0m[32m`/dev/nvme0n1p2`: [0m[32m951.9 [0m[32mGiB, [0m[32mtype [0m[32m`Linux [0m[32mfilesystem`
+
+These [0m[32mpartitions [0m[32mcover [0m[32mthe [0m[32mfollowing [0m[32mmount [0m[32mpoints [0m[32mand [0m[32mdirectories:
+- [0m[32m`/boot` [0m[32mis [0m[32mmounted [0m[32mon [0m[32m`/dev/nvme0n1p1`.
+- [0m[32mThe [0m[32mroot [0m[32mdirectory [0m[32m(`/`) [0m[32mand [0m[32mits [0m[32msubdirectories [0m[32mlike [0m[32m`/var/tmp`, [0m[32m`/var/log`, [0m[32m`/var/cache`, [0m[32m`/home`, [0m[32m`/root`, [0m[32mand [0m[32m`/srv` [0m[32mare [0m[32mall [0m[32mlocated [0m[32mon [0m[32m`/dev/nvme0n1p2`.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 45.534212619s
+EXIT: 0

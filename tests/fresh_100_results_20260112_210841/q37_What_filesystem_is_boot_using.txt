@@ -1,0 +1,18 @@
+
+[36mYou: [0mWhat filesystem is /boot using?
+
+[2m  $ [0mdf -T /boot | grep /boot
+[2m  /dev/nvme0n1p1 vfat   2093048 671616   1421432  33% /boot[0m
+[2m  $ [0mdf -T /boot | grep /boot
+[2m  /dev/nvme0n1p1 vfat   2093048 671616   1421432  33% /boot[0m
+[2m  $ [0mdf -T /boot
+[2m  Filesystem     Type 1K-blocks   Used Available Use% Mounted on
+/dev/nvme0n1p1 vfat   2093048 671616   1421432  33% /boot[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mfilesystem [0m[32mfor [0m[32m/boot [0m[32mis [0m[32mvfat.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 17.800682498s
+EXIT: 0

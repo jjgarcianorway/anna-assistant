@@ -1,0 +1,33 @@
+
+[36mYou: [0mWhat package owns /usr/bin/python?
+
+[2m  $ [0mrpm -qf /usr/bin/python
+[2m  sh: line 1: rpm: command not found[0m
+[2m  $ [0mpacman -Qo /usr/bin/python
+[2m  /usr/bin/python is owned by python 3.14.2-3[0m
+[2m  $ [0mpacman -Ql | grep /usr/bin/python
+[2m  python /usr/bin/python
+python /usr/bin/python-config
+python /usr/bin/python3
+python /usr/bin/python3-config
+python /usr/bin/python3.14
+python /usr/bin/python3.14-config
+python-argcomplete /usr/bin/python-argcomplete-check-easy-install-script[0m
+[2m  $ [0mpacman -Ql | grep /usr/bin/python
+[2m  python /usr/bin/python
+python /usr/bin/python-config
+python /usr/bin/python3
+python /usr/bin/python3-config
+python /usr/bin/python3.14
+python /usr/bin/python3.14-config
+python-argcomplete /usr/bin/python-argcomplete-check-easy-install-script[0m
+[2m  $ [0mpacman -Qo /usr/bin/python
+[2m  /usr/bin/python is owned by python 3.14.2-3[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mpackage [0m[32mthat [0m[32mowns [0m[32m`/usr/bin/python` [0m[32mis [0m[32m`python`, [0m[32mversion [0m[32m3.14.2-3.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 55.189509279s
+EXIT: 0

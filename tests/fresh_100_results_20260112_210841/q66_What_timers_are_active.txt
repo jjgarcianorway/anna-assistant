@@ -1,0 +1,47 @@
+
+[36mYou: [0mWhat timers are active?
+
+[2m  $ [0m```bash
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0msystemctl list-timers --all
+[2m  NEXT                                 LEFT LAST                              PASSED UNIT                             ACTIVATES
+Mon 2026-01-12 22:34:20 CET         52min Mon 2026-01-12 21:34:20 CET     7min ago snapper-cleanup.timer            snapper-cleanup.service
+Tue 2026-01-13 00:00:00 CET      2h 18min Mon 2026-01-12 00:00:11 CET            - shadow.timer                     shadow.service
+Tue 2026-01-13 00:29:24 CET      2h 47min Mon 2026-01-12 00:22:15 CET            - plocate-updatedb.tim...[0m
+[2m  $ [0m```
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0msystemctl list-timers --all
+[2m  NEXT                                 LEFT LAST                              PASSED UNIT                             ACTIVATES
+Mon 2026-01-12 22:34:20 CET         52min Mon 2026-01-12 21:34:20 CET     7min ago snapper-cleanup.timer            snapper-cleanup.service
+Tue 2026-01-13 00:00:00 CET      2h 18min Mon 2026-01-12 00:00:11 CET            - shadow.timer                     shadow.service
+Tue 2026-01-13 00:29:24 CET      2h 47min Mon 2026-01-12 00:22:15 CET            - plocate-updatedb.tim...[0m
+[2m  $ [0msystemctl list-timers --all
+[2m  NEXT                                 LEFT LAST                              PASSED UNIT                             ACTIVATES
+Mon 2026-01-12 22:34:20 CET         52min Mon 2026-01-12 21:34:20 CET     7min ago snapper-cleanup.timer            snapper-cleanup.service
+Tue 2026-01-13 00:00:00 CET      2h 18min Mon 2026-01-12 00:00:11 CET            - shadow.timer                     shadow.service
+Tue 2026-01-13 00:29:24 CET      2h 47min Mon 2026-01-12 00:22:15 CET            - plocate-updatedb.tim...[0m
+[2m  $ [0msystemctl list-timers --all
+[2m  NEXT                                 LEFT LAST                              PASSED UNIT                             ACTIVATES
+Mon 2026-01-12 22:34:20 CET         52min Mon 2026-01-12 21:34:20 CET     7min ago snapper-cleanup.timer            snapper-cleanup.service
+Tue 2026-01-13 00:00:00 CET      2h 18min Mon 2026-01-12 00:00:11 CET            - shadow.timer                     shadow.service
+Tue 2026-01-13 00:29:24 CET      2h 47min Mon 2026-01-12 00:22:15 CET            - plocate-updatedb.tim...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthe [0m[32mfollowing [0m[32mtimers [0m[32mare [0m[32mactive:
+
+1. [0m[32m**snapper-cleanup.timer** [0m[32m- [0m[32mActivates [0m[32m`snapper-cleanup.service`
+2. [0m[32m**shadow.timer** [0m[32m- [0m[32mActivates [0m[32m`shadow.service`
+3. [0m[32m**plocate-updatedb.timer** [0m[32m- [0m[32mActivates [0m[32m`plocate-updatedb.service`
+4. [0m[32m**logrotate.timer** [0m[32m- [0m[32mActivates [0m[32m`logrotate.service`
+5. [0m[32m**man-db.timer** [0m[32m- [0m[32mActivates [0m[32m`man-db.service`
+6. [0m[32m**systemd-tmpfiles-clean.timer** [0m[32m- [0m[32mActivates [0m[32m`systemd-tmpfiles-clean.service`
+7. [0m[32m**fstrim.timer** [0m[32m- [0m[32mActivates [0m[32m`fstrim.service`
+8. [0m[32m**archlinux-keyring-wkd-sync.timer** [0m[32m- [0m[32mActivates [0m[32m`archlinux-keyring-wkd-sync.service`
+9. [0m[32m**snapper-boot.timer** [0m[32m- [0m[32mActivates [0m[32m`snapper-boot.service`
+
+These [0m[32mtimers [0m[32mare [0m[32mset [0m[32mto [0m[32mrun [0m[32mat [0m[32mspecific [0m[32mintervals [0m[32mor [0m[32mtimes [0m[32mas [0m[32mlisted [0m[32min [0m[32mthe [0m[32mdata.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 55.443462333s
+EXIT: 0

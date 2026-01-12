@@ -1,0 +1,54 @@
+
+[36mYou: [0mWhat display server am I using - X11 or Wayland?
+
+[2m  $ [0mgrep -i display manager /etc/sysconfig/displaymanager /var/log/Xorg.* | grep -i wayland
+[2m  grep: manager: No such file or directory
+grep: /etc/sysconfig/displaymanager: No such file or directory
+grep: /var/log/Xorg.*: No such file or directory[0m
+[2m  $ [0mif [ $? -ne 0 ]; then
+[2m  sh: -c: line 2: syntax error: unexpected end of file from `if' command on line 1[0m
+[2m  $ [0msystemctl status display-manager
+[2m  ● gdm.service - GNOME Display Manager
+     Loaded: loaded (/usr/lib/systemd/system/gdm.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:09 CET; 47min ago
+ Invocation: 1f415bcb0cce435bad87f90dd006a599
+   Main PID: 1256 (gdm)
+      Tasks: 5 (limit: 37882)
+     Memory: 5.1M (peak: 24.7M)
+        CPU: 291ms
+     CGroup: /system.slice/gdm.service
+             └─1256 /usr/bin/gdm
+
+jan. 12 20:24:09 razorback systemd[1]: Starting GNOME Display Manager......[0m
+[2m  $ [0mfi
+[2m  sh: -c: line 1: syntax error near unexpected token `fi'
+sh: -c: line 1: `fi'[0m
+[2m  $ [0msystemctl status display-manager
+[2m  ● gdm.service - GNOME Display Manager
+     Loaded: loaded (/usr/lib/systemd/system/gdm.service; enabled; preset: disabled)
+     Active: active (running) since Mon 2026-01-12 20:24:09 CET; 47min ago
+ Invocation: 1f415bcb0cce435bad87f90dd006a599
+   Main PID: 1256 (gdm)
+      Tasks: 5 (limit: 37882)
+     Memory: 5.1M (peak: 24.7M)
+        CPU: 291ms
+     CGroup: /system.slice/gdm.service
+             └─1256 /usr/bin/gdm
+
+jan. 12 20:24:09 razorback systemd[1]: Starting GNOME Display Manager......[0m
+[2m  $ [0mgrep WAYLAND /var/log/Xorg.* 2>/dev/null
+[2m  [0m
+[2m  $ [0mgrep X11 /var/log/Xorg.* 2>/dev/null
+[2m  [0m
+[2m  $ [0mls -l /usr/bin/X* | grep -o '/usr/bin/Xwayland\|/usr/bin/X'
+[2m  /usr/bin/X
+/usr/bin/X
+/usr/bin/Xwayland[0m
+[2m  $ [0msystemctl status gdm | grep -i wayland
+[2m  [0m
+[2m  $ [0mls -l /usr/bin/X* | grep -o '/usr/bin/Xwayland\|/usr/bin/X'
+[2m  /usr/bin/X
+/usr/bin/X
+/usr/bin/Xwayland[0m
+TIME: 60.002815204s
+EXIT: 124

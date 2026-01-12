@@ -10,6 +10,7 @@
 //! 4. Learn from attempts - each iteration improves the next
 //!
 //! v0.1.1: Initial implementation
+//! v0.2.6: Added fast-path for common single-command queries
 
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anyhow::Result;
@@ -19,6 +20,139 @@ use crate::core_loop::{
     execute_command, strip_ansi_codes,
 };
 use crate::ollama;
+
+/// v0.2.6: Fast-path lookup table for common queries
+/// Maps question patterns to (command, answer_template)
+/// Template uses {output} placeholder for command output
+fn get_fast_path(question: &str) -> Option<(&'static str, &'static str)> {
+    let q = question.to_lowercase();
+
+    // Kernel
+    if q.contains("kernel") && (q.contains("version") || q.contains("running")) {
+        return Some(("uname -r", "You are running kernel {output}"));
+    }
+
+    // Uptime
+    if q.contains("uptime") || (q.contains("how long") && q.contains("up")) {
+        return Some(("uptime -p", "System uptime: {output}"));
+    }
+
+    // RAM/Memory
+    if (q.contains("ram") || q.contains("memory")) && (q.contains("how much") || q.contains("total") || q.contains("available")) {
+        return Some(("free -h | grep Mem", "{output}"));
+    }
+
+    // Shell
+    if q.contains("shell") && (q.contains("what") || q.contains("which") || q.contains("using")) {
+        return Some(("echo $SHELL", "Your shell is {output}"));
+    }
+
+    // Desktop/WM
+    if (q.contains("desktop") || q.contains("window manager") || q.contains("de") || q.contains("wm"))
+        && (q.contains("what") || q.contains("which") || q.contains("running") || q.contains("using"))
+    {
+        return Some(("echo $XDG_CURRENT_DESKTOP", "You are running {output}"));
+    }
+
+    // Display server
+    if (q.contains("wayland") || q.contains("x11") || q.contains("display server") || q.contains("xorg"))
+        && (q.contains("what") || q.contains("which") || q.contains("using"))
+    {
+        return Some(("echo $XDG_SESSION_TYPE", "Display server: {output}"));
+    }
+
+    // Hostname
+    if q.contains("hostname") && (q.contains("what") || q.contains("my")) {
+        return Some(("hostname", "Hostname: {output}"));
+    }
+
+    // Username/UID
+    if (q.contains("username") || q.contains("user") || q.contains("uid"))
+        && (q.contains("what") || q.contains("my") || q.contains("current"))
+    {
+        return Some(("id", "{output}"));
+    }
+
+    // Groups
+    if q.contains("groups") && (q.contains("what") || q.contains("member") || q.contains("my")) {
+        return Some(("groups", "Your groups: {output}"));
+    }
+
+    // Timezone
+    if q.contains("timezone") && (q.contains("what") || q.contains("configured") || q.contains("my")) {
+        return Some(("timedatectl | grep 'Time zone'", "{output}"));
+    }
+
+    // Locale
+    if q.contains("locale") && (q.contains("what") || q.contains("my") || q.contains("system")) {
+        return Some(("locale | head -5", "{output}"));
+    }
+
+    // Swap
+    if q.contains("swap") && (q.contains("configured") || q.contains("using") || q.contains("how much")) {
+        return Some(("swapon --show", "{output}"));
+    }
+
+    // Package count
+    if q.contains("package") && (q.contains("how many") || q.contains("installed") || q.contains("count")) {
+        return Some(("pacman -Q | wc -l", "You have {output} packages installed"));
+    }
+
+    // Failed services
+    if q.contains("service") && (q.contains("failed") || q.contains("failing")) {
+        return Some(("systemctl --failed --no-pager", "{output}"));
+    }
+
+    // IP address
+    if (q.contains("ip") || q.contains("address")) && (q.contains("local") || q.contains("my") || q.contains("what")) && !q.contains("public") {
+        return Some(("ip -4 addr show | grep inet | grep -v 127.0.0.1 | awk '{print $2}'", "Local IP: {output}"));
+    }
+
+    None
+}
+
+/// v0.2.6: Try fast-path for simple queries
+async fn try_fast_path(question: &str) -> Option<AskResult> {
+    let (cmd, template) = get_fast_path(question)?;
+
+    info!("Fast-path: using command '{}'", cmd);
+
+    match execute_command(cmd) {
+        Ok(output) => {
+            let clean_output = strip_ansi_codes(&output).trim().to_string();
+            if clean_output.is_empty() {
+                return None; // Fall back to full loop
+            }
+
+            let answer = template.replace("{output}", &clean_output);
+
+            Some(AskResult {
+                answer,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![cmd.to_string()],
+                dialogue: vec![
+                    DialogueStep {
+                        step_type: StepType::UserQuestion,
+                        content: question.to_string(),
+                    },
+                    DialogueStep {
+                        step_type: StepType::CommandExec,
+                        content: cmd.to_string(),
+                    },
+                    DialogueStep {
+                        step_type: StepType::CommandOutput,
+                        content: clean_output,
+                    },
+                ],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+            })
+        }
+        Err(_) => None, // Fall back to full loop
+    }
+}
 
 /// Completion criteria for a question
 #[derive(Debug, Clone)]
@@ -187,6 +321,12 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
 /// 2. Loop: attempt answer, self-evaluate, improve
 /// 3. Stop when criteria met or max iterations reached
 pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
+    // v0.2.6: Try fast-path first for simple queries
+    if let Some(result) = try_fast_path(question).await {
+        info!("Fast-path completed in 0 iterations");
+        return Ok(result);
+    }
+
     let criteria = determine_criteria(question);
     info!(
         "Ralph loop: {:?}, confidence >= {:.0}%, max {} iterations",
@@ -343,15 +483,29 @@ async fn get_commands(
     };
 
     let prompt = format!(
-        r#"Question: {}{}{}
+        r#"System: Arch Linux with pacman
 
-What Linux commands should I run to answer this question?
-- Only suggest commands that will help answer the specific question
-- Use standard tools (cat, grep, systemctl, pacman, etc.)
-- If no commands are needed, output NONE
+Question: "{}"{}{}
 
-Output format: one command per line, nothing else.
-If sufficient data is collected, output DONE."#,
+Return 1-3 bash commands to answer this question. Use these exact commands:
+
+SYSTEM: uname -r, uptime -p, hostnamectl
+HARDWARE: lscpu | head -20, free -h, lsusb, lspci | head -20
+DESKTOP: echo $XDG_CURRENT_DESKTOP, echo $XDG_SESSION_TYPE
+USER: id, groups, echo $SHELL, locale, timedatectl | grep "Time zone"
+STORAGE: df -h, lsblk, findmnt / -o OPTIONS, swapon --show
+NETWORK: ip -4 addr show, cat /etc/resolv.conf, ip route | grep default, ss -tlnp | head -15
+SERVICES: systemctl --failed, systemctl list-units --type=service --state=running | head -20
+PACKAGES: pacman -Q | wc -l, pacman -Qe | head -30, pacman -Qtdq
+LOGS: journalctl -p err -b --no-pager | head -30
+
+RULES:
+- Output ONLY valid bash commands, one per line
+- NO explanations, NO English text, NO comments
+- If question already answered by data below, output: DONE
+- If question needs no commands (how-to), output: NONE
+
+Output commands now:"#,
         question, output_context, feedback_context
     );
 
@@ -529,6 +683,34 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     writer: &mut W,
 ) -> Result<AskResult> {
     use anna_shared::rpc::StreamingResponse;
+
+    // v0.2.6: Try fast-path first for simple queries
+    if let Some(mut result) = try_fast_path(question).await {
+        info!("Fast-path streaming completed");
+
+        // Send the dialogue steps
+        for step in &result.dialogue {
+            send_step(writer, step.clone()).await?;
+        }
+
+        // Send final answer
+        let final_step = DialogueStep {
+            step_type: StepType::FinalAnswer,
+            content: result.answer.clone(),
+        };
+        result.dialogue.push(final_step.clone());
+        send_step(writer, final_step).await?;
+
+        // Send done
+        let resp = StreamingResponse::Done {
+            result: result.clone(),
+        };
+        let json = serde_json::to_string(&resp)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        writer.flush().await?;
+
+        return Ok(result);
+    }
 
     let criteria = determine_criteria(question);
     info!(

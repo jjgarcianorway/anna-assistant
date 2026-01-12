@@ -1,0 +1,17 @@
+
+[36mYou: [0mAre there other users on /.ssh/authorized_keys system?
+
+[2m  $ [0mcat /root/.ssh/authorized_keys
+[2m  cat: /root/.ssh/authorized_keys: No such file or directory[0m
+[2m  $ [0mcat ~other_users/.ssh/authorized_keys
+[2m  cat: '~other_users/.ssh/authorized_keys': No such file or directory[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthere [0m[32mare [0m[32mno [0m[32m`authorized_keys` [0m[32mfiles [0m[32mfound [0m[32min [0m[32meither [0m[32m`/root/.ssh/authorized_keys` [0m[32mor [0m[32many [0m[32m`~other_users/.ssh/authorized_keys`. [0m[32mThis [0m[32msuggests [0m[32mthat [0m[32mthere [0m[32mmight [0m[32mbe [0m[32mno [0m[32mother [0m[32musers [0m[32mwith [0m[32mSSH [0m[32mpublic [0m[32mkeys [0m[32mconfigured [0m[32mfor [0m[32mautomatic [0m[32mlogin [0m[32mvia [0m[32m`.ssh/authorized_keys` [0m[32min [0m[32mthese [0m[32mlocations.
+
+However, [0m[32mthis [0m[32mdoes [0m[32mnot [0m[32mdefinitively [0m[32mmean [0m[32mthere [0m[32mare [0m[32mno [0m[32mother [0m[32musers [0m[32mon [0m[32mthe [0m[32msystem. [0m[32mThe [0m[32mabsence [0m[32mof [0m[32m`authorized_keys` [0m[32mfiles [0m[32monly [0m[32mindicates [0m[32mthat [0m[32mautomated [0m[32mkey-based [0m[32mauthentication [0m[32mhas [0m[32mnot [0m[32mbeen [0m[32mset [0m[32mup [0m[32mfor [0m[32mthose [0m[32mspecific [0m[32mpaths. [0m[32mOther [0m[32musers [0m[32mcould [0m[32mstill [0m[32mhave [0m[32mtheir [0m[32mown [0m[32mSSH [0m[32mkeys [0m[32mconfigured [0m[32min [0m[32mdifferent [0m[32mdirectories [0m[32mor [0m[32mthrough [0m[32mother [0m[32mmethods.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 15.463102794s
+EXIT: 0

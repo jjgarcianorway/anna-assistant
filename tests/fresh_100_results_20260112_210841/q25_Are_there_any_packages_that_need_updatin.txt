@@ -1,0 +1,21 @@
+
+[36mYou: [0mAre there any packages any need updating?
+
+[2m  $ [0mpacman -Qu
+[2m  [0m
+[2m  $ [0mpacman -Qu
+[2m  [0m
+[2m  $ [0mpacman -Qu
+[2m  [0m
+[2m  $ [0mpacman -Qu
+[2m  [0m
+[2m  $ [0mpacman -Qu
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mI [0m[32mcannot [0m[32mdetermine [0m[32mif [0m[32many [0m[32mpackages [0m[32mneed [0m[32mupdating [0m[32mas [0m[32mno [0m[32mpackage [0m[32minformation [0m[32mor [0m[32msystem [0m[32mstatus [0m[32mdetails [0m[32mare [0m[32mavailable. [0m[32mPlease [0m[32mrun [0m[32m`pacman [0m[32m-Syu` [0m[32mto [0m[32mcheck [0m[32mfor [0m[32mand [0m[32mapply [0m[32many [0m[32mavailable [0m[32mupdates.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 18.624335223s
+EXIT: 0

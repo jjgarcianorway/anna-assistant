@@ -1,0 +1,29 @@
+
+[36mYou: [0mWhat WiFi networks are available?
+
+[2m  $ [0miwlist wlan0 scan
+[2m  sh: line 1: iwlist: command not found[0m
+[2m  $ [0mnmcli device wifi list
+[2m  [TIMEOUT] Command timed out after 10s: nmcli device wifi list[0m
+[2m  $ [0mnmcli device wifi list
+[2m  IN-USE  BSSID              SSID             MODE   CHAN  RATE         SIGNAL  BARS  SECURITY  
+        74:83:C2:31:69:80  MyWifi           Infra  1     405 Mbit/s   100     ▂▄▆█  WPA2      
+        72:83:C2:31:69:80  --               Infra  1     405 Mbit/s   100     ▂▄▆█  WPA2      
+        66:83:C2:31:70:F5  MyWifi-IoT       Infra  1     405 Mbit/s   100     ▂▄▆█  WPA2      
+        74:83:C2:31:70:F5  MyWifi           Infra  1     405 Mbit/s   100     ▂▄▆█  WPA2...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32m`nmcli [0m[32mdevice [0m[32mwifi [0m[32mlist` [0m[32moutput, [0m[32mthe [0m[32mavailable [0m[32mWiFi [0m[32mnetworks [0m[32mare:
+
+1. [0m[32mMyWifi [0m[32m(BSSID: [0m[32m74:83:C2:31:69:80)
+2. [0m[32mMyWifi-IoT [0m[32m(BSSID: [0m[32m66:83:C2:31:70:F5)
+3. [0m[32m-- [0m[32m(BSSID: [0m[32m72:83:C2:31:69:80, [0m[32m74:83:C2:31:70:F5, [0m[32m72:83:C2:31:70:F5, [0m[32m72:83:C2:32:70:F5, [0m[32m74:83:C2:32:69:80, [0m[32m76:83:C2:32:70:F5, [0m[32m76:83:C2:32:70:97)
+4. [0m[32mAMNSNES [0m[32m(BSSID: [0m[32m34:21:09:3D:E1:61, [0m[32m34:21:09:3D:E1:69, [0m[32m34:21:09:3D:E1:64)
+5. [0m[32mNextGenTel_D592 [0m[32m(BSSID: [0m[32m60:03:A6:18:D5:93)
+
+These [0m[32mare [0m[32mthe [0m[32mnetworks [0m[32myou [0m[32mcan [0m[32mconnect [0m[32mto [0m[32mbased [0m[32mon [0m[32mthe [0m[32moutput.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 50.820063642s
+EXIT: 0

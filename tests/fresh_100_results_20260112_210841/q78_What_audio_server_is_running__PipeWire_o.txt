@@ -1,0 +1,43 @@
+
+[36mYou: [0mWhat audio server is running - PipeWire or PulseAudio?
+
+[2m  $ [0msystemctl status pipewire.service
+[2m  Unit pipewire.service could not be found.[0m
+[2m  $ [0msystemctl status pulseaudio.service
+[2m  Unit pulseaudio.service could not be found.[0m
+[2m  $ [0mgrep -i active /etc/pulse/client.conf
+[2m  [0m
+[2m  $ [0mpacman -Q脉雪_Service
+[2m  pacman: invalid option -- '�'[0m
+[2m  $ [0msystemctl status pipewire.service
+[2m  Unit pipewire.service could not be found.[0m
+[2m  $ [0msystemctl status pulseaudio.service
+[2m  Unit pulseaudio.service could not be found.[0m
+[2m  $ [0msystemctl status pipewire.service
+[2m  Unit pipewire.service could not be found.[0m
+[2m  $ [0msystemctl status pulseaudio.service
+[2m  Unit pulseaudio.service could not be found.[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mneither [0m[32mPipeWire [0m[32mnor [0m[32mPulseAudio [0m[32mservices [0m[32mare [0m[32minstalled [0m[32mor [0m[32mrunning [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThe [0m[32m`pacman: [0m[32minvalid [0m[32moption [0m[32m-- [0m[32m'�'` [0m[32mmessage [0m[32msuggests [0m[32mthere [0m[32mmight [0m[32mhave [0m[32mbeen [0m[32man [0m[32missue [0m[32mwith [0m[32mthe [0m[32mcommand [0m[32mor [0m[32minput, [0m[32mbut [0m[32mit [0m[32mdoesn't [0m[32maffect [0m[32mthe [0m[32mdetermination [0m[32mof [0m[32mwhich [0m[32maudio [0m[32mserver [0m[32mis [0m[32mcurrently [0m[32mactive.
+
+Since [0m[32mboth [0m[32m`pipewire.service` [0m[32mand [0m[32m`pulseaudio.service` [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound, [0m[32mit [0m[32mimplies [0m[32mthat [0m[32mneither [0m[32mPipeWire [0m[32mnor [0m[32mPulseAudio [0m[32mare [0m[32mconfigured [0m[32mto [0m[32mstart [0m[32mon [0m[32msystem [0m[32mboot. [0m[32mHowever, [0m[32mthis [0m[32mdoes [0m[32mnot [0m[32mdefinitively [0m[32mmean [0m[32mthat [0m[32mone [0m[32mof [0m[32mthem [0m[32mis [0m[32mnot [0m[32mrunning; [0m[32mthey [0m[32mmight [0m[32mhave [0m[32mbeen [0m[32mstarted [0m[32mmanually [0m[32mwithout [0m[32mbeing [0m[32menabled [0m[32mas [0m[32ma [0m[32mservice.
+
+To [0m[32mcheck [0m[32mif [0m[32meither [0m[32maudio [0m[32mserver [0m[32mis [0m[32mcurrently [0m[32mrunning, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32mcommand:
+
+```sh
+systemctl [0m[32m--user [0m[32mstatus [0m[32mpipewire
+```
+
+or
+
+```sh
+systemctl [0m[32m--user [0m[32mstatus [0m[32mpulseaudio
+```
+
+If [0m[32mneither [0m[32mof [0m[32mthese [0m[32mcommands [0m[32mreturns [0m[32minformation [0m[32mabout [0m[32man [0m[32mactive [0m[32mservice, [0m[32mit [0m[32mmeans [0m[32mthat [0m[32mno [0m[32maudio [0m[32mserver [0m[32mis [0m[32mcurrently [0m[32mrunning [0m[32mon [0m[32mthis [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 30.604082610s
+EXIT: 0

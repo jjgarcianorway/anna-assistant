@@ -1,0 +1,21 @@
+
+[36mYou: [0mWhat is the default systemd target?
+
+[2m  $ [0msystemctl get-default
+[2m  graphical.target[0m
+[2m  $ [0msystemctl get-default
+[2m  graphical.target[0m
+[2m  $ [0msystemctl get-default
+[2m  graphical.target[0m
+[2m  $ [0msystemctl get-default
+[2m  graphical.target[0m
+[2m  $ [0msystemctl get-default
+[2m  graphical.target[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthe [0m[32mdefault [0m[32msystemd [0m[32mtarget [0m[32mfor [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32mappears [0m[32mto [0m[32mbe [0m[32m`graphical.target`.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 31.122496042s
+EXIT: 0

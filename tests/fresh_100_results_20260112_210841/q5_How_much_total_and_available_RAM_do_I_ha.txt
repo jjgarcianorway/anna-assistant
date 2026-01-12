@@ -1,0 +1,16 @@
+
+[36mYou: [0mHow much total and available RAM do I have?
+
+[2m  $ [0mfree -m
+[2m  total        used        free      shared  buff/cache   available
+Mem:           31790        7607        5682        1120       20080       24182
+Swap:          31789           0       31789[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTotal [0m[32mRAM: [0m[32m31790 [0m[32mMB
+Available [0m[32mRAM: [0m[32m24182 [0m[32mMB[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 13.346564098s
+EXIT: 0

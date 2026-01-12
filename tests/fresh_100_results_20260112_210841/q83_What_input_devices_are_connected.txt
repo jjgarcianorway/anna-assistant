@@ -1,0 +1,42 @@
+
+[36mYou: [0mWhat input devices are connected?
+
+[2m  $ [0mls /dev/input/ | grep -E "\.mouse|\.keyb|event\d+"
+[2m  grep: warning: stray \ before d[0m
+[2m  $ [0mls /dev/input/
+[2m  by-id
+by-path
+event0
+event1
+event10
+event11
+event12
+event13
+event14
+event15
+event16
+event2
+event3
+event4
+event5
+event6
+event7
+event8
+event9
+mice
+mouse0
+mouse1
+mouse2[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata [0m[32mfrom [0m[32m`grep`, [0m[32mit [0m[32mappears [0m[32mthat [0m[32mthere [0m[32mare [0m[32mmultiple [0m[32minput [0m[32mdevices [0m[32mconnected [0m[32mto [0m[32mthe [0m[32msystem. [0m[32mSpecifically:
+
+- [0m[32m16 [0m[32mevent [0m[32mdevices [0m[32m(`event0` [0m[32mto [0m[32m`event15`) [0m[32mare [0m[32mdetected.
+- [0m[32m3 [0m[32mmouse [0m[32mdevices [0m[32m(`mouse0` [0m[32mto [0m[32m`mouse2`) [0m[32mare [0m[32mdetected.
+
+This [0m[32mindicates [0m[32ma [0m[32mtotal [0m[32mof [0m[32m19 [0m[32minput [0m[32mdevices [0m[32mconnected [0m[32mto [0m[32mthe [0m[32msystem, [0m[32mincluding [0m[32mboth [0m[32mevent [0m[32mand [0m[32mmouse [0m[32mdevices.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 15.554184768s
+EXIT: 0

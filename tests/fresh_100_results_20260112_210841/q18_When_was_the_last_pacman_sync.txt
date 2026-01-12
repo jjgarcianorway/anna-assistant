@@ -1,0 +1,17 @@
+
+[36mYou: [0mWhen was the last pacman sync?
+
+[2m  $ [0mpacman -Qi base >/dev/null 2>&1 && echo "pacman -Qs '^pacman$' --color never" || echo NONE
+[2m  pacman -Qs '^pacman$' --color never[0m
+[2m  $ [0mpacman -Qe | grep pacman | awk '{print $4}' | sort -r | head -n 1
+[2m  [0m
+[2m  $ [0mpacman -Qi pacman | grep 'Install Date'
+[2m  Install Date    : ti. 06. jan. 2026 kl. 17.31 +0100[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mlast [0m[32msync [0m[32mof [0m[32mthe [0m[32mpacman [0m[32mpackage [0m[32mdatabase [0m[32moccurred [0m[32mon [0m[32mTuesday, [0m[32mJanuary [0m[32m06, [0m[32m2026, [0m[32mat [0m[32m17:31 [0m[32m+0100 [0m[32m(CET).[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 44.546397048s
+EXIT: 0

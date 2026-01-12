@@ -1,0 +1,33 @@
+
+[36mYou: [0mWhat SUID binaries exist?
+
+[2m  $ [0mfind / -perm -4000 -type f 2>/dev/null
+[2m  /usr/bin/ksu
+/usr/bin/unix_chkpwd
+/usr/bin/chage
+/usr/bin/expiry
+/usr/bin/gpasswd
+/usr/bin/passwd
+/usr/bin/sg
+/usr/bin/nvidia-modprobe
+/usr/bin/pkexec
+/usr/bin/mount.cifs
+/usr/bin/mount.nfs
+/usr/bin/fusermount3
+/usr/bin/suexec
+/usr/bin/chfn
+/usr/bin/chsh
+/usr/bin/mount
+/usr/bin/newgrp
+/usr/bin/su
+/usr/bin/umount
+/usr/bin/sudo
+/usr/lib/dbus-daemon-launch-helper
+/usr/lib/mail-dotlock
+/usr/lib/Xorg.wrap
+/usr/lib/ssh/ssh-keysign
+/usr/lib/libgtop/libgtop_server2
+/opt/google/chrome/chrome-sandbox
+/.sn...[0m
+TIME: 60.003016955s
+EXIT: 124

@@ -1,0 +1,21 @@
+
+[36mYou: [0mWhat is the root filesystem type?
+
+[2m  $ [0mcat /etc/mtab | grep root| cut -d' ' -f2
+[2m  /root[0m
+[2m  $ [0mcat /etc/mtab | grep root | cut -d' ' -f2
+[2m  /root[0m
+[2m  $ [0mmount | awk '/rootfs/ {print $2}'
+[2m  [0m
+[2m  $ [0mmount | awk '/rootfs/ {print $5}'
+[2m  [0m
+[2m  $ [0mmount | awk '/rootfs/ {print $5}'
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mI [0m[32mcannot [0m[32mdetermine [0m[32mthe [0m[32mroot [0m[32mfilesystem [0m[32mtype [0m[32mdirectly [0m[32mfrom [0m[32m"/root". [0m[32mThe [0m[32minformation [0m[32mgiven [0m[32mdoes [0m[32mnot [0m[32minclude [0m[32mdetails [0m[32mabout [0m[32mthe [0m[32mfilesystem [0m[32mtype. [0m[32mTo [0m[32mfind [0m[32mout [0m[32mthe [0m[32mroot [0m[32mfilesystem [0m[32mtype [0m[32min [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse [0m[32mcommands [0m[32mlike [0m[32m`df [0m[32m-T` [0m[32mor [0m[32mcheck [0m[32mthe [0m[32m`/etc/fstab` [0m[32mfile [0m[32mfor [0m[32mthe [0m[32mroot [0m[32mpartition's [0m[32mfilesystem [0m[32mtype. [0m[32mHowever, [0m[32mwith [0m[32monly [0m[32mthe [0m[32mpath [0m[32mprovided, [0m[32mno [0m[32mspecific [0m[32minformation [0m[32mabout [0m[32mthe [0m[32mfilesystem [0m[32mtype [0m[32mcan [0m[32mbe [0m[32minferred.[0m
+
+
+[2m(5 iterations)[0m
+TIME: 36.320040135s
+EXIT: 0

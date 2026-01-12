@@ -1,0 +1,10 @@
+
+
+[33mAnna: [0mPlease confirm:
+  I'll start the what service:
+    sudo systemctl start what
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: .004853464s
+EXIT: 0

@@ -1,0 +1,14 @@
+
+[36mYou: [0mWhat AUR helper is installed if any?
+
+[2m  $ [0mpacman -Q | grep helper
+[2m  cups-pk-helper 0.2.7-2.5
+pkcs11-helper 1.31.0-1.1[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthere [0m[32mis [0m[32mno [0m[32mAUR [0m[32mhelper [0m[32minstalled. [0m[32mThe [0m[32mpackages [0m[32mlisted, [0m[32m`cups-pk-helper` [0m[32mand [0m[32m`pkcs11-helper`, [0m[32mare [0m[32mnot [0m[32mAUR [0m[32mhelpers. [0m[32mThey [0m[32mare [0m[32mregular [0m[32msystem [0m[32mpackages [0m[32min [0m[32mArch [0m[32mLinux's [0m[32mofficial [0m[32mrepositories.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 8.651697247s
+EXIT: 0

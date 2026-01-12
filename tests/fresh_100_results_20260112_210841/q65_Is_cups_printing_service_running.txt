@@ -1,0 +1,36 @@
+
+[36mYou: [0mIs cups printing service running?
+
+[2m  $ [0msystemctl status cups
+[2m  Unit cups.service could not be found.[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32munit [0m[32m`cups.service` [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound, [0m[32mwhich [0m[32msuggests [0m[32mthat [0m[32mthe [0m[32mCUPS [0m[32mprinting [0m[32mservice [0m[32mis [0m[32meither [0m[32mnot [0m[32minstalled [0m[32mor [0m[32mnot [0m[32mrecognized [0m[32mby [0m[32mthe [0m[32msystem. [0m[32mTo [0m[32mcheck [0m[32mif [0m[32mthe [0m[32mCUPS [0m[32mservice [0m[32mis [0m[32mrunning, [0m[32myou [0m[32mcan [0m[32mtry [0m[32mthe [0m[32mfollowing [0m[32msteps:
+
+1. [0m[32mInstall [0m[32mCUPS [0m[32mif [0m[32mit's [0m[32mnot [0m[32malready [0m[32minstalled:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32mcups
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32mVerify [0m[32mif [0m[32m`cups.service` [0m[32mexists [0m[32mand [0m[32mis [0m[32menabled:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32msystemctl [0m[32mlist-unit-files [0m[32m| [0m[32mgrep [0m[32mcups
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32mStart [0m[32mor [0m[32menable [0m[32mthe [0m[32mCUPS [0m[32mservice [0m[32mif [0m[32mnecessary:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32msudo [0m[32msystemctl [0m[32mstart [0m[32mcups
+ [0m[32m [0m[32m [0m[32msudo [0m[32msystemctl [0m[32menable [0m[32mcups
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32mCheck [0m[32mthe [0m[32mstatus [0m[32mof [0m[32mthe [0m[32mCUPS [0m[32mservice:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32msudo [0m[32msystemctl [0m[32mstatus [0m[32mcups
+ [0m[32m [0m[32m [0m[32m```
+
+If [0m[32m`cups.service` [0m[32mstill [0m[32mcannot [0m[32mbe [0m[32mfound [0m[32mafter [0m[32mthese [0m[32msteps, [0m[32mit [0m[32mmight [0m[32mindicate [0m[32ma [0m[32mconfiguration [0m[32missue [0m[32mor [0m[32man [0m[32mincorrect [0m[32mpackage [0m[32minstallation.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).
+TIME: 9.966976576s
+EXIT: 0
