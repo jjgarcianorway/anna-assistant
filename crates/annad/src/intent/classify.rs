@@ -200,15 +200,15 @@ mod tests {
 
     #[test]
     fn test_needs_confirmation_very_low_confidence() {
-        // v0.0.990: Threshold lowered to 0.4, so use 0.3 to trigger
+        // v0.2.3: Only UNCLEAR category with very low confidence triggers confirmation
         let result =
-            should_ask_confirmation(0.3, &[], &[], &IntentCategory::HowTo, "do something");
+            should_ask_confirmation(0.2, &[], &[], &IntentCategory::Unclear, "do something");
         assert!(result);
     }
 
     #[test]
-    fn test_needs_confirmation_missing_info_with_low_confidence() {
-        // v0.0.990: CLARIFICATION_THRESHOLD lowered to 0.5, so use 0.4 to trigger
+    fn test_no_confirmation_howto_even_low_confidence() {
+        // v0.2.3: HowTo never asks for confirmation (LLM handles it)
         let missing = vec!["which service".to_string()];
         let result = should_ask_confirmation(
             0.4,
@@ -217,7 +217,7 @@ mod tests {
             &IntentCategory::HowTo,
             "enable the service",
         );
-        assert!(result);
+        assert!(!result); // HowTo doesn't ask confirmation
     }
 
     #[test]

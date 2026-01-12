@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-01-12
+
+### Fixed
+- **Command Validation** - Filter out garbage commands from LLM output
+  - Rejects commands containing LLM prompt tokens (`<|im_start|>`)
+  - Rejects English sentences misinterpreted as commands
+  - Only executes commands with valid bash prefixes
+- **Improved Command Reference** - Prompt now includes exact commands for common tasks
+  - RAM, CPU, disk, kernel, services, logs, network, GPU, audio, firewall, packages
+  - Prevents LLM from inventing invalid command flags
+- **Test Fixes** - Updated intent classification tests to match v0.1.2 logic
+
+## [0.2.2] - 2026-01-12
+
+### Changed
+- **Prompt Tuning** - Improved prompts for better command selection
+  - Added specific command hints for common investigation patterns
+  - Better handling of empty command output
+
+## [0.2.1] - 2026-01-12
+
+### Fixed
+- **Streaming Function Signature** - Fixed session_context parameter mismatch
+- **Type Casting** - Fixed iterations i32 vs u32 type mismatch
+
+## [0.2.0] - 2026-01-12
+
+### Added
+- **LLM-Only Core Loop** - Complete rewrite of query handling
+  - All questions processed by LLM intelligence (no pattern matching)
+  - Three-phase architecture: UNDERSTAND -> INVESTIGATE -> RESPOND
+  - Commands selected dynamically based on question, not keywords
+  - Answers grounded in actual command output
+- **Smart Fix Suggestions** - LLM suggests fixes based on investigation findings
+  - No more hardcoded autofix patterns
+  - Fixes only suggested when problem is actually found
+
+### Changed
+- Disabled pattern-based autofix shortcut
+- Query flow now always uses LLM understanding
+
 ## [0.1.7] - 2026-01-12
 
 ### Fixed

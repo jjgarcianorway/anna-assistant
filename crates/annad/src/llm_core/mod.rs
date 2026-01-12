@@ -409,7 +409,8 @@ async fn decide_next_step(model: &str, question: &str, state: &InvestigationStat
             .skip(1)
             .filter(|l| !l.trim().is_empty() && !l.starts_with('#'))
             .map(|l| l.trim().to_string())
-            .take(5)
+            .filter(|cmd| is_valid_command(cmd))
+            .take(3)
             .collect();
 
         if commands.is_empty() {
@@ -455,7 +456,8 @@ async fn decide_next_step(model: &str, question: &str, state: &InvestigationStat
             !l.is_empty() && !l.starts_with('#') && !l.contains(':')
         })
         .map(|l| l.trim().to_string())
-        .take(3)
+        .filter(|cmd| is_valid_command(cmd))
+        .take(2)
         .collect();
 
     if commands.is_empty() {
@@ -463,6 +465,72 @@ async fn decide_next_step(model: &str, question: &str, state: &InvestigationStat
     } else {
         Ok(NextStep::Investigate(commands))
     }
+}
+
+/// Validate that a string looks like a valid bash command, not garbage
+fn is_valid_command(cmd: &str) -> bool {
+    let cmd = cmd.trim();
+
+    // Too short or too long
+    if cmd.len() < 2 || cmd.len() > 500 {
+        return false;
+    }
+
+    // Contains LLM prompt tokens
+    if cmd.contains("<|") || cmd.contains("|>") {
+        return false;
+    }
+
+    // Starts with common English words (not commands)
+    let english_starts = [
+        "Please", "Could", "Would", "Can", "The", "This", "That", "It", "If",
+        "To", "For", "With", "From", "I ", "You", "We", "They", "What", "How",
+        "Why", "When", "Where", "Is", "Are", "Was", "Were", "Been", "Being",
+        "Have", "Has", "Had", "Do", "Does", "Did", "Will", "Shall", "May",
+        "Might", "Must", "Should", "A ", "An ", "Based", "Here", "Let",
+    ];
+    for word in english_starts {
+        if cmd.starts_with(word) {
+            return false;
+        }
+    }
+
+    // First word should look like a command (alphanumeric, starts with letter or ./)
+    let first_word = cmd.split_whitespace().next().unwrap_or("");
+    if first_word.is_empty() {
+        return false;
+    }
+
+    // Valid command patterns: starts with letter, or ./ or /
+    let first_char = first_word.chars().next().unwrap_or(' ');
+    if !first_char.is_ascii_alphabetic() && first_char != '.' && first_char != '/' {
+        return false;
+    }
+
+    // Common valid command prefixes
+    let valid_prefixes = [
+        "ls", "cat", "head", "tail", "grep", "awk", "sed", "find", "df", "du",
+        "free", "ps", "top", "uptime", "uname", "lscpu", "lspci", "lsblk", "lsusb",
+        "systemctl", "journalctl", "systemd-analyze", "ip", "ss", "ping", "curl",
+        "pacman", "yay", "paru", "makepkg", "sudo", "which", "whereis", "file",
+        "stat", "mount", "umount", "fdisk", "blkid", "smartctl", "nvidia-smi",
+        "lsmod", "modinfo", "dmesg", "sensors", "pactl", "pipewire", "pw-cli",
+        "nmcli", "iwctl", "rfkill", "bluetoothctl", "loginctl", "timedatectl",
+        "hostnamectl", "localectl", "nft", "iptables", "firewall-cmd", "ufw",
+        "id", "whoami", "groups", "passwd", "chown", "chmod", "mkdir", "rm",
+        "cp", "mv", "touch", "echo", "printf", "test", "[", "true", "false",
+        "/", "./",
+    ];
+
+    let mut is_valid_prefix = false;
+    for prefix in valid_prefixes {
+        if first_word.starts_with(prefix) {
+            is_valid_prefix = true;
+            break;
+        }
+    }
+
+    is_valid_prefix
 }
 
 /// Use LLM to generate final answer based on findings

@@ -90,36 +90,53 @@ USER QUESTION: "{question}"
 INVESTIGATION SO FAR (iteration {iteration}):
 {findings}
 
-Decide what to do next based on the findings.
+OUTPUT EXACTLY ONE OF THESE FORMATS:
 
-RULES:
-1. NO interactive commands (top, htop, vim, nano, less, man) - they hang
-2. Use: ps aux, cat, ls, head, tail, grep, systemctl, journalctl
-3. For CPU: ps aux --sort=-%cpu | head -10
-4. For disk: df -h, du -sh
-5. For pacman lock: ls -la /var/lib/pacman/db.lck
-6. For services: systemctl status <service>, journalctl -u <service>
-7. Maximum 3 commands per iteration
-8. If output shows the problem clearly, suggest the fix
-9. If commands returned empty/no error, that might BE the answer
-
-RESPOND WITH EXACTLY ONE:
-
+FORMAT 1 - Run commands (if you need more information):
 COMMANDS:
-command1
-command2
+<command1>
+<command2>
 
-OR
-
+FORMAT 2 - Answer (if you have enough information):
 ANSWER
 
-OR
-
-FIX: <command>
-PROBLEM: <issue found>
+FORMAT 3 - Suggest fix (if you found a problem):
+FIX: <command to fix>
+PROBLEM: <what's wrong>
 EXPLAIN: <why this fixes it>
 
-Respond:"#,
+COMMAND REFERENCE (use these exact commands):
+- RAM: free -h
+- CPU info: lscpu
+- CPU usage: ps aux --sort=-%cpu | head -10
+- Disk space: df -h
+- Disk usage by folder: du -sh /* 2>/dev/null | sort -h
+- Kernel: uname -r
+- System load: uptime
+- Boot time analysis: systemd-analyze blame | head -20
+- Services: systemctl list-units --type=service --state=running
+- Failed services: systemctl --failed
+- Errors from logs: journalctl -p err -b | head -50
+- Network interfaces: ip addr show
+- Network connectivity: ping -c 3 8.8.8.8
+- DNS: cat /etc/resolv.conf
+- GPU: lspci | grep -i vga
+- GPU driver: lsmod | grep -E 'nvidia|amdgpu|i915'
+- Audio: pactl info 2>/dev/null || pipewire --version 2>/dev/null
+- Firewall: sudo iptables -L -n 2>/dev/null | head -20
+- Packages by size: pacman -Qi | awk '/^Name/{{name=$3}}/^Installed Size/{{print $4,$5,name}}' | sort -h | tail -20
+- Orphaned packages: pacman -Qtdq
+- Database check: pacman -Dk
+- Battery: cat /sys/class/power_supply/BAT*/capacity 2>/dev/null
+
+RULES:
+1. NO interactive commands (top, htop, vim, nano, less, man)
+2. Maximum 2 commands per response
+3. Only output valid bash commands - no English text, no explanations
+4. Do NOT repeat commands that already ran
+5. If output is sufficient, respond with just: ANSWER
+
+Respond now with ONLY the format above:"#,
         context = system_context(),
         question = question,
         iteration = state.iteration,
