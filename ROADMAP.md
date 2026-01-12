@@ -1,123 +1,87 @@
 # Anna Roadmap
 
-## Current Version: v0.0.791
+## Current Version: v0.0.991
 
 ## Status Summary
 
-Anna has completed **239 phases** of development with extensive infrastructure.
+Anna has completed extensive infrastructure with 1700+ instant-answer patterns across 42 categories.
 See `docs/ROADMAP_ARCHIVE.md` for completed phase details.
+
+---
+
+## Recently Implemented (v0.0.900+)
+
+### Pattern Matching System
+- [x] 1700+ instant-answer patterns for common Linux questions
+- [x] 42 pattern categories (pacman, systemd, network, security, hardware, gaming, etc.)
+- [x] Fuzzy matching with typo tolerance
+- [x] Synonym expansion for natural language variations
+- [x] Pre-execution of diagnostic commands for grounded answers
+
+### Proactive Monitoring (Learning System)
+- [x] Hardware baseline tracking (USB/PCI devices)
+- [x] Config file hash monitoring (/etc/ssh/sshd_config, /etc/sudoers, etc.)
+- [x] Performance baseline learning (memory, CPU, boot time)
+- [x] I/O rate tracking with delta calculation (disk/network KB/s)
+- [x] Package change detection from pacman.log
+- [x] Anomaly detection (>3x average triggers alert)
+
+### Security Investigation
+- [x] "who accessed my system" patterns
+- [x] Login history analysis (last, lastlog, lastb)
+- [x] SSH attempt monitoring
+- [x] Failed login detection
 
 ---
 
 ## Not Yet Implemented
 
-These features from VISION.md are still pending:
+### High Priority - Natural Language Everything
 
-### High Priority
+#### Proactive Alerts (Background Daemon)
+- [ ] Periodic health checks (every 5-10 min)
+- [ ] Natural language notifications: "Your disk is 91% full"
+- [ ] Security alerts: "3 failed login attempts from unknown IP"
+- [ ] Performance alerts: "Boot time increased after yesterday's update"
 
-#### Recipe Replay from Persistence
-- [ ] Load learned recipes on startup
-- [ ] Match incoming queries against stored recipes
-- [ ] Instant response for previously learned patterns
-- [ ] Track recipe hit rate and effectiveness
+#### Automatic Problem Solving
+- [ ] Offer to fix known issues automatically
+- [ ] "pacman lock detected, removing it now"
+- [ ] "Your user lost wheel group access, adding you back"
+- [ ] Confirmation before destructive actions
 
-#### Multi-File Change Transactions
-- [ ] Atomic changes across multiple config files
-- [ ] Transaction rollback on any failure
-- [ ] Dependency-aware ordering
-- [ ] Preview all changes before apply
+#### Context Memory Across Sessions
+- [ ] Remember previous conversations
+- [ ] "Last time this happened, it was Firefox. Checking..."
+- [ ] Learn user patterns and preferences
+- [ ] Suggest actions based on history
 
-#### Package Installation Recipes
-- [ ] Learn package install patterns from specialists
-- [ ] Cross-distro package name mapping
-- [ ] Safe removal with dependency checking
-- [ ] Track Anna-installed vs user-installed packages
-
-#### Service Configuration Recipes
-- [ ] Learn systemd service patterns
-- [ ] Service enable/disable/restart recipes
-- [ ] Timer configuration recipes
-- [ ] Log viewing recipes
+#### Rollback via Conversation
+- [ ] "Undo what you just did"
+- [ ] "Revert the changes from yesterday"
+- [ ] Track all changes Anna makes
+- [ ] Snapshot system state before risky operations
 
 ### Medium Priority
 
-#### Email Notification Flow
-- [ ] Long-running task detection (> X minutes)
-- [ ] Email consent and storage
-- [ ] Task completion notifications
-- [ ] Chain of thought in email body
+#### Multi-System Awareness
+- [ ] "Check why my server is slow" (knows which server from context)
+- [ ] SSH into remote systems for diagnostics
+- [ ] Unified view across multiple machines
 
-#### Desktop Notifications
-- [ ] libnotify integration
-- [ ] wall command for broadcast
-- [ ] Non-spamming notification policy
-- [ ] Priority-based notification routing
-
-#### Arch Wiki Citations
-- [ ] Fetch and cache Arch Wiki pages
-- [ ] Man page extraction
-- [ ] --help output parsing
-- [ ] Citation formatting in responses
-
-### Lower Priority
-
-#### Idle-Time Strategic Thinking
-- [ ] Detect idle periods
-- [ ] Senior specialists analyze improvements
-- [ ] Interruptible background work
-- [ ] Email results when complete
-
-#### Internet Search for Complex Cases
-- [ ] Search when specialists can't solve
-- [ ] Contrast findings with internal knowledge
-- [ ] Second-opinion flow
-- [ ] Source credibility scoring
-
-#### Custom Alarm Scheduling
-- [ ] Natural language alarm parsing ("every Monday at 9")
-- [ ] Metric-based alarms
-- [ ] Storage progression tracking
-- [ ] Custom notification templates
-
----
-
-## Code Quality Debt
-
-### Files Over 400 Lines (Must Fix)
-
-Priority files to split:
-
-| File | Lines | Action |
-|------|-------|--------|
-| CHANGELOG.md | 21227 | Archive old entries |
-| stabilization_tests.rs | 3760 | Split by test category |
-| reliability_tests.rs | 1065 | Split by test category |
-| translator_fallback.rs | 1034 | Extract helpers |
-| corpus.rs | 1006 | Split by scenario type |
-| error_summary_display.rs | 863 | Extract formatters |
-| ticket_lifecycle.rs | 815 | Extract state handlers |
-| + 440 more files | >400 | Modularize |
-
----
-
-## Recent Completions (v0.0.700+)
-
-- Settings infrastructure (60+ modules)
-- Centralized UI system
-- Zero compiler warnings
-- Achievement system (22 badges)
-- RPG progression system
-- Service Desk Theatre
-- Internal communications mode
-- Hardware-aware model selection
-- Auto-update with integrity verification
+#### Smarter Learning
+- [ ] Learn from user corrections
+- [ ] Track which answers were helpful
+- [ ] Suggest common workflows
+- [ ] "You usually run git status after this"
 
 ---
 
 ## Development Guidelines
 
 1. **All files must be under 400 lines**
-2. No hardcoded specific cases (only reusable recipes)
+2. No hardcoded specific cases (only reusable patterns)
 3. Every change creates backup
 4. Auto-update must always work
 5. curl install must always work
+6. **Pure natural language** - no extra commands or syntax

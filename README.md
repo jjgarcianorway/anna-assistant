@@ -389,21 +389,18 @@ A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
 ## Version
 
-Current: **v0.0.829**
+Current: **v0.0.991**
 
 Recent highlights:
-- **Failed services detection** - "show me failed services" now works instantly
-- **Natural language config** - change settings with phrases like "enable learning mode"
-- **Editor configuration** - "enable syntax highlighting in vim" with Safe Change Engine
-- **Port queries** - "what's using port 3000" works deterministically
-- **9 IT departments** with named staff (Sofia, Michael, Kari, Hugo, Lars...)
-- **RPG progression system** with XP, levels, and titles
-- **Internal comms** - watch the IT team discuss your request
-- **Fast path answers** - instant responses for system health queries
-- **Recipe learning** - Anna learns from successful interactions
-- **Hollywood-style UI** - true color, professional, cinematic mode
-- **Auto-update** with integrity verification (checks every 60s)
-- **Hardware-aware model selection** - adapts to your system
+- **1700+ instant-answer patterns** - common questions answered in milliseconds
+- **42 pattern categories** - pacman, systemd, network, security, hardware, gaming, and more
+- **Security investigation** - "who accessed my system" runs login history checks
+- **Post-update diagnostics** - "slow after update" checks pacman.log and failed services
+- **Proactive monitoring** - learns your system's normal behavior, detects anomalies
+- **I/O learning** - tracks disk/network baselines, alerts on unusual activity
+- **Hardware baseline** - detects new USB devices, config file changes
+- **Grounded answers** - every response based on real command output
+- **Auto-update** with integrity verification
 - **Evidence-based answers** - every claim backed by data
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.

@@ -2,6 +2,34 @@
 
 ## Implemented and Tested
 
+### Pattern Matching System (v0.0.900+)
+- **1700+ Instant-Answer Patterns**: Common Linux questions answered in milliseconds
+- **42 Pattern Categories**: pacman, systemd, network, security, hardware, gaming, boot, audio, etc.
+- **Fuzzy Matching**: Typo tolerance for natural language queries
+- **Synonym Expansion**: "disk space" matches "storage", "hard drive", etc.
+- **Pre-execution**: Runs diagnostic commands before LLM for grounded answers
+- **Pattern Statistics**: Tracks which patterns are most useful
+
+### Proactive Monitoring System (v0.0.990+)
+- **Hardware Baseline**: Tracks USB/PCI devices, detects new hardware
+- **Config File Monitoring**: Watches /etc/ssh/sshd_config, /etc/sudoers, /etc/fstab, etc.
+- **Performance Learning**: Learns normal memory, CPU, boot time baselines
+- **I/O Rate Tracking**: Proper delta calculation for disk/network KB/s
+- **Package Change Detection**: Monitors pacman.log for installs/upgrades
+- **Anomaly Detection**: Alerts when values exceed 3x learned average
+- **Security Checks**: SSH config audit, firewall status, suspicious logins
+
+### Security Investigation (v0.0.991)
+- **Access History**: "who accessed my system" runs last, lastlog, lastb
+- **Login Attempts**: Shows failed and successful login history
+- **SSH Monitoring**: Tracks accepted/failed SSH connections
+- **Sudo Audit**: Shows recent sudo usage
+
+### Post-Update Diagnostics (v0.0.991)
+- **Update Impact**: "slow after update" checks pacman.log, failed services
+- **Rollback Guidance**: Shows how to downgrade problematic packages
+- **Error Log Analysis**: Checks journalctl for errors since last update
+
 ### Core Pipeline
 - **Grounded Responses**: Answers from actual system data, never invents facts
 - **Auto-probes**: Automatically runs system queries for memory/CPU/disk questions
@@ -214,8 +242,13 @@
 
 ## Not Yet Implemented
 
-### Future
-- Multi-file change transactions
-- Package installation recipes
-- Service configuration recipes
-- Recipe replay from persisted patterns
+### High Priority
+- **Proactive Alerts**: Background daemon sends natural language notifications
+- **Automatic Problem Solving**: Anna fixes known issues with confirmation
+- **Context Memory**: Remember conversations across sessions
+- **Rollback via Conversation**: "Undo what you just did"
+
+### Medium Priority
+- **Multi-System Awareness**: Diagnose remote servers via natural language
+- **Learning from Corrections**: Track which answers helped vs. needed fixing
+- **Workflow Suggestions**: "You usually run X after this"
