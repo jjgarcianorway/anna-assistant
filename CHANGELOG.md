@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.993] - 2026-01-12
+
+### Added
+- **Automatic Problem Solving** - Anna offers to fix known issues
+  - Detects pacman database lock → offers to remove it
+  - Detects keyring issues → offers to reinitialize
+  - Detects failed services → offers to reset them
+  - Detects large pacman cache → offers to clean it
+  - Detects orphan packages → offers to remove them
+  - Detects large journal logs → offers to vacuum them
+  - Auto-fix requires user confirmation before executing
+
+### Changed
+- Streaming handler checks for auto-fix opportunities before LLM call
+
 ## [0.0.992] - 2026-01-12
 
 ### Added

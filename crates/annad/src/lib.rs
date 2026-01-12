@@ -5,7 +5,9 @@
 //! - LLM-powered command execution loop
 //! - Unix socket server for client communication
 //! - Streaming answer validation (v0.0.889)
+//! - Automatic problem fixing (v0.0.993)
 
+pub mod autofix;
 pub mod core_loop;
 mod core_loop_old;
 pub mod intent;

@@ -1,10 +1,12 @@
 //! Streaming request handling for real-time responses.
+//! v0.0.993: Added automatic fix detection and offer
 
 use anna_shared::rpc::{DialogueStep, RpcRequest, StepType, StreamingResponse};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 
+use crate::autofix::{find_autofix, check_autofix_needed, format_autofix_offer};
 use crate::core_loop::execute_question_streaming;
 use crate::state::SharedState;
 
@@ -50,6 +52,41 @@ pub async fn handle_streaming_request(
             let response = StreamingResponse::Step { step };
             let json = serde_json::to_string(&response)?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        }
+    }
+
+    // v0.0.993: Check if this is a known problem that Anna can auto-fix
+    if let Some(autofix) = find_autofix(question) {
+        // Check if the problem actually exists
+        if check_autofix_needed(autofix) {
+            info!("AutoFix available: {} for question '{}'", autofix.id, question);
+
+            // Tell the user about the fix offer
+            let offer = format_autofix_offer(autofix);
+            let step = DialogueStep {
+                step_type: StepType::ConfirmationRequest,
+                content: offer,
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Return with needs_clarification to prompt user for yes/no
+            // The next message from user will trigger the fix
+            let result = anna_shared::rpc::AskResult {
+                answer: format!("I found a fix for this: {}", autofix.description),
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: true,
+                clarification_question: Some("Want me to fix it? (yes/no)".to_string()),
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
         }
     }
 
