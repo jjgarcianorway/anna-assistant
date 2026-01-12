@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.995] - 2026-01-12
+
+### Added
+- **11 New Auto-Fixes** for common system issues:
+  - **Network**: WiFi restart, DNS flush, Bluetooth restart
+  - **Audio**: PipeWire restart, PulseAudio restart
+  - **Display**: NVIDIA driver reload, Display manager restart
+  - **System**: /tmp cleanup, Swap clear, Docker restart, Time sync restart
+- Auto-fix count increased from 6 to 17 total
+
 ## [0.0.994] - 2026-01-12
 
 ### Added

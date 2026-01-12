@@ -121,6 +121,110 @@ pub const AUTO_FIXES: &[AutoFix] = &[
         fix_cmd: "sudo journalctl --vacuum-size=500M",
         explanation: "System journals are taking up space. I can clean up old logs, keeping only the most recent 500MB.",
     },
+    // v0.0.995: Network & connectivity fixes
+    AutoFix {
+        id: "wifi_restart",
+        description: "WiFi connection issues",
+        triggers: &["wifi", "wireless", "connect", "network", "wlan"],
+        check_cmd: "nmcli networking connectivity 2>/dev/null || echo 'none'",
+        check_condition: "none",
+        fix_cmd: "sudo systemctl restart NetworkManager",
+        explanation: "NetworkManager seems to be having issues. Restarting it often fixes WiFi connection problems.",
+    },
+    AutoFix {
+        id: "dns_flush",
+        description: "DNS resolution problems",
+        triggers: &["dns", "resolve", "domain", "lookup", "name"],
+        check_cmd: "resolvectl status 2>&1 | grep -q 'DNS Servers' && echo 'ok' || echo 'fail'",
+        check_condition: "fail",
+        fix_cmd: "sudo systemctl restart systemd-resolved",
+        explanation: "DNS resolution seems broken. Restarting systemd-resolved should fix hostname lookups.",
+    },
+    AutoFix {
+        id: "bluetooth_restart",
+        description: "Bluetooth not working",
+        triggers: &["bluetooth", "bt", "pair", "device", "wireless"],
+        check_cmd: "systemctl is-active bluetooth 2>/dev/null || echo 'inactive'",
+        check_condition: "inactive",
+        fix_cmd: "sudo systemctl restart bluetooth",
+        explanation: "The Bluetooth service isn't running properly. I can restart it for you.",
+    },
+    // v0.0.995: Audio fixes
+    AutoFix {
+        id: "pipewire_restart",
+        description: "Audio not working (PipeWire)",
+        triggers: &["audio", "sound", "pipewire", "speaker", "headphone"],
+        check_cmd: "systemctl --user is-active pipewire 2>/dev/null || echo 'inactive'",
+        check_condition: "inactive",
+        fix_cmd: "systemctl --user restart pipewire pipewire-pulse wireplumber",
+        explanation: "PipeWire audio service seems stuck. Restarting it usually fixes audio problems.",
+    },
+    AutoFix {
+        id: "pulseaudio_restart",
+        description: "Audio not working (PulseAudio)",
+        triggers: &["audio", "sound", "pulseaudio", "volume", "mute"],
+        check_cmd: "pactl info 2>&1 | grep -q 'Connection failure' && echo 'fail' || echo 'ok'",
+        check_condition: "fail",
+        fix_cmd: "pulseaudio -k && pulseaudio --start",
+        explanation: "PulseAudio connection failed. I can restart it to restore audio.",
+    },
+    // v0.0.995: Display & GPU fixes
+    AutoFix {
+        id: "nvidia_persistence",
+        description: "NVIDIA GPU issues",
+        triggers: &["nvidia", "gpu", "graphics", "driver", "cuda"],
+        check_cmd: "nvidia-smi 2>&1 | grep -q 'NVIDIA-SMI has failed' && echo 'fail' || echo 'ok'",
+        check_condition: "fail",
+        fix_cmd: "sudo modprobe -r nvidia_uvm nvidia_drm nvidia_modeset nvidia && sudo modprobe nvidia",
+        explanation: "The NVIDIA driver seems stuck. I can reload the kernel modules to fix it.",
+    },
+    AutoFix {
+        id: "display_manager_restart",
+        description: "Display manager frozen",
+        triggers: &["screen", "display", "login", "sddm", "gdm", "lightdm"],
+        check_cmd: "systemctl is-active display-manager 2>/dev/null || echo 'inactive'",
+        check_condition: "inactive",
+        fix_cmd: "sudo systemctl restart display-manager",
+        explanation: "The display manager service isn't running. I can restart it (this will log you out!).",
+    },
+    // v0.0.995: System resource fixes
+    AutoFix {
+        id: "tmp_cleanup",
+        description: "Large /tmp directory",
+        triggers: &["tmp", "temp", "temporary", "disk", "space"],
+        check_cmd: "du -sh /tmp 2>/dev/null | cut -f1",
+        check_condition: "G", // Contains G for gigabytes
+        fix_cmd: "sudo find /tmp -type f -atime +7 -delete 2>/dev/null; echo 'Cleaned files older than 7 days'",
+        explanation: "The /tmp directory is getting large. I can clean up files that haven't been accessed in a week.",
+    },
+    AutoFix {
+        id: "swap_clear",
+        description: "High swap usage",
+        triggers: &["swap", "memory", "ram", "slow", "swapping"],
+        check_cmd: "free | awk '/Swap:/ {if($3>0) print \"used\"; else print \"empty\"}'",
+        check_condition: "used",
+        fix_cmd: "sudo swapoff -a && sudo swapon -a",
+        explanation: "Swap is being used which can slow things down. I can clear it if you have enough free RAM.",
+    },
+    // v0.0.995: Service management fixes
+    AutoFix {
+        id: "docker_restart",
+        description: "Docker not responding",
+        triggers: &["docker", "container", "daemon", "socket"],
+        check_cmd: "docker ps 2>&1 | grep -q 'Cannot connect' && echo 'fail' || echo 'ok'",
+        check_condition: "fail",
+        fix_cmd: "sudo systemctl restart docker",
+        explanation: "Docker daemon isn't responding. I can restart it for you.",
+    },
+    AutoFix {
+        id: "timesyncd_restart",
+        description: "System time wrong",
+        triggers: &["time", "clock", "date", "ntp", "sync"],
+        check_cmd: "timedatectl status | grep -q 'synchronized: no' && echo 'fail' || echo 'ok'",
+        check_condition: "fail",
+        fix_cmd: "sudo systemctl restart systemd-timesyncd && sudo timedatectl set-ntp true",
+        explanation: "System time isn't synchronized. I can restart the time sync service.",
+    },
 ];
 
 /// Find matching auto-fix for a question
@@ -220,5 +324,56 @@ mod tests {
         // Should not match with just one trigger word
         let fix = find_autofix("what is pacman");
         assert!(fix.is_none());
+    }
+
+    // v0.0.995: Tests for new auto-fixes
+    #[test]
+    fn test_find_autofix_wifi() {
+        let fix = find_autofix("my wifi won't connect to the network");
+        assert!(fix.is_some());
+        assert_eq!(fix.unwrap().id, "wifi_restart");
+    }
+
+    #[test]
+    fn test_find_autofix_audio() {
+        let fix = find_autofix("no sound from speakers");
+        assert!(fix.is_some());
+        // Could match pipewire or pulseaudio depending on triggers
+        assert!(fix.unwrap().id.contains("audio") || fix.unwrap().id.contains("pipewire") || fix.unwrap().id.contains("pulseaudio"));
+    }
+
+    #[test]
+    fn test_find_autofix_bluetooth() {
+        let fix = find_autofix("bluetooth device won't pair");
+        assert!(fix.is_some());
+        assert_eq!(fix.unwrap().id, "bluetooth_restart");
+    }
+
+    #[test]
+    fn test_find_autofix_docker() {
+        let fix = find_autofix("docker daemon socket error");
+        assert!(fix.is_some());
+        assert_eq!(fix.unwrap().id, "docker_restart");
+    }
+
+    #[test]
+    fn test_find_autofix_time() {
+        let fix = find_autofix("system clock time is wrong");
+        assert!(fix.is_some());
+        assert_eq!(fix.unwrap().id, "timesyncd_restart");
+    }
+
+    #[test]
+    fn test_find_autofix_swap() {
+        let fix = find_autofix("system is slow and swapping memory");
+        assert!(fix.is_some());
+        assert_eq!(fix.unwrap().id, "swap_clear");
+    }
+
+    #[test]
+    fn test_autofix_count() {
+        // Verify we have all expected auto-fixes
+        // 6 original + 11 new = 17 total
+        assert_eq!(AUTO_FIXES.len(), 17, "Expected 17 auto-fixes");
     }
 }
