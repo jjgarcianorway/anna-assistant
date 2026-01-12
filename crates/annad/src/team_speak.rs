@@ -1,11 +1,11 @@
 //! Hollywood IT Teams Experience
 //! v0.0.998: Team-style status messages for fly-on-the-wall experience
+//! v0.0.999: Full IT department specialist dialogue
 //!
 //! This module transforms technical operations into team-like dialogue,
 //! making users feel like they're watching an IT department work.
 
-use std::collections::HashMap;
-use std::sync::LazyLock;
+use crate::department::{self, Specialist, SpecialistRole};
 
 /// Transform a command into a friendly team-style description
 pub fn describe_command(cmd: &str) -> String {
@@ -184,6 +184,159 @@ pub fn patience_message(iteration: u32) -> Option<String> {
     }
 }
 
+// =============================================================================
+// v0.0.999: IT Department Specialist Dialogue
+// =============================================================================
+
+/// Generate Anna's assignment message to a specialist
+pub fn anna_assigns_to(specialist: &Specialist, question: &str) -> String {
+    let short_q = if question.len() > 60 {
+        format!("{}...", &question[..57])
+    } else {
+        question.to_string()
+    };
+
+    match specialist.role {
+        SpecialistRole::Junior => {
+            format!(
+                "Hey {}! Got a {} question for you: \"{}\"",
+                specialist.name, specialist.department.to_lowercase(), short_q
+            )
+        }
+        SpecialistRole::Senior => {
+            format!(
+                "{}, need your expertise on this: \"{}\"",
+                specialist.name, short_q
+            )
+        }
+        SpecialistRole::Manager => {
+            format!(
+                "{}, user needs help with: \"{}\"",
+                specialist.name, short_q
+            )
+        }
+    }
+}
+
+/// Generate specialist's acknowledgment of assignment
+pub fn specialist_acknowledges(specialist: &Specialist) -> String {
+    match specialist.role {
+        SpecialistRole::Junior => {
+            let responses = [
+                format!("On it! Let me check a few things..."),
+                format!("Sure thing! Running some diagnostics..."),
+                format!("Got it! Let me look into this..."),
+                format!("Checking now..."),
+            ];
+            responses[specialist.name.len() % responses.len()].clone()
+        }
+        SpecialistRole::Senior => {
+            let responses = [
+                format!("Looking into it. Give me a moment..."),
+                format!("I'll investigate. Running deep diagnostics..."),
+                format!("Let me check the logs and configs..."),
+            ];
+            responses[specialist.name.len() % responses.len()].clone()
+        }
+        SpecialistRole::Manager => {
+            format!("I'll coordinate with the team on this.")
+        }
+    }
+}
+
+/// Generate specialist's working message based on operation
+pub fn specialist_working(specialist: &Specialist, operation: &str) -> String {
+    let op = operation.to_lowercase();
+
+    if op.contains("check") || op.contains("look") {
+        format!("{}: Checking...", specialist.name)
+    } else if op.contains("search") {
+        format!("{}: Searching...", specialist.name)
+    } else if op.contains("run") || op.contains("exec") {
+        format!("{}: Running diagnostics...", specialist.name)
+    } else if op.contains("analyz") {
+        format!("{}: Analyzing output...", specialist.name)
+    } else {
+        format!("{}: Working on it...", specialist.name)
+    }
+}
+
+/// Generate escalation message from junior to senior
+pub fn escalation_request(junior: &Specialist, senior: &Specialist, reason: &str) -> String {
+    format!(
+        "{} → {}: This one's a bit complex. {}. Can you take a look?",
+        junior.name, senior.name, reason
+    )
+}
+
+/// Generate senior accepting escalation
+pub fn senior_accepts_escalation(senior: &Specialist) -> String {
+    let responses = [
+        format!("{}: I'll take it from here.", senior.name),
+        format!("{}: Let me dig deeper into this.", senior.name),
+        format!("{}: Good call escalating. Looking now...", senior.name),
+    ];
+    responses[senior.name.len() % responses.len()].clone()
+}
+
+/// Generate specialist's finding message
+pub fn specialist_found_something(specialist: &Specialist, finding: &str) -> String {
+    match specialist.role {
+        SpecialistRole::Junior => {
+            format!("{}: Found something! {}", specialist.name, finding)
+        }
+        SpecialistRole::Senior => {
+            format!("{}: Here's what I found - {}", specialist.name, finding)
+        }
+        SpecialistRole::Manager => {
+            format!("{}: Analysis complete. {}", specialist.name, finding)
+        }
+    }
+}
+
+/// Generate specialist reporting back to Anna
+pub fn specialist_reports_to_anna(specialist: &Specialist, summary: &str) -> String {
+    format!(
+        "{} → Anna: {}",
+        specialist.name, summary
+    )
+}
+
+/// Generate Anna thanking the specialist
+pub fn anna_thanks_specialist(specialist: &Specialist) -> String {
+    match specialist.role {
+        SpecialistRole::Junior => {
+            format!("Thanks {}! Good work.", specialist.name)
+        }
+        SpecialistRole::Senior => {
+            format!("Thanks {}. That was thorough.", specialist.name)
+        }
+        SpecialistRole::Manager => {
+            format!("Appreciate it, {}.", specialist.name)
+        }
+    }
+}
+
+/// Get the specialist for a question and generate assignment
+pub fn dispatch_question(question: &str) -> Option<(String, &'static Specialist)> {
+    let specialist = department::get_specialist_for_topic(question)?;
+    let msg = anna_assigns_to(specialist, question);
+    Some((msg, specialist))
+}
+
+/// Generate a ticket opened message
+pub fn ticket_opened(case_number: &str, department: &str) -> String {
+    format!("Ticket {} opened → {} department", case_number, department)
+}
+
+/// Generate full dialogue for command execution
+pub fn command_dialogue(specialist: &Specialist, cmd: &str) -> Vec<String> {
+    let desc = describe_command(cmd);
+    vec![
+        format!("{}: {}", specialist.name, desc),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,5 +352,22 @@ mod tests {
     fn test_humanize_error() {
         assert!(humanize_error("permission denied").contains("admin"));
         assert!(humanize_error("command not found").contains("installed"));
+    }
+
+    #[test]
+    fn test_dispatch_question() {
+        // Network question should dispatch to network team
+        let result = dispatch_question("my wifi is not working");
+        assert!(result.is_some());
+        let (msg, specialist) = result.unwrap();
+        assert_eq!(specialist.department, "Network");
+        assert!(msg.contains("Michael") || msg.contains("Sarah"));
+    }
+
+    #[test]
+    fn test_ticket_opened() {
+        let msg = ticket_opened("CN-0001-12012026", "Network");
+        assert!(msg.contains("CN-0001"));
+        assert!(msg.contains("Network"));
     }
 }

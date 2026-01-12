@@ -8,6 +8,6 @@ pub mod specialists;
 pub mod tickets;
 pub mod rpg;
 
-pub use specialists::{Specialist, Department, get_department, get_specialist_for_topic};
+pub use specialists::{Specialist, SpecialistRole, Department, get_department, get_specialist_for_topic, determine_department};
 pub use tickets::{Ticket, TicketStatus, TicketStore, create_ticket, get_ticket, update_ticket};
 pub use rpg::{AnnaXP, get_anna_xp, award_xp, get_title_for_level};

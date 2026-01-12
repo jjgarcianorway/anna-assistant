@@ -12,6 +12,7 @@ pub const RED: &str = "\x1b[31m";
 pub const BLUE: &str = "\x1b[34m";
 pub const CYAN: &str = "\x1b[36m";
 pub const MAGENTA: &str = "\x1b[35m";
+pub const WHITE: &str = "\x1b[37;1m"; // v0.0.999: Bright white for tickets
 pub const DIM: &str = "\x1b[2m";
 pub const BOLD: &str = "\x1b[1m";
 
@@ -246,6 +247,28 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
                 println!("{}", step.content);
             }
             println!();
+        }
+        // v0.0.999: IT Department team dialogue
+        StepType::TicketCreated => {
+            println!();
+            print_colored("┌─ ", DIM);
+            print_colored("TICKET ", CYAN);
+            println_colored(&step.content, WHITE);
+            print_colored("└─", DIM);
+            println!();
+        }
+        StepType::TeamAssignment => {
+            print_colored("Anna → ", MAGENTA);
+            println!("{}", step.content);
+        }
+        StepType::TeamDialogue => {
+            print_colored("  │ ", DIM);
+            println!("{}", step.content);
+        }
+        StepType::TeamEscalation => {
+            println!();
+            print_colored("  ⇈ ESCALATING: ", YELLOW);
+            println!("{}", step.content);
         }
     }
 }

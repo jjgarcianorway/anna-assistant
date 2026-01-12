@@ -340,4 +340,12 @@ pub enum StepType {
     SystemAlert,
     /// LLM error with context (v0.0.890)
     LlmError,
+    /// v0.0.999: Ticket created (fly-on-the-wall)
+    TicketCreated,
+    /// v0.0.999: Anna assigns question to specialist
+    TeamAssignment,
+    /// v0.0.999: Dialogue between Anna and specialist
+    TeamDialogue,
+    /// v0.0.999: Specialist escalates to senior
+    TeamEscalation,
 }

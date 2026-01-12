@@ -39,6 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Activity statistics
   - Hollywood-style ASCII box drawing
 
+- **Fly-on-the-Wall Experience** - Watch the IT team work:
+  - Questions automatically dispatched to relevant specialist
+  - Ticket created for each question (CN-NNNN-DDMMYYYY)
+  - Anna assigns to specialist: "Hey Michael! Got a network question..."
+  - Specialist acknowledges: "On it! Let me check a few things..."
+  - Live dialogue during command execution
+  - Escalation paths from junior to senior specialists
+
 ## [0.0.998] - 2026-01-12
 
 ### Added

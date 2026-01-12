@@ -3108,6 +3108,32 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
         topic: understanding.topic.clone(),
     };
 
+    // v0.0.999: Dispatch to IT Department specialist (fly-on-the-wall experience)
+    let assigned_specialist = if let Some((assignment_msg, specialist)) = crate::team_speak::dispatch_question(question) {
+        // Create ticket
+        let dept = crate::department::determine_department(question);
+        let ticket = crate::department::create_ticket(question, dept);
+        let ticket_msg = crate::team_speak::ticket_opened(&ticket.case_number, dept);
+        let step = DialogueStep { step_type: StepType::TicketCreated, content: ticket_msg };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Anna assigns to specialist
+        let step = DialogueStep { step_type: StepType::TeamAssignment, content: assignment_msg };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        // Specialist acknowledges
+        let ack = crate::team_speak::specialist_acknowledges(specialist);
+        let step = DialogueStep { step_type: StepType::TeamDialogue, content: format!("{}: {}", specialist.name, ack) };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        Some(specialist)
+    } else {
+        None
+    };
+
     // Check if Anna needs to ask for clarification before proceeding
     if understanding.needs_confirmation {
         // Build a clarification message
