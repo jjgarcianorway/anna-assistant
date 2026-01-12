@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-01-12
+
+### Fixed
+- **AutoFix False Positives** - Information questions like "how much disk space" no longer trigger fix offers
+  - AutoFix now requires action words (fix, clean, solve, etc.) to trigger
+  - Info questions (how much, what is, show me) don't trigger fixes unless combined with action words
+
+- **Confirmation Note Spam** - Don't show "Note: may need more context" for yes/no confirmations
+  - Only show clarification note for actual unclear questions
+
 ## [0.1.2] - 2026-01-12
 
 ### Fixed

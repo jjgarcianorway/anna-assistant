@@ -83,9 +83,15 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool, sessi
                     println_colored("Clarification cancelled.", DIM);
                 } else if result.needs_clarification && !in_repl {
                     // Non-REPL mode: just show the clarification question
-                    println!();
-                    print_colored("Note: ", YELLOW);
-                    println!("This question may need more context. Try running in interactive mode (annactl without arguments).");
+                    // v0.1.2: Don't show Note for confirmation requests (autofix yes/no prompts)
+                    let is_confirmation = result.clarification_question.as_ref()
+                        .map(|q| q.contains("yes") || q.contains("no") || q.contains("confirm"))
+                        .unwrap_or(false);
+                    if !is_confirmation {
+                        println!();
+                        print_colored("Note: ", YELLOW);
+                        println!("This question may need more context. Try running in interactive mode (annactl without arguments).");
+                    }
                 }
                 // Done
                 break;

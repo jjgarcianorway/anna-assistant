@@ -352,8 +352,32 @@ pub const AUTO_FIXES: &[AutoFix] = &[
 ];
 
 /// Find matching auto-fix for a question
+/// v0.1.2: Only trigger autofix when user wants to FIX something, not just asking for info
 pub fn find_autofix(question: &str) -> Option<&'static AutoFix> {
     let q = question.to_lowercase();
+
+    // v0.1.2: Require action words - user must be asking to FIX something
+    // Information questions like "how much disk space" should not trigger autofix
+    let action_words = [
+        "fix", "clean", "clear", "free up", "remove", "delete",
+        "solve", "resolve", "help me", "can you", "please",
+        "get rid", "slow", "problem", "issue", "error", "broken",
+        "not working", "failed", "failing"
+    ];
+    let has_action = action_words.iter().any(|w| q.contains(w));
+
+    // Also check for info-seeking questions that should NOT trigger autofix
+    let info_questions = [
+        "how much", "how many", "what is", "what are", "show me",
+        "list", "check", "status", "tell me", "display"
+    ];
+    let is_info_question = info_questions.iter().any(|w| q.contains(w));
+
+    // Don't trigger autofix for info questions unless they also have action words
+    if is_info_question && !has_action {
+        debug!("AutoFix: skipping info question without action words");
+        return None;
+    }
 
     for fix in AUTO_FIXES {
         // Count how many triggers match
