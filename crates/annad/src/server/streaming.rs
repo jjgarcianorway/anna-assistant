@@ -1,5 +1,7 @@
 //! Streaming request handling for real-time responses.
 //! v0.0.993: Added automatic fix detection and offer
+//! v0.0.998: Added configuration recipes
+//! v0.0.998: Added Hollywood IT teams experience
 
 use anna_shared::rpc::{DialogueStep, RpcRequest, StepType, StreamingResponse};
 use anyhow::Result;
@@ -12,9 +14,33 @@ use crate::autofix::{
     get_fix_history_summary,
 };
 use crate::core_loop::execute_question_streaming;
+use crate::recipes;
 use crate::state::SharedState;
+use crate::team_speak;
 
 use super::alerts::get_pending_alerts;
+
+/// Track pending recipe confirmations by session
+use std::collections::HashMap;
+use std::sync::RwLock;
+
+static PENDING_RECIPES: RwLock<Option<HashMap<String, String>>> = RwLock::new(None);
+
+fn set_pending_recipe(session_id: &str, recipe_id: &str) {
+    if let Ok(mut guard) = PENDING_RECIPES.write() {
+        let map = guard.get_or_insert_with(HashMap::new);
+        map.insert(session_id.to_string(), recipe_id.to_string());
+    }
+}
+
+fn take_pending_recipe(session_id: &str) -> Option<String> {
+    if let Ok(mut guard) = PENDING_RECIPES.write() {
+        if let Some(map) = guard.as_mut() {
+            return map.remove(session_id);
+        }
+    }
+    None
+}
 
 /// Handle a streaming AskStreaming request
 pub async fn handle_streaming_request(
@@ -141,6 +167,116 @@ pub async fn handle_streaming_request(
         let json = serde_json::to_string(&done)?;
         writer.write_all(format!("{}\n", json).as_bytes()).await?;
         return Ok(());
+    }
+
+    // v0.0.998: Check if this is a response to a pending recipe
+    if let Some(pending_recipe_id) = take_pending_recipe(session_id) {
+        if is_yes_response(question) {
+            info!("Executing recipe {} (user confirmed)", pending_recipe_id);
+            let result = recipes::execute_confirmed_recipe(&pending_recipe_id);
+
+            let step = DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: result.message.clone(),
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let ask_result = anna_shared::rpc::AskResult {
+                answer: result.message,
+                success: result.success,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result: ask_result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        } else if is_no_response(question) {
+            info!("Recipe {} cancelled by user", pending_recipe_id);
+            let step = DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: "No problem, I won't make any changes.".to_string(),
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: "No problem, I won't make any changes.".to_string(),
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
+        // Not yes/no - fall through to normal processing
+    }
+
+    // v0.0.998: Check if this matches a configuration recipe
+    if let Some(recipe_result) = recipes::try_recipe(question) {
+        info!("Recipe matched for: {}", question);
+
+        let step = DialogueStep {
+            step_type: if recipe_result.needs_confirmation {
+                StepType::ConfirmationRequest
+            } else {
+                StepType::FinalAnswer
+            },
+            content: recipe_result.message.clone(),
+        };
+        let response = StreamingResponse::Step { step };
+        let json = serde_json::to_string(&response)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+        if recipe_result.needs_confirmation {
+            // Extract recipe ID from the pending recipe system
+            // The recipe modules store their pending state internally
+            let recipe_id = extract_recipe_id(question);
+            set_pending_recipe(session_id, &recipe_id);
+
+            let result = anna_shared::rpc::AskResult {
+                answer: recipe_result.message,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: true,
+                clarification_question: recipe_result.confirmation_prompt,
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        } else {
+            let result = anna_shared::rpc::AskResult {
+                answer: recipe_result.message,
+                success: recipe_result.success,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
     }
 
     // Check for pending critical system alerts and notify user
@@ -374,4 +510,117 @@ fn is_fix_history_question(question: &str) -> bool {
     }
 
     false
+}
+
+/// v0.0.998: Extract recipe ID from question for pending recipe tracking
+fn extract_recipe_id(question: &str) -> String {
+    let q = question.to_lowercase();
+
+    // Vim recipes
+    if q.contains("vim") || q.contains("neovim") {
+        if q.contains("dark") {
+            return "vim-dark-mode".to_string();
+        }
+        if q.contains("syntax") {
+            return "vim-syntax".to_string();
+        }
+        if q.contains("line") && q.contains("number") {
+            return "vim-line-numbers".to_string();
+        }
+        if q.contains("mouse") {
+            return "vim-mouse".to_string();
+        }
+        if q.contains("tab") || q.contains("indent") {
+            return "vim-tabs".to_string();
+        }
+    }
+
+    // Git recipes
+    if q.contains("git") {
+        if q.contains("email") {
+            return "git-email".to_string();
+        }
+        if q.contains("name") {
+            return "git-name".to_string();
+        }
+        if q.contains("alias") {
+            return "git-aliases".to_string();
+        }
+        if q.contains("default") && q.contains("branch") {
+            return "git-default-branch".to_string();
+        }
+    }
+
+    // Shell recipes
+    if q.contains("alias") {
+        return "shell-alias".to_string();
+    }
+    if q.contains("path") && (q.contains("add") || q.contains("append")) {
+        return "shell-path".to_string();
+    }
+    if q.contains("export") {
+        return "shell-export".to_string();
+    }
+
+    // Service recipes
+    if q.contains("restart") {
+        if let Some(service) = extract_service_from_question(&q) {
+            return format!("service-restart-{}", service);
+        }
+    }
+    if q.contains("start") && !q.contains("restart") {
+        if let Some(service) = extract_service_from_question(&q) {
+            return format!("service-start-{}", service);
+        }
+    }
+    if q.contains("stop") {
+        if let Some(service) = extract_service_from_question(&q) {
+            return format!("service-stop-{}", service);
+        }
+    }
+    if q.contains("enable") {
+        if let Some(service) = extract_service_from_question(&q) {
+            return format!("service-enable-{}", service);
+        }
+    }
+    if q.contains("disable") {
+        if let Some(service) = extract_service_from_question(&q) {
+            return format!("service-disable-{}", service);
+        }
+    }
+
+    "unknown".to_string()
+}
+
+/// Extract service name from question
+fn extract_service_from_question(q: &str) -> Option<String> {
+    let services = [
+        "nginx", "apache", "httpd", "mysql", "mariadb", "postgresql", "postgres",
+        "docker", "containerd", "redis", "mongodb", "ssh", "sshd", "cups",
+        "bluetooth", "networkmanager", "firewalld", "libvirtd", "pipewire",
+        "pulseaudio", "avahi", "gdm", "sddm", "lightdm",
+    ];
+
+    for service in &services {
+        if q.contains(service) {
+            return Some(service.to_string());
+        }
+    }
+    None
+}
+
+/// v0.0.998: Transform a dialogue step to use team-style messaging
+/// This gives the "Hollywood IT teams" experience where users feel like
+/// they're watching a team work on their problem.
+fn team_style_content(step_type: &StepType, content: &str) -> String {
+    match step_type {
+        StepType::IntentClassifying => team_speak::phase_commentary("intent_classify", None),
+        StepType::WikiSearch => team_speak::phase_commentary("wiki_search", None),
+        StepType::CommandExec => {
+            // Transform command into friendly description
+            team_speak::describe_command(content)
+        }
+        StepType::FinalAnswer => content.to_string(), // Keep final answer as-is
+        _ => content.to_string(),
+    }
 }

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.998] - 2026-01-12
+
+### Added
+- **Safe Change Engine** - All configuration changes are backed up and undoable
+  - Full backup before any file modification
+  - Change history with undo support
+  - Natural language undo: "undo last change", "undo vim dark mode", "what can I undo"
+  - Change records saved to `~/.local/share/anna/changes.json`
+
+- **Configuration Recipes** - Anna can now modify system configs via natural language:
+  - **Vim/Neovim**: dark mode, syntax highlighting, line numbers, mouse, tab settings
+  - **Git**: email, name, aliases, default branch
+  - **Shell**: aliases, PATH additions, environment variables (bash, zsh, fish)
+  - **Services**: restart, start, stop, enable, disable systemd services
+
+- **Stats Command** - `annactl stats` shows Anna's activity:
+  - Auto-fixes applied
+  - Configuration changes made (with undo count)
+  - Learned experiences
+  - Installed tools
+
+- **Conversation Settings** - Change Anna's behavior via natural language:
+  - "be more verbose" / "be brief"
+  - "show commands" / "hide commands"
+  - "skip confirmations" / "enable confirmations"
+  - "show settings" / "reset settings"
+
+- **Hollywood IT Teams Experience** - Team-style status messages during operation
+  - Commands described in friendly terms ("Checking disk usage..." vs "df -h")
+  - Phase commentary for different operations
+  - Humanized error messages
+
 ## [0.0.997] - 2026-01-12
 
 ### Added

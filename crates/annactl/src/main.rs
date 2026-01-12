@@ -120,6 +120,9 @@ async fn run_repl() -> Result<()> {
                     "status" => {
                         print_status().await;
                     }
+                    "stats" => {
+                        print_stats();
+                    }
                     "help" => {
                         println!("Just ask questions about your Arch Linux system!");
                         println!("Examples:");
@@ -127,7 +130,7 @@ async fn run_repl() -> Result<()> {
                         println!("  How do I install neovim?");
                         println!("  Show failed services");
                         println!();
-                        println!("Commands: status, help, quit");
+                        println!("Commands: status, stats, help, quit");
                     }
                     _ => {
                         handle_question_with_clarification(input, true, &session_id).await;
@@ -157,12 +160,16 @@ async fn main() -> Result<()> {
             "status" => {
                 print_status().await;
             }
+            "stats" => {
+                print_stats();
+            }
             "help" | "--help" | "-h" => {
                 println!("Anna - Arch Linux Assistant");
                 println!();
                 println!("Usage:");
                 println!("  annactl                  Start interactive REPL");
                 println!("  annactl status           Show daemon status");
+                println!("  annactl stats            Show activity statistics");
                 println!("  annactl <question>       Ask a question");
                 println!();
                 println!("Examples:");

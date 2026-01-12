@@ -373,3 +373,137 @@ pub fn mark_alerts_shown() {
         let _ = store.save();
     }
 }
+
+/// v0.0.998: Print stats about Anna's activity
+pub fn print_stats() {
+    println!();
+    println_colored("Anna Statistics", BOLD);
+    println_colored("═══════════════════════════════════════", DIM);
+    println!();
+
+    // 1. Fix history
+    let fix_history_path = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("anna/fix_history.json");
+
+    if fix_history_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&fix_history_path) {
+            if let Ok(history) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(fixes) = history.get("fixes").and_then(|f| f.as_array()) {
+                    print_colored("Automatic Fixes: ", CYAN);
+                    println_colored(&format!("{}", fixes.len()), GREEN);
+
+                    // Show last few fixes
+                    for fix in fixes.iter().rev().take(3) {
+                        if let Some(id) = fix.get("fix_id").and_then(|v| v.as_str()) {
+                            if let Some(ts) = fix.get("timestamp").and_then(|v| v.as_str()) {
+                                let short_ts = ts.split('T').next().unwrap_or(ts);
+                                print_colored("  • ", DIM);
+                                print!("{}", id);
+                                print_colored(&format!(" ({})", short_ts), DIM);
+                                println!();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        print_colored("Automatic Fixes: ", CYAN);
+        println_colored("0", DIM);
+    }
+
+    println!();
+
+    // 2. Change history (recipes applied)
+    let changes_path = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("anna/changes.json");
+
+    if changes_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&changes_path) {
+            if let Ok(history) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(changes) = history.get("changes").and_then(|c| c.as_array()) {
+                    let undoable: Vec<_> = changes.iter()
+                        .filter(|c| c.get("undone").and_then(|u| u.as_bool()).unwrap_or(false) == false)
+                        .collect();
+
+                    print_colored("Configuration Changes: ", CYAN);
+                    println_colored(&format!("{}", changes.len()), GREEN);
+                    print_colored("  Undoable: ", DIM);
+                    println!("{}", undoable.len());
+
+                    // Show last few changes
+                    for change in changes.iter().rev().take(3) {
+                        if let Some(name) = change.get("name").and_then(|v| v.as_str()) {
+                            if let Some(cat) = change.get("category").and_then(|v| v.as_str()) {
+                                print_colored("  • ", DIM);
+                                print!("{}", name);
+                                print_colored(&format!(" [{}]", cat), DIM);
+                                if change.get("undone").and_then(|u| u.as_bool()).unwrap_or(false) {
+                                    print_colored(" (undone)", YELLOW);
+                                }
+                                println!();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        print_colored("Configuration Changes: ", CYAN);
+        println_colored("0", DIM);
+    }
+
+    println!();
+
+    // 3. Memory experiences
+    let memory_path = dirs::data_local_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("anna/memory.json");
+
+    if memory_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&memory_path) {
+            if let Ok(memory) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(exp) = memory.get("experiences").and_then(|e| e.as_array()) {
+                    print_colored("Learned Experiences: ", CYAN);
+                    println_colored(&format!("{}", exp.len()), GREEN);
+                }
+            }
+        }
+    } else {
+        print_colored("Learned Experiences: ", CYAN);
+        println_colored("0", DIM);
+    }
+
+    println!();
+
+    // 4. Installed dependencies (tools Anna installed)
+    let deps_path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".anna/installed_deps.txt");
+
+    if deps_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&deps_path) {
+            let deps: Vec<_> = content.lines().filter(|l| !l.is_empty()).collect();
+            if !deps.is_empty() {
+                print_colored("Installed Tools: ", CYAN);
+                println_colored(&format!("{}", deps.len()), GREEN);
+                for dep in deps.iter().take(5) {
+                    print_colored("  • ", DIM);
+                    println!("{}", dep);
+                }
+                if deps.len() > 5 {
+                    println_colored(&format!("  ... and {} more", deps.len() - 5), DIM);
+                }
+            }
+        }
+    } else {
+        print_colored("Installed Tools: ", CYAN);
+        println_colored("0", DIM);
+    }
+
+    println!();
+    println_colored("═══════════════════════════════════════", DIM);
+    println!();
+}
