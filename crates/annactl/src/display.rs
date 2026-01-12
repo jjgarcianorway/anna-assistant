@@ -374,136 +374,288 @@ pub fn mark_alerts_shown() {
     }
 }
 
-/// v0.0.998: Print stats about Anna's activity
+/// v0.0.999: Print comprehensive stats about Anna's activity
+/// Includes RPG progression, department stats, and performance metrics
 pub fn print_stats() {
-    println!();
-    println_colored("Anna Statistics", BOLD);
-    println_colored("═══════════════════════════════════════", DIM);
-    println!();
-
-    // 1. Fix history
-    let fix_history_path = dirs::data_local_dir()
+    let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("anna/fix_history.json");
-
-    if fix_history_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&fix_history_path) {
-            if let Ok(history) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(fixes) = history.get("fixes").and_then(|f| f.as_array()) {
-                    print_colored("Automatic Fixes: ", CYAN);
-                    println_colored(&format!("{}", fixes.len()), GREEN);
-
-                    // Show last few fixes
-                    for fix in fixes.iter().rev().take(3) {
-                        if let Some(id) = fix.get("fix_id").and_then(|v| v.as_str()) {
-                            if let Some(ts) = fix.get("timestamp").and_then(|v| v.as_str()) {
-                                let short_ts = ts.split('T').next().unwrap_or(ts);
-                                print_colored("  • ", DIM);
-                                print!("{}", id);
-                                print_colored(&format!(" ({})", short_ts), DIM);
-                                println!();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        print_colored("Automatic Fixes: ", CYAN);
-        println_colored("0", DIM);
-    }
+        .join("anna");
 
     println!();
-
-    // 2. Change history (recipes applied)
-    let changes_path = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("anna/changes.json");
-
-    if changes_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&changes_path) {
-            if let Ok(history) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(changes) = history.get("changes").and_then(|c| c.as_array()) {
-                    let undoable: Vec<_> = changes.iter()
-                        .filter(|c| c.get("undone").and_then(|u| u.as_bool()).unwrap_or(false) == false)
-                        .collect();
-
-                    print_colored("Configuration Changes: ", CYAN);
-                    println_colored(&format!("{}", changes.len()), GREEN);
-                    print_colored("  Undoable: ", DIM);
-                    println!("{}", undoable.len());
-
-                    // Show last few changes
-                    for change in changes.iter().rev().take(3) {
-                        if let Some(name) = change.get("name").and_then(|v| v.as_str()) {
-                            if let Some(cat) = change.get("category").and_then(|v| v.as_str()) {
-                                print_colored("  • ", DIM);
-                                print!("{}", name);
-                                print_colored(&format!(" [{}]", cat), DIM);
-                                if change.get("undone").and_then(|u| u.as_bool()).unwrap_or(false) {
-                                    print_colored(" (undone)", YELLOW);
-                                }
-                                println!();
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        print_colored("Configuration Changes: ", CYAN);
-        println_colored("0", DIM);
-    }
-
+    println_colored("╔═══════════════════════════════════════════════════════════╗", CYAN);
+    println_colored("║           ANNA - IT DEPARTMENT STATISTICS                 ║", CYAN);
+    println_colored("╚═══════════════════════════════════════════════════════════╝", CYAN);
     println!();
 
-    // 3. Memory experiences
-    let memory_path = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("anna/memory.json");
-
-    if memory_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&memory_path) {
-            if let Ok(memory) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(exp) = memory.get("experiences").and_then(|e| e.as_array()) {
-                    print_colored("Learned Experiences: ", CYAN);
-                    println_colored(&format!("{}", exp.len()), GREEN);
+    // ═══════════════════════════════════════════════════════════
+    // RPG PROGRESSION
+    // ═══════════════════════════════════════════════════════════
+    let xp_path = data_dir.join("xp.json");
+    let (level, total_xp, title, title_desc, progress, tickets_resolved, resolved_by_anna, recipes_learned) =
+        if xp_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&xp_path) {
+                if let Ok(xp) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let level = xp.get("level").and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+                    let total = xp.get("total_xp").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let tickets = xp.get("tickets_resolved").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let by_anna = xp.get("resolved_by_anna").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let recipes = xp.get("recipes_learned").and_then(|v| v.as_u64()).unwrap_or(0);
+                    let title = get_title_for_level(level);
+                    let desc = get_title_description(level);
+                    // Calculate progress percentage
+                    let xp_needed = xp_for_level(level + 1);
+                    let xp_current = xp_for_level(level);
+                    let prog = if xp_needed > xp_current {
+                        ((total.saturating_sub(xp_current)) as f64 / (xp_needed - xp_current) as f64 * 100.0).min(100.0)
+                    } else { 100.0 };
+                    (level, total, title, desc, prog, tickets, by_anna, recipes)
+                } else {
+                    (1, 0, "Helpdesk Newbie", "Just starting out!", 0.0, 0, 0, 0)
                 }
+            } else {
+                (1, 0, "Helpdesk Newbie", "Just starting out!", 0.0, 0, 0, 0)
             }
-        }
-    } else {
-        print_colored("Learned Experiences: ", CYAN);
-        println_colored("0", DIM);
-    }
+        } else {
+            (1, 0, "Helpdesk Newbie", "Just starting out!", 0.0, 0, 0, 0)
+        };
 
+    println_colored("┌─ ANNA'S PROGRESSION ─────────────────────────────────────┐", DIM);
+    println!();
+    print_colored("  Level: ", CYAN);
+    print_colored(&format!("{}", level), BOLD);
+    print_colored(" / 100", DIM);
+    print!("  ");
+    print_colored(&format!("\"{}\"", title), YELLOW);
+    println!();
+    println_colored(&format!("  {}", title_desc), DIM);
     println!();
 
-    // 4. Installed dependencies (tools Anna installed)
+    // XP progress bar
+    print_colored("  XP: ", CYAN);
+    print!("{} ", total_xp);
+    print_colored("[", DIM);
+    let bar_width = 30;
+    let filled = (progress / 100.0 * bar_width as f64) as usize;
+    print_colored(&"█".repeat(filled), GREEN);
+    print_colored(&"░".repeat(bar_width - filled), DIM);
+    print_colored("]", DIM);
+    println_colored(&format!(" {:.0}%", progress), GREEN);
+    println!();
+
+    // Quick stats
+    print_colored("  Tickets Resolved: ", DIM);
+    print_colored(&format!("{}", tickets_resolved), GREEN);
+    print!("  ");
+    print_colored("By Anna: ", DIM);
+    print_colored(&format!("{}", resolved_by_anna), GREEN);
+    print!("  ");
+    print_colored("Recipes Learned: ", DIM);
+    println_colored(&format!("{}", recipes_learned), GREEN);
+
+    println!();
+    println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+    println!();
+
+    // ═══════════════════════════════════════════════════════════
+    // IT DEPARTMENT TEAM
+    // ═══════════════════════════════════════════════════════════
+    println_colored("┌─ IT DEPARTMENT TEAM ─────────────────────────────────────┐", DIM);
+    println!();
+    print_team_member("Network", "Michael", "Junior", "Sarah", "Senior");
+    print_team_member("Desktop", "Alex", "Junior", "Emma", "Senior");
+    print_team_member("System", "James", "Junior", "Lisa", "Senior");
+    print_team_member("Packages", "David", "Junior", "Nina", "Senior");
+    print_team_member("Hardware", "Ryan", "Junior", "Sophie", "Senior");
+    print_team_member("Audio", "Chris", "Junior", "Maria", "Senior");
+    print_team_member("Storage", "Kevin", "Junior", "Rachel", "Senior");
+    print_team_member("Security", "Tom", "Junior", "Elena", "Senior");
+    println!();
+    print_colored("  Team Size: ", DIM);
+    println_colored("16 specialists (8 departments)", GREEN);
+    println!();
+    println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+    println!();
+
+    // ═══════════════════════════════════════════════════════════
+    // ACTIVITY STATISTICS
+    // ═══════════════════════════════════════════════════════════
+    println_colored("┌─ ACTIVITY ───────────────────────────────────────────────┐", DIM);
+    println!();
+
+    // Fix history
+    let fix_history_path = data_dir.join("fix_history.json");
+    let fixes_count = if fix_history_path.exists() {
+        std::fs::read_to_string(&fix_history_path).ok()
+            .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+            .and_then(|h| h.get("fixes").and_then(|f| f.as_array()).map(|a| a.len()))
+            .unwrap_or(0)
+    } else { 0 };
+
+    print_colored("  Automatic Fixes Applied: ", DIM);
+    println_colored(&format!("{}", fixes_count), GREEN);
+
+    // Changes
+    let changes_path = data_dir.join("changes.json");
+    let (changes_count, undoable) = if changes_path.exists() {
+        std::fs::read_to_string(&changes_path).ok()
+            .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+            .and_then(|h| {
+                h.get("changes").and_then(|c| c.as_array()).map(|arr| {
+                    let total = arr.len();
+                    let undo = arr.iter()
+                        .filter(|c| !c.get("undone").and_then(|u| u.as_bool()).unwrap_or(false))
+                        .count();
+                    (total, undo)
+                })
+            })
+            .unwrap_or((0, 0))
+    } else { (0, 0) };
+
+    print_colored("  Configuration Changes: ", DIM);
+    print_colored(&format!("{}", changes_count), GREEN);
+    print_colored(&format!(" ({} undoable)", undoable), DIM);
+    println!();
+
+    // Memory
+    let memory_path = data_dir.join("memory.json");
+    let exp_count = if memory_path.exists() {
+        std::fs::read_to_string(&memory_path).ok()
+            .and_then(|c| serde_json::from_str::<serde_json::Value>(&c).ok())
+            .and_then(|m| m.get("experiences").and_then(|e| e.as_array()).map(|a| a.len()))
+            .unwrap_or(0)
+    } else { 0 };
+
+    print_colored("  Learned Experiences: ", DIM);
+    println_colored(&format!("{}", exp_count), GREEN);
+
+    // Helpers
     let deps_path = dirs::home_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join(".anna/installed_deps.txt");
+    let helpers_count = if deps_path.exists() {
+        std::fs::read_to_string(&deps_path).ok()
+            .map(|c| c.lines().filter(|l| !l.is_empty()).count())
+            .unwrap_or(0)
+    } else { 0 };
 
-    if deps_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&deps_path) {
-            let deps: Vec<_> = content.lines().filter(|l| !l.is_empty()).collect();
-            if !deps.is_empty() {
-                print_colored("Installed Tools: ", CYAN);
-                println_colored(&format!("{}", deps.len()), GREEN);
-                for dep in deps.iter().take(5) {
-                    print_colored("  • ", DIM);
-                    println!("{}", dep);
+    print_colored("  Installed Helpers: ", DIM);
+    print_colored(&format!("{}", helpers_count), GREEN);
+    println_colored(" (by Anna)", DIM);
+
+    println!();
+    println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+    println!();
+
+    // ═══════════════════════════════════════════════════════════
+    // TICKET STATS (if available)
+    // ═══════════════════════════════════════════════════════════
+    let tickets_path = data_dir.join("tickets.json");
+    if tickets_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&tickets_path) {
+            if let Ok(store) = serde_json::from_str::<serde_json::Value>(&content) {
+                println_colored("┌─ TICKET METRICS ──────────────────────────────────────────┐", DIM);
+                println!();
+
+                let total_resolved = store.get("total_resolved").and_then(|v| v.as_u64()).unwrap_or(0);
+                let total_failed = store.get("total_failed").and_then(|v| v.as_u64()).unwrap_or(0);
+                let total_escalated = store.get("total_escalated").and_then(|v| v.as_u64()).unwrap_or(0);
+
+                print_colored("  Total Resolved: ", DIM);
+                print_colored(&format!("{}", total_resolved), GREEN);
+                print!("  ");
+                print_colored("Failed: ", DIM);
+                print_colored(&format!("{}", total_failed), if total_failed > 0 { RED } else { DIM });
+                print!("  ");
+                print_colored("Escalated: ", DIM);
+                println_colored(&format!("{}", total_escalated), YELLOW);
+
+                if total_resolved > 0 {
+                    let success_rate = total_resolved as f64 / (total_resolved + total_failed) as f64 * 100.0;
+                    print_colored("  Success Rate: ", DIM);
+                    let rate_color = if success_rate >= 90.0 { GREEN } else if success_rate >= 70.0 { YELLOW } else { RED };
+                    println_colored(&format!("{:.1}%", success_rate), rate_color);
                 }
-                if deps.len() > 5 {
-                    println_colored(&format!("  ... and {} more", deps.len() - 5), DIM);
-                }
+
+                println!();
+                println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+                println!();
             }
         }
-    } else {
-        print_colored("Installed Tools: ", CYAN);
-        println_colored("0", DIM);
     }
 
+    println_colored("Tip: Use 'annactl status' for daemon info, 'annactl stats' for this view", DIM);
     println!();
-    println_colored("═══════════════════════════════════════", DIM);
-    println!();
+}
+
+/// Helper to print team member row
+fn print_team_member(dept: &str, jr_name: &str, jr_role: &str, sr_name: &str, sr_role: &str) {
+    print_colored(&format!("  {:10}", dept), CYAN);
+    print_colored(&format!("{:8}", jr_name), DIM);
+    print_colored(&format!("({})", jr_role), DIM);
+    print!("  ");
+    print_colored(&format!("{:8}", sr_name), DIM);
+    println_colored(&format!("({})", sr_role), DIM);
+}
+
+/// Get title for level (RPG style)
+fn get_title_for_level(level: u32) -> &'static str {
+    match level {
+        0..=5 => "Helpdesk Newbie",
+        6..=10 => "Support Rookie",
+        11..=15 => "Tech Apprentice",
+        16..=20 => "Junior Analyst",
+        21..=25 => "IT Assistant",
+        26..=30 => "System Helper",
+        31..=35 => "Tech Support Pro",
+        36..=40 => "Senior Analyst",
+        41..=45 => "IT Specialist",
+        46..=50 => "System Expert",
+        51..=55 => "Tech Guru",
+        56..=60 => "IT Veteran",
+        61..=65 => "System Master",
+        66..=70 => "Tech Wizard",
+        71..=75 => "IT Sage",
+        76..=80 => "System Oracle",
+        81..=85 => "Tech Legend",
+        86..=90 => "IT Deity",
+        91..=95 => "System Overlord",
+        96..=99 => "Tech Transcendent",
+        100 => "The One Who Knows All",
+        _ => "Unknown Entity",
+    }
+}
+
+/// Get description for level
+fn get_title_description(level: u32) -> &'static str {
+    match level {
+        0..=5 => "Just starting out, but eager to help!",
+        6..=10 => "Learning the ropes, one ticket at a time.",
+        11..=15 => "Getting the hang of this IT thing.",
+        16..=20 => "Can handle most basic requests now.",
+        21..=25 => "The go-to for everyday tech problems.",
+        26..=30 => "Knows the system like the back of the hand.",
+        31..=35 => "Rarely needs to escalate anymore.",
+        36..=40 => "The specialists come to me for advice!",
+        41..=45 => "One with the terminal, one with the code.",
+        46..=50 => "Halfway to omniscience.",
+        51..=55 => "The Arch Wiki fears me.",
+        56..=60 => "Bugs flee at my presence.",
+        61..=65 => "I dream in systemd unit files.",
+        66..=70 => "The kernel sends me birthday cards.",
+        71..=75 => "Linus would be proud.",
+        76..=80 => "I see the Matrix now.",
+        81..=85 => "Compiling wisdom since boot.",
+        86..=90 => "The Arch Wiki quotes ME.",
+        91..=95 => "I AM the documentation.",
+        96..=99 => "One step from digital enlightenment.",
+        100 => "I have achieved technical nirvana.",
+        _ => "An enigma wrapped in a shell script.",
+    }
+}
+
+/// Calculate XP needed for level
+fn xp_for_level(level: u32) -> u64 {
+    let base = 100.0;
+    let xp = base * (level as f64).powf(1.5) + (level as f64 * 50.0);
+    xp as u64
 }

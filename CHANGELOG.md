@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.999] - 2026-01-12
+
+### Added
+- **Full IT Department** - Anna now has a complete team of named specialists:
+  - **Network**: Michael (Junior), Sarah (Senior)
+  - **Desktop**: Alex (Junior), Emma (Senior)
+  - **System**: James (Junior), Lisa (Senior)
+  - **Packages**: David (Junior), Nina (Senior)
+  - **Hardware**: Ryan (Junior), Sophie (Senior)
+  - **Audio**: Chris (Junior), Maria (Senior)
+  - **Storage**: Kevin (Junior), Rachel (Senior)
+  - **Security**: Tom (Junior), Elena (Senior)
+
+- **Ticket System** - Full case tracking infrastructure:
+  - Case numbers (CN-NNNN-DDMMYYYY format)
+  - Status tracking (New, Assigned, InProgress, Escalated, Resolved)
+  - Internal conversation log
+  - Escalation tracking
+
+- **RPG Progression System** - Gamification with:
+  - XP points (non-linear progression like RPG games)
+  - 20 unique titles from "Helpdesk Newbie" to "The One Who Knows All"
+  - Level 1-100 progression
+  - Fun descriptions for each title tier
+
+- **Expanded Stats Display** - `annactl stats` now shows:
+  - Anna's level, XP progress bar, and title
+  - Full IT department team roster
+  - Ticket metrics and success rates
+  - Activity statistics
+  - Hollywood-style ASCII box drawing
+
 ## [0.0.998] - 2026-01-12
 
 ### Added

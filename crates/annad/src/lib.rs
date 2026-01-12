@@ -9,11 +9,14 @@
 //! - Safe change engine with undo (v0.0.998)
 //! - Configuration recipes (v0.0.998)
 //! - Hollywood IT teams experience (v0.0.998)
+//! - Full IT Department with specialists (v0.0.999)
+//! - Ticket system and RPG progression (v0.0.999)
 
 pub mod autofix;
 pub mod changes;
 pub mod core_loop;
 mod core_loop_old;
+pub mod department;
 pub mod intent;
 pub mod ollama;
 pub mod patterns;
