@@ -24,7 +24,8 @@ use anyhow::Result;
 use tracing::{debug, info};
 
 use crate::core_loop::cache::{cache_intent, get_cached_intent};
-use crate::patterns;
+// v0.1.1: Pattern matching removed - LLM-only architecture
+// The patterns module is kept for fallback commands and stats but not used in main query flow
 
 /// Confidence threshold above which we skip deep understanding (v0.0.895)
 pub const QUICK_CONFIDENCE_THRESHOLD: f32 = 0.8;
@@ -47,20 +48,14 @@ fn parse_category(s: &str) -> IntentCategory {
 
 /// v0.0.909: Three-tier understanding - patterns first, then quick, then deep
 /// v0.0.939: Four-tier - patterns, cache, quick, deep
+/// v0.1.1: Two-tier - cache, then LLM (patterns removed for LLM-only architecture)
 pub async fn understand_request(
     model: &str,
     question: &str,
     session_context: Option<&str>,
 ) -> Result<DeepUnderstanding> {
-    // v0.0.909: First check common patterns (instant, no LLM needed)
-    if let Some(understanding) = patterns::match_common_pattern(question) {
-        info!(
-            "Pattern matched: {} (confidence: {:.0}%)",
-            understanding.interpreted_as,
-            understanding.confidence * 100.0
-        );
-        return Ok(understanding);
-    }
+    // v0.1.1: Pattern matching removed - LLM handles all understanding
+    // Memory and cache provide speed through learned experiences
 
     // v0.0.939: Check intent cache (instant, no LLM needed)
     if let Some(cached) = get_cached_intent(question) {

@@ -1,0 +1,55 @@
+Question: show me what changed since yesterday
+Category: Context
+Exit: 0
+Time: 0s
+---
+
+[36mUSER: [0mshow me what changed since yesterday
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: day of week query
+[2m  intent: [0mUnderstood as: day of week query
+Category: Factual
+Confidence: 95%
+Topic: time
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: (skipped - simple factual query)[0m
+
+[33mLLM → ANNA: [0mcommands to run:
+[2m  $ [0m[36m[PATTERN] date +%A[0m
+
+[32mEXEC: [0mdate +%A
+[2mOUTPUT: [0mmandag
+
+
+[33mLLM → ANNA: [0m[PATTERN-OK]
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Question: "show me what changed since yesterday"[0m
+[2m│ [0m
+[2m│ Command output:[0m
+[2m│ $ date +%A [OK][0m
+[2m│ mandag[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Answer the question using ONLY the command output above.[0m
+[2m│ Give a short, direct answer (just the value or fact).[0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m│ [0m
+[2m│ Answer:[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m
+[2m═══════════════════════════════════════[0m
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32m[LLM unavailable - showing raw command output]
+
+$ date +%A [OK]
+mandag[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

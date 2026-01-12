@@ -12,6 +12,29 @@ use std::io::{self, Write};
 use streaming::ask_streaming;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
+/// Handle reset command - clears all statistics and learning data
+async fn handle_reset() {
+    println!();
+    println_colored("RESET", CYAN);
+    println!();
+
+    match rpc::reset().await {
+        Ok(result) => {
+            println_colored("Reset complete:", GREEN);
+            for item in &result.cleared {
+                println!("  ✓ {}", item);
+            }
+            println!();
+            println_colored("Anna is ready to start fresh.", DIM);
+        }
+        Err(e) => {
+            print_colored("Error: ", RED);
+            println!("{}", e);
+        }
+    }
+    println!();
+}
+
 /// Handle a question with clarification loop
 async fn handle_question(question: &str) {
     // v0.0.994: Use stable session ID for non-interactive mode
@@ -165,6 +188,9 @@ async fn main() -> Result<()> {
             "stats" => {
                 print_stats();
             }
+            "reset" => {
+                handle_reset().await;
+            }
             "help" | "--help" | "-h" => {
                 println!("Anna - Arch Linux Assistant");
                 println!();
@@ -172,6 +198,7 @@ async fn main() -> Result<()> {
                 println!("  annactl                  Start interactive REPL");
                 println!("  annactl status           Show daemon status");
                 println!("  annactl stats            Show activity statistics");
+                println!("  annactl reset            Reset all statistics and learning data");
                 println!("  annactl <question>       Ask a question");
                 println!();
                 println!("Examples:");

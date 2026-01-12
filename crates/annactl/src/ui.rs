@@ -1,21 +1,22 @@
-//! UI utilities for Hollywood-style terminal experience.
+//! UI utilities for clean terminal experience.
 //!
 //! Provides:
 //! - Animated spinners for long operations
-//! - Gradient colors and true color support
-//! - Box-drawing and panel utilities
-//! - Real-time progress indicators
+//! - Color support (ANSI 256 and true color)
+//! - Clean section headers (no box drawing)
+//! - Status indicators
 //!
 //! v0.1.0: Initial implementation
+//! v0.1.1: Removed box drawing for cleaner look
 
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 // TRUE COLOR SUPPORT
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 
 /// RGB color
 pub struct Rgb(pub u8, pub u8, pub u8);
@@ -45,18 +46,12 @@ pub mod colors {
     pub const DIM: Rgb = Rgb(80, 80, 80);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 // SPINNER ANIMATION
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 
 /// Spinner frames (Braille animation - smooth)
 const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-
-/// Alternative spinner (dots)
-const SPINNER_DOTS: &[&str] = &["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
-
-/// Minimalist spinner
-const SPINNER_SIMPLE: &[&str] = &["|", "/", "-", "\\"];
 
 /// Spinner handle for async operations
 pub struct Spinner {
@@ -76,17 +71,15 @@ impl Spinner {
             let frames = SPINNER_FRAMES;
 
             while running_clone.load(Ordering::SeqCst) {
-                // Clear line and print spinner
-                print!("\r\x1b[K");  // Clear line
-                print!("\x1b[36m{}\x1b[0m ", frames[frame_idx]);  // Cyan spinner
-                print!("\x1b[2m{}\x1b[0m", msg);  // Dim message
+                print!("\r\x1b[K");
+                print!("\x1b[36m{}\x1b[0m ", frames[frame_idx]);
+                print!("\x1b[2m{}\x1b[0m", msg);
                 io::stdout().flush().ok();
 
                 frame_idx = (frame_idx + 1) % frames.len();
                 std::thread::sleep(Duration::from_millis(80));
             }
 
-            // Clear the spinner line when done
             print!("\r\x1b[K");
             io::stdout().flush().ok();
         });
@@ -97,7 +90,6 @@ impl Spinner {
         }
     }
 
-    /// Stop the spinner (internal helper)
     fn stop_internal(&mut self) {
         self.running.store(false, Ordering::SeqCst);
         if let Some(handle) = self.handle.take() {
@@ -105,24 +97,20 @@ impl Spinner {
         }
     }
 
-    /// Stop the spinner
     pub fn stop(mut self) {
         self.stop_internal();
     }
 
-    /// Stop with a success message
     pub fn success(mut self, message: &str) {
         self.stop_internal();
         println!("\x1b[32m✓\x1b[0m {}", message);
     }
 
-    /// Stop with a failure message
     pub fn fail(mut self, message: &str) {
         self.stop_internal();
         println!("\x1b[31m✗\x1b[0m {}", message);
     }
 
-    /// Stop with an info message
     pub fn info(mut self, message: &str) {
         self.stop_internal();
         println!("\x1b[36m→\x1b[0m {}", message);
@@ -135,21 +123,19 @@ impl Drop for Spinner {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 // PROGRESS BAR
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 
 /// Simple progress bar
 pub fn print_progress_bar(progress: f32, width: usize, label: &str) {
     let filled = (progress * width as f32) as usize;
     let empty = width.saturating_sub(filled);
 
-    print!("\r\x1b[K");  // Clear line
+    print!("\r\x1b[K");
     print!("{} ", label);
-    print!("\x1b[2m[\x1b[0m");
-    print!("\x1b[32m{}\x1b[0m", "█".repeat(filled));
-    print!("\x1b[2m{}\x1b[0m", "░".repeat(empty));
-    print!("\x1b[2m]\x1b[0m");
+    print!("\x1b[32m{}\x1b[0m", "=".repeat(filled));
+    print!("\x1b[2m{}\x1b[0m", "-".repeat(empty));
     print!(" {:.0}%", progress * 100.0);
     io::stdout().flush().ok();
 }
@@ -159,82 +145,58 @@ pub fn complete_progress_bar() {
     println!();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// BOX DRAWING
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
+// SECTION HEADERS (clean, no boxes)
+// =============================================================================
 
-/// Draw a box around content
-pub fn draw_box(title: &str, content: &[&str], width: usize) {
-    let inner_width = width - 4;
-
-    // Top border with title
-    print!("\x1b[2m┌─ \x1b[0m");
-    print!("\x1b[36m{}\x1b[0m", title);
-    let title_len = title.chars().count();
-    if title_len + 4 < width {
-        print!("\x1b[2m{}\x1b[0m", "─".repeat(width - title_len - 4));
-    }
-    println!("\x1b[2m┐\x1b[0m");
-
-    // Content
+/// Print a section with title and content (clean style, no boxes)
+pub fn draw_box(title: &str, content: &[&str], _width: usize) {
+    // Just print section header and indented content
+    println!();
+    println!("\x1b[1;36m{}\x1b[0m", title.to_uppercase());
     for line in content {
-        print!("\x1b[2m│\x1b[0m ");
-        let line_len = line.chars().count();
-        print!("{}", line);
-        if line_len < inner_width {
-            print!("{}", " ".repeat(inner_width - line_len));
-        }
-        println!(" \x1b[2m│\x1b[0m");
+        println!("  {}", line);
     }
-
-    // Bottom border
-    println!("\x1b[2m└{}┘\x1b[0m", "─".repeat(width - 2));
 }
 
-/// Draw a simple horizontal divider
-pub fn draw_divider(width: usize) {
-    println!("\x1b[2m{}\x1b[0m", "─".repeat(width));
+/// Draw a subtle divider (just blank line)
+pub fn draw_divider(_width: usize) {
+    println!();
 }
 
-/// Draw a double horizontal divider
-pub fn draw_double_divider(width: usize) {
-    println!("\x1b[2m{}\x1b[0m", "═".repeat(width));
+/// Draw a double divider (just blank line)
+pub fn draw_double_divider(_width: usize) {
+    println!();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 // STATUS INDICATORS
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
 
-/// Print a success indicator
 pub fn print_success(message: &str) {
     println!("\x1b[32m✓\x1b[0m {}", message);
 }
 
-/// Print an error indicator
 pub fn print_error(message: &str) {
     println!("\x1b[31m✗\x1b[0m {}", message);
 }
 
-/// Print a warning indicator
 pub fn print_warning(message: &str) {
     println!("\x1b[33m⚠\x1b[0m {}", message);
 }
 
-/// Print an info indicator
 pub fn print_info(message: &str) {
     println!("\x1b[36m→\x1b[0m {}", message);
 }
 
-/// Print a bullet point
 pub fn print_bullet(message: &str) {
-    println!("\x1b[2m•\x1b[0m {}", message);
+    println!("  {}", message);
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TYPING EFFECT (for dramatic answers)
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
+// TYPING EFFECT
+// =============================================================================
 
-/// Print text with typing effect
 pub fn print_typing(text: &str, delay_ms: u64) {
     for c in text.chars() {
         print!("{}", c);
@@ -243,7 +205,6 @@ pub fn print_typing(text: &str, delay_ms: u64) {
     }
 }
 
-/// Print text with typing effect and color
 pub fn print_typing_colored(text: &str, color: &str, delay_ms: u64) {
     print!("{}", color);
     for c in text.chars() {
@@ -254,66 +215,54 @@ pub fn print_typing_colored(text: &str, color: &str, delay_ms: u64) {
     print!("\x1b[0m");
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// HEADER / BANNER
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
+// HEADER / BANNER (clean style)
+// =============================================================================
 
-/// Print Anna header banner
+/// Print Anna header banner (clean, no boxes)
 pub fn print_banner() {
     println!();
-    println!("\x1b[36m╔═══════════════════════════════════════════════════════════╗\x1b[0m");
-    println!("\x1b[36m║\x1b[0m              \x1b[1;36mANNA\x1b[0m - IT Department Assistant              \x1b[36m║\x1b[0m");
-    println!("\x1b[36m╚═══════════════════════════════════════════════════════════╝\x1b[0m");
+    println!("\x1b[1;36mANNA\x1b[0m - IT Department Assistant");
     println!();
 }
 
 /// Print a section header
 pub fn print_section(title: &str) {
     println!();
-    print!("\x1b[2m─── \x1b[0m");
-    print!("\x1b[1;36m{}\x1b[0m", title);
-    println!("\x1b[2m ───────────────────────────────────────────\x1b[0m");
-    println!();
+    println!("\x1b[1;36m{}\x1b[0m", title.to_uppercase());
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// TEAM DIALOGUE FORMATTING
-// ═══════════════════════════════════════════════════════════════════════════
+// =============================================================================
+// TEAM DIALOGUE FORMATTING (clean style)
+// =============================================================================
 
 /// Format team member dialogue
 pub fn print_team_dialogue(name: &str, role: &str, message: &str) {
-    print!("\x1b[2m  │ \x1b[0m");
-    print!("\x1b[35m{}\x1b[0m", name);
+    print!("  \x1b[35m{}\x1b[0m", name);
     print!("\x1b[2m ({})\x1b[0m", role);
-    print!(": {}", message);
-    println!();
+    println!(": {}", message);
 }
 
 /// Format Anna speaking
 pub fn print_anna_speaks(message: &str) {
-    print!("\x1b[35mAnna\x1b[0m → ");
-    println!("{}", message);
+    println!("\x1b[35mAnna\x1b[0m: {}", message);
 }
 
-/// Format ticket creation
+/// Format ticket creation (clean style)
 pub fn print_ticket(ticket_id: &str, department: &str) {
     println!();
-    print!("\x1b[2m┌─ \x1b[0m");
-    print!("\x1b[36mTICKET\x1b[0m ");
+    print!("\x1b[36mTicket\x1b[0m ");
     print!("\x1b[1;37m{}\x1b[0m", ticket_id);
-    print!(" → ");
-    print!("\x1b[36m{}\x1b[0m", department);
+    print!(" → \x1b[36m{}\x1b[0m", department);
     println!(" department");
-    println!("\x1b[2m└─\x1b[0m");
 }
 
 /// Format escalation
 pub fn print_escalation(from: &str, to: &str, reason: &str) {
     println!();
-    print!("\x1b[33m  ⇈ \x1b[0m");
-    print!("Escalating from {} to {}", from, to);
+    print!("\x1b[33m↑\x1b[0m Escalating: {} → {}", from, to);
     if !reason.is_empty() {
-        print!(": {}", reason);
+        print!(" ({})", reason);
     }
     println!();
 }

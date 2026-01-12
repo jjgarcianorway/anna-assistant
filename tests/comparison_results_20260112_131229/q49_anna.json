@@ -1,0 +1,8 @@
+{
+  "question_num": 49,
+  "category": "Obscure",
+  "question": "cannot find nvidia module in dkms",
+  "status": "timeout",
+  "response_time_ms": 60005,
+  "exit_code": 124
+}

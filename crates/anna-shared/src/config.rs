@@ -32,6 +32,10 @@ pub struct AnnaConfig {
     /// Ollama settings (v0.0.895)
     #[serde(default)]
     pub ollama: OllamaConfig,
+
+    /// v0.1.1: Use Ralph-style iteration loop (simpler, more robust)
+    #[serde(default = "default_true")]
+    pub use_ralph_loop: bool,
 }
 
 /// v0.0.895: Ollama configuration - centralized, no more hardcoding
@@ -191,6 +195,7 @@ impl Default for AnnaConfig {
             wiki: WikiConfig::default(),
             performance: PerformanceConfig::default(),
             ollama: OllamaConfig::default(),
+            use_ralph_loop: true,
         }
     }
 }

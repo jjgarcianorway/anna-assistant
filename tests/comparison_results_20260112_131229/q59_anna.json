@@ -1,0 +1,8 @@
+{
+  "question_num": 59,
+  "category": "Obscure",
+  "question": "docker containers can't resolve dns",
+  "status": "timeout",
+  "response_time_ms": 60004,
+  "exit_code": 124
+}

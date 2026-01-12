@@ -1,0 +1,8 @@
+{
+  "question_num": 46,
+  "category": "Obscure",
+  "question": "pacman says database is locked",
+  "status": "timeout",
+  "response_time_ms": 60006,
+  "exit_code": 124
+}

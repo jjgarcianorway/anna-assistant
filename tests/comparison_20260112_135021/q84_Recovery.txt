@@ -1,0 +1,13 @@
+Question: my display manager won't start, just black screen
+Category: Recovery
+Exit: 0
+Time: 0s
+---
+
+
+[33mANNA → USER: [0mPlease confirm:
+  I'll start the display service:
+    sudo systemctl start display
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

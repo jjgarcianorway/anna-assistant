@@ -1,0 +1,8 @@
+{
+  "question_num": 60,
+  "category": "Obscure",
+  "question": "locale errors everywhere after partial update",
+  "status": "timeout",
+  "response_time_ms": 60004,
+  "exit_code": 124
+}

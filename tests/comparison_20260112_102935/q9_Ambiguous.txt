@@ -1,0 +1,49 @@
+Question: where did my files go
+Category: Ambiguous
+Exit: 0
+Time: 0s
+---
+
+[36mUSER: [0mwhere did my files go
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: where did my files go
+[2m  intent: [0mUnderstood as: where did my files go
+Category: Factual
+Confidence: 50%
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: where did my files go[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • Go (score: 1.00)[0m
+
+[35mWIKI: [0mextracted commands:
+[2m  $ [0m[36mexport PATH="$PATH:$(go env GOBIN):$(go env GOPATH)/bin"[0m
+[2m  $ [0m[36mgo run hello.go[0m
+[2m  $ [0m[36mgo build hello.go[0m
+[2m  $ [0m[36mgccgo hello.go -o hello[0m
+[2m  $ [0m[36mtinygo build -o hello ./hello.go[0m
+[2m  $ [0m[36mexport GOPROXY=https://goproxy.io/[0m
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ System: CachyOS Linux, systemd-boot, editor:vim, shell:fish, btrfs[0m
+[2m│ Question: "where did my files go"[0m
+[2m│ [0m
+[2m│ Reply with 1-3 shell commands ONLY (no markdown, no explanations).[0m
+[2m│ NEVER use: top, htop, vim, nano, less (they need a terminal).[0m
+[2m│ For CPU: ps aux --sort=-%cpu | head -10[0m
+[2m│ Output NONE if no commands needed.[0m
+[2m│ [0m
+[2m│ Suggested commands from Arch Wiki (use if relevant):[0m
+[2m│   export PATH="$PATH:$(go env GOBIN):$(go env GOPATH)/bin"[0m
+[2m│   go run hello.go[0m
+[2m│   go build hello.go[0m
+[2m│   gccgo hello.go -o hello[0m
+[2m│   tinygo build -o hello ./hello.go[0m
+[2m│ [0m
+[2m│ Commands:[0m
+[2m└─────────────────────────────────────────[0m
+
+[31mError: [0mExecution error: Circuit breaker OPEN - Ollama is unavailable (too many failures). Waiting for cooldown before retrying.
+[31mError: [0mExecution error: Circuit breaker OPEN - Ollama is unavailable (too many failures). Waiting for cooldown before retrying.

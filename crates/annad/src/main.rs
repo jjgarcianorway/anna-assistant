@@ -173,6 +173,11 @@ async fn main() -> Result<()> {
     // Create shared state
     let state = SharedState::new();
 
+    // v0.1.1: Binary watcher - auto-restart when binary changes (for dev workflow)
+    tokio::spawn(async {
+        annad::binary_watcher::binary_watch_loop().await;
+    });
+
     // v0.0.999: Systemd watchdog - ping every 30s to prove we're alive
     // If we freeze, systemd will kill and restart us
     tokio::spawn(async {

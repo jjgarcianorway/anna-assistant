@@ -1,0 +1,8 @@
+{
+  "question_num": 28,
+  "category": "EdgeCase",
+  "question": "my GPU usage spikes to 100% randomly for 2 seconds",
+  "status": "success",
+  "response_time_ms": 1288,
+  "response_length": 7324
+}

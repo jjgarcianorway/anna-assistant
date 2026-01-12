@@ -1,0 +1,262 @@
+
+[36mUSER: [0mwhy does my fan spin up when the system is idle
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: fan running when idle
+[2m  intent: [0mUnderstood as: fan running when idle
+Category: Troubleshoot
+Confidence: 90%
+Topic: hardware
+
+[2m┌─ [0m[36mTICKET [0m[37;1mTicket CN-0014-12012026 opened → Desktop department[0m
+[2m└─[0m
+[35mAnna → [0mHey Alex! Got a desktop question for you: "why does my fan spin up when the system is idle"
+[2m  │ [0mAlex: On it! Let me check a few things...
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Running 3 diagnostic commands...[0m
+[2m└─────────────────────────────────────────[0m
+
+[32mEXEC: [0msensors
+[2mOUTPUT: [0mucsi_source_psy_USBC000:001-isa-0000
+Adapter: ISA adapter
+in0:           5.00 V  (min =  +5.00 V, max =  +5.00 V)
+curr1:         0.00 A  (max =  +3.00 A)
+
+coretemp-isa-0000
+Adapter: ISA adapter
+Package id 0:  +77.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 0:        +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 4:        +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 8:        +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 12:       +73.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 16:       +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 20:       +71.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 24:       +69.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 28:       +69.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 32:       +74.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 33:       +74.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 34:       +74.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 35:       +74.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 36:       +73.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 37:       +73.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 38:       +73.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 39:       +73.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 40:       +73.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 41:       +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 42:       +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 43:       +72.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 44:       +71.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 45:       +71.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 46:       +71.0°C  (high = +100.0°C, crit = +100.0°C)
+Core 47:       +71.0°C  (high = +100.0°C, crit = +100.0°C)
+
+spd5118-i2c-9-50
+Adapter: SMBus I801 adapter at 0000:00:1f.4
+temp1:        +49.8°C  (low  =  +0.0°C, high = +55.0°C)
+                       (crit low =  +0.0°C, crit = +85.0°C)
+
+BAT0-acpi-0
+Adapter: ACPI interface
+in0:          17.23 V  
+power1:        0.00 W  
+
+ucsi_source_psy_USBC000:002-isa-0000
+Adapter: ISA adapter
+in0:           0.00 V  (min =  +0.00 V, max =  +0.00 V)
+curr1:         2.40 A  (max =  +0.00 A)
+
+iwlwifi_1-virtual-0
+Adapter: Virtual device
+temp1:        +36.0°C  
+
+spd5118-i2c-9-52
+Adapter: SMBus I801 adapter at 0000:00:1f.4
+temp1:        +44.0°C  (low  =  +0.0°C, high = +55.0°C)
+                       (crit low =  +0.0°C, crit = +85.0°C)
+
+nvme-pci-0200
+Adapter: PCI adapter
+Composite:    +39.9°C  (low  = -273.1°C, high = +75.8°C)
+                       (crit = +86.8°C)
+Sensor 1:     +39.9°C  (low  = -273.1°C, high = +65261.8°C)
+Sensor 2:     +45.9°C  (low  = -273.1°C, high = +65261.8°C)
+
+acpi_fan-isa-0000
+Adapter: ISA adapter
+fan1:           0 RPM
+
+
+(stderr: ERROR: Can't get value of subfeature temp1_max_alarm: Can't read
+ERROR: Can't get value of subfeature temp1_max_alarm: Can't read)
+
+[32mEXEC: [0mcat /sys/class/thermal/thermal_zone*/temp
+[2mOUTPUT: [0m58050
+20000
+83050
+68050
+71050
+30050
+77050
+77000
+36000
+77000
+
+
+[32mEXEC: [0mps aux --sort=-%cpu | head -5
+[2mOUTPUT: [0mUSER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ollama   1985048 76.0  2.4 48220468 807380 ?     Sl   13:12   1:37 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 44589
+lhoqvso  1172748 28.0  1.1 1460223360 365116 ?   SNl  jan.09 1078:55 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=1512 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=173778828789 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,10068620404144487620,12137567678244461238,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190710403119147182
+lhoqvso  1335650 15.5  1.4 83753936 470944 pts/3 SNl+ jan.10 460:25 claude --dangerously-skip-permissions
+lhoqvso  1797597  8.2  0.3 51076524 110340 ?     SNl  jan.11  80:15 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20
+
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are an Arch Linux troubleshooting expert. Analyze the diagnostic output and identify the issue.[0m
+[2m│ [0m
+[2m│ System: CachyOS Linux, systemd-boot, editor:vim, shell:fish, btrfs[0m
+[2m│ [0m
+[2m│ User's problem: "why does my fan spin up when the system is idle"[0m
+[2m│ [0m
+[2m│ Diagnostic output:[0m
+[2m│ $ sensors[0m
+[2m│ ucsi_source_psy_USBC000:001-isa-0000[0m
+[2m│ Adapter: ISA adapter[0m
+[2m│ in0:           5.00 V  (min =  +5.00 V, max =  +5.00 V)[0m
+[2m│ curr1:         0.00 A  (max =  +3.00 A)[0m
+[2m│ [0m
+[2m│ coretemp-isa-0000[0m
+[2m│ Adapter: ISA adapter[0m
+[2m│ Package id 0:  +77.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 0:        +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 4:        +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 8:        +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 12:       +73.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 16:       +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 20:       +71.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 24:       +69.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 28:       +69.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 32:       +74.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 33:       +74.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 34:       +74.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 35:       +74.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 36:       +73.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 37:       +73.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 38:       +73.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 39:       +73.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 40:       +73.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 41:       +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 42:       +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 43:       +72.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 44:       +71.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 45:       +71.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 46:       +71.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ Core 47:       +71.0°C  (high = +100.0°C, crit = +100.0°C)[0m
+[2m│ [0m
+[2m│ spd5118-i2c-9-50[0m
+[2m│ Adapter: SMBus I801 adapter at 0000:00:1f.4[0m
+[2m│ temp1:        +49.8°C  (low  =  +0.0°C, high = +55.0°C)[0m
+[2m│                        (crit low =  +0.0°C, crit = +85.0°C)[0m
+[2m│ [0m
+[2m│ BAT0-acpi-0[0m
+[2m│ Adapter: ACPI interface[0m
+[2m│ in0:          17.23 V  [0m
+[2m│ power1:        0.00 W  [0m
+[2m│ [0m
+[2m│ ucsi_source_psy_USBC000:002-isa-0000[0m
+[2m│ Adapter: ISA adapter[0m
+[2m│ in0:           0.00 V  (min =  +0.00 V, max =  +0.00 V)[0m
+[2m│ curr1:         2.40 A  (max =  +0.00 A)[0m
+[2m│ [0m
+[2m│ iwlwifi_1-virtual-0[0m
+[2m│ Adapter: Virtual device[0m
+[2m│ temp1:        +36.0°C  [0m
+[2m│ [0m
+[2m│ spd5118-i2c-9-52[0m
+[2m│ Adapter: SMBus I801 adapter at 0000:00:1f.4[0m
+[2m│ temp1:        +44.0°C  (low  =  +0.0°C, high = +55.0°C)[0m
+[2m│                        (crit low =  +0.0°C, crit = +85.0°C)[0m
+[2m│ [0m
+[2m│ nvme-pci-0200[0m
+[2m│ Adapter: PCI adapter[0m
+[2m│ Composite:    +39.9°C  (low  = -273.1°C, high = +75.8°C)[0m
+[2m│                        (crit = +86.8°C)[0m
+[2m│ Sensor 1:     +39.9°C  (low  = -273.1°C, high = +65261.8°C)[0m
+[2m│ Sensor 2:     +45.9°C  (low  = -273.1°C, high = +65261.8°C)[0m
+[2m│ [0m
+[2m│ acpi_fan-isa-0000[0m
+[2m│ Adapter: ISA adapter[0m
+[2m│ fan1:           0 RPM[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ (stderr: ERROR: Can't get value of subfeature temp1_max_alarm: Can't read[0m
+[2m│ ERROR: Can't get value of subfeature temp1_max_alarm: Can't read)[0m
+[2m│ [0m
+[2m│ $ cat /sys/class/thermal/thermal_zone*/temp[0m
+[2m│ 58050[0m
+[2m│ 20000[0m
+[2m│ 83050[0m
+[2m│ 68050[0m
+[2m│ 71050[0m
+[2m│ 30050[0m
+[2m│ 77050[0m
+[2m│ 77000[0m
+[2m│ 36000[0m
+[2m│ 77000[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ ps aux --sort=-%cpu | head -5[0m
+[2m│ USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND[0m
+[2m│ ollama   1985048 76.0  2.4 48220468 807380 ?     Sl   13:12   1:37 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 44589[0m
+[2m│ lhoqvso  1172748 28.0  1.1 1460223360 365116 ?   SNl  jan.09 1078:55 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=1512 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=173778828789 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,10068620404144487620,12137567678244461238,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190710403119147182[0m
+[2m│ lhoqvso  1335650 15.5  1.4 83753936 470944 pts/3 SNl+ jan.10 460:25 claude --dangerously-skip-permissions[0m
+[2m│ lhoqvso  1797597  8.2  0.3 51076524 110340 ?     SNl  jan.11  80:15 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Based on this diagnostic information:[0m
+[2m│ 1. Identify the likely cause of the problem[0m
+[2m│ 2. Explain what the diagnostic output reveals[0m
+[2m│ 3. Provide specific steps to fix the issue[0m
+[2m│ 4. If you can't identify the issue, suggest additional diagnostics[0m
+[2m│ [0m
+[2m│ Be specific and actionable. Use the actual data from the diagnostic output.[0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mBased[0m[32m on[0m[32m the[0m[32m provided[0m[32m diagnostic[0m[32m information[0m[32m:
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mIdent[0m[32mify[0m[32m the[0m[32m likely[0m[32m cause[0m[32m of[0m[32m the[0m[32m problem[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m The[0m[32m temperature[0m[32m readings[0m[32m are[0m[32m relatively[0m[32m high[0m[32m across[0m[32m multiple[0m[32m cores[0m[32m ([0m[32m7[0m[32m2[0m[32m°C[0m[32m to[0m[32m [0m[32m7[0m[32m4[0m[32m°C[0m[32m).[0m[32m This[0m[32m suggests[0m[32m that[0m[32m the[0m[32m system[0m[32m is[0m[32m overhe[0m[32mating[0m[32m,[0m[32m which[0m[32m could[0m[32m be[0m[32m causing[0m[32m the[0m[32m fan[0m[32m to[0m[32m spin[0m[32m up[0m[32m despite[0m[32m being[0m[32m idle[0m[32m.
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mExplanation[0m[32m of[0m[32m what[0m[32m the[0m[32m diagnostic[0m[32m output[0m[32m reveals[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m `[0m[32ms[0m[32mensors[0m[32m`[0m[32m shows[0m[32m that[0m[32m the[0m[32m CPU[0m[32m and[0m[32m some[0m[32m other[0m[32m components[0m[32m are[0m[32m running[0m[32m at[0m[32m temperatures[0m[32m ranging[0m[32m from[0m[32m [0m[32m3[0m[32m6[0m[32m°C[0m[32m to[0m[32m [0m[32m8[0m[32m5[0m[32m°C[0m[32m.
+[0m[32m  [0m[32m -[0m[32m The[0m[32m fan[0m[32m (`[0m[32mac[0m[32mpi[0m[32m_f[0m[32man[0m[32m-[0m[32misa[0m[32m-[0m[32m0[0m[32m0[0m[32m0[0m[32m0[0m[32m`)[0m[32m is[0m[32m currently[0m[32m not[0m[32m spinning[0m[32m ([0m[32m0[0m[32m RPM[0m[32m).
+[0m[32m  [0m[32m -[0m[32m The[0m[32m temperature[0m[32m readings[0m[32m in[0m[32m `/[0m[32msys[0m[32m/class[0m[32m/[0m[32mthermal[0m[32m/[0m[32mthermal[0m[32m_zone[0m[32m*/[0m[32mtemp[0m[32m`[0m[32m confirm[0m[32m the[0m[32m high[0m[32m temperatures[0m[32m,[0m[32m with[0m[32m several[0m[32m zones[0m[32m indicating[0m[32m between[0m[32m [0m[32m3[0m[32m0[0m[32m°C[0m[32m and[0m[32m [0m[32m7[0m[32m7[0m[32m°C[0m[32m.
+[0m[32m  [0m[32m -[0m[32m High[0m[32m CPU[0m[32m usage[0m[32m by[0m[32m processes[0m[32m like[0m[32m `[0m[32moll[0m[32mama[0m[32m`,[0m[32m `[0m[32mchrome[0m[32m`,[0m[32m and[0m[32m `[0m[32mcla[0m[32mude[0m[32m`[0m[32m could[0m[32m be[0m[32m contributing[0m[32m to[0m[32m the[0m[32m heat[0m[32m.
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mSpecific[0m[32m steps[0m[32m to[0m[32m fix[0m[32m the[0m[32m issue[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m Ensure[0m[32m adequate[0m[32m cooling[0m[32m:
+[0m[32m    [0m[32m -[0m[32m Check[0m[32m if[0m[32m there[0m[32m are[0m[32m any[0m[32m block[0m[32mages[0m[32m or[0m[32m ob[0m[32mstructions[0m[32m in[0m[32m the[0m[32m air[0m[32m vents[0m[32m of[0m[32m your[0m[32m system[0m[32m.
+[0m[32m    [0m[32m -[0m[32m Clean[0m[32m out[0m[32m dust[0m[32m from[0m[32m the[0m[32m fans[0m[32m,[0m[32m heats[0m[32minks[0m[32m,[0m[32m and[0m[32m other[0m[32m areas[0m[32m where[0m[32m it[0m[32m might[0m[32m accumulate[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Verify[0m[32m thermal[0m[32m paste[0m[32m on[0m[32m CPU[0m[32m and[0m[32m GPU[0m[32m ([0m[32mif[0m[32m applicable[0m[32m):
+[0m[32m    [0m[32m -[0m[32m If[0m[32m you[0m[32m notice[0m[32m a[0m[32m significant[0m[32m drop[0m[32m in[0m[32m temperature[0m[32m after[0m[32m cleaning[0m[32m,[0m[32m consider[0m[32m applying[0m[32m fresh[0m[32m thermal[0m[32m paste[0m[32m to[0m[32m improve[0m[32m heat[0m[32m transfer[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Adjust[0m[32m fan[0m[32m settings[0m[32m:
+[0m[32m    [0m[32m -[0m[32m Some[0m[32m systems[0m[32m allow[0m[32m for[0m[32m manual[0m[32m control[0m[32m of[0m[32m fan[0m[32m speeds[0m[32m via[0m[32m `[0m[32mfan[0m[32mcontrol[0m[32m`[0m[32m or[0m[32m similar[0m[32m utilities[0m[32m.[0m[32m You[0m[32m might[0m[32m want[0m[32m to[0m[32m check[0m[32m if[0m[32m there[0m[32m's[0m[32m a[0m[32m way[0m[32m to[0m[32m configure[0m[32m the[0m[32m fan[0m[32m curve[0m[32m to[0m[32m ensure[0m[32m it[0m[32m spins[0m[32m up[0m[32m only[0m[32m when[0m[32m necessary[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Monitor[0m[32m and[0m[32m manage[0m[32m processes[0m[32m:
+[0m[32m    [0m[32m -[0m[32m Use[0m[32m tools[0m[32m like[0m[32m `[0m[32mht[0m[32mop[0m[32m`[0m[32m or[0m[32m `[0m[32mtop[0m[32m`[0m[32m to[0m[32m monitor[0m[32m which[0m[32m processes[0m[32m are[0m[32m consuming[0m[32m significant[0m[32m CPU[0m[32m resources[0m[32m.[0m[32m Consider[0m[32m reducing[0m[32m the[0m[32m priority[0m[32m of[0m[32m resource[0m[32m-intensive[0m[32m applications[0m[32m during[0m[32m idle[0m[32m times[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Review[0m[32m power[0m[32m settings[0m[32m:
+[0m[32m    [0m[32m -[0m[32m Check[0m[32m if[0m[32m there[0m[32m are[0m[32m any[0m[32m power[0m[32m-saving[0m[32m settings[0m[32m that[0m[32m could[0m[32m be[0m[32m affecting[0m[32m the[0m[32m fan[0m[32m behavior[0m[32m.
+
+[0m[32m4[0m[32m.[0m[32m **[0m[32mAdditional[0m[32m diagnostics[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m Run[0m[32m a[0m[32m diagnostic[0m[32m tool[0m[32m like[0m[32m `[0m[32mlm[0m[32m-s[0m[32mensors[0m[32m`[0m[32m to[0m[32m ensure[0m[32m all[0m[32m thermal[0m[32m sensors[0m[32m are[0m[32m functioning[0m[32m correctly[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Use[0m[32m tools[0m[32m like[0m[32m `[0m[32mtp[0m[32mstat[0m[32m`[0m[32m ([0m[32mfor[0m[32m Intel[0m[32m CPUs[0m[32m)[0m[32m or[0m[32m similar[0m[32m utilities[0m[32m to[0m[32m get[0m[32m more[0m[32m detailed[0m[32m information[0m[32m about[0m[32m thermal[0m[32m zones[0m[32m and[0m[32m their[0m[32m thresholds[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Check[0m[32m if[0m[32m there[0m[32m are[0m[32m any[0m[32m BIOS[0m[32m/[0m[32mUE[0m[32mFI[0m[32m updates[0m[32m that[0m[32m could[0m[32m improve[0m[32m thermal[0m[32m management[0m[32m.
+
+[0m[32mBy[0m[32m addressing[0m[32m these[0m[32m steps[0m[32m,[0m[32m you[0m[32m should[0m[32m be[0m[32m able[0m[32m to[0m[32m reduce[0m[32m the[0m[32m high[0m[32m temperatures[0m[32m and[0m[32m prevent[0m[32m unnecessary[0m[32m fan[0m[32m operation[0m[32m during[0m[32m idle[0m[32m times[0m[32m.[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

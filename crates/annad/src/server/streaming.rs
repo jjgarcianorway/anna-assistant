@@ -8,12 +8,14 @@ use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
 
+use anna_shared::config::AnnaConfig;
 use crate::autofix::{
     find_autofix, check_autofix_needed, format_autofix_offer, execute_autofix,
     set_pending_autofix, take_pending_autofix, is_yes_response, is_no_response,
     get_fix_history_summary,
 };
 use crate::core_loop::execute_question_streaming;
+use crate::ralph;
 use crate::recipes;
 use crate::state::SharedState;
 use crate::team_speak;
@@ -439,13 +441,23 @@ pub async fn handle_streaming_request(
         }
     }
 
-    let result = execute_question_streaming(
-        &model,
-        question_to_use,
-        session_context.as_deref(),
-        &mut writer,
-    )
-    .await;
+    // v0.1.1: Check if Ralph loop is enabled (simpler, more robust)
+    let use_ralph = AnnaConfig::load()
+        .map(|c| c.use_ralph_loop)
+        .unwrap_or(true);
+
+    let result = if use_ralph {
+        info!("Using Ralph loop for question: {}", question_to_use);
+        ralph::ralph_loop_streaming(&model, question_to_use, &mut writer).await
+    } else {
+        execute_question_streaming(
+            &model,
+            question_to_use,
+            session_context.as_deref(),
+            &mut writer,
+        )
+        .await
+    };
 
     // v0.0.892: Record full turn to session after execution
     match &result {

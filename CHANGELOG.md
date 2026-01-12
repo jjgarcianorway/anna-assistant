@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-12
+
+### Added
+- **Ralph Loop** - New simplified iteration loop for answering questions:
+  - Determines completion criteria upfront (Factual, HowTo, Troubleshoot, Simple)
+  - Self-evaluates answers before declaring done
+  - More robust than complex branching logic
+  - Enabled by default (`use_ralph_loop = true` in config)
+
+- **Binary Watcher** - Auto-restart daemon when binary changes:
+  - Watches the annad binary for modifications
+  - Automatically triggers `systemctl restart annad` on change
+  - Essential for development workflow
+
+### Fixed
+- **HowTo Classification** - "how can I fix X" now correctly classified as Troubleshoot/HowTo instead of Factual
+- **Answer Generation** - Removed restrictive "Answer BRIEFLY" rule that caused useless answers
+
 ## [0.1.0] - 2026-01-12
 
 ### Added

@@ -20,11 +20,70 @@ type DisplayPattern<'a> = (&'a [&'a str], &'a str, &'a str, &'a [&'a str]);
 
 /// Match display-related patterns
 pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
-    match_resolution(q)
+    // Check GDM/login screen patterns first (more specific)
+    match_login_display(q)
+        .or_else(|| match_resolution(q))
         .or_else(|| match_monitors(q))
         .or_else(|| match_scaling(q))
         .or_else(|| match_refresh_rate(q))
         .or_else(|| match_display_config(q))
+}
+
+/// v0.1.0: GDM and login screen display patterns
+fn match_login_display(q: &str) -> Option<DeepUnderstanding> {
+    let patterns: &[DisplayPattern] = &[
+        // GDM resolution
+        (&["gdm", "resolution"], "change GDM resolution", "display",
+         &["echo 'GDM Resolution: Create /etc/gdm/custom.conf or /etc/gdm3/custom.conf'",
+           "echo 'For X11: sudo -u gdm dbus-launch gsettings set org.gnome.desktop.interface scaling-factor 1'",
+           "echo 'For custom resolution, create /usr/share/gdm/greeter-dconf-defaults'"]),
+        (&["gdm3", "resolution"], "change GDM3 resolution", "display",
+         &["echo 'Method 1: Edit /etc/gdm3/custom.conf to add: [daemon]\\nWaylandEnable=false'",
+           "echo 'Method 2: Create /usr/share/gdm/greeter-dconf-defaults for scale settings'",
+           "echo 'Method 3: Use xrandr in /etc/gdm3/PostSession/Default or custom script'"]),
+        (&["change", "resolution", "gdm"], "change GDM resolution", "display",
+         &["echo 'Option 1: Switch GDM to X11 by editing /etc/gdm3/custom.conf'",
+           "echo 'Option 2: Create a monitor config in /var/lib/gdm3/.config/monitors.xml'",
+           "echo 'Option 3: Use xrandr in /etc/gdm3/Init/Default script'"]),
+        // Login screen resolution
+        (&["login", "screen", "resolution"], "change login screen resolution", "display",
+         &["echo 'For GDM: Edit /etc/gdm3/custom.conf or create monitors.xml'",
+           "echo 'For SDDM: Edit /etc/sddm.conf.d/ or use DisplayCommand'",
+           "echo 'For LightDM: Edit /etc/lightdm/lightdm.conf display-setup-script'"]),
+        (&["login", "resolution"], "change login resolution", "display",
+         &["cat /etc/systemd/system/display-manager.service 2>/dev/null | grep ExecStart",
+           "echo 'Identify your DM, then configure resolution in its config'"]),
+        // GDM scaling
+        (&["gdm", "scaling"], "GDM HiDPI/scaling", "display",
+         &["echo 'For GDM scaling: sudo -u gdm dbus-launch gsettings set org.gnome.desktop.interface scaling-factor 2'",
+           "cat /var/lib/gdm3/.config/monitors.xml 2>/dev/null | head -20"]),
+        // GDM Wayland vs X11
+        (&["gdm", "wayland"], "GDM Wayland config", "display",
+         &["cat /etc/gdm3/custom.conf 2>/dev/null || cat /etc/gdm/custom.conf 2>/dev/null",
+           "echo 'To disable Wayland: Add WaylandEnable=false under [daemon] section'"]),
+        (&["gdm", "x11"], "GDM X11 config", "display",
+         &["echo 'To force X11: Edit /etc/gdm3/custom.conf and add WaylandEnable=false'",
+           "cat /etc/gdm3/custom.conf 2>/dev/null || cat /etc/gdm/custom.conf 2>/dev/null"]),
+        // SDDM resolution
+        (&["sddm", "resolution"], "change SDDM resolution", "display",
+         &["echo 'Edit /etc/sddm.conf.d/resolution.conf or use DisplayCommand'",
+           "echo 'Example: [X11]\\nDisplayCommand=/usr/share/sddm/scripts/Xsetup'"]),
+        // LightDM resolution
+        (&["lightdm", "resolution"], "change LightDM resolution", "display",
+         &["echo 'Edit /etc/lightdm/lightdm.conf:'",
+           "echo '[Seat:*]\\ndisplay-setup-script=xrandr --output HDMI-1 --mode 1920x1080'"]),
+        // Display manager info
+        (&["display", "manager", "resolution"], "display manager resolution", "display",
+         &["systemctl status display-manager | grep -E 'Loaded|Active|Main'",
+           "echo 'Check your DM docs (GDM/SDDM/LightDM) for resolution config'"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
 }
 
 /// Resolution patterns
@@ -238,5 +297,16 @@ mod tests {
         assert!(match_patterns("xrandr status").is_some());
         assert!(match_patterns("display server").is_some());
         assert!(match_patterns("screen brightness").is_some());
+    }
+
+    #[test]
+    fn test_login_display() {
+        assert!(match_patterns("gdm resolution").is_some());
+        assert!(match_patterns("gdm3 resolution").is_some());
+        assert!(match_patterns("change resolution gdm").is_some());
+        assert!(match_patterns("login screen resolution").is_some());
+        assert!(match_patterns("sddm resolution").is_some());
+        assert!(match_patterns("lightdm resolution").is_some());
+        assert!(match_patterns("gdm scaling").is_some());
     }
 }

@@ -1,0 +1,146 @@
+Question: it's slow
+Category: Ambiguous
+Exit: 124
+Time: 60s
+---
+
+
+[33m╔══════════════════════════════════════════════╗[0m
+[33m║           SYSTEM ALERT                       ║[0m
+[33m╚══════════════════════════════════════════════╝[0m
+[33m  [0m🔴 CRITICAL: High temperature: 97°C
+[33m  [0m   Suggested fix: Improve cooling immediately
+
+
+[33m╔══════════════════════════════════════════════╗[0m
+[33m║           SYSTEM ALERT                       ║[0m
+[33m╚══════════════════════════════════════════════╝[0m
+[33m  [0m🟡 Warning: Load unusually high: 6.01 (avg: 1.46)
+[33m  [0m   Suggested fix: Check: htop or ps aux --sort=-%cpu | head -10
+
+[36mUSER: [0mit's slow
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: system performance issue
+[2m  intent: [0mUnderstood as: system performance issue
+Category: Troubleshoot
+Confidence: 90%
+Topic: performance
+
+[33m╔══════════════════════════════════════════════╗[0m
+[33m║           SYSTEM ALERT                       ║[0m
+[33m╚══════════════════════════════════════════════╝[0m
+[33m  [0m⚠️ Related system status:
+[33m  [0m  • WARNING: Load unusually high: 6.01 (avg: 1.46)
+[33m  [0m  • INFO: Performance trend: degrading
+
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Running 6 diagnostic commands...[0m
+[2m└─────────────────────────────────────────[0m
+
+[32mEXEC: [0mcat /proc/loadavg
+[2mOUTPUT: [0m6.45 4.51 2.85 11/1786 1914612
+
+
+[32mEXEC: [0mfree -h
+[2mOUTPUT: [0m               total        used        free      shared  buff/cache   available
+Mem:            31Gi        14Gi        10Gi       158Mi       6,6Gi        16Gi
+Swap:           31Gi       6,9Gi        24Gi
+
+
+[32mEXEC: [0mps aux --sort=-%cpu | head -8
+[2mOUTPUT: [0mUSER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ollama   1908376  498 28.7 11963636 9347824 ?    Sl   10:24  31:21 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54 --port 44101
+lhoqvso  1172748 28.0  1.1 1460223360 362100 ?   SNl  jan.09 1033:32 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=1512 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=173778828789 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,10068620404144487620,12137567678244461238,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190710403119147182
+lhoqvso  1335650 14.7  1.6 83721168 521584 pts/3 RNl+ jan.10 414:29 claude --dangerously-skip-permissions
+lhoqvso  1797597  8.4  0.3 51076524 122588 ?     SNl  jan.11  67:31 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20
+lhoqvso     4820  4.2  0.5 20435184 182120 ?     SNsl jan.07 281:07 /usr/bin/gnome-shell
+lhoqvso   304934  2.2  0.2 2470452 78020 ?       Ssl  jan.08 120:19 /usr/bin/kgx --gapplication-service
+lhoqvso  1200791  1.9  0.9 57623524 299776 ?     SNl  jan.09  72:12 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20
+
+
+[32mEXEC: [0mps aux --sort=-%mem | head -8
+[2mOUTPUT: [0mUSER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ollama   1908376  498 28.7 11963636 9347824 ?    Sl   10:24  31:22 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54 --port 44101
+lhoqvso  1335650 14.7  1.6 83721168 521464 pts/3 SNl+ jan.10 414:29 claude --dangerously-skip-permissions
+lhoqvso  1172748 28.0  1.1 1460223360 362016 ?   SNl  jan.09 1033:32 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=1512 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=173778828789 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,10068620404144487620,12137567678244461238,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190710403119147182
+lhoqvso  1200791  1.9  0.9 57623524 299776 ?     SNl  jan.09  72:12 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20
+lhoqvso   305186  0.3  0.7 51246628 234568 ?     S<Ll jan.08  19:31 /opt/google/chrome/chrome
+lhoqvso  1914173  1.2  0.5 1461944064 184684 ?   SNl  10:28   0:01 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --extension-process --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=3555 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=394496329184 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,15373981009736265904,8472085741523757059,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190712317495644689
+lhoqvso     4820  4.2  0.5 20435184 182136 ?     SNsl jan.07 281:07 /usr/bin/gnome-shell
+
+
+[32mEXEC: [0mdf -h / /home 2>/dev/null
+[2mOUTPUT: [0mFilesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  156G  795G  17% /
+/dev/nvme0n1p2  952G  156G  795G  17% /home
+
+
+[32mEXEC: [0mdmesg --level=err,warn 2>/dev/null | tail -10
+[2mOUTPUT: [0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are an Arch Linux troubleshooting expert. Analyze the diagnostic output and identify the issue.[0m
+[2m│ [0m
+[2m│ System: CachyOS Linux, systemd-boot, editor:vim, shell:fish, btrfs[0m
+[2m│ [0m
+[2m│ User's problem: "it's slow"[0m
+[2m│ [0m
+[2m│ Diagnostic output:[0m
+[2m│ $ cat /proc/loadavg[0m
+[2m│ 6.45 4.51 2.85 11/1786 1914612[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ free -h[0m
+[2m│                total        used        free      shared  buff/cache   available[0m
+[2m│ Mem:            31Gi        14Gi        10Gi       158Mi       6,6Gi        16Gi[0m
+[2m│ Swap:           31Gi       6,9Gi        24Gi[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ ps aux --sort=-%cpu | head -8[0m
+[2m│ USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND[0m
+[2m│ ollama   1908376  498 28.7 11963636 9347824 ?    Sl   10:24  31:21 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54 --port 44101[0m
+[2m│ lhoqvso  1172748 28.0  1.1 1460223360 362100 ?   SNl  jan.09 1033:32 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=1512 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=173778828789 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,10068620404144487620,12137567678244461238,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190710403119147182[0m
+[2m│ lhoqvso  1335650 14.7  1.6 83721168 521584 pts/3 RNl+ jan.10 414:29 claude --dangerously-skip-permissions[0m
+[2m│ lhoqvso  1797597  8.4  0.3 51076524 122588 ?     SNl  jan.11  67:31 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20[0m
+[2m│ lhoqvso     4820  4.2  0.5 20435184 182120 ?     SNsl jan.07 281:07 /usr/bin/gnome-shell[0m
+[2m│ lhoqvso   304934  2.2  0.2 2470452 78020 ?       Ssl  jan.08 120:19 /usr/bin/kgx --gapplication-service[0m
+[2m│ lhoqvso  1200791  1.9  0.9 57623524 299776 ?     SNl  jan.09  72:12 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ ps aux --sort=-%mem | head -8[0m
+[2m│ USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND[0m
+[2m│ ollama   1908376  498 28.7 11963636 9347824 ?    Sl   10:24  31:22 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54 --port 44101[0m
+[2m│ lhoqvso  1335650 14.7  1.6 83721168 521464 pts/3 SNl+ jan.10 414:29 claude --dangerously-skip-permissions[0m
+[2m│ lhoqvso  1172748 28.0  1.1 1460223360 362016 ?   SNl  jan.09 1033:32 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=1512 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=173778828789 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,10068620404144487620,12137567678244461238,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190710403119147182[0m
+[2m│ lhoqvso  1200791  1.9  0.9 57623524 299776 ?     SNl  jan.09  72:12 /home/lhoqvso/.local/share/Steam/ubuntu12_64/steamwebhelper --type=zygote --crashpad-handler-pid=1200720 --enable-crash-reporter=, --change-stack-guard-on-fork=enable --enable-chrome-runtime --user-data-dir=/home/lhoqvso/.local/share/Steam/config/htmlcache --user-agent-product=Valve Steam Client --buildid=1766451605 --steamid=0 --valve-initial-threadpool-size=20[0m
+[2m│ lhoqvso   305186  0.3  0.7 51246628 234568 ?     S<Ll jan.08  19:31 /opt/google/chrome/chrome[0m
+[2m│ lhoqvso  1914173  1.2  0.5 1461944064 184684 ?   SNl  10:28   0:01 /opt/google/chrome/chrome --type=renderer --crashpad-handler-pid=305195 --enable-crash-reporter=70c3b2d3-3fcf-4c00-be5c-74f94b45181b, --extension-process --change-stack-guard-on-fork=enable --ozone-platform=wayland --lang=en-US --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=3555 --time-ticks-at-unix-epoch=-1767815642245112 --launch-time-ticks=394496329184 --shared-files=v8_context_snapshot_data:100 --metrics-shmem-handle=4,i,15373981009736265904,8472085741523757059,2097152 --field-trial-handle=3,i,7613810053327539896,7863122483524280025,262144 --disable-features=EyeDropper --variations-seed-version=20260107-090051.416000 --trace-process-track-uuid=3190712317495644689[0m
+[2m│ lhoqvso     4820  4.2  0.5 20435184 182136 ?     SNsl jan.07 281:07 /usr/bin/gnome-shell[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ df -h / /home 2>/dev/null[0m
+[2m│ Filesystem      Size  Used Avail Use% Mounted on[0m
+[2m│ /dev/nvme0n1p2  952G  156G  795G  17% /[0m
+[2m│ /dev/nvme0n1p2  952G  156G  795G  17% /home[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ dmesg --level=err,warn 2>/dev/null | tail -10[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Based on this diagnostic information:[0m
+[2m│ 1. Identify the likely cause of the problem[0m
+[2m│ 2. Explain what the diagnostic output reveals[0m
+[2m│ 3. Provide specific steps to fix the issue[0m
+[2m│ 4. If you can't identify the issue, suggest additional diagnostics[0m
+[2m│ [0m
+[2m│ Be specific and actionable. Use the actual data from the diagnostic output.[0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m

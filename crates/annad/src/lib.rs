@@ -12,12 +12,15 @@
 //! - Full IT Department with specialists (v0.0.999)
 //! - Ticket system and RPG progression (v0.0.999)
 //! - Translator LLM for input/output transformation (v0.1.0)
+//! - Binary watcher for auto-restart on rebuild (v0.1.1)
 
 pub mod autofix;
+pub mod binary_watcher;
 pub mod changes;
 pub mod core_loop;
 mod core_loop_old;
 pub mod department;
+pub mod ralph;
 pub mod intent;
 pub mod ollama;
 pub mod patterns;

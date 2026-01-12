@@ -94,24 +94,19 @@ use std::sync::RwLock;
 use tracing::debug;
 
 /// v0.0.981: Check if query contains keyword as a whole word (not substring)
-/// Prevents "bandwidth" matching "id" or "what" matching "at"
+/// v0.1.0: Now uses word boundaries for ALL words to prevent "update" matching "date"
+/// Prevents "bandwidth" matching "id", "what" matching "at", "update" matching "date"
 pub fn contains_word(query: &str, word: &str) -> bool {
-    // For very short words (1-2 chars), require word boundaries
-    if word.len() <= 2 {
-        // Use regex-like word boundary check
-        for (i, _) in query.match_indices(word) {
-            let before_ok = i == 0 || !query.as_bytes()[i - 1].is_ascii_alphanumeric();
-            let after_ok = i + word.len() >= query.len()
-                || !query.as_bytes()[i + word.len()].is_ascii_alphanumeric();
-            if before_ok && after_ok {
-                return true;
-            }
+    // Use word boundary check for all words to prevent false positives
+    for (i, _) in query.match_indices(word) {
+        let before_ok = i == 0 || !query.as_bytes()[i - 1].is_ascii_alphanumeric();
+        let after_ok = i + word.len() >= query.len()
+            || !query.as_bytes()[i + word.len()].is_ascii_alphanumeric();
+        if before_ok && after_ok {
+            return true;
         }
-        false
-    } else {
-        // For longer words, simple contains is fine
-        query.contains(word)
     }
+    false
 }
 
 /// v0.0.954: Pattern usage statistics
@@ -339,7 +334,8 @@ const SYNONYMS: &[(&str, &str)] = &[
 fn expand_with_synonyms(query: &str) -> String {
     let mut expanded = query.to_string();
     for (word, synonym) in SYNONYMS {
-        if query.contains(word) && !query.contains(synonym) {
+        // v0.1.0: Use word boundary matching to prevent "update" matching "date"
+        if contains_word(query, word) && !contains_word(query, synonym) {
             // Add synonym to query for pattern matching
             expanded.push(' ');
             expanded.push_str(synonym);

@@ -1,0 +1,42 @@
+
+[36mUSER: [0mmy screen flickers once every few hours
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: screen flickering
+[2m  intent: [0mUnderstood as: screen flickering
+Category: Troubleshoot
+Confidence: 90%
+Topic: display
+
+[2m┌─ [0m[36mTICKET [0m[37;1mTicket CN-0020-12012026 opened → Hardware department[0m
+[2m└─[0m
+[35mAnna → [0mHey Alex! Got a desktop question for you: "my screen flickers once every few hours"
+[2m  │ [0mAlex: On it! Let me check a few things...
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Running 2 diagnostic commands...[0m
+[2m└─────────────────────────────────────────[0m
+
+[32mEXEC: [0mxrandr --verbose | grep -i refresh
+[2mOUTPUT: [0m(stderr: Can't open display)
+
+[32mEXEC: [0mecho 'FIX: Check refresh rate or add nvidia-drm.modeset=1'
+[2mOUTPUT: [0mFIX: Check refresh rate or add nvidia-drm.modeset=1
+
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo fix this:
+$ echo 'Check refresh rate or add nvidia-drm.modeset=1'
+Check refresh rate or add nvidia-drm.modeset=1
+
+$ xrandr --verbose | grep -i refresh
+(stderr: Can't open display)
+
+$ echo 'FIX: Check refresh rate or add nvidia-drm.modeset=1'
+FIX: Check refresh rate or add nvidia-drm.modeset=1
+
+
+[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

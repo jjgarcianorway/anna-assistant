@@ -1,0 +1,130 @@
+Question: fix my wifi
+Category: Ambiguous
+Exit: 0
+Time: 12s
+---
+
+[36mUSER: [0mfix my wifi
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: brief paraphrase
+[2m  intent: [0mUnderstood as: brief paraphrase
+Category: Troubleshoot
+Confidence: 90%
+Topic: network
+Entities: wifi
+
+[2m┌─ [0m[36mTICKET [0m[37;1mTicket CN-0003-12012026 opened → Network department[0m
+[2m└─[0m
+[35mAnna → [0mHey Michael! Got a network question for you: "fix my wifi"
+[2m  │ [0mMichael: Checking now...
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: network wifi[0m
+
+[35mWIKI → ANNA: [0mfound articles:
+[2m  • (no relevant articles found)[0m
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ You are an Arch Linux expert. The user wants to configure or change something on their system.[0m
+[2m│ [0m
+[2m│ System: CachyOS Linux, systemd-boot, editor:vim, shell:fish, btrfs[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Existing configuration:[0m
+[2m│ [0m
+[2m│ Existing system configurations:[0m
+[2m│ --- /etc/modprobe.d/iwlwifi.conf ---[0m
+[2m│ options iwlwifi 11n_disable=8[0m
+[2m│ options iwlwifi bt_coex_active=0[0m
+[2m│ options iwlwifi 11n_disable=1 swcrypto=1[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ User request: "fix my wifi"[0m
+[2m│ [0m
+[2m│ Provide step-by-step instructions to accomplish this task. Include:[0m
+[2m│ 1. The exact commands to run (with sudo if needed)[0m
+[2m│ 2. Any config files to edit and what to add/change[0m
+[2m│ 3. How to make changes permanent if applicable[0m
+[2m│ 4. How to verify the change worked[0m
+[2m│ [0m
+[2m│ Be specific to this system. Use the Arch Wiki information if provided.[0m
+[2m│ If this requires GUI access or a reboot, mention that.[0m
+[2m│ [0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m│ Keep the answer focused and practical.[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo[0m[32m fix[0m[32m your[0m[32m WiFi[0m[32m issue[0m[32m on[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m with[0m[32m the[0m[32m given[0m[32m configuration[0m[32m,[0m[32m we[0m[32m need[0m[32m to[0m[32m ensure[0m[32m that[0m[32m the[0m[32m `[0m[32mi[0m[32mwl[0m[32mwifi[0m[32m`[0m[32m driver[0m[32m is[0m[32m correctly[0m[32m configured[0m[32m for[0m[32m optimal[0m[32m performance[0m[32m.[0m[32m Here[0m[32m’s[0m[32m how[0m[32m you[0m[32m can[0m[32m proceed[0m[32m:
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m1[0m[32m:[0m[32m Edit[0m[32m the[0m[32m `[0m[32mi[0m[32mwl[0m[32mwifi[0m[32m.conf[0m[32m`[0m[32m File[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mOpen[0m[32m the[0m[32m Configuration[0m[32m File[0m[32m in[0m[32m Vim[0m[32m:[0m[32m**
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m vim[0m[32m /[0m[32metc[0m[32m/mod[0m[32mprobe[0m[32m.d[0m[32m/i[0m[32mwl[0m[32mwifi[0m[32m.conf[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mModify[0m[32m or[0m[32m Add[0m[32m the[0m[32m Following[0m[32m Lines[0m[32m to[0m[32m Ensure[0m[32m Proper[0m[32m Configuration[0m[32m:[0m[32m**
+
+[0m[32m  [0m[32m -[0m[32m Remove[0m[32m any[0m[32m existing[0m[32m lines[0m[32m related[0m[32m to[0m[32m `[0m[32m1[0m[32m1[0m[32mn[0m[32m_disable[0m[32m`,[0m[32m as[0m[32m they[0m[32m might[0m[32m interfere[0m[32m with[0m[32m modern[0m[32m WiFi[0m[32m standards[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Add[0m[32m or[0m[32m modify[0m[32m the[0m[32m following[0m[32m lines[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m options[0m[32m i[0m[32mwl[0m[32mwifi[0m[32m bt[0m[32m_co[0m[32mex[0m[32m_active[0m[32m=[0m[32m0[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
+
+[0m[32m  [0m[32m The[0m[32m complete[0m[32m file[0m[32m should[0m[32m look[0m[32m like[0m[32m this[0m[32m:
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m #[0m[32m /[0m[32metc[0m[32m/mod[0m[32mprobe[0m[32m.d[0m[32m/i[0m[32mwl[0m[32mwifi[0m[32m.conf[0m[32m
+[0m[32m  [0m[32m options[0m[32m i[0m[32mwl[0m[32mwifi[0m[32m bt[0m[32m_co[0m[32mex[0m[32m_active[0m[32m=[0m[32m0[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mSave[0m[32m and[0m[32m Exit[0m[32m Vim[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m Press[0m[32m `[0m[32mEsc[0m[32m`[0m[32m to[0m[32m exit[0m[32m command[0m[32m mode[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Type[0m[32m `[0m[32m:[0m[32mw[0m[32mq[0m[32m`[0m[32m and[0m[32m press[0m[32m `[0m[32mEnter[0m[32m`.
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m2[0m[32m:[0m[32m Re[0m[32mboot[0m[32m the[0m[32m System[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mRe[0m[32mboot[0m[32m Your[0m[32m System[0m[32m to[0m[32m Apply[0m[32m Changes[0m[32m:[0m[32m**
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m sudo[0m[32m reboot[0m[32m
+[0m[32m  [0m[32m ``[0m[32m`
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m3[0m[32m:[0m[32m Verify[0m[32m WiFi[0m[32m is[0m[32m Working[0m[32m Proper[0m[32mly[0m[32m
+
+[0m[32m1[0m[32m.[0m[32m **[0m[32mCheck[0m[32m if[0m[32m WiFi[0m[32m Adapter[0m[32m is[0m[32m Detected[0m[32m:[0m[32m**
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m lsp[0m[32mci[0m[32m -[0m[32mv[0m[32mnn[0m[32m |[0m[32m grep[0m[32m Network[0m[32m
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m This[0m[32m command[0m[32m should[0m[32m list[0m[32m your[0m[32m network[0m[32m adapter[0m[32m and[0m[32m its[0m[32m status[0m[32m.
+
+[0m[32m2[0m[32m.[0m[32m **[0m[32mCheck[0m[32m WiFi[0m[32m Connection[0m[32m Status[0m[32m:[0m[32m**
+[0m[32m  [0m[32m ```[0m[32msh[0m[32m
+[0m[32m  [0m[32m nm[0m[32mcli[0m[32m device[0m[32m status[0m[32m
+[0m[32m  [0m[32m nm[0m[32mcli[0m[32m connection[0m[32m show[0m[32m
+[0m[32m  [0m[32m ```
+[0m[32m  [0m[32m These[0m[32m commands[0m[32m will[0m[32m display[0m[32m the[0m[32m current[0m[32m status[0m[32m of[0m[32m your[0m[32m WiFi[0m[32m connections[0m[32m.
+
+[0m[32m3[0m[32m.[0m[32m **[0m[32mTest[0m[32m Internet[0m[32m Connectivity[0m[32m:[0m[32m**
+[0m[32m  [0m[32m -[0m[32m Try[0m[32m to[0m[32m connect[0m[32m to[0m[32m a[0m[32m known[0m[32m WiFi[0m[32m network[0m[32m.
+[0m[32m  [0m[32m -[0m[32m Use[0m[32m `[0m[32mping[0m[32m`[0m[32m or[0m[32m `[0m[32mcurl[0m[32m`[0m[32m to[0m[32m test[0m[32m internet[0m[32m access[0m[32m:
+[0m[32m    [0m[32m ```[0m[32msh[0m[32m
+[0m[32m    [0m[32m ping[0m[32m google[0m[32m.com[0m[32m
+[0m[32m    [0m[32m curl[0m[32m if[0m[32mconfig[0m[32m.me[0m[32m
+[0m[32m    [0m[32m ``[0m[32m`
+
+[0m[32m###[0m[32m Step[0m[32m [0m[32m4[0m[32m:[0m[32m Additional[0m[32m Trou[0m[32mb[0m[32mleshooting[0m[32m ([0m[32mif[0m[32m needed[0m[32m)
+
+[0m[32m-[0m[32m If[0m[32m you[0m[32m encounter[0m[32m issues[0m[32m,[0m[32m ensure[0m[32m that[0m[32m your[0m[32m kernel[0m[32m is[0m[32m up[0m[32m-to[0m[32m-date[0m[32m:
+[0m[32m [0m[32m ```[0m[32msh[0m[32m
+[0m[32m [0m[32m sudo[0m[32m pacman[0m[32m -[0m[32mSy[0m[32mu[0m[32m
+[0m[32m [0m[32m ```
+[0m[32m-[0m[32m Check[0m[32m the[0m[32m d[0m[32mmes[0m[32mg[0m[32m output[0m[32m for[0m[32m any[0m[32m WiFi[0m[32m-related[0m[32m errors[0m[32m:
+[0m[32m [0m[32m ```[0m[32msh[0m[32m
+[0m[32m [0m[32m d[0m[32mmes[0m[32mg[0m[32m |[0m[32m grep[0m[32m i[0m[32mwl[0m[32mwifi[0m[32m
+[0m[32m [0m[32m ``[0m[32m`
+
+[0m[32mBy[0m[32m following[0m[32m these[0m[32m steps[0m[32m,[0m[32m you[0m[32m should[0m[32m be[0m[32m able[0m[32m to[0m[32m resolve[0m[32m any[0m[32m issues[0m[32m with[0m[32m your[0m[32m WiFi[0m[32m on[0m[32m C[0m[32mach[0m[32my[0m[32mOS[0m[32m Linux[0m[32m.[0m[32m If[0m[32m problems[0m[32m persist[0m[32m,[0m[32m additional[0m[32m configuration[0m[32m or[0m[32m kernel[0m[32m updates[0m[32m might[0m[32m be[0m[32m required[0m[32m.[0m[32m[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

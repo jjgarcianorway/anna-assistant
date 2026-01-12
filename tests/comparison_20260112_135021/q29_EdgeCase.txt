@@ -1,0 +1,63 @@
+Question: wifi signal drops when microwave is running
+Category: EdgeCase
+Exit: 0
+Time: 1s
+---
+
+
+[33m╔══════════════════════════════════════════════╗[0m
+[33m║           SYSTEM ALERT                       ║[0m
+[33m╚══════════════════════════════════════════════╝[0m
+[33m  [0m🔴 CRITICAL: High temperature: 97°C
+[33m  [0m   Suggested fix: Improve cooling immediately
+
+[36mUSER: [0mwifi signal drops when microwave is running
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: mic query
+[2m  intent: [0mUnderstood as: mic query
+Category: Factual
+Confidence: 95%
+Topic: audio
+
+[2m┌─ [0m[36mTICKET [0m[37;1mTicket CN-0025-12012026 opened → Network department[0m
+[2m└─[0m
+[35mAnna → [0mHey Michael! Got a network question for you: "wifi signal drops when microwave is running"
+[2m  │ [0mMichael: Checking now...
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: (skipped - simple factual query)[0m
+
+[33mLLM → ANNA: [0mcommands to run:
+[2m  $ [0m[36m[PATTERN] pactl list sources short 2>/dev/null | grep -v monitor[0m
+
+[32mEXEC: [0mpactl list sources short 2>/dev/null | grep -v monitor
+[2mOUTPUT: [0m60	alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Mic2__source	PipeWire	s24-32le 2ch 48000Hz	SUSPENDED
+61	alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Mic1__source	PipeWire	s32le 2ch 48000Hz	SUSPENDED
+
+
+[33mLLM → ANNA: [0m[PATTERN-OK]
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Question: "wifi signal drops when microwave is running"[0m
+[2m│ [0m
+[2m│ Command output:[0m
+[2m│ $ pactl list sources short 2>/dev/null | grep -v monitor [OK][0m
+[2m│ 60	alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Mic2__source	PipeWire	s24-32le 2ch 48000Hz	SUSPENDED[0m
+[2m│ 61	alsa_input.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Mic1__source	PipeWire	s32le 2ch 48000Hz	SUSPENDED[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Answer the question using ONLY the command output above.[0m
+[2m│ Give a short, direct answer (just the value or fact).[0m
+[2m│ RESPOND IN ENGLISH ONLY.[0m
+[2m│ [0m
+[2m│ Answer:[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mNo[0m[32m information[0m[32m in[0m[32m the[0m[32m provided[0m[32m output[0m[32m relates[0m[32m to[0m[32m Wi[0m[32m-Fi[0m[32m signals[0m[32m or[0m[32m mic[0m[32mrow[0m[32maves[0m[32m.[0m[32m[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

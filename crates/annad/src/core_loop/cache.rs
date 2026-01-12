@@ -1279,6 +1279,58 @@ pub fn get_failing_commands() -> Vec<(String, u32, String)> {
     result
 }
 
+/// Clear all caches (for reset command)
+pub fn clear_all_caches() {
+    info!("Clearing all caches...");
+
+    // Clear command cache
+    if let Ok(mut guard) = COMMAND_CACHE.write() {
+        *guard = Some(HashMap::new());
+    }
+
+    // Clear answer cache
+    clear_answer_cache();
+
+    // Clear LLM memo cache
+    if let Ok(mut guard) = LLM_MEMO_CACHE.write() {
+        *guard = Some(HashMap::new());
+    }
+
+    // Clear command failure cache
+    if let Ok(mut guard) = COMMAND_FAILURE_CACHE.write() {
+        *guard = Some(HashMap::new());
+    }
+
+    // Clear recipe book cache
+    if let Ok(mut guard) = RECIPE_BOOK_CACHE.write() {
+        *guard = None;
+    }
+
+    // Reset wiki circuit breaker
+    WIKI_FAILURES.store(0, Ordering::SeqCst);
+    WIKI_CIRCUIT_OPENED_AT.store(0, Ordering::SeqCst);
+
+    // Clear intent cache
+    if let Ok(mut guard) = INTENT_CACHE.write() {
+        *guard = Some(HashMap::new());
+    }
+
+    // Clear failure cache
+    clear_failure_cache();
+
+    // Clear wiki cache
+    if let Ok(mut guard) = WIKI_CACHE.write() {
+        *guard = Some(HashMap::new());
+    }
+
+    // Clear inflight requests
+    if let Ok(mut guard) = INFLIGHT_REQUESTS.write() {
+        *guard = Some(HashMap::new());
+    }
+
+    info!("All caches cleared");
+}
+
 /// v0.0.944: Normalize command for failure cache key
 /// Strips variable parts like file paths and specific values
 fn normalize_command_for_cache(command: &str) -> String {

@@ -4,8 +4,10 @@
 //! with pre-cached commands, bypassing the LLM command selection pipeline.
 //! v0.0.937: Added thermal, process, audio, and logs patterns
 //! v0.0.945: Added time/date, environment, and shell patterns
+//! v0.1.0: Use word boundary matching to prevent "update" matching "date"
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
+use super::contains_word;
 
 /// Match factual queries that have simple, direct answers
 pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
@@ -21,7 +23,16 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     if let Some(u) = match_network(q) {
         return Some(u);
     }
-    // Hardware queries
+    // v0.1.0: Process/load queries checked BEFORE hardware
+    // so "cpu usage" matches before "what cpu" (which uses lscpu)
+    if let Some(u) = match_processes(q) {
+        return Some(u);
+    }
+    // v0.0.937: Thermal/temperature queries
+    if let Some(u) = match_thermal(q) {
+        return Some(u);
+    }
+    // Hardware queries (after process queries to avoid "what cpu" matching usage questions)
     if let Some(u) = match_hardware(q) {
         return Some(u);
     }
@@ -31,14 +42,6 @@ pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
     }
     // Service queries
     if let Some(u) = match_services(q) {
-        return Some(u);
-    }
-    // v0.0.937: Thermal/temperature queries
-    if let Some(u) = match_thermal(q) {
-        return Some(u);
-    }
-    // v0.0.937: Process/load queries
-    if let Some(u) = match_processes(q) {
         return Some(u);
     }
     // v0.0.937: Audio/sound queries
@@ -95,7 +98,7 @@ fn match_system_info(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -131,7 +134,7 @@ fn match_storage(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -171,7 +174,7 @@ fn match_network(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -221,7 +224,7 @@ fn match_hardware(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -244,9 +247,17 @@ fn match_packages(q: &str) -> Option<DeepUnderstanding> {
         (&["how", "many", "package"], "package count query", "packages", &["pacman -Q | wc -l"]),
         // Specific package check
         (&["is", "installed"], "package installation check", "packages", &["pacman -Qs"]),
-        // Updates
-        (&["available", "update"], "available updates query", "packages", &["checkupdates 2>/dev/null | head -20 || pacman -Qu 2>/dev/null | head -20"]),
-        (&["pending", "update"], "pending updates query", "packages", &["checkupdates 2>/dev/null | wc -l || echo 'Install pacman-contrib for checkupdates'"]),
+        // Updates - v0.1.0: show actual updates, not just counts
+        (&["available", "update"], "available updates query", "packages", &["checkupdates 2>/dev/null | head -30 || pacman -Qu 2>/dev/null | head -30"]),
+        (&["available", "updates"], "available updates query", "packages", &["checkupdates 2>/dev/null | head -30 || pacman -Qu 2>/dev/null | head -30"]),
+        (&["pending", "update"], "pending updates query", "packages",
+            &["echo 'Pending updates:' && checkupdates 2>/dev/null | head -30 || pacman -Qu 2>/dev/null | head -30 || echo 'No updates pending'"]),
+        (&["pending", "updates"], "pending updates query", "packages",
+            &["echo 'Pending updates:' && checkupdates 2>/dev/null | head -30 || pacman -Qu 2>/dev/null | head -30 || echo 'No updates pending'"]),
+        (&["any", "updates"], "check for updates", "packages",
+            &["checkupdates 2>/dev/null | head -20 || pacman -Qu 2>/dev/null | head -20 || echo 'System is up to date'"]),
+        (&["updates", "available"], "check available updates", "packages",
+            &["checkupdates 2>/dev/null | head -30 || pacman -Qu 2>/dev/null | head -30 || echo 'No updates available'"]),
         // Orphans
         (&["orphan", "package"], "orphan packages query", "packages", &["pacman -Qtdq 2>/dev/null || echo 'No orphans found'"]),
         // Recently installed
@@ -255,7 +266,7 @@ fn match_packages(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -272,21 +283,27 @@ fn match_packages(q: &str) -> Option<DeepUnderstanding> {
 
 fn match_services(q: &str) -> Option<DeepUnderstanding> {
     let patterns: &[FactualPattern] = &[
-        // Failed services
+        // Failed services (both singular and plural)
+        (&["failed", "services"], "failed services query", "services", &["systemctl --failed"]),
         (&["failed", "service"], "failed services query", "services", &["systemctl --failed"]),
         (&["service", "status"], "service status query", "services", &["systemctl status"]),
-        // Running services
+        // Running services (both singular and plural)
+        (&["running", "services"], "running services query", "services", &["systemctl list-units --type=service --state=running | head -20"]),
         (&["running", "service"], "running services query", "services", &["systemctl list-units --type=service --state=running | head -20"]),
+        (&["active", "services"], "active services query", "services", &["systemctl list-units --type=service --state=active | head -20"]),
         (&["active", "service"], "active services query", "services", &["systemctl list-units --type=service --state=active | head -20"]),
-        // List services
+        // List services (both singular and plural)
+        (&["list", "services"], "service list query", "services", &["systemctl list-unit-files --type=service | head -30"]),
         (&["list", "service"], "service list query", "services", &["systemctl list-unit-files --type=service | head -30"]),
         // Timers
         (&["systemd", "timer"], "systemd timers query", "services", &["systemctl list-timers"]),
+        (&["systemd", "timers"], "systemd timers query", "services", &["systemctl list-timers"]),
         (&["list", "timer"], "timer list query", "services", &["systemctl list-timers"]),
+        (&["list", "timers"], "timer list query", "services", &["systemctl list-timers"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -317,7 +334,7 @@ fn match_thermal(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -333,10 +350,14 @@ fn match_thermal(q: &str) -> Option<DeepUnderstanding> {
 }
 
 /// v0.0.937: Process and system load queries
+/// v0.1.0: Added "average cpu" patterns for queries like "average usage of my cpu"
 fn match_processes(q: &str) -> Option<DeepUnderstanding> {
     let patterns: &[FactualPattern] = &[
-        // CPU usage
+        // CPU usage - specific patterns first
+        (&["average", "cpu"], "CPU usage query", "processes", &["mpstat 1 1 2>/dev/null || top -bn1 | head -15"]),
+        (&["average", "usage"], "system usage query", "processes", &["top -bn1 | head -15", "free -h"]),
         (&["cpu", "usage"], "CPU usage query", "processes", &["top -bn1 | head -15"]),
+        (&["cpu", "utilization"], "CPU utilization query", "processes", &["mpstat 1 1 2>/dev/null || top -bn1 | head -15"]),
         (&["cpu", "load"], "CPU load query", "processes", &["uptime", "cat /proc/loadavg"]),
         (&["system", "load"], "system load query", "processes", &["uptime", "cat /proc/loadavg"]),
         (&["load", "average"], "load average query", "processes", &["uptime"]),
@@ -356,7 +377,7 @@ fn match_processes(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -392,7 +413,7 @@ fn match_audio(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -418,20 +439,28 @@ fn match_logs(q: &str) -> Option<DeepUnderstanding> {
         (&["boot", "log"], "boot log query", "logs", &["journalctl -b -p err..warning | head -30"]),
         (&["boot", "error"], "boot errors query", "logs", &["journalctl -b -p err | head -20"]),
         (&["dmesg"], "kernel messages query", "logs", &["dmesg | tail -30"]),
+        // v0.1.0: "Any errors" patterns - show actual errors, not counts
+        (&["any", "errors"], "check for errors", "logs", &["journalctl -b -p err --no-pager | head -20 || echo 'No errors found'"]),
+        (&["any", "log", "errors"], "check log errors", "logs", &["journalctl -b -p err --no-pager | head -20 || echo 'No errors found'"]),
+        (&["there", "errors"], "check for errors", "logs", &["journalctl -b -p err --no-pager | head -20 || echo 'No errors in logs'"]),
+        (&["no", "errors"], "verify no errors", "logs", &["journalctl -b -p err --no-pager | head -20 || echo 'Confirmed: No errors found'"]),
+        (&["log", "errors"], "show log errors", "logs", &["journalctl -b -p err --no-pager | head -30"]),
         // System logs
         (&["system", "log"], "system log query", "logs", &["journalctl -p err..warning --since '1 hour ago' | head -30"]),
         (&["error", "log"], "error log query", "logs", &["journalctl -p err --since '1 hour ago' | head -30"]),
         (&["recent", "error"], "recent errors query", "logs", &["journalctl -p err --since '1 hour ago' | head -20"]),
+        (&["recent", "errors"], "recent errors query", "logs", &["journalctl -p err --since '1 hour ago' | head -20"]),
         // Journal
         (&["journal"], "journal query", "logs", &["journalctl --since '1 hour ago' | tail -30"]),
         (&["journalctl"], "journalctl query", "logs", &["journalctl --since '1 hour ago' | tail -30"]),
         // Kernel messages
         (&["kernel", "log"], "kernel log query", "logs", &["dmesg | tail -30"]),
         (&["kernel", "error"], "kernel errors query", "logs", &["dmesg --level=err,warn | tail -20"]),
+        (&["kernel", "errors"], "kernel errors query", "logs", &["dmesg --level=err,warn | tail -20"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -474,7 +503,7 @@ fn match_time(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -495,7 +524,7 @@ fn match_environment(q: &str) -> Option<DeepUnderstanding> {
     // v0.1.0: Skip environment patterns if query is about size/space/largest
     // These should go to filesystem patterns instead
     let size_keywords = ["largest", "biggest", "size", "space", "usage", "top", "du ", "how big", "how much"];
-    if size_keywords.iter().any(|kw| q.contains(kw)) {
+    if size_keywords.iter().any(|kw| contains_word(q, kw)) {
         return None;
     }
 
@@ -530,7 +559,7 @@ fn match_environment(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,
@@ -573,7 +602,7 @@ fn match_users(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(DeepUnderstanding {
                 interpreted_as: interpreted.to_string(),
                 category: IntentCategory::Factual,

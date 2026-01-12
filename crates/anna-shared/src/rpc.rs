@@ -74,6 +74,8 @@ pub enum RpcMethod {
     AskStreaming,
     /// Get daemon status
     Status,
+    /// Reset all statistics and learning data
+    Reset,
 }
 
 /// Streaming response types (JSON lines format)
@@ -207,6 +209,13 @@ pub struct AskResult {
     /// If true, this answer was returned from cache (instant)
     #[serde(default)]
     pub cached: bool,
+}
+
+/// Result of reset operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResetResult {
+    /// Items that were cleared
+    pub cleared: Vec<String>,
 }
 
 /// A single step in the dialogue

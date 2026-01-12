@@ -80,13 +80,13 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         if in_answer {
                             // End the answer line
                             println!();
-                            println_colored("═══════════════════════════════════════", DIM);
+                            println!();
                             in_answer = false;
                         }
                         print_step(&step);
                         if matches!(step.step_type, StepType::FinalPrompt) {
                             // About to receive tokens
-                            println_colored("═══════════════════════════════════════", DIM);
+                            println!();
                             print_colored("ANSWER: ", GREEN);
                             flush_stdout();
                             in_answer = true;
@@ -112,7 +112,7 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                     Ok(StreamingResponse::Done { result }) => {
                         if in_answer {
                             println!();
-                            println_colored("═══════════════════════════════════════", DIM);
+                            println!();
                         }
                         final_result = Some(result);
                         break;

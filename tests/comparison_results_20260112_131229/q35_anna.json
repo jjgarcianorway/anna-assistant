@@ -1,0 +1,8 @@
+{
+  "question_num": 35,
+  "category": "MultiStep",
+  "question": "set up a local development environment with docker nginx and postgres",
+  "status": "success",
+  "response_time_ms": 2523,
+  "response_length": 5283
+}

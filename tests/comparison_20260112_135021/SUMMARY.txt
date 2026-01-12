@@ -1,0 +1,9 @@
+Anna v0.0.999 Comparison Test Results
+=====================================
+Date: ma. 12. jan. 14:00:04 +0100 2026
+Total Questions: 100
+Direct Answers: 80 (80%)
+Asked Clarification: 19 (19%)
+Timeouts: 1
+Errors: 0
+Team Dialogue Shown: 90 (90%)

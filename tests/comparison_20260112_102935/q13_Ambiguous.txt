@@ -1,0 +1,17 @@
+Question: nothing works
+Category: Ambiguous
+Exit: 0
+Time: 0s
+---
+
+[36mUSER: [0mnothing works
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: nothing works
+[2m  intent: [0mUnderstood as: nothing works
+Category: Unclear
+Confidence: 50%
+[33mANNA → USER: [0mCould you please be more specific about what you're asking?
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

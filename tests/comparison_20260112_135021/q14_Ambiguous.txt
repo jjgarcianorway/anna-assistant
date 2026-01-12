@@ -1,0 +1,41 @@
+Question: why is everything so small
+Category: Ambiguous
+Exit: 0
+Time: 0s
+---
+
+[36mUSER: [0mwhy is everything so small
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: HiDPI scaling issue
+[2m  intent: [0mUnderstood as: HiDPI scaling issue
+Category: Troubleshoot
+Confidence: 90%
+Topic: display
+
+[2m┌─ [0m[36mTICKET [0m[37;1mTicket CN-0011-12012026 opened → Desktop department[0m
+[2m└─[0m
+[35mAnna → [0mHey Alex! Got a desktop question for you: "why is everything so small"
+[2m  │ [0mAlex: On it! Let me check a few things...
+[33mANNA → LLM: [0m(command selection prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Running 1 diagnostic commands...[0m
+[2m└─────────────────────────────────────────[0m
+
+[32mEXEC: [0mecho 'FIX: gsettings set org.gnome.desktop.interface scaling-factor 2'
+[2mOUTPUT: [0mFIX: gsettings set org.gnome.desktop.interface scaling-factor 2
+
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32mTo fix this:
+$ echo 'gsettings set org.gnome.desktop.interface scaling-factor 2'
+gsettings set org.gnome.desktop.interface scaling-factor 2
+
+$ echo 'FIX: gsettings set org.gnome.desktop.interface scaling-factor 2'
+FIX: gsettings set org.gnome.desktop.interface scaling-factor 2
+
+
+[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

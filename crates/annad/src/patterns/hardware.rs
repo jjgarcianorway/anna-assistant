@@ -1,5 +1,7 @@
 //! Hardware patterns - sensors, temperatures, battery, CPU, and diagnostics
 //! v0.0.949: Initial hardware patterns for system monitoring
+//! Note: Uses substring matching (q.contains) because patterns intentionally
+//! use prefixes like "temp" to match "temperature", "charg" to match "charging", etc.
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 

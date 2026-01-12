@@ -1,0 +1,34 @@
+Question: system becomes unresponsive every day at 3am
+Category: EdgeCase
+Exit: 0
+Time: 1s
+---
+
+[36mUSER: [0msystem becomes unresponsive every day at 3am
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: when the system becomes unresponsive every day at 3am
+[2m  intent: [0mUnderstood as: when the system becomes unresponsive every day at 3am
+Category: Troubleshoot
+Confidence: 90%
+Topic: performance
+Entities: system
+⚠️ Needs confirmation
+
+[33m╔══════════════════════════════════════════════╗[0m
+[33m║           SYSTEM ALERT                       ║[0m
+[33m╚══════════════════════════════════════════════╝[0m
+[33m  [0m⚠️ Related system status:
+[33m  [0m  • INFO: Performance trend: degrading
+
+
+[2m┌─ [0m[36mTICKET [0m[37;1mTicket CN-0023-12012026 opened → Desktop department[0m
+[2m└─[0m
+[35mAnna → [0mHey Alex! Got a desktop question for you: "system becomes unresponsive every day at 3am"
+[2m  │ [0mAlex: On it! Let me check a few things...
+[33mANNA → USER: [0mI understood: "when the system becomes unresponsive every day at 3am"
+
+Could you please be more specific?
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

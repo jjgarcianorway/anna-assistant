@@ -1,0 +1,17 @@
+Question: the thing isn't working
+Category: Ambiguous
+Exit: 0
+Time: 9s
+---
+
+[36mUSER: [0mthe thing isn't working
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: the thing isn't working
+[2m  intent: [0mUnderstood as: the thing isn't working
+Category: Unclear
+Confidence: 50%
+[33mANNA → USER: [0mCould you please be more specific about what you're asking?
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

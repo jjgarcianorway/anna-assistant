@@ -1,0 +1,8 @@
+{
+  "question_num": 53,
+  "category": "Obscure",
+  "question": "pipewire and pulseaudio are fighting",
+  "status": "timeout",
+  "response_time_ms": 60002,
+  "exit_code": 124
+}

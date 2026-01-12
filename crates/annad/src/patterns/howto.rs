@@ -1,8 +1,10 @@
 //! HowTo patterns - common task instructions with known commands
 //! v0.0.947: Initial howto patterns for common Linux tasks
 //! v0.0.989: Added network, storage, security setup patterns
+//! v0.1.0: Use word boundary matching to prevent false positives
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
+use super::contains_word;
 
 /// Pattern with keywords, description, topic, and command templates
 type HowToPattern = (&'static [&'static str], &'static str, &'static str, &'static [&'static str]);
@@ -60,13 +62,21 @@ fn match_package_tasks(q: &str) -> Option<DeepUnderstanding> {
             &["sudo pacman -S <package>", "pacman -Ss <package>"]),
         (&["install", "package"], "install a package", "packages",
             &["sudo pacman -S <package>", "pacman -Ss <package>"]),
-        // Update
+        // Update - v0.1.0: Added more update patterns
         (&["how", "update", "system"], "update the system", "packages",
             &["sudo pacman -Syu"]),
         (&["update", "all", "package"], "update all packages", "packages",
             &["sudo pacman -Syu"]),
         (&["upgrade", "system"], "upgrade the system", "packages",
             &["sudo pacman -Syu"]),
+        (&["update", "system"], "update the system", "packages",
+            &["echo 'Run: sudo pacman -Syu'", "echo 'Or with AUR: paru -Syu / yay -Syu'"]),
+        (&["install", "update"], "install pending updates", "packages",
+            &["echo 'Run: sudo pacman -Syu'", "echo 'Or with AUR: paru -Syu / yay -Syu'"]),
+        (&["run", "update"], "run system updates", "packages",
+            &["echo 'Run: sudo pacman -Syu'", "echo 'Or with AUR: paru -Syu / yay -Syu'"]),
+        (&["apply", "update"], "apply pending updates", "packages",
+            &["echo 'Run: sudo pacman -Syu'", "echo 'Or with AUR: paru -Syu / yay -Syu'"]),
         // Remove
         (&["how", "remove", "package"], "remove a package", "packages",
             &["sudo pacman -R <package>", "sudo pacman -Rs <package>"]),
@@ -102,7 +112,7 @@ fn match_package_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }
@@ -149,7 +159,7 @@ fn match_service_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }
@@ -189,7 +199,7 @@ fn match_user_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }
@@ -199,7 +209,9 @@ fn match_user_tasks(q: &str) -> Option<DeepUnderstanding> {
 /// File and permission tasks
 fn match_file_tasks(q: &str) -> Option<DeepUnderstanding> {
     let patterns: &[HowToPattern] = &[
-        // Change permissions
+        // Change permissions (both singular and plural)
+        (&["how", "change", "permissions"], "change file permissions", "files",
+            &["chmod 755 <file>", "chmod +x <file>", "chmod -R 755 <directory>"]),
         (&["how", "change", "permission"], "change file permissions", "files",
             &["chmod 755 <file>", "chmod +x <file>", "chmod -R 755 <directory>"]),
         (&["make", "file", "executable"], "make file executable", "files",
@@ -236,7 +248,7 @@ fn match_file_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }
@@ -290,7 +302,7 @@ fn match_system_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }
@@ -358,7 +370,7 @@ fn match_network_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }
@@ -430,7 +442,7 @@ fn match_storage_tasks(q: &str) -> Option<DeepUnderstanding> {
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {
-        if keywords.iter().all(|kw| q.contains(kw)) {
+        if keywords.iter().all(|kw| contains_word(q, kw)) {
             return Some(make_understanding(interpreted, topic, commands));
         }
     }

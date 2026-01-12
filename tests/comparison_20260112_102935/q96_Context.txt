@@ -1,0 +1,117 @@
+Question: what's different about my system compared to a fresh install
+Category: Context
+Exit: 0
+Time: 0s
+---
+
+[36mUSER: [0mwhat's different about my system compared to a fresh install
+
+[34mANNA: [0munderstanding question...
+[36mANNA: [0mI understand: show what system
+[2m  intent: [0mUnderstood as: show what system
+Category: Factual
+Confidence: 90%
+Topic: sysinfo
+[35mANNA → WIKI: [0msearching Arch Wiki...
+[2m  query: (skipped - simple factual query)[0m
+
+[33mLLM → ANNA: [0mcommands to run:
+[2m  $ [0m[36m[PATTERN] cat /etc/os-release | head -3[0m
+[2m  $ [0m[36muname -a[0m
+
+[32mEXEC: [0mcat /etc/os-release | head -3
+[2mOUTPUT: [0mNAME="CachyOS Linux"
+PRETTY_NAME="CachyOS"
+ID=cachyos
+
+
+[32mEXEC: [0muname -a
+[2mOUTPUT: [0mLinux razorback 6.18.3-2-cachyos #1 SMP PREEMPT_DYNAMIC Sat, 03 Jan 2026 23:14:07 +0000 x86_64 GNU/Linux
+
+
+[33mLLM → ANNA: [0m[PATTERN-OK]
+
+[33mANNA → LLM: [0m(final answer prompt)
+[2m┌─────────────────────────────────────────[0m
+[2m│ Question: "what's different about my system compared to a fresh install"[0m
+[2m│ [0m
+[2m│ System environment:[0m
+[2m│ Hardware:[0m
+[2m│   - Network controller [0280]: Intel Corporation [8086] 700 Series Chipset CNVi WiFi [7a70] (driver: iwlwifi)[0m
+[2m│   - Multimedia audio controller [0401]: Intel Corporation [8086] Raptor Lake High Definition Audio Controller [7a50] (driver: sof-audio-pci-intel-tgl)[0m
+[2m│   - VGA compatible controller [0300]: NVIDIA Corporation [10de] AD107M [GeForce RTX 4060 Max-Q / Mobile] [28e0] (driver: nvidia)[0m
+[2m│   - Audio device [0403]: NVIDIA Corporation [10de] AD107 High Definition Audio Controller [22be] (driver: snd_hda_intel)[0m
+[2m│ [0m
+[2m│ Existing workarounds/configs:[0m
+[2m│   - /etc/modprobe.d/iwlwifi.conf: options iwlwifi 11n_disable=8[0m
+[2m│   - /etc/udev/rules.d/60-ioschedulers.rules: (udev rule)[0m
+[2m│   - /etc/systemd/system/dbus-org.freedesktop.resolve1.service: (systemd override)[0m
+[2m│   - /etc/systemd/system/httpd.service.d/hardening.conf: (systemd override)[0m
+[2m│   - /etc/systemd/system/dbus-org.freedesktop.nm-dispatcher.service: (systemd override)[0m
+[2m│   - /etc/systemd/system/dbus-org.freedesktop.Avahi.service: (systemd override)[0m
+[2m│   - /etc/systemd/system/dbus-org.freedesktop.timesync1.service: (systemd override)[0m
+[2m│   - /etc/systemd/system/dbus-org.bluez.service: (systemd override)[0m
+[2m│   - /etc/systemd/system/display-manager.service: (systemd override)[0m
+[2m│   - /etc/systemd/system/annad.service: (systemd override)[0m
+[2m│ [0m
+[2m│ OS: CachyOS Linux[0m
+[2m│ Kernel: 6.18.3-2-cachyos[0m
+[2m│ Display: unspecified[0m
+[2m│ Bootloader: systemd-boot[0m
+[2m│ Shell: fish[0m
+[2m│ Editor: vim[0m
+[2m│ AUR helper: paru[0m
+[2m│ Filesystem: btrfs[0m
+[2m│ Display manager: gdm[0m
+[2m│ Audio: pipewire[0m
+[2m│ [0m
+[2m│ $ loginctl show-session $(loginctl list-sessions --no-legend | head -1 | awk '{print $1}') -p Type --value 2>/dev/null[0m
+[2m│ unspecified[0m
+[2m│ $ cat /etc/os-release 2>/dev/null | grep -E '^(NAME|VERSION)=' | head -2[0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ $ systemctl is-active gdm sddm lightdm 2>/dev/null | grep -v inactive | head -1[0m
+[2m│ active[0m
+[2m│ $ grep -i wayland /etc/gdm/custom.conf 2>/dev/null | head -1[0m
+[2m│ #WaylandEnable=false[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ Command output:[0m
+[2m│ $ cat /etc/os-release | head -3 [OK][0m
+[2m│ NAME="CachyOS Linux"[0m
+[2m│ PRETTY_NAME="CachyOS"[0m
+[2m│ ID=cachyos[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ $ uname -a [OK][0m
+[2m│ Linux razorback 6.18.3-2-cachyos #1 SMP PREEMPT_DYNAMIC Sat, 03 Jan 2026 23:14:07 +0000 x86_64 GNU/Linux[0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ [0m
+[2m│ RULES:[0m
+[2m│ 1. Answer BRIEFLY - just the facts, no extra advice or suggestions[0m
+[2m│ 2. ONLY report facts from the command output - never invent data[0m
+[2m│ 3. Do NOT explain what the system is or its configuration[0m
+[2m│ 4. Give the shortest correct answer[0m
+[2m│ 5. If asked "how much X?" just give the number/value[0m
+[2m│ 6. RESPOND IN ENGLISH ONLY[0m
+[2m│ [0m
+[2m│ Answer:[0m
+[2m└─────────────────────────────────────────[0m
+
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m
+[2m═══════════════════════════════════════[0m
+[2m═══════════════════════════════════════[0m
+[32mANSWER: [0m[32m[LLM unavailable - showing raw command output]
+
+$ cat /etc/os-release | head -3 [OK]
+NAME="CachyOS Linux"
+PRETTY_NAME="CachyOS"
+ID=cachyos
+
+$ uname -a [OK]
+Linux razorback 6.18.3-2-cachyos #1 SMP PREEMPT_DYNAMIC Sat, 03 Jan 2026 23:14:07 +0000 x86_64 GNU/Linux[0m
+[2m═══════════════════════════════════════[0m
+
+[2m(1 iterations)[0m

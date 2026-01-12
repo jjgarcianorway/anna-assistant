@@ -1,0 +1,8 @@
+
+
+[33mANNA → USER: [0mPlease confirm:
+  I'll start the why service:
+    sudo systemctl start why
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

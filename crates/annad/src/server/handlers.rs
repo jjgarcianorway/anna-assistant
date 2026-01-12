@@ -2,7 +2,7 @@
 //! v0.0.922: Added request deduplication
 //! v0.0.926: Added memory fast path
 
-use anna_shared::rpc::{RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{ResetResult, RpcMethod, RpcRequest, RpcResponse};
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
@@ -216,6 +216,52 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 -32603,
                 "Use streaming connection for AskStreaming",
             )
+        }
+        RpcMethod::Reset => {
+            info!("Processing reset request");
+            let mut cleared = Vec::new();
+
+            // Clear all in-memory caches
+            crate::core_loop::cache::clear_all_caches();
+            cleared.push("In-memory caches".to_string());
+
+            // Clear sessions
+            {
+                let mut state_guard = state.write().await;
+                state_guard.sessions = anna_shared::session::SessionStore::new();
+                cleared.push("Sessions".to_string());
+            }
+
+            // Clear memory (learning data)
+            match anna_shared::memory::Memory::load() {
+                Ok(memory) => {
+                    let exp_count = memory.experiences.len();
+                    let pattern_count = memory.patterns.len();
+                    let cluster_count = memory.clusters.len();
+
+                    // Create fresh empty memory
+                    let fresh_memory = anna_shared::memory::Memory::default();
+                    if fresh_memory.save().is_ok() {
+                        cleared.push(format!(
+                            "Memory ({} experiences, {} patterns, {} clusters)",
+                            exp_count, pattern_count, cluster_count
+                        ));
+                    }
+                }
+                Err(_) => {
+                    // Memory file doesn't exist, that's fine
+                }
+            }
+
+            info!("Reset complete: {:?}", cleared);
+
+            let result = ResetResult { cleared };
+            match serde_json::to_value(&result) {
+                Ok(v) => RpcResponse::success(&request.id, v),
+                Err(e) => {
+                    RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e))
+                }
+            }
         }
     }
 }

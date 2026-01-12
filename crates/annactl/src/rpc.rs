@@ -1,6 +1,6 @@
 //! RPC client utilities for communicating with the Anna daemon.
 
-use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{AskResult, ResetResult, RpcMethod, RpcRequest, RpcResponse};
 use anna_shared::socket_path;
 use anna_shared::status::DaemonStatus;
 use anyhow::{anyhow, Result};
@@ -84,6 +84,16 @@ pub async fn ask(question: &str) -> Result<AskResult> {
         return Err(anyhow!("{}", error.message));
     }
 
+    let result = response.result.ok_or_else(|| anyhow!("No result"))?;
+    serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
+}
+
+/// Reset all statistics and learning data
+pub async fn reset() -> Result<ResetResult> {
+    let response = call(RpcMethod::Reset, None).await?;
+    if let Some(error) = response.error {
+        return Err(anyhow!("Reset error: {}", error.message));
+    }
     let result = response.result.ok_or_else(|| anyhow!("No result"))?;
     serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
 }

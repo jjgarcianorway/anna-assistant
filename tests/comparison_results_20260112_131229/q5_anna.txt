@@ -1,0 +1,11 @@
+Anna - Arch Linux Assistant
+
+Usage:
+  annactl                  Start interactive REPL
+  annactl status           Show daemon status
+  annactl stats            Show activity statistics
+  annactl <question>       Ask a question
+
+Examples:
+  annactl "what's my disk usage?"
+  annactl how do I install neovim
