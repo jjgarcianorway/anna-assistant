@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.996] - 2026-01-12
+
+### Added
+- **Fix History Tracking** - All executed fixes are recorded for audit/review
+  - Stores fix ID, description, command, timestamp, success status, and output
+  - History saved to `~/.local/share/anna/fix_history.json`
+  - Keeps last 100 fix records
+  - `get_fix_history_summary()` function for displaying recent fixes
+
 ## [0.0.995] - 2026-01-12
 
 ### Added

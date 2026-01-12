@@ -1,14 +1,19 @@
 //! Auto-fix module - Anna offers to fix known issues automatically.
 //! v0.0.993: Initial implementation
 //! v0.0.994: Added pending autofix tracking and yes/no handling
+//! v0.0.996: Added fix history tracking for audit/rollback
 //!
 //! When Anna detects a well-known problem, she can offer to fix it
 //! with user confirmation.
 
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::RwLock;
-use tracing::{debug, info};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, info, warn};
 
 /// Track pending autofixes by session ID
 static PENDING_FIXES: RwLock<Option<HashMap<String, &'static str>>> = RwLock::new(None);
@@ -44,6 +49,125 @@ pub fn is_yes_response(question: &str) -> bool {
 pub fn is_no_response(question: &str) -> bool {
     let q = question.trim().to_lowercase();
     matches!(q.as_str(), "no" | "n" | "nope" | "cancel" | "nevermind" | "never mind" | "don't" | "dont")
+}
+
+// ============================================================================
+// v0.0.996: Fix History Tracking
+// ============================================================================
+
+/// Record of an executed fix
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FixRecord {
+    /// Fix ID (e.g., "pacman_cache")
+    pub fix_id: String,
+    /// Description of what was fixed
+    pub description: String,
+    /// Command that was executed
+    pub command: String,
+    /// When the fix was executed
+    pub executed_at: DateTime<Utc>,
+    /// Whether the fix succeeded
+    pub success: bool,
+    /// Output from the fix command
+    pub output: String,
+}
+
+/// Fix history storage
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FixHistory {
+    pub records: Vec<FixRecord>,
+}
+
+impl FixHistory {
+    /// Get the path to the fix history file
+    fn history_path() -> PathBuf {
+        let data_dir = dirs::data_local_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join("anna");
+        fs::create_dir_all(&data_dir).ok();
+        data_dir.join("fix_history.json")
+    }
+
+    /// Load fix history from disk
+    pub fn load() -> Self {
+        let path = Self::history_path();
+        if path.exists() {
+            match fs::read_to_string(&path) {
+                Ok(content) => {
+                    serde_json::from_str(&content).unwrap_or_default()
+                }
+                Err(_) => Self::default(),
+            }
+        } else {
+            Self::default()
+        }
+    }
+
+    /// Save fix history to disk
+    pub fn save(&self) -> Result<(), String> {
+        let path = Self::history_path();
+        let content = serde_json::to_string_pretty(self)
+            .map_err(|e| format!("Failed to serialize: {}", e))?;
+        fs::write(&path, content)
+            .map_err(|e| format!("Failed to write: {}", e))?;
+        Ok(())
+    }
+
+    /// Add a fix record
+    pub fn add_record(&mut self, record: FixRecord) {
+        self.records.push(record);
+        // Keep only last 100 records
+        if self.records.len() > 100 {
+            self.records.remove(0);
+        }
+        if let Err(e) = self.save() {
+            warn!("Failed to save fix history: {}", e);
+        }
+    }
+
+    /// Get recent fixes (last N)
+    pub fn recent(&self, count: usize) -> Vec<&FixRecord> {
+        self.records.iter().rev().take(count).collect()
+    }
+
+    /// Get fixes for a specific fix_id
+    pub fn for_fix(&self, fix_id: &str) -> Vec<&FixRecord> {
+        self.records.iter().filter(|r| r.fix_id == fix_id).collect()
+    }
+}
+
+/// Record a fix execution to history
+pub fn record_fix(fix: &AutoFix, success: bool, output: &str) {
+    let record = FixRecord {
+        fix_id: fix.id.to_string(),
+        description: fix.description.to_string(),
+        command: fix.fix_cmd.to_string(),
+        executed_at: Utc::now(),
+        success,
+        output: output.to_string(),
+    };
+
+    let mut history = FixHistory::load();
+    history.add_record(record);
+    info!("Recorded fix {} to history (success={})", fix.id, success);
+}
+
+/// Get fix history summary for display
+pub fn get_fix_history_summary() -> String {
+    let history = FixHistory::load();
+    if history.records.is_empty() {
+        return "No fixes have been executed yet.".to_string();
+    }
+
+    let recent = history.recent(5);
+    let mut summary = String::from("Recent fixes:\n");
+    for record in recent {
+        let status = if record.success { "OK" } else { "FAILED" };
+        let time = record.executed_at.format("%Y-%m-%d %H:%M");
+        summary.push_str(&format!("  [{}] {} - {} ({})\n",
+            status, record.fix_id, record.description, time));
+    }
+    summary
 }
 
 /// A known problem that Anna can fix automatically
@@ -276,12 +400,20 @@ pub fn execute_autofix(fix: &AutoFix) -> Result<String, String> {
 
             if output.status.success() {
                 info!("AutoFix {} succeeded", fix.id);
+                // v0.0.996: Record successful fix to history
+                record_fix(fix, true, stdout.trim());
                 Ok(format!("Done! {}", stdout.trim()))
             } else {
+                // v0.0.996: Record failed fix to history
+                record_fix(fix, false, stderr.trim());
                 Err(format!("Fix failed: {}", stderr.trim()))
             }
         }
-        Err(e) => Err(format!("Failed to run fix: {}", e))
+        Err(e) => {
+            // v0.0.996: Record execution error to history
+            record_fix(fix, false, &e.to_string());
+            Err(format!("Failed to run fix: {}", e))
+        }
     }
 }
 

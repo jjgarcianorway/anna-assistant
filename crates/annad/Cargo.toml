@@ -20,4 +20,5 @@ reqwest.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
 regex.workspace = true
+dirs.workspace = true
 rayon = "1.10"

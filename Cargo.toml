@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.995"
+version = "0.0.996"
 edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/jjgarcianorway/anna-assistant"
@@ -28,3 +28,4 @@ chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.11", features = ["json", "stream"] }  # v0.0.143: Added stream for LLM streaming
 regex = "1.10"
 futures-util = "0.3"
+dirs = "5.0"
