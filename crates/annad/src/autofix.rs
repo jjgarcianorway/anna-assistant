@@ -221,7 +221,7 @@ pub const AUTO_FIXES: &[AutoFix] = &[
     AutoFix {
         id: "pacman_cache",
         description: "Large pacman cache",
-        triggers: &["cache", "clean", "disk", "space", "pacman"],
+        triggers: &["cache", "clean", "disk", "space", "pacman", "full"],
         check_cmd: "du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1",
         check_condition: "G", // Contains G for gigabytes
         fix_cmd: "sudo paccache -rk2",
@@ -367,9 +367,11 @@ pub fn find_autofix(question: &str) -> Option<&'static AutoFix> {
     let has_action = action_words.iter().any(|w| q.contains(w));
 
     // Also check for info-seeking questions that should NOT trigger autofix
+    // v0.1.8: Handle contractions (what's = what is)
     let info_questions = [
-        "how much", "how many", "what is", "what are", "show me",
-        "list", "check", "status", "tell me", "display"
+        "how much", "how many", "what is", "what's", "what are",
+        "show me", "list", "check", "status", "tell me", "display",
+        "using", "taking", "consuming"  // "what's using my disk" = info question
     ];
     let is_info_question = info_questions.iter().any(|w| q.contains(w));
 
@@ -480,6 +482,29 @@ mod tests {
         // Should not match with just one trigger word
         let fix = find_autofix("what is pacman");
         assert!(fix.is_none());
+    }
+
+    #[test]
+    fn test_no_autofix_for_info_questions() {
+        // v0.1.8: Info questions with contractions should not trigger autofix
+        let fix = find_autofix("what's using my disk space");
+        assert!(fix.is_none(), "Info question with contraction should not trigger autofix");
+
+        let fix = find_autofix("how much disk space do I have");
+        assert!(fix.is_none(), "Info question should not trigger autofix");
+
+        let fix = find_autofix("show me disk usage");
+        assert!(fix.is_none(), "Info question should not trigger autofix");
+    }
+
+    #[test]
+    fn test_autofix_for_action_requests() {
+        // v0.1.8: Action requests SHOULD trigger autofix
+        let fix = find_autofix("my disk is full, please fix it");
+        assert!(fix.is_some(), "Action request should trigger autofix");
+
+        let fix = find_autofix("clean up my disk space");
+        assert!(fix.is_some(), "Clean request should trigger autofix");
     }
 
     // v0.0.995: Tests for new auto-fixes
