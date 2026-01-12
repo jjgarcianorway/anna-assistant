@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-01-12
+
+### Fixed
+- **Validation Loop** - Improved validation to stop repeating commands
+  - "No results" (0 items, empty list) is now recognized as a valid answer
+  - Loop stops after first successful command when result is sufficient
+
 ## [0.1.5] - 2026-01-12
 
 ### Fixed

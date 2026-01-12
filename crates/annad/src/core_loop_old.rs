@@ -2684,6 +2684,7 @@ Commands:"#,
         }
 
         // Step 3: Check if we have enough information
+        // v0.1.5: Improved validation to handle "no results" answers
         if !last_output.is_empty() {
             let validate_prompt = format!(
                 r#"The user asked: "{}"
@@ -2692,9 +2693,12 @@ Commands were run and produced this output:
 {}
 
 Based on this output, can you provide a complete answer to the user's question?
+IMPORTANT: "No results" or "0 items" IS a valid, complete answer if the user asked about something that doesn't exist.
+For example, if they asked "what services are failing?" and output shows "0 loaded units listed", that IS sufficient - the answer is "no services are failing".
+
 Reply with ONLY one of:
-- "YES" if the output contains enough information to answer the question
-- "NO" if more information is needed"#,
+- "YES" if the output contains enough information to answer (including "nothing found" answers)
+- "NO" if more information is truly needed to answer"#,
                 question, last_output
             );
 
