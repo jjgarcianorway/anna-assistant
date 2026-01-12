@@ -23,8 +23,8 @@ use tracing::{debug, info};
 use crate::core_loop::command::execute_command;
 use crate::ollama::chat_with_timeout;
 
-/// Maximum investigation iterations
-const MAX_ITERATIONS: u8 = 5;
+/// Maximum investigation iterations (keep low to avoid timeouts)
+const MAX_ITERATIONS: u8 = 3;
 /// LLM timeout in seconds
 const LLM_TIMEOUT_SECS: u64 = 60;
 

@@ -90,37 +90,36 @@ USER QUESTION: "{question}"
 INVESTIGATION SO FAR (iteration {iteration}):
 {findings}
 
-Based on the findings above, decide what to do next.
+Decide what to do next based on the findings.
 
-IMPORTANT RULES:
-1. DO NOT use interactive commands (top, htop, vim, nano, less, man)
-2. Use non-interactive alternatives: ps aux, cat, head, tail
+RULES:
+1. NO interactive commands (top, htop, vim, nano, less, man) - they hang
+2. Use: ps aux, cat, ls, head, tail, grep, systemctl, journalctl
 3. For CPU: ps aux --sort=-%cpu | head -10
-4. For memory: free -h
-5. For disk: df -h, du -sh /path
-6. Maximum 3-5 commands per iteration
-7. If you found a PROBLEM that can be fixed, suggest the fix
+4. For disk: df -h, du -sh
+5. For pacman lock: ls -la /var/lib/pacman/db.lck
+6. For services: systemctl status <service>, journalctl -u <service>
+7. Maximum 3 commands per iteration
+8. If output shows the problem clearly, suggest the fix
+9. If commands returned empty/no error, that might BE the answer
 
-RESPOND WITH ONE OF:
+RESPOND WITH EXACTLY ONE:
 
-Option 1 - Need more information:
 COMMANDS:
 command1
 command2
-command3
 
-Option 2 - Have enough info to answer:
+OR
+
 ANSWER
 
-Option 3 - Found a fixable problem:
-FIX: <the command to fix it>
-PROBLEM: <what the problem is>
-EXPLAIN: <why this fix works>
+OR
 
-Option 4 - Question is out of scope:
-OUT_OF_SCOPE: <reason>
+FIX: <command>
+PROBLEM: <issue found>
+EXPLAIN: <why this fixes it>
 
-Respond now:"#,
+Respond:"#,
         context = system_context(),
         question = question,
         iteration = state.iteration,
