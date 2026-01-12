@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-01-12
+
+### Fixed
+- **Stricter Command Validation** - Exact command matching instead of prefix matching
+  - Prevents `systemd-analyzeblade` (was passing because it started with `systemd-analyze`)
+  - Rejects commands with non-ASCII characters (Chinese text, etc.)
+  - Added 80+ valid commands to allowlist
+- **Test Results**: v0.2.3 achieved 65% success rate on 83 questions
+
 ## [0.2.3] - 2026-01-12
 
 ### Fixed

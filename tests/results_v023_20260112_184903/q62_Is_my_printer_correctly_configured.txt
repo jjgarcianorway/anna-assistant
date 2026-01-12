@@ -1,0 +1,63 @@
+
+[36mYou: [0mIs my printer correctly configured
+
+[2m  $ [0msystemctl status cups.service
+[2m  Unit cups.service could not be found.[0m
+[2m  $ [0mls /dev/printer* 2>/dev/null
+[2m  [0m
+[2m  $ [0mlpinfo -v
+[2m  sh: line 1: lpinfo: command not found[0m
+[2m  $ [0mlpstat -p
+[2m  sh: line 1: lpstat: command not found[0m
+[2m  $ [0msystemctl status cups.service
+[2m  Unit cups.service could not be found.[0m
+[2m  $ [0mls /dev/printer* 2>/dev/null
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32minformation [0m[32mprovided, [0m[32mit [0m[32mseems [0m[32mthat [0m[32mthe [0m[32mCUPS [0m[32m(Common [0m[32mUnix [0m[32mPrinting [0m[32mSystem) [0m[32mservice [0m[32mis [0m[32meither [0m[32mnot [0m[32minstalled [0m[32mor [0m[32mnot [0m[32mproperly [0m[32mconfigured [0m[32mon [0m[32myour [0m[32msystem. [0m[32mThe [0m[32m`lpinfo` [0m[32mand [0m[32m`lpstat` [0m[32mcommands [0m[32mare [0m[32mpart [0m[32mof [0m[32mthe [0m[32mCUPS [0m[32mpackage [0m[32mand [0m[32mare [0m[32mused [0m[32mto [0m[32mlist [0m[32mavailable [0m[32mprinters [0m[32mand [0m[32mcheck [0m[32mthe [0m[32mprinting [0m[32mstatus.
+
+To [0m[32mdetermine [0m[32mif [0m[32myour [0m[32mprinter [0m[32mis [0m[32mcorrectly [0m[32mconfigured, [0m[32myou [0m[32mshould [0m[32mfirst [0m[32mensure [0m[32mthat [0m[32mCUPS [0m[32mis [0m[32minstalled [0m[32mand [0m[32mrunning. [0m[32mYou [0m[32mcan [0m[32minstall [0m[32mit [0m[32musing:
+
+```bash
+sudo [0m[32mpacman [0m[32m-S [0m[32mcups
+```
+
+After [0m[32minstalling [0m[32mCUPS, [0m[32mstart [0m[32mthe [0m[32mservice [0m[32mwith:
+
+```bash
+sudo [0m[32msystemctl [0m[32mstart [0m[32mcups
+```
+
+And [0m[32menable [0m[32mit [0m[32mto [0m[32mstart [0m[32mon [0m[32mboot:
+
+```bash
+sudo [0m[32msystemctl [0m[32menable [0m[32mcups
+```
+
+Next, [0m[32myou [0m[32mshould [0m[32mcheck [0m[32mif [0m[32myour [0m[32mprinter [0m[32mis [0m[32mcorrectly [0m[32mconfigured. [0m[32mYou [0m[32mcan [0m[32mdo [0m[32mthis [0m[32mby [0m[32musing [0m[32mthe [0m[32m`lpadmin` [0m[32mcommand [0m[32mor [0m[32mchecking [0m[32mthe [0m[32m`/etc/cups/printers.conf` [0m[32mfile.
+
+To [0m[32mlist [0m[32mavailable [0m[32mprinters, [0m[32myou [0m[32mcan [0m[32muse:
+
+```bash
+systemctl [0m[32mstatus [0m[32mcups
+```
+
+If [0m[32mno [0m[32mprinters [0m[32mare [0m[32mlisted [0m[32mand [0m[32myou [0m[32mknow [0m[32mthe [0m[32mname [0m[32mof [0m[32myour [0m[32mprinter, [0m[32myou [0m[32mmight [0m[32mneed [0m[32mto [0m[32madd [0m[32mit [0m[32mmanually [0m[32mwith [0m[32ma [0m[32mcommand [0m[32mlike:
+
+```bash
+sudo [0m[32mlpadmin [0m[32m-p [0m[32m<printer_name> [0m[32m-v [0m[32msocket://<printer_ip_or_hostname> [0m[32m-E
+```
+
+Replace [0m[32m`<printer_name>` [0m[32mwith [0m[32mthe [0m[32mdesired [0m[32mname [0m[32mfor [0m[32myour [0m[32mprinter [0m[32mand [0m[32m`<printer_ip_or_hostname>` [0m[32mwith [0m[32mthe [0m[32mIP [0m[32maddress [0m[32mor [0m[32mhostname [0m[32mof [0m[32myour [0m[32mprinter.
+
+Finally, [0m[32myou [0m[32mcan [0m[32mcheck [0m[32mthe [0m[32mstatus [0m[32mof [0m[32myour [0m[32mprinter [0m[32mwith:
+
+```bash
+lpstat [0m[32m-p
+```
+
+This [0m[32mshould [0m[32mlist [0m[32mall [0m[32mconfigured [0m[32mprinters [0m[32malong [0m[32mwith [0m[32mtheir [0m[32mcurrent [0m[32mstatus. [0m[32mIf [0m[32myour [0m[32mprinter [0m[32mis [0m[32mnot [0m[32mlisted, [0m[32mfurther [0m[32mconfiguration [0m[32msteps [0m[32mmay [0m[32mbe [0m[32mneeded [0m[32mto [0m[32mcorrectly [0m[32mset [0m[32mit [0m[32mup.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

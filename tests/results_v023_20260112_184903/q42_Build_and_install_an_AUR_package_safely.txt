@@ -1,0 +1,46 @@
+
+[36mYou: [0mBuild and install an AUR package safely
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32mbuild [0m[32mand [0m[32minstall [0m[32man [0m[32mAUR [0m[32m(Arch [0m[32mUser [0m[32mRepository) [0m[32mpackage [0m[32msafely [0m[32mon [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32m`pacman`, [0m[32mfollow [0m[32mthese [0m[32msteps:
+
+1. [0m[32m**Install [0m[32mthe [0m[32mRequired [0m[32mTools**:
+ [0m[32m [0m[32m [0m[32mEnsure [0m[32myou [0m[32mhave [0m[32m`yay` [0m[32mor [0m[32manother [0m[32mAUR [0m[32mhelper [0m[32minstalled, [0m[32mas [0m[32mit [0m[32msimplifies [0m[32mthe [0m[32mprocess [0m[32mof [0m[32mbuilding [0m[32mand [0m[32minstalling [0m[32mAUR [0m[32mpackages.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32myay
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32m**Search [0m[32mfor [0m[32mthe [0m[32mPackage**:
+ [0m[32m [0m[32m [0m[32mUse [0m[32m`yay` [0m[32mto [0m[32msearch [0m[32mfor [0m[32mthe [0m[32mpackage [0m[32myou [0m[32mwant [0m[32mto [0m[32minstall.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32myay [0m[32m-Ss [0m[32m<package_name>
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32m**Install [0m[32mthe [0m[32mPackage**:
+ [0m[32m [0m[32m [0m[32mOnce [0m[32myou've [0m[32mfound [0m[32mthe [0m[32mpackage, [0m[32muse [0m[32m`yay` [0m[32mto [0m[32minstall [0m[32mit.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32myay [0m[32m-S [0m[32m<package_name>
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32m**Verify [0m[32mInstallation**:
+ [0m[32m [0m[32m [0m[32mAfter [0m[32minstallation, [0m[32mverify [0m[32mthat [0m[32mthe [0m[32mpackage [0m[32mis [0m[32minstalled [0m[32mcorrectly [0m[32mby [0m[32mchecking [0m[32mits [0m[32mversion [0m[32mor [0m[32musing [0m[32ma [0m[32mcommand [0m[32mrelated [0m[32mto [0m[32mthe [0m[32mpackage.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32m<package_command> [0m[32m--version
+ [0m[32m [0m[32m [0m[32m```
+
+5. [0m[32m**Keep [0m[32mPackage [0m[32mUp-to-Date**:
+ [0m[32m [0m[32m [0m[32mRegularly [0m[32mupdate [0m[32mthe [0m[32mAUR [0m[32mhelper [0m[32mand [0m[32mthe [0m[32mpackage [0m[32mitself.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32myay [0m[32m-Syu
+ [0m[32m [0m[32m [0m[32m```
+
+By [0m[32mfollowing [0m[32mthese [0m[32msteps, [0m[32myou [0m[32mcan [0m[32msafely [0m[32mbuild [0m[32mand [0m[32minstall [0m[32mpackages [0m[32mfrom [0m[32mthe [0m[32mAUR [0m[32musing [0m[32m`yay` [0m[32mon [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

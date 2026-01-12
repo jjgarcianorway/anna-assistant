@@ -1,0 +1,39 @@
+
+[36mYou: [0mShow current system load and explain if absence is healthy
+
+[2m  $ [0mtop
+[2m  [0m
+[2m  $ [0muptime
+[2m  18:50:19 up 4 days, 21:56,  4 users,  load average: 1,36, 0,95, 1,06[0m
+[2m  $ [0msysctl kernel.pid_max
+[2m  kernel.pid_max = 4194304[0m
+[2m  $ [0muptime
+[2m  18:50:19 up 4 days, 21:56,  4 users,  load average: 1,36, 0,95, 1,06[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata:
+
+```
+18:50:19 [0m[32mup [0m[32m4 [0m[32mdays, [0m[32m21:56, [0m[32m [0m[32m4 [0m[32musers, [0m[32m [0m[32mload [0m[32maverage: [0m[32m1,36, [0m[32m0,95, [0m[32m1,06
+```
+
+The [0m[32msystem [0m[32mhas [0m[32mbeen [0m[32mrunning [0m[32mfor [0m[32m4 [0m[32mdays [0m[32mand [0m[32m21 [0m[32mhours [0m[32mwith [0m[32m4 [0m[32mactive [0m[32musers. [0m[32mThe [0m[32mload [0m[32maverages [0m[32mare:
+
+- [0m[32m1-minute [0m[32mload [0m[32maverage: [0m[32m1.36
+- [0m[32m5-minute [0m[32mload [0m[32maverage: [0m[32m0.95
+- [0m[32m15-minute [0m[32mload [0m[32maverage: [0m[32m1.06
+
+### [0m[32mExplanation [0m[32mof [0m[32mLoad [0m[32mAverages:
+- [0m[32m**1-minute [0m[32mload [0m[32maverage [0m[32m(1.36):** [0m[32mThis [0m[32mvalue [0m[32mindicates [0m[32mthe [0m[32maverage [0m[32mnumber [0m[32mof [0m[32mprocesses [0m[32mwaiting [0m[32mto [0m[32mrun [0m[32mon [0m[32mthe [0m[32mCPU [0m[32min [0m[32mthe [0m[32mlast [0m[32mminute. [0m[32mA [0m[32mvalue [0m[32maround [0m[32m1 [0m[32mis [0m[32mgenerally [0m[32mconsidered [0m[32mnormal [0m[32mfor [0m[32ma [0m[32msystem [0m[32mwith [0m[32m4 [0m[32musers, [0m[32mas [0m[32mit [0m[32msuggests [0m[32mthat [0m[32mthe [0m[32msystem [0m[32mhas [0m[32msome [0m[32mbackground [0m[32mtasks [0m[32mrunning [0m[32mbut [0m[32mnot [0m[32moverloaded.
+ [0m[32m [0m[32m
+- [0m[32m**5-minute [0m[32mload [0m[32maverage [0m[32m(0.95):** [0m[32mThis [0m[32mshows [0m[32mthe [0m[32mload [0m[32mover [0m[32mthe [0m[32mpast [0m[32mfive [0m[32mminutes. [0m[32mA [0m[32mlower [0m[32mvalue [0m[32mcompared [0m[32mto [0m[32mthe [0m[32m1-minute [0m[32maverage [0m[32mindicates [0m[32mthat [0m[32mthe [0m[32mload [0m[32mis [0m[32mdecreasing [0m[32mor [0m[32mstable.
+
+- [0m[32m**15-minute [0m[32mload [0m[32maverage [0m[32m(1.06):** [0m[32mThis [0m[32mlong-term [0m[32maverage [0m[32malso [0m[32msuggests [0m[32ma [0m[32mmoderate [0m[32mload, [0m[32mwhich [0m[32mhas [0m[32mstabilized [0m[32mand [0m[32mis [0m[32mslightly [0m[32mhigher [0m[32mthan [0m[32mthe [0m[32mrecent [0m[32maverages [0m[32mbut [0m[32mstill [0m[32mwithin [0m[32ma [0m[32mhealthy [0m[32mrange.
+
+### [0m[32mAbsence [0m[32mof [0m[32mHigh [0m[32mLoad:
+The [0m[32mabsence [0m[32mof [0m[32mvery [0m[32mhigh [0m[32mload [0m[32mvalues [0m[32mis [0m[32mgenerally [0m[32mgood [0m[32mas [0m[32mit [0m[32mindicates [0m[32mthat [0m[32mthe [0m[32msystem [0m[32mis [0m[32mnot [0m[32moverloaded. [0m[32mHowever, [0m[32moccasional [0m[32mspikes [0m[32mto [0m[32mhigher [0m[32mload [0m[32mlevels [0m[32m(e.g., [0m[32m2 [0m[32mor [0m[32mmore) [0m[32mcan [0m[32mbe [0m[32mnormal [0m[32min [0m[32msystems [0m[32mwith [0m[32mactive [0m[32musers [0m[32mand [0m[32mbackground [0m[32mprocesses.
+
+In [0m[32msummary, [0m[32mthese [0m[32mload [0m[32maverages [0m[32mare [0m[32mwithin [0m[32ma [0m[32mhealthy [0m[32mrange [0m[32mfor [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32mwith [0m[32m4 [0m[32musers, [0m[32mindicating [0m[32mmoderate [0m[32mbut [0m[32mmanageable [0m[32msystem [0m[32mload.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

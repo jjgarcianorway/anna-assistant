@@ -1,0 +1,33 @@
+
+[36mYou: [0mCheck for partially upgraded packages
+
+[2m  $ [0mpacman -QupdeNONE
+[2m  pacman: invalid option -- 'N'[0m
+[2m  $ [0mpacman -QM
+[2m  pacman: invalid option -- 'M'[0m
+[2m  $ [0mpacman -Qoutdated
+[2m  pacman: invalid option -- 'a'[0m
+[2m  $ [0mpacman -Qoutdated
+[2m  pacman: invalid option -- 'a'[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32merror [0m[32mmessages [0m[32myou [0m[32mprovided, [0m[32mit [0m[32mseems [0m[32mthat [0m[32mthere [0m[32mwas [0m[32man [0m[32missue [0m[32mwith [0m[32mhow [0m[32m`pacman` [0m[32mwas [0m[32minvoked. [0m[32mThe [0m[32merrors [0m[32mindicate [0m[32mthat [0m[32moptions [0m[32mlike [0m[32m`--N`, [0m[32m`--M`, [0m[32mand [0m[32m`--a` [0m[32mare [0m[32mnot [0m[32mvalid [0m[32mfor [0m[32m`pacman`.
+
+To [0m[32mcheck [0m[32mfor [0m[32mpartially [0m[32mupgraded [0m[32mpackages [0m[32min [0m[32mArch [0m[32mLinux [0m[32musing [0m[32m`pacman`, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32mcommand:
+
+```sh
+pacman [0m[32m-Qm
+```
+
+This [0m[32mwill [0m[32mlist [0m[32mall [0m[32mthe [0m[32mpackages [0m[32mthat [0m[32mare [0m[32mmarked [0m[32mas [0m[32mimplicitly [0m[32mor [0m[32mexplicitly [0m[32morphaned, [0m[32mwhich [0m[32moften [0m[32mindicates [0m[32ma [0m[32mpartial [0m[32mupgrade [0m[32msituation.
+
+If [0m[32myou [0m[32mwant [0m[32mto [0m[32msee [0m[32mmore [0m[32mdetailed [0m[32minformation [0m[32mabout [0m[32mpackage [0m[32mdependencies [0m[32mand [0m[32mpotential [0m[32missues, [0m[32myou [0m[32mmight [0m[32malso [0m[32mconsider [0m[32musing:
+
+```sh
+sudo [0m[32mpacman [0m[32m-Qi
+```
+
+However, [0m[32mfor [0m[32mchecking [0m[32mpartially [0m[32mupgraded [0m[32mpackages [0m[32mspecifically, [0m[32m`pacman [0m[32m-Qm` [0m[32mis [0m[32mthe [0m[32mmost [0m[32mappropriate [0m[32mcommand.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

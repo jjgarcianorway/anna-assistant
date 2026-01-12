@@ -1,0 +1,45 @@
+
+[36mYou: [0mIs my audio stack using PipeWire or PulseAudio
+
+[2m  $ [0msystemctl status pipewire.service
+[2m  Unit pipewire.service could not be found.[0m
+[2m  $ [0msystemctl status pulseaudio.service
+[2m  Unit pulseaudio.service could not be found.[0m
+[2m  $ [0mgrep -i pipewire /etc/pulse/client.conf /etc/pipewire/pipewire.conf 2>/dev/null
+[2m  [0m
+[2m  $ [0mpacman -Ql | grep脉冲音频 2>/dev/null
+[2m  [0m
+[2m  $ [0mpacman -Ql | grep PipeWire 2>/dev/null
+[2m  arch-wiki-docs /usr/share/doc/arch-wiki/html/en/PipeWire.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/en/PipeWire/
+arch-wiki-docs /usr/share/doc/arch-wiki/html/en/PipeWire/Examples.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/fi/PipeWire.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire/
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire/Examples.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire...[0m
+[2m  $ [0mps aux | grep pulseaudio
+[2m  root     2263873  0.0  0.0   8832  2476 ?        S    19:15   0:00 timeout 10s sh -c ps aux | grep pulseaudio
+root     2263874  0.0  0.0  10844  3856 ?        S    19:15   0:00 sh -c ps aux | grep pulseaudio
+root     2263876  0.0  0.0   9976  2680 ?        S    19:15   0:00 grep pulseaudio[0m
+[2m  $ [0mps aux | grep pipewire
+[2m  lhoqvso     5203  0.0  0.0 111864 11556 ?        S<sl jan.07   2:44 /usr/bin/pipewire
+lhoqvso     5209  0.0  0.0 115212 15748 ?        S<sl jan.07   5:10 /usr/bin/pipewire-pulse
+root     2263877  0.0  0.0   8832  2480 ?        S    19:15   0:00 timeout 10s sh -c ps aux | grep pipewire
+root     2263878  0.0  0.0  10844  3832 ?        S    19:15   0:00 sh -c ps aux | grep pipewire
+root     2263880  0.0  0.0   9976  2684 ?        S    19:15   0:00 grep pipewire[0m
+[2m  $ [0mps -ef | grep pipewire
+[2m  lhoqvso     5203    3674  0 jan.07 ?       00:02:44 /usr/bin/pipewire
+lhoqvso     5209    3674  0 jan.07 ?       00:05:10 /usr/bin/pipewire-pulse
+root     2264028 2188311  0 19:15 ?        00:00:00 timeout 10s sh -c ps -ef | grep pipewire
+root     2264029 2264028  0 19:15 ?        00:00:00 sh -c ps -ef | grep pipewire
+root     2264031 2264029  0 19:15 ?        00:00:00 grep pipewire[0m
+[2m  $ [0mpacman -Ql | grep PipeWire
+[2m  arch-wiki-docs /usr/share/doc/arch-wiki/html/en/PipeWire.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/en/PipeWire/
+arch-wiki-docs /usr/share/doc/arch-wiki/html/en/PipeWire/Examples.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/fi/PipeWire.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire/
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire/Examples.html
+arch-wiki-docs /usr/share/doc/arch-wiki/html/hu/PipeWire...[0m

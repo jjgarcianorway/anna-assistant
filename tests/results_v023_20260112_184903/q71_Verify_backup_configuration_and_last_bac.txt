@@ -1,0 +1,45 @@
+
+[36mYou: [0mVerify backup configuration and last backup time
+
+[2m  $ [0mlastbackup
+[2m  sh: line 1: lastbackup: command not found[0m
+[2m  $ [0mls -lt /var/backups | head -n 1
+[2m  ls: cannot access '/var/backups': No such file or directory[0m
+[2m  $ [0msystemctl status backup-service
+[2m  Unit backup-service.service could not be found.[0m
+[2m  $ [0mcat /etc/cron.d/backup | grep BACKUP_TIME
+[2m  cat: /etc/cron.d/backup: No such file or directory[0m
+[2m  $ [0mls /var/backups
+[2m  ls: cannot access '/var/backups': No such file or directory[0m
+[2m  $ [0msystemctl list-unit-files | grep backup
+[2m  snapper-backup.service                       static          -
+snapper-backup.timer                         disabled        disabled[0m
+[2m  $ [0mgrep -r 'backup' /etc/cron.d/
+[2m  grep: /etc/cron.d/: No such file or directory[0m
+[2m  $ [0mfind /etc/ -name "backup*.conf"
+[2m  [0m
+[2m  $ [0mls -lt /var/backups 2>/dev/null
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mit [0m[32mappears [0m[32mthat [0m[32mthere [0m[32mare [0m[32mno [0m[32mexisting [0m[32mbackup [0m[32mconfigurations [0m[32min [0m[32muse [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem, [0m[32mand [0m[32mno [0m[32mrecent [0m[32mbackups [0m[32mhave [0m[32mbeen [0m[32mperformed. [0m[32mHere's [0m[32ma [0m[32msummary [0m[32mof [0m[32mthe [0m[32mfindings:
+
+1. [0m[32mThe [0m[32mcommand [0m[32m`lastbackup` [0m[32mis [0m[32mnot [0m[32mfound, [0m[32mindicating [0m[32mthat [0m[32meither [0m[32ma [0m[32mcustom [0m[32mscript [0m[32mor [0m[32mtool [0m[32mnamed [0m[32m`lastbackup` [0m[32mis [0m[32mmissing, [0m[32mor [0m[32mno [0m[32msuch [0m[32mutility [0m[32mexists.
+
+2. [0m[32mThere [0m[32mare [0m[32mno [0m[32mbackup [0m[32mfiles [0m[32min [0m[32m`/var/backups`, [0m[32mas [0m[32mindicated [0m[32mby [0m[32mthe [0m[32m"No [0m[32msuch [0m[32mfile [0m[32mor [0m[32mdirectory" [0m[32mmessage [0m[32mwhen [0m[32mtrying [0m[32mto [0m[32mlist [0m[32mthe [0m[32mcontents [0m[32mof [0m[32mthis [0m[32mdirectory.
+
+3. [0m[32mThe [0m[32munit [0m[32mservice [0m[32m`backup-service.service` [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound, [0m[32msuggesting [0m[32mthat [0m[32ma [0m[32mcustom [0m[32mservice [0m[32mfor [0m[32mbackups [0m[32mis [0m[32mmissing [0m[32mor [0m[32mnot [0m[32menabled.
+
+4. [0m[32mNo [0m[32mcron [0m[32mjob [0m[32mconfiguration [0m[32mrelated [0m[32mto [0m[32mbackup [0m[32mexists [0m[32mat [0m[32m`/etc/cron.d/backup`, [0m[32mas [0m[32mshown [0m[32mby [0m[32mthe [0m[32m"No [0m[32msuch [0m[32mfile [0m[32mor [0m[32mdirectory" [0m[32mmessage [0m[32mwhen [0m[32mtrying [0m[32mto [0m[32maccess [0m[32mthis [0m[32mfile.
+
+5. [0m[32mThe [0m[32mSnapper [0m[32mtool, [0m[32mwhich [0m[32mcan [0m[32mmanage [0m[32msnapshots [0m[32mand [0m[32mbackups, [0m[32mdoes [0m[32mhave [0m[32ma [0m[32m`snapper-backup.service` [0m[32munit [0m[32mdefined [0m[32mbut [0m[32mit [0m[32mis [0m[32mmarked [0m[32mas [0m[32mstatic [0m[32m(not [0m[32mactive) [0m[32mwith [0m[32mno [0m[32mtimer [0m[32menabled [0m[32mfor [0m[32mautomatic [0m[32mexecution.
+
+Given [0m[32mthese [0m[32mfindings:
+
+- [0m[32mThere [0m[32mare [0m[32mno [0m[32mactive [0m[32mbackup [0m[32mmechanisms [0m[32mconfigured [0m[32mon [0m[32mthe [0m[32msystem.
+- [0m[32mNo [0m[32mrecent [0m[32mor [0m[32mprevious [0m[32mbackups [0m[32mhave [0m[32mbeen [0m[32mperformed [0m[32mbased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata.
+
+To [0m[32mverify [0m[32mand [0m[32mconfigure [0m[32mbackup [0m[32msettings, [0m[32myou [0m[32mmight [0m[32mwant [0m[32mto [0m[32mconsider [0m[32msetting [0m[32mup [0m[32ma [0m[32mbackup [0m[32msolution [0m[32musing [0m[32mtools [0m[32msuch [0m[32mas [0m[32m`rsync`, [0m[32m`borg`, [0m[32m`deja-dup`, [0m[32mor [0m[32m`Snapper` [0m[32mwith [0m[32mappropriate [0m[32mconfigurations. [0m[32mHowever, [0m[32msince [0m[32mthese [0m[32mconfigurations [0m[32mare [0m[32mnot [0m[32mpresent, [0m[32mit's [0m[32mrecommended [0m[32mto [0m[32mstart [0m[32mby [0m[32msetting [0m[32mup [0m[32man [0m[32minitial [0m[32mbackup [0m[32mplan [0m[32maccording [0m[32mto [0m[32myour [0m[32mneeds [0m[32mand [0m[32mthen [0m[32mregularly [0m[32mschedule [0m[32mbackups [0m[32musing [0m[32mcron [0m[32mor [0m[32manother [0m[32mscheduler.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

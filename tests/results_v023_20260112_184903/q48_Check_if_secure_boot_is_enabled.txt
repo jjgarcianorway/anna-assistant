@@ -1,0 +1,10 @@
+
+
+[33mAnna: [0mPlease confirm:
+  I'll enable check to start automatically at boot:
+    sudo systemctl enable check
+  
+  The service will start on next boot (or you can start it now).
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

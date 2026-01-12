@@ -1,0 +1,23 @@
+
+[36mYou: [0mIs hardware acceleration working for my GPU
+
+[2m  $ [0mnvidia-smi
+[2m  Mon Jan 12 18:53:06 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 590.48.01              Driver Version: 590.48.01      CUDA Version: 13.1     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|       ...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mNVIDIA [0m[32mSMI [0m[32mdata, [0m[32mhardware [0m[32macceleration [0m[32mfor [0m[32myour [0m[32mGPU [0m[32m(NVIDIA [0m[32mGeForce [0m[32mRTX [0m[32m4060) [0m[32mis [0m[32mworking [0m[32mas [0m[32mindicated [0m[32mby [0m[32mseveral [0m[32mprocesses [0m[32mutilizing [0m[32mGPU [0m[32mmemory [0m[32mand [0m[32mcompute [0m[32mresources:
+
+- [0m[32m`kgx` [0m[32mprocess: [0m[32mUsing [0m[32m24MiB [0m[32mof [0m[32mGPU [0m[32mmemory.
+- [0m[32m`steamwebhelper`: [0m[32mOne [0m[32minstance [0m[32musing [0m[32m147MiB [0m[32mof [0m[32mGPU [0m[32mmemory, [0m[32manother [0m[32musing [0m[32m22MiB.
+- [0m[32m`ollama`: [0m[32mUsing [0m[32ma [0m[32msignificant [0m[32mamount [0m[32m(4832MiB) [0m[32mof [0m[32mGPU [0m[32mmemory.
+
+These [0m[32mindicate [0m[32mthat [0m[32mthe [0m[32mGPU [0m[32mis [0m[32mactively [0m[32minvolved [0m[32min [0m[32mrendering [0m[32mor [0m[32mprocessing [0m[32mtasks. [0m[32mTherefore, [0m[32mhardware [0m[32macceleration [0m[32mfor [0m[32myour [0m[32mGPU [0m[32mappears [0m[32mto [0m[32mbe [0m[32mfunctioning [0m[32mcorrectly [0m[32mon [0m[32mthis [0m[32msystem.[0m
+
+
+[2m(5 iterations)[0m

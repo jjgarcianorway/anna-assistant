@@ -1,0 +1,77 @@
+
+[36mYou: [0mGenerate a full system health report su12345able for my boss
+
+[2m  $ [0msystemctl list-units --type=service --state=active
+[2m  UNIT                                                   LOAD   ACTIVE SUB     DESCRIPTION
+  accounts-daemon.service                                loaded active running Accounts Service
+  alsa-restore.service                                   loaded active exited  Save/Restore Sound Card State
+  ananicy-cpp.service                                    loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++
+  annad.service                                          loaded active running An...[0m
+[2m  $ [0mdf -h
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  170G  781G  18% /
+devtmpfs         16G     0   16G   0% /dev
+tmpfs            16G  563M   15G   4% /dev/shm
+efivarfs        268K  210K   54K  80% /sys/firmware/efi/efivars
+tmpfs           6,3G  2,6M  6,3G   1% /run
+none            1,0M     0  1,0M   0% /run/credentials/systemd-journald.service
+none            1,0M     0  1,0M   0% /run/credentials/systemd-resolved.service
+/dev/nvme0n1p2  952G  170G  781G  18% /srv
+/dev/nvme0n...[0m
+[2m  $ [0mfree -m
+[2m  total        used        free      shared  buff/cache   available
+Mem:           31790        6135        5261         242       21094       25654
+Swap:          31789        3505       28284[0m
+[2m  $ [0mnetstat -tuln
+[2m  Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+tcp        0      0 127.0.0.1:41287         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:11434         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:27060         0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:27500           0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:27036           0.0.0.0:*    ...[0m
+[2m  $ [0mjournalctl -b 0 --catalog
+[2m  jan. 09 17:02:15 razorback systemd[1]: Started Session 4161 of User lhoqvso.
+░░ Subject: A start job for unit session-4161.scope has finished successfully
+░░ Defined-By: systemd
+░░ Support: https://lists.freedesktop.org/mailman/listinfo/systemd-devel
+░░ 
+░░ A start job for unit session-4161.scope has finished successfully.
+░░ 
+░░ The job identifier is 643790.
+jan. 09 17:02:15 razorback systemd[1]: Started Session 4162 of User lhoqvso.
+░░ Subject: A start job for u...[0m
+[2m  $ [0mdf -h
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  170G  781G  18% /
+devtmpfs         16G     0   16G   0% /dev
+tmpfs            16G  563M   15G   4% /dev/shm
+efivarfs        268K  210K   54K  80% /sys/firmware/efi/efivars
+tmpfs           6,3G  2,6M  6,3G   1% /run
+none            1,0M     0  1,0M   0% /run/credentials/systemd-journald.service
+none            1,0M     0  1,0M   0% /run/credentials/systemd-resolved.service
+/dev/nvme0n1p2  952G  170G  781G  18% /srv
+/dev/nvme0n...[0m
+[2m  $ [0mfree -m
+[2m  total        used        free      shared  buff/cache   available
+Mem:           31790        6135        5261         242       21094       25654
+Swap:          31789        3505       28284[0m
+[2m  $ [0mjournalctl -b 0 --booterd
+[2m  journalctl: unrecognized option '--booterd'[0m
+[2m  $ [0mnetstat -tuln
+[2m  Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+tcp        0      0 127.0.0.1:41287         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:11434         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:27060         0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:27500           0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:27036           0.0.0.0:*    ...[0m
+[2m  $ [0mtop -b -n 1
+[2m  top - 19:30:55 up 4 days, 22:36,  3 users,  load average: 1,30, 1,49, 1,66
+Tasks: 605 total, 2 running, 602 sleep, 1 d-sleep, 0 stopped, 0 zombie
+%Cpu(s):  0,3 us,  0,8 sy,  2,0 ni, 96,3 id,  0,0 wa,  0,3 hi,  0,3 si,  0,0 st 
+MiB Mem :  31790,3 total,   5257,3 free,   6140,1 used,  21094,9 buff/cache     
+MiB Swap:  31790,0 total,  28287,5 free,   3502,5 used.  25650,2 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+2017304 lhoqvso   36  16   72,8g 704...[0m

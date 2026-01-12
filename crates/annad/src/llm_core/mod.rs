@@ -472,12 +472,17 @@ fn is_valid_command(cmd: &str) -> bool {
     let cmd = cmd.trim();
 
     // Too short or too long
-    if cmd.len() < 2 || cmd.len() > 500 {
+    if cmd.len() < 2 || cmd.len() > 300 {
         return false;
     }
 
-    // Contains LLM prompt tokens
+    // Contains LLM prompt tokens or non-ASCII
     if cmd.contains("<|") || cmd.contains("|>") {
+        return false;
+    }
+
+    // Reject commands with non-ASCII characters (Chinese, etc)
+    if !cmd.chars().all(|c| c.is_ascii() || c == '/' || c == '-' || c == '_') {
         return false;
     }
 
@@ -495,7 +500,7 @@ fn is_valid_command(cmd: &str) -> bool {
         }
     }
 
-    // First word should look like a command (alphanumeric, starts with letter or ./)
+    // First word should look like a command
     let first_word = cmd.split_whitespace().next().unwrap_or("");
     if first_word.is_empty() {
         return false;
@@ -507,30 +512,44 @@ fn is_valid_command(cmd: &str) -> bool {
         return false;
     }
 
-    // Common valid command prefixes
-    let valid_prefixes = [
+    // EXACT valid commands (not prefixes - prevents systemd-analyzeblade)
+    let valid_commands = [
         "ls", "cat", "head", "tail", "grep", "awk", "sed", "find", "df", "du",
-        "free", "ps", "top", "uptime", "uname", "lscpu", "lspci", "lsblk", "lsusb",
-        "systemctl", "journalctl", "systemd-analyze", "ip", "ss", "ping", "curl",
-        "pacman", "yay", "paru", "makepkg", "sudo", "which", "whereis", "file",
-        "stat", "mount", "umount", "fdisk", "blkid", "smartctl", "nvidia-smi",
-        "lsmod", "modinfo", "dmesg", "sensors", "pactl", "pipewire", "pw-cli",
-        "nmcli", "iwctl", "rfkill", "bluetoothctl", "loginctl", "timedatectl",
-        "hostnamectl", "localectl", "nft", "iptables", "firewall-cmd", "ufw",
-        "id", "whoami", "groups", "passwd", "chown", "chmod", "mkdir", "rm",
-        "cp", "mv", "touch", "echo", "printf", "test", "[", "true", "false",
-        "/", "./",
+        "free", "ps", "uptime", "uname", "lscpu", "lspci", "lsblk", "lsusb", "lsof",
+        "systemctl", "journalctl", "systemd-analyze", "ip", "ss", "ping", "curl", "wget",
+        "pacman", "yay", "paru", "makepkg", "sudo", "which", "whereis", "file", "type",
+        "stat", "mount", "umount", "fdisk", "blkid", "smartctl", "nvidia-smi", "glxinfo",
+        "lsmod", "modinfo", "modprobe", "dmesg", "sensors", "pactl", "pipewire", "pw-cli",
+        "nmcli", "iwctl", "rfkill", "bluetoothctl", "loginctl", "timedatectl", "fwupdmgr",
+        "hostnamectl", "localectl", "nft", "iptables", "firewall-cmd", "ufw", "ss",
+        "id", "whoami", "groups", "passwd", "chown", "chmod", "mkdir", "rm", "wc",
+        "cp", "mv", "touch", "echo", "printf", "test", "true", "false", "xargs",
+        "sort", "uniq", "cut", "tr", "tee", "xdg-open", "systemd-cat", "logger",
+        "getent", "printenv", "env", "set", "export", "read", "date", "cal",
+        "acpi", "upower", "powertop", "tlp-stat", "cpupower", "turbostat",
+        "xrandr", "wlr-randr", "swaymsg", "hyprctl", "loginctl",
+        "cupsd", "lpstat", "lpq", "lp", "cancel",
+        "zpool", "zfs", "btrfs", "cryptsetup", "lvm", "mdadm",
+        "top", "htop", "btop", "iotop", "nethogs", "iftop",
     ];
 
-    let mut is_valid_prefix = false;
-    for prefix in valid_prefixes {
-        if first_word.starts_with(prefix) {
-            is_valid_prefix = true;
-            break;
+    // Check if first word exactly matches a valid command
+    let base_cmd = first_word.split('/').last().unwrap_or(first_word);
+    for valid in valid_commands {
+        if base_cmd == valid {
+            return true;
         }
     }
 
-    is_valid_prefix
+    // Also allow absolute paths to common locations
+    if first_word.starts_with("/usr/bin/") ||
+       first_word.starts_with("/bin/") ||
+       first_word.starts_with("/sbin/") ||
+       first_word.starts_with("./") {
+        return true;
+    }
+
+    false
 }
 
 /// Use LLM to generate final answer based on findings

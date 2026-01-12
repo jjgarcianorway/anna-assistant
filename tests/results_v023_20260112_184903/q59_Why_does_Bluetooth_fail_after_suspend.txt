@@ -1,0 +1,19 @@
+
+[36mYou: [0mWhy does Bluetooth fail after suspend
+
+[2m  $ [0mjournalctl -u bluetooth.service
+[2m  jan. 09 20:40:49 razorback bluetoothd[1127]: profiles/input/server.c:connect_event_cb() Refusing input device connect: No such file or directory (2)
+jan. 09 20:40:49 razorback bluetoothd[1127]: profiles/input/server.c:confirm_event_cb() Refusing connection from 48:18:8D:10:28:67: unknown device
+jan. 09 20:40:56 razorback bluetoothd[1127]: src/device.c:search_cb() 48:18:8D:10:28:67: error updating services: Host is down (112)
+jan. 09 20:41:00 razorback bluetoothd[1127]: profiles/input/server.c:co...[0m
+[2m  $ [0mlsmod | grep bt
+[2m  btusb                  86016  0
+btmtk                  36864  1 btusb
+btbcm                  24576  1 btusb
+btintel                77824  1 btusb
+btrtl                  32768  1 btusb
+bluetooth            1146880  44 btrtl,btmtk,btintel,btbcm,bnep,btusb,rfcomm[0m
+[2m  $ [0mcat /sys/class/bluetooth/hci0/powered
+[2m  cat: /sys/class/bluetooth/hci0/powered: No such file or directory[0m
+[2m  $ [0msystemctl list-units --state=failed | grep bluetooth
+[2m  [0m

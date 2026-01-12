@@ -1,0 +1,28 @@
+
+[36mYou: [0mHow much RAM do I have and how much is currently free
+
+[2m  $ [0mfree
+[2m  total        used        free      shared  buff/cache   available
+Mem:        32553268     6037928    11538788      241652    15689068    26515340
+Swap:       32552956     3757432    28795524[0m
+[2m  $ [0mtop
+[2m  [0m
+[2m  $ [0mhtop
+[2m  Error opening terminal: unknown.[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided:
+
+- [0m[32mYour [0m[32msystem [0m[32mhas [0m[32ma [0m[32mtotal [0m[32mof [0m[32m32,553,268 [0m[32mKB [0m[32m(or [0m[32mapproximately [0m[32m31.2 [0m[32mGB) [0m[32mof [0m[32mRAM.
+- [0m[32mCurrently, [0m[32m60,37928 [0m[32mKB [0m[32m(or [0m[32mapproximately [0m[32m5.84 [0m[32mGB) [0m[32mis [0m[32mbeing [0m[32mused [0m[32mby [0m[32mapplications [0m[32mand [0m[32mprocesses.
+- [0m[32mThere [0m[32mare [0m[32m11,538,788 [0m[32mKB [0m[32m(or [0m[32mapproximately [0m[32m11.14 [0m[32mGB) [0m[32mof [0m[32mfree [0m[32mRAM [0m[32mavailable [0m[32mfor [0m[32muse.
+- [0m[32mThe [0m[32mbuffer/cache [0m[32muses [0m[32m15,689,068 [0m[32mKB [0m[32m(or [0m[32mapproximately [0m[32m15.27 [0m[32mGB), [0m[32mwhich [0m[32mis [0m[32ma [0m[32mmix [0m[32mof [0m[32mfree [0m[32mmemory [0m[32mand [0m[32mmemory [0m[32mused [0m[32mby [0m[32mthe [0m[32mkernel [0m[32mfor [0m[32mbuffering [0m[32mand [0m[32mcaching.
+
+In [0m[32msummary:
+- [0m[32mTotal [0m[32mRAM: [0m[32m32,553,268 [0m[32mKB
+- [0m[32mUsed [0m[32mRAM: [0m[32m6,037,928 [0m[32mKB
+- [0m[32mFree [0m[32mRAM: [0m[32m11,538,788 [0m[32mKB
+- [0m[32mBuffers/Cache: [0m[32m15,689,068 [0m[32mKB[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

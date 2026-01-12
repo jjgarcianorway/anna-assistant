@@ -1,0 +1,39 @@
+
+[36mYou: [0mDetect problematic USB devices
+
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 001 Device 011: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 001 Device 011: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mUSB [0m[32mdevice [0m[32mlist, [0m[32mthere [0m[32mare [0m[32mno [0m[32mobvious [0m[32mproblematic [0m[32mdevices [0m[32mthat [0m[32mstand [0m[32mout [0m[32mas [0m[32missues [0m[32mwithout [0m[32mfurther [0m[32mcontext [0m[32mor [0m[32mspecific [0m[32msymptoms. [0m[32mHowever, [0m[32mI [0m[32mcan [0m[32mprovide [0m[32msome [0m[32mgeneral [0m[32madvice:
+
+1. [0m[32m**Check [0m[32mfor [0m[32mUSB [0m[32mHubs**: [0m[32mThere [0m[32mare [0m[32mmultiple [0m[32mhubs [0m[32mconnected [0m[32m(IDs [0m[32m17ef:f006 [0m[32mand [0m[32m174f:1820). [0m[32mEnsure [0m[32mthese [0m[32mhubs [0m[32mare [0m[32mstable [0m[32mand [0m[32mnot [0m[32mcausing [0m[32many [0m[32missues.
+
+2. [0m[32m**Bluetooth [0m[32mDevice**: [0m[32mThe [0m[32mIntel [0m[32mCorp. [0m[32mAX211 [0m[32mBluetooth [0m[32mdevice [0m[32m(ID [0m[32m8087:0033) [0m[32mmight [0m[32mcause [0m[32minterference [0m[32mwith [0m[32mother [0m[32mUSB [0m[32mdevices, [0m[32mespecially [0m[32mif [0m[32mit's [0m[32musing [0m[32ma [0m[32mlot [0m[32mof [0m[32mpower [0m[32mor [0m[32mcausing [0m[32mconflicts.
+
+3. [0m[32m**Apple [0m[32mMagSafe [0m[32mCharger**: [0m[32mThis [0m[32mdevice [0m[32m(ID [0m[32m05ac:0500) [0m[32mshould [0m[32mnot [0m[32mbe [0m[32mconsidered [0m[32mproblematic [0m[32munless [0m[32myou [0m[32mencounter [0m[32missues [0m[32mrelated [0m[32mto [0m[32mcharging [0m[32mor [0m[32mcompatibility.
+
+4. [0m[32m**Power [0m[32mManagement [0m[32mIssues**: [0m[32mIf [0m[32mthe [0m[32msystem [0m[32mexperiences [0m[32mfrequent [0m[32mdisconnects [0m[32mor [0m[32mstability [0m[32missues, [0m[32mit [0m[32mmight [0m[32mbe [0m[32mworth [0m[32mchecking [0m[32mthe [0m[32mpower [0m[32mmanagement [0m[32msettings [0m[32mfor [0m[32mUSB [0m[32mdevices [0m[32musing [0m[32mtools [0m[32mlike [0m[32m`usbutils` [0m[32mand [0m[32m`lsusb`.
+
+Given [0m[32mthat [0m[32mno [0m[32mspecific [0m[32msymptoms [0m[32mare [0m[32mmentioned, [0m[32mthese [0m[32mobservations [0m[32mare [0m[32mpurely [0m[32mbased [0m[32mon [0m[32mthe [0m[32mdevice [0m[32mIDs [0m[32mlisted. [0m[32mIf [0m[32myou're [0m[32mexperiencing [0m[32many [0m[32missues, [0m[32mplease [0m[32mprovide [0m[32mmore [0m[32mdetails [0m[32mabout [0m[32mthe [0m[32mproblem [0m[32mso [0m[32mI [0m[32mcan [0m[32moffer [0m[32ma [0m[32mmore [0m[32mtargeted [0m[32msolution.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

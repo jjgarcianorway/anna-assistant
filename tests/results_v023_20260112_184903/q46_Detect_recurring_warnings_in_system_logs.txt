@@ -1,0 +1,13 @@
+
+[36mYou: [0mDetect recurring warnings in system logs
+
+[2m  $ [0mgrep -r -i "warning" /var/log/ | sort | uniq -c | sort -nr | head -n 10
+[2m  1 /var/log/pacman.log:[2026-01-06T17:36:06+0100] [ALPM] warning: directory permissions differ on /boot/, filesystem: 700  package: 755
+      1 /var/log/pacman.log:[2026-01-06T17:36:05+0100] [ALPM] warning: directory permissions differ on /boot/, filesystem: 700  package: 755
+      1 /var/log/pacman.log:[2026-01-06T17:32:34+0100] [ALPM-SCRIPTLET] ==> WARNING: errors were encountered during the build. The image may not be complete.
+      1 /var/log/pacman.log:[2026-01-06T17:32:19+0100] [ALPM-SCRIP...[0m
+[2m  $ [0mgrep -i "warning" /var/log/pacman.log | grep -E "(directory permissions|installed as .+\.pacnew)" | sort | uniq -c | sort -nr
+[2m  1 [2026-01-06T17:36:06+0100] [ALPM] warning: directory permissions differ on /boot/, filesystem: 700  package: 755
+      1 [2026-01-06T17:36:05+0100] [ALPM] warning: directory permissions differ on /boot/, filesystem: 700  package: 755
+      1 [2026-01-06T17:31:56+0100] [ALPM] warning: /tmp/calamares-root-_5255mpr/etc/pacman.d/cachyos-v4-mirrorlist installed as /tmp/calamares-root-_5255mpr/etc/pacman.d/cachyos-v4-mirrorlist.pacnew
+      1 [2026-01-06T17:31:56+0100] [ALPM] warning: /tmp/calamares...[0m

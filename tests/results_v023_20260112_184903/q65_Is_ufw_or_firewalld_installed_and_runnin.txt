@@ -1,0 +1,34 @@
+
+[36mYou: [0mIs ufw or firewalld installed and running
+
+[2m  $ [0msystemctl status ufw
+[2m  ● ufw.service - CLI Netfilter Manager
+     Loaded: loaded (/usr/lib/systemd/system/ufw.service; enabled; preset: disabled)
+     Active: active (exited) since Wed 2026-01-07 20:54:08 CET; 4 days ago
+ Invocation: c6df2ee2f251435ab5d522ab1657f550
+   Main PID: 762 (code=exited, status=0/SUCCESS)
+   Mem peak: 6.3M
+        CPU: 40ms
+
+Notice: journal has been rotated since unit was started, output may be incomplete.[0m
+[2m  $ [0msystemctl status firewalld
+[2m  Unit firewalld.service could not be found.[0m
+[2m  $ [0msystemctl status ufw
+[2m  ● ufw.service - CLI Netfilter Manager
+     Loaded: loaded (/usr/lib/systemd/system/ufw.service; enabled; preset: disabled)
+     Active: active (exited) since Wed 2026-01-07 20:54:08 CET; 4 days ago
+ Invocation: c6df2ee2f251435ab5d522ab1657f550
+   Main PID: 762 (code=exited, status=0/SUCCESS)
+   Mem peak: 6.3M
+        CPU: 40ms
+
+Notice: journal has been rotated since unit was started, output may be incomplete.[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata:
+
+- [0m[32m`ufw` [0m[32mis [0m[32minstalled [0m[32mand [0m[32mcurrently [0m[32mrunning.
+- [0m[32m`firewalld` [0m[32mis [0m[32mnot [0m[32minstalled [0m[32mor [0m[32mnot [0m[32mfound [0m[32mon [0m[32mthis [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

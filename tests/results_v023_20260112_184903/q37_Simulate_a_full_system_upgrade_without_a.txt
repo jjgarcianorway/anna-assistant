@@ -1,0 +1,45 @@
+
+[36mYou: [0mSimulate a full system upgrade w/var/lib/pacman/db.lckhout applying /var/lib/pacman/db.lck
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mGiven [0m[32mthe [0m[32mcontext [0m[32mand [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mit [0m[32mseems [0m[32myou're [0m[32mlooking [0m[32mto [0m[32msimulate [0m[32ma [0m[32mfull [0m[32msystem [0m[32mupgrade [0m[32min [0m[32mArch [0m[32mLinux [0m[32mwhile [0m[32mhandling [0m[32mpotential [0m[32mlock [0m[32mfiles. [0m[32mHere’s [0m[32mhow [0m[32myou [0m[32mcan [0m[32mproceed:
+
+1. [0m[32m**Check [0m[32mfor [0m[32mLock [0m[32mFiles**:
+ [0m[32m [0m[32m [0m[32mFirst, [0m[32mverify [0m[32mif [0m[32mthere [0m[32mare [0m[32many [0m[32mlock [0m[32mfiles [0m[32mthat [0m[32mmight [0m[32mprevent [0m[32mthe [0m[32mupgrade.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32mls [0m[32m/var/lib/pacman/
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32m**Remove [0m[32mor [0m[32mRename [0m[32mLock [0m[32mFiles [0m[32m(if [0m[32mnecessary)**:
+ [0m[32m [0m[32m [0m[32mIf [0m[32m`db.lck` [0m[32mis [0m[32mpresent [0m[32mand [0m[32mcausing [0m[32missues, [0m[32myou [0m[32mcan [0m[32meither [0m[32mremove [0m[32mit:
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mrm [0m[32m/var/lib/pacman/db.lck
+ [0m[32m [0m[32m [0m[32m```
+
+ [0m[32m [0m[32m [0m[32mOr [0m[32mrename [0m[32mit [0m[32mto [0m[32mprevent [0m[32mit [0m[32mfrom [0m[32mblocking [0m[32mthe [0m[32mupgrade [0m[32mprocess [0m[32mtemporarily:
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mmv [0m[32m/var/lib/pacman/db.lck [0m[32m/var/lib/pacman/db.lck.old
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32m**Perform [0m[32mthe [0m[32mFull [0m[32mSystem [0m[32mUpgrade**:
+ [0m[32m [0m[32m [0m[32mNow, [0m[32myou [0m[32mcan [0m[32mproceed [0m[32mwith [0m[32mthe [0m[32mfull [0m[32msystem [0m[32mupgrade [0m[32musing [0m[32m`pacman`.
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-Syu
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32m**Restore [0m[32mor [0m[32mRevert [0m[32mLock [0m[32mFile [0m[32m(if [0m[32mnecessary)**:
+ [0m[32m [0m[32m [0m[32mAfter [0m[32mthe [0m[32mupgrade [0m[32mis [0m[32mcomplete [0m[32mand [0m[32mif [0m[32myou [0m[32mrenamed [0m[32mthe [0m[32mlock [0m[32mfile [0m[32mearlier:
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mmv [0m[32m/var/lib/pacman/db.lck.old [0m[32m/var/lib/pacman/db.lck
+ [0m[32m [0m[32m [0m[32m```
+
+This [0m[32msequence [0m[32mof [0m[32msteps [0m[32mshould [0m[32mhelp [0m[32min [0m[32mupgrading [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32mwhile [0m[32mhandling [0m[32mpotential [0m[32mlock [0m[32missues.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

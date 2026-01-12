@@ -1,0 +1,69 @@
+
+
+[33mSYSTEM ALERT[0m
+  🔴 CRITICAL: High temperature: 97°C
+     Suggested fix: Improve cooling immediately
+
+[36mYou: [0mDiagnose no sound output issue
+
+[2m  $ [0mlspci | grep -i audio
+[2m  00:1f.3 Multimedia audio controller: Intel Corporation Raptor Lake High Definition Audio Controller (rev 11)
+01:00.1 Audio device: NVIDIA Corporation AD107 High Definition Audio Controller (rev a1)[0m
+[2m  $ [0maplay -l
+[2m  **** List of PLAYBACK Hardware Devices ****
+card 0: NVidia [HDA NVidia], device 3: HDMI 0 [LG TV SSCR2]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 0: NVidia [HDA NVidia], device 7: HDMI 1 [HDMI 1]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 0: NVidia [HDA NVidia], device 8: HDMI 2 [HDMI 2]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 0: NVidia [HDA NVidia], device 9: HDMI 3 [HDMI 3]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 1: sofhdadsp [sof-hda-dsp], device 0: ...[0m
+[2m  $ [0mcat /proc/asound/cards
+[2m  0 [NVidia         ]: HDA-Intel - HDA NVidia
+                      HDA NVidia at 0x88000000 irq 17
+ 1 [sofhdadsp      ]: sof-hda-dsp - sof-hda-dsp
+                      LENOVO-21N5-ThinkBook16pG5IRX-LNVNB161216[0m
+[2m  $ [0msystemctl status pulseaudio
+[2m  Unit pulseaudio.service could not be found.[0m
+[2m  $ [0mjournalctl -u pulseaudio
+[2m  -- No entries --[0m
+[2m  $ [0mlspci -v | grep -A7 -i audio
+[2m  00:1f.3 Multimedia audio controller: Intel Corporation Raptor Lake High Definition Audio Controller (rev 11)
+	Subsystem: Lenovo Device 3d3b
+	Flags: bus master, fast devsel, latency 32, IRQ 227, IOMMU group 16
+	Memory at 4204140000 (64-bit, non-prefetchable) [size=16K]
+	Memory at 4204000000 (64-bit, non-prefetchable) [size=1M]
+	Capabilities: [50] Power Management version 3
+	Capabilities: [80] Vendor Specific Information: Intel <unknown>
+	Capabilities: [60] MSI: Enable+ Count=1/1 Maskable- 64bit+
+...[0m
+[2m  $ [0maplay -l
+[2m  **** List of PLAYBACK Hardware Devices ****
+card 0: NVidia [HDA NVidia], device 3: HDMI 0 [LG TV SSCR2]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 0: NVidia [HDA NVidia], device 7: HDMI 1 [HDMI 1]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 0: NVidia [HDA NVidia], device 8: HDMI 2 [HDMI 2]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 0: NVidia [HDA NVidia], device 9: HDMI 3 [HDMI 3]
+  Subdevices: 1/1
+  Subdevice #0: subdevice #0
+card 1: sofhdadsp [sof-hda-dsp], device 0: ...[0m
+[2m  $ [0mcat /proc/asound/cards
+[2m  0 [NVidia         ]: HDA-Intel - HDA NVidia
+                      HDA NVidia at 0x88000000 irq 17
+ 1 [sofhdadsp      ]: sof-hda-dsp - sof-hda-dsp
+                      LENOVO-21N5-ThinkBook16pG5IRX-LNVNB161216[0m
+[2m  $ [0msystemctl status pulseaudio
+[2m  Unit pulseaudio.service could not be found.[0m
+[2m  $ [0mjournalctl -u pulseaudio
+[2m  -- No entries --[0m

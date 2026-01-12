@@ -1,0 +1,26 @@
+
+[36mYou: [0mIs my home directory encrypted
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32mdetermine [0m[32mif [0m[32myour [0m[32mhome [0m[32mdirectory [0m[32mis [0m[32mencrypted, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32mcheck [0m[32mthe [0m[32mconfiguration [0m[32mor [0m[32mlook [0m[32mfor [0m[32mspecific [0m[32mindicators. [0m[32mHowever, [0m[32mwith [0m[32mno [0m[32mcommand [0m[32moutput [0m[32mprovided [0m[32mand [0m[32mbased [0m[32msolely [0m[32mon [0m[32mthe [0m[32mavailable [0m[32mdata, [0m[32mI [0m[32mcannot [0m[32mdirectly [0m[32mconfirm [0m[32mwhether [0m[32myour [0m[32mhome [0m[32mdirectory [0m[32mis [0m[32mencrypted.
+
+If [0m[32myou [0m[32mwant [0m[32mto [0m[32mcheck [0m[32mthis [0m[32myourself, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32msteps:
+
+1. [0m[32mOpen [0m[32ma [0m[32mterminal.
+2. [0m[32mRun [0m[32mthe [0m[32mcommand: [0m[32m`stat [0m[32m-c [0m[32m'%a [0m[32m%U [0m[32m%G' [0m[32m~/.bash* [0m[32m~/*.bash`
+
+This [0m[32mwill [0m[32mshow [0m[32mfile [0m[32mpermissions [0m[32mand [0m[32mownership [0m[32mfor [0m[32msome [0m[32mfiles [0m[32min [0m[32myour [0m[32mhome [0m[32mdirectory. [0m[32mIf [0m[32myour [0m[32mhome [0m[32mdirectory [0m[32mis [0m[32mencrypted [0m[32musing [0m[32meCryptfs, [0m[32myou [0m[32mmight [0m[32msee [0m[32mthat [0m[32mthese [0m[32mfiles [0m[32mhave [0m[32munusual [0m[32mpermissions.
+
+Alternatively, [0m[32myou [0m[32mcan [0m[32mcheck [0m[32mfor [0m[32mthe [0m[32mpresence [0m[32mof [0m[32man [0m[32m`.ecryptfs` [0m[32mdirectory:
+
+```sh
+ls [0m[32m-a [0m[32m~/.ecryptfs
+```
+
+If [0m[32mthis [0m[32mcommand [0m[32mreturns [0m[32many [0m[32moutput, [0m[32mit [0m[32mindicates [0m[32mthat [0m[32mencryption [0m[32mwas [0m[32mattempted [0m[32mor [0m[32mis [0m[32mcurrently [0m[32min [0m[32muse.
+
+For [0m[32ma [0m[32mmore [0m[32mcomprehensive [0m[32mcheck, [0m[32myou [0m[32mmight [0m[32malso [0m[32mwant [0m[32mto [0m[32mlook [0m[32mat [0m[32msystem [0m[32mconfiguration [0m[32mfiles [0m[32mor [0m[32mlogs, [0m[32mbut [0m[32mwithout [0m[32mdirect [0m[32maccess [0m[32mto [0m[32mthe [0m[32msystem, [0m[32mthese [0m[32msteps [0m[32mare [0m[32mwhat [0m[32mI [0m[32mcan [0m[32mrecommend.[0m
+
+
+[2m(5 iterations)[0m

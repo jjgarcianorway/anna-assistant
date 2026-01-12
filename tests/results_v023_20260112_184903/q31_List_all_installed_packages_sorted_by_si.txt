@@ -1,0 +1,6 @@
+
+[36mYou: [0mList all installed packages sorted by size
+
+[2m  $ [0m```sh
+[2m  sh: -c: line 1: unexpected EOF while looking for matching ``'[0m
+[2m  $ [0mpacman -Qi | awk 'BEGIN{FS=" "}{print $1}' | xargs -n1 du -b | sort -n | awk '{s+=$1} END {print s}' | xargs du -hC /var/lib/pacman/local/

@@ -1,0 +1,18 @@
+
+
+[32mAnna: [0mCurrent conversation settings:
+
+  Verbosity: verbose
+  Show commands: yes
+  Ask confirmations: yes
+  Show wiki searches: yes
+
+You can change these by saying things like:
+  - "be more verbose"
+  - "be brief"
+  - "hide commands"
+  - "skip confirmations"
+  - "reset settings"
+
+
+[2m(0 iterations)[0m

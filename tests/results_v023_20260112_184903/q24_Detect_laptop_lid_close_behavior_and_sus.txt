@@ -1,0 +1,80 @@
+
+[36mYou: [0mDetect laptop lid close behavior and suspend configuration
+
+[2m  $ [0mlshw -C display | grep "Lid"
+[2m  sh: line 1: lshw: command not found[0m
+[2m  $ [0mcat /proc/acpi/button/lid/LID0/state
+[2m  state:      closed[0m
+[2m  $ [0msystemctl list-units --state=active | grep suspend
+[2m  [0m
+[2m  $ [0mcat /proc/acpi/button/lid/LID0/state
+[2m  state:      closed[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mit [0m[32mseems [0m[32myou're [0m[32mtrying [0m[32mto [0m[32mdetect [0m[32mwhen [0m[32mthe [0m[32mlaptop [0m[32mlid [0m[32mis [0m[32mclosed [0m[32mand [0m[32mconfigure [0m[32mArch [0m[32mLinux [0m[32mto [0m[32msuspend [0m[32mautomatically [0m[32min [0m[32mthat [0m[32mcase. [0m[32mHowever, [0m[32m`lshw` [0m[32mis [0m[32mnot [0m[32minstalled [0m[32mor [0m[32mavailable [0m[32min [0m[32myour [0m[32msystem, [0m[32mwhich [0m[32mis [0m[32mnecessary [0m[32mfor [0m[32mmore [0m[32mdetailed [0m[32mhardware [0m[32mdetection.
+
+To [0m[32machieve [0m[32myour [0m[32mgoal, [0m[32mwe [0m[32mcan [0m[32muse [0m[32mthe [0m[32m`acpid` [0m[32mservice [0m[32malong [0m[32mwith [0m[32mcustom [0m[32mscripts. [0m[32mHere's [0m[32ma [0m[32mstep-by-step [0m[32mguide:
+
+1. [0m[32m**Install [0m[32m`acpid`:**
+ [0m[32m [0m[32m [0m[32mEnsure [0m[32m`acpid` [0m[32mis [0m[32minstalled:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32macpid
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32m**Configure [0m[32m`acpid` [0m[32mto [0m[32mhandle [0m[32mlid [0m[32mclose [0m[32mevents:**
+
+ [0m[32m [0m[32m [0m[32mCreate [0m[32ma [0m[32mscript [0m[32mto [0m[32mhandle [0m[32mthe [0m[32mlid [0m[32mclose [0m[32mevent [0m[32mand [0m[32mplace [0m[32mit [0m[32min [0m[32m`/etc/acpi/events/`. [0m[32mFor [0m[32mexample, [0m[32mcreate [0m[32ma [0m[32mfile [0m[32mcalled [0m[32m`lid_close.sh`:
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mnano [0m[32m/etc/acpi/events/lid_close
+ [0m[32m [0m[32m [0m[32m```
+
+ [0m[32m [0m[32m [0m[32mAdd [0m[32mthe [0m[32mfollowing [0m[32mcontent:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mevent=button[ [0m[32mE [0m[32m] [0m[32mstate[ [0m[32mU [0m[32m]
+ [0m[32m [0m[32m [0m[32maction=/etc/acpi/actions/lid_close.sh [0m[32m%e
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32m**Create [0m[32mthe [0m[32mscript [0m[32mto [0m[32msuspend:**
+
+ [0m[32m [0m[32m [0m[32mCreate [0m[32ma [0m[32mscript [0m[32mcalled [0m[32m`lid_close.sh` [0m[32min [0m[32m`/etc/acpi/actions/`:
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mnano [0m[32m/etc/acpi/actions/lid_close.sh
+ [0m[32m [0m[32m [0m[32m```
+
+ [0m[32m [0m[32m [0m[32mAdd [0m[32mthe [0m[32mfollowing [0m[32mcontent:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32m#!/bin/sh
+
+ [0m[32m [0m[32m [0m[32mcase [0m[32m"$1" [0m[32min
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32mbutton[ [0m[32mE [0m[32m]=closed)
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32msystemctl [0m[32msuspend
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m;;
+ [0m[32m [0m[32m [0m[32mesac
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32m**Make [0m[32mthe [0m[32mscript [0m[32mexecutable:**
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mchmod [0m[32m+x [0m[32m/etc/acpi/actions/lid_close.sh
+ [0m[32m [0m[32m [0m[32m```
+
+5. [0m[32m**Restart [0m[32m`acpid`:**
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32msystemctl [0m[32mrestart [0m[32macpid
+ [0m[32m [0m[32m [0m[32m```
+
+6. [0m[32m**Enable [0m[32m`acpid` [0m[32mto [0m[32mstart [0m[32mon [0m[32mboot [0m[32mif [0m[32mit's [0m[32mnot [0m[32malready [0m[32menabled:**
+
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32msystemctl [0m[32menable [0m[32macpid
+ [0m[32m [0m[32m [0m[32m```
+
+This [0m[32msetup [0m[32mwill [0m[32mtrigger [0m[32ma [0m[32msystem [0m[32msuspend [0m[32mwhen [0m[32mthe [0m[32mlid [0m[32mis [0m[32mclosed. [0m[32mNote [0m[32mthat [0m[32mthis [0m[32mscript [0m[32muses [0m[32m`systemctl` [0m[32mto [0m[32msuspend, [0m[32mwhich [0m[32mshould [0m[32mwork [0m[32mfor [0m[32mmost [0m[32mArch [0m[32mLinux [0m[32msystems.
+
+If [0m[32myou [0m[32mneed [0m[32mmore [0m[32madvanced [0m[32mbehavior [0m[32mor [0m[32madditional [0m[32mcustomization, [0m[32myou [0m[32mcan [0m[32mexpand [0m[32mthe [0m[32mscript [0m[32mor [0m[32mmodify [0m[32mthe [0m[32macpi [0m[32mevent [0m[32mconfiguration [0m[32mas [0m[32mneeded.[0m
+
+
+[2m(2 iterations)[0m

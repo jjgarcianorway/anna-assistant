@@ -1,0 +1,37 @@
+
+[36mYou: [0mShow current Wayland or X11 session details
+
+[2m  $ [0mwhoami
+[2m  root[0m
+[2m  $ [0mps -o comm= -p $(pgrep -u $USERwayland)\; ps -o comm= -p $(pgrep -u $USERx11)
+[2m  pgrep: option requires an argument -- 'u'
+
+Usage:
+ pgrep [options] <pattern>
+
+Options:
+ -d, --delimiter <string>  specify output delimiter
+ -l, --list-name           list PID and process name
+ -a, --list-full           list PID and full command line
+ -v, --inverse             negates the matching
+ -w, --lightweight         list all TID
+ -c, --count               count of matching processes
+ -f, --full                use full process name to match
+ -g, --pgroup <PGID,...>   match listed process g...[0m
+[2m  $ [0msystemctl status display-manager
+[2m  ● gdm.service - GNOME Display Manager
+     Loaded: loaded (/usr/lib/systemd/system/gdm.service; enabled; preset: disabled)
+     Active: active (running) since Wed 2026-01-07 20:54:11 CET; 4 days ago
+ Invocation: 4b4df1bdb72b49288c88a57712cd6dcf
+   Main PID: 1244 (gdm)
+      Tasks: 5 (limit: 37882)
+     Memory: 1.4M (peak: 25.4M, swap: 1.7M, swap peak: 2.3M)
+        CPU: 6.238s
+     CGroup: /system.slice/gdm.service
+             └─1244 /usr/bin/gdm
+
+Notice: journal has been rotated since un...[0m
+[2m  $ [0mcat /etc/X11/default-display-manager
+[2m  cat: /etc/X11/default-display-manager: No such file or directory[0m
+[2m  $ [0mif [ ! -f /etc/wayland-version ]; then echo "NONE"; fi
+[2m  NONE[0m

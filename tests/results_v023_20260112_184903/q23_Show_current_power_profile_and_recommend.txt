@@ -1,0 +1,44 @@
+
+[36mYou: [0mShow current power profile and recommendations
+
+[2m  $ [0macpi
+[2m  sh: line 1: acpi: command not found[0m
+[2m  $ [0mpowertop
+[2m  sh: line 1: powertop: command not found[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mit [0m[32mappears [0m[32mthat [0m[32mneither [0m[32m`acpi` [0m[32mnor [0m[32m`powertop` [0m[32mare [0m[32minstalled [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThese [0m[32mtools [0m[32mare [0m[32mcommonly [0m[32mused [0m[32mto [0m[32mcheck [0m[32mpower [0m[32mprofiles [0m[32mand [0m[32mprovide [0m[32mrecommendations [0m[32mfor [0m[32moptimizing [0m[32mpower [0m[32musage.
+
+Since [0m[32mthese [0m[32mtools [0m[32mare [0m[32mnot [0m[32mavailable:
+
+1. [0m[32mYou [0m[32mcannot [0m[32mcurrently [0m[32mview [0m[32mthe [0m[32mcurrent [0m[32mpower [0m[32mprofile.
+2. [0m[32mThere [0m[32mare [0m[32mno [0m[32mrecommendations [0m[32mavailable [0m[32mwithout [0m[32minstalling [0m[32mthese [0m[32mtools.
+
+To [0m[32mproceed, [0m[32myou [0m[32mwould [0m[32mneed [0m[32mto [0m[32minstall [0m[32m`acpi` [0m[32mor [0m[32m`powertop`. [0m[32mHere’s [0m[32mhow [0m[32myou [0m[32mcan [0m[32mdo [0m[32mit [0m[32musing [0m[32m`pacman`:
+
+```sh
+sudo [0m[32mpacman [0m[32m-S [0m[32macpi
+# [0m[32mor
+sudo [0m[32mpacman [0m[32m-S [0m[32mpowertop
+```
+
+After [0m[32minstallation, [0m[32myou [0m[32mcan [0m[32mcheck [0m[32mthe [0m[32mcurrent [0m[32mpower [0m[32mprofile [0m[32mand [0m[32mget [0m[32mrecommendations [0m[32mby [0m[32mrunning [0m[32mone [0m[32mof [0m[32mthese [0m[32mcommands:
+
+- [0m[32mTo [0m[32muse [0m[32m`acpi`, [0m[32mrun:
+ [0m[32m [0m[32m```sh
+ [0m[32m [0m[32macpi
+ [0m[32m [0m[32m```
+
+- [0m[32mTo [0m[32muse [0m[32m`powertop` [0m[32m(after [0m[32menabling [0m[32mit [0m[32mas [0m[32ma [0m[32mservice), [0m[32mfirst [0m[32menable [0m[32mand [0m[32mstart [0m[32mthe [0m[32mservice:
+ [0m[32m [0m[32m```sh
+ [0m[32m [0m[32msudo [0m[32msystemctl [0m[32menable [0m[32m--now [0m[32mpowertop
+ [0m[32m [0m[32m```
+ [0m[32m [0m[32mThen, [0m[32mto [0m[32mcheck [0m[32mrecommendations:
+ [0m[32m [0m[32m```sh
+ [0m[32m [0m[32msudo [0m[32mpowertop [0m[32m--recommended
+ [0m[32m [0m[32m```
+
+These [0m[32mcommands [0m[32mwill [0m[32mprovide [0m[32mmore [0m[32minformation [0m[32mabout [0m[32myour [0m[32msystem's [0m[32mpower [0m[32musage [0m[32mand [0m[32msuggest [0m[32mways [0m[32mto [0m[32moptimize [0m[32mit.[0m
+
+
+[2m(5 iterations)[0m

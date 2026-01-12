@@ -1,0 +1,34 @@
+
+[36mYou: [0mShow NTP status and recent time drift
+
+[2m  $ [0mntpq -p
+[2m  ntpq: read: Connection refused[0m
+[2m  $ [0mhwclock -- drift
+[2m  hwclock: too many arguments
+Try 'hwclock --help' for more information.[0m
+[2m  $ [0mntpq -p
+[2m  ntpq: read: Connection refused[0m
+[2m  $ [0mtimedatectl status
+[2m  Local time: ma. 2026-01-12 18:57:19 CET
+           Universal time: ma. 2026-01-12 17:57:19 UTC
+                 RTC time: ma. 2026-01-12 17:57:19
+                Time zone: Europe/Oslo (CET, +0100)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no[0m
+[2m  $ [0mntpq -p
+[2m  ntpq: read: Connection refused[0m
+[2m  $ [0mhwclock --show
+[2m  2026-01-12 18:57:19.381447+01:00[0m
+[2m  $ [0mntpq -c rv
+[2m  ntpq: read: Connection refused[0m
+[2m  $ [0mtimedatectl status
+[2m  Local time: ma. 2026-01-12 18:57:19 CET
+           Universal time: ma. 2026-01-12 17:57:19 UTC
+                 RTC time: ma. 2026-01-12 17:57:19
+                Time zone: Europe/Oslo (CET, +0100)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no[0m
+[2m  $ [0mjournalctl -u ntp.service --since today
+[2m  -- No entries --[0m

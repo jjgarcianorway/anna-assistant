@@ -1,0 +1,32 @@
+
+[36mYou: [0mIdentify memory leaks or runaway processes
+
+[2m  $ [0mtop
+[2m  [0m
+[2m  $ [0mps aux --sort=-%mem
+[2m  USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ollama   2189501 92.7  2.8 48665052 935156 ?     Sl   18:49  36:36 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 41287
+lhoqvso  2017304 27.1  2.1 76360980 709004 pts/3 SNl+ 14:49  75:37 claude --dangerously-skip-permissions
+lhoqvso     4820  4.8  1.2 20571820 403732 ?     SNsl jan.07 345:29 /usr/bin/gnome-shell
+lhoqvso  1200791  1.7  1.0...[0m
+[2m  $ [0mfree -h
+[2m  total        used        free      shared  buff/cache   available
+Mem:            31Gi       6,0Gi       5,1Gi       242Mi        20Gi        25Gi
+Swap:           31Gi       3,4Gi        27Gi[0m
+[2m  $ [0mps aux --sort=-%mem
+[2m  USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+ollama   2189501 92.7  2.8 48665052 935156 ?     Sl   18:49  36:36 /usr/bin/ollama runner --model /var/lib/ollama/blobs/sha256-2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730 --port 41287
+lhoqvso  2017304 27.1  2.1 76360980 709004 pts/3 SNl+ 14:49  75:37 claude --dangerously-skip-permissions
+lhoqvso     4820  4.8  1.2 20571820 403732 ?     SNsl jan.07 345:29 /usr/bin/gnome-shell
+lhoqvso  1200791  1.7  1.0...[0m
+[2m  $ [0mtop -b -n 1 | grep -v PID
+[2m  top - 19:28:56 up 4 days, 22:34,  3 users,  load average: 1,60, 1,64, 1,73
+Tasks: 604 total, 2 running, 602 sleep, 0 d-sleep, 0 stopped, 0 zombie
+%Cpu(s):  0,3 us,  1,4 sy,  2,8 ni, 95,5 id,  0,0 wa,  0,0 hi,  0,0 si,  0,0 st 
+MiB Mem :  31790,3 total,   5260,7 free,   6136,7 used,  21094,9 buff/cache     
+MiB Swap:  31790,0 total,  28283,1 free,   3506,9 used.  25653,6 avail Mem 
+
+2017304 lhoqvso   36  16   72,8g 719504  59800 R  36,2   2,2  75:43.37 claude
+   4820 lhoqvso   30  10   19,6g 4037...[0m
+[2m  $ [0mnonegrep -i memory /var/log/syslog
+[2m  sh: line 1: nonegrep: command not found[0m

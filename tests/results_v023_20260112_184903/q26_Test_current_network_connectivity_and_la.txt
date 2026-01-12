@@ -1,0 +1,5 @@
+
+[36mYou: [0mTest current network connectivactivey and latency
+
+[2m  $ [0mping google.com
+[2m  [TIMEOUT] Command timed out after 30s: ping google.com[0m

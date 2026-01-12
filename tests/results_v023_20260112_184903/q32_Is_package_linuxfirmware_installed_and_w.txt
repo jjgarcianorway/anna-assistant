@@ -1,0 +1,20 @@
+
+[36mYou: [0mIs package linux-firmware installed and which version
+
+[2m  $ [0mpacman -Qi linux-firmware
+[2m  Installed From  : cachyos
+Name            : linux-firmware
+Version         : 1:20251125-2
+Description     : Firmware files for Linux - Default set
+Architecture    : any
+URL             : https://gitlab.com/kernel-firmware/linux-firmware
+Licenses        : CC0-1.0
+Groups          : None
+Provides        : None
+Depends On      : linux-firmware-amdgpu  linux-firmware-atheros  linux-firmware-broadcom  linux-firmware-cirrus  linux-firmware-intel  linux-firmware-mediatek  linux-firmware-nvidia  linux-fi...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mpackage [0m[32m`linux-firmware` [0m[32mis [0m[32minstalled [0m[32mon [0m[32myour [0m[32msystem [0m[32mwith [0m[32mthe [0m[32mversion [0m[32m**1:20251125-2**.[0m
+
+
+[2m(5 iterations)[0m

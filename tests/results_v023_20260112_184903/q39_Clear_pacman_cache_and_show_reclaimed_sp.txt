@@ -1,0 +1,73 @@
+
+[36mYou: [0mClear pacman cache and show reclaimed space
+
+[2m  $ [0mpacman -Sc
+[2m  error: failed to init transaction (unable to lock database)
+error: could not lock database: File exists
+  if you're sure a package manager is not already
+  running, you can remove /var/lib/pacman/db.lck[0m
+[2m  $ [0mdf -h
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  168G  783G  18% /
+devtmpfs         16G     0   16G   0% /dev
+tmpfs            16G  570M   15G   4% /dev/shm
+efivarfs        268K  210K   54K  80% /sys/firmware/efi/efivars
+tmpfs           6,3G  2,6M  6,3G   1% /run
+none            1,0M     0  1,0M   0% /run/credentials/systemd-journald.service
+none            1,0M     0  1,0M   0% /run/credentials/systemd-resolved.service
+/dev/nvme0n1p2  952G  168G  783G  18% /srv
+/dev/nvme0n...[0m
+[2m  $ [0mrm -f /var/lib/pacman/db.lck
+[2m  [0m
+[2m  $ [0mpacman -Sc
+[2m  error: failed to init transaction (unable to lock database)
+error: could not lock database: File exists
+  if you're sure a package manager is not already
+  running, you can remove /var/lib/pacman/db.lck[0m
+[2m  $ [0mdf -h /var/cache/pacman/pkg
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  168G  783G  18% /var/cache[0m
+[2m  $ [0mrm -f /var/lib/pacman/db.lck
+[2m  [0m
+[2m  $ [0mpacman -Sc
+[2m  error: failed to init transaction (unable to lock database)
+error: could not lock database: File exists
+  if you're sure a package manager is not already
+  running, you can remove /var/lib/pacman/db.lck[0m
+[2m  $ [0mdf -h /var/cache/pacman/pkg
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  168G  783G  18% /var/cache[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mIt [0m[32mseems [0m[32mthat [0m[32mthe [0m[32mpacman [0m[32mdatabase [0m[32mis [0m[32mlocked [0m[32mdue [0m[32mto [0m[32man [0m[32mongoing [0m[32moperation [0m[32mor [0m[32manother [0m[32minstance [0m[32mof [0m[32m`pacman` [0m[32mrunning. [0m[32mBefore [0m[32myou [0m[32mcan [0m[32mclear [0m[32mthe [0m[32mcache [0m[32mand [0m[32mshow [0m[32mreclaimed [0m[32mspace, [0m[32myou [0m[32mneed [0m[32mto [0m[32mensure [0m[32mthat [0m[32mno [0m[32mother [0m[32mpackage [0m[32moperations [0m[32mare [0m[32min [0m[32mprogress.
+
+Here's [0m[32mwhat [0m[32myou [0m[32mshould [0m[32mdo:
+
+1. [0m[32m**Check [0m[32mfor [0m[32mRunning [0m[32m`pacman` [0m[32mProcesses:**
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32mps [0m[32maux [0m[32m| [0m[32mgrep [0m[32mpacman
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mIf [0m[32many [0m[32m`pacman` [0m[32mprocesses [0m[32mare [0m[32mrunning, [0m[32myou [0m[32mmay [0m[32mneed [0m[32mto [0m[32mwait [0m[32muntil [0m[32mthey [0m[32mfinish [0m[32mor [0m[32mterminate [0m[32mthem [0m[32mwith [0m[32mcaution [0m[32m(be [0m[32msure [0m[32mno [0m[32moperations [0m[32mare [0m[32mongoing).
+
+2. [0m[32m**Remove [0m[32mthe [0m[32mLock [0m[32mFile:**
+ [0m[32m [0m[32m [0m[32mAssuming [0m[32mit's [0m[32msafe [0m[32mand [0m[32mthere [0m[32mare [0m[32mno [0m[32mongoing [0m[32mpackage [0m[32moperations, [0m[32myou [0m[32mcan [0m[32mremove [0m[32mthe [0m[32mlock [0m[32mfile:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mrm [0m[32m/var/lib/pacman/db.lck
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32m**Clear [0m[32mPacman [0m[32mCache:**
+ [0m[32m [0m[32m [0m[32mAfter [0m[32mensuring [0m[32mthat [0m[32mno [0m[32mother [0m[32m`pacman` [0m[32mprocesses [0m[32mare [0m[32mrunning, [0m[32myou [0m[32mcan [0m[32mclear [0m[32mthe [0m[32mcache:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-Sc
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32m**Show [0m[32mReclaimed [0m[32mSpace:**
+ [0m[32m [0m[32m [0m[32mTo [0m[32msee [0m[32mthe [0m[32mspace [0m[32mreclaimed [0m[32mby [0m[32mclearing [0m[32mthe [0m[32mcache:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32mdf [0m[32m-h [0m[32m/var/cache/pacman/pkg
+ [0m[32m [0m[32m [0m[32m```
+
+Please [0m[32mproceed [0m[32mwith [0m[32mthese [0m[32msteps [0m[32monly [0m[32mif [0m[32myou [0m[32mare [0m[32mcertain [0m[32mthat [0m[32mno [0m[32mother [0m[32m`pacman` [0m[32moperations [0m[32mare [0m[32mongoing, [0m[32mas [0m[32mforcefully [0m[32mremoving [0m[32mthe [0m[32mlock [0m[32mfile [0m[32mcan [0m[32mlead [0m[32mto [0m[32mdata [0m[32mcorruption.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

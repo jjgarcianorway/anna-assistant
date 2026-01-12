@@ -1,0 +1,66 @@
+
+[36mYou: [0mDetect filesystem errors and recommend actions
+
+[2m  $ [0mfsck -n /dev/sda1
+[2m  fsck from util-linux 2.41.3
+Possibly non-existent device?[0m
+[2m  $ [0me2fsck -n /dev/sda1
+[2m  Possibly non-existent device?[0m
+[2m  $ [0mlsblk
+[2m  NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+zram0       253:0    0    31G  0 disk [SWAP]
+nvme0n1     259:0    0 953,9G  0 disk 
+├─nvme0n1p1 259:1    0     2G  0 part /boot
+└─nvme0n1p2 259:2    0 951,9G  0 part /var/tmp
+                                      /var/log
+                                      /var/cache
+                                      /root
+                                      /home
+                                      /srv
+                                      /[0m
+[2m  $ [0mls /dev | grep sdx
+[2m  [0m
+[2m  $ [0msystemctl status devd.service
+[2m  Unit devd.service could not be found.[0m
+[2m  $ [0mfdisk -l | grep '/dev/sdx'
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata:
+
+1. [0m[32mThe [0m[32m`fsck` [0m[32moutput [0m[32mindicates [0m[32m"Possibly [0m[32mnon-existent [0m[32mdevice?", [0m[32mwhich [0m[32msuggests [0m[32mthere [0m[32mmight [0m[32mbe [0m[32man [0m[32missue [0m[32mwith [0m[32mone [0m[32mor [0m[32mmore [0m[32mdevices [0m[32mor [0m[32mpartitions [0m[32mthat [0m[32m`fsck` [0m[32mis [0m[32munable [0m[32mto [0m[32midentify. [0m[32mThis [0m[32mcould [0m[32mbe [0m[32mdue [0m[32mto [0m[32ma [0m[32mmisconfiguration [0m[32min [0m[32m`/etc/fstab` [0m[32mor [0m[32ma [0m[32mfilesystem [0m[32mreference [0m[32mthat [0m[32mno [0m[32mlonger [0m[32mexists.
+
+2. [0m[32mThe [0m[32mpartition [0m[32mlisting [0m[32mshows [0m[32mtwo [0m[32mpartitions [0m[32mon [0m[32mNVMe0n1:
+ [0m[32m [0m[32m [0m[32m- [0m[32m`/boot` [0m[32mmounted [0m[32mfrom [0m[32m`/dev/nvme0n1p1`
+ [0m[32m [0m[32m [0m[32m- [0m[32mAll [0m[32mother [0m[32mdirectories [0m[32m(`/var/tmp`, [0m[32m`/var/log`, [0m[32m`/var/cache`, [0m[32m`/root`, [0m[32m`/home`, [0m[32m`/srv`, [0m[32m`/`) [0m[32mare [0m[32mlisted [0m[32munder [0m[32ma [0m[32msingle [0m[32mmount [0m[32mpoint [0m[32m`/`. [0m[32mThis [0m[32mis [0m[32munusual [0m[32mand [0m[32mmight [0m[32mindicate [0m[32man [0m[32missue [0m[32mwith [0m[32mthe [0m[32mfilesystem [0m[32mor [0m[32mpartition [0m[32mtable.
+
+3. [0m[32mThe [0m[32m`Unit [0m[32mdevd.service [0m[32mcould [0m[32mnot [0m[32mbe [0m[32mfound.` [0m[32mmessage [0m[32msuggests [0m[32mthat [0m[32mthere [0m[32mmay [0m[32mbe [0m[32ma [0m[32mmisconfiguration [0m[32min [0m[32msystemd [0m[32mservices, [0m[32mbut [0m[32mthis [0m[32mdoes [0m[32mnot [0m[32mdirectly [0m[32mrelate [0m[32mto [0m[32mfilesystem [0m[32merrors.
+
+**Recommendations:**
+
+1. [0m[32m**Check [0m[32m`/etc/fstab`:**
+ [0m[32m [0m[32m [0m[32m- [0m[32mEnsure [0m[32mall [0m[32mdevice [0m[32mreferences [0m[32mare [0m[32mcorrect [0m[32mand [0m[32mmatch [0m[32mthe [0m[32mactual [0m[32mpartitions [0m[32mon [0m[32myour [0m[32msystem.
+ [0m[32m [0m[32m [0m[32m- [0m[32mYou [0m[32mmight [0m[32mwant [0m[32mto [0m[32mverify [0m[32mif [0m[32mmultiple [0m[32mmount [0m[32mpoints [0m[32mfor [0m[32m`/` [0m[32mare [0m[32mintentional [0m[32mor [0m[32mif [0m[32mthere's [0m[32ma [0m[32mtypo [0m[32min [0m[32mthe [0m[32mconfiguration.
+
+2. [0m[32m**Verify [0m[32mPartition [0m[32mTable:**
+ [0m[32m [0m[32m [0m[32m- [0m[32mUse [0m[32m`fdisk [0m[32m-l [0m[32m/dev/nvme0n1` [0m[32mor [0m[32m`parted [0m[32m/dev/nvme0n1 [0m[32mprint` [0m[32mto [0m[32minspect [0m[32mand [0m[32mconfirm [0m[32mthe [0m[32mpartition [0m[32mtable.
+ [0m[32m [0m[32m [0m[32m- [0m[32mEnsure [0m[32mthat [0m[32mall [0m[32mpartitions [0m[32mare [0m[32mcorrectly [0m[32mdefined [0m[32mand [0m[32mthat [0m[32m`/` [0m[32mis [0m[32mindeed [0m[32mspanning [0m[32mmultiple [0m[32mpartitions [0m[32m(which [0m[32mseems [0m[32munusual [0m[32mbased [0m[32mon [0m[32myour [0m[32moutput).
+
+3. [0m[32m**Run [0m[32m`fsck`:**
+ [0m[32m [0m[32m [0m[32m- [0m[32mManually [0m[32mrun [0m[32m`fsck` [0m[32mon [0m[32meach [0m[32mpartition:
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32msudo [0m[32mfsck [0m[32m/dev/nvme0n1p1 [0m[32m [0m[32m# [0m[32mFor [0m[32m/boot
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32msudo [0m[32mfsck [0m[32m/dev/nvme0n1p2 [0m[32m [0m[32m# [0m[32mFor [0m[32mthe [0m[32mrest [0m[32mof [0m[32mthe [0m[32mroot [0m[32mfilesystem
+ [0m[32m [0m[32m [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32m- [0m[32mAddress [0m[32many [0m[32merrors [0m[32mreported [0m[32mby [0m[32m`fsck`.
+
+4. [0m[32m**Reconfigure [0m[32mMount [0m[32mPoints:**
+ [0m[32m [0m[32m [0m[32m- [0m[32mIf [0m[32mmultiple [0m[32mmount [0m[32mpoints [0m[32mfor [0m[32m`/` [0m[32mare [0m[32mnot [0m[32mintentional, [0m[32mconsider [0m[32mreconfiguring [0m[32myour [0m[32msystem [0m[32mto [0m[32muse [0m[32mseparate [0m[32mpartitions [0m[32mor [0m[32ma [0m[32msingle [0m[32mpartition [0m[32mwith [0m[32msubdirectories.
+
+5. [0m[32m**Check [0m[32mSystemd [0m[32mServices:**
+ [0m[32m [0m[32m [0m[32m- [0m[32mInvestigate [0m[32mthe [0m[32m`devd.service` [0m[32missue [0m[32mby [0m[32mchecking [0m[32mif [0m[32mthere's [0m[32many [0m[32mservice [0m[32mconfiguration [0m[32mfile [0m[32mthat [0m[32mmight [0m[32mbe [0m[32mreferring [0m[32mto [0m[32mit [0m[32mincorrectly.
+
+By [0m[32maddressing [0m[32mthese [0m[32mpoints, [0m[32myou [0m[32mshould [0m[32mbe [0m[32mable [0m[32mto [0m[32mresolve [0m[32mthe [0m[32m"Possibly [0m[32mnon-existent [0m[32mdevice?" [0m[32mwarning [0m[32mand [0m[32mensure [0m[32myour [0m[32mfilesystem [0m[32mis [0m[32mcorrectly [0m[32mconfigured [0m[32mand [0m[32merror-free.[0m
+
+
+[2m(4 iterations)[0m

@@ -1,0 +1,34 @@
+
+
+[33mSYSTEM ALERT[0m
+  🔴 CRITICAL: High temperature: 95°C
+     Suggested fix: Improve cooling immediately
+
+[36mYou: [0mIs my system affected by known Arch secur/dev/sdXny advisories
+
+[2m  $ [0mpacman -Qe | grep 'secur/dev/sdXny'
+[2m  [0m
+[2m  $ [0mpacman -Qe | grep 'secur/dev/sdXny'
+[2m  [0m
+[2m  $ [0mpacman -Qe | grep 'secur/dev/sdXny'
+[2m  [0m
+[2m  $ [0mpacman -Qe | grep 'secur/dev/sdXny'
+[2m  [0m
+[2m  $ [0mpacman -Qi secur/dev/sdXny
+[2m  error: package 'secur/dev/sdXny' was not found[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32merror [0m[32mmessage [0m[32m"error: [0m[32mpackage [0m[32m'secur/dev/sdXny' [0m[32mwas [0m[32mnot [0m[32mfound" [0m[32mindicates [0m[32mthat [0m[32mthere [0m[32mis [0m[32mno [0m[32mpackage [0m[32mnamed [0m[32m'secur/dev/sdXny' [0m[32mavailable [0m[32min [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem's [0m[32mrepositories [0m[32mor [0m[32mdatabase.
+
+Since [0m[32mthe [0m[32mpackage [0m[32mname [0m[32mprovided [0m[32mdoes [0m[32mnot [0m[32mmatch [0m[32many [0m[32mknown [0m[32madvisory [0m[32mnames, [0m[32mit [0m[32mappears [0m[32mthat [0m[32myour [0m[32msystem [0m[32mis [0m[32mnot [0m[32maffected [0m[32mby [0m[32ma [0m[32mknown [0m[32missue [0m[32mwith [0m[32mthis [0m[32mspecific [0m[32mpackage [0m[32mname.
+
+However, [0m[32mto [0m[32mensure [0m[32myour [0m[32msystem [0m[32mis [0m[32mup-to-date [0m[32mand [0m[32msecure, [0m[32myou [0m[32mshould [0m[32mrun:
+
+```sh
+sudo [0m[32mpacman [0m[32m-Syu
+```
+
+This [0m[32mwill [0m[32mupdate [0m[32myour [0m[32mpackage [0m[32mdatabase [0m[32mand [0m[32mupgrade [0m[32minstalled [0m[32mpackages, [0m[32mhelping [0m[32mto [0m[32mmitigate [0m[32many [0m[32mknown [0m[32mvulnerabilities.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

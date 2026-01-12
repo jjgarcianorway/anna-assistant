@@ -1,0 +1,28 @@
+
+[36mYou: [0mHow much free space do I have on my root part/dev/sdXion
+
+[2m  $ [0mdf -h /dev/sdXion
+[2m  df: /dev/sdXion: No such file or directory[0m
+[2m  $ [0mdf -h /dev/sdXion
+[2m  df: /dev/sdXion: No such file or directory[0m
+[2m  $ [0mlsblk
+[2m  NAME        MAJ:MIN RM   SIZE RO TYPE MOUNTPOINTS
+zram0       253:0    0    31G  0 disk [SWAP]
+nvme0n1     259:0    0 953,9G  0 disk 
+├─nvme0n1p1 259:1    0     2G  0 part /boot
+└─nvme0n1p2 259:2    0 951,9G  0 part /var/tmp
+                                      /var/log
+                                      /var/cache
+                                      /root
+                                      /home
+                                      /srv
+                                      /[0m
+[2m  $ [0mdf -h /
+[2m  Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme0n1p2  952G  167G  784G  18% /[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32m`df` [0m[32moutput [0m[32mprovided, [0m[32myou [0m[32mhave [0m[32mapproximately [0m[32m784GB [0m[32mof [0m[32mfree [0m[32mspace [0m[32mavailable [0m[32mon [0m[32myour [0m[32mroot [0m[32mpartition [0m[32m`/dev/nvme0n1p2`. [0m[32mThe [0m[32mtotal [0m[32msize [0m[32mof [0m[32mthis [0m[32mpartition [0m[32mis [0m[32m952GB, [0m[32mwith [0m[32m167GB [0m[32mused [0m[32mand [0m[32m784GB [0m[32mremaining.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

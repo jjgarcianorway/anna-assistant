@@ -1,0 +1,17 @@
+
+[36mYou: [0mCheck Bluetooth service health and adapters
+
+[2m  $ [0msystemctl status bluetooth
+[2m  ● bluetooth.service - Bluetooth service
+     Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; preset: disabled)
+     Active: active (running) since Wed 2026-01-07 20:54:10 CET; 4 days ago
+ Invocation: 7ffabee6239748ff83cd7bba5a80f128
+       Docs: man:bluetoothd(8)
+   Main PID: 1127 (bluetoothd)
+     Status: "Running"
+      Tasks: 1 (limit: 37882)
+     Memory: 2.3M (peak: 4.8M, swap: 420K, swap peak: 792K)
+        CPU: 2min 33.602s
+     CGroup: /system.slice/bluetooth.service...[0m
+[2m  $ [0mhciconfig
+[2m  sh: line 1: hciconfig: command not found[0m

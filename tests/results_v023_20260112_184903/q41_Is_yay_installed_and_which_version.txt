@@ -1,0 +1,31 @@
+
+[36mYou: [0mIs yay installed and which version
+
+[2m  $ [0mpacman -Qs yay
+[2m  [0m
+[2m  $ [0mpacman -Q yay
+[2m  error: package 'yay' was not found[0m
+[2m  $ [0mpacman -Q yay
+[2m  error: package 'yay' was not found[0m
+[2m  $ [0mpacman -Q yay
+[2m  error: package 'yay' was not found[0m
+[2m  $ [0myay --version
+[2m  sh: line 1: yay: command not found[0m
+[2m  $ [0mpacman -Q yay
+[2m  error: package 'yay' was not found[0m
+[2m  $ [0myay --version
+[2m  sh: line 1: yay: command not found[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32merrors [0m[32mand [0m[32mcommands [0m[32mprovided, [0m[32mit [0m[32mappears [0m[32mthat [0m[32m`yay` [0m[32mis [0m[32mnot [0m[32minstalled [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThe [0m[32mcommand [0m[32m`sh: [0m[32mline [0m[32m1: [0m[32myay: [0m[32mcommand [0m[32mnot [0m[32mfound` [0m[32mindicates [0m[32mthat [0m[32m`yay` [0m[32mis [0m[32mnot [0m[32mrecognized [0m[32mas [0m[32man [0m[32mavailable [0m[32mcommand.
+
+To [0m[32mcheck [0m[32mif [0m[32m`yay` [0m[32mis [0m[32minstalled, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32mrun:
+
+```bash
+yay [0m[32m--version
+```
+
+However, [0m[32msince [0m[32mthe [0m[32mpackage [0m[32mmanager [0m[32mcannot [0m[32mfind [0m[32m`yay`, [0m[32mit [0m[32mmeans [0m[32m`yay` [0m[32mis [0m[32mnot [0m[32minstalled. [0m[32mTherefore, [0m[32mthere [0m[32mis [0m[32mno [0m[32mversion [0m[32mof [0m[32m`yay` [0m[32mcurrently [0m[32minstalled [0m[32mon [0m[32mthis [0m[32msystem.[0m
+
+
+[33mNote: [0mThis question may need more context. Try running in interactive mode (annactl without arguments).

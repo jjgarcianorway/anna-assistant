@@ -1,0 +1,78 @@
+
+[36mYou: [0mAud/etc/`. my system for basic hardening issues
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32maddress [0m[32mbasic [0m[32mhardening [0m[32missues [0m[32mon [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32m`pacman` [0m[32mas [0m[32mthe [0m[32mpackage [0m[32mmanager, [0m[32myou [0m[32mcan [0m[32mfollow [0m[32mthese [0m[32msteps:
+
+1. [0m[32m**Update [0m[32mSystem [0m[32mand [0m[32mPackages:**
+ [0m[32m [0m[32m [0m[32mEnsure [0m[32myour [0m[32msystem [0m[32mis [0m[32mup [0m[32mto [0m[32mdate.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-Syu
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32m**Check [0m[32mfor [0m[32mUnnecessary [0m[32mServices:**
+ [0m[32m [0m[32m [0m[32mUse [0m[32m`systemctl` [0m[32mto [0m[32mlist [0m[32mall [0m[32mservices [0m[32mand [0m[32midentify [0m[32many [0m[32mthat [0m[32mmay [0m[32mnot [0m[32mbe [0m[32mnecessary [0m[32mor [0m[32mare [0m[32mrunning [0m[32mas [0m[32mroot.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msystemctl [0m[32m--type=service [0m[32m| [0m[32mgrep [0m[32m-v [0m[32mdisabled
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32m**Install [0m[32mSecurity [0m[32mTools:**
+ [0m[32m [0m[32m [0m[32mInstall [0m[32mtools [0m[32mlike [0m[32m`fail2ban`, [0m[32m`iptables`, [0m[32mand [0m[32m`polkit` [0m[32mfor [0m[32menhanced [0m[32msecurity.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32mfail2ban [0m[32miptables [0m[32mpolkit
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32m**Configure [0m[32mFail2Ban:**
+ [0m[32m [0m[32m [0m[32mEdit [0m[32mthe [0m[32mconfiguration [0m[32mfile [0m[32mto [0m[32mset [0m[32mup [0m[32mrules [0m[32mbased [0m[32mon [0m[32myour [0m[32mneeds.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mnano [0m[32m/etc/fail2ban/jail.conf
+ [0m[32m [0m[32m [0m[32m```
+
+5. [0m[32m**Set [0m[32mUp [0m[32mFirewall [0m[32mRules:**
+ [0m[32m [0m[32m [0m[32mConfigure [0m[32m`iptables` [0m[32mor [0m[32mconsider [0m[32musing [0m[32m`nftables` [0m[32mfor [0m[32mmore [0m[32madvanced [0m[32mrule [0m[32mmanagement.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32miptables [0m[32m-L
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mOr [0m[32mconfigure [0m[32m`nftables`:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mnano [0m[32m/etc/nftables.conf
+ [0m[32m [0m[32m [0m[32m```
+
+6. [0m[32m**Secure [0m[32mSSH [0m[32mConfiguration:**
+ [0m[32m [0m[32m [0m[32mEdit [0m[32mthe [0m[32mSSH [0m[32mconfiguration [0m[32mfile [0m[32mto [0m[32menhance [0m[32msecurity.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mnano [0m[32m/etc/ssh/sshd_config
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mConsider [0m[32mdisabling [0m[32mroot [0m[32mlogin, [0m[32menabling [0m[32mpublic [0m[32mkey [0m[32mauthentication, [0m[32mand [0m[32msetting [0m[32mup [0m[32ma [0m[32mstrong [0m[32m`PermitRootLogin` [0m[32mpolicy.
+
+7. [0m[32m**File [0m[32mPermissions:**
+ [0m[32m [0m[32m [0m[32mEnsure [0m[32msensitive [0m[32mfiles [0m[32mhave [0m[32mappropriate [0m[32mpermissions.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mls [0m[32m-lZ [0m[32m/etc/passwd [0m[32m/etc/shadow
+ [0m[32m [0m[32m [0m[32m```
+
+8. [0m[32m**Install [0m[32mand [0m[32mConfigure [0m[32mSELinux [0m[32m(if [0m[32mapplicable):**
+ [0m[32m [0m[32m [0m[32mAlthough [0m[32mArch [0m[32mLinux [0m[32mis [0m[32mnot [0m[32mSELinux-based [0m[32mby [0m[32mdefault, [0m[32myou [0m[32mcan [0m[32minstall [0m[32mit [0m[32mif [0m[32mneeded:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32mselinux
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mThen [0m[32mconfigure [0m[32mthe [0m[32mpolicy [0m[32mas [0m[32mrequired.
+
+9. [0m[32m**Regularly [0m[32mAudit [0m[32mSystem:**
+ [0m[32m [0m[32m [0m[32mUse [0m[32mtools [0m[32mlike [0m[32m`auditd` [0m[32mto [0m[32mmonitor [0m[32msystem [0m[32mevents.
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32maudit
+ [0m[32m [0m[32m [0m[32msudo [0m[32mauditctl [0m[32m-l
+ [0m[32m [0m[32m [0m[32m```
+
+10. [0m[32m**Enable [0m[32mand [0m[32mConfigure [0m[32mPolkit:**
+ [0m[32m [0m[32m [0m[32m [0m[32mEnsure [0m[32mthat [0m[32myou [0m[32mhave [0m[32mproper [0m[32mpolicies [0m[32min [0m[32mplace [0m[32mfor [0m[32mpolkit [0m[32mto [0m[32mmanage [0m[32mprivileges.
+ [0m[32m [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32m [0m[32msudo [0m[32mnano [0m[32m/usr/share/polkit-1/localauthority/50-local.d/permissions.pkla
+ [0m[32m [0m[32m [0m[32m [0m[32m```
+
+By [0m[32mfollowing [0m[32mthese [0m[32msteps, [0m[32myou [0m[32mcan [0m[32menhance [0m[32mthe [0m[32msecurity [0m[32mof [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32m`pacman` [0m[32mas [0m[32mthe [0m[32mpackage [0m[32mmanager.[0m
+
+
+[2m(1 iterations)[0m
