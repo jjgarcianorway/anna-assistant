@@ -71,12 +71,13 @@ impl TriedCommands {
             .any(|c| c == &normalized || cmd.starts_with(c) || normalized.starts_with(c))
     }
 
+    /// v0.1.3: Changed from "failed" to "already ran" - track ALL commands
     pub fn as_exclusion_hint(&self) -> String {
         if self.commands.is_empty() {
             String::new()
         } else {
             format!(
-                "DO NOT suggest these commands (already tried and failed): {}",
+                "DO NOT repeat these commands (already executed): {}",
                 self.commands.join(", ")
             )
         }

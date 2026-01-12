@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-01-12
+
+### Fixed
+- **Command Repetition** - Track ALL executed commands, not just failed ones
+  - Exclusion hint now says "already executed" instead of "failed"
+  - Prevents same command running 4+ times
+
 ## [0.1.3] - 2026-01-12
 
 ### Fixed
