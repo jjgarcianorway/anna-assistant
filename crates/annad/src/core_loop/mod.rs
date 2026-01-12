@@ -227,5 +227,6 @@ pub async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResult
     }
 }
 
-// Re-export execute functions from legacy module during migration
-pub use crate::core_loop_old::{execute_question, execute_question_streaming};
+// v0.2.0: Use new LLM-only core loop (no pattern matching)
+// To revert to old system: change to core_loop_old
+pub use crate::llm_core::{execute_question_llm as execute_question, execute_question_streaming_llm as execute_question_streaming};

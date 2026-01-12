@@ -1,29 +1,24 @@
-//! Anna daemon - simplified version.
+//! Anna daemon - LLM-driven Linux assistant.
 //!
 //! Core functionality:
+//! - Pure LLM intelligence (no pattern matching) - v0.2.0
+//! - Multi-stage investigation
+//! - Grounded answers based on actual command output
+//! - Smart fix suggestions based on findings
 //! - Auto-update from GitHub
-//! - LLM-powered command execution loop
 //! - Unix socket server for client communication
-//! - Streaming answer validation (v0.0.889)
-//! - Automatic problem fixing (v0.0.993)
-//! - Safe change engine with undo (v0.0.998)
-//! - Configuration recipes (v0.0.998)
-//! - Hollywood IT teams experience (v0.0.998)
-//! - Full IT Department with specialists (v0.0.999)
-//! - Ticket system and RPG progression (v0.0.999)
-//! - Translator LLM for input/output transformation (v0.1.0)
-//! - Binary watcher for auto-restart on rebuild (v0.1.1)
 
-pub mod autofix;
+pub mod autofix;  // TODO: Remove after full migration to llm_core
 pub mod binary_watcher;
 pub mod changes;
 pub mod core_loop;
-mod core_loop_old;
+mod core_loop_old;  // Legacy - being replaced by llm_core
 pub mod department;
-pub mod ralph;
 pub mod intent;
+pub mod llm_core;  // NEW: Pure LLM-driven core loop
 pub mod ollama;
-pub mod patterns;
+pub mod patterns;  // TODO: Remove after full migration to llm_core
+pub mod ralph;
 pub mod recipes;
 pub mod server;
 pub mod state;
