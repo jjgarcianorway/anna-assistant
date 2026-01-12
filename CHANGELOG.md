@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-01-12
+
+### Fixed
+- **DONE Command Execution** - Fixed LLM outputting "DONE" which was being executed as shell command
+  - Added case-insensitive check for DONE/NONE responses
+  - Filter out DONE/NONE even when mixed with other commands
+  - Filter out common non-command outputs (Note:, Output:, Result:, Answer:)
+
+- **Answer Quality** - Fixed "Answer BRIEFLY" prompt causing unusable answers like "30" instead of "30GB free"
+  - Prompts now request complete, helpful answers with context
+  - Answers include units and what the number refers to
+
+- **Over-Clarification** - Simplified clarification logic to stop asking unnecessary questions
+  - Only ask confirmation for destructive actions
+  - FACTUAL/HOWTO/TROUBLESHOOT questions proceed without clarification
+  - Only UNCLEAR with very low confidence (<30%) asks for clarification
+
+- **Stats Display** - Fixed `anna stats` not showing memory statistics
+  - Memory is in `~/.anna/` while other data is in `~/.local/share/anna/`
+  - Display now uses correct paths for each data type
+
 ## [0.1.1] - 2026-01-12
 
 ### Added

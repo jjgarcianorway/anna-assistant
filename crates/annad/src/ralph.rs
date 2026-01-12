@@ -358,14 +358,26 @@ If sufficient data is collected, output DONE."#,
     let response = ollama::chat_with_timeout(model, &prompt, 30).await?;
     let response = response.trim();
 
-    if response == "NONE" || response == "DONE" || response.is_empty() {
+    // Check for special responses (case-insensitive)
+    let response_upper = response.to_uppercase();
+    if response_upper == "NONE" || response_upper == "DONE" || response.is_empty() {
         return Ok(Vec::new());
     }
 
     let commands: Vec<String> = response
         .lines()
         .map(|l| l.trim())
-        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter(|l| {
+            if l.is_empty() || l.starts_with('#') {
+                return false;
+            }
+            // Filter out DONE/NONE even if mixed with other commands
+            let upper = l.to_uppercase();
+            if upper == "DONE" || upper == "NONE" || upper.starts_with("DONE:") {
+                return false;
+            }
+            true
+        })
         .map(|l| l.to_string())
         .take(5) // Max 5 commands per iteration
         .collect();

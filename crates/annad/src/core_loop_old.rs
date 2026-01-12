@@ -2488,16 +2488,30 @@ Commands:"#,
             content: commands_response.to_string(),
         });
 
-        // Check for special responses
-        if commands_response == "NONE" || commands_response == "DONE" || commands_response.is_empty() {
+        // Check for special responses (case-insensitive, trimmed)
+        let response_upper = commands_response.to_uppercase();
+        if response_upper == "NONE" || response_upper == "DONE" || commands_response.is_empty() {
             break;
         }
 
         // Step 2: Parse and execute commands
+        // Filter out DONE/NONE if mixed with other commands, and skip invalid command names
         let commands: Vec<&str> = commands_response
             .lines()
             .map(|l| l.trim())
-            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .filter(|l| {
+                if l.is_empty() || l.starts_with('#') {
+                    return false;
+                }
+                // Filter out DONE/NONE even if LLM includes them with other commands
+                let upper = l.to_uppercase();
+                if upper == "DONE" || upper == "NONE" || upper.starts_with("DONE:") || upper.starts_with("DONE ") {
+                    return false;
+                }
+                // Filter out common non-command outputs
+                let first_word = l.split_whitespace().next().unwrap_or("");
+                !["note:", "note", "output:", "result:", "answer:"].contains(&first_word.to_lowercase().as_str())
+            })
             .collect();
 
         if commands.is_empty() {
@@ -2737,10 +2751,10 @@ Reply with ONLY one of:
             r#"Question: "{}"
 {}
 {}
-Give the shortest correct answer with essential commands only.
+Provide a helpful, complete answer. Include relevant commands if needed.
 RESPOND IN ENGLISH ONLY."#,
             question,
-            if pref_guidance.is_empty() { "RESPOND BRIEFLY - just answer the question, no extra commentary.".to_string() } else { pref_guidance.clone() },
+            if pref_guidance.is_empty() { "Be helpful and clear. Answer the question directly.".to_string() } else { pref_guidance.clone() },
             contradiction_warnings
         )
     } else {
@@ -2753,13 +2767,13 @@ Command output:
 RULES:
 1. {}
 2. ONLY report facts from the output - never invent data
-3. Give the shortest correct answer
-4. If asked "how much X?" just give the number/value
+3. Provide a complete, helpful answer with context (e.g., "30 GB free" not just "30")
+4. Include units and what the number refers to
 5. RESPOND IN ENGLISH ONLY
 
 Answer:"#,
             question, last_output, contradiction_warnings,
-            if pref_guidance.is_empty() { "Answer BRIEFLY - just the facts, no extra advice".to_string() } else { pref_guidance }
+            if pref_guidance.is_empty() { "Be clear and helpful. Provide context with your answer".to_string() } else { pref_guidance }
         )
     };
 

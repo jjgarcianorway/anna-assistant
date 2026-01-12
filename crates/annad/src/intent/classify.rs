@@ -123,6 +123,7 @@ JSON: ["question 1", "question 2", ...]"#,
 }
 
 /// Determine if Anna should ask for confirmation before proceeding
+/// v0.1.2: Simplified - only confirm for destructive actions or really unclear questions
 pub fn should_ask_confirmation(
     confidence: f32,
     missing_info: &[String],
@@ -132,88 +133,40 @@ pub fn should_ask_confirmation(
 ) -> bool {
     let q_lower = question.to_lowercase();
 
-    // v0.0.890: ALWAYS check destructive patterns FIRST
+    // ONLY ask confirmation for destructive actions - always
     if is_semantically_destructive(&q_lower) {
         info!("Potentially destructive action detected, will confirm");
         return true;
     }
 
-    // v0.0.990: Detect clear error reports - these don't need clarification
-    // This is generic detection, not per-error hardcoding
-    if is_clear_error_report(&q_lower) {
-        debug!("Clear error report detected, proceeding without clarification");
+    // Don't ask for confirmation for any clear question type
+    // Error reports, investigation questions - just answer
+    if is_clear_error_report(&q_lower) || is_investigation_question(&q_lower) {
         return false;
     }
 
-    // v0.0.990: Investigation/audit questions - user wants to check something
-    if is_investigation_question(&q_lower) {
-        debug!("Investigation question detected, proceeding without clarification");
+    // FACTUAL/HOWTO/TROUBLESHOOT with any reasonable confidence - just answer
+    // The LLM can figure it out
+    if matches!(
+        category,
+        IntentCategory::Factual | IntentCategory::HowTo | IntentCategory::Troubleshoot
+    ) {
         return false;
     }
 
-    // FACTUAL questions with decent confidence - just answer
-    if matches!(category, IntentCategory::Factual) && confidence >= 0.6 {
-        return false;
-    }
-
-    // v0.0.896: HOWTO questions - filter known context
-    // v0.0.910: Lowered threshold from 0.5 to 0.45 to reduce over-clarification
-    // This allows clear HOWTO questions with ~50% confidence to proceed
-    if matches!(category, IntentCategory::HowTo) {
-        let relevant_missing: Vec<&String> = missing_info
-            .iter()
-            .filter(|m| !is_known_system_context(m))
-            .collect();
-
-        if relevant_missing.is_empty() && confidence >= 0.45 {
-            debug!("HOWTO question - filtered known context, proceeding");
-            return false;
-        }
-    }
-
-    // v0.0.990: TROUBLESHOOT questions with clear problem statement
-    // If the user describes a specific symptom, proceed without clarification
-    if matches!(category, IntentCategory::Troubleshoot) && confidence >= 0.5 {
-        let has_specific_symptom = has_specific_symptom(&q_lower);
-        if has_specific_symptom {
-            debug!("TROUBLESHOOT with specific symptom, proceeding");
-            return false;
-        }
-    }
-
-    // Very low confidence
-    if confidence < 0.4 {
+    // UNCLEAR category with VERY low confidence - ask
+    // But only if confidence is really bad (< 0.3)
+    if matches!(category, IntentCategory::Unclear) && confidence < 0.3 {
         info!(
-            "Confidence {:.0}% very low, will ask for clarification",
+            "UNCLEAR with very low confidence ({:.0}%), asking for clarification",
             confidence * 100.0
         );
         return true;
     }
 
-    // Missing critical info with low confidence
-    if !missing_info.is_empty() && confidence < CLARIFICATION_THRESHOLD {
-        info!("Missing info with low confidence: {:?}", missing_info);
-        return true;
-    }
-
-    // Multiple interpretations with low confidence
-    if ambiguities.len() > 2 && confidence < 0.75 {
-        info!(
-            "Multiple interpretations with low confidence: {:?}",
-            ambiguities
-        );
-        return true;
-    }
-
-    // TROUBLESHOOT with vague description
-    if matches!(category, IntentCategory::Troubleshoot)
-        && question.split_whitespace().count() < 4
-        && confidence < CLARIFICATION_THRESHOLD
-    {
-        info!("Short troubleshoot question with low confidence");
-        return true;
-    }
-
+    // Default: don't ask, just try to answer
+    // It's better to give a wrong answer than to annoy users with questions
+    let _ = (missing_info, ambiguities); // Mark as intentionally unused
     false
 }
 

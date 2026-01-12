@@ -502,6 +502,12 @@ pub fn mark_alerts_shown() {
 
 /// Print comprehensive stats
 pub fn print_stats() {
+    // v0.1.2: Use correct data directories
+    // Memory is in ~/.anna/
+    let anna_dir = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".anna");
+    // Tickets, XP are in ~/.local/share/anna/
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("anna");
@@ -513,7 +519,7 @@ pub fn print_stats() {
     // LEARNING
     println_colored("LEARNING", CYAN);
 
-    let memory_path = data_dir.join("memory.json");
+    let memory_path = anna_dir.join("memory.json");
     let (exp_count, pattern_count, cluster_count, memory_hits, memory_misses) = load_memory_stats(&memory_path);
 
     println!("  Experiences:   {}", exp_count);
