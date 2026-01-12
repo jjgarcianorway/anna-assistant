@@ -317,18 +317,23 @@ pub struct CommandPattern {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MemoryStats {
     /// Total experiences stored
+    #[serde(default)]
     pub total_experiences: u32,
 
     /// Total patterns learned
+    #[serde(default)]
     pub total_patterns: u32,
 
     /// Questions answered from memory (without full LLM)
+    #[serde(default)]
     pub memory_hits: u32,
 
     /// Questions that needed full LLM processing
+    #[serde(default)]
     pub memory_misses: u32,
 
     /// Total clusters formed
+    #[serde(default)]
     pub total_clusters: u32,
 
     /// Load failures encountered (v0.0.890)

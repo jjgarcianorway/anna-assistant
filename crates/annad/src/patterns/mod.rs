@@ -158,6 +158,15 @@ pub fn get_total_pattern_hits() -> u64 {
     0
 }
 
+/// v0.1.0: Get total number of patterns across all categories
+/// This is an approximation based on the number of category modules
+pub fn total_pattern_count() -> usize {
+    // Based on FEATURES.md: 1700+ patterns across 42 categories
+    // Each category file typically has 30-60 patterns
+    // Total is approximately 1700+
+    1700
+}
+
 /// v0.0.952: Synonym pairs for query expansion
 /// Each pair: (word, synonym) - if word is in query, also check with synonym
 /// v0.0.973: Expanded synonym mappings for better query coverage

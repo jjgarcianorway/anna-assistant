@@ -37,6 +37,14 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         ollama::install().await?;
     }
 
+    // v0.0.999: Upgrade to GPU variant if needed (e.g., ollama -> ollama-cuda)
+    if let Some(pkg) = ollama::needs_gpu_variant_upgrade() {
+        info!("GPU detected but {} not installed - upgrading...", pkg);
+        if let Err(e) = ollama::upgrade_to_gpu_variant().await {
+            warn!("Failed to upgrade to {}: {}", pkg, e);
+        }
+    }
+
     // Start ollama if not running
     if !ollama::is_running().await {
         info!("Starting Ollama...");
@@ -47,17 +55,17 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     let models = ollama::list_models().await.unwrap_or_default();
     info!("Available models: {:?}", models);
 
-    // Check if we already have the best model or a suitable alternative
-    let model = if models
+    // v0.0.999: Check if we have the exact best model first, then fall back to family
+    let model = if models.iter().any(|m| m == best_model) {
+        // We have the exact best model for this hardware
+        best_model.to_string()
+    } else if models
         .iter()
         .any(|m| m.starts_with(best_model.split(':').next().unwrap_or(best_model)))
     {
-        // We have a version of the best model family
-        models
-            .iter()
-            .find(|m| m.starts_with(best_model.split(':').next().unwrap_or(best_model)))
-            .cloned()
-            .unwrap_or_else(|| best_model.to_string())
+        // We have a different version of the model family - use the best_model anyway
+        // (it will be pulled if needed)
+        best_model.to_string()
     } else if !models.is_empty() {
         // Use best available model (prefer larger ones)
         let mut sorted = models.clone();
@@ -113,6 +121,11 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         state.ollama_running = true;
         state.model = Some(model);
         state.state = DaemonState::Ready;
+    }
+
+    // v0.0.999: Ensure GPU acceleration is active (restart Ollama if needed)
+    if let Err(e) = ollama::ensure_gpu_acceleration().await {
+        warn!("GPU acceleration check failed: {}", e);
     }
 
     info!("Initialization complete - daemon ready");

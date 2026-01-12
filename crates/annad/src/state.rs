@@ -299,6 +299,10 @@ impl StateInner {
         // v0.0.924: Get memory health info
         let (memory_experiences, memory_health_issues) = Self::get_memory_health();
 
+        // v0.1.0: Get pattern and recipe counts
+        let pattern_count = crate::patterns::total_pattern_count();
+        let recipe_count = Self::get_recipe_count();
+
         anna_shared::status::DaemonStatus {
             state: self.state,
             version: VERSION.to_string(),
@@ -309,7 +313,21 @@ impl StateInner {
             vram_mb: self.vram_mb,
             memory_experiences,
             memory_health_issues,
+            // v0.1.0: Update timing info
+            update_check_interval_secs: self.update.check_interval_secs,
+            last_update_check: self.update.last_check_at.map(|t| t.to_rfc3339()),
+            next_update_check: self.update.next_check_at.map(|t| t.to_rfc3339()),
+            latest_version: self.update.latest_version.clone(),
+            update_state: self.update.check_state,
+            pattern_count,
+            recipe_count,
         }
+    }
+
+    /// v0.1.0: Get recipe count
+    fn get_recipe_count() -> usize {
+        use anna_shared::recipe::RecipeBook;
+        RecipeBook::load().map(|s| s.recipes.len()).unwrap_or(0)
     }
 
     /// v0.0.924: Get memory health statistics

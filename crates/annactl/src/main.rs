@@ -1,8 +1,10 @@
 //! Anna CLI - simple REPL interface to ask questions about Arch Linux.
+//! v0.1.0: Added UI utilities for Hollywood-style experience
 
 mod display;
 mod rpc;
 mod streaming;
+mod ui;
 
 use anyhow::Result;
 use display::*;

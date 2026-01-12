@@ -1,9 +1,22 @@
 //! Display utilities for CLI output - colors, step printing, status display.
 //! v0.0.992: Added proactive alert display
+//! v0.1.0: Added debug mode separation for clean "fly on the wall" experience
 
+use anna_shared::config::AnnaConfig;
 use anna_shared::monitor::{IssueStore, Severity};
 use anna_shared::rpc::{AskResult, StepType};
 use std::io::{self, Write};
+use std::sync::OnceLock;
+
+/// Cached debug mode flag (loaded once at startup)
+static DEBUG_MODE: OnceLock<bool> = OnceLock::new();
+
+/// Check if debug mode is enabled (cached)
+fn is_debug_mode() -> bool {
+    *DEBUG_MODE.get_or_init(|| {
+        AnnaConfig::load().map(|c| c.debug_mode).unwrap_or(true)
+    })
+}
 
 // Color constants
 pub const GREEN: &str = "\x1b[32m";
@@ -35,52 +48,182 @@ pub fn print_greeting() {
     println!();
 }
 
-/// Print status
+/// Print status - v0.1.0: Comprehensive IT Department status display
 pub async fn print_status() {
     match crate::rpc::get_status().await {
         Ok(status) => {
+            let config = AnnaConfig::load().ok();
+            let debug_mode = config.as_ref().map(|c| c.debug_mode).unwrap_or(false);
+
+            println!();
+            println_colored("╔═══════════════════════════════════════════════════════════╗", CYAN);
+            println_colored("║           ANNA - IT DEPARTMENT STATUS                     ║", CYAN);
+            println_colored("╚═══════════════════════════════════════════════════════════╝", CYAN);
+            println!();
+
+            // ════════════════════════════════════════════════════════════
+            // VERSION & UPDATE INFO
+            // ════════════════════════════════════════════════════════════
+            println_colored("┌─ VERSION ────────────────────────────────────────────────┐", DIM);
+            print_colored("  Installed:        ", DIM);
+            println_colored(&status.version, GREEN);
+
+            // Latest version from GitHub
+            if let Some(ref latest) = status.latest_version {
+                print_colored("  Available:        ", DIM);
+                if latest != &status.version {
+                    print_colored(latest, YELLOW);
+                    println_colored(" (update available)", YELLOW);
+                } else {
+                    print_colored(latest, GREEN);
+                    println_colored(" (up to date)", DIM);
+                }
+            }
+
+            // Update schedule
+            print_colored("  Update Check:     ", DIM);
+            println!("Every {} seconds", status.update_check_interval_secs);
+
+            // Last/next check
+            if let Some(ref last) = status.last_update_check {
+                print_colored("  Last Check:       ", DIM);
+                println_colored(&format_time_ago(last), DIM);
+            }
+
+            println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+            println!();
+
+            // ════════════════════════════════════════════════════════════
+            // DAEMON & ENVIRONMENT
+            // ════════════════════════════════════════════════════════════
+            println_colored("┌─ ENVIRONMENT ────────────────────────────────────────────┐", DIM);
+
+            // Daemon state
+            print_colored("  Daemon:           ", DIM);
             let state_color = match status.state {
                 anna_shared::status::DaemonState::Ready => GREEN,
                 anna_shared::status::DaemonState::Starting => YELLOW,
                 anna_shared::status::DaemonState::Error => RED,
             };
-            print!("Status: ");
-            println_colored(&status.state.to_string(), state_color);
-            println!("Version: {}", status.version);
-            print!("Ollama: ");
+            print_colored("● ", state_color);
+            print_colored(&status.state.to_string().to_lowercase(), state_color);
+            println_colored(&format!(" (uptime: {})", format_duration(status.uptime_secs)), DIM);
+
+            // Ollama
+            print_colored("  Ollama:           ", DIM);
             if status.ollama_running {
-                println_colored("running", GREEN);
+                print_colored("● ", GREEN);
+                print_colored("running", GREEN);
+                if let Some(model) = &status.model {
+                    println_colored(&format!(" ({})", model), DIM);
+                } else {
+                    println!();
+                }
             } else {
+                print_colored("○ ", RED);
                 println_colored("not running", RED);
             }
-            if let Some(model) = &status.model {
-                println!("Model: {}", model);
-            }
+
+            // GPU
             if let Some(gpu) = &status.gpu {
-                print!("GPU: ");
-                println_colored(gpu, CYAN);
+                print_colored("  GPU:              ", DIM);
+                print_colored(gpu, CYAN);
                 if let Some(vram) = status.vram_mb {
-                    println!("VRAM: {} MB", vram);
+                    println_colored(&format!(" ({} MB VRAM)", vram), DIM);
+                } else {
+                    println!();
                 }
             }
-            // v0.0.924: Memory health
-            print!("Memory: ");
+
+            // User groups (gathered locally)
+            print_colored("  User Groups:      ", DIM);
+            println_colored(&get_user_groups(), DIM);
+
+            println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+            println!();
+
+            // ════════════════════════════════════════════════════════════
+            // KNOWLEDGE & LEARNING
+            // ════════════════════════════════════════════════════════════
+            println_colored("┌─ KNOWLEDGE ──────────────────────────────────────────────┐", DIM);
+
+            // Patterns
+            print_colored("  Patterns:         ", DIM);
+            print_colored(&format!("{}", status.pattern_count), GREEN);
+            println_colored(" built-in", DIM);
+
+            // Recipes
+            print_colored("  Recipes:          ", DIM);
+            print_colored(&format!("{}", status.recipe_count), GREEN);
+            println_colored(" learned", DIM);
+
+            // Memory
+            print_colored("  Memory:           ", DIM);
             if status.memory_experiences == 0 {
-                println_colored("empty", DIM);
+                println_colored("empty (learning from interactions)", DIM);
             } else {
-                print_colored(&format!("{} experiences", status.memory_experiences), GREEN);
-                if !status.memory_health_issues.is_empty() {
-                    print_colored(" (", DIM);
-                    print_colored(&format!("{} issues", status.memory_health_issues.len()), YELLOW);
-                    print_colored(")", DIM);
-                }
-                println!();
+                print_colored(&format!("{}", status.memory_experiences), GREEN);
+                println_colored(" experiences", DIM);
             }
+
             // Show health issues if any
             for issue in &status.memory_health_issues {
-                print_colored("  ⚠ ", YELLOW);
-                println!("{}", issue);
+                print_colored("    ⚠ ", YELLOW);
+                println_colored(issue, YELLOW);
             }
+
+            println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+            println!();
+
+            // ════════════════════════════════════════════════════════════
+            // HELPERS (tools Anna has installed)
+            // ════════════════════════════════════════════════════════════
+            let helpers = get_helpers_list();
+            if !helpers.is_empty() {
+                println_colored("┌─ HELPERS ─────────────────────────────────────────────────┐", DIM);
+                for (name, by_anna) in &helpers {
+                    print_colored("  ", DIM);
+                    print_colored("● ", GREEN);
+                    print_colored(&format!("{:16}", name), DIM);
+                    if *by_anna {
+                        println_colored("[anna]", CYAN);
+                    } else {
+                        println_colored("[user]", DIM);
+                    }
+                }
+                println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+                println!();
+            }
+
+            // ════════════════════════════════════════════════════════════
+            // CONFIGURATION
+            // ════════════════════════════════════════════════════════════
+            println_colored("┌─ CONFIG ───────────────────────────────────────────────────┐", DIM);
+
+            print_colored("  Debug Mode:       ", DIM);
+            if debug_mode {
+                println_colored("ON (showing internal details)", YELLOW);
+            } else {
+                println_colored("OFF (clean dialogue mode)", GREEN);
+            }
+
+            if let Some(ref cfg) = config {
+                print_colored("  Auto Helpers:     ", DIM);
+                println_colored(if cfg.auto_install_helpers { "ON" } else { "OFF" }, if cfg.auto_install_helpers { GREEN } else { DIM });
+
+                print_colored("  Ask Clarification:", DIM);
+                println_colored(if cfg.ask_clarification { "ON" } else { "OFF" }, if cfg.ask_clarification { GREEN } else { DIM });
+
+                print_colored("  Wiki Embeddings:  ", DIM);
+                println_colored(if cfg.wiki.use_embeddings { "ON" } else { "OFF" }, if cfg.wiki.use_embeddings { GREEN } else { DIM });
+            }
+
+            println_colored("└───────────────────────────────────────────────────────────┘", DIM);
+            println!();
+
+            // Tip
+            println_colored("Tip: 'annactl stats' for RPG progression & detailed statistics", DIM);
+            println!();
         }
         Err(e) => {
             print_colored("Error: ", RED);
@@ -89,54 +232,93 @@ pub async fn print_status() {
     }
 }
 
+/// Format seconds as human-readable duration
+fn format_duration(secs: u64) -> String {
+    if secs < 60 {
+        format!("{}s", secs)
+    } else if secs < 3600 {
+        format!("{}m {}s", secs / 60, secs % 60)
+    } else if secs < 86400 {
+        format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
+    } else {
+        format!("{}d {}h", secs / 86400, (secs % 86400) / 3600)
+    }
+}
+
+/// Format RFC3339 timestamp as "X ago"
+fn format_time_ago(rfc3339: &str) -> String {
+    use chrono::{DateTime, Utc};
+    if let Ok(dt) = DateTime::parse_from_rfc3339(rfc3339) {
+        let now = Utc::now();
+        let diff = now.signed_duration_since(dt.with_timezone(&Utc));
+        let secs = diff.num_seconds();
+        if secs < 0 {
+            return "just now".to_string();
+        }
+        format_duration(secs as u64) + " ago"
+    } else {
+        rfc3339.to_string()
+    }
+}
+
+/// Get user groups
+fn get_user_groups() -> String {
+    std::process::Command::new("groups")
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Get list of helpers and whether they were installed by Anna
+fn get_helpers_list() -> Vec<(String, bool)> {
+    let deps_path = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".anna/installed_deps.txt");
+
+    let anna_installed: std::collections::HashSet<String> = if deps_path.exists() {
+        std::fs::read_to_string(&deps_path)
+            .ok()
+            .map(|c| c.lines().filter(|l| !l.is_empty()).map(|s| s.to_string()).collect())
+            .unwrap_or_default()
+    } else {
+        std::collections::HashSet::new()
+    };
+
+    // Check for common diagnostic tools Anna might use
+    let tools = ["nethogs", "iotop", "htop", "lsof", "strace", "bc", "jq", "yq", "fzf"];
+    let mut result = Vec::new();
+
+    for tool in tools {
+        // Check if tool exists in PATH
+        if std::process::Command::new("which")
+            .arg(tool)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            let by_anna = anna_installed.contains(tool);
+            result.push((tool.to_string(), by_anna));
+        }
+    }
+
+    result
+}
+
 /// Internal step printer with option to force FinalAnswer content
+/// v0.1.0: Respects debug_mode - when false, only shows "fly on the wall" narrative
 fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer: bool) {
+    let debug = is_debug_mode();
+
     match step.step_type {
+        // ═══════════════════════════════════════════════════════════════════
+        // ALWAYS VISIBLE (both debug and normal mode)
+        // These are the "fly on the wall" experience elements
+        // ═══════════════════════════════════════════════════════════════════
         StepType::UserQuestion => {
             print_colored("USER: ", CYAN);
             println!("{}", step.content);
-            println!();
-        }
-        StepType::AnnaToLlm => {
-            print_colored("ANNA → LLM: ", YELLOW);
-            println!("(command selection prompt)");
-            print_box(&step.content);
-            println!();
-        }
-        StepType::LlmCommands => {
-            print_colored("LLM → ANNA: ", YELLOW);
-            if step.content == "NONE" || step.content == "DONE" {
-                println_colored(&step.content, DIM);
-            } else {
-                println!("commands to run:");
-                print_commands(&step.content);
-            }
-            println!();
-        }
-        StepType::CommandExec => {
-            print_colored("EXEC: ", GREEN);
-            println!("{}", step.content);
-        }
-        StepType::CommandOutput => {
-            print_colored("OUTPUT: ", DIM);
-            println!("{}", step.content);
-            println!();
-        }
-        StepType::ValidationPrompt => {
-            print_colored("ANNA → LLM: ", YELLOW);
-            println!("(validation prompt)");
-            print_box(&step.content);
-            println!();
-        }
-        StepType::ValidationResponse => {
-            print_colored("LLM → ANNA: ", YELLOW);
-            println!("{}", step.content);
-            println!();
-        }
-        StepType::FinalPrompt => {
-            print_colored("ANNA → LLM: ", YELLOW);
-            println!("(final answer prompt)");
-            print_box(&step.content);
             println!();
         }
         StepType::FinalAnswer => {
@@ -152,26 +334,6 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
                 println_colored("═══════════════════════════════════════", DIM);
             }
         }
-        StepType::WikiSearch => {
-            print_colored("ANNA → WIKI: ", MAGENTA);
-            println!("searching Arch Wiki...");
-            println_colored(&format!("  query: {}", step.content), DIM);
-            println!();
-        }
-        StepType::WikiResults => {
-            print_colored("WIKI → ANNA: ", MAGENTA);
-            println!("found articles:");
-            for line in step.content.lines() {
-                println_colored(&format!("  • {}", line), DIM);
-            }
-            println!();
-        }
-        StepType::WikiCommands => {
-            print_colored("WIKI: ", MAGENTA);
-            println!("extracted commands:");
-            print_commands(&step.content);
-            println!();
-        }
         StepType::ClarificationQuestion => {
             print_colored("ANNA → USER: ", YELLOW);
             println!("{}", step.content);
@@ -185,20 +347,6 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
         StepType::IntentClassifying => {
             print_colored("ANNA: ", BLUE);
             println!("understanding question...");
-        }
-        StepType::IntentResult => {
-            print_colored("  intent: ", DIM);
-            println!("{}", step.content);
-        }
-        StepType::SubQuestion => {
-            println!();
-            print_colored("─── ", DIM);
-            print_colored(&step.content, YELLOW);
-            println!();
-        }
-        StepType::SubQuestionResult => {
-            print_colored("  → ", GREEN);
-            println!("{}", step.content);
         }
         StepType::UnderstandingCheck => {
             print_colored("ANNA: ", CYAN);
@@ -232,23 +380,36 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
             println!();
         }
         StepType::LlmError => {
-            print_colored("LLM ERROR: ", RED);
-            if let Ok(ctx) =
-                serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
-            {
-                println!("{} ({})", ctx.message, format!("{:?}", ctx.error_type));
-                print_colored("  purpose: ", DIM);
-                println!("{}", ctx.purpose);
-                if let Some(preview) = ctx.prompt_preview {
-                    print_colored("  prompt: ", DIM);
-                    println!("{}...", preview.chars().take(80).collect::<String>());
+            // Errors always shown, but with less detail in normal mode
+            if debug {
+                print_colored("LLM ERROR: ", RED);
+                if let Ok(ctx) =
+                    serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
+                {
+                    println!("{} ({})", ctx.message, format!("{:?}", ctx.error_type));
+                    print_colored("  purpose: ", DIM);
+                    println!("{}", ctx.purpose);
+                    if let Some(preview) = ctx.prompt_preview {
+                        print_colored("  prompt: ", DIM);
+                        println!("{}...", preview.chars().take(80).collect::<String>());
+                    }
+                } else {
+                    println!("{}", step.content);
                 }
             } else {
-                println!("{}", step.content);
+                // Simplified error in normal mode
+                print_colored("  ✗ ", RED);
+                if let Ok(ctx) =
+                    serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
+                {
+                    println_colored(&ctx.message, RED);
+                } else {
+                    println_colored("An error occurred while processing", RED);
+                }
             }
             println!();
         }
-        // v0.0.999: IT Department team dialogue
+        // v0.0.999: IT Department team dialogue - ALWAYS VISIBLE (the Hollywood experience!)
         StepType::TicketCreated => {
             println!();
             print_colored("┌─ ", DIM);
@@ -269,6 +430,123 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
             println!();
             print_colored("  ⇈ ESCALATING: ", YELLOW);
             println!("{}", step.content);
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // DEBUG ONLY - Hidden in normal mode for clean "fly on the wall" UX
+        // These show the internal workings (raw commands, prompts, etc.)
+        // ═══════════════════════════════════════════════════════════════════
+        StepType::AnnaToLlm => {
+            if debug {
+                print_colored("ANNA → LLM: ", YELLOW);
+                println!("(command selection prompt)");
+                print_box(&step.content);
+                println!();
+            }
+        }
+        StepType::LlmCommands => {
+            if debug {
+                print_colored("LLM → ANNA: ", YELLOW);
+                if step.content == "NONE" || step.content == "DONE" {
+                    println_colored(&step.content, DIM);
+                } else {
+                    println!("commands to run:");
+                    print_commands(&step.content);
+                }
+                println!();
+            }
+        }
+        StepType::CommandExec => {
+            if debug {
+                print_colored("EXEC: ", GREEN);
+                println!("{}", step.content);
+            }
+        }
+        StepType::CommandOutput => {
+            if debug {
+                print_colored("OUTPUT: ", DIM);
+                println!("{}", step.content);
+                println!();
+            }
+        }
+        StepType::ValidationPrompt => {
+            if debug {
+                print_colored("ANNA → LLM: ", YELLOW);
+                println!("(validation prompt)");
+                print_box(&step.content);
+                println!();
+            }
+        }
+        StepType::ValidationResponse => {
+            if debug {
+                print_colored("LLM → ANNA: ", YELLOW);
+                println!("{}", step.content);
+                println!();
+            }
+        }
+        StepType::FinalPrompt => {
+            if debug {
+                print_colored("ANNA → LLM: ", YELLOW);
+                println!("(final answer prompt)");
+                print_box(&step.content);
+                println!();
+            }
+        }
+        StepType::WikiSearch => {
+            // Show brief wiki search in normal mode, full in debug
+            if debug {
+                print_colored("ANNA → WIKI: ", MAGENTA);
+                println!("searching Arch Wiki...");
+                println_colored(&format!("  query: {}", step.content), DIM);
+                println!();
+            } else {
+                // Just a brief note that we're checking the wiki
+                print_colored("  │ ", DIM);
+                println_colored("Checking Arch Wiki...", DIM);
+            }
+        }
+        StepType::WikiResults => {
+            if debug {
+                print_colored("WIKI → ANNA: ", MAGENTA);
+                println!("found articles:");
+                for line in step.content.lines() {
+                    println_colored(&format!("  • {}", line), DIM);
+                }
+                println!();
+            }
+        }
+        StepType::WikiCommands => {
+            if debug {
+                print_colored("WIKI: ", MAGENTA);
+                println!("extracted commands:");
+                print_commands(&step.content);
+                println!();
+            }
+        }
+        StepType::IntentResult => {
+            // Show intent in both modes but differently
+            if debug {
+                print_colored("  intent: ", DIM);
+                println!("{}", step.content);
+            } else {
+                // In normal mode, just show the key info
+                print_colored("  ", DIM);
+                println_colored(&step.content, DIM);
+            }
+        }
+        StepType::SubQuestion => {
+            if debug {
+                println!();
+                print_colored("─── ", DIM);
+                print_colored(&step.content, YELLOW);
+                println!();
+            }
+        }
+        StepType::SubQuestionResult => {
+            if debug {
+                print_colored("  → ", GREEN);
+                println!("{}", step.content);
+            }
         }
     }
 }

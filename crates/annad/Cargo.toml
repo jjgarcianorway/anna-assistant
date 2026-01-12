@@ -22,3 +22,4 @@ futures-util.workspace = true
 regex.workspace = true
 dirs.workspace = true
 rayon = "1.10"
+sd-notify = "0.4"

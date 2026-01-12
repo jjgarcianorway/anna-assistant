@@ -105,6 +105,80 @@ pub async fn install() -> Result<()> {
     Ok(())
 }
 
+/// v0.0.999: Check if we have the right ollama variant for our GPU
+/// Returns true if ollama-cuda/ollama-rocm is needed but not installed
+pub fn needs_gpu_variant_upgrade() -> Option<&'static str> {
+    let hw = detect_hardware();
+
+    let needed_pkg = match hw.gpu_type {
+        GpuType::NvidiaCuda => "ollama-cuda",
+        GpuType::AmdRocm => "ollama-rocm",
+        _ => return None, // CPU-only doesn't need upgrade
+    };
+
+    // Check if the GPU variant is already installed
+    let output = Command::new("pacman")
+        .args(["-Q", needed_pkg])
+        .output()
+        .ok()?;
+
+    if output.status.success() {
+        None // Already have the right package
+    } else {
+        Some(needed_pkg)
+    }
+}
+
+/// v0.0.999: Upgrade to GPU-accelerated ollama variant if needed
+pub async fn upgrade_to_gpu_variant() -> Result<bool> {
+    let Some(needed_pkg) = needs_gpu_variant_upgrade() else {
+        return Ok(false); // No upgrade needed
+    };
+
+    info!("Upgrading to {} for GPU acceleration...", needed_pkg);
+
+    // Stop ollama service first
+    let _ = Command::new("systemctl")
+        .args(["stop", "ollama"])
+        .output();
+
+    // Install the GPU variant (will replace base ollama)
+    let output = Command::new("pacman")
+        .args(["-S", "--noconfirm", needed_pkg])
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!("Failed to install {}: {}", needed_pkg, stderr);
+        // Try to restart ollama anyway
+        let _ = Command::new("systemctl")
+            .args(["start", "ollama"])
+            .output();
+        return Err(anyhow!("Failed to install {}: {}", needed_pkg, stderr));
+    }
+
+    let mut registry = AnnaRegistry::load();
+    registry.add_package(needed_pkg);
+    registry.save()?;
+
+    // Start ollama service
+    let _ = Command::new("systemctl")
+        .args(["start", "ollama"])
+        .output();
+
+    // Wait for it to be ready
+    for _ in 0..30 {
+        if is_running().await {
+            info!("{} installed and running", needed_pkg);
+            return Ok(true);
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+
+    info!("{} installed, but service not responding yet", needed_pkg);
+    Ok(true)
+}
+
 /// Check if Ollama service is running
 pub async fn is_running() -> bool {
     let client = reqwest::Client::builder()
@@ -232,6 +306,95 @@ pub async fn start_service() -> Result<()> {
     }
 
     Err(anyhow!("Failed to start Ollama service"))
+}
+
+/// v0.0.999: Check if Ollama is using GPU and restart if not
+pub async fn ensure_gpu_acceleration() -> Result<bool> {
+    let hw = detect_hardware();
+
+    // Only check for GPU systems
+    if matches!(hw.gpu_type, GpuType::CpuOnly) {
+        return Ok(true); // CPU-only is expected
+    }
+
+    // Check if any model is loaded
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()?;
+
+    let response = client
+        .get(format!("{}/api/ps", OLLAMA_API))
+        .send()
+        .await;
+
+    let Ok(response) = response else {
+        return Ok(true); // Can't check, assume OK
+    };
+
+    let json: serde_json::Value = response.json().await.unwrap_or_default();
+    let models = json.get("models").and_then(|m| m.as_array());
+
+    if let Some(models) = models {
+        for model in models {
+            let size_vram = model.get("size_vram").and_then(|v| v.as_u64()).unwrap_or(0);
+            let size = model.get("size").and_then(|v| v.as_u64()).unwrap_or(1);
+
+            // If less than 10% of model is in VRAM on a GPU system, something is wrong
+            if size_vram == 0 || (size_vram as f64 / size as f64) < 0.1 {
+                warn!("Model not using GPU (VRAM: {}MB, Size: {}MB). Attempting restart...",
+                      size_vram / 1024 / 1024, size / 1024 / 1024);
+
+                // Try to restart ollama service
+                if let Err(e) = restart_ollama_service().await {
+                    warn!("Failed to restart ollama: {}", e);
+                    return Ok(false);
+                }
+
+                info!("Ollama restarted - GPU should now be active");
+                return Ok(true);
+            }
+        }
+    }
+
+    Ok(true)
+}
+
+/// Try to restart Ollama service to fix GPU issues
+/// v0.0.999: NEVER use sudo - it triggers pam_faillock and locks out the user!
+async fn restart_ollama_service() -> Result<()> {
+    info!("Attempting to restart Ollama for GPU acceleration...");
+
+    // v0.0.999: DO NOT attempt systemctl restart - it requires sudo and failed attempts
+    // will trigger pam_faillock, locking out the user's account!
+    // Instead, we try to work with what we have or warn the user.
+
+    // Try to kill only the ollama runner (model process), not the main serve
+    // The runner might reload with GPU support
+    let _ = Command::new("pkill").args(["-f", "ollama runner"]).output();
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    // Check if ollama is still running
+    if is_running().await {
+        info!("Ollama runner killed, will reload on next request");
+        return Ok(());
+    }
+
+    // If main ollama died too, try starting as user process
+    warn!("Ollama not running, starting as user process...");
+    let _child = ollama_cmd().arg("serve").spawn()?;
+
+    // Wait for it to be ready
+    for _ in 0..30 {
+        if is_running().await {
+            info!("Ollama started as user process");
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+
+    // If we still can't get GPU working, warn the user
+    warn!("GPU acceleration unavailable. Run 'sudo systemctl restart ollama' to fix.");
+    Err(anyhow!("GPU acceleration requires manual restart: sudo systemctl restart ollama"))
 }
 
 /// List available models

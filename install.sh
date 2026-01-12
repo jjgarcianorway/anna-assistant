@@ -80,25 +80,32 @@ echo "Installing to $INSTALL_DIR (requires sudo)..."
 sudo mv annactl "$INSTALL_DIR/annactl"
 sudo mv annad "$INSTALL_DIR/annad"
 
-# Create systemd service if it doesn't exist
-if [ ! -f /etc/systemd/system/annad.service ]; then
-    echo "Creating systemd service..."
-    sudo tee /etc/systemd/system/annad.service > /dev/null << 'EOF'
+# Create/update systemd service
+echo "Creating systemd service..."
+sudo tee /etc/systemd/system/annad.service > /dev/null << 'EOF'
 [Unit]
 Description=Anna Assistant Daemon
-After=network.target
+After=network.target ollama.service
+Wants=ollama.service
 
 [Service]
-Type=simple
+Type=notify
 ExecStart=/usr/local/bin/annad
 Restart=always
-RestartSec=5
+RestartSec=3
+# Watchdog: annad must ping every 30s or get killed
+WatchdogSec=60
+# Kill frozen process after 10s
+TimeoutStopSec=10
+# Resource limits
+MemoryMax=2G
+# Environment
+Environment=RUST_BACKTRACE=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    sudo systemctl daemon-reload
-fi
+sudo systemctl daemon-reload
 
 # Start/restart service
 echo "Starting annad service..."

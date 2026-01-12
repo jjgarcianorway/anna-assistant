@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-01-12
+
+### Added
+- **Debug Mode Separation** - Clean "fly on the wall" experience vs debug mode:
+  - `debug_mode = false`: Shows only team dialogue, tickets, and answers (Hollywood experience)
+  - `debug_mode = true`: Shows all internal details (commands, prompts, outputs)
+  - Configurable in `~/.anna/config.toml`
+
+- **Comprehensive Status Display** - `annactl status` now shows:
+  - Version info with GitHub version checking
+  - Update schedule (interval, last check, next check)
+  - Environment (daemon state, uptime, Ollama, GPU, user groups)
+  - Knowledge (1700+ patterns, recipes learned, memory experiences)
+  - Helpers list with [anna] vs [user] tags
+  - Full config display (debug mode, auto helpers, clarification, wiki)
+
+- **Translator LLM Module** - Lightweight model for fast input/output:
+  - Quick pattern matching for common intents (no LLM overhead)
+  - Intent extraction: Query, Configure, Execute, Package, Troubleshoot, Help
+  - Event narration for natural dialogue
+  - Supports custom translator model via `ANNA_TRANSLATOR_MODEL` env var
+
+- **Hollywood UI Utilities** - New `ui.rs` module with:
+  - Animated spinners (Braille, dots, simple styles)
+  - True color (24-bit RGB) support
+  - Progress bars with percentage display
+  - Box drawing and panel utilities
+  - Status indicators (success, error, warning, info)
+  - Typing effect for dramatic answers
+  - Section headers and banners
+  - Team dialogue formatting helpers
+
+### Fixed
+- **Memory serde compatibility** - All `MemoryStats` fields now have `#[serde(default)]` for backward compatibility
+- **Folder size pattern** - Now uses `du -xhd3 ~/` to show actual large folders with full paths (not just `/home`, `/var`)
+- Added patterns for "eating space", "eating storage", "using disk" queries
+
+### Changed
+- Upgraded version to 0.1.0 (first minor release!)
+- Status display uses structured panels instead of simple text
+- Intent result shows differently in debug vs normal mode
+
 ## [0.0.999] - 2026-01-12
 
 ### Added

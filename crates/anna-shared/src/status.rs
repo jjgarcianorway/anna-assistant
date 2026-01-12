@@ -1,5 +1,6 @@
 //! Daemon status types.
 //! v0.0.924: Added memory health fields
+//! v0.1.0: Added update timing and extended status fields
 
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,27 @@ pub struct DaemonStatus {
     /// v0.0.924: Memory health issues (if any)
     #[serde(default)]
     pub memory_health_issues: Vec<String>,
+    /// v0.1.0: Update check timing
+    #[serde(default)]
+    pub update_check_interval_secs: u64,
+    /// v0.1.0: Last update check timestamp (RFC3339)
+    #[serde(default)]
+    pub last_update_check: Option<String>,
+    /// v0.1.0: Next update check timestamp (RFC3339)
+    #[serde(default)]
+    pub next_update_check: Option<String>,
+    /// v0.1.0: Latest available version from GitHub
+    #[serde(default)]
+    pub latest_version: Option<String>,
+    /// v0.1.0: Update check state
+    #[serde(default)]
+    pub update_state: UpdateCheckState,
+    /// v0.1.0: Number of active patterns
+    #[serde(default)]
+    pub pattern_count: usize,
+    /// v0.1.0: Number of learned recipes
+    #[serde(default)]
+    pub recipe_count: usize,
 }
 
 /// Daemon state

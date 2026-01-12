@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "anna-shared"
-version = "0.0.999"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -43,10 +43,11 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.0.999"
+version = "0.1.0"
 dependencies = [
  "anna-shared",
  "anyhow",
+ "chrono",
  "dirs",
  "serde",
  "serde_json",
@@ -56,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.0.999"
+version = "0.1.0"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -66,6 +67,7 @@ dependencies = [
  "rayon",
  "regex",
  "reqwest",
+ "sd-notify",
  "serde",
  "serde_json",
  "tokio",
@@ -1077,6 +1079,15 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "sd-notify"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b943eadf71d8b69e661330cb0e2656e31040acf21ee7708e2c238a0ec6af2bf4"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "security-framework"

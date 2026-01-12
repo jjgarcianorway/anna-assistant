@@ -2,6 +2,7 @@
 //! v0.0.924: Added proactive helper tool installation on startup
 //! v0.0.927: Added LLM warmup on startup for faster first query
 //! v0.0.942: Added memory optimization on startup
+//! v0.0.999: Added systemd watchdog for automatic recovery from freezes
 
 use anna_shared::config::{get_ollama_url, AnnaConfig};
 use anna_shared::deps::{missing_diagnostic_tools, install_missing_diagnostic_tools};
@@ -9,6 +10,7 @@ use anna_shared::memory::Memory;
 use anna_shared::VERSION;
 use anna_shared::wiki;
 use anyhow::Result;
+use sd_notify::NotifyState;
 use tracing::{debug, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -171,8 +173,36 @@ async fn main() -> Result<()> {
     // Create shared state
     let state = SharedState::new();
 
+    // v0.0.999: Systemd watchdog - ping every 30s to prove we're alive
+    // If we freeze, systemd will kill and restart us
+    tokio::spawn(async {
+        use std::time::Duration;
+        let watchdog_usec = std::env::var("WATCHDOG_USEC")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(0);
+
+        if watchdog_usec > 0 {
+            // Ping at half the watchdog interval
+            let ping_interval = Duration::from_micros(watchdog_usec / 2);
+            info!("Watchdog enabled, pinging every {:?}", ping_interval);
+
+            loop {
+                tokio::time::sleep(ping_interval).await;
+                let _ = sd_notify::notify(false, &[NotifyState::Watchdog]);
+            }
+        } else {
+            debug!("Watchdog not enabled (not running under systemd?)");
+        }
+    });
+
     // Create and run server
     let server = Server::new(state);
+
+    // v0.0.999: Notify systemd we're ready to accept connections
+    let _ = sd_notify::notify(false, &[NotifyState::Ready]);
+    info!("Daemon ready, notified systemd");
+
     server.run().await?;
 
     Ok(())

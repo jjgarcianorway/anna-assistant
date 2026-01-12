@@ -2393,13 +2393,22 @@ Examples:
 - "disk space?" → df -h
 - "is X installed?" → pacman -Qi X 2>/dev/null
 - "failed services?" → systemctl --failed
-- "top 10 folders?" → du -h --max-depth=1 / 2>/dev/null | sort -rh | head -10
 - "fish config?" → cat ~/.config/fish/config.fish 2>/dev/null
 - "ssh slow?" → cat ~/.ssh/config 2>/dev/null
 
+UNDERSTANDING USER INTENT:
+When users ask about storage/folders/disk usage, they want to find WHAT is consuming space so they can clean up.
+- "biggest folders" / "top folders by size" → They want SPECIFIC leaf directories (games, projects, caches)
+  Use: du -h -d6 ~ 2>/dev/null | sort -rh | head -30
+  NOT: du -d1 / (this only shows /home, /var which is useless)
+  NOT: du -d2 ~ (too shallow - shows .local/share instead of actual games inside)
+- "what's eating my disk?" → They want the actual culprits - go DEEP to find leaf content
+  Use: du -h -d6 ~ 2>/dev/null | sort -rh | head -30
+  This shows actual games, build caches, projects - things user can delete
+
 IMPORTANT:
 - Add 2>/dev/null to suppress errors
-- For folder sizes use --max-depth=1 (direct children only, not recursive)
+- Think about what the user ACTUALLY wants to know and act on
 - Don't include unrelated commands (CPU info not needed for shell questions)
 
 Commands:"#,
@@ -3255,8 +3264,8 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             if is_configuration_request(question) {
                 return handle_howto_config(model, question, &intent_result, writer, dialogue).await;
             }
-            // Diagnostic questions get specialized handling
-            return handle_troubleshoot_diagnostic(model, question, &intent_result, writer, dialogue).await;
+            // v0.0.999: Diagnostic questions use pattern-matched commands if available
+            return handle_troubleshoot_diagnostic(model, question, &understanding, writer, dialogue).await;
         }
         _ => {
             // FACTUAL - continue with command execution flow
@@ -3860,12 +3869,15 @@ RESPOND IN ENGLISH ONLY."#,
     // Clean prompt artifacts from the answer
     let cleaned_answer = clean_answer(&final_answer);
 
-    // Send the final answer step (for dialogue record)
+    // v0.0.999: FinalAnswer step with empty content (answer was already streamed)
     let step = DialogueStep {
         step_type: StepType::FinalAnswer,
-        content: cleaned_answer.clone(),
+        content: String::new(), // Empty - streamed tokens already displayed
     };
-    dialogue.push(step.clone());
+    dialogue.push(DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: cleaned_answer.clone(), // Full answer for dialogue history
+    });
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     // Learn from this successful interaction (streaming path)
@@ -4093,12 +4105,15 @@ Keep the answer focused and practical."#,
         answer
     };
 
-    // Send final answer step
+    // v0.0.999: FinalAnswer step with empty content (answer was already streamed)
     let step = DialogueStep {
         step_type: StepType::FinalAnswer,
-        content: answer.trim().to_string(),
+        content: String::new(), // Empty - streamed tokens already displayed
     };
-    dialogue.push(step.clone());
+    dialogue.push(DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.trim().to_string(), // Full answer for dialogue history
+    });
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     // Send done
@@ -4243,18 +4258,24 @@ fn get_diagnostic_commands(question: &str) -> Vec<&'static str> {
 
 /// Handle TROUBLESHOOT diagnostic questions - run diagnostics and analyze
 /// v0.0.892: Returns AskResult for session recording
+/// v0.0.999: Now accepts DeepUnderstanding to use pattern-matched commands
 async fn handle_troubleshoot_diagnostic<W: AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
-    intent: &anna_shared::rpc::IntentClassification,
+    understanding: &anna_shared::rpc::DeepUnderstanding,
     writer: &mut W,
     mut dialogue: Vec<DialogueStep>,
 ) -> Result<AskResult> {
     info!("Handling TROUBLESHOOT diagnostic: {}", question);
     let llm_timeout = get_perf_config().llm_timeout_secs;
 
-    // Get diagnostic commands for this issue type
-    let diagnostic_cmds = get_diagnostic_commands(question);
+    // v0.0.999: Use pattern-matched commands if available, otherwise fallback to generic diagnostics
+    let diagnostic_cmds: Vec<&str> = if !understanding.suggested_commands.is_empty() {
+        info!("Using {} pattern-matched commands", understanding.suggested_commands.len());
+        understanding.suggested_commands.iter().map(|s| s.as_str()).collect()
+    } else {
+        get_diagnostic_commands(question)
+    };
 
     // Send diagnostic step
     let step = DialogueStep {
@@ -4302,11 +4323,52 @@ async fn handle_troubleshoot_diagnostic<W: AsyncWriteExt + Unpin>(
         }
     }
 
+    // v0.0.999: If pattern provided a fix suggestion and we executed it, skip LLM analysis
+    // Pattern commands often include "echo 'FIX: ...'" to provide instant solutions
+    if !understanding.suggested_commands.is_empty() && diagnostic_output.contains("FIX:") {
+        info!("Pattern provided fix suggestion, skipping LLM analysis");
+
+        // Extract the fix from the output
+        let mut fix_lines = Vec::new();
+        for line in diagnostic_output.lines() {
+            if line.starts_with("FIX:") || line.contains("FIX:") {
+                fix_lines.push(line.replace("FIX: ", "").replace("FIX:", ""));
+            }
+        }
+
+        let instant_answer = if fix_lines.is_empty() {
+            diagnostic_output.clone()
+        } else {
+            format!("To fix this:\n{}\n\n{}", fix_lines.join("\n"), diagnostic_output)
+        };
+
+        // Send final answer step
+        let step = DialogueStep {
+            step_type: StepType::FinalAnswer,
+            content: instant_answer.clone(),
+        };
+        dialogue.push(step.clone());
+        send_streaming(writer, &StreamingResponse::Step { step }).await?;
+
+        let result = AskResult {
+            answer: instant_answer,
+            success: true,
+            iterations: 1,
+            commands_executed,
+            dialogue,
+            needs_clarification: false,
+            clarification_question: None,
+            cached: false,
+        };
+        send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
+        return Ok(result);
+    }
+
     // Search wiki for context
     let search_terms = extract_search_terms(
         question,
-        &intent.entities,
-        intent.topic.as_deref(),
+        &understanding.entities,
+        understanding.topic.as_deref(),
     );
 
     let wiki_context = if let Some(wiki_results) = search_wiki_for_commands(&search_terms).await {
@@ -4384,12 +4446,15 @@ RESPOND IN ENGLISH ONLY."#,
         answer
     };
 
-    // Send final answer step
+    // v0.0.999: FinalAnswer step with empty content (answer was already streamed)
     let step = DialogueStep {
         step_type: StepType::FinalAnswer,
-        content: answer.trim().to_string(),
+        content: String::new(), // Empty - streamed tokens already displayed
     };
-    dialogue.push(step.clone());
+    dialogue.push(DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.trim().to_string(), // Full answer for dialogue history
+    });
     send_streaming(writer, &StreamingResponse::Step { step }).await?;
 
     // Learn from this successful interaction (troubleshoot path)

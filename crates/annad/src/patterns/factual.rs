@@ -490,7 +490,15 @@ fn match_time(q: &str) -> Option<DeepUnderstanding> {
 }
 
 /// v0.0.945: Environment and shell queries
+/// v0.1.0: Added exclusion check for size-related queries
 fn match_environment(q: &str) -> Option<DeepUnderstanding> {
+    // v0.1.0: Skip environment patterns if query is about size/space/largest
+    // These should go to filesystem patterns instead
+    let size_keywords = ["largest", "biggest", "size", "space", "usage", "top", "du ", "how big", "how much"];
+    if size_keywords.iter().any(|kw| q.contains(kw)) {
+        return None;
+    }
+
     let patterns: &[FactualPattern] = &[
         // Shell
         (&["what", "shell"], "shell query", "environment", &["echo $SHELL", "basename $SHELL"]),

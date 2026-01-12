@@ -16,3 +16,4 @@ tokio.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 dirs.workspace = true
+chrono.workspace = true

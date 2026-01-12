@@ -227,11 +227,30 @@ fn match_general_fs(q: &str) -> Option<DeepUnderstanding> {
          &["find / -xdev -type f -size +100M 2>/dev/null | head -20"]),
         (&["biggest", "files"], "find biggest files", "filesystem",
          &["du -ah / 2>/dev/null | sort -rh | head -20"]),
-        // Directory sizes
-        (&["directory", "sizes"], "show directory sizes", "filesystem",
-         &["du -sh /* 2>/dev/null | sort -rh | head -20"]),
-        (&["folder", "sizes"], "show folder sizes", "filesystem",
-         &["du -sh /* 2>/dev/null | sort -rh | head -20"]),
+        // Directory sizes - v0.1.0: Show actual content, not just top-level
+        (&["directory", "sizes"], "show directory sizes with actual content", "filesystem",
+         &["du -xhd3 ~/ 2>/dev/null | sort -rh | head -25"]),
+        (&["folder", "sizes"], "show folder sizes with actual content", "filesystem",
+         &["du -xhd3 ~/ 2>/dev/null | sort -rh | head -25"]),
+        // v0.1.0: Improved biggest folders - depth 6 to find actual content (games, projects)
+        (&["biggest", "folders"], "show biggest folders (actual content)", "filesystem",
+         &["du -xhd6 ~/ 2>/dev/null | sort -rh | head -30"]),
+        (&["largest", "folders"], "show largest folders (actual content)", "filesystem",
+         &["du -xhd6 ~/ 2>/dev/null | sort -rh | head -30"]),
+        (&["top", "folders"], "show top folders by size (actual content)", "filesystem",
+         &["du -xhd6 ~/ 2>/dev/null | sort -rh | head -30"]),
+        // v0.1.0: Catch "folders by size" pattern
+        (&["folders", "by", "size"], "show folders by size (actual content)", "filesystem",
+         &["du -xhd6 ~/ 2>/dev/null | sort -rh | head -30"]),
+        (&["biggest", "directories"], "show biggest directories (actual content)", "filesystem",
+         &["du -xhd6 ~/ 2>/dev/null | sort -rh | head -30"]),
+        // v0.1.0: Storage hogs - what's eating disk space
+        (&["eating", "space"], "find what's eating disk space", "filesystem",
+         &["du -xhd4 ~/ 2>/dev/null | sort -rh | head -30 | grep -E '^[0-9.]+[KMGT]'"]),
+        (&["eating", "storage"], "find what's eating storage", "filesystem",
+         &["du -xhd4 ~/ 2>/dev/null | sort -rh | head -30 | grep -E '^[0-9.]+[KMGT]'"]),
+        (&["using", "disk"], "find what's using disk space", "filesystem",
+         &["du -xhd4 ~/ 2>/dev/null | sort -rh | head -30 | grep -E '^[0-9.]+[KMGT]'"]),
         // Disk I/O
         (&["disk", "io"], "show disk I/O", "filesystem",
          &["iostat -x 1 3 2>/dev/null || cat /proc/diskstats"]),
