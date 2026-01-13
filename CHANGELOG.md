@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-01-13
+
+### Fixed
+- **Binary Watch Restart in Dev Mode** - Auto-restart now works without systemd
+  - Uses `exec()` to replace process with new binary in dev mode
+  - Detects systemd via `INVOCATION_ID` env var
+  - No more "Connection timed out" errors in dev mode
+
 ## [0.3.11] - 2026-01-13
 
 ### Fixed

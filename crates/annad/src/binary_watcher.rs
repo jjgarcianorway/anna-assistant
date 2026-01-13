@@ -76,24 +76,37 @@ pub async fn binary_watch_loop() {
     }
 }
 
-/// Trigger a daemon restart via systemd
+/// Trigger a daemon restart
+/// v0.3.12: Use exec() for dev mode restart instead of relying on systemd
 fn trigger_restart() {
-    // Try systemd first (most common on modern Linux)
-    let result = Command::new("systemctl")
-        .args(["restart", "annad"])
-        .spawn();
-
-    match result {
-        Ok(mut child) => {
-            info!("Restart command spawned, waiting...");
-            // Don't wait for it - we're about to be killed
-            let _ = child.wait();
-        }
+    // Get current binary path for exec
+    let binary_path = match std::env::current_exe() {
+        Ok(p) => p,
         Err(e) => {
-            warn!("Failed to restart via systemctl: {}", e);
-            // Fall back to just exiting - systemd will restart us if configured
-            info!("Exiting to trigger systemd restart...");
+            warn!("Cannot determine binary path: {}", e);
             std::process::exit(0);
         }
+    };
+
+    // Check if we're running under systemd
+    let under_systemd = std::env::var("INVOCATION_ID").is_ok();
+
+    if under_systemd {
+        // Running under systemd - let systemd handle the restart
+        info!("Running under systemd, exiting for restart...");
+        std::process::exit(0);
+    } else {
+        // Dev mode - exec the new binary directly
+        info!("Dev mode: exec'ing new binary...");
+
+        // Use exec to replace current process with new binary
+        use std::os::unix::process::CommandExt;
+        let err = Command::new(&binary_path)
+            .args(std::env::args().skip(1))
+            .exec();
+
+        // exec() only returns on error
+        warn!("exec failed: {}", err);
+        std::process::exit(1);
     }
 }
