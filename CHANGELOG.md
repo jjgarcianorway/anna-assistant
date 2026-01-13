@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.17] - 2026-01-13
+
+### Added
+- **System Models** - Explicit graphs and state machines for system understanding
+  - `ServiceGraph` - units, dependencies, failure cascades, log signatures
+  - `NetworkModel` - interfaces, routes, DNS, firewall, reachability
+  - `StorageModel` - block devices, mounts, fstab, SMART health
+  - `PackageModel` - official vs AUR, orphans, upgrade risks, hooks
+  - Diagnostic methods for each model (detect issues, suggest fixes)
+  - Partial upgrade risk detection
+  - AUR rebuild detection after dependency updates
+  - Kernel update warnings
+
 ## [0.3.16] - 2026-01-13
 
 ### Added
