@@ -1,5 +1,6 @@
 //! Streaming response handling for real-time answer display.
 //! v0.3.4: Added spinner animation while waiting for LLM response
+//! v0.3.28: Added version compatibility check before streaming requests
 
 use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, StepType, StreamingResponse};
 use anna_shared::socket_path;
@@ -10,12 +11,16 @@ use tokio::net::UnixStream;
 use tokio::time::timeout;
 
 use crate::display::*;
-use crate::rpc::RPC_TIMEOUT_SECS;
+use crate::rpc::{ensure_compatible_daemon, RPC_TIMEOUT_SECS};
 use crate::spinner::Spinner;
 
 /// Send a question with streaming response
 /// Returns the AskResult so caller can check for needs_clarification
+/// v0.3.28: Verifies version compatibility before sending request
 pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult> {
+    // v0.3.28: Verify version compatibility before streaming request
+    ensure_compatible_daemon().await?;
+
     let socket_file = socket_path();
     let socket_path = std::path::Path::new(&socket_file);
 

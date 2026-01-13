@@ -236,6 +236,16 @@ impl StateInner {
         });
     }
 
+    /// v0.3.28: Clear all in-memory state for reset command.
+    /// This ensures consistency between daemon state and files after reset.
+    pub fn clear_for_reset(&mut self) {
+        self.answer_cache.clear();
+        self.sessions = anna_shared::session::SessionStore::new();
+        self.session_save_counter = 0;
+        // Note: We don't reset uptime/started_at as those track daemon lifetime, not data
+        debug!("StateInner cleared for reset");
+    }
+
     // v0.0.891: Removed duplicate command cache methods - using core_loop.rs cache
 
     /// Get or create a session for a client

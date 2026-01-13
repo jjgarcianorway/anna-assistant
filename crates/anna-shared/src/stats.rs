@@ -32,17 +32,30 @@ pub struct PersistentStats {
 }
 
 impl PersistentStats {
+    /// Create fresh stats for new installation or reset.
+    /// v0.3.28: Single source of truth for baseline stats - used by both
+    /// load() (when no file exists) and reset_stats() (when clearing).
+    /// This ensures XP baseline consistency per truth contract.
+    pub fn fresh() -> Self {
+        Self {
+            rpg: RpgStats {
+                reliability: 1.0, // Start with 100% reliability
+                title: RpgStats::get_title(0), // "Novice Apprentice"
+                installed_at: Some(chrono::Utc::now().to_rfc3339()),
+                ..RpgStats::default()
+            },
+            created_at: Some(chrono::Utc::now().to_rfc3339()),
+            updated_at: None,
+            total_response_time_ms: 0,
+        }
+    }
+
     /// Load stats from disk
     pub fn load() -> Result<Self> {
         let path = stats_path();
         if !path.exists() {
-            debug!("No stats file found, creating new");
-            let mut stats = Self::default();
-            stats.created_at = Some(chrono::Utc::now().to_rfc3339());
-            stats.rpg.installed_at = Some(chrono::Utc::now().to_rfc3339());
-            stats.rpg.reliability = 1.0; // Start with 100% reliability
-            stats.rpg.title = RpgStats::get_title(0);
-            return Ok(stats);
+            debug!("No stats file found, creating fresh");
+            return Ok(Self::fresh());
         }
 
         let content = fs::read_to_string(&path)?;

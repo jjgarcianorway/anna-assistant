@@ -231,16 +231,19 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
 
             info!("Processing reset request with mode: {:?}", params.mode);
 
-            // Always clear in-memory caches regardless of mode
+            // v0.3.28: Clear ALL in-memory state atomically to ensure consistency
+            // Order matters: clear global caches first, then state, then files
+
+            // 1. Clear global in-memory caches (command cache, answer cache, LLM memo, etc.)
             crate::core_loop::cache::clear_all_caches();
 
-            // Clear sessions for any reset
+            // 2. Clear daemon state (answer cache, sessions)
             {
                 let mut state_guard = state.write().await;
-                state_guard.sessions = anna_shared::session::SessionStore::new();
+                state_guard.clear_for_reset();
             }
 
-            // v0.3.23: Clear in-memory ticket store to match file reset
+            // 3. Clear in-memory ticket store
             crate::department::tickets::reset_ticket_store();
 
             // Use SafeReset for file-based resets (with backup)

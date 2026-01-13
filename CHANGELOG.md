@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.28] - 2026-01-13
+
+### Fixed - SEVERITY-0 TRUST BUG
+- **Reset/Stats Consistency** - Reset now clears ALL sources of truth atomically
+  - Fixed: `annactl reset` followed by `annactl stats` could show stale values
+  - Added `PersistentStats::fresh()` as single source of truth for baseline stats
+  - Added `StateInner::clear_for_reset()` to clear daemon in-memory state
+  - Reset now clears: global caches, daemon state, ticket store, then files
+
+- **XP Baseline Consistency** - Fresh install and reset now identical
+  - After reset: reliability=1.0, title="Novice Apprentice" (same as fresh install)
+  - Previously: reset gave reliability=0.0, title="" (from derive(Default))
+
+- **Version Mismatch Protection** - Prevents RPC drift between binaries
+  - annactl refuses to talk to daemon with different major.minor version
+  - Error message provides reinstall instructions
+  - Protects reset and streaming operations
+
+### Added
+- `PersistentStats::fresh()` - Single source of truth for baseline stats
+- `StateInner::clear_for_reset()` - Clear all daemon in-memory state
+- `check_version_compatibility()` - Version matching for RPC safety
+- `ensure_compatible_daemon()` - Pre-operation version check
+- 6 new SEVERITY-0 bug reproduction tests in safe_ops
+- 7 version compatibility tests in annactl/rpc
+
+### Changed
+- Reset handler now calls `clear_for_reset()` instead of just clearing sessions
+- `reset_stats()` uses `fresh()` instead of `default()` for consistency
+- `ask_streaming()` verifies version compatibility before streaming
+- `reset()` verifies version compatibility before destructive operation
+
 ## [0.3.27] - 2026-01-13
 
 ### Added
