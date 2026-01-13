@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-01-13
+
+### Fixed
+- **Stats/Reset Data Consistency** - `annactl stats` now shows same data as `annactl status`
+  - Fixed stats reading from legacy xp.json instead of shared PersistentStats
+  - Fixed memory path to use shared `memory_path()` function
+  - Reset now clears stats (XP, questions answered) along with memory
+
 ## [0.3.7] - 2026-01-13
 
 ### Added

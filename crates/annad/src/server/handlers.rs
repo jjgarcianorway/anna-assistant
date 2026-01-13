@@ -256,6 +256,18 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 }
             }
 
+            // v0.3.8: Reset stats (XP, questions answered)
+            match anna_shared::stats::PersistentStats::load() {
+                Ok(stats) => {
+                    let questions = stats.rpg.total_questions;
+                    let fresh_stats = anna_shared::stats::PersistentStats::default();
+                    if fresh_stats.save().is_ok() && questions > 0 {
+                        cleared.push(format!("Stats ({} questions)", questions));
+                    }
+                }
+                Err(_) => {}
+            }
+
             info!("Reset complete: {:?}", cleared);
 
             let result = ResetResult { cleared };

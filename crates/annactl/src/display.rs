@@ -4,8 +4,10 @@
 //! v0.1.1: Removed box drawing for cleaner look
 
 use anna_shared::config::AnnaConfig;
+use anna_shared::memory::memory_path;
 use anna_shared::monitor::{IssueStore, Severity};
 use anna_shared::rpc::{AskResult, StepType};
+use anna_shared::stats::PersistentStats;
 use std::io::{self, Write};
 use std::sync::OnceLock;
 
@@ -654,12 +656,9 @@ pub fn mark_alerts_shown() {
 
 /// Print comprehensive stats
 pub fn print_stats() {
-    // v0.1.2: Use correct data directories
-    // Memory is in ~/.anna/
-    let anna_dir = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".anna");
-    // Tickets, XP are in ~/.local/share/anna/
+    // v0.3.8: Use shared paths for consistency with daemon
+    let mem_path = memory_path();
+    // Tickets are in ~/.local/share/anna/
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("anna");
@@ -671,8 +670,7 @@ pub fn print_stats() {
     // LEARNING
     println_colored("LEARNING", CYAN);
 
-    let memory_path = anna_dir.join("memory.json");
-    let (exp_count, pattern_count, cluster_count, memory_hits, memory_misses) = load_memory_stats(&memory_path);
+    let (exp_count, pattern_count, cluster_count, memory_hits, memory_misses) = load_memory_stats(&mem_path);
 
     println!("  Experiences:   {}", exp_count);
     println!("  Patterns:      {}", pattern_count);
@@ -689,22 +687,18 @@ pub fn print_stats() {
     }
     println!();
 
-    // PROGRESSION
-    let xp_path = data_dir.join("xp.json");
-    let (level, total_xp, title, progress, tickets_resolved) = load_xp_data(&xp_path);
+    // PROGRESSION - v0.3.8: Use PersistentStats for consistency with status
+    let stats = PersistentStats::load().unwrap_or_default();
+    let rpg = stats.get_rpg_stats();
 
     println_colored("PROGRESSION", CYAN);
-    print!("  Level:         ");
-    print_colored(&format!("{}", level), BOLD);
-    print_colored(" / 100", DIM);
-    print!("  ");
-    println_colored(&format!("\"{}\"", title), YELLOW);
+    print!("  Title:         ");
+    println_colored(&format!("\"{}\"", rpg.title), YELLOW);
 
-    print!("  XP:            {} ", total_xp);
-    print_progress_bar(progress);
-    println!();
+    print!("  XP:            ");
+    println!("{}", rpg.xp_bar());
 
-    println!("  Tickets:       {} resolved", tickets_resolved);
+    println!("  Questions:     {} answered", rpg.total_questions);
     println!();
 
     // ACTIVITY
