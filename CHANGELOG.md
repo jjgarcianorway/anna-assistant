@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-01-13
+
+### Added
+- **Enhanced Fly-on-the-Wall Experience**
+  - Ticket numbers now displayed (CN-XXXX-DDMMYYYY format)
+  - Ticket created at start of every query
+  - Team assignment shown: "Anna -> Hey Alex! Got a desktop question..."
+  - Specialist acknowledgment: "Alex: On it! Let me check a few things..."
+  - Per-specialist tracking in ticket store
+
+- **Richer Status Display**
+  - TEAM section shows all 16 specialists across 8 departments
+  - TICKETS section shows today's count and per-department stats
+  - Active tickets listed with ticket numbers and summaries
+  - Resolution rate displayed per department
+
+### Fixed
+- **UTF-8 Truncation Bug** - Fixed panic when truncating output containing multi-byte characters (like degree symbols)
+  - Now safely finds character boundaries before truncating
+
 ## [0.3.2] - 2026-01-13
 
 ### Added

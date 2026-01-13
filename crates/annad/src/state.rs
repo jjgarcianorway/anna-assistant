@@ -308,6 +308,9 @@ impl StateInner {
             .map(|s| s.get_rpg_stats())
             .unwrap_or_default();
 
+        // v0.3.3: Get team roster and ticket stats
+        let (team_roster, ticket_tracker) = Self::get_team_and_tickets();
+
         anna_shared::status::DaemonStatus {
             state: self.state,
             version: VERSION.to_string(),
@@ -327,6 +330,8 @@ impl StateInner {
             pattern_count,
             recipe_count,
             rpg_stats,
+            ticket_tracker,
+            team_roster,
         }
     }
 
@@ -348,6 +353,104 @@ impl StateInner {
             }
             Err(_) => (0, vec!["Memory not loaded".to_string()])
         }
+    }
+
+    /// v0.3.3: Get team roster and ticket statistics for status display
+    fn get_team_and_tickets() -> (anna_shared::status::TeamRoster, anna_shared::status::TicketTracker) {
+        use anna_shared::status::{TeamRoster, TicketTracker, SpecialistStats, SpecialistStatus, DepartmentTicketStats, ActiveTicket};
+        use crate::department::{get_department, get_ticket_store, TicketStatus as DeptTicketStatus};
+        use std::collections::HashMap;
+
+        // Build team roster from department
+        let dept = get_department();
+        let mut specialists_map: HashMap<String, Vec<SpecialistStats>> = HashMap::new();
+        let mut total = 0;
+        let mut available = 0;
+
+        for specialist in &dept.specialists {
+            let stats = SpecialistStats {
+                name: specialist.name.to_string(),
+                department: specialist.department.to_string(),
+                is_senior: specialist.role == crate::department::SpecialistRole::Senior
+                    || specialist.role == crate::department::SpecialistRole::Manager,
+                tickets_handled: 0,
+                tickets_resolved: 0,
+                tickets_escalated: 0,
+                avg_resolution_ms: 0,
+                top_topics: specialist.expertise.iter().take(3).map(|s| s.to_string()).collect(),
+                current_status: SpecialistStatus::Available,
+            };
+
+            specialists_map
+                .entry(specialist.department.to_string())
+                .or_default()
+                .push(stats);
+
+            total += 1;
+            available += 1;
+        }
+
+        let team_roster = TeamRoster {
+            specialists: specialists_map,
+            total_specialists: total,
+            available_count: available,
+        };
+
+        // Build ticket tracker from ticket store
+        let store = get_ticket_store();
+        let mut dept_stats: HashMap<String, DepartmentTicketStats> = HashMap::new();
+
+        // Count tickets per department
+        for ticket in &store.tickets {
+            let entry = dept_stats.entry(ticket.department.clone()).or_default();
+            entry.total_received += 1;
+            if ticket.status == DeptTicketStatus::Resolved {
+                entry.resolved += 1;
+            }
+            if ticket.was_escalated {
+                entry.escalations_out += 1;
+            }
+        }
+
+        // Get active tickets
+        let active_tickets: Vec<ActiveTicket> = store.get_active_tickets()
+            .into_iter()
+            .take(5) // Only show last 5 active
+            .map(|t| ActiveTicket {
+                id: t.case_number.clone(),
+                summary: if t.question.len() > 40 {
+                    format!("{}...", &t.question[..37])
+                } else {
+                    t.question.clone()
+                },
+                assigned_to: t.assigned_to.clone(),
+                department: t.department.clone(),
+                created_at: t.created_at.to_rfc3339(),
+                status: match t.status {
+                    DeptTicketStatus::New | DeptTicketStatus::Assigned => anna_shared::status::TicketStatus::Open,
+                    DeptTicketStatus::InProgress | DeptTicketStatus::WaitingUser => anna_shared::status::TicketStatus::InProgress,
+                    DeptTicketStatus::Escalated | DeptTicketStatus::Researching => anna_shared::status::TicketStatus::Escalated,
+                    DeptTicketStatus::Resolved => anna_shared::status::TicketStatus::Resolved,
+                    DeptTicketStatus::Failed => anna_shared::status::TicketStatus::Failed,
+                },
+            })
+            .collect();
+
+        // Get today's count from tickets
+        let today = chrono::Local::now().format("%d%m%Y").to_string();
+        let today_count = store.tickets.iter()
+            .filter(|t| t.case_number.ends_with(&today))
+            .count() as u64;
+
+        let ticket_tracker = TicketTracker {
+            next_number: store.tickets.len() as u64 + 1,
+            today_count,
+            current_date: today,
+            active_tickets,
+            dept_stats,
+        };
+
+        (team_roster, ticket_tracker)
     }
 }
 

@@ -755,6 +755,28 @@ fn try_diagnostic_path(question: &str) -> Option<(Vec<String>, Vec<String>, &'st
         },
     ];
 
+    // v0.3.3: Add fly-on-the-wall elements to diagnostic path
+    let dept_name = department::determine_department(question);
+    let ticket = department::create_ticket(question, dept_name);
+
+    dialogue.push(DialogueStep {
+        step_type: StepType::TicketCreated,
+        content: ticket.case_number.clone(),
+    });
+
+    if let Some(spec) = department::get_specialist_for_topic(question) {
+        let assignment = team_speak::anna_assigns_to(spec, question);
+        dialogue.push(DialogueStep {
+            step_type: StepType::TeamAssignment,
+            content: assignment,
+        });
+        let ack = team_speak::specialist_acknowledges(spec);
+        dialogue.push(DialogueStep {
+            step_type: StepType::SpecialistWorking,
+            content: format!("{}: {}", spec.name, ack),
+        });
+    }
+
     for cmd in commands {
         dialogue.push(DialogueStep {
             step_type: StepType::CommandExec,
@@ -764,14 +786,9 @@ fn try_diagnostic_path(question: &str) -> Option<(Vec<String>, Vec<String>, &'st
         match execute_command(cmd) {
             Ok(output) => {
                 let clean = strip_ansi_codes(&output);
-                let truncated = if clean.len() > 500 {
-                    format!("{}...", &clean[..500])
-                } else {
-                    clean.clone()
-                };
                 dialogue.push(DialogueStep {
                     step_type: StepType::CommandOutput,
-                    content: truncated,
+                    content: truncate(&clean, 500),
                 });
                 outputs.push(clean);
                 executed.push(cmd.to_string());
@@ -1100,11 +1117,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                         state.outputs.push(clean_output.clone());
                         dialogue.push(DialogueStep {
                             step_type: StepType::CommandOutput,
-                            content: if clean_output.len() > 500 {
-                                format!("{}...(truncated)", &clean_output[..500])
-                            } else {
-                                clean_output
-                            },
+                            content: truncate(&clean_output, 500),
                         });
                     }
                     Err(e) => {
@@ -1559,19 +1572,32 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
     dialogue.push(step.clone());
     send_step(writer, step).await?;
 
-    // v0.2.9: Dispatch to appropriate specialist for fly-on-the-wall experience
+    // v0.3.3: Create ticket for fly-on-the-wall experience
+    let dept_name = department::determine_department(question);
+    let ticket = department::create_ticket(question, dept_name);
+    let ticket_id = ticket.case_number.clone();
+
+    // Show ticket creation
+    let step = DialogueStep {
+        step_type: StepType::TicketCreated,
+        content: ticket_id.clone(),
+    };
+    dialogue.push(step.clone());
+    send_step(writer, step).await?;
+
+    // v0.3.3: Dispatch to appropriate specialist with improved dialogue
     let specialist = department::get_specialist_for_topic(question);
-    if let Some(spec) = specialist {
-        // Send assignment message (Anna -> Specialist)
+    let assigned_spec_name = if let Some(spec) = specialist {
+        // Anna assigns the ticket
         let assignment = team_speak::anna_assigns_to(spec, question);
         let step = DialogueStep {
-            step_type: StepType::TeamDispatch,
-            content: format!("Anna -> {}", assignment),
+            step_type: StepType::TeamAssignment,
+            content: assignment,
         };
         dialogue.push(step.clone());
         send_step(writer, step).await?;
 
-        // Send acknowledgment (Specialist responds)
+        // Specialist acknowledges
         let ack = team_speak::specialist_acknowledges(spec);
         let step = DialogueStep {
             step_type: StepType::SpecialistWorking,
@@ -1579,7 +1605,11 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         };
         dialogue.push(step.clone());
         send_step(writer, step).await?;
-    }
+
+        Some(spec.name.to_string())
+    } else {
+        None
+    };
 
     // THE RALPH LOOP
     while iteration < criteria.max_iterations {
@@ -1646,6 +1676,17 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 writer.flush().await?;
             }
 
+            // v0.3.3: Specialist reports completion before final answer
+            if let Some(ref spec_name) = assigned_spec_name {
+                let completion_msg = format!("{} -> Anna: I've got the answer.", spec_name);
+                let step = DialogueStep {
+                    step_type: StepType::TeamDialogue,
+                    content: completion_msg,
+                };
+                dialogue.push(step.clone());
+                send_step(writer, step).await?;
+            }
+
             dialogue.push(DialogueStep {
                 step_type: StepType::FinalAnswer,
                 content: answer.clone(),
@@ -1653,6 +1694,11 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
 
             // v0.3.0: Learn recipe from successful answer
             learn_recipe_from_answer(question, &state.commands, eval.confidence);
+
+            // v0.3.3: Update ticket as resolved
+            let mut updated_ticket = ticket.clone();
+            updated_ticket.resolve(&answer, 10); // Award 10 XP
+            department::update_ticket(&updated_ticket);
 
             // Send done
             let result = AskResult {
@@ -1744,7 +1790,12 @@ fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        format!("{}...", &s[..max_len])
+        // Find a valid UTF-8 character boundary
+        let mut end = max_len;
+        while end > 0 && !s.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}...", &s[..end])
     }
 }
 

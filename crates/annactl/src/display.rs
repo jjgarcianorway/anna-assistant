@@ -195,6 +195,70 @@ pub async fn print_status() {
             }
             println!();
 
+            // TEAM ROSTER (v0.3.3)
+            let roster = &status.team_roster;
+            if roster.total_specialists > 0 {
+                println_colored("TEAM", CYAN);
+                print!("  Specialists:   ");
+                print_colored(&format!("{}", roster.total_specialists), GREEN);
+                println_colored(&format!(" across {} departments", roster.specialists.len()), DIM);
+
+                // Show departments with specialists
+                for (dept, specialists) in &roster.specialists {
+                    let junior_count = specialists.iter().filter(|s| !s.is_senior).count();
+                    let senior_count = specialists.iter().filter(|s| s.is_senior).count();
+                    print!("    ");
+                    print_colored(&format!("{:12}", dept), DIM);
+                    print!(" ");
+                    if junior_count > 0 {
+                        print_colored(&format!("{}J", junior_count), CYAN);
+                    }
+                    if senior_count > 0 {
+                        print!(" ");
+                        print_colored(&format!("{}Sr", senior_count), YELLOW);
+                    }
+                    println!();
+                }
+                println!();
+            }
+
+            // TICKETS (v0.3.3)
+            let tickets = &status.ticket_tracker;
+            if tickets.next_number > 1 || !tickets.active_tickets.is_empty() {
+                println_colored("TICKETS", CYAN);
+                print!("  Today:         ");
+                println!("{} tickets", tickets.today_count);
+
+                // Show per-department stats
+                for (dept, stats) in &tickets.dept_stats {
+                    if stats.total_received > 0 {
+                        print!("    ");
+                        print_colored(&format!("{:12}", dept), DIM);
+                        print!(" {} handled", stats.total_received);
+                        if stats.resolved > 0 {
+                            let rate = stats.resolved as f64 / stats.total_received as f64 * 100.0;
+                            print_colored(&format!(" ({:.0}% resolved)", rate),
+                                if rate >= 80.0 { GREEN } else if rate >= 50.0 { YELLOW } else { RED });
+                        }
+                        println!();
+                    }
+                }
+
+                // Show active tickets
+                if !tickets.active_tickets.is_empty() {
+                    println!();
+                    println_colored("  Active:", YELLOW);
+                    for ticket in &tickets.active_tickets {
+                        print!("    ");
+                        print_colored(&ticket.id, CYAN);
+                        print!(" ");
+                        print_colored(&ticket.summary, DIM);
+                        println!();
+                    }
+                }
+                println!();
+            }
+
             // CONFIG
             println_colored("CONFIG", CYAN);
             print!("  Debug Mode:    ");
