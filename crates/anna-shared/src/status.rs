@@ -322,10 +322,15 @@ pub struct ActiveTicket {
 }
 
 /// v0.3.3: Ticket status
+/// v0.3.29: Added Investigating and Experimenting for UX clarity
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum TicketStatus {
     #[default]
     Open,
+    /// v0.3.29: Actively investigating - running probes, gathering info
+    Investigating,
+    /// v0.3.29: Running experiments to test hypotheses
+    Experimenting,
     InProgress,
     Escalated,
     Resolved,
@@ -336,6 +341,8 @@ impl std::fmt::Display for TicketStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TicketStatus::Open => write!(f, "open"),
+            TicketStatus::Investigating => write!(f, "investigating"),
+            TicketStatus::Experimenting => write!(f, "experimenting"),
             TicketStatus::InProgress => write!(f, "in-progress"),
             TicketStatus::Escalated => write!(f, "escalated"),
             TicketStatus::Resolved => write!(f, "resolved"),
@@ -875,6 +882,25 @@ mod tests {
         assert_eq!(TicketStatus::Open.to_string(), "open");
         assert_eq!(TicketStatus::InProgress.to_string(), "in-progress");
         assert_eq!(TicketStatus::Resolved.to_string(), "resolved");
+    }
+
+    /// v0.3.29: Test new investigation/experiment ticket states
+    #[test]
+    fn test_ticket_status_investigation_states() {
+        assert_eq!(TicketStatus::Investigating.to_string(), "investigating");
+        assert_eq!(TicketStatus::Experimenting.to_string(), "experimenting");
+        assert_eq!(TicketStatus::Failed.to_string(), "failed");
+        assert_eq!(TicketStatus::Escalated.to_string(), "escalated");
+    }
+
+    /// v0.3.29: Test learning status defaults
+    #[test]
+    fn test_learning_status_defaults() {
+        let status = LearningStatus::default();
+        assert!(!status.enabled); // Default is false
+        assert_eq!(status.candidate_skills, 0);
+        assert_eq!(status.probation_skills, 0);
+        assert_eq!(status.trusted_skills, 0);
     }
 
     #[test]

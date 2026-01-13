@@ -17,10 +17,11 @@ pub fn get_pending_alerts() -> Option<Vec<String>> {
         .iter()
         .filter(|issue| matches!(issue.severity, Severity::Critical | Severity::Warning))
         .map(|issue| {
+            // v0.3.30: Use plain text instead of emojis
             let icon = match issue.severity {
-                Severity::Critical => "🔴 CRITICAL",
-                Severity::Warning => "🟡 Warning",
-                Severity::Info => "ℹ️ Info",
+                Severity::Critical => "[CRITICAL]",
+                Severity::Warning => "[Warning]",
+                Severity::Info => "[Info]",
             };
             let mut msg = format!("{}: {}", icon, issue.summary);
             if let Some(ref fix) = issue.suggested_fix {

@@ -6,7 +6,7 @@
 use anna_shared::rpc::{DialogueStep, RpcRequest, StepType, StreamingResponse};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use anna_shared::config::AnnaConfig;
 use crate::autofix::{
@@ -481,14 +481,21 @@ pub async fn handle_streaming_request(
             }
         }
         Err(e) => {
+            // v0.3.30: Always attempt to send Error, don't propagate failures
+            // This ensures the client gets a terminal response even if writes are flaky
             let response = StreamingResponse::Error {
                 message: format!("Execution error: {}", e),
             };
-            let json = serde_json::to_string(&response)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            if let Ok(json) = serde_json::to_string(&response) {
+                let _ = writer.write_all(format!("{}\n", json).as_bytes()).await;
+                let _ = writer.flush().await;
+            }
+            warn!("Streaming request failed: {}", e);
         }
     }
 
+    // v0.3.30: Explicit flush before connection close
+    let _ = writer.flush().await;
     Ok(())
 }
 

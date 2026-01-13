@@ -7,6 +7,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.30] - 2026-01-13
+
+### Fixed - SEVERITY-0 Reliability Hotfix (Contract Enforcement)
+
+- **R1: Streaming Terminality Contract** - No Done packet = No answer = Failure
+  - Removed ALL fallback logic that would print answers without terminal Done packet
+  - Client now prints `[FAILED] Stream terminated without completion` and returns error
+  - No reconstructed results - partial streams are failures, period
+  - Contract enforced via unit tests that scan source for forbidden patterns
+
+- **R2: Reset Transactional** - Single atomic pass, no retry loops
+  - Removed verification loops and force-retry logic
+  - Reset now follows strict order: read -> delete -> write fresh
+  - Uses `.context()` for proper error propagation (abort on failure, not retry)
+  - Daemon clears in-memory caches atomically on reset RPC
+  - Contract enforced via unit tests (`test_reset_is_single_pass_no_retry_loop`)
+
+- **R3: Kernel Version Comparison** - Generic package version comparator
+  - New patterns for "kernel update", "kernel outdated" using `vercmp`
+  - Detects installed kernel package (linux, linux-lts, linux-cachyos, etc.)
+  - Compares installed vs repo version via `pacman -Qi` / `pacman -Si`
+  - Works for CachyOS and all Arch-based kernels
+  - Contract enforced via `test_kernel_version_compare_uses_vercmp_and_package_versions`
+
+- **SMART Probe Device Discovery** - Fixed truth regressions on NVMe systems
+  - All SMART patterns now use boot disk discovery instead of hardcoded `/dev/sda`
+  - Discovery: `lsblk -no PKNAME $(findmnt -no SOURCE /)`
+  - NVMe patterns use dynamic device discovery instead of hardcoded `/dev/nvme0`
+
+- **CPU Cores vs Threads** - Fixed mislabeling in ralph.rs
+  - "cpu cores" now correctly queries physical cores via `lscpu`
+  - "cpu threads" queries logical processors via `nproc`
+
+### Added
+
+- **R4: Reproducible Proof Script** - `tests/severity0_proof.sh`
+  - Seeds non-zero stats/tickets, runs reset, verifies zeros
+  - Checks client/daemon version match
+  - Verifies source code for contract compliance
+  - Can be run to validate any deployment
+
+- **R5: Contract Enforcement Tests**
+  - `test_client_refuses_final_answer_without_terminal_packet`
+  - `test_reset_is_single_pass_no_retry_loop`
+  - `test_reset_uses_context_for_errors`
+  - `test_transactional_reset_order`
+  - `test_kernel_version_compare` / `test_kernel_version_compare_uses_package_not_uname`
+
+### Changed
+
+- **UX: Removed All Emojis** - Replaced with plain text indicators
+  - Status indicators: `[OK]`, `[WARN]`, `[CRIT]`, `[!]`, `[>]`, `[FAILED]`
+  - Severity labels: `[CRITICAL]`, `[Warning]`, `[Info]`
+  - Arrows: `->` instead of Unicode arrows
+  - Escalation: `[^]` instead of up-arrow
+
+## [0.3.29] - 2026-01-13
+
+### Added - Reliability Milestone 4: Operational Intelligence & UX Cohesion
+
+- **Ticket Lifecycle Clarity** - Explicit state tracking for all tickets
+  - New states: `Investigating`, `Experimenting` (v0.3.29)
+  - State helpers: `is_terminal()`, `is_active()` on TicketStatus
+  - Transition methods: `start_investigating()`, `start_experimenting()`, `fail()`
+  - Resolution time stats: `min_resolution_time()`, `max_resolution_time()`
+  - Stats by final state: `stats_by_state()` with resolved/failed/escalated/other
+
+- **Investigator Mode UX** - Explicit entry/exit for investigation phases
+  - New StepTypes: `InvestigationStart`, `InvestigationProbe`, `InvestigationResult`, `InvestigationComplete`
+  - Display format: `INVESTIGATING: <question>` at start
+  - Display format: `INVESTIGATION COMPLETE: N probes, M experiments run` at end
+  - Probes replace CommandExec/CommandOutput in main loop
+
+- **Experiment Transparency** - Risk-based experiment tracking
+  - New StepTypes: `ExperimentStart`, `ExperimentResult`
+  - Risk detection: Commands with risk > 0.3 trigger experiment mode
+  - Display format: `EXPERIMENT: [risk=0.45] expected=success` + `Result: actual=success/failed`
+  - Ticket state transitions to/from `Experimenting`
+
+- **Skill Confidence Explainability** - Tier logging on skill changes
+  - Enhanced recipe learning log: tier, confidence%, reason
+  - Skill tier counts populated from actual RecipeBook
+  - Tier classification: BuiltIn=trusted, Learned/Llm by success_count
+
+- **Teaching Mode** - Citation-backed explanations for learning
+  - Enable with `teaching_mode = true` in config
+  - Probe-only questions: explains which probe was run and why (no docs required)
+  - Procedural questions: MUST include doc citation (man page, Arch Wiki, --help)
+  - Risky actions: explains why risky (principle, not score) with sandbox reasoning
+  - Never improvises: says "Cannot explain confidently" if docs unavailable
+  - Never exposes internals: no structs, enums, StepTypes, or LLM mechanics
+  - "Why this works" block appended to answer when teaching mode enabled
+
+- **Status Summary for Non-Debug Users** - One-glance health view
+  - New SUMMARY section at top of `annactl status` (non-debug only)
+  - Health: OK/ISSUES (errors, warnings count)
+  - Mode: IDLE or INVESTIGATING/EXPERIMENTING ticket CN-XXXX
+  - Learning: candidate/probation/trusted skill counts
+  - Updates: OK (checked N ago)/AVAILABLE/FAILED/never checked
+
+- **Resolution Time Stats in `annactl stats`**
+  - Average, fastest, slowest resolution times
+  - Color coding: green < 30s, yellow < 120s, dim otherwise
+
+### Changed
+- `TicketStatus` enum: Added `Investigating`, `Experimenting` variants
+- `TicketStatus` shared enum (status.rs): Added corresponding variants
+- `ralph_loop_streaming()`: Uses investigation step types, tracks probe/experiment counts
+- `state.rs`: Calls `get_learning_status()` to populate skill tiers from RecipeBook
+- `AnnaConfig`: Added `teaching_mode` boolean field (default: false)
+- Final answer generation: Appends teaching block when teaching mode enabled
+
+### Tests
+- Ticket lifecycle: 6 new tests for state transitions
+  - `test_ticket_lifecycle_states`, `test_ticket_fail_state`, `test_terminal_and_active_states`
+  - `test_ticket_elapsed_time`, `test_ticket_status_display`, `test_resolution_time_stats`
+- Status: 2 new tests for investigation states and learning status
+  - `test_ticket_status_investigation_states`, `test_learning_status_defaults`
+- Teaching mode: 8 new tests for citation-backed explanations
+  - `test_teaching_mode_includes_citation_for_procedural_claim` (mandatory M4)
+  - `test_teaching_mode_probe_only_allows_probe_explanation_no_docs` (mandatory M4)
+  - `test_probe_only_does_not_require_docs`, `test_procedural_requires_doc_citation`
+  - `test_classify_question_procedural`, `test_classify_question_probe_only`
+  - `test_risky_action_needs_citation`, `test_citation_display_formats`
+
 ## [0.3.28] - 2026-01-13
 
 ### Fixed - SEVERITY-0 TRUST BUG

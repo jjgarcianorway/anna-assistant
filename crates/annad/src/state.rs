@@ -381,11 +381,8 @@ impl StateInner {
             helpers,
             // v0.3.24: Backup status
             backup_info,
-            // v0.3.27: Skill learning status (default for now, will be wired later)
-            learning_status: anna_shared::status::LearningStatus {
-                enabled: true, // Learning mode enabled by default
-                ..Default::default()
-            },
+            // v0.3.29: Skill learning status with actual recipe counts
+            learning_status: Self::get_learning_status(),
         }
     }
 
@@ -462,6 +459,48 @@ impl StateInner {
     fn get_recipe_count() -> usize {
         use anna_shared::recipe::RecipeBook;
         RecipeBook::load().map(|s| s.recipes.len()).unwrap_or(0)
+    }
+
+    /// v0.3.29: Get learning status with skill tier counts
+    fn get_learning_status() -> anna_shared::status::LearningStatus {
+        use anna_shared::recipe::{RecipeBook, RecipeSource};
+
+        let mut status = anna_shared::status::LearningStatus {
+            enabled: true, // Learning mode enabled by default
+            ..Default::default()
+        };
+
+        if let Ok(book) = RecipeBook::load() {
+            for recipe in &book.recipes {
+                // v0.3.29: Categorize recipes by tier based on source and success_count
+                match &recipe.source {
+                    RecipeSource::BuiltIn => {
+                        // Built-in recipes are trusted
+                        status.trusted_skills += 1;
+                    }
+                    RecipeSource::Learned | RecipeSource::Llm { .. } => {
+                        // Learned recipes start as candidates, graduate to probation/trusted based on success
+                        if recipe.success_count >= 10 {
+                            status.trusted_skills += 1;
+                        } else if recipe.success_count >= 3 {
+                            status.probation_skills += 1;
+                        } else {
+                            status.candidate_skills += 1;
+                        }
+                    }
+                    RecipeSource::Wiki { .. } => {
+                        // Wiki recipes are probationary
+                        status.probation_skills += 1;
+                    }
+                    RecipeSource::User => {
+                        // User-provided recipes start as candidates
+                        status.candidate_skills += 1;
+                    }
+                }
+            }
+        }
+
+        status
     }
 
     /// v0.0.924: Get memory health statistics
@@ -582,6 +621,8 @@ impl StateInner {
                 created_at: t.created_at.to_rfc3339(),
                 status: match t.status {
                     DeptTicketStatus::New | DeptTicketStatus::Assigned => anna_shared::status::TicketStatus::Open,
+                    DeptTicketStatus::Investigating => anna_shared::status::TicketStatus::Investigating,
+                    DeptTicketStatus::Experimenting => anna_shared::status::TicketStatus::Experimenting,
                     DeptTicketStatus::InProgress | DeptTicketStatus::WaitingUser => anna_shared::status::TicketStatus::InProgress,
                     DeptTicketStatus::Escalated | DeptTicketStatus::Researching => anna_shared::status::TicketStatus::Escalated,
                     DeptTicketStatus::Resolved => anna_shared::status::TicketStatus::Resolved,

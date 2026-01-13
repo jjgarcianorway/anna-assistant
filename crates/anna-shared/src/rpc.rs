@@ -446,4 +446,18 @@ pub enum StepType {
     TeamDispatch,
     /// v0.2.9: Specialist acknowledges and works on question
     SpecialistWorking,
+    /// v0.3.29: Investigation mode started with hypothesis
+    InvestigationStart,
+    /// v0.3.29: Investigation hypothesis being tested
+    InvestigationHypothesis,
+    /// v0.3.29: Investigation probe being run
+    InvestigationProbe,
+    /// v0.3.29: Investigation probe result
+    InvestigationResult,
+    /// v0.3.29: Investigation complete with summary
+    InvestigationComplete,
+    /// v0.3.29: Experiment started
+    ExperimentStart,
+    /// v0.3.29: Experiment result
+    ExperimentResult,
 }

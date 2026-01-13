@@ -17,6 +17,10 @@
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::recipe::{Recipe, RecipeBook, RecipeCommand, RecipeContext, RecipeSource};
 use anna_shared::claim_gate::{ClaimGate, ClaimVerifier, EvidenceType};
+use anna_shared::experiment::{ExperimentManager, estimate_command_risk};
+use anna_shared::teaching::{
+    self, CitationSource, TeachingContext, QuestionType, ProbeResult, ExperimentSummary,
+};
 use anyhow::Result;
 use tracing::{debug, info, warn};
 
@@ -836,9 +840,14 @@ fn get_fast_path(question: &str) -> Option<(&'static str, &'static str)> {
         return Some(("free -h | awk '/Mem:/ {print $2}'", "Total RAM: {output}"));
     }
 
-    // CPU cores
-    if q.contains("cpu") && (q.contains("core") || q.contains("thread")) {
-        return Some(("nproc", "CPU cores: {output}"));
+    // CPU cores/threads - v0.3.30: Fix truth regression - nproc returns logical (threads), not physical cores
+    if q.contains("cpu") && q.contains("core") {
+        // Physical cores: Core(s) per socket * Socket(s)
+        return Some(("lscpu | grep -E 'Core\\(s\\) per socket|Socket\\(s\\)|Thread\\(s\\) per core' | head -3", "CPU topology: {output}"));
+    }
+    if q.contains("cpu") && q.contains("thread") {
+        // Logical processors (threads)
+        return Some(("nproc", "CPU threads (logical): {output}"));
     }
 
     // Arch mirror
@@ -1800,6 +1809,22 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         None
     };
 
+    // v0.3.29: Track investigation probes for summary
+    let mut probe_count: usize = 0;
+    let mut experiment_count: usize = 0;
+
+    // v0.3.29: Start investigation mode (explicit entry)
+    let step = DialogueStep {
+        step_type: StepType::InvestigationStart,
+        content: question.to_string(),
+    };
+    dialogue.push(step.clone());
+    send_step(writer, step).await?;
+
+    // v0.3.29: Update ticket to Investigating state
+    ticket.start_investigating();
+    department::update_ticket(&ticket);
+
     // THE RALPH LOOP
     while iteration < criteria.max_iterations {
         iteration += 1;
@@ -1809,14 +1834,36 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         let commands = get_commands(model, question, &state).await?;
 
         if !commands.is_empty() {
-            // Execute commands and stream progress
+            // Execute commands and stream progress (as investigation probes)
             for cmd in &commands {
+                // v0.3.29: Check if this is a risky command that needs an experiment
+                let risk = estimate_command_risk(cmd);
+                let is_risky = risk > 0.3;
+
+                // v0.3.29: Use InvestigationProbe instead of CommandExec
+                probe_count += 1;
                 let step = DialogueStep {
-                    step_type: StepType::CommandExec,
+                    step_type: StepType::InvestigationProbe,
                     content: cmd.clone(),
                 };
                 dialogue.push(step.clone());
                 send_step(writer, step).await?;
+
+                // v0.3.29: For risky commands, show experiment intent
+                if is_risky {
+                    experiment_count += 1;
+                    // Update ticket to experimenting state
+                    ticket.start_experimenting();
+                    department::update_ticket(&ticket);
+
+                    let exp_summary = format!("[risk={:.2}] expected=success", risk);
+                    let step = DialogueStep {
+                        step_type: StepType::ExperimentStart,
+                        content: exp_summary,
+                    };
+                    dialogue.push(step.clone());
+                    send_step(writer, step).await?;
+                }
 
                 match execute_command(cmd) {
                     Ok(output) => {
@@ -1824,14 +1871,46 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                         state.commands.push(cmd.clone());
                         state.outputs.push(clean_output.clone());
 
+                        // v0.3.29: Use InvestigationResult instead of CommandOutput
                         let step = DialogueStep {
-                            step_type: StepType::CommandOutput,
+                            step_type: StepType::InvestigationResult,
                             content: truncate(&clean_output, 500),
                         };
                         dialogue.push(step.clone());
                         send_step(writer, step).await?;
+
+                        // v0.3.29: Show experiment result for risky commands
+                        if is_risky {
+                            let actual = if clean_output.contains("error") || clean_output.contains("failed") {
+                                "failed"
+                            } else {
+                                "success"
+                            };
+                            let step = DialogueStep {
+                                step_type: StepType::ExperimentResult,
+                                content: format!("actual={}", actual),
+                            };
+                            dialogue.push(step.clone());
+                            send_step(writer, step).await?;
+
+                            // Return to investigating state
+                            ticket.start_investigating();
+                            department::update_ticket(&ticket);
+                        }
                     }
                     Err(e) => {
+                        // v0.3.29: Show experiment failure for risky commands
+                        if is_risky {
+                            let step = DialogueStep {
+                                step_type: StepType::ExperimentResult,
+                                content: format!("actual=error ({})", e),
+                            };
+                            dialogue.push(step.clone());
+                            send_step(writer, step).await?;
+
+                            ticket.start_investigating();
+                            department::update_ticket(&ticket);
+                        }
                         state.feedback = Some(format!("Command '{}' failed: {}", cmd, e));
                     }
                 }
@@ -1848,6 +1927,15 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
 
         // Step 4: Check completion
         if eval.is_complete && eval.confidence >= criteria.min_confidence {
+            // v0.3.29: End investigation mode (explicit exit)
+            let summary = format!("{} probes, {} experiments run", probe_count, experiment_count);
+            let step = DialogueStep {
+                step_type: StepType::InvestigationComplete,
+                content: summary,
+            };
+            dialogue.push(step.clone());
+            send_step(writer, step).await?;
+
             // v0.3.3: Specialist reports completion before final answer
             if let Some(ref spec_name) = assigned_spec_name {
                 let completion_msg = format!("{} -> Anna: I've got the answer.", spec_name);
@@ -1864,17 +1952,36 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 .zip(state.outputs.iter())
                 .map(|(cmd, out)| (cmd.clone(), out.clone(), 0))
                 .collect();
-            let debug_mode = anna_shared::config::AnnaConfig::load()
-                .map(|c| c.debug_mode)
-                .unwrap_or(false);
+            let config = anna_shared::config::AnnaConfig::load().ok();
+            let debug_mode = config.as_ref().map(|c| c.debug_mode).unwrap_or(false);
+            let teaching_mode = config.as_ref().map(|c| c.teaching_mode).unwrap_or(false);
             let verification = verify_answer(&answer, question, &evidence, debug_mode);
 
-            // Append evidence line
-            let final_answer = if verification.evidence_line.is_empty() {
-                verification.answer.clone()
+            // v0.3.29: Build teaching context from execution state
+            let teaching_ctx = build_teaching_context(
+                question,
+                &state.commands,
+                &state.outputs,
+                experiment_count > 0,
+                &verification.doc_citations,
+            );
+
+            // v0.3.29: Generate teaching explanation if enabled
+            let teaching_block = if teaching_mode {
+                let explanation = teaching::generate_teaching(&teaching_ctx);
+                teaching::format_teaching_block(&explanation, true)
             } else {
-                format!("{}\n\n{}", verification.answer, verification.evidence_line)
+                None
             };
+
+            // Append evidence line and teaching block
+            let mut final_answer = verification.answer.clone();
+            if !verification.evidence_line.is_empty() {
+                final_answer = format!("{}\n\n{}", final_answer, verification.evidence_line);
+            }
+            if let Some(teaching) = teaching_block {
+                final_answer = format!("{}{}", final_answer, teaching);
+            }
 
             // v0.3.22: Truth-first rendering - send complete answer, no fake streaming
             let step = DialogueStep {
@@ -1921,6 +2028,16 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
     }
 
     // Max iterations - return best effort
+
+    // v0.3.29: End investigation mode (explicit exit) even on max iterations
+    let summary = format!("{} probes, {} experiments run (max iterations reached)", probe_count, experiment_count);
+    let step = DialogueStep {
+        step_type: StepType::InvestigationComplete,
+        content: summary,
+    };
+    dialogue.push(step.clone());
+    send_step(writer, step).await?;
+
     let raw_answer = state.answer.unwrap_or_else(|| {
         "I couldn't fully answer your question. Please try rephrasing.".to_string()
     });
@@ -1990,6 +2107,8 @@ struct RalphVerificationResult {
     answer: String,
     /// Evidence line to append (formatted)
     evidence_line: String,
+    /// v0.3.29: Doc citations for teaching mode
+    doc_citations: Vec<String>,
 }
 
 /// v0.3.26: Format evidence line for display (with doc citations)
@@ -2075,6 +2194,7 @@ fn verify_answer(answer: &str, question: &str, executed_commands: &[(String, Str
     RalphVerificationResult {
         answer: verified_answer,
         evidence_line,
+        doc_citations, // v0.3.29: Expose for teaching mode
     }
 }
 
@@ -2177,7 +2297,12 @@ fn learn_recipe_from_answer(question: &str, commands: &[String], confidence: f32
     if let Err(e) = book.save() {
         warn!("Failed to save recipe book: {}", e);
     } else {
-        info!("Learned new recipe: {}", id);
+        // v0.3.29: Enhanced logging with confidence reason
+        info!(
+            "Learned new recipe: {} (tier=candidate, confidence={:.0}%, reason=high confidence successful answer)",
+            id,
+            confidence * 100.0
+        );
         // Record for RPG stats
         crate::department::rpg::record_recipe_learned();
     }
@@ -2203,6 +2328,107 @@ fn is_modifying_command(cmd: &str) -> bool {
         "echo ", "printf ", "cat >", "sed -i", "tee ", "ln -s",
     ];
     modifiers.iter().any(|m| cmd.contains(m))
+}
+
+/// v0.3.29: Build teaching context from execution state
+/// Used to generate teaching explanations with proper citations
+fn build_teaching_context(
+    question: &str,
+    commands: &[String],
+    outputs: &[String],
+    had_experiments: bool,
+    doc_citations: &[String],
+) -> TeachingContext {
+    // Classify question type
+    let question_type = if had_experiments {
+        QuestionType::RiskyAction
+    } else {
+        teaching::classify_question(question)
+    };
+
+    // Build probe results
+    let probes: Vec<ProbeResult> = commands.iter()
+        .zip(outputs.iter())
+        .map(|(cmd, out)| ProbeResult {
+            command: cmd.clone(),
+            output_summary: truncate(out, 100),
+            success: !out.to_lowercase().contains("error") && !out.to_lowercase().contains("failed"),
+        })
+        .collect();
+
+    // Convert doc citations to CitationSources
+    let citations: Vec<CitationSource> = doc_citations.iter()
+        .filter_map(|c| {
+            if c.contains("man ") {
+                // Parse [man command(section)]
+                let parts: Vec<&str> = c.trim_matches(|c| c == '[' || c == ']')
+                    .strip_prefix("man ")
+                    .unwrap_or("")
+                    .split('(')
+                    .collect();
+                if !parts.is_empty() {
+                    let cmd = parts[0].to_string();
+                    let section = parts.get(1).map(|s| s.trim_end_matches(')').to_string());
+                    return Some(CitationSource::ManPage { command: cmd, section });
+                }
+            } else if c.contains("Arch Wiki:") {
+                // Parse [Arch Wiki: Article - Section]
+                let content = c.trim_matches(|c| c == '[' || c == ']')
+                    .strip_prefix("Arch Wiki: ")
+                    .unwrap_or("");
+                let parts: Vec<&str> = content.split(" - ").collect();
+                let article = parts.first().unwrap_or(&"").to_string();
+                let section = parts.get(1).map(|s| s.to_string());
+                if !article.is_empty() {
+                    return Some(CitationSource::ArchWiki { article, section });
+                }
+            } else if c.contains("--help") {
+                // Parse [command --help]
+                let cmd = c.trim_matches(|c| c == '[' || c == ']')
+                    .replace(" --help", "");
+                return Some(CitationSource::HelpOutput { command: cmd });
+            }
+            None
+        })
+        .collect();
+
+    // Determine risk reason for risky actions
+    let risk_reason = if had_experiments {
+        Some(get_risk_reason(commands))
+    } else {
+        None
+    };
+
+    TeachingContext {
+        question_type,
+        probes,
+        doc_citations: citations,
+        experiments: vec![], // Experiments are tracked separately in the loop
+        is_risky: had_experiments,
+        risk_reason,
+    }
+}
+
+/// v0.3.29: Get human-readable risk reason (principle, not score)
+fn get_risk_reason(commands: &[String]) -> String {
+    for cmd in commands {
+        if cmd.contains("systemctl") {
+            return "it modifies system services".to_string();
+        }
+        if cmd.contains("pacman -S") || cmd.contains("pacman -R") {
+            return "it installs or removes packages".to_string();
+        }
+        if cmd.contains("rm ") {
+            return "it deletes files".to_string();
+        }
+        if cmd.contains("chmod") || cmd.contains("chown") {
+            return "it changes file permissions".to_string();
+        }
+        if cmd.starts_with("sudo ") {
+            return "it requires elevated privileges".to_string();
+        }
+    }
+    "it modifies system state".to_string()
 }
 
 #[cfg(test)]

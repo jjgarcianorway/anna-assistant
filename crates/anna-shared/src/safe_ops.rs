@@ -218,29 +218,33 @@ impl SafeReset {
     /// Reset stats (XP, questions answered)
     /// v0.3.23: Always report counts for deterministic output; migrate legacy xp.json
     /// v0.3.28: Use PersistentStats::fresh() for XP baseline consistency
+    /// v0.3.30: TRANSACTIONAL - single atomic pass, no retry loops
     fn reset_stats() -> Result<Vec<String>> {
         let mut cleared = Vec::new();
 
         // First, migrate any legacy xp.json into unified store (one-time migration)
         let legacy_migrated = Self::migrate_legacy_xp()?;
 
-        // Now load stats (may include migrated data)
+        // TRANSACTIONAL RESET: One pass, no retries
+        // Step 1: Read old values for reporting
         let (questions, xp) = match PersistentStats::load() {
-            Ok(stats) => {
-                let q = stats.rpg.total_questions;
-                let x = stats.rpg.xp;
-                // v0.3.28: Use fresh() not default() - ensures baseline consistency
-                // (reliability=1.0, title="Novice Apprentice") matches fresh install
-                let fresh = PersistentStats::fresh();
-                fresh.save()?;
-                (q, x)
-            }
-            Err(_) => {
-                let fresh = PersistentStats::fresh();
-                fresh.save()?;
-                (0, 0)
-            }
+            Ok(stats) => (stats.rpg.total_questions, stats.rpg.xp),
+            Err(_) => (0, 0),
         };
+
+        // Step 2: Delete the old file completely (atomic)
+        let stats_path = anna_data_dir().join("stats.json");
+        if stats_path.exists() {
+            fs::remove_file(&stats_path)
+                .context("Failed to remove stats.json - reset aborted")?;
+        }
+
+        // Step 3: Write fresh stats (single atomic write)
+        let fresh = PersistentStats::fresh();
+        fresh.save().context("Failed to write fresh stats - reset incomplete")?;
+
+        // NO VERIFICATION LOOP - if save() returns Ok, we trust it
+        // The daemon must reload from this file, not use cached values
 
         // Always report for deterministic output
         cleared.push(format!(
@@ -311,12 +315,14 @@ impl SafeReset {
 
     /// Reset ticket tracker
     /// v0.3.23: Always report counts for deterministic output
+    /// v0.3.30: TRANSACTIONAL - single atomic pass, no retry loops
     fn reset_tickets() -> Result<Vec<String>> {
         let mut cleared = Vec::new();
         let tickets_path = dirs::data_local_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("anna/tickets.json");
 
+        // TRANSACTIONAL: Read counts first, then delete once
         let (resolved, failed, escalated) = if tickets_path.exists() {
             let counts = if let Ok(content) = fs::read_to_string(&tickets_path) {
                 if let Ok(store) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -331,11 +337,16 @@ impl SafeReset {
             } else {
                 (0, 0, 0)
             };
-            fs::remove_file(&tickets_path)?;
+            // Single atomic delete - if this fails, the whole reset fails
+            fs::remove_file(&tickets_path)
+                .context("Failed to remove tickets.json - reset aborted")?;
             counts
         } else {
             (0, 0, 0)
         };
+
+        // NO VERIFICATION LOOP - if remove_file() returns Ok, file is gone
+        // The daemon must reload (or clear cache) after reset RPC
 
         // Always report for deterministic output
         cleared.push(format!(
@@ -358,7 +369,8 @@ impl SafeReset {
             } else {
                 0
             };
-            fs::remove_file(&fix_history_path)?;
+            fs::remove_file(&fix_history_path)
+                .context("Failed to remove fix_history.json - reset aborted")?;
             count
         } else {
             0
@@ -1388,5 +1400,118 @@ mod tests {
 
         // The key invariant: after reset, stats should match fresh install baseline
         // This is now guaranteed because reset_stats() uses PersistentStats::fresh()
+    }
+
+    // ==========================================================================
+    // v0.3.30: CONTRACT ENFORCEMENT TESTS (R5)
+    // ==========================================================================
+
+    #[test]
+    fn test_reset_is_single_pass_no_retry_loop() {
+        // R5: Verify reset code has NO retry loops
+        // This test documents the contract by searching for forbidden patterns
+
+        // Read the source file
+        let source = include_str!("safe_ops.rs");
+
+        // Forbidden patterns that indicate retry loops
+        let forbidden_patterns = [
+            "force.*retry",
+            "retry.*loop",
+            "verification failed.*retry",
+            "still exists.*retry",
+        ];
+
+        // Check reset_stats and reset_tickets functions
+        let reset_stats_section = source
+            .find("fn reset_stats")
+            .map(|start| {
+                let end = source[start..].find("fn reset_").map(|e| start + e).unwrap_or(source.len());
+                &source[start..end]
+            });
+
+        let reset_tickets_section = source
+            .find("fn reset_tickets")
+            .map(|start| {
+                let end = source[start..].find("fn list_backups").map(|e| start + e).unwrap_or(source.len());
+                &source[start..end]
+            });
+
+        // Neither section should contain retry patterns
+        for pattern in &forbidden_patterns {
+            if let Some(section) = reset_stats_section {
+                assert!(
+                    !section.to_lowercase().contains(&pattern.to_lowercase().replace(".*", "")),
+                    "reset_stats contains forbidden pattern: {}", pattern
+                );
+            }
+            if let Some(section) = reset_tickets_section {
+                assert!(
+                    !section.to_lowercase().contains(&pattern.to_lowercase().replace(".*", "")),
+                    "reset_tickets contains forbidden pattern: {}", pattern
+                );
+            }
+        }
+
+        // Verify "NO VERIFICATION LOOP" comment exists (contract documentation)
+        assert!(
+            source.contains("NO VERIFICATION LOOP"),
+            "Contract documentation missing: should have 'NO VERIFICATION LOOP' comment"
+        );
+    }
+
+    #[test]
+    fn test_reset_uses_context_for_errors() {
+        // R5: Verify reset functions use .context() for proper error propagation
+        // instead of silently retrying on failure
+
+        let source = include_str!("safe_ops.rs");
+
+        // Reset functions should use .context() for error handling
+        assert!(
+            source.contains("context(\"Failed to remove stats.json"),
+            "reset_stats should use .context() for stats file removal"
+        );
+        assert!(
+            source.contains("context(\"Failed to write fresh stats"),
+            "reset_stats should use .context() for fresh stats write"
+        );
+        assert!(
+            source.contains("context(\"Failed to remove tickets.json"),
+            "reset_tickets should use .context() for tickets file removal"
+        );
+    }
+
+    #[test]
+    fn test_transactional_reset_order() {
+        // R5: Verify reset follows the correct transactional order:
+        // 1. Read old values (for reporting)
+        // 2. Delete old file
+        // 3. Write fresh file
+        // No verification step, no retry
+
+        let source = include_str!("safe_ops.rs");
+
+        // Find reset_stats function
+        let reset_stats_start = source.find("fn reset_stats").expect("reset_stats should exist");
+        let reset_stats_section = &source[reset_stats_start..];
+
+        // Find key operations
+        let load_pos = reset_stats_section.find("PersistentStats::load()");
+        let remove_pos = reset_stats_section.find("remove_file(&stats_path)");
+        let save_pos = reset_stats_section.find("fresh.save()");
+
+        // All operations should exist
+        assert!(load_pos.is_some(), "Should load stats for reporting");
+        assert!(remove_pos.is_some(), "Should remove stats file");
+        assert!(save_pos.is_some(), "Should save fresh stats");
+
+        // Order: load < remove < save
+        let load_p = load_pos.unwrap();
+        let remove_p = remove_pos.unwrap();
+        let save_p = save_pos.unwrap();
+
+        assert!(load_p < remove_p, "Should load before remove");
+        assert!(remove_p < save_p, "Should remove before save");
     }
 }

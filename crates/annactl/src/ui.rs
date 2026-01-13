@@ -101,19 +101,20 @@ impl Spinner {
         self.stop_internal();
     }
 
+    // v0.3.30: Use plain text instead of emojis
     pub fn success(mut self, message: &str) {
         self.stop_internal();
-        println!("\x1b[32m✓\x1b[0m {}", message);
+        println!("\x1b[32m[OK]\x1b[0m {}", message);
     }
 
     pub fn fail(mut self, message: &str) {
         self.stop_internal();
-        println!("\x1b[31m✗\x1b[0m {}", message);
+        println!("\x1b[31m[FAIL]\x1b[0m {}", message);
     }
 
     pub fn info(mut self, message: &str) {
         self.stop_internal();
-        println!("\x1b[36m→\x1b[0m {}", message);
+        println!("\x1b[36m[>]\x1b[0m {}", message);
     }
 }
 
@@ -173,20 +174,21 @@ pub fn draw_double_divider(_width: usize) {
 // STATUS INDICATORS
 // =============================================================================
 
+// v0.3.30: Use plain text instead of emojis
 pub fn print_success(message: &str) {
-    println!("\x1b[32m✓\x1b[0m {}", message);
+    println!("\x1b[32m[OK]\x1b[0m {}", message);
 }
 
 pub fn print_error(message: &str) {
-    println!("\x1b[31m✗\x1b[0m {}", message);
+    println!("\x1b[31m[!]\x1b[0m {}", message);
 }
 
 pub fn print_warning(message: &str) {
-    println!("\x1b[33m⚠\x1b[0m {}", message);
+    println!("\x1b[33m[!]\x1b[0m {}", message);
 }
 
 pub fn print_info(message: &str) {
-    println!("\x1b[36m→\x1b[0m {}", message);
+    println!("\x1b[36m[>]\x1b[0m {}", message);
 }
 
 pub fn print_bullet(message: &str) {
@@ -249,18 +251,20 @@ pub fn print_anna_speaks(message: &str) {
 }
 
 /// Format ticket creation (clean style)
+/// v0.3.30: Use plain text instead of emojis
 pub fn print_ticket(ticket_id: &str, department: &str) {
     println!();
     print!("\x1b[36mTicket\x1b[0m ");
     print!("\x1b[1;37m{}\x1b[0m", ticket_id);
-    print!(" → \x1b[36m{}\x1b[0m", department);
+    print!(" -> \x1b[36m{}\x1b[0m", department);
     println!(" department");
 }
 
 /// Format escalation
+/// v0.3.30: Use plain text instead of emojis
 pub fn print_escalation(from: &str, to: &str, reason: &str) {
     println!();
-    print!("\x1b[33m↑\x1b[0m Escalating: {} → {}", from, to);
+    print!("\x1b[33m[^]\x1b[0m Escalating: {} -> {}", from, to);
     if !reason.is_empty() {
         print!(" ({})", reason);
     }

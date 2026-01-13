@@ -607,11 +607,12 @@ pub fn get_health_summary() -> String {
     match get_cached_health() {
         Some(results) => {
             let mut summary = Vec::new();
+            // v0.3.30: Use plain text instead of emojis
             for r in &results {
                 let icon = match r.status {
-                    HealthStatus::Ok => "✓",
-                    HealthStatus::Warning => "⚠",
-                    HealthStatus::Critical => "✗",
+                    HealthStatus::Ok => "[OK]",
+                    HealthStatus::Warning => "[WARN]",
+                    HealthStatus::Critical => "[CRIT]",
                 };
                 summary.push(format!("{} {}: {}", icon, r.category, r.message));
             }

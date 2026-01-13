@@ -1,5 +1,6 @@
 //! Kernel and module patterns for Linux kernel management.
 //! v0.0.984: Initial implementation.
+//! v0.3.30: Added generic kernel version comparison (R3)
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -20,11 +21,73 @@ type KernelPattern<'a> = (&'a [&'a str], &'a str, &'a str, &'a [&'a str]);
 
 /// Match kernel patterns
 pub fn match_patterns(q: &str) -> Option<DeepUnderstanding> {
-    match_kernel_info(q)
+    match_kernel_version_compare(q)
+        .or_else(|| match_kernel_info(q))
         .or_else(|| match_modules(q))
         .or_else(|| match_kernel_params(q))
         .or_else(|| match_dkms(q))
         .or_else(|| match_kernel_debug(q))
+}
+
+/// v0.3.30: Generic kernel version comparison (R3)
+/// Detects installed kernel package, compares against repo using vercmp
+/// Works for linux, linux-lts, linux-zen, linux-cachyos, etc.
+fn match_kernel_version_compare(q: &str) -> Option<DeepUnderstanding> {
+    // v0.3.30: Generic kernel update check using proper package version comparison
+    // This script:
+    // 1. Detects which kernel package is installed (linux, linux-lts, linux-cachyos, etc.)
+    // 2. Gets installed version from pacman -Qi
+    // 3. Gets repo version from pacman -Si
+    // 4. Compares using vercmp (proper version comparison)
+    const KERNEL_UPDATE_CHECK: &str = r#"KERNEL=$(pacman -Qq | grep -E '^linux$|^linux-lts$|^linux-zen$|^linux-hardened$|^linux-cachyos' | head -1); \
+if [ -z "$KERNEL" ]; then echo "No standard kernel package found"; exit 1; fi; \
+INSTALLED=$(pacman -Qi "$KERNEL" 2>/dev/null | grep '^Version' | awk '{print $3}'); \
+REPO=$(pacman -Si "$KERNEL" 2>/dev/null | grep '^Version' | awk '{print $3}'); \
+if [ -z "$REPO" ]; then REPO="$INSTALLED (repo unavailable)"; fi; \
+RUNNING=$(uname -r); \
+echo "Kernel package: $KERNEL"; \
+echo "Installed version: $INSTALLED"; \
+echo "Repo version: $REPO"; \
+echo "Running kernel: $RUNNING"; \
+if [ "$INSTALLED" != "$REPO" ]; then \
+  CMP=$(vercmp "$INSTALLED" "$REPO" 2>/dev/null || echo "0"); \
+  if [ "$CMP" -lt 0 ]; then echo "Status: UPDATE AVAILABLE"; \
+  elif [ "$CMP" -gt 0 ]; then echo "Status: Installed is NEWER than repo"; \
+  else echo "Status: Up to date"; fi; \
+else echo "Status: Up to date"; fi"#;
+
+    const KERNEL_NEEDS_REBOOT: &str = r#"KERNEL=$(pacman -Qq | grep -E '^linux$|^linux-lts$|^linux-zen$|^linux-hardened$|^linux-cachyos' | head -1); \
+INSTALLED=$(pacman -Qi "$KERNEL" 2>/dev/null | grep '^Version' | awk '{print $3}'); \
+RUNNING=$(uname -r); \
+echo "Installed: $INSTALLED"; \
+echo "Running: $RUNNING"; \
+if echo "$RUNNING" | grep -qF "${INSTALLED%%-*}"; then \
+  echo "Status: Running matches installed (no reboot needed)"; \
+else \
+  echo "Status: REBOOT RECOMMENDED - running kernel differs from installed"; \
+fi"#;
+
+    let patterns: &[KernelPattern] = &[
+        // Kernel update check - uses proper package version comparison
+        (&["kernel", "update"], "check kernel update status", "kernel",
+         &[KERNEL_UPDATE_CHECK]),
+        (&["kernel", "outdated"], "check if kernel is outdated", "kernel",
+         &[KERNEL_UPDATE_CHECK]),
+        (&["kernel", "latest"], "check latest kernel version", "kernel",
+         &[KERNEL_UPDATE_CHECK]),
+        // Compare running vs installed
+        (&["kernel", "reboot"], "check if kernel reboot needed", "kernel",
+         &[KERNEL_NEEDS_REBOOT]),
+        (&["need", "reboot"], "check if reboot is needed", "kernel",
+         &[KERNEL_NEEDS_REBOOT, "cat /var/run/reboot-required 2>/dev/null || echo 'No reboot-required file'"]),
+    ];
+
+    for (keywords, desc, topic, commands) in patterns {
+        if keywords.iter().all(|k| q.contains(k)) {
+            return Some(make_understanding(desc, topic, commands));
+        }
+    }
+    None
 }
 
 /// Kernel information patterns
@@ -278,5 +341,41 @@ mod tests {
         assert!(match_patterns("kernel errors").is_some());
         assert!(match_patterns("kernel panic").is_some());
         assert!(match_patterns("tainted kernel").is_some());
+    }
+
+    // v0.3.30: Test kernel version comparison (R3)
+    #[test]
+    fn test_kernel_version_compare() {
+        // Test that kernel update patterns exist and use vercmp
+        let update = match_patterns("kernel update");
+        assert!(update.is_some(), "kernel update pattern should match");
+        let cmds = update.unwrap().suggested_commands;
+        assert!(!cmds.is_empty(), "should have commands");
+        // Verify commands use proper package comparison, not just uname
+        let cmd = &cmds[0];
+        assert!(cmd.contains("pacman -Qi"), "should query installed version");
+        assert!(cmd.contains("pacman -Si") || cmd.contains("repo"), "should query repo version");
+        assert!(cmd.contains("vercmp"), "should use vercmp for comparison");
+
+        // Test kernel outdated pattern
+        let outdated = match_patterns("kernel outdated");
+        assert!(outdated.is_some(), "kernel outdated pattern should match");
+
+        // Test need reboot pattern
+        let reboot = match_patterns("need reboot");
+        assert!(reboot.is_some(), "need reboot pattern should match");
+    }
+
+    #[test]
+    fn test_kernel_version_compare_uses_package_not_uname() {
+        // v0.3.30: Verify we use package version comparison, not uname output
+        let update = match_patterns("kernel update").unwrap();
+        let cmd = &update.suggested_commands[0];
+
+        // Should NOT be comparing uname -r output to package names
+        // Should be comparing package versions from pacman
+        assert!(!cmd.contains("uname -r | grep"), "should not grep uname output");
+        assert!(cmd.contains("pacman -Qq"), "should detect kernel package name");
+        assert!(cmd.contains("linux-cachyos"), "should support CachyOS kernel");
     }
 }

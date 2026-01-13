@@ -262,9 +262,10 @@ pub fn specialist_working(specialist: &Specialist, operation: &str) -> String {
 }
 
 /// Generate escalation message from junior to senior
+/// v0.3.30: Use plain text instead of emojis
 pub fn escalation_request(junior: &Specialist, senior: &Specialist, reason: &str) -> String {
     format!(
-        "{} → {}: This one's a bit complex. {}. Can you take a look?",
+        "{} -> {}: This one's a bit complex. {}. Can you take a look?",
         junior.name, senior.name, reason
     )
 }
@@ -295,9 +296,10 @@ pub fn specialist_found_something(specialist: &Specialist, finding: &str) -> Str
 }
 
 /// Generate specialist reporting back to Anna
+/// v0.3.30: Use plain text instead of emojis
 pub fn specialist_reports_to_anna(specialist: &Specialist, summary: &str) -> String {
     format!(
-        "{} → Anna: {}",
+        "{} -> Anna: {}",
         specialist.name, summary
     )
 }
@@ -325,8 +327,9 @@ pub fn dispatch_question(question: &str) -> Option<(String, &'static Specialist)
 }
 
 /// Generate a ticket opened message
+/// v0.3.30: Use plain text instead of emojis
 pub fn ticket_opened(case_number: &str, department: &str) -> String {
-    format!("Ticket {} opened → {} department", case_number, department)
+    format!("Ticket {} opened -> {} department", case_number, department)
 }
 
 /// Generate full dialogue for command execution

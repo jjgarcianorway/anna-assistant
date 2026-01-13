@@ -10,13 +10,18 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 
 /// Ticket status
+/// v0.3.29: Added Investigating and Experimenting for UX clarity
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TicketStatus {
     /// Just created, being analyzed
     New,
     /// Assigned to a specialist
     Assigned,
-    /// Being worked on
+    /// v0.3.29: Actively investigating - running probes, gathering info
+    Investigating,
+    /// v0.3.29: Running experiments to test hypotheses
+    Experimenting,
+    /// Being worked on (generic in-progress)
     InProgress,
     /// Waiting for user response
     WaitingUser,
@@ -35,6 +40,8 @@ impl std::fmt::Display for TicketStatus {
         match self {
             TicketStatus::New => write!(f, "New"),
             TicketStatus::Assigned => write!(f, "Assigned"),
+            TicketStatus::Investigating => write!(f, "Investigating"),
+            TicketStatus::Experimenting => write!(f, "Experimenting"),
             TicketStatus::InProgress => write!(f, "In Progress"),
             TicketStatus::WaitingUser => write!(f, "Waiting for User"),
             TicketStatus::Escalated => write!(f, "Escalated"),
@@ -42,6 +49,21 @@ impl std::fmt::Display for TicketStatus {
             TicketStatus::Resolved => write!(f, "Resolved"),
             TicketStatus::Failed => write!(f, "Failed"),
         }
+    }
+}
+
+impl TicketStatus {
+    /// v0.3.29: Check if this is a terminal state (no more transitions)
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, TicketStatus::Resolved | TicketStatus::Failed)
+    }
+
+    /// v0.3.29: Check if this is an active working state
+    pub fn is_active(&self) -> bool {
+        matches!(
+            self,
+            TicketStatus::Investigating | TicketStatus::Experimenting | TicketStatus::InProgress
+        )
     }
 }
 
@@ -153,6 +175,31 @@ impl Ticket {
         self.resolved_at = Some(Utc::now());
         self.xp_awarded = xp;
         self.updated_at = Utc::now();
+    }
+
+    /// v0.3.29: Transition to investigating state
+    pub fn start_investigating(&mut self) {
+        self.status = TicketStatus::Investigating;
+        self.updated_at = Utc::now();
+    }
+
+    /// v0.3.29: Transition to experimenting state
+    pub fn start_experimenting(&mut self) {
+        self.status = TicketStatus::Experimenting;
+        self.updated_at = Utc::now();
+    }
+
+    /// v0.3.29: Mark as failed
+    pub fn fail(&mut self, reason: &str) {
+        self.status = TicketStatus::Failed;
+        self.resolution = Some(reason.to_string());
+        self.resolved_at = Some(Utc::now());
+        self.updated_at = Utc::now();
+    }
+
+    /// v0.3.29: Get elapsed time since creation in seconds
+    pub fn elapsed_secs(&self) -> i64 {
+        (Utc::now() - self.created_at).num_seconds()
     }
 
     /// Get resolution time in seconds
@@ -278,6 +325,53 @@ impl TicketStore {
         }
         stats
     }
+
+    /// v0.3.29: Get shortest resolution time in seconds
+    pub fn min_resolution_time(&self) -> Option<i64> {
+        self.tickets
+            .iter()
+            .filter_map(|t| t.resolution_time_secs())
+            .min()
+    }
+
+    /// v0.3.29: Get longest resolution time in seconds
+    pub fn max_resolution_time(&self) -> Option<i64> {
+        self.tickets
+            .iter()
+            .filter_map(|t| t.resolution_time_secs())
+            .max()
+    }
+
+    /// v0.3.29: Get ticket counts by final state
+    pub fn stats_by_state(&self) -> TicketStatsByState {
+        let mut stats = TicketStatsByState::default();
+        for ticket in &self.tickets {
+            match ticket.status {
+                TicketStatus::Resolved => stats.resolved += 1,
+                TicketStatus::Failed => stats.failed += 1,
+                TicketStatus::Escalated => stats.escalated += 1,
+                _ => stats.other += 1,
+            }
+        }
+        stats
+    }
+
+    /// v0.3.29: Get current active ticket (most recent non-terminal)
+    pub fn get_current_active(&self) -> Option<&Ticket> {
+        self.tickets
+            .iter()
+            .rev()
+            .find(|t| !t.status.is_terminal())
+    }
+}
+
+/// v0.3.29: Ticket statistics by final state
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TicketStatsByState {
+    pub resolved: u64,
+    pub failed: u64,
+    pub escalated: u64,
+    pub other: u64,
 }
 
 // Global ticket sequence for case numbers
@@ -358,4 +452,119 @@ pub fn reset_ticket_store() {
     // Clear the in-memory store - it will reload from disk (which is now empty)
     let mut guard = STORE.write().unwrap();
     *guard = Some(TicketStore::default());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// v0.3.29: Test ticket lifecycle state transitions
+    #[test]
+    fn test_ticket_lifecycle_states() {
+        let mut ticket = Ticket::new("test question", "System Administration");
+
+        // Initial state
+        assert_eq!(ticket.status, TicketStatus::New);
+        assert!(!ticket.status.is_terminal());
+        assert!(!ticket.status.is_active());
+
+        // Assign
+        ticket.assign("specialist-1");
+        assert_eq!(ticket.status, TicketStatus::Assigned);
+        assert!(!ticket.status.is_terminal());
+
+        // Start investigating
+        ticket.start_investigating();
+        assert_eq!(ticket.status, TicketStatus::Investigating);
+        assert!(ticket.status.is_active());
+        assert!(!ticket.status.is_terminal());
+
+        // Start experimenting
+        ticket.start_experimenting();
+        assert_eq!(ticket.status, TicketStatus::Experimenting);
+        assert!(ticket.status.is_active());
+        assert!(!ticket.status.is_terminal());
+
+        // Resolve
+        ticket.resolve("Solution found", 10);
+        assert_eq!(ticket.status, TicketStatus::Resolved);
+        assert!(ticket.status.is_terminal());
+        assert!(!ticket.status.is_active());
+    }
+
+    /// v0.3.29: Test ticket fail state
+    #[test]
+    fn test_ticket_fail_state() {
+        let mut ticket = Ticket::new("failing question", "Network Operations");
+
+        ticket.start_investigating();
+        assert!(!ticket.status.is_terminal());
+
+        ticket.fail("Could not determine cause");
+        assert_eq!(ticket.status, TicketStatus::Failed);
+        assert!(ticket.status.is_terminal());
+        assert!(!ticket.status.is_active());
+    }
+
+    /// v0.3.29: Test terminal vs active states
+    #[test]
+    fn test_terminal_and_active_states() {
+        // Terminal states
+        assert!(TicketStatus::Resolved.is_terminal());
+        assert!(TicketStatus::Failed.is_terminal());
+
+        // Non-terminal states
+        assert!(!TicketStatus::New.is_terminal());
+        assert!(!TicketStatus::Assigned.is_terminal());
+        assert!(!TicketStatus::Investigating.is_terminal());
+        assert!(!TicketStatus::Experimenting.is_terminal());
+        assert!(!TicketStatus::InProgress.is_terminal());
+        assert!(!TicketStatus::WaitingUser.is_terminal());
+        assert!(!TicketStatus::Escalated.is_terminal());
+        assert!(!TicketStatus::Researching.is_terminal());
+
+        // Active states
+        assert!(TicketStatus::Investigating.is_active());
+        assert!(TicketStatus::Experimenting.is_active());
+        assert!(TicketStatus::InProgress.is_active());
+
+        // Non-active states
+        assert!(!TicketStatus::New.is_active());
+        assert!(!TicketStatus::Assigned.is_active());
+        assert!(!TicketStatus::Resolved.is_active());
+        assert!(!TicketStatus::Failed.is_active());
+    }
+
+    /// v0.3.29: Test elapsed time calculation
+    #[test]
+    fn test_ticket_elapsed_time() {
+        let ticket = Ticket::new("time test", "System Administration");
+
+        // Elapsed time should be very small (just created)
+        let elapsed = ticket.elapsed_secs();
+        assert!(elapsed >= 0);
+        assert!(elapsed < 5); // Should be less than 5 seconds
+    }
+
+    /// v0.3.29: Test ticket status display format
+    #[test]
+    fn test_ticket_status_display() {
+        assert_eq!(format!("{}", TicketStatus::New), "New");
+        assert_eq!(format!("{}", TicketStatus::Investigating), "Investigating");
+        assert_eq!(format!("{}", TicketStatus::Experimenting), "Experimenting");
+        assert_eq!(format!("{}", TicketStatus::InProgress), "In Progress");
+        assert_eq!(format!("{}", TicketStatus::Resolved), "Resolved");
+        assert_eq!(format!("{}", TicketStatus::Failed), "Failed");
+    }
+
+    /// v0.3.29: Test resolution time stats
+    #[test]
+    fn test_resolution_time_stats() {
+        let mut store = TicketStore::default();
+
+        // Empty store should have no resolution times
+        assert!(store.min_resolution_time().is_none());
+        assert!(store.max_resolution_time().is_none());
+        assert!(store.avg_resolution_time().is_none());
+    }
 }

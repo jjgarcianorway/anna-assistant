@@ -112,24 +112,25 @@ pub fn format_issues_summary(issues: &[Issue]) -> String {
     let warnings: Vec<_> = issues.iter().filter(|i| i.severity == Severity::Warning).collect();
     let info: Vec<_> = issues.iter().filter(|i| i.severity == Severity::Info).collect();
 
+    // v0.3.30: Use plain text instead of emojis
     if !critical.is_empty() {
-        output.push_str("🔴 CRITICAL:\n");
+        output.push_str("CRITICAL:\n");
         for issue in critical {
-            output.push_str(&format!("  • {}\n", issue.summary));
+            output.push_str(&format!("  - {}\n", issue.summary));
         }
     }
 
     if !warnings.is_empty() {
-        output.push_str("🟡 WARNINGS:\n");
+        output.push_str("WARNINGS:\n");
         for issue in warnings {
-            output.push_str(&format!("  • {}\n", issue.summary));
+            output.push_str(&format!("  - {}\n", issue.summary));
         }
     }
 
     if !info.is_empty() {
-        output.push_str("ℹ️ INFO:\n");
+        output.push_str("INFO:\n");
         for issue in info {
-            output.push_str(&format!("  • {}\n", issue.summary));
+            output.push_str(&format!("  - {}\n", issue.summary));
         }
     }
 

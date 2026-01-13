@@ -13,6 +13,10 @@ pub struct AnnaConfig {
     #[serde(default = "default_true")]
     pub debug_mode: bool,
 
+    /// v0.3.29: Teaching mode - explains why actions were taken with citations
+    #[serde(default)]
+    pub teaching_mode: bool,
+
     /// Auto-install helpers when needed
     #[serde(default = "default_true")]
     pub auto_install_helpers: bool,
@@ -190,6 +194,7 @@ impl Default for AnnaConfig {
     fn default() -> Self {
         Self {
             debug_mode: true,
+            teaching_mode: false, // v0.3.29: Off by default
             auto_install_helpers: true,
             ask_clarification: true,
             wiki: WikiConfig::default(),

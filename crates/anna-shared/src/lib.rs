@@ -21,6 +21,7 @@ pub mod skill_promotion;
 pub mod status;
 pub mod structured_output;
 pub mod stats;
+pub mod teaching;
 pub mod system_models;
 pub mod update_ledger;
 pub mod user_context;

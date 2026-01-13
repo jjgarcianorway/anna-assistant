@@ -179,38 +179,51 @@ fn match_cpu(q: &str) -> Option<DeepUnderstanding> {
 }
 
 /// Storage and disk queries
+/// v0.3.30: Use device discovery instead of hardcoding /dev/sda
 fn match_storage(q: &str) -> Option<DeepUnderstanding> {
+    // v0.3.30: Dynamic device discovery - find boot disk, handle NVMe
+    const DISCOVER_SMART_A: &str = "DISK=$(lsblk -no PKNAME $(findmnt -no SOURCE /) 2>/dev/null | head -1); \
+                                    [ -n \"$DISK\" ] && sudo smartctl -a /dev/$DISK 2>/dev/null | head -30 || echo 'Install: pacman -S smartmontools'";
+    const DISCOVER_SMART_H: &str = "DISK=$(lsblk -no PKNAME $(findmnt -no SOURCE /) 2>/dev/null | head -1); \
+                                    [ -n \"$DISK\" ] && sudo smartctl -H /dev/$DISK 2>/dev/null || echo 'Could not determine boot disk'";
+    const DISCOVER_SMART_GREP: &str = "DISK=$(lsblk -no PKNAME $(findmnt -no SOURCE /) 2>/dev/null | head -1); \
+                                       [ -n \"$DISK\" ] && sudo smartctl -a /dev/$DISK 2>/dev/null | grep -E 'SMART|Health' || echo 'Could not determine boot disk'";
+    const DISCOVER_HDPARM: &str = "DISK=$(lsblk -no PKNAME $(findmnt -no SOURCE /) 2>/dev/null | head -1); \
+                                   [ -n \"$DISK\" ] && sudo hdparm -I /dev/$DISK 2>/dev/null | head -20 || echo 'Could not determine boot disk'";
+    // NVMe discovery - find first nvme device
+    const DISCOVER_NVME: &str = "NVME=$(ls /dev/nvme0n1 2>/dev/null && echo nvme0 || ls /dev/nvme* 2>/dev/null | grep -oE 'nvme[0-9]+' | head -1); \
+                                 [ -n \"$NVME\" ] && sudo nvme smart-log /dev/$NVME 2>/dev/null || echo 'No NVMe device found'";
+    const DISCOVER_NVME_TEMP: &str = "NVME=$(ls /dev/nvme0n1 2>/dev/null && echo nvme0 || ls /dev/nvme* 2>/dev/null | grep -oE 'nvme[0-9]+' | head -1); \
+                                      [ -n \"$NVME\" ] && sudo nvme smart-log /dev/$NVME 2>/dev/null | grep -i temp || echo 'No NVMe device found'";
+
     let patterns: &[HardwarePattern] = &[
         // Disk health
         (&["disk", "health"], "check disk health", "storage",
-            &["sudo smartctl -a /dev/sda 2>/dev/null | head -30 || echo 'Install: pacman -S smartmontools'",
-              "sudo smartctl -H /dev/sda 2>/dev/null"]),
+            &[DISCOVER_SMART_A, DISCOVER_SMART_H]),
         (&["smart", "status"], "check SMART status", "storage",
-            &["sudo smartctl -H /dev/sda 2>/dev/null",
-              "sudo smartctl -a /dev/sda 2>/dev/null | grep -E 'SMART|Health'"]),
+            &[DISCOVER_SMART_H, DISCOVER_SMART_GREP]),
         (&["drive", "health"], "check drive health", "storage",
-            &["sudo smartctl -H /dev/sda 2>/dev/null || echo 'Run: pacman -S smartmontools'"]),
+            &[DISCOVER_SMART_H]),
         // Disk info
         (&["disk", "info"], "show disk information", "storage",
             &["lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT", "df -Th"]),
         (&["drive", "info"], "show drive information", "storage",
-            &["lsblk -d -o NAME,SIZE,MODEL,SERIAL", "sudo hdparm -I /dev/sda 2>/dev/null | head -20"]),
+            &["lsblk -d -o NAME,SIZE,MODEL,SERIAL", DISCOVER_HDPARM]),
         // SSD trim
         (&["ssd", "trim"], "check SSD TRIM", "storage",
-            &["systemctl status fstrim.timer", "cat /etc/fstab | grep discard"]),
+            &["systemctl status fstrim.timer", "grep discard /etc/fstab"]),
         (&["trim", "status"], "check TRIM status", "storage",
             &["lsblk -D", "systemctl status fstrim.timer 2>/dev/null"]),
         // NVMe
         (&["nvme", "info"], "show NVMe information", "storage",
-            &["sudo nvme list 2>/dev/null || echo 'Install: pacman -S nvme-cli'",
-              "sudo nvme smart-log /dev/nvme0 2>/dev/null"]),
+            &["sudo nvme list 2>/dev/null || echo 'Install: pacman -S nvme-cli'", DISCOVER_NVME]),
         (&["nvme", "temp"], "check NVMe temperature", "storage",
-            &["sudo nvme smart-log /dev/nvme0 2>/dev/null | grep -i temp"]),
+            &[DISCOVER_NVME_TEMP]),
         // Disk I/O
         (&["disk", "io"], "check disk I/O", "storage",
             &["iostat -x 1 1 2>/dev/null || echo 'Install: pacman -S sysstat'", "iotop -obn1 2>/dev/null | head -10"]),
         (&["io", "stat"], "show I/O statistics", "storage",
-            &["iostat -x 1 1 2>/dev/null", "cat /proc/diskstats | head -10"]),
+            &["iostat -x 1 1 2>/dev/null", "head -10 /proc/diskstats"]),
     ];
 
     for (keywords, interpreted, topic, commands) in patterns {

@@ -161,8 +161,9 @@ pub fn format_understanding_result(understanding: &DeepUnderstanding) -> String 
         result.push_str(&format!("\nEntities: {}", understanding.entities.join(", ")));
     }
 
+    // v0.3.30: Use plain text instead of emojis
     if understanding.needs_confirmation {
-        result.push_str("\n⚠️ Needs confirmation");
+        result.push_str("\n[!] Needs confirmation");
     }
 
     result

@@ -84,6 +84,74 @@ pub async fn print_status() {
             println_colored("ANNA STATUS", BOLD);
             println!();
 
+            // v0.3.29: Non-debug mode STATUS SUMMARY at top
+            if !debug_mode {
+                println_colored("SUMMARY", CYAN);
+
+                // Health status
+                let has_errors = status.error_summary.error_count > 0;
+                let has_warnings = status.error_summary.warning_count > 0;
+                print!("  health:        ");
+                if has_errors {
+                    println_colored(&format!("ISSUES ({} errors, {} warnings)",
+                        status.error_summary.error_count,
+                        status.error_summary.warning_count), RED);
+                } else if has_warnings {
+                    println_colored(&format!("OK ({} warnings)", status.error_summary.warning_count), YELLOW);
+                } else {
+                    println_colored("OK", GREEN);
+                }
+
+                // Current mode/ticket
+                print!("  mode:          ");
+                if !status.ticket_tracker.active_tickets.is_empty() {
+                    let ticket = &status.ticket_tracker.active_tickets[0];
+                    println_colored(&format!("{} ticket {}", ticket.status.to_string().to_uppercase(), ticket.id), CYAN);
+                } else {
+                    println_colored("IDLE", DIM);
+                }
+
+                // Learning summary
+                let learning = &status.learning_status;
+                print!("  learning:      ");
+                if learning.enabled {
+                    let total = learning.candidate_skills + learning.probation_skills + learning.trusted_skills;
+                    if total > 0 {
+                        println!("{} candidate, {} probation, {} trusted",
+                            learning.candidate_skills, learning.probation_skills, learning.trusted_skills);
+                    } else {
+                        println_colored("enabled (no skills)", DIM);
+                    }
+                } else {
+                    println_colored("disabled", DIM);
+                }
+
+                // Updates
+                print!("  updates:       ");
+                if let Some(ref latest) = status.latest_version {
+                    if latest != &status.version {
+                        println_colored(&format!("AVAILABLE ({})", latest), YELLOW);
+                    } else {
+                        match status.update_state {
+                            anna_shared::status::UpdateCheckState::Success => {
+                                if let Some(ref last) = status.last_update_check {
+                                    println_colored(&format!("OK (checked {})", format_time_ago(last)), GREEN);
+                                } else {
+                                    println_colored("OK", GREEN);
+                                }
+                            }
+                            anna_shared::status::UpdateCheckState::Failed => println_colored("FAILED", RED),
+                            anna_shared::status::UpdateCheckState::Checking => println_colored("CHECKING...", YELLOW),
+                            anna_shared::status::UpdateCheckState::NeverChecked => println_colored("never checked", DIM),
+                        }
+                    }
+                } else {
+                    println_colored("not checked", DIM);
+                }
+
+                println!();
+            }
+
             // VERSION - v0.3.23: Show both client and daemon versions with mismatch detection
             println_colored("VERSION", CYAN);
             let client_version = env!("CARGO_PKG_VERSION");
@@ -484,7 +552,7 @@ pub async fn print_status() {
                     }
                 }
 
-                // Show active tickets
+                // Show active tickets with state and elapsed time
                 if !tickets.active_tickets.is_empty() {
                     println!();
                     println_colored("  active:", YELLOW);
@@ -492,6 +560,29 @@ pub async fn print_status() {
                         print!("    ");
                         print_colored(&ticket.id, CYAN);
                         print!(" ");
+
+                        // v0.3.29: Show status with color
+                        let status_color = match ticket.status {
+                            anna_shared::status::TicketStatus::Open => DIM,
+                            anna_shared::status::TicketStatus::Investigating => CYAN,
+                            anna_shared::status::TicketStatus::Experimenting => MAGENTA,
+                            anna_shared::status::TicketStatus::InProgress => YELLOW,
+                            anna_shared::status::TicketStatus::Escalated => RED,
+                            anna_shared::status::TicketStatus::Resolved => GREEN,
+                            anna_shared::status::TicketStatus::Failed => RED,
+                        };
+                        print_colored(&format!("[{}]", ticket.status), status_color);
+                        print!(" ");
+
+                        // v0.3.29: Show elapsed time
+                        if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&ticket.created_at) {
+                            let elapsed_secs = (chrono::Utc::now() - created.with_timezone(&chrono::Utc)).num_seconds();
+                            if elapsed_secs >= 0 {
+                                print_colored(&format!("({})", format_duration(elapsed_secs as u64)), DIM);
+                                print!(" ");
+                            }
+                        }
+
                         print_colored(&ticket.summary, DIM);
                         println!();
                     }
@@ -725,8 +816,9 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
             print_colored("Ticket ", CYAN);
             println_colored(&step.content, WHITE);
         }
+        // v0.3.30: Use plain text instead of emojis
         StepType::TeamAssignment => {
-            print_colored("Anna → ", MAGENTA);
+            print_colored("Anna -> ", MAGENTA);
             println!("{}", step.content);
         }
         StepType::TeamDialogue => {
@@ -734,7 +826,7 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
         }
         StepType::TeamEscalation => {
             println!();
-            print_colored("  ↑ Escalating: ", YELLOW);
+            print_colored("  [^] Escalating: ", YELLOW);
             println!("{}", step.content);
         }
         // v0.2.9: Team dispatch and specialist working
@@ -745,6 +837,41 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
         StepType::SpecialistWorking => {
             print_colored("  ", DIM);
             println_colored(&step.content, CYAN);
+        }
+
+        // v0.3.29: Investigator mode (always visible - explicit entry/exit)
+        StepType::InvestigationStart => {
+            println!();
+            print_colored("INVESTIGATING: ", CYAN);
+            println!("{}", step.content);
+        }
+        StepType::InvestigationHypothesis => {
+            print_colored("  Hypothesis: ", DIM);
+            println!("{}", step.content);
+        }
+        StepType::InvestigationProbe => {
+            print_colored("  Probe: ", DIM);
+            println_colored(&step.content, CYAN);
+        }
+        StepType::InvestigationResult => {
+            if debug {
+                print_colored("    -> ", DIM);
+                println!("{}", step.content);
+            }
+        }
+        StepType::InvestigationComplete => {
+            println!();
+            print_colored("INVESTIGATION COMPLETE: ", GREEN);
+            println!("{}", step.content);
+        }
+        StepType::ExperimentStart => {
+            println!();
+            print_colored("EXPERIMENT: ", MAGENTA);
+            println!("{}", step.content);
+        }
+        StepType::ExperimentResult => {
+            print_colored("  Result: ", DIM);
+            println!("{}", step.content);
         }
 
         // DEBUG ONLY
@@ -1021,16 +1148,57 @@ pub fn print_stats(detailed: bool) {
                 let total_failed = store.get("total_failed").and_then(|v| v.as_u64()).unwrap_or(0);
                 let total_escalated = store.get("total_escalated").and_then(|v| v.as_u64()).unwrap_or(0);
 
-                println!("  resolved:      {}", total_resolved);
-                println!("  failed:        {}", total_failed);
-                print!("  escalated:     ");
+                // v0.3.29: Tickets by final state
+                println_colored("  by state:", DIM);
+                print!("    resolved:    ");
+                println_colored(&format!("{}", total_resolved), GREEN);
+                print!("    failed:      ");
+                println_colored(&format!("{}", total_failed), if total_failed > 0 { RED } else { DIM });
+                print!("    escalated:   ");
                 println_colored(&format!("{}", total_escalated), if total_escalated > 0 { YELLOW } else { DIM });
 
-                if total_resolved > 0 {
+                if total_resolved > 0 || total_failed > 0 {
                     let success_rate = total_resolved as f64 / (total_resolved + total_failed).max(1) as f64 * 100.0;
                     print!("  success rate:  ");
                     let rate_color = if success_rate >= 90.0 { GREEN } else if success_rate >= 70.0 { YELLOW } else { RED };
                     println_colored(&format!("{:.1}%", success_rate), rate_color);
+                }
+
+                // v0.3.29: Resolution time statistics
+                if let Some(tickets_arr) = store.get("tickets").and_then(|v| v.as_array()) {
+                    let resolution_times: Vec<i64> = tickets_arr
+                        .iter()
+                        .filter_map(|t| {
+                            let created = t.get("created_at")?.as_str()?;
+                            let resolved = t.get("resolved_at")?.as_str()?;
+                            let created_dt = chrono::DateTime::parse_from_rfc3339(created).ok()?;
+                            let resolved_dt = chrono::DateTime::parse_from_rfc3339(resolved).ok()?;
+                            Some((resolved_dt - created_dt).num_seconds())
+                        })
+                        .filter(|&s| s >= 0)
+                        .collect();
+
+                    if !resolution_times.is_empty() {
+                        println!();
+                        println_colored("  resolution times:", DIM);
+
+                        // Average
+                        let avg = resolution_times.iter().sum::<i64>() as f64 / resolution_times.len() as f64;
+                        print!("    average:     ");
+                        println_colored(&format_duration(avg as u64), if avg < 30.0 { GREEN } else if avg < 120.0 { YELLOW } else { DIM });
+
+                        // Min (fastest)
+                        if let Some(&min) = resolution_times.iter().min() {
+                            print!("    fastest:     ");
+                            println_colored(&format_duration(min as u64), GREEN);
+                        }
+
+                        // Max (slowest)
+                        if let Some(&max) = resolution_times.iter().max() {
+                            print!("    slowest:     ");
+                            println_colored(&format_duration(max as u64), DIM);
+                        }
+                    }
                 }
                 println!();
             }
