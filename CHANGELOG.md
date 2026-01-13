@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.41] - 2026-01-13
+
+### Fixed - Socket Directory Group Ownership
+
+Fixed critical bug where `/run/anna/` was owned by `root:root` instead of `root:anna`, preventing users in the anna group from accessing the socket.
+
+**Root Cause**: The systemd service had `RuntimeDirectory=anna` which creates the directory, but lacked `RuntimeDirectoryGroup=anna`, so systemd defaulted to root:root ownership.
+
+**Fix**: Added `RuntimeDirectoryGroup=anna` to systemd service definition in install.sh.
+
+## [0.3.40] - 2026-01-13
+
+### Added - Debug Logging
+
+Added comprehensive startup logging to diagnose socket creation issues.
+
+## [0.3.39] - 2026-01-13
+
+### Fixed - Robust Installer
+
+Complete rewrite of install.sh for reliability:
+- Removes old binaries from ~/.local/bin that could shadow /usr/local/bin
+- Verifies socket creation after service start
+- Shows daemon logs if socket fails to appear
+
 ## [0.3.38] - 2026-01-13
 
 ### Fixed - Socket Creation Reliability

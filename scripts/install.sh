@@ -377,22 +377,24 @@ install_service() {
 
     $SUDO tee "${SYSTEMD_DIR}/annad.service" > /dev/null << 'EOF'
 [Unit]
-Description=Anna AI Assistant Daemon
-After=network.target
+Description=Anna Assistant Daemon
+After=network.target ollama.service
+Wants=ollama.service
 
 [Service]
-Type=simple
+Type=notify
 ExecStart=/usr/local/bin/annad
 Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-Environment="OLLAMA_MODELS=/var/lib/anna/models"
+RestartSec=3
+WatchdogSec=60
+TimeoutStopSec=10
+MemoryMax=2G
+Environment=RUST_BACKTRACE=1
 
-# v0.3.32: System-wide paths - no HOME needed
-# Socket at /run/anna/anna.sock with 0660 for group access
+# v0.3.41: RuntimeDirectoryGroup ensures anna group can access socket
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
+RuntimeDirectoryGroup=anna
 
 [Install]
 WantedBy=multi-user.target

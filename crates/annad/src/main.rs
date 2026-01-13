@@ -49,6 +49,7 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber)?;
 
     info!("Starting annad v{}", VERSION);
+    info!("=== DAEMON STARTUP BEGIN ===");
 
     // v0.0.893: Initialize wiki with retry loop
     // v0.0.895: Use centralized config for Ollama URL
@@ -203,8 +204,9 @@ async fn main() -> Result<()> {
 
     // Create and run server
     // v0.3.38: Systemd notify moved to server.run() AFTER socket is ready
+    info!("=== CALLING SERVER.RUN() ===");
     let server = Server::new(state);
-    server.run().await?;
-
-    Ok(())
+    let result = server.run().await;
+    info!("=== SERVER.RUN() RETURNED: {:?} ===", result.is_ok());
+    result
 }
