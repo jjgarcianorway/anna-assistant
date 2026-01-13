@@ -108,6 +108,8 @@ pub enum RecipeSource {
     Llm { model: String },
     /// Provided by user
     User,
+    /// v0.3.14: Learned from successful experiences
+    Learned,
 }
 
 /// Recipe storage

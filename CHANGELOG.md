@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-01-13
+
+### Added
+- **Skill Promotion Pipeline** - Turn experiences into tested, reusable skills
+  - `RecipeCandidate` with preconditions, rollback steps, risk levels
+  - `RiskLevel` classification (Safe/Low/Medium/High/Critical)
+  - Precondition inference from commands (file exists, command exists, etc.)
+  - Rollback step generation (pacman install → pacman remove, etc.)
+  - Testing harness with safety checks and risk assessment
+  - Promotion to recipe library with persistence
+  - New `RecipeSource::Learned` variant for promoted recipes
+
 ## [0.3.13] - 2026-01-13
 
 ### Fixed

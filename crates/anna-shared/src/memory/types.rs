@@ -285,6 +285,22 @@ impl ExperienceContext {
 
         (matches as f32 / current_tags.len() as f32) * 0.2
     }
+
+    /// v0.3.14: Get a system tag value by prefix (e.g., "editor" -> "vim")
+    pub fn get_tag(&self, prefix: &str) -> Option<String> {
+        for tag in &self.system_tags {
+            if let Some(value) = tag.strip_prefix(&format!("{}:", prefix)) {
+                return Some(value.to_string());
+            }
+        }
+        // Also check success_tags
+        for tag in &self.success_tags {
+            if let Some(value) = tag.strip_prefix(&format!("{}:", prefix)) {
+                return Some(value.to_string());
+            }
+        }
+        None
+    }
 }
 
 /// A pattern learned from multiple experiences

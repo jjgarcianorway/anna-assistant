@@ -11,6 +11,7 @@ pub mod recipe;
 pub mod rpc;
 pub mod safe_ops;
 pub mod session;
+pub mod skill_promotion;
 pub mod status;
 pub mod stats;
 pub mod update_ledger;
