@@ -268,6 +268,24 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 Err(_) => {}
             }
 
+            // v0.3.13: Reset ticket tracker
+            let tickets_path = dirs::data_local_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("."))
+                .join("anna/tickets.json");
+            if tickets_path.exists() {
+                if let Ok(content) = std::fs::read_to_string(&tickets_path) {
+                    if let Ok(store) = serde_json::from_str::<serde_json::Value>(&content) {
+                        let resolved = store.get("total_resolved").and_then(|v| v.as_u64()).unwrap_or(0);
+                        let failed = store.get("total_failed").and_then(|v| v.as_u64()).unwrap_or(0);
+                        if resolved > 0 || failed > 0 {
+                            // Remove the file to reset
+                            let _ = std::fs::remove_file(&tickets_path);
+                            cleared.push(format!("Tickets ({} resolved, {} failed)", resolved, failed));
+                        }
+                    }
+                }
+            }
+
             info!("Reset complete: {:?}", cleared);
 
             let result = ResetResult { cleared };

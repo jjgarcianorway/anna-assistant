@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-01-13
+
+### Fixed
+- **Reset Now Clears Tickets** - `annactl reset` now clears ticket tracker (resolved/failed counts)
+- **Auto-Update Script Permissions** - Use unique script path with PID to avoid permission conflicts
+
 ## [0.3.12] - 2026-01-13
 
 ### Fixed
