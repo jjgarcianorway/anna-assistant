@@ -95,6 +95,28 @@ pub struct DaemonStatus {
     /// v0.3.24: Backup status
     #[serde(default)]
     pub backup_info: BackupStatus,
+    /// v0.3.27: Skill learning status
+    #[serde(default)]
+    pub learning_status: LearningStatus,
+}
+
+/// v0.3.27: Skill learning status for status display
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LearningStatus {
+    /// Whether learning mode is enabled
+    pub enabled: bool,
+    /// Skills in candidate tier (sandbox only)
+    pub candidate_skills: usize,
+    /// Skills in probation tier (host with verification)
+    pub probation_skills: usize,
+    /// Skills in trusted tier (normal use)
+    pub trusted_skills: usize,
+    /// Total promotions
+    pub promotions: usize,
+    /// Total demotions
+    pub demotions: usize,
+    /// Failed experiments (negative knowledge)
+    pub failed_experiments: usize,
 }
 
 /// v0.3.24: Backup status for status display

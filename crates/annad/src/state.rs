@@ -371,6 +371,11 @@ impl StateInner {
             helpers,
             // v0.3.24: Backup status
             backup_info,
+            // v0.3.27: Skill learning status (default for now, will be wired later)
+            learning_status: anna_shared::status::LearningStatus {
+                enabled: true, // Learning mode enabled by default
+                ..Default::default()
+            },
         }
     }
 

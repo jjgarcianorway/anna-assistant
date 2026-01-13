@@ -224,6 +224,56 @@ pub async fn print_status() {
             }
             println!();
 
+            // LEARNING (v0.3.27) - Skill learning status
+            println_colored("LEARNING", CYAN);
+
+            // Learning mode
+            print!("  mode:          ");
+            if status.learning_status.enabled {
+                println_colored("enabled", GREEN);
+            } else {
+                println_colored("disabled", DIM);
+            }
+
+            // Skill tiers
+            print!("  skills:        ");
+            let learning = &status.learning_status;
+            if learning.candidate_skills > 0 || learning.probation_skills > 0 || learning.trusted_skills > 0 {
+                let mut parts = Vec::new();
+                if learning.candidate_skills > 0 {
+                    parts.push(format!("{} candidate", learning.candidate_skills));
+                }
+                if learning.probation_skills > 0 {
+                    parts.push(format!("{} probation", learning.probation_skills));
+                }
+                if learning.trusted_skills > 0 {
+                    parts.push(format!("{} trusted", learning.trusted_skills));
+                }
+                println!("{}", parts.join(", "));
+            } else {
+                println_colored("none", DIM);
+            }
+
+            // Promotions/demotions
+            if learning.promotions > 0 || learning.demotions > 0 {
+                print!("  transitions:   ");
+                let mut parts = Vec::new();
+                if learning.promotions > 0 {
+                    parts.push(format!("{} promotions", learning.promotions));
+                }
+                if learning.demotions > 0 {
+                    parts.push(format!("{} demotions", learning.demotions));
+                }
+                println!("{}", parts.join(", "));
+            }
+
+            // Failed experiments
+            if learning.failed_experiments > 0 {
+                print!("  negative:      ");
+                println_colored(&format!("{} failed experiments", learning.failed_experiments), DIM);
+            }
+            println!();
+
             // DAEMON
             println_colored("DAEMON", CYAN);
 

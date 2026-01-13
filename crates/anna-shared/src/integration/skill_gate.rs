@@ -1,13 +1,21 @@
 //! Skill Gatekeeper - Validation harness as mandatory gate.
 //!
+//! v0.3.27: Controlled Learning with confidence decay and ClaimGate integration.
+//!
 //! A skill candidate cannot be used on the host unless it has:
 //! 1. Passed a sandbox test suite for the relevant subsystem
 //! 2. Declared its rollback procedure
+//! 3. ClaimGate validation for explanatory claims
 //!
 //! Skill tiers:
 //! - Candidate: Sandbox only, never on live system
 //! - Probation: Host allowed in cautious mode with extra verification
 //! - Trusted: Normal use allowed
+//!
+//! Confidence decay:
+//! - Skills have confidence scores (0.0-1.0)
+//! - Confidence decays when related packages/kernel/docs change
+//! - Skills below threshold are demoted automatically
 //!
 //! Promotion requires passing BOTH functional tests AND safety invariants.
 
@@ -95,6 +103,67 @@ pub fn standard_safety_invariants() -> Vec<SafetyInvariant> {
     ]
 }
 
+/// v0.3.27: Confidence state for a skill
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillConfidence {
+    /// Current confidence score (0.0-1.0)
+    pub score: f32,
+    /// When confidence was last updated
+    pub last_updated: String,
+    /// Package versions when skill was learned
+    pub package_versions: HashMap<String, String>,
+    /// Kernel version when skill was learned
+    pub kernel_version: Option<String>,
+    /// Doc versions (wiki article modified dates, man page versions)
+    pub doc_versions: HashMap<String, String>,
+    /// Successful host runs (increases confidence)
+    pub successful_runs: u32,
+    /// Failed host runs (decreases confidence)
+    pub failed_runs: u32,
+}
+
+impl Default for SkillConfidence {
+    fn default() -> Self {
+        Self {
+            score: 1.0, // Start with full confidence
+            last_updated: chrono::Utc::now().to_rfc3339(),
+            package_versions: HashMap::new(),
+            kernel_version: None,
+            doc_versions: HashMap::new(),
+            successful_runs: 0,
+            failed_runs: 0,
+        }
+    }
+}
+
+impl SkillConfidence {
+    /// Check if confidence is below demotion threshold
+    pub fn below_threshold(&self, threshold: f32) -> bool {
+        self.score < threshold
+    }
+
+    /// Record a successful run
+    pub fn record_success(&mut self) {
+        self.successful_runs += 1;
+        self.score = (self.score + 0.05).min(1.0);
+        self.last_updated = chrono::Utc::now().to_rfc3339();
+    }
+
+    /// Record a failed run
+    pub fn record_failure(&mut self) {
+        self.failed_runs += 1;
+        self.score = (self.score - 0.2).max(0.0);
+        self.last_updated = chrono::Utc::now().to_rfc3339();
+    }
+
+    /// Apply decay based on system changes
+    pub fn apply_decay(&mut self, decay_amount: f32, reason: &str) {
+        self.score = (self.score - decay_amount).max(0.0);
+        self.last_updated = chrono::Utc::now().to_rfc3339();
+        tracing::info!("Skill confidence decayed by {:.2}: {}", decay_amount, reason);
+    }
+}
+
 /// A gated skill ready for promotion evaluation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GatedSkill {
@@ -116,6 +185,18 @@ pub struct GatedSkill {
     pub promotion_history: Vec<PromotionEvent>,
     /// Falsification attempts
     pub falsification_log: Vec<FalsificationAttempt>,
+    /// v0.3.27: Confidence state with decay
+    #[serde(default)]
+    pub confidence: SkillConfidence,
+    /// v0.3.27: Related experiment IDs
+    #[serde(default)]
+    pub experiment_ids: Vec<String>,
+    /// v0.3.27: ClaimGate verified explanations
+    #[serde(default)]
+    pub verified_explanations: Vec<String>,
+    /// v0.3.27: Failed experiments (negative knowledge)
+    #[serde(default)]
+    pub failed_experiments: Vec<FailedExperiment>,
 }
 
 /// Result of a test run
@@ -163,8 +244,25 @@ pub struct FalsificationAttempt {
     pub timestamp: String,
 }
 
+/// v0.3.27: A failed experiment (negative knowledge)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailedExperiment {
+    /// Experiment ID
+    pub experiment_id: String,
+    /// What was tried
+    pub commands: Vec<String>,
+    /// Why it failed
+    pub failure_reason: String,
+    /// Error output
+    pub error_output: String,
+    /// Sandbox type used
+    pub sandbox_type: String,
+    /// When it failed
+    pub timestamp: String,
+}
+
 /// The skill gatekeeper
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillGatekeeper {
     /// All gated skills by ID
     pub skills: HashMap<String, GatedSkill>,
@@ -172,6 +270,45 @@ pub struct SkillGatekeeper {
     pub blocked: HashMap<String, String>,
     /// Promotion requirements
     pub requirements: PromotionRequirements,
+    /// v0.3.27: Learning mode enabled
+    #[serde(default = "default_true")]
+    pub learning_enabled: bool,
+    /// v0.3.27: Confidence threshold for automatic demotion
+    #[serde(default = "default_demotion_threshold")]
+    pub demotion_threshold: f32,
+    /// v0.3.27: Counts for status display
+    #[serde(default)]
+    pub stats: SkillStats,
+}
+
+impl Default for SkillGatekeeper {
+    fn default() -> Self {
+        Self {
+            skills: HashMap::new(),
+            blocked: HashMap::new(),
+            requirements: PromotionRequirements::default(),
+            learning_enabled: true,
+            demotion_threshold: 0.3,
+            stats: SkillStats::default(),
+        }
+    }
+}
+
+fn default_true() -> bool { true }
+fn default_demotion_threshold() -> f32 { 0.3 }
+
+/// v0.3.27: Skill statistics for status display
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SkillStats {
+    /// Skills at each tier
+    pub candidate_count: usize,
+    pub probation_count: usize,
+    pub trusted_count: usize,
+    /// Promotion events
+    pub promotions: usize,
+    pub demotions: usize,
+    /// Failed experiments
+    pub failed_experiments: usize,
 }
 
 /// Requirements for promotion between tiers
@@ -225,10 +362,109 @@ impl SkillGatekeeper {
             safety_checks: standard_safety_invariants(),
             promotion_history: Vec::new(),
             falsification_log: Vec::new(),
+            confidence: SkillConfidence::default(),
+            experiment_ids: Vec::new(),
+            verified_explanations: Vec::new(),
+            failed_experiments: Vec::new(),
         };
 
         self.skills.insert(id.clone(), skill);
+        self.update_stats();
         id
+    }
+
+    /// v0.3.27: Record a failed experiment (negative knowledge)
+    pub fn record_failed_experiment(&mut self, skill_id: &str, exp: FailedExperiment) -> Result<(), String> {
+        let skill = self.skills.get_mut(skill_id).ok_or("Skill not found")?;
+        skill.failed_experiments.push(exp);
+        skill.confidence.record_failure();
+        self.stats.failed_experiments += 1;
+        Ok(())
+    }
+
+    /// v0.3.27: Link an experiment to a skill
+    pub fn link_experiment(&mut self, skill_id: &str, experiment_id: &str) -> Result<(), String> {
+        let skill = self.skills.get_mut(skill_id).ok_or("Skill not found")?;
+        skill.experiment_ids.push(experiment_id.to_string());
+        Ok(())
+    }
+
+    /// v0.3.27: Add a ClaimGate-verified explanation
+    pub fn add_verified_explanation(&mut self, skill_id: &str, explanation: &str) -> Result<(), String> {
+        let skill = self.skills.get_mut(skill_id).ok_or("Skill not found")?;
+        skill.verified_explanations.push(explanation.to_string());
+        Ok(())
+    }
+
+    /// v0.3.27: Check and apply confidence decay for all skills
+    pub fn check_confidence_decay(&mut self, current_kernel: Option<&str>, current_packages: &HashMap<String, String>) {
+        let demotion_threshold = self.demotion_threshold;
+        let mut skills_to_demote = Vec::new();
+
+        for (id, skill) in &mut self.skills {
+            // Check kernel version change
+            let kernel_changed = match (&skill.confidence.kernel_version, current_kernel) {
+                (Some(skill_kernel), Some(current)) => skill_kernel != current,
+                _ => false,
+            };
+            if kernel_changed {
+                skill.confidence.apply_decay(0.15, "kernel version changed");
+            }
+
+            // Collect changed packages first (to avoid borrow conflict)
+            let changed_packages: Vec<String> = skill.confidence.package_versions
+                .iter()
+                .filter_map(|(pkg, version)| {
+                    current_packages.get(pkg)
+                        .filter(|&current_ver| current_ver != version)
+                        .map(|_| pkg.clone())
+                })
+                .collect();
+
+            // Apply decay for changed packages
+            for pkg in changed_packages {
+                skill.confidence.apply_decay(0.1, &format!("package {} changed", pkg));
+            }
+
+            // Check if below threshold
+            if skill.confidence.below_threshold(demotion_threshold) && skill.tier != SkillTier::Candidate {
+                skills_to_demote.push((id.clone(), skill.confidence.score));
+            }
+        }
+
+        // Demote skills below threshold
+        for (id, score) in skills_to_demote {
+            let _ = self.demote(&id, &format!("Confidence decay below threshold ({:.2})", score));
+            self.stats.demotions += 1;
+        }
+
+        self.update_stats();
+    }
+
+    /// v0.3.27: Update statistics
+    pub fn update_stats(&mut self) {
+        let mut candidate = 0;
+        let mut probation = 0;
+        let mut trusted = 0;
+
+        for skill in self.skills.values() {
+            match skill.tier {
+                SkillTier::Candidate => candidate += 1,
+                SkillTier::Probation => probation += 1,
+                SkillTier::Trusted => trusted += 1,
+            }
+        }
+
+        self.stats.candidate_count = candidate;
+        self.stats.probation_count = probation;
+        self.stats.trusted_count = trusted;
+    }
+
+    /// v0.3.27: Record a successful host run
+    pub fn record_successful_run(&mut self, skill_id: &str) -> Result<(), String> {
+        let skill = self.skills.get_mut(skill_id).ok_or("Skill not found")?;
+        skill.confidence.record_success();
+        Ok(())
     }
 
     /// Check if a skill can be used on the host
@@ -374,6 +610,10 @@ impl SkillGatekeeper {
         skill.promotion_history.push(event);
         skill.tier = target;
 
+        // v0.3.27: Update stats
+        self.stats.promotions += 1;
+        self.update_stats();
+
         Ok(target)
     }
 
@@ -483,5 +723,123 @@ mod tests {
     fn test_tier_precedence() {
         assert!(SkillTier::Candidate < SkillTier::Probation);
         assert!(SkillTier::Probation < SkillTier::Trusted);
+    }
+
+    // v0.3.27: Milestone 3 mandatory tests
+
+    #[test]
+    fn test_confidence_decay_demotes_skill() {
+        let mut gate = SkillGatekeeper::new();
+        let id = gate.register_candidate("test", vec!["ls".to_string()], vec!["true".to_string()]);
+
+        // Manually set to probation tier for testing
+        {
+            let skill = gate.skills.get_mut(&id).unwrap();
+            skill.tier = SkillTier::Probation;
+            skill.confidence.score = 0.25; // Below default threshold of 0.3
+        }
+
+        // Check decay - should trigger demotion
+        gate.check_confidence_decay(None, &HashMap::new());
+
+        // Verify demotion occurred
+        let skill = gate.skills.get(&id).unwrap();
+        assert_eq!(skill.tier, SkillTier::Candidate, "Skill should be demoted to Candidate");
+        assert_eq!(gate.stats.demotions, 1, "Demotion count should be 1");
+    }
+
+    #[test]
+    fn test_failed_experiment_affects_confidence() {
+        let mut gate = SkillGatekeeper::new();
+        let id = gate.register_candidate("test", vec!["ls".to_string()], vec!["true".to_string()]);
+
+        // Initial confidence is 1.0
+        let initial_confidence = gate.skills.get(&id).unwrap().confidence.score;
+        assert_eq!(initial_confidence, 1.0);
+
+        // Record a failed experiment
+        gate.record_failed_experiment(&id, FailedExperiment {
+            experiment_id: "exp-001".to_string(),
+            commands: vec!["failing-command".to_string()],
+            failure_reason: "Command not found".to_string(),
+            error_output: "bash: failing-command: command not found".to_string(),
+            sandbox_type: "FullNamespace".to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        }).unwrap();
+
+        // Confidence should decrease
+        let new_confidence = gate.skills.get(&id).unwrap().confidence.score;
+        assert!(new_confidence < initial_confidence, "Confidence should decrease after failed experiment");
+        assert_eq!(gate.stats.failed_experiments, 1, "Failed experiment count should be 1");
+
+        // Failed experiment should be recorded
+        let skill = gate.skills.get(&id).unwrap();
+        assert_eq!(skill.failed_experiments.len(), 1);
+    }
+
+    #[test]
+    fn test_verified_explanation_required() {
+        let mut gate = SkillGatekeeper::new();
+        let id = gate.register_candidate("test", vec!["ls".to_string()], vec!["true".to_string()]);
+
+        // Skill starts with no verified explanations
+        let skill = gate.skills.get(&id).unwrap();
+        assert!(skill.verified_explanations.is_empty());
+
+        // Add a verified explanation
+        gate.add_verified_explanation(&id, "Lists files in directory").unwrap();
+
+        // Verify it was added
+        let skill = gate.skills.get(&id).unwrap();
+        assert_eq!(skill.verified_explanations.len(), 1);
+        assert_eq!(skill.verified_explanations[0], "Lists files in directory");
+    }
+
+    #[test]
+    fn test_skill_linked_to_experiment() {
+        let mut gate = SkillGatekeeper::new();
+        let id = gate.register_candidate("test", vec!["ls".to_string()], vec!["true".to_string()]);
+
+        // Link an experiment
+        gate.link_experiment(&id, "exp-sandbox-001").unwrap();
+
+        // Verify it was linked
+        let skill = gate.skills.get(&id).unwrap();
+        assert_eq!(skill.experiment_ids.len(), 1);
+        assert_eq!(skill.experiment_ids[0], "exp-sandbox-001");
+    }
+
+    #[test]
+    fn test_successful_run_increases_confidence() {
+        let mut gate = SkillGatekeeper::new();
+        let id = gate.register_candidate("test", vec!["ls".to_string()], vec!["true".to_string()]);
+
+        // Set initial confidence below max
+        {
+            let skill = gate.skills.get_mut(&id).unwrap();
+            skill.confidence.score = 0.8;
+        }
+
+        // Record successful run
+        gate.record_successful_run(&id).unwrap();
+
+        // Confidence should increase
+        let skill = gate.skills.get(&id).unwrap();
+        assert!(skill.confidence.score > 0.8);
+        assert_eq!(skill.confidence.successful_runs, 1);
+    }
+
+    #[test]
+    fn test_stats_update_on_registration() {
+        let mut gate = SkillGatekeeper::new();
+
+        // Register several skills
+        gate.register_candidate("skill1", vec!["ls".to_string()], vec!["true".to_string()]);
+        gate.register_candidate("skill2", vec!["pwd".to_string()], vec!["true".to_string()]);
+
+        // All should be candidates
+        assert_eq!(gate.stats.candidate_count, 2);
+        assert_eq!(gate.stats.probation_count, 0);
+        assert_eq!(gate.stats.trusted_count, 0);
     }
 }

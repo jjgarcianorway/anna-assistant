@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.27] - 2026-01-13
+
+### Added
+- **Controlled Learning** - Skills learned through experimentation, not memorization
+  - Skill tiers: `candidate` (sandbox only), `probation` (host with verification), `trusted`
+  - Confidence scoring with decay on system changes
+  - Failed experiments stored as negative knowledge
+
+- **Confidence Decay** - Automatic demotion when system changes
+  - Kernel version changes trigger 15% decay
+  - Package version changes trigger 10% decay
+  - Skills below 30% confidence auto-demote
+
+- **LEARNING Section in Status** - Skill learning visibility
+  - Learning mode: enabled/disabled
+  - Skills by tier: candidate, probation, trusted
+  - Transitions: promotions, demotions
+  - Negative knowledge: failed experiments count
+
+- **SkillGatekeeper Enhancements**
+  - `record_failed_experiment()` - Track negative knowledge
+  - `link_experiment()` - Link skills to experiments
+  - `add_verified_explanation()` - ClaimGate-verified explanations
+  - `check_confidence_decay()` - Auto-demote decayed skills
+  - `record_successful_run()` - Build confidence
+
+### Changed
+- `GatedSkill` now includes confidence state, experiment IDs, verified explanations
+- `SkillGatekeeper` tracks learning stats (promotions, demotions, failed experiments)
+- Status display includes LEARNING section after TRUTH
+
+### Tests
+- 11 skill_gate tests (added 6):
+  - `test_confidence_decay_demotes_skill`
+  - `test_failed_experiment_affects_confidence`
+  - `test_verified_explanation_required`
+  - `test_skill_linked_to_experiment`
+  - `test_successful_run_increases_confidence`
+  - `test_stats_update_on_registration`
+
 ## [0.3.26] - 2026-01-13
 
 ### Added
