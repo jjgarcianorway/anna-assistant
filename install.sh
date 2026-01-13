@@ -80,6 +80,41 @@ echo "Installing to $INSTALL_DIR (requires sudo)..."
 sudo mv annactl "$INSTALL_DIR/annactl"
 sudo mv annad "$INSTALL_DIR/annad"
 
+# v0.3.31: Create anna group if it doesn't exist
+echo "Setting up anna group..."
+if ! getent group anna > /dev/null 2>&1; then
+    sudo groupadd anna
+    echo "  Created group: anna"
+fi
+
+# Add current user to anna group
+USERNAME=$(whoami)
+if ! groups "$USERNAME" 2>/dev/null | grep -q "\banna\b"; then
+    sudo usermod -aG anna "$USERNAME"
+    echo "  Added $USERNAME to anna group"
+fi
+
+# v0.3.31: Create system directories
+echo "Creating system directories..."
+sudo mkdir -p /etc/anna
+sudo mkdir -p /var/lib/anna /var/lib/anna/backups /var/lib/anna/wiki /var/lib/anna/recipes
+sudo mkdir -p /var/log/anna
+sudo mkdir -p /run/anna
+
+# Set permissions
+sudo chgrp anna /etc/anna
+sudo chmod 755 /etc/anna
+for dir in /var/lib/anna /var/lib/anna/backups /var/lib/anna/wiki /var/lib/anna/recipes /var/log/anna /run/anna; do
+    sudo chgrp anna "$dir"
+    sudo chmod 775 "$dir"
+done
+
+# Create tmpfiles.d config for /run/anna persistence
+sudo tee /etc/tmpfiles.d/anna.conf > /dev/null << 'TMPEOF'
+# Anna runtime directory
+d /run/anna 0775 root anna -
+TMPEOF
+
 # Create/update systemd service
 echo "Creating systemd service..."
 sudo tee /etc/systemd/system/annad.service > /dev/null << 'EOF'
@@ -101,6 +136,9 @@ TimeoutStopSec=10
 MemoryMax=2G
 # Environment
 Environment=RUST_BACKTRACE=1
+# v0.3.31: System-wide paths - runtime directory
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0775
 
 [Install]
 WantedBy=multi-user.target

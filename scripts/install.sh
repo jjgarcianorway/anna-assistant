@@ -299,6 +299,8 @@ install_directories() {
     print_section "install" "directories"
 
     $SUDO mkdir -p "$CONFIG_DIR"
+    $SUDO chgrp "$ANNA_GROUP" "$CONFIG_DIR"
+    $SUDO chmod 755 "$CONFIG_DIR"
     print_item_ok "/etc/anna"
 
     $SUDO mkdir -p "$STATE_DIR"
@@ -306,11 +308,29 @@ install_directories() {
     $SUDO chmod 775 "$STATE_DIR"
     print_item_ok "/var/lib/anna"
 
+    # v0.3.31: Subdirectories with anna group access
+    $SUDO mkdir -p "${STATE_DIR}/backups"
+    $SUDO chgrp "$ANNA_GROUP" "${STATE_DIR}/backups"
+    $SUDO chmod 775 "${STATE_DIR}/backups"
+    print_item_ok "/var/lib/anna/backups"
+
+    $SUDO mkdir -p "${STATE_DIR}/wiki"
+    $SUDO chgrp "$ANNA_GROUP" "${STATE_DIR}/wiki"
+    $SUDO chmod 775 "${STATE_DIR}/wiki"
+    print_item_ok "/var/lib/anna/wiki"
+
+    $SUDO mkdir -p "${STATE_DIR}/recipes"
+    $SUDO chgrp "$ANNA_GROUP" "${STATE_DIR}/recipes"
+    $SUDO chmod 775 "${STATE_DIR}/recipes"
+    print_item_ok "/var/lib/anna/recipes"
+
     $SUDO mkdir -p "$LOG_DIR"
     $SUDO chgrp "$ANNA_GROUP" "$LOG_DIR"
     $SUDO chmod 775 "$LOG_DIR"
     print_item_ok "/var/log/anna"
 
+    # v0.3.31: /run/anna is created by systemd RuntimeDirectory
+    # But we also create tmpfiles.d config for manual starts
     $SUDO mkdir -p "$RUN_DIR"
     $SUDO chgrp "$ANNA_GROUP" "$RUN_DIR"
     $SUDO chmod 775 "$RUN_DIR"
@@ -318,6 +338,19 @@ install_directories() {
 
     $SUDO mkdir -p "${STATE_DIR}/models"
     print_item_ok "/var/lib/anna/models"
+    echo ""
+}
+
+# v0.3.31: Install tmpfiles.d for /run/anna persistence across reboots
+install_tmpfiles() {
+    print_section "install" "tmpfiles.d"
+
+    $SUDO tee "/etc/tmpfiles.d/anna.conf" > /dev/null << 'EOF'
+# Anna runtime directory
+# Created on boot before annad.service starts
+d /run/anna 0775 root anna -
+EOF
+    print_item_ok "/etc/tmpfiles.d/anna.conf"
     echo ""
 }
 
@@ -357,8 +390,11 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-Environment="HOME=/root"
 Environment="OLLAMA_MODELS=/var/lib/anna/models"
+
+# v0.3.31: System-wide paths - no HOME needed
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0775
 
 [Install]
 WantedBy=multi-user.target
@@ -435,6 +471,7 @@ main() {
     verify_binaries  # v0.0.73: Verify binaries respond and match
     setup_group
     install_directories
+    install_tmpfiles
     install_config
     install_service
     print_handoff

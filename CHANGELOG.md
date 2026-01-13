@@ -49,11 +49,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Socket moved from `/run/anna.sock` to `/run/anna/anna.sock`
 - Existing user data will be migrated automatically on first run
 
-### Not Yet Implemented
+### Installer/Uninstaller Updates
 
-- Permissions model (anna user/group, polkit rules)
-- Installer updates for creating system directories
-- Multi-user access control via anna group
+- **Anna group permissions model**:
+  - Creates `anna` system group during install
+  - Adds installing user to `anna` group
+  - All /var/lib/anna subdirectories get 775 with anna group
+
+- **System directories created by installer**:
+  - `/etc/anna` (755) - config directory
+  - `/var/lib/anna` (775) - state directory with subdirs
+  - `/var/lib/anna/backups` (775)
+  - `/var/lib/anna/wiki` (775)
+  - `/var/lib/anna/recipes` (775)
+  - `/var/log/anna` (775) - log directory
+  - `/run/anna` (775) - runtime directory
+
+- **tmpfiles.d config** (`/etc/tmpfiles.d/anna.conf`):
+  - Ensures `/run/anna` survives reboot
+  - Created with `d /run/anna 0775 root anna -`
+
+- **SystemD service updated**:
+  - Removed `HOME=/root` environment (not needed with system paths)
+  - Added `RuntimeDirectory=anna` and `RuntimeDirectoryMode=0775`
+
+- **Uninstaller updated**:
+  - Removes `/etc/anna` config directory
+  - Removes `/etc/tmpfiles.d/anna.conf`
+  - Removes `/var/log/anna`
 
 ## [0.3.30] - 2026-01-13
 

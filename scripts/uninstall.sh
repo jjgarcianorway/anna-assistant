@@ -63,7 +63,28 @@ remove_data() {
 
     rm -rf /var/lib/anna
     rm -rf /run/anna
+    rm -rf /var/log/anna
     log_info "System data directories removed"
+}
+
+# v0.3.31: Remove config directory
+remove_config() {
+    log_info "Removing config directory..."
+
+    if [ -d /etc/anna ]; then
+        rm -rf /etc/anna
+        log_info "Config directory removed"
+    fi
+}
+
+# v0.3.31: Remove tmpfiles.d config
+remove_tmpfiles() {
+    log_info "Removing tmpfiles.d config..."
+
+    if [ -f /etc/tmpfiles.d/anna.conf ]; then
+        rm -f /etc/tmpfiles.d/anna.conf
+        log_info "tmpfiles.d config removed"
+    fi
 }
 
 # Remove user data (v0.3.24: includes backups)
@@ -169,6 +190,8 @@ main() {
     remove_service
     remove_binaries
     remove_data
+    remove_config
+    remove_tmpfiles
     remove_user_data
     cleanup_group
     print_complete
