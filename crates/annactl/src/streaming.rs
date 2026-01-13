@@ -2,15 +2,15 @@
 //! v0.3.4: Added spinner animation while waiting for LLM response
 //! v0.3.28: Added version compatibility check before streaming requests
 //! v0.3.30: TERMINALITY CONTRACT - No Done packet = No answer = Failure
+//! v0.3.35: Uses daemon_recovery for self-healing connections
 
 use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, StepType, StreamingResponse};
-use anna_shared::socket_path;
 use anyhow::{anyhow, Result};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::UnixStream;
 use tokio::time::timeout;
 
+use crate::daemon_recovery::connect_with_recovery;
 use crate::display::*;
 use crate::rpc::{ensure_compatible_daemon, RPC_TIMEOUT_SECS};
 use crate::spinner::Spinner;
@@ -26,25 +26,8 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
     // v0.3.28: Verify version compatibility before streaming request
     ensure_compatible_daemon().await?;
 
-    let socket_file = socket_path();
-    let socket_path = std::path::Path::new(&socket_file);
-
-    if !socket_path.exists() {
-        return Err(anyhow!(
-            "Anna daemon not running.\n\
-             The socket at {} does not exist.\n\n\
-             Start the daemon with: sudo systemctl start annad",
-            socket_file
-        ));
-    }
-
-    let mut stream = UnixStream::connect(socket_path).await.map_err(|e| {
-        anyhow!(
-            "Cannot connect to Anna daemon: {}\n\n\
-             Try: sudo systemctl restart annad",
-            e
-        )
-    })?;
+    // v0.3.35: Use self-healing connection - never tells user to run commands
+    let mut stream = connect_with_recovery().await?;
 
     // Send request with session_id for context tracking
     let request = RpcRequest::new(
@@ -326,5 +309,34 @@ mod tests {
             source.contains("No response received from daemon"),
             "Should handle empty stream case"
         );
+    }
+
+    /// v0.3.35: Verify streaming code never tells users to run manual commands
+    #[test]
+    fn test_no_manual_commands_in_streaming() {
+        let source = include_str!("streaming.rs");
+
+        // Find main code (excluding test module)
+        let test_module_start = source.find("#[cfg(test)]").unwrap_or(source.len());
+        let main_code = &source[..test_module_start];
+
+        // Forbidden patterns - manual command instructions
+        let forbidden = [
+            "sudo systemctl start",
+            "sudo systemctl restart",
+            "systemctl start annad",
+            "systemctl restart annad",
+            "usermod -aG anna",
+            "Run: sudo",
+            "Try: sudo",
+        ];
+
+        for pattern in &forbidden {
+            assert!(
+                !main_code.contains(pattern),
+                "Streaming code should not tell users to run '{}' - use daemon_recovery instead",
+                pattern
+            );
+        }
     }
 }

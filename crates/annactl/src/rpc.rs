@@ -2,16 +2,17 @@
 //!
 //! v0.3.28: Added version mismatch protection to prevent subtle RPC drift
 //! between incompatible annactl and annad versions.
+//! v0.3.35: Uses daemon_recovery for self-healing connections
 
 use anna_shared::rpc::{AskResult, ResetResult, RpcMethod, RpcRequest, RpcResponse};
-use anna_shared::socket_path;
 use anna_shared::status::DaemonStatus;
 use anyhow::{anyhow, Result};
-use std::path::Path;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::time::timeout;
+
+use crate::daemon_recovery::connect_with_recovery;
 
 pub const RPC_TIMEOUT_SECS: u64 = 120; // 2 minutes for LLM operations
 
@@ -48,11 +49,9 @@ pub fn check_version_compatibility(daemon_version: &str) -> Result<()> {
                 return Err(anyhow!(
                     "Version mismatch: annactl {} vs annad {}\n\n\
                      Major/minor versions must match to prevent RPC drift.\n\
-                     Please update both binaries to the same version:\n\n\
-                     Option 1: Reinstall using the installer\n\
-                       curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/install.sh | bash\n\n\
-                     Option 2: Build from source\n\
-                       cargo build --release --workspace && sudo systemctl restart annad",
+                     Please update both binaries to the same version.\n\n\
+                     Reinstall using the installer:\n\
+                       curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/install.sh | bash",
                     CLIENT_VERSION, daemon_version
                 ));
             }
@@ -70,27 +69,10 @@ pub fn check_version_compatibility(daemon_version: &str) -> Result<()> {
     }
 }
 
-/// Connect to the daemon
+/// Connect to the daemon with automatic recovery
+/// v0.3.35: Uses daemon_recovery for self-healing - never tells user to run commands
 pub async fn connect() -> Result<UnixStream> {
-    let socket_file = socket_path();
-    let socket_path = Path::new(&socket_file);
-
-    if !socket_path.exists() {
-        return Err(anyhow!(
-            "Anna daemon not running.\n\
-             The socket at {} does not exist.\n\n\
-             Start the daemon with: sudo systemctl start annad",
-            socket_file
-        ));
-    }
-
-    UnixStream::connect(socket_path).await.map_err(|e| {
-        anyhow!(
-            "Cannot connect to Anna daemon: {}\n\n\
-             Try: sudo systemctl restart annad",
-            e
-        )
-    })
+    connect_with_recovery().await
 }
 
 /// Send an RPC request and get the response
@@ -238,6 +220,33 @@ mod tests {
             }
         };
         assert!(result, "Different major versions should be incompatible");
+    }
+
+    /// v0.3.35: Verify RPC code never tells users to run manual daemon commands
+    #[test]
+    fn test_no_manual_daemon_commands_in_rpc() {
+        let source = include_str!("rpc.rs");
+
+        // Find main code (excluding test module)
+        let test_module_start = source.find("#[cfg(test)]").unwrap_or(source.len());
+        let main_code = &source[..test_module_start];
+
+        // Forbidden patterns - manual daemon management commands
+        let forbidden = [
+            "sudo systemctl start annad",
+            "sudo systemctl restart annad",
+            "systemctl start annad",
+            "systemctl restart annad",
+            "usermod -aG anna",
+        ];
+
+        for pattern in &forbidden {
+            assert!(
+                !main_code.contains(pattern),
+                "RPC code should not tell users to run '{}' - use daemon_recovery instead",
+                pattern
+            );
+        }
     }
 }
 

@@ -357,10 +357,10 @@ Works on: Arch, Ubuntu, Debian, Fedora, and most systemd-based distros.
 - **Probes**: Shell commands that gather real system data
 - **Recipes**: Learned patterns for instant responses
 
-Data storage:
-- `~/.anna/` - Your profile, tickets, learned recipes
-- `/var/lib/anna/` - System snapshots, telemetry
-- `/etc/anna/` - Global configuration
+Data storage (system-wide, no home directory writes):
+- `/etc/anna/` - Configuration
+- `/var/lib/anna/` - State data (tickets, recipes, memory, stats)
+- `/run/anna/` - Runtime (socket)
 
 ## Privacy
 
@@ -388,7 +388,7 @@ A: Yes! The LLM runs locally. You only need internet for the initial install and
 A: She's named after... actually, we're not sure. She just showed up one day and started being helpful.
 
 **Q: Can I customize the AI model?**
-A: Yes! Set `ANNA_OLLAMA_MODEL` environment variable or edit `~/.anna/config.toml`. Default is Qwen2.5:7b.
+A: Yes! Set `ANNA_OLLAMA_MODEL` environment variable or edit `/etc/anna/config.toml`. Default is Qwen2.5:7b.
 
 **Q: How do I report bugs?**
 A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
@@ -411,14 +411,14 @@ These guarantees are enforced in code, not just prompts.
 
 ## Version
 
-Current: **v0.3.25**
+Current: **v0.3.35**
 
 Recent highlights:
+- **Self-healing daemon connection** - Anna automatically starts the daemon if not running
+- **No manual commands** - Error 111/connection refused handled automatically
+- **Translator intelligence** - deterministic intent classification and recipe resolution
 - **ClaimGate enforcement** - factual claims require probe evidence or trusted docs
 - **Evidence line** - every answer shows its sources (debug mode: full provenance)
-- **Update transparency** - status shows check interval, last check, result, next check
-- **SentenceType classifier** - distinguishes FACT/SUGGESTION/QUESTION/NARRATIVE
-- **12 claim verification tests** - blocking, evidence pass-through, conflict detection
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.
 

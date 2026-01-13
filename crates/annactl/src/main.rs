@@ -1,7 +1,9 @@
 //! Anna CLI - simple REPL interface to ask questions about Arch Linux.
 //! v0.1.0: Added UI utilities for Hollywood-style experience
 //! v0.3.21: Added event renderer for truth-first output
+//! v0.3.35: Added daemon_recovery for self-healing connection
 
+mod daemon_recovery;
 mod display;
 mod event_renderer;
 mod rpc;

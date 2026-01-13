@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.35] - 2026-01-13
+
+### Fixed - Self-Healing Daemon Connection (Error 111)
+
+**CRITICAL FIX: Anna no longer tells users to run manual commands.**
+
+When annactl cannot connect to annad (socket missing, connection refused, Error 111), Anna now:
+
+1. **Detects the daemon state** automatically (not running, not responding, permission denied)
+2. **Attempts automatic recovery** via systemctl with privilege escalation if needed
+3. **Explains the situation** in natural language without exposing raw error codes
+4. **Uses pkexec** for GUI-based authentication when sudo is required
+
+This enforces SPEC.md invariant #3: "Anna must never require manual commands for install/update/uninstall"
+
+**New Module: `annactl/src/daemon_recovery.rs`**
+- `DaemonState` enum: Running, NotRunning, NotResponding, PermissionDenied
+- `RecoveryResult` enum: AlreadyRunning, Started, Failed
+- `connect_with_recovery()` - main entry point for self-healing connections
+- `ensure_daemon_running()` - automatic recovery logic
+- `check_daemon_state()` - socket and connection health check
+
+**Error Message Changes:**
+- Removed: "Start the daemon with: sudo systemctl start annad"
+- Removed: "Try: sudo systemctl restart annad"
+- Removed: "Run: sudo usermod -aG anna $USER"
+- Added: Natural language explanations with automatic recovery
+
+**Tests Added:**
+- `test_no_manual_commands_in_error_messages` - verifies daemon_recovery has no manual commands
+- `test_no_manual_daemon_commands_in_rpc` - verifies rpc.rs has no manual commands
+- `test_no_manual_commands_in_streaming` - verifies streaming.rs has no manual commands
+- `test_recovery_states_are_complete` - verifies all states have recovery paths
+
+## [0.3.34] - 2026-01-13
+
+### Added - Phase 7: Translator Intelligence and Recipe Resolution
+
+**Translator Module Restructuring**
+- Split single-file translator into proper module structure:
+  - `translator/mod.rs` - Main entry point with Translator struct
+  - `translator/intent.rs` - Intent types (IntentAction, IntentSubject, UserIntent)
+  - `translator/classifier.rs` - Deterministic pattern and keyword matching
+  - `translator/decision.rs` - Decision pipeline (execute/clarify/cannot-handle)
+  - `translator/confidence.rs` - Deterministic confidence scoring
+  - `translator/clarification.rs` - Clarification types and response parsing
+
+**Deterministic Decision Pipeline**
+- TranslatorDecision enum: ExecuteRecipe, NeedsClarification, NeedsConfirmation, CannotHandle
+- No LLM, no network, no probabilistic behavior
+- Pattern matching: highest confidence (0.90)
+- Keyword matching: medium confidence (0.70)
+- Fuzzy matching: low confidence (0.45)
+
+**Intent Classification**
+- 9 IntentAction types: Query, Configure, Execute, Package, Troubleshoot, Help, AnnaConfig, Undo, Unknown
+- 15+ IntentSubject types: DiskUsage, MemoryUsage, CpuUsage, ServiceStatus, etc.
+- ClassificationMethod tracking: PatternMatch, KeywordMatch, FuzzyMatch, Unknown
+- Parameters extraction from commands (package names, service names)
+
+**Confidence Scoring**
+- ConfidenceScore with breakdown (pattern, keyword, recipe_history, context)
+- Thresholds: HIGH >= 0.85, MEDIUM >= 0.60, LOW < 0.60
+- Recipe history boost (logarithmic scaling based on success_count)
+- Ambiguity penalties for vague inputs
+
+**Clarification Flow**
+- ClarificationType: IntentUnclear, MissingParameter, AmbiguousRequest, ConfirmationNeeded, MultipleOptions
+- Response parsing: numeric selection, text matching, yes/no confirmation
+- Context preservation for follow-up
+
+### Tests
+- 31 new translator tests covering all modules
+- Total: 371 tests passing
+
 ## [0.3.33] - 2026-01-13
 
 ### Added - CI Acceptance Gates
