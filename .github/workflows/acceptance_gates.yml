@@ -1,0 +1,88 @@
+name: Acceptance Gates
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+
+jobs:
+  acceptance-gates:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Build release binaries
+        run: cargo build --release --workspace
+
+      - name: Run unit tests
+        run: cargo test --workspace
+
+      - name: Install binaries
+        run: |
+          sudo cp target/release/annad /usr/local/bin/annad
+          sudo cp target/release/annactl /usr/local/bin/annactl
+          sudo chmod +x /usr/local/bin/annad /usr/local/bin/annactl
+
+      - name: Setup anna group and directories
+        run: |
+          sudo groupadd anna || true
+          sudo mkdir -p /etc/anna /var/lib/anna /run/anna /var/log/anna
+          sudo chown root:anna /var/lib/anna /run/anna /var/log/anna
+          sudo chmod 750 /var/lib/anna /run/anna /var/log/anna
+          sudo chmod 755 /etc/anna
+
+      - name: Run acceptance gates
+        run: |
+          chmod +x tests/acceptance_gates.sh
+          sudo bash tests/acceptance_gates.sh 2>&1 | tee acceptance_output.txt
+
+      - name: Capture permissions snapshot
+        run: |
+          echo "=== PERMISSIONS SNAPSHOT ===" > permissions_snapshot.txt
+          echo "" >> permissions_snapshot.txt
+          echo "Directories:" >> permissions_snapshot.txt
+          ls -ld /etc/anna /var/lib/anna /run/anna /var/log/anna 2>/dev/null >> permissions_snapshot.txt || true
+          echo "" >> permissions_snapshot.txt
+          echo "State files:" >> permissions_snapshot.txt
+          ls -la /var/lib/anna/ 2>/dev/null >> permissions_snapshot.txt || true
+          echo "" >> permissions_snapshot.txt
+          echo "Socket:" >> permissions_snapshot.txt
+          ls -la /run/anna/ 2>/dev/null >> permissions_snapshot.txt || true
+          cat permissions_snapshot.txt
+
+      - name: Generate proof transcript
+        run: |
+          echo "=== ACCEPTANCE GATES PROOF TRANSCRIPT ===" > proof_transcript.txt
+          echo "Run: $(date -u)" >> proof_transcript.txt
+          echo "Commit: ${{ github.sha }}" >> proof_transcript.txt
+          echo "Ref: ${{ github.ref }}" >> proof_transcript.txt
+          echo "" >> proof_transcript.txt
+          cat acceptance_output.txt >> proof_transcript.txt
+          echo "" >> proof_transcript.txt
+          echo "=== PERMISSIONS ===" >> proof_transcript.txt
+          cat permissions_snapshot.txt >> proof_transcript.txt
+
+      - name: Upload proof artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: acceptance-proof
+          path: |
+            proof_transcript.txt
+            permissions_snapshot.txt
+            acceptance_output.txt
+          retention-days: 90
+
+      - name: Verify all gates passed
+        run: |
+          if grep -q "\[FAIL\]" acceptance_output.txt; then
+            echo "ACCEPTANCE GATES FAILED"
+            cat acceptance_output.txt
+            exit 1
+          fi
+          echo "All acceptance gates PASSED"

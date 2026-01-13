@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.33] - 2026-01-13
+
+### Added - CI Acceptance Gates
+
+**Zero-user-action sign-off via GitHub Actions.**
+
+- `.github/workflows/acceptance_gates.yml` - Runs on all tags and PRs
+- `tests/acceptance_gates.sh` - Comprehensive acceptance verification:
+  - Gate A: No home writes in codebase
+  - Gate B: Permissions model (750/640/660)
+  - Gate C: Socket access model
+  - Gate D: Migration idempotency
+  - Gate E: Update mechanism
+  - Gate F: No manual deployment instructions
+- Produces artifacts: `proof_transcript.txt`, `permissions_snapshot.txt`
+
+**Deployment model: annad auto-updates from GitHub releases only.**
+
 ## [0.3.32] - 2026-01-13
 
 ### Security Fix - Permissions Model Hardening
