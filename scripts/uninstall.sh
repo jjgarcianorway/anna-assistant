@@ -59,11 +59,64 @@ remove_binaries() {
 
 # Remove data directories
 remove_data() {
-    log_info "Removing data directories..."
+    log_info "Removing system data directories..."
 
     rm -rf /var/lib/anna
     rm -rf /run/anna
-    log_info "Data directories removed"
+    log_info "System data directories removed"
+}
+
+# Remove user data (v0.3.24: includes backups)
+remove_user_data() {
+    log_info "Checking for user data..."
+
+    # Check all users with home directories
+    for user_home in /home/*; do
+        if [ -d "$user_home" ]; then
+            username=$(basename "$user_home")
+
+            # Check for ~/.anna directory
+            anna_dir="$user_home/.anna"
+            if [ -d "$anna_dir" ]; then
+                # Check for backups specifically
+                backup_dir="$anna_dir/backups"
+                if [ -d "$backup_dir" ]; then
+                    backup_count=$(find "$backup_dir" -maxdepth 1 -type d | wc -l)
+                    backup_count=$((backup_count - 1))  # Subtract 1 for the directory itself
+                    if [ "$backup_count" -gt 0 ]; then
+                        log_warn "Found $backup_count backup(s) in $backup_dir"
+                        read -p "Remove backups for user $username? [y/N] " -n 1 -r
+                        echo
+                        if [[ $REPLY =~ ^[Yy]$ ]]; then
+                            rm -rf "$backup_dir"
+                            log_info "Backups removed for $username"
+                        else
+                            log_info "Backups preserved at $backup_dir"
+                        fi
+                    fi
+                fi
+
+                # Remove rest of ~/.anna (excluding backups if preserved)
+                read -p "Remove all Anna data for user $username ($anna_dir)? [y/N] " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    rm -rf "$anna_dir"
+                    log_info "User data removed for $username"
+                fi
+            fi
+
+            # Check for ~/.local/share/anna (tickets, fix history)
+            local_anna="$user_home/.local/share/anna"
+            if [ -d "$local_anna" ]; then
+                read -p "Remove local data for user $username ($local_anna)? [y/N] " -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    rm -rf "$local_anna"
+                    log_info "Local data removed for $username"
+                fi
+            fi
+        fi
+    done
 }
 
 # Optionally remove anna group
@@ -116,6 +169,7 @@ main() {
     remove_service
     remove_binaries
     remove_data
+    remove_user_data
     cleanup_group
     print_complete
 }

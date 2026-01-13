@@ -348,3 +348,14 @@ pub fn init_ticket_sequence() {
         }
     }
 }
+
+/// v0.3.23: Reset in-memory ticket store to match cleared files
+/// Called after SafeReset to ensure daemon memory is consistent with disk
+pub fn reset_ticket_store() {
+    // Reset the sequence counter
+    TICKET_SEQUENCE.store(1, std::sync::atomic::Ordering::SeqCst);
+
+    // Clear the in-memory store - it will reload from disk (which is now empty)
+    let mut guard = STORE.write().unwrap();
+    *guard = Some(TicketStore::default());
+}

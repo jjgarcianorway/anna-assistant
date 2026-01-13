@@ -16,6 +16,7 @@
 
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::recipe::{Recipe, RecipeBook, RecipeCommand, RecipeContext, RecipeSource};
+use anna_shared::claim_gate::{ClaimGate, ClaimVerifier, EvidenceType};
 use anyhow::Result;
 use tracing::{debug, info, warn};
 
@@ -1685,29 +1686,33 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
 
         match ollama::chat_with_timeout(model, &prompt, 60).await {
             Ok(answer) => {
-                // Stream the answer token by token
-                let step = DialogueStep {
-                    step_type: StepType::FinalPrompt,
-                    content: String::new(),
+                // v0.3.25: Verify answer through ClaimGate with evidence line
+                let evidence: Vec<(String, String, i32)> = executed.iter()
+                    .zip(outputs.iter())
+                    .map(|(cmd, out)| (cmd.clone(), out.clone(), 0))
+                    .collect();
+                let debug_mode = anna_shared::config::AnnaConfig::load()
+                    .map(|c| c.debug_mode)
+                    .unwrap_or(false);
+                let verification = verify_answer(&answer, question, &evidence, debug_mode);
+
+                // Append evidence line
+                let final_answer = if verification.evidence_line.is_empty() {
+                    verification.answer.clone()
+                } else {
+                    format!("{}\n\n{}", verification.answer, verification.evidence_line)
                 };
+
+                // v0.3.22: Truth-first rendering - send complete answer, no fake streaming
+                let step = DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: final_answer.clone(),
+                };
+                dialogue.push(step.clone());
                 send_step(writer, step).await?;
 
-                for token in answer.split_inclusive(' ') {
-                    let resp = StreamingResponse::Token {
-                        token: token.to_string(),
-                    };
-                    let json = serde_json::to_string(&resp)?;
-                    writer.write_all(format!("{}\n", json).as_bytes()).await?;
-                    writer.flush().await?;
-                }
-
-                dialogue.push(DialogueStep {
-                    step_type: StepType::FinalAnswer,
-                    content: answer.clone(),
-                });
-
                 let result = AskResult {
-                    answer,
+                    answer: final_answer,
                     success: true,
                     iterations: 1,
                     commands_executed: executed,
@@ -1843,23 +1848,6 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
 
         // Step 4: Check completion
         if eval.is_complete && eval.confidence >= criteria.min_confidence {
-            // Stream the final answer token by token
-            let step = DialogueStep {
-                step_type: StepType::FinalPrompt,
-                content: String::new(),
-            };
-            send_step(writer, step).await?;
-
-            // Stream tokens
-            for token in answer.split_inclusive(' ') {
-                let resp = StreamingResponse::Token {
-                    token: token.to_string(),
-                };
-                let json = serde_json::to_string(&resp)?;
-                writer.write_all(format!("{}\n", json).as_bytes()).await?;
-                writer.flush().await?;
-            }
-
             // v0.3.3: Specialist reports completion before final answer
             if let Some(ref spec_name) = assigned_spec_name {
                 let completion_msg = format!("{} -> Anna: I've got the answer.", spec_name);
@@ -1871,22 +1859,42 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 send_step(writer, step).await?;
             }
 
-            dialogue.push(DialogueStep {
+            // v0.3.26: Verify answer through ClaimGate with evidence line and doc citations
+            let evidence: Vec<(String, String, i32)> = state.commands.iter()
+                .zip(state.outputs.iter())
+                .map(|(cmd, out)| (cmd.clone(), out.clone(), 0))
+                .collect();
+            let debug_mode = anna_shared::config::AnnaConfig::load()
+                .map(|c| c.debug_mode)
+                .unwrap_or(false);
+            let verification = verify_answer(&answer, question, &evidence, debug_mode);
+
+            // Append evidence line
+            let final_answer = if verification.evidence_line.is_empty() {
+                verification.answer.clone()
+            } else {
+                format!("{}\n\n{}", verification.answer, verification.evidence_line)
+            };
+
+            // v0.3.22: Truth-first rendering - send complete answer, no fake streaming
+            let step = DialogueStep {
                 step_type: StepType::FinalAnswer,
-                content: answer.clone(),
-            });
+                content: final_answer.clone(),
+            };
+            dialogue.push(step.clone());
+            send_step(writer, step).await?;
 
             // v0.3.0: Learn recipe from successful answer
             learn_recipe_from_answer(question, &state.commands, eval.confidence);
 
             // v0.3.3: Update ticket as resolved
             let mut updated_ticket = ticket.clone();
-            updated_ticket.resolve(&answer, 10); // Award 10 XP
+            updated_ticket.resolve(&final_answer, 10); // Award 10 XP
             department::update_ticket(&updated_ticket);
 
             // Send done
             let result = AskResult {
-                answer,
+                answer: final_answer,
                 success: true,
                 iterations: iteration,
                 commands_executed: state.commands,
@@ -1913,29 +1921,34 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
     }
 
     // Max iterations - return best effort
-    let final_answer = state.answer.unwrap_or_else(|| {
+    let raw_answer = state.answer.unwrap_or_else(|| {
         "I couldn't fully answer your question. Please try rephrasing.".to_string()
     });
 
-    let step = DialogueStep {
-        step_type: StepType::FinalPrompt,
-        content: String::new(),
+    // v0.3.26: Verify answer through ClaimGate with evidence line and doc citations
+    let evidence: Vec<(String, String, i32)> = state.commands.iter()
+        .zip(state.outputs.iter())
+        .map(|(cmd, out)| (cmd.clone(), out.clone(), 0))
+        .collect();
+    let debug_mode = anna_shared::config::AnnaConfig::load()
+        .map(|c| c.debug_mode)
+        .unwrap_or(false);
+    let verification = verify_answer(&raw_answer, question, &evidence, debug_mode);
+
+    // Append evidence line
+    let final_answer = if verification.evidence_line.is_empty() {
+        verification.answer.clone()
+    } else {
+        format!("{}\n\n{}", verification.answer, verification.evidence_line)
     };
-    send_step(writer, step).await?;
 
-    // Stream tokens
-    for token in final_answer.split_inclusive(' ') {
-        let resp = anna_shared::rpc::StreamingResponse::Token {
-            token: token.to_string(),
-        };
-        let json = serde_json::to_string(&resp)?;
-        writer.write_all(format!("{}\n", json).as_bytes()).await?;
-    }
-
-    dialogue.push(DialogueStep {
+    // v0.3.22: Truth-first rendering - send complete answer, no fake streaming
+    let step = DialogueStep {
         step_type: StepType::FinalAnswer,
         content: final_answer.clone(),
-    });
+    };
+    dialogue.push(step.clone());
+    send_step(writer, step).await?;
 
     let result = AskResult {
         answer: final_answer,
@@ -1969,6 +1982,100 @@ async fn send_step<W: tokio::io::AsyncWriteExt + Unpin>(
     writer.write_all(format!("{}\n", json).as_bytes()).await?;
     writer.flush().await?;
     Ok(())
+}
+
+/// v0.3.25: Result of ClaimGate verification
+struct RalphVerificationResult {
+    /// The answer text (may have [unverified] markers)
+    answer: String,
+    /// Evidence line to append (formatted)
+    evidence_line: String,
+}
+
+/// v0.3.26: Format evidence line for display (with doc citations)
+fn format_evidence_line(commands: &[(String, String, i32)], doc_citations: &[String], debug_mode: bool) -> String {
+    if commands.is_empty() && doc_citations.is_empty() {
+        return String::new();
+    }
+
+    if debug_mode {
+        // Verbose format with exit codes and citations
+        let mut lines = vec!["Evidence:".to_string()];
+        for (cmd, _output, exit_code) in commands {
+            lines.push(format!("  [Probe: `{}` (exit {})]", cmd, exit_code));
+        }
+        for citation in doc_citations {
+            lines.push(format!("  [Doc: {}]", citation));
+        }
+        lines.join("\n")
+    } else {
+        // Concise format - probes and citations
+        let mut parts: Vec<String> = commands.iter().map(|(cmd, _, _)| cmd.clone()).collect();
+        parts.extend(doc_citations.iter().cloned());
+        format!("Evidence: {}", parts.join(", "))
+    }
+}
+
+/// v0.3.26: Verify answer through ClaimGate with doc citations
+/// Returns verified answer text with evidence line
+fn verify_answer(answer: &str, question: &str, executed_commands: &[(String, String, i32)], debug_mode: bool) -> RalphVerificationResult {
+    use anna_shared::claim_gate::ClaimGate as CG;
+    use anna_shared::docs;
+
+    let gate = ClaimGate::new();
+
+    // Build evidence from executed commands
+    let mut evidence: Vec<EvidenceType> = executed_commands
+        .iter()
+        .map(|(cmd, output, exit_code)| {
+            ClaimGate::evidence_from_probe(cmd, output, *exit_code)
+        })
+        .collect();
+
+    // v0.3.26: Search docs if question requires documentation
+    let mut doc_citations = Vec::new();
+    if CG::claim_requires_docs(question) {
+        // Extract key terms from question
+        let terms: Vec<&str> = question
+            .split_whitespace()
+            .filter(|w| w.len() > 2)
+            .take(5)
+            .collect();
+        let search_query = terms.join(" ");
+
+        // Search local documentation
+        let citations = docs::search_docs(&search_query);
+        for citation in &citations {
+            doc_citations.push(citation.format_short());
+            evidence.push(CG::evidence_from_doc_citation(citation));
+        }
+    }
+
+    // Verify the response with question context
+    let verified = gate.verify_response_with_context(answer, question, &evidence);
+
+    let verified_answer = if verified.unverified_claims.is_empty() {
+        // All claims verified, return original
+        answer.to_string()
+    } else {
+        // Some claims unverified, return marked text
+        info!(
+            "ClaimGate: {} claims verified, {} unverified, docs_required={}, docs_found={}",
+            verified.verified_claims.len(),
+            verified.unverified_claims.len(),
+            verified.docs_required,
+            verified.docs_found
+        );
+        verified.verified_text
+    };
+
+    // Format evidence line with doc citations
+    let evidence_line = format_evidence_line(executed_commands, &doc_citations, debug_mode);
+
+    RalphVerificationResult {
+        answer: verified_answer,
+        evidence_line,
+    }
 }
 
 /// Truncate string with ellipsis

@@ -1,8 +1,11 @@
 //! Shared types for Anna.
 //! Contains types for daemon-client communication and shared functionality.
 
+pub mod claim_gate;
 pub mod config;
 pub mod deps;
+pub mod docs;
+pub mod event_bus;
 pub mod experiment;
 pub mod helpers;
 pub mod integration;

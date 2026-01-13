@@ -311,6 +311,29 @@ impl StateInner {
         // v0.3.3: Get team roster and ticket stats
         let (team_roster, ticket_tracker) = Self::get_team_and_tickets();
 
+        // v0.3.20: Get additional stats for spec compliance
+        let ollama_version = Self::get_ollama_version();
+        let permissions = anna_shared::status::PermissionsAudit::check();
+        let escalated_tickets_count = ticket_tracker.dept_stats.values()
+            .map(|s| s.escalations_out)
+            .sum();
+        let solved_alone_count = rpg_stats.instant_answers + rpg_stats.memory_answers;
+
+        // v0.3.21: New full status contract fields
+        let build_info = anna_shared::status::BuildMetadata::from_build_info();
+        let socket_path = anna_shared::socket_path();
+        let mut socket_health = anna_shared::status::SocketHealth::check(&socket_path);
+        // Mark as healthy since daemon is running
+        socket_health.mark_healthy();
+        let config_snapshot = anna_shared::status::ConfigSnapshot::current();
+        let model_mappings = anna_shared::status::ModelMapping::defaults(
+            &self.model.clone().unwrap_or_else(|| "qwen2.5:7b".to_string())
+        );
+        let helpers = anna_shared::status::HelperInfo::check_all();
+
+        // v0.3.24: Backup status
+        let backup_info = Self::get_backup_status();
+
         anna_shared::status::DaemonStatus {
             state: self.state,
             version: VERSION.to_string(),
@@ -327,12 +350,97 @@ impl StateInner {
             next_update_check: self.update.next_check_at.map(|t| t.to_rfc3339()),
             latest_version: self.update.latest_version.clone(),
             update_state: self.update.check_state,
+            // v0.3.25: Auto-update enabled status
+            auto_update_enabled: self.update.enabled,
             pattern_count,
             recipe_count,
             rpg_stats,
             ticket_tracker,
             team_roster,
+            // v0.3.20: New fields for spec compliance
+            ollama_version,
+            permissions,
+            escalated_tickets_count,
+            solved_alone_count,
+            // v0.3.21: Full status contract fields
+            build_info,
+            socket_health,
+            error_summary: anna_shared::status::ErrorSummary::default(),
+            config_snapshot,
+            model_mappings,
+            helpers,
+            // v0.3.24: Backup status
+            backup_info,
         }
+    }
+
+    /// v0.3.24: Get backup status for status display
+    fn get_backup_status() -> anna_shared::status::BackupStatus {
+        use anna_shared::config::anna_data_dir;
+        use std::fs;
+
+        let backup_dir = anna_data_dir().join("backups");
+        let directory = backup_dir.display().to_string();
+
+        let mut backup_count = 0;
+        let mut total_size_bytes = 0u64;
+        let mut last_backup: Option<String> = None;
+        let mut last_backup_time: Option<std::time::SystemTime> = None;
+
+        if backup_dir.exists() {
+            if let Ok(entries) = fs::read_dir(&backup_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        backup_count += 1;
+
+                        // Get directory size
+                        if let Ok(metadata) = entry.metadata() {
+                            if let Ok(modified) = metadata.modified() {
+                                // Track most recent backup
+                                if last_backup_time.is_none() || Some(modified) > last_backup_time {
+                                    last_backup_time = Some(modified);
+                                    last_backup = Some(entry.file_name().to_string_lossy().to_string());
+                                }
+                            }
+                        }
+
+                        // Sum file sizes in backup directory
+                        if let Ok(files) = fs::read_dir(entry.path()) {
+                            for file in files.flatten() {
+                                if let Ok(meta) = file.metadata() {
+                                    total_size_bytes += meta.len();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        anna_shared::status::BackupStatus {
+            directory,
+            backup_count,
+            last_backup,
+            total_size_bytes,
+            retention_policy: "Manual cleanup only (annactl reset does not delete old backups)".to_string(),
+        }
+    }
+
+    /// v0.3.20: Get ollama version
+    fn get_ollama_version() -> Option<String> {
+        std::process::Command::new("ollama")
+            .arg("--version")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| {
+                // Parse "ollama version is X.X.X" or similar
+                s.trim()
+                    .strip_prefix("ollama version is ")
+                    .or_else(|| s.trim().strip_prefix("ollama version "))
+                    .unwrap_or(s.trim())
+                    .to_string()
+            })
     }
 
     /// v0.1.0: Get recipe count

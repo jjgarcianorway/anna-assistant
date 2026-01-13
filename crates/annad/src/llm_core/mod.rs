@@ -16,6 +16,7 @@ pub mod investigate;
 pub mod prompts;
 
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
+use anna_shared::claim_gate::{ClaimGate, ClaimVerifier, EvidenceType};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info};
@@ -27,6 +28,117 @@ use crate::ollama::chat_with_timeout;
 const MAX_ITERATIONS: u8 = 3;
 /// LLM timeout in seconds
 const LLM_TIMEOUT_SECS: u64 = 60;
+
+/// v0.3.25: Result of ClaimGate verification
+pub struct VerificationResult {
+    /// The answer text (may have [unverified] markers)
+    pub answer: String,
+    /// Evidence line to append (formatted)
+    pub evidence_line: String,
+    /// Whether investigation is needed (unverified FACT claims with low confidence)
+    pub needs_investigation: bool,
+    /// Suggested probes if investigation is needed
+    pub suggested_probes: Vec<String>,
+    /// Number of verified claims
+    pub verified_count: usize,
+    /// Number of unverified claims
+    pub unverified_count: usize,
+}
+
+/// v0.3.26: Format evidence line for display with doc citations
+fn format_evidence_line(
+    findings: &[Finding],
+    doc_citations: &[String],
+    debug_mode: bool,
+) -> String {
+    if findings.is_empty() && doc_citations.is_empty() {
+        return String::new();
+    }
+
+    if debug_mode {
+        // Verbose format with exit codes and doc citations
+        let mut lines = vec!["Evidence:".to_string()];
+        for f in findings {
+            let exit_code = if f.success { 0 } else { 1 };
+            lines.push(format!(
+                "  [Probe: `{}` (exit {})]",
+                f.command, exit_code
+            ));
+        }
+        for cite in doc_citations {
+            lines.push(format!("  {}", cite));
+        }
+        lines.join("\n")
+    } else {
+        // Concise format - probes and doc citations
+        let mut parts: Vec<String> = findings.iter().map(|f| f.command.clone()).collect();
+        parts.extend(doc_citations.iter().cloned());
+        format!("Evidence: {}", parts.join(", "))
+    }
+}
+
+/// v0.3.26: Verify answer through ClaimGate with question context for doc requirements
+fn verify_answer(
+    answer: &str,
+    question: &str,
+    findings: &[Finding],
+    debug_mode: bool,
+) -> VerificationResult {
+    use anna_shared::claim_gate::ClaimVerifier;
+
+    let gate = ClaimGate::new();
+
+    // Build probe evidence from findings
+    let mut evidence: Vec<EvidenceType> = findings
+        .iter()
+        .map(|f| {
+            ClaimGate::evidence_from_probe(
+                &f.command,
+                &f.output,
+                if f.success { 0 } else { 1 },
+            )
+        })
+        .collect();
+
+    // v0.3.26: If docs are required, search for relevant documentation
+    if ClaimGate::claim_requires_docs(question) {
+        // Search local docs
+        let doc_citations = anna_shared::docs::search_docs(question);
+        for cite in &doc_citations {
+            evidence.push(ClaimGate::evidence_from_doc_citation(cite));
+        }
+        debug!("Found {} doc citations for question", doc_citations.len());
+    }
+
+    // Verify the response with question context
+    let verified = gate.verify_response_with_context(answer, question, &evidence);
+
+    let verified_count = verified.verified_claims.len();
+    let unverified_count = verified.unverified_claims.len();
+
+    if !verified.unverified_claims.is_empty() {
+        info!(
+            "ClaimGate: {} claims verified, {} unverified, docs_required={}, docs_found={}",
+            verified_count, unverified_count, verified.docs_required, verified.docs_found
+        );
+    }
+
+    // Format evidence line with doc citations
+    let evidence_line = format_evidence_line(findings, &verified.doc_citations, debug_mode);
+
+    VerificationResult {
+        answer: if verified.unverified_claims.is_empty() {
+            answer.to_string()
+        } else {
+            verified.verified_text
+        },
+        evidence_line,
+        needs_investigation: verified.needs_investigation,
+        suggested_probes: verified.suggested_probes,
+        verified_count,
+        unverified_count,
+    }
+}
 
 /// Investigation state tracks what we've learned
 #[derive(Debug, Default)]
@@ -162,7 +274,20 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
     }
 
     // PHASE 3: RESPOND - Generate grounded answer
-    let answer = generate_answer(model, question, &state).await?;
+    let raw_answer = generate_answer(model, question, &state).await?;
+
+    // v0.3.25: Verify through ClaimGate and append evidence line
+    let debug_mode = anna_shared::config::AnnaConfig::load()
+        .map(|c| c.debug_mode)
+        .unwrap_or(false);
+    let verification = verify_answer(&raw_answer, question, &state.findings, debug_mode);
+
+    // Append evidence line if we have any findings
+    let answer = if verification.evidence_line.is_empty() {
+        verification.answer
+    } else {
+        format!("{}\n\n{}", verification.answer, verification.evidence_line)
+    };
 
     Ok(AskResult {
         answer,
@@ -280,7 +405,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
             }
             NextStep::Answer => break,
             NextStep::SuggestFix { problem, fix_command, explanation } => {
-                let answer = format!(
+                let raw_answer = format!(
                     "I found the issue: {}\n\n\
                      I can fix this by running:\n  {}\n\n\
                      {}\n\n\
@@ -288,15 +413,27 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
                     problem, fix_command, explanation
                 );
 
-                // Stream the answer
-                for word in answer.split_whitespace() {
-                    let response = StreamingResponse::Token { token: format!("{} ", word) };
-                    let json = serde_json::to_string(&response)?;
-                    writer.write_all(format!("{}\n", json).as_bytes()).await?;
-                }
+                // v0.3.25: Verify answer through ClaimGate with evidence line
+                let debug_mode = anna_shared::config::AnnaConfig::load()
+                    .map(|c| c.debug_mode)
+                    .unwrap_or(false);
+                let verification = verify_answer(&raw_answer, question, &state.findings, debug_mode);
+
+                // Append evidence line
+                let final_answer = if verification.evidence_line.is_empty() {
+                    verification.answer.clone()
+                } else {
+                    format!("{}\n\n{}", verification.answer, verification.evidence_line)
+                };
+
+                // v0.3.22: Truth-first rendering - send complete answer, no fake streaming
+                send_step(writer, DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: final_answer.clone(),
+                }, &mut dialogue).await?;
 
                 let result = AskResult {
-                    answer,
+                    answer: final_answer,
                     success: true,
                     iterations: state.iteration as u32,
                     commands_executed: state.findings.iter().map(|f| f.command.clone()).collect(),
@@ -337,17 +474,29 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
         content: "Generating answer...".to_string(),
     }, &mut dialogue).await?;
 
-    let answer = generate_answer(model, question, &state).await?;
+    let raw_answer = generate_answer(model, question, &state).await?;
 
-    // Stream the answer word by word
-    for word in answer.split_whitespace() {
-        let response = StreamingResponse::Token { token: format!("{} ", word) };
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(format!("{}\n", json).as_bytes()).await?;
-    }
+    // v0.3.25: Verify answer through ClaimGate with evidence line
+    let debug_mode = anna_shared::config::AnnaConfig::load()
+        .map(|c| c.debug_mode)
+        .unwrap_or(false);
+    let verification = verify_answer(&raw_answer, question, &state.findings, debug_mode);
+
+    // Append evidence line if we have any findings
+    let final_answer = if verification.evidence_line.is_empty() {
+        verification.answer.clone()
+    } else {
+        format!("{}\n\n{}", verification.answer, verification.evidence_line)
+    };
+
+    // v0.3.22: Truth-first rendering - send complete answer, no fake streaming
+    send_step(writer, DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: final_answer.clone(),
+    }, &mut dialogue).await?;
 
     let result = AskResult {
-        answer,
+        answer: final_answer,
         success: true,
         iterations: state.iteration as u32,
         commands_executed: state.findings.iter().map(|f| f.command.clone()).collect(),

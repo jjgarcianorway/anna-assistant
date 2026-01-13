@@ -1,8 +1,10 @@
 //! RPC request handlers and connection management.
 //! v0.0.922: Added request deduplication
 //! v0.0.926: Added memory fast path
+//! v0.3.21: Updated reset to use SafeReset with modes and backups
 
-use anna_shared::rpc::{ResetResult, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::rpc::{ResetMode, ResetParams, RpcMethod, RpcRequest, RpcResponse};
+use anna_shared::safe_ops::SafeReset;
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
@@ -221,78 +223,48 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
             )
         }
         RpcMethod::Reset => {
-            info!("Processing reset request");
-            let mut cleared = Vec::new();
+            // v0.3.21: Parse reset params (supports modes and backups)
+            let params: ResetParams = request.params
+                .as_ref()
+                .and_then(|p| serde_json::from_value(p.clone()).ok())
+                .unwrap_or_default();
 
-            // Clear all in-memory caches
+            info!("Processing reset request with mode: {:?}", params.mode);
+
+            // Always clear in-memory caches regardless of mode
             crate::core_loop::cache::clear_all_caches();
-            cleared.push("In-memory caches".to_string());
 
-            // Clear sessions
+            // Clear sessions for any reset
             {
                 let mut state_guard = state.write().await;
                 state_guard.sessions = anna_shared::session::SessionStore::new();
-                cleared.push("Sessions".to_string());
             }
 
-            // Clear memory (learning data)
-            match anna_shared::memory::Memory::load() {
-                Ok(memory) => {
-                    let exp_count = memory.experiences.len();
-                    let pattern_count = memory.patterns.len();
-                    let cluster_count = memory.clusters.len();
+            // v0.3.23: Clear in-memory ticket store to match file reset
+            crate::department::tickets::reset_ticket_store();
 
-                    // Create fresh empty memory
-                    let fresh_memory = anna_shared::memory::Memory::default();
-                    if fresh_memory.save().is_ok() {
-                        cleared.push(format!(
-                            "Memory ({} experiences, {} patterns, {} clusters)",
-                            exp_count, pattern_count, cluster_count
-                        ));
+            // Use SafeReset for file-based resets (with backup)
+            match SafeReset::execute(params.mode) {
+                Ok(mut result) => {
+                    // Add in-memory items to cleared list
+                    result.cleared.insert(0, "In-memory caches".to_string());
+                    result.cleared.insert(1, "Sessions".to_string());
+
+                    info!("Reset complete: {:?}", result.cleared);
+                    if let Some(ref backup) = result.backup_path {
+                        info!("Backup created at: {}", backup);
                     }
-                }
-                Err(_) => {
-                    // Memory file doesn't exist, that's fine
-                }
-            }
 
-            // v0.3.8: Reset stats (XP, questions answered)
-            match anna_shared::stats::PersistentStats::load() {
-                Ok(stats) => {
-                    let questions = stats.rpg.total_questions;
-                    let fresh_stats = anna_shared::stats::PersistentStats::default();
-                    if fresh_stats.save().is_ok() && questions > 0 {
-                        cleared.push(format!("Stats ({} questions)", questions));
-                    }
-                }
-                Err(_) => {}
-            }
-
-            // v0.3.13: Reset ticket tracker
-            let tickets_path = dirs::data_local_dir()
-                .unwrap_or_else(|| std::path::PathBuf::from("."))
-                .join("anna/tickets.json");
-            if tickets_path.exists() {
-                if let Ok(content) = std::fs::read_to_string(&tickets_path) {
-                    if let Ok(store) = serde_json::from_str::<serde_json::Value>(&content) {
-                        let resolved = store.get("total_resolved").and_then(|v| v.as_u64()).unwrap_or(0);
-                        let failed = store.get("total_failed").and_then(|v| v.as_u64()).unwrap_or(0);
-                        if resolved > 0 || failed > 0 {
-                            // Remove the file to reset
-                            let _ = std::fs::remove_file(&tickets_path);
-                            cleared.push(format!("Tickets ({} resolved, {} failed)", resolved, failed));
+                    match serde_json::to_value(&result) {
+                        Ok(v) => RpcResponse::success(&request.id, v),
+                        Err(e) => {
+                            RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e))
                         }
                     }
                 }
-            }
-
-            info!("Reset complete: {:?}", cleared);
-
-            let result = ResetResult { cleared };
-            match serde_json::to_value(&result) {
-                Ok(v) => RpcResponse::success(&request.id, v),
                 Err(e) => {
-                    RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e))
+                    warn!("Reset failed: {}", e);
+                    RpcResponse::error(&request.id, -32603, &format!("Reset failed: {}", e))
                 }
             }
         }

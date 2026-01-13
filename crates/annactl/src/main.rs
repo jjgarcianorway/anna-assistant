@@ -1,7 +1,9 @@
 //! Anna CLI - simple REPL interface to ask questions about Arch Linux.
 //! v0.1.0: Added UI utilities for Hollywood-style experience
+//! v0.3.21: Added event renderer for truth-first output
 
 mod display;
+mod event_renderer;
 mod rpc;
 mod spinner;
 mod streaming;
@@ -13,17 +15,50 @@ use std::io::{self, Write};
 use streaming::ask_streaming;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-/// Handle reset command - clears all statistics and learning data
-async fn handle_reset() {
+/// Handle reset command - clears data based on mode
+/// v0.3.20: Added modes per spec (memory, config, models, helpers, everything)
+async fn handle_reset(mode: anna_shared::rpc::ResetMode, skip_confirm: bool) {
     println!();
     println_colored("RESET", CYAN);
     println!();
 
-    match rpc::reset().await {
+    // Show what will be reset
+    print!("  mode:          ");
+    println_colored(&format!("{:?}", mode).to_lowercase(), YELLOW);
+    print!("  will reset:    ");
+    println_colored(mode.description(), DIM);
+    println!();
+
+    // Require confirmation for destructive modes
+    if !skip_confirm && mode == anna_shared::rpc::ResetMode::Everything {
+        print_colored("This will delete all Anna data and cannot be undone.", YELLOW);
+        println!();
+        print!("  Type 'yes' to confirm: ");
+        std::io::stdout().flush().ok();
+
+        let mut response = String::new();
+        if std::io::stdin().read_line(&mut response).is_err() {
+            println_colored("Cancelled.", DIM);
+            return;
+        }
+        if response.trim().to_lowercase() != "yes" {
+            println_colored("Reset cancelled.", DIM);
+            println!();
+            return;
+        }
+        println!();
+    }
+
+    match rpc::reset(mode).await {
         Ok(result) => {
             println_colored("Reset complete:", GREEN);
             for item in &result.cleared {
-                println!("  ✓ {}", item);
+                println!("  [OK] {}", item);
+            }
+            if let Some(backup) = &result.backup_path {
+                println!();
+                print_colored("  backup saved: ", DIM);
+                println_colored(backup, CYAN);
             }
             println!();
             println_colored("Anna is ready to start fresh.", DIM);
@@ -33,6 +68,22 @@ async fn handle_reset() {
             println!("{}", e);
         }
     }
+    println!();
+}
+
+/// Show reset help
+fn show_reset_help() {
+    println!();
+    println_colored("RESET MODES", BOLD);
+    println!();
+    println!("  annactl reset              Reset everything (with confirmation)");
+    println!("  annactl reset memory       Reset memory only (experiences, patterns)");
+    println!("  annactl reset config       Reset config only (settings to defaults)");
+    println!("  annactl reset models       Reset model preferences");
+    println!("  annactl reset helpers      Reset helper tracking");
+    println!("  annactl reset everything   Full factory reset");
+    println!();
+    println!("  annactl reset --force      Skip confirmation");
     println!();
 }
 
@@ -202,7 +253,27 @@ async fn main() -> Result<()> {
                 print_stats(true);
             }
             "reset" => {
-                handle_reset().await;
+                handle_reset(anna_shared::rpc::ResetMode::Everything, false).await;
+            }
+            "reset --help" | "reset -h" => {
+                show_reset_help();
+            }
+            cmd if cmd.starts_with("reset ") => {
+                let rest = cmd.strip_prefix("reset ").unwrap().trim();
+                let (mode_str, force) = if rest.contains("--force") || rest.contains("-f") {
+                    (rest.replace("--force", "").replace("-f", "").trim().to_string(), true)
+                } else {
+                    (rest.to_string(), false)
+                };
+
+                if mode_str.is_empty() {
+                    handle_reset(anna_shared::rpc::ResetMode::Everything, force).await;
+                } else if let Some(mode) = anna_shared::rpc::ResetMode::from_str(&mode_str) {
+                    handle_reset(mode, force).await;
+                } else {
+                    print_colored("Error: ", RED);
+                    println!("Unknown reset mode '{}'. Use 'reset --help' for available modes.", mode_str);
+                }
             }
             "help" | "--help" | "-h" => {
                 println!("Anna - Arch Linux Assistant");
@@ -212,12 +283,15 @@ async fn main() -> Result<()> {
                 println!("  annactl status           Show daemon status");
                 println!("  annactl stats            Show activity statistics");
                 println!("  annactl stats -d         Show detailed statistics");
-                println!("  annactl reset            Reset all statistics and learning data");
+                println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
                 println!("  annactl <question>       Ask a question");
+                println!();
+                println!("Reset modes: memory, config, models, helpers, everything");
                 println!();
                 println!("Examples:");
                 println!("  annactl \"what's my disk usage?\"");
                 println!("  annactl how do I install neovim");
+                println!("  annactl reset memory");
             }
             "--version" | "-v" => {
                 println!("annactl {}", anna_shared::VERSION);

@@ -1,5 +1,6 @@
 //! ASCII spinner animation for waiting states.
 //! v0.3.4: Initial implementation
+//! v0.3.20: Changed to pure ASCII per output contract (no icons/unicode)
 
 use std::io::{Write, stdout};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -7,8 +8,8 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-/// Spinner animation frames (braille dots)
-const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+/// Spinner animation frames (pure ASCII)
+const FRAMES: &[&str] = &["|", "/", "-", "\\"];
 
 /// ANSI escape codes
 const DIM: &str = "\x1b[2m";

@@ -89,8 +89,9 @@ pub async fn ask(question: &str) -> Result<AskResult> {
 }
 
 /// Reset all statistics and learning data
-pub async fn reset() -> Result<ResetResult> {
-    let response = call(RpcMethod::Reset, None).await?;
+pub async fn reset(mode: anna_shared::rpc::ResetMode) -> Result<ResetResult> {
+    let params = serde_json::json!({ "mode": mode });
+    let response = call(RpcMethod::Reset, Some(params)).await?;
     if let Some(error) = response.error {
         return Err(anyhow!("Reset error: {}", error.message));
     }

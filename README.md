@@ -129,18 +129,24 @@ Available settings:
 - **Internal comms**: See the IT team discuss your request
 - **Email notifications**: Get notified when long tasks complete
 
-### Real-Time Streaming
+### Honest Progress
 
-Watch Anna think in real-time. No more staring at a spinner wondering if she crashed:
+Watch Anna work in real-time with honest progress updates:
 
 ```
 lhoqvso: explain my network configuration
 
-Your network setup is actually quite... <streaming word by word>
-interesting. You have three interfaces: enp0s31f6 (your main
-ethernet, 192.168.1.42), wlp82s0 (wifi, currently down), and
-docker0 (the bridge network for containers at 172.17.0.1)...
+[thinking...] Analyzing request
+[running] ip addr
+[running] ip route
+Anna: Your network has three interfaces: enp0s31f6 (main ethernet,
+192.168.1.42), wlp82s0 (wifi, currently down), and docker0
+(bridge network for containers at 172.17.0.1).
+
+Evidence: ip addr, ip route
 ```
+
+No fake animations. Real token streaming from Ollama when available, honest batch rendering otherwise.
 
 ### Idle-Time Tips
 
@@ -325,7 +331,7 @@ Everything else? Just ask in natural language.
 ## Requirements
 
 - **Linux** with systemd
-- **8GB+ RAM** recommended (Anna runs Qwen3 locally)
+- **8GB+ RAM** recommended (Anna runs Qwen2.5 locally)
 - **Ollama** (installed automatically if missing)
 
 Works on: Arch, Ubuntu, Debian, Fedora, and most systemd-based distros.
@@ -370,7 +376,7 @@ The only network requests are for auto-updates (which you can disable).
 ## FAQ
 
 **Q: Why is the first query slow?**
-A: Anna needs to warm up the LLM (Qwen3). After that, responses are fast. Learned recipes respond in <100ms.
+A: Anna needs to warm up the LLM (Qwen2.5). After that, responses are fast. Learned recipes respond in <100ms.
 
 **Q: Can Anna break my system?**
 A: Anna creates backups before any changes and requires confirmation. You can always `undo`. She also refuses to touch critical system files.
@@ -382,26 +388,37 @@ A: Yes! The LLM runs locally. You only need internet for the initial install and
 A: She's named after... actually, we're not sure. She just showed up one day and started being helpful.
 
 **Q: Can I customize the AI model?**
-A: The model selection is automatic based on your hardware. Anna prefers Qwen3-VL for vision support but falls back to smaller models on constrained systems.
+A: Yes! Set `ANNA_OLLAMA_MODEL` environment variable or edit `~/.anna/config.toml`. Default is Qwen2.5:7b.
 
 **Q: How do I report bugs?**
 A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
+## Truth Guarantees
+
+Anna is designed with truth-first principles:
+
+1. **Evidence Required**: Every factual claim is backed by probe results. Unverified claims are marked `[unverified]`.
+
+2. **No Hallucinations**: ClaimGate blocks answers that lack evidence. If Anna doesn't know, she says so.
+
+3. **Honest Progress**: No fake word-by-word streaming. Real Ollama streaming when available, honest batch rendering otherwise.
+
+4. **Verifiable Stats**: All statistics backed by audit trail. XP formula is documented and reproducible.
+
+5. **Safe Operations**: Every reset creates a backup first. Every change can be undone.
+
+These guarantees are enforced in code, not just prompts.
+
 ## Version
 
-Current: **v0.0.991**
+Current: **v0.3.25**
 
 Recent highlights:
-- **1700+ instant-answer patterns** - common questions answered in milliseconds
-- **42 pattern categories** - pacman, systemd, network, security, hardware, gaming, and more
-- **Security investigation** - "who accessed my system" runs login history checks
-- **Post-update diagnostics** - "slow after update" checks pacman.log and failed services
-- **Proactive monitoring** - learns your system's normal behavior, detects anomalies
-- **I/O learning** - tracks disk/network baselines, alerts on unusual activity
-- **Hardware baseline** - detects new USB devices, config file changes
-- **Grounded answers** - every response based on real command output
-- **Auto-update** with integrity verification
-- **Evidence-based answers** - every claim backed by data
+- **ClaimGate enforcement** - factual claims require probe evidence or trusted docs
+- **Evidence line** - every answer shows its sources (debug mode: full provenance)
+- **Update transparency** - status shows check interval, last check, result, next check
+- **SentenceType classifier** - distinguishes FACT/SUGGESTION/QUESTION/NARRATIVE
+- **12 claim verification tests** - blocking, evidence pass-through, conflict detection
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.
 

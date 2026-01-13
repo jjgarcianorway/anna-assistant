@@ -2,6 +2,7 @@
 //! v0.0.992: Added proactive alert display
 //! v0.1.0: Added debug mode separation for clean "fly on the wall" experience
 //! v0.1.1: Removed box drawing for cleaner look
+//! v0.3.20: Output contract compliance - no icons, ASCII only, truecolor
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::memory::memory_path;
@@ -43,6 +44,26 @@ pub fn println_colored(text: &str, color: &str) {
     println!("{}{}{}", color, text, RESET);
 }
 
+/// v0.3.26: Count local documentation files for integrity display
+fn count_local_docs() -> (usize, usize, usize) {
+    use anna_shared::docs::{man_cache_dir, help_cache_dir};
+    use anna_shared::wiki::wiki_articles_dir;
+
+    let wiki_count = std::fs::read_dir(wiki_articles_dir())
+        .map(|entries| entries.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+
+    let man_count = std::fs::read_dir(man_cache_dir())
+        .map(|entries| entries.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+
+    let help_count = std::fs::read_dir(help_cache_dir())
+        .map(|entries| entries.filter_map(|e| e.ok()).count())
+        .unwrap_or(0);
+
+    (wiki_count, man_count, help_count)
+}
+
 /// Print the greeting
 pub fn print_greeting() {
     println!();
@@ -63,27 +84,150 @@ pub async fn print_status() {
             println_colored("ANNA STATUS", BOLD);
             println!();
 
-            // VERSION
+            // VERSION - v0.3.23: Show both client and daemon versions with mismatch detection
             println_colored("VERSION", CYAN);
-            print!("  Installed:     ");
-            println_colored(&status.version, GREEN);
+            let client_version = env!("CARGO_PKG_VERSION");
+            let daemon_version = &status.version;
+            let versions_match = client_version == daemon_version;
+
+            print!("  annactl:       ");
+            print_colored(client_version, if versions_match { GREEN } else { YELLOW });
+            println!();
+
+            print!("  annad:         ");
+            print_colored(daemon_version, if versions_match { GREEN } else { YELLOW });
+            // v0.3.22: Show build info (git sha)
+            if !status.build_info.git_sha.is_empty() {
+                let dirty = if status.build_info.git_dirty { "*" } else { "" };
+                print_colored(&format!(" ({}{})", status.build_info.git_sha, dirty), DIM);
+            }
+            println!();
+
+            // Warn on version mismatch
+            if !versions_match {
+                print_colored("  [!] mismatch:  ", YELLOW);
+                println_colored(&format!("client {} vs daemon {}", client_version, daemon_version), YELLOW);
+            }
 
             if let Some(ref latest) = status.latest_version {
-                print!("  Available:     ");
+                print!("  available:     ");
                 if latest != &status.version {
                     print_colored(latest, YELLOW);
                     println_colored(" (update available)", YELLOW);
                 } else {
                     print_colored(latest, GREEN);
-                    println_colored(" ✓", GREEN);
+                    println_colored(" [current]", DIM);
+                }
+            }
+
+            if let Some(ref ollama_ver) = status.ollama_version {
+                print!("  ollama:        ");
+                println_colored(ollama_ver, DIM);
+            }
+
+            // v0.3.22: Version integrity check
+            if !status.build_info.integrity_ok {
+                if let Some(ref err) = status.build_info.integrity_error {
+                    print_colored("  [!] integrity: ", YELLOW);
+                    println_colored(err, YELLOW);
+                }
+            }
+
+            println!();
+
+            // UPDATES (v0.3.25)
+            println_colored("UPDATES", CYAN);
+
+            // Check interval
+            print!("  interval:      ");
+            if status.update_check_interval_secs > 0 {
+                println!("{}s", status.update_check_interval_secs);
+            } else {
+                println_colored("disabled", DIM);
+            }
+
+            // Last check
+            print!("  last check:    ");
+            if let Some(ref last) = status.last_update_check {
+                println_colored(&format_time_ago(last), DIM);
+            } else {
+                println_colored("never", DIM);
+            }
+
+            // Last result
+            print!("  last result:   ");
+            let state_color = match status.update_state {
+                anna_shared::status::UpdateCheckState::Success => GREEN,
+                anna_shared::status::UpdateCheckState::Failed => RED,
+                anna_shared::status::UpdateCheckState::Checking => YELLOW,
+                anna_shared::status::UpdateCheckState::NeverChecked => DIM,
+            };
+            println_colored(&status.update_state.to_string(), state_color);
+
+            // Next check
+            print!("  next check:    ");
+            if let Some(ref next) = status.next_update_check {
+                println_colored(&format_time_ago(next), DIM);
+            } else {
+                println_colored("not scheduled", DIM);
+            }
+            println!();
+
+            // BACKUPS (v0.3.24)
+            println_colored("BACKUPS", CYAN);
+            print!("  directory:     ");
+            println_colored(&status.backup_info.directory, DIM);
+            print!("  count:         ");
+            println!("{}", status.backup_info.backup_count);
+            if let Some(ref last) = status.backup_info.last_backup {
+                print!("  last backup:   ");
+                println_colored(last, DIM);
+            } else {
+                print!("  last backup:   ");
+                println_colored("none", DIM);
+            }
+            if status.backup_info.total_size_bytes > 0 {
+                print!("  total size:    ");
+                let size_kb = status.backup_info.total_size_bytes / 1024;
+                if size_kb > 1024 {
+                    println_colored(&format!("{:.1} MB", size_kb as f64 / 1024.0), DIM);
+                } else {
+                    println_colored(&format!("{} KB", size_kb), DIM);
                 }
             }
             println!();
 
-            // ENVIRONMENT
-            println_colored("ENVIRONMENT", CYAN);
+            // TRUTH (v0.3.26) - Truth enforcement status
+            println_colored("TRUTH", CYAN);
 
-            print!("  Daemon:        ");
+            // ClaimGate status
+            print!("  claimgate:     ");
+            println_colored("enabled", GREEN);
+
+            // Local docs corpus status
+            print!("  local docs:    ");
+            let (wiki_count, man_count, help_count) = count_local_docs();
+            if wiki_count > 0 || man_count > 0 || help_count > 0 {
+                let mut parts = Vec::new();
+                if wiki_count > 0 {
+                    parts.push(format!("{} wiki", wiki_count));
+                }
+                if man_count > 0 {
+                    parts.push(format!("{} man", man_count));
+                }
+                if help_count > 0 {
+                    parts.push(format!("{} help", help_count));
+                }
+                println_colored(&parts.join(", "), GREEN);
+            } else {
+                println_colored("none cached", DIM);
+            }
+            println!();
+
+            // DAEMON
+            println_colored("DAEMON", CYAN);
+
+            print!("  state:         ");
             let state_color = match status.state {
                 anna_shared::status::DaemonState::Ready => GREEN,
                 anna_shared::status::DaemonState::Starting => YELLOW,
@@ -92,7 +236,7 @@ pub async fn print_status() {
             print_colored(&status.state.to_string().to_lowercase(), state_color);
             println_colored(&format!(" (uptime: {})", format_duration(status.uptime_secs)), DIM);
 
-            print!("  Ollama:        ");
+            print!("  ollama:        ");
             if status.ollama_running {
                 print_colored("running", GREEN);
                 if let Some(model) = &status.model {
@@ -105,7 +249,7 @@ pub async fn print_status() {
             }
 
             if let Some(gpu) = &status.gpu {
-                print!("  GPU:           ");
+                print!("  gpu:           ");
                 print_colored(gpu, CYAN);
                 if let Some(vram) = status.vram_mb {
                     println_colored(&format!(" ({} MB)", vram), DIM);
@@ -115,11 +259,37 @@ pub async fn print_status() {
             }
             println!();
 
+            // PERMISSIONS
+            let perms = &status.permissions;
+            if !perms.user.is_empty() {
+                println_colored("PERMISSIONS", CYAN);
+                print!("  user:          ");
+                print_colored(&perms.user, if perms.is_root { YELLOW } else { GREEN });
+                if perms.is_root {
+                    println_colored(" [root]", YELLOW);
+                } else {
+                    println!();
+                }
+
+                print!("  sudo:          ");
+                if perms.has_sudo {
+                    println_colored("yes", GREEN);
+                } else {
+                    println_colored("no", DIM);
+                }
+
+                if !perms.admin_groups.is_empty() {
+                    print!("  groups:        ");
+                    println_colored(&perms.admin_groups.join(", "), DIM);
+                }
+                println!();
+            }
+
             // KNOWLEDGE
             println_colored("KNOWLEDGE", CYAN);
-            println!("  Patterns:      {} built-in", status.pattern_count);
-            println!("  Recipes:       {} learned", status.recipe_count);
-            print!("  Memory:        ");
+            println!("  patterns:      {} built-in", status.pattern_count);
+            println!("  recipes:       {} learned", status.recipe_count);
+            print!("  memory:        ");
             if status.memory_experiences == 0 {
                 println_colored("empty", DIM);
             } else {
@@ -127,7 +297,7 @@ pub async fn print_status() {
             }
 
             for issue in &status.memory_health_issues {
-                print_colored("    ⚠ ", YELLOW);
+                print_colored("    [!] ", YELLOW);
                 println_colored(issue, YELLOW);
             }
             println!();
@@ -148,7 +318,7 @@ pub async fn print_status() {
                 println!();
             }
 
-            // RPG STATS
+            // QUICK STATS (brief version for status, detailed in stats command)
             println_colored("STATS", CYAN);
             let rpg = &status.rpg_stats;
 
@@ -160,40 +330,28 @@ pub async fn print_status() {
 
             // Questions answered
             if rpg.total_questions > 0 {
-                print!("  Questions:     ");
+                print!("  requests:      ");
                 print!("{}", rpg.total_questions);
-                if rpg.instant_answers > 0 || rpg.memory_answers > 0 {
-                    let fast = rpg.instant_answers + rpg.memory_answers;
-                    let pct = (fast as f64 / rpg.total_questions as f64 * 100.0) as u32;
-                    print_colored(&format!(" ({}% instant)", pct), DIM);
+                let solved_alone = status.solved_alone_count;
+                if solved_alone > 0 {
+                    let pct = (solved_alone as f64 / rpg.total_questions as f64 * 100.0) as u32;
+                    print_colored(&format!(" ({}% solved alone)", pct), DIM);
                 }
                 println!();
             }
 
-            // Response times
-            if rpg.avg_response_ms > 0 {
-                print!("  Response:      ");
-                print!("avg {}ms", rpg.avg_response_ms);
-                println_colored(&format!(" (fast: {}ms, slow: {}ms)", rpg.fastest_response_ms, rpg.slowest_response_ms), DIM);
-            }
-
-            // Recipes learned
-            if rpg.recipes_learned > 0 {
-                println!("  Recipes:       {} learned", rpg.recipes_learned);
-            }
-
             // Reliability
-            if rpg.total_questions > 10 {
-                print!("  Reliability:   ");
+            if rpg.total_questions > 5 {
+                print!("  reliability:   ");
                 let rel_pct = (rpg.reliability * 100.0) as u32;
                 let rel_color = if rel_pct >= 90 { GREEN } else if rel_pct >= 70 { YELLOW } else { RED };
                 println_colored(&format!("{}%", rel_pct), rel_color);
             }
 
-            // Total uptime
-            if rpg.total_uptime_secs > 0 {
-                print!("  Total uptime:  ");
-                println_colored(&format_duration(rpg.total_uptime_secs), DIM);
+            // Escalated tickets
+            if status.escalated_tickets_count > 0 {
+                print!("  escalated:     ");
+                println_colored(&format!("{}", status.escalated_tickets_count), YELLOW);
             }
             println!();
 
@@ -201,7 +359,7 @@ pub async fn print_status() {
             let roster = &status.team_roster;
             if roster.total_specialists > 0 {
                 println_colored("TEAM", CYAN);
-                print!("  Specialists:   ");
+                print!("  specialists:   ");
                 print_colored(&format!("{}", roster.total_specialists), GREEN);
                 println_colored(&format!(" across {} departments", roster.specialists.len()), DIM);
 
@@ -231,7 +389,7 @@ pub async fn print_status() {
                     .collect();
 
                 if !top_performers.is_empty() {
-                    println_colored("  Top Performers:", DIM);
+                    println_colored("  top performers:", DIM);
                     for (i, spec) in top_performers.iter().enumerate() {
                         let medal = match i { 0 => "1.", 1 => "2.", 2 => "3.", _ => "  " };
                         let rate = if spec.tickets_handled > 0 {
@@ -258,7 +416,7 @@ pub async fn print_status() {
             let tickets = &status.ticket_tracker;
             if tickets.next_number > 1 || !tickets.active_tickets.is_empty() {
                 println_colored("TICKETS", CYAN);
-                print!("  Today:         ");
+                print!("  today:         ");
                 println!("{} tickets", tickets.today_count);
 
                 // Show per-department stats
@@ -279,7 +437,7 @@ pub async fn print_status() {
                 // Show active tickets
                 if !tickets.active_tickets.is_empty() {
                     println!();
-                    println_colored("  Active:", YELLOW);
+                    println_colored("  active:", YELLOW);
                     for ticket in &tickets.active_tickets {
                         print!("    ");
                         print_colored(&ticket.id, CYAN);
@@ -291,19 +449,57 @@ pub async fn print_status() {
                 println!();
             }
 
+            // v0.3.22: HEALTH (only show if there are issues)
+            let has_socket_issues = status.socket_health.status != anna_shared::status::SocketStatus::Healthy
+                && status.socket_health.status != anna_shared::status::SocketStatus::Unknown;
+            let has_errors = status.error_summary.error_count > 0;
+
+            if has_socket_issues || has_errors {
+                println_colored("HEALTH", CYAN);
+
+                if has_socket_issues {
+                    print!("  socket:        ");
+                    println_colored(&status.socket_health.status.to_string().to_lowercase(), YELLOW);
+                    if let Some(ref err) = status.socket_health.last_error {
+                        print_colored("    ", DIM);
+                        println_colored(err, YELLOW);
+                    }
+                }
+
+                if has_errors {
+                    print!("  errors:        ");
+                    println_colored(&format!("{} errors, {} warnings",
+                        status.error_summary.error_count,
+                        status.error_summary.warning_count),
+                        if status.error_summary.error_count > 0 { RED } else { YELLOW });
+
+                    for err in status.error_summary.recent_errors.iter().take(3) {
+                        print_colored("    [X] ", RED);
+                        println!("{}", err.message);
+                    }
+                }
+                println!();
+            }
+
             // CONFIG
             println_colored("CONFIG", CYAN);
-            print!("  Debug Mode:    ");
+            print!("  debug mode:    ");
             if debug_mode {
-                println_colored("ON", YELLOW);
+                println_colored("on", YELLOW);
             } else {
-                println_colored("OFF", GREEN);
+                println_colored("off", GREEN);
             }
 
             if let Some(ref cfg) = config {
-                print!("  Auto Helpers:  ");
-                println_colored(if cfg.auto_install_helpers { "ON" } else { "OFF" },
+                print!("  auto helpers:  ");
+                println_colored(if cfg.auto_install_helpers { "on" } else { "off" },
                     if cfg.auto_install_helpers { GREEN } else { DIM });
+            }
+
+            // v0.3.22: Show model and URL from config snapshot
+            if !status.config_snapshot.ollama_model.is_empty() {
+                print!("  model:         ");
+                println_colored(&status.config_snapshot.ollama_model, DIM);
             }
             println!();
         }
@@ -462,7 +658,7 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
                     println!("{}", step.content);
                 }
             } else {
-                print_colored("  ✗ ", RED);
+                print_colored("  [X] ", RED);
                 if let Ok(ctx) =
                     serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
                 {
@@ -620,10 +816,10 @@ pub fn show_proactive_alerts() -> bool {
         println_colored("Issues detected:", YELLOW);
         println!();
         for issue in &critical {
-            print_colored("  ✗ ", RED);
+            print_colored("  [X] ", RED);
             println!("{}", issue.summary);
             if let Some(ref fix) = issue.suggested_fix {
-                println_colored(&format!("    → {}", fix), DIM);
+                println_colored(&format!("      -> {}", fix), DIM);
             }
         }
     }
@@ -634,11 +830,11 @@ pub fn show_proactive_alerts() -> bool {
             println!();
         }
         for issue in warnings.iter().take(3) {
-            print_colored("  ⚠ ", YELLOW);
+            print_colored("  [!] ", YELLOW);
             println!("{}", issue.summary);
         }
         if warnings.len() > 3 {
-            println_colored(&format!("  ... and {} more", warnings.len() - 3), DIM);
+            println_colored(&format!("      ... and {} more", warnings.len() - 3), DIM);
         }
     }
 
@@ -654,8 +850,9 @@ pub fn mark_alerts_shown() {
     }
 }
 
-/// Print comprehensive stats
+/// Print comprehensive stats (full RPG system per spec)
 /// v0.3.10: Added detailed flag for expanded information
+/// v0.3.20: Updated to match spec requirements
 pub fn print_stats(detailed: bool) {
     // v0.3.8: Use shared paths for consistency with daemon
     let mem_path = memory_path();
@@ -668,104 +865,100 @@ pub fn print_stats(detailed: bool) {
     println_colored("ANNA STATISTICS", BOLD);
     println!();
 
-    // LEARNING
-    println_colored("LEARNING", CYAN);
-
-    let (exp_count, pattern_count, cluster_count, memory_hits, memory_misses) = load_memory_stats(&mem_path);
-
-    println!("  Experiences:   {}", exp_count);
-    println!("  Patterns:      {}", pattern_count);
-    println!("  Clusters:      {}", cluster_count);
-
-    // Memory hit rate
-    let total_queries = memory_hits + memory_misses;
-    if total_queries > 0 {
-        let hit_rate = memory_hits as f64 / total_queries as f64 * 100.0;
-        print!("  Memory Hits:   ");
-        let rate_color = if hit_rate >= 50.0 { GREEN } else if hit_rate >= 25.0 { YELLOW } else { DIM };
-        print_colored(&format!("{:.1}%", hit_rate), rate_color);
-        println_colored(&format!(" ({}/{})", memory_hits, total_queries), DIM);
-    }
-    println!();
-
-    // PROGRESSION - v0.3.8: Use PersistentStats for consistency with status
+    // PROGRESSION - RPG stats
     let stats = PersistentStats::load().unwrap_or_default();
     let rpg = stats.get_rpg_stats();
 
     println_colored("PROGRESSION", CYAN);
-    print!("  Title:         ");
-    println_colored(&format!("\"{}\"", rpg.title), YELLOW);
+    print!("  title:         ");
+    println_colored(&format!("\"{}\"", rpg.title), MAGENTA);
 
-    print!("  XP:            ");
+    print!("  xp:            ");
     println!("{}", rpg.xp_bar());
+    println!();
 
-    println!("  Questions:     {} answered", rpg.total_questions);
+    // REQUESTS
+    println_colored("REQUESTS", CYAN);
+    println!("  total:         {}", rpg.total_questions);
 
-    // v0.3.10: Detailed breakdown
+    // Solved alone (instant + memory, without LLM)
+    let solved_alone = rpg.instant_answers + rpg.memory_answers;
+    if rpg.total_questions > 0 {
+        print!("  solved alone:  ");
+        let alone_pct = solved_alone as f64 / rpg.total_questions as f64 * 100.0;
+        print_colored(&format!("{}", solved_alone), if alone_pct > 50.0 { GREEN } else { DIM });
+        println_colored(&format!(" ({:.0}%)", alone_pct), DIM);
+    }
+
+    // Breakdown
     if detailed && rpg.total_questions > 0 {
-        print!("    Instant:     ");
+        print!("    instant:     ");
         let instant_pct = rpg.instant_answers as f64 / rpg.total_questions as f64 * 100.0;
         print_colored(&format!("{} ({:.0}%)", rpg.instant_answers, instant_pct), if instant_pct > 50.0 { GREEN } else { DIM });
         println!();
-        print!("    Memory:      ");
+        print!("    memory:      ");
         let memory_pct = rpg.memory_answers as f64 / rpg.total_questions as f64 * 100.0;
         print_colored(&format!("{} ({:.0}%)", rpg.memory_answers, memory_pct), DIM);
         println!();
-        print!("    LLM:         ");
+        print!("    llm:         ");
         let llm_pct = rpg.llm_answers as f64 / rpg.total_questions as f64 * 100.0;
         print_colored(&format!("{} ({:.0}%)", rpg.llm_answers, llm_pct), DIM);
         println!();
     }
     println!();
 
-    // ACTIVITY
-    println_colored("ACTIVITY", CYAN);
+    // PERFORMANCE
+    println_colored("PERFORMANCE", CYAN);
 
-    let fix_history_path = data_dir.join("fix_history.json");
-    let fixes_count = count_json_array(&fix_history_path, "fixes");
-    println!("  Fixes Applied: {}", fixes_count);
+    // Reliability (always shown)
+    print!("  reliability:   ");
+    let rel_pct = rpg.reliability * 100.0;
+    let rel_color = if rel_pct >= 95.0 { GREEN } else if rel_pct >= 80.0 { YELLOW } else { RED };
+    println_colored(&format!("{:.1}%", rel_pct), rel_color);
 
-    let deps_path = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".anna/installed_deps.txt");
-    let helpers_count = if deps_path.exists() {
-        std::fs::read_to_string(&deps_path).ok()
-            .map(|c| c.lines().filter(|l| !l.is_empty()).count())
-            .unwrap_or(0)
-    } else { 0 };
-    println!("  Helpers:       {} installed", helpers_count);
-
-    // v0.3.10: Detailed performance metrics
-    if detailed {
-        println!("  Recipes:       {} learned", rpg.recipes_learned);
-    }
-    println!();
-
-    // v0.3.10: Performance section (detailed only)
-    if detailed && rpg.total_questions > 0 {
-        println_colored("PERFORMANCE", CYAN);
-
-        print!("  Avg Response:  ");
+    // Response times
+    if rpg.avg_response_ms > 0 {
+        print!("  avg response:  ");
         let avg_color = if rpg.avg_response_ms < 100 { GREEN } else if rpg.avg_response_ms < 1000 { YELLOW } else { DIM };
         println_colored(&format!("{}ms", rpg.avg_response_ms), avg_color);
+    }
 
+    if detailed {
         if rpg.fastest_response_ms > 0 {
-            print!("  Fastest:       ");
+            print!("  fastest:       ");
             println_colored(&format!("{}ms", rpg.fastest_response_ms), GREEN);
         }
 
         if rpg.slowest_response_ms > 0 {
-            print!("  Slowest:       ");
+            print!("  slowest:       ");
             println_colored(&format!("{}ms", rpg.slowest_response_ms), DIM);
         }
-
-        print!("  Reliability:   ");
-        let rel_pct = rpg.reliability * 100.0;
-        let rel_color = if rel_pct >= 95.0 { GREEN } else if rel_pct >= 80.0 { YELLOW } else { RED };
-        println_colored(&format!("{:.1}%", rel_pct), rel_color);
-
-        println!();
     }
+    println!();
+
+    // LEARNING
+    println_colored("LEARNING", CYAN);
+
+    let (exp_count, pattern_count, cluster_count, memory_hits, memory_misses) = load_memory_stats(&mem_path);
+
+    println!("  recipes:       {} learned", rpg.recipes_learned);
+    println!("  experiences:   {}", exp_count);
+    println!("  patterns:      {}", pattern_count);
+
+    if detailed {
+        println!("  clusters:      {}", cluster_count);
+
+        // Memory hit rate
+        let total_queries = memory_hits + memory_misses;
+        if total_queries > 0 {
+            let hit_rate = memory_hits as f64 / total_queries as f64 * 100.0;
+            print!("  memory hits:   ");
+            let rate_color = if hit_rate >= 50.0 { GREEN } else if hit_rate >= 25.0 { YELLOW } else { DIM };
+            print_colored(&format!("{:.1}%", hit_rate), rate_color);
+            println_colored(&format!(" ({}/{})", memory_hits, total_queries), DIM);
+        }
+    }
+    println!();
 
     // TICKET METRICS
     let tickets_path = data_dir.join("tickets.json");
@@ -776,19 +969,48 @@ pub fn print_stats(detailed: bool) {
 
                 let total_resolved = store.get("total_resolved").and_then(|v| v.as_u64()).unwrap_or(0);
                 let total_failed = store.get("total_failed").and_then(|v| v.as_u64()).unwrap_or(0);
+                let total_escalated = store.get("total_escalated").and_then(|v| v.as_u64()).unwrap_or(0);
 
-                println!("  Resolved:      {}", total_resolved);
-                println!("  Failed:        {}", total_failed);
+                println!("  resolved:      {}", total_resolved);
+                println!("  failed:        {}", total_failed);
+                print!("  escalated:     ");
+                println_colored(&format!("{}", total_escalated), if total_escalated > 0 { YELLOW } else { DIM });
 
                 if total_resolved > 0 {
-                    let success_rate = total_resolved as f64 / (total_resolved + total_failed) as f64 * 100.0;
-                    print!("  Success Rate:  ");
+                    let success_rate = total_resolved as f64 / (total_resolved + total_failed).max(1) as f64 * 100.0;
+                    print!("  success rate:  ");
                     let rate_color = if success_rate >= 90.0 { GREEN } else if success_rate >= 70.0 { YELLOW } else { RED };
                     println_colored(&format!("{:.1}%", success_rate), rate_color);
                 }
                 println!();
             }
         }
+    }
+
+    // ACTIVITY
+    if detailed {
+        println_colored("ACTIVITY", CYAN);
+
+        let fix_history_path = data_dir.join("fix_history.json");
+        let fixes_count = count_json_array(&fix_history_path, "fixes");
+        println!("  fixes applied: {}", fixes_count);
+
+        let deps_path = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join(".anna/installed_deps.txt");
+        let helpers_count = if deps_path.exists() {
+            std::fs::read_to_string(&deps_path).ok()
+                .map(|c| c.lines().filter(|l| !l.is_empty()).count())
+                .unwrap_or(0)
+        } else { 0 };
+        println!("  helpers:       {} installed", helpers_count);
+
+        // Total uptime
+        if rpg.total_uptime_secs > 0 {
+            print!("  total uptime:  ");
+            println_colored(&format_duration(rpg.total_uptime_secs), DIM);
+        }
+        println!();
     }
 }
 
@@ -856,13 +1078,15 @@ fn count_json_array(path: &std::path::Path, field: &str) -> usize {
     } else { 0 }
 }
 
-/// Print a simple progress bar
+/// Print a simple progress bar (ASCII only)
+#[allow(dead_code)]
 fn print_progress_bar(progress: f64) {
     let width = 20;
     let filled = (progress / 100.0 * width as f64) as usize;
+    print!("[");
     print_colored(&"=".repeat(filled), GREEN);
     print_colored(&"-".repeat(width - filled), DIM);
-    print_colored(&format!(" {:.0}%", progress), GREEN);
+    print_colored(&format!("] {:.0}%", progress), GREEN);
 }
 
 /// Get title for level

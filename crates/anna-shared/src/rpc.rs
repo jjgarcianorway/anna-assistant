@@ -232,6 +232,75 @@ pub struct AskResult {
 pub struct ResetResult {
     /// Items that were cleared
     pub cleared: Vec<String>,
+    /// Backup location (if backup was created)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backup_path: Option<String>,
+}
+
+/// v0.3.20: Reset modes per spec
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ResetMode {
+    /// Reset memory only (experiences, patterns, clusters)
+    Memory,
+    /// Reset config only (settings back to defaults)
+    Config,
+    /// Reset model preferences
+    Models,
+    /// Reset helper packages tracking
+    Helpers,
+    /// Reset everything (full factory reset)
+    #[default]
+    Everything,
+}
+
+impl ResetMode {
+    /// Get description of what this mode resets
+    pub fn description(&self) -> &'static str {
+        match self {
+            ResetMode::Memory => "memory (experiences, patterns, learned behaviors)",
+            ResetMode::Config => "configuration (settings back to defaults)",
+            ResetMode::Models => "model preferences (will re-detect on next start)",
+            ResetMode::Helpers => "helper tracking (does not uninstall packages)",
+            ResetMode::Everything => "everything (full factory reset)",
+        }
+    }
+
+    /// Parse from string
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "memory" | "mem" => Some(ResetMode::Memory),
+            "config" | "cfg" => Some(ResetMode::Config),
+            "models" | "model" => Some(ResetMode::Models),
+            "helpers" | "helper" | "deps" => Some(ResetMode::Helpers),
+            "everything" | "all" | "full" => Some(ResetMode::Everything),
+            _ => None,
+        }
+    }
+}
+
+/// v0.3.21: Parameters for reset command
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ResetParams {
+    /// Reset mode (defaults to Everything if not specified)
+    #[serde(default)]
+    pub mode: ResetMode,
+    /// Skip backup (dangerous, default false)
+    #[serde(default)]
+    pub skip_backup: bool,
+    /// Dry run - show what would be reset without actually resetting
+    #[serde(default)]
+    pub dry_run: bool,
+}
+
+impl ResetParams {
+    /// Create params for a specific mode
+    pub fn with_mode(mode: ResetMode) -> Self {
+        Self {
+            mode,
+            skip_backup: false,
+            dry_run: false,
+        }
+    }
 }
 
 /// A single step in the dialogue

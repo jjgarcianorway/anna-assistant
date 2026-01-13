@@ -7,6 +7,213 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.26] - 2026-01-13
+
+### Added
+- **Local Documentation Corpus** - Citations from trusted local sources
+  - Arch Wiki search with local caching (`~/.anna/wiki/articles/`)
+  - Man page retrieval and caching (`~/.anna/docs/man/`)
+  - --help output caching with version tracking (`~/.anna/docs/help/`)
+
+- **DocCitation System** - Structured citation format
+  - `[Arch Wiki: Title - Section]` for wiki citations
+  - `[man command(N)]` for man page citations
+  - `[command --help (version)]` for help output citations
+  - Full debug mode shows path, line range, excerpt
+
+- **Docs-Required Claim Detection** - Questions about behavior/syntax need docs
+  - "how does X work" triggers doc search
+  - "what does flag Y mean" searches man/help
+  - State queries ("is nginx running") use probes only
+
+- **Truth Verification Status** - New TRUTH section in status output
+  - ClaimGate status: enabled
+  - Local docs count: wiki, man, help caches
+
+### Changed
+- `verify_answer()` now takes `question` parameter for context-aware verification
+- `format_evidence_line()` includes doc citations alongside probe results
+- `verify_response_with_context()` checks if docs are required and found
+- `VerifiedResponse` includes `docs_required`, `docs_found`, `doc_citations` fields
+
+### Tests
+- 17 claim_gate tests (added 5 doc citation tests)
+  - `test_claim_requires_docs` - procedural vs state queries
+  - `test_has_doc_evidence` - doc evidence detection
+  - `test_verify_with_context_docs_required` - context-aware verification
+  - `test_doc_citation_formatting` - citation format tests
+  - `test_probe_only_for_state_query` - state queries skip docs
+
+## [0.3.25] - 2026-01-13
+
+### Added
+- **ClaimGate Enforcement** - Factual claims now require evidence to pass
+  - `SentenceType` classifier: distinguishes FACT/SUGGESTION/QUESTION/NARRATIVE
+  - Only FACT sentences require evidence verification
+  - Unverified claims trigger `needs_investigation` flag
+
+- **Evidence Line** - Every answer now shows its sources
+  - Normal mode: `Evidence: command1, command2, ...`
+  - Debug mode: Full provenance with exit codes
+
+- **Update Transparency** - Status now shows full update state
+  - Check interval (seconds)
+  - Last check timestamp
+  - Last result (OK/FAILED/NEVER_CHECKED/CHECKING)
+  - Next scheduled check
+  - Auto-update enabled flag
+
+### Changed
+- `verify_answer()` now returns `VerificationResult` with evidence line
+- Ralph loop and LLM core both append evidence to answers
+
+### Tests
+- 12 claim_gate tests (added 9)
+  - SentenceType classification: fact/suggestion/question/narrative
+  - Evidence requirement: only facts require evidence
+  - Blocking: facts without evidence need investigation
+  - Pass-through: facts with probe evidence verified
+  - Conflict detection: contradicting evidence detected
+
+## [0.3.24] - 2026-01-13
+
+### Added
+- **Reset Backups** - Every reset creates timestamped backup at `~/.anna/backups/`
+  - Backup path printed in reset output
+  - Contains: memory.json, stats.json, config.toml, tickets.json, fix_history.json
+  - No secrets backed up (verified by test)
+
+- **Deterministic Reset Output** - Reset now always shows all sections with counts
+  - Memory: always reports experiences/patterns/clusters (even if 0)
+  - Stats: always reports questions/XP (even if 0)
+  - Tickets: always reports resolved/failed/escalated (even if 0)
+  - Audit trail: reports "cleared" or "none"
+
+- **Legacy XP Migration** - One-time migration of `~/.local/share/anna/xp.json`
+  - Detected and removed on first reset
+  - Prevents counter mismatch between legacy and unified stores
+
+- **Client/Daemon Version Display** - Status shows both versions with mismatch warning
+  - `annactl:` shows compiled client version
+  - `annad:` shows daemon version from StatusResponse
+  - Warning shown if versions differ
+
+- **Backup Status in Status Output** - Shows backup directory and last backup info
+
+### Changed
+- **In-memory Ticket Reset** - `reset_ticket_store()` clears daemon memory on reset
+  - Ensures stats match file state after reset
+
+### Fixed
+- Reset output no longer varies based on prior state (was showing Stats only if non-zero)
+- Ticket counters now consistent between status and stats commands
+
+### Tests
+- 22 safe_ops tests (was 10)
+- Backup verification: directory path, file copying, no secrets
+- Reset output: golden structure, always-counts, legacy migration
+- Tickets: file removal, presence reporting
+
+## [0.3.21] - 2026-01-13
+
+### Added
+- **VERSION file** - Single source of truth for versioning
+  - Build-time verification that VERSION matches Cargo.toml
+  - `BuildInfo` struct with git sha, dirty flag, build timestamp
+  - Runtime integrity verification function
+
+- **ClaimGate** - Code-level enforcement blocking hallucinations
+  - `EvidenceType` enum (ProbeResult, TrustedDoc, ValidatedSkill, UserProvided)
+  - `ClaimCategory` with verification requirements (Hardware, System, Package, Config, Network, Performance, Security, Temporal)
+  - Claims require minimum evidence count and confidence thresholds
+  - `ClaimVerifier` trait for implementing verification strategies
+
+- **EventBus** - Single source of truth for progress events
+  - Event types: StepStarted/Finished, ProbeStarted/Finished, LlmStarted/Token/Finished, SkillEvents, Warning, Error, Progress, AnswerReady
+  - `StepType` and `LlmPurpose` enums with display names
+  - Command/output redaction for sensitive data
+  - Tokio broadcast channel for multi-subscriber distribution
+
+- **Full Status Contract** - Complete daemon status information
+  - `BuildMetadata` - version, git sha, build time, integrity check
+  - `SocketHealth` - socket path, existence, status, last ping/error
+  - `ErrorSummary` - recent errors and warnings with counts
+  - `ConfigSnapshot` - all config options in one place
+  - `ModelMapping` - role-to-model mappings (intent, command, validation, answer)
+  - `HelperInfo` - installed helpers with source tracking (Anna vs user)
+
+- **Truthful Stats Contract** - All stats backed by audit trail
+  - `StatsAuditEntry` - event logging for every stat change
+  - `StatsEventType` - QuestionAsked, AnswerProvided, RecipeLearned, SessionStarted/Ended, StatsReset
+  - `StatsVerification` - verify stats match audit trail
+  - `xp_formula` module with documented, verifiable XP calculation
+  - `explain_xp()` function for transparent XP breakdown
+
+- **Safe Reset with Backups** - Automatic backups before any reset
+  - `SafeReset` struct with per-mode reset execution
+  - Automatic backup directory creation with timestamps
+  - Restore from backup capability
+  - Backup cleanup (keep N most recent)
+  - Legacy file-level backup operations preserved
+
+- **Reset Params** - Enhanced reset RPC with modes
+  - `ResetParams` struct with mode, skip_backup, dry_run options
+  - Handler updated to use SafeReset
+
+### Changed
+- **README truthfulness audit** - Fixed inaccurate claims
+  - Updated model name from Qwen3 to Qwen2.5
+  - Fixed version number (0.0.991 -> 0.3.21)
+  - Removed unverifiable pattern count claims
+  - Updated "Recent highlights" to reflect actual features
+
+### Technical
+- `anna-shared/src/claim_gate.rs` - New module (~400 lines)
+- `anna-shared/src/event_bus.rs` - New module (~450 lines)
+- `anna-shared/src/stats.rs` - Extended with audit trail (~300 new lines)
+- `anna-shared/src/status.rs` - Extended with full contract types (~350 new lines)
+- `anna-shared/src/safe_ops.rs` - Merged reset + legacy backup ops (~700 lines)
+- `anna-shared/src/version.rs` - Rewritten with BuildInfo and verification
+- `anna-shared/build.rs` - New build script for version verification
+- `annad/src/server/handlers.rs` - Reset handler uses SafeReset
+- `annad/src/state.rs` - DaemonStatus includes all new v0.3.21 fields
+
+## [0.3.20] - 2026-01-13
+
+### Changed
+- **Output Contract Compliance** - Per spec requirements
+  - Removed all icons/emojis from CLI output (no unicode symbols)
+  - Spinner uses ASCII characters (|, /, -, \) instead of braille dots
+  - XP bar uses ASCII (=, -) instead of block characters
+  - Alerts use [OK], [!], [X] instead of checkmark/warning/x icons
+
+### Added
+- **annactl status** - Enhanced with required fields per spec
+  - Ollama version display
+  - Next update check timestamp
+  - Permissions audit (user, groups, sudo access)
+  - Escalated tickets count
+  - Solved alone count (questions answered without LLM)
+
+- **annactl stats** - Full RPG system per spec
+  - Reorganized into PROGRESSION, REQUESTS, PERFORMANCE, LEARNING sections
+  - Shows "solved alone" metric (instant + memory answers)
+  - Escalated tickets count in TICKETS section
+  - Detailed breakdown mode (-d flag)
+
+- **annactl reset** - Modes with confirmations per spec
+  - Reset modes: memory, config, models, helpers, everything
+  - Confirmation required for "everything" mode
+  - --force flag to skip confirmation
+  - Backup path reporting in results
+  - Help available via `reset --help`
+
+### Technical
+- Added `ResetMode` enum to RPC types
+- Added `PermissionsAudit` struct for status display
+- Added `ollama_version`, `escalated_tickets_count`, `solved_alone_count` to DaemonStatus
+- Updated ResetResult to include optional backup_path
+
 ## [0.3.19] - 2026-01-13
 
 ### Added
