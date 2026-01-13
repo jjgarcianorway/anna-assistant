@@ -1,4 +1,5 @@
 //! Streaming response handling for real-time answer display.
+//! v0.3.4: Added spinner animation while waiting for LLM response
 
 use anna_shared::rpc::{AskResult, RpcMethod, RpcRequest, StepType, StreamingResponse};
 use anna_shared::socket_path;
@@ -10,6 +11,7 @@ use tokio::time::timeout;
 
 use crate::display::*;
 use crate::rpc::RPC_TIMEOUT_SECS;
+use crate::spinner::Spinner;
 
 /// Send a question with streaming response
 /// Returns the AskResult so caller can check for needs_clarification
@@ -59,6 +61,9 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
     let mut line = String::new();
     let mut in_answer = false;
     let mut final_result: Option<AskResult> = None;
+    let mut spinner: Option<Spinner> = None;
+    #[allow(unused_assignments)]
+    let mut _waiting_for_answer = false;
 
     loop {
         line.clear();
@@ -77,6 +82,11 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
 
                 match serde_json::from_str::<StreamingResponse>(trimmed) {
                     Ok(StreamingResponse::Step { step }) => {
+                        // Stop spinner when we get a step
+                        if let Some(ref mut s) = spinner {
+                            s.stop();
+                            spinner = None;
+                        }
                         if in_answer {
                             // End the answer line
                             println!();
@@ -85,14 +95,26 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         }
                         print_step(&step);
                         if matches!(step.step_type, StepType::FinalPrompt) {
-                            // About to receive tokens
+                            // About to receive tokens - start spinner
                             println!();
                             print_colored("ANSWER: ", GREEN);
                             flush_stdout();
                             in_answer = true;
+                            _waiting_for_answer = true;
+                            spinner = Some(Spinner::new("thinking..."));
+                        }
+                        // Start spinner while internal processing
+                        if matches!(step.step_type, StepType::SpecialistWorking | StepType::TeamAssignment) {
+                            spinner = Some(Spinner::new(""));
                         }
                     }
                     Ok(StreamingResponse::Token { token }) => {
+                        // Stop spinner on first token
+                        if let Some(ref mut s) = spinner {
+                            s.stop();
+                            spinner = None;
+                        }
+                        _waiting_for_answer = false;
                         // Print token immediately
                         print_colored(&token, GREEN);
                         flush_stdout();
@@ -101,6 +123,10 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         // Display validation warning (v0.0.889)
                         // Only show high severity warnings to avoid noise
                         if warning.severity == "high" {
+                            if let Some(ref mut s) = spinner {
+                                s.stop();
+                                spinner = None;
+                            }
                             if in_answer {
                                 println!();
                             }
@@ -110,6 +136,10 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         }
                     }
                     Ok(StreamingResponse::Done { result }) => {
+                        if let Some(ref mut s) = spinner {
+                            s.stop();
+                            spinner = None;
+                        }
                         if in_answer {
                             println!();
                             println!();
@@ -118,6 +148,10 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         break;
                     }
                     Ok(StreamingResponse::Error { message }) => {
+                        if let Some(ref mut s) = spinner {
+                            s.stop();
+                            spinner = None;
+                        }
                         if in_answer {
                             println!();
                         }

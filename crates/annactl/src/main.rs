@@ -3,6 +3,7 @@
 
 mod display;
 mod rpc;
+mod spinner;
 mod streaming;
 mod ui;
 
