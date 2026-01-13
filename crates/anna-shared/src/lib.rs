@@ -3,6 +3,7 @@
 
 pub mod config;
 pub mod deps;
+pub mod experiment;
 pub mod helpers;
 pub mod memory;
 pub mod monitor;

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.18] - 2026-01-13
+
+### Added
+- **Experiment Manager** - Sandbox testing before live execution
+  - `ExperimentManager` to create and track experiments
+  - `SandboxType` - None, DryRun, FilesystemNamespace, FullNamespace, Bubblewrap, containers
+  - Side effect prediction for commands (packages, services, files, network)
+  - Risk vs information gain scoring
+  - Automatic sandbox selection based on command risk
+  - Support for dry-run flags (pacman --print, rsync --dry-run)
+  - Bubblewrap sandbox command generation
+  - `estimate_command_risk()` for quick risk assessment
+
 ## [0.3.17] - 2026-01-13
 
 ### Added
