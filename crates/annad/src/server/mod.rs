@@ -83,12 +83,14 @@ impl Server {
         let listener = UnixListener::bind(socket_path)?;
         info!("Listening on {}", socket_path);
 
-        // Set socket permissions
+        // v0.3.32: Socket permissions - owner + anna group only
+        // 0660 = rw-rw---- (root:anna)
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let perms = std::fs::Permissions::from_mode(0o666);
+            let perms = std::fs::Permissions::from_mode(0o660);
             std::fs::set_permissions(socket_path, perms)?;
+            info!("Socket permissions set to 0660");
         }
 
         loop {

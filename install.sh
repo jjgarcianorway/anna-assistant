@@ -94,25 +94,25 @@ if ! groups "$USERNAME" 2>/dev/null | grep -q "\banna\b"; then
     echo "  Added $USERNAME to anna group"
 fi
 
-# v0.3.31: Create system directories
+# v0.3.32: Create system directories with secure permissions
+# Model: daemon (root) writes, anna group reads via socket RPC
 echo "Creating system directories..."
 sudo mkdir -p /etc/anna
 sudo mkdir -p /var/lib/anna /var/lib/anna/backups /var/lib/anna/wiki /var/lib/anna/recipes
 sudo mkdir -p /var/log/anna
 sudo mkdir -p /run/anna
 
-# Set permissions
-sudo chgrp anna /etc/anna
+# Set permissions: 750 root:anna (daemon writes, group reads)
 sudo chmod 755 /etc/anna
 for dir in /var/lib/anna /var/lib/anna/backups /var/lib/anna/wiki /var/lib/anna/recipes /var/log/anna /run/anna; do
-    sudo chgrp anna "$dir"
-    sudo chmod 775 "$dir"
+    sudo chown root:anna "$dir"
+    sudo chmod 750 "$dir"
 done
 
 # Create tmpfiles.d config for /run/anna persistence
 sudo tee /etc/tmpfiles.d/anna.conf > /dev/null << 'TMPEOF'
-# Anna runtime directory
-d /run/anna 0775 root anna -
+# Anna runtime directory - daemon writes, anna group can connect to socket
+d /run/anna 0750 root anna -
 TMPEOF
 
 # Create/update systemd service
@@ -136,9 +136,9 @@ TimeoutStopSec=10
 MemoryMax=2G
 # Environment
 Environment=RUST_BACKTRACE=1
-# v0.3.31: System-wide paths - runtime directory
+# v0.3.32: System-wide paths - runtime directory
 RuntimeDirectory=anna
-RuntimeDirectoryMode=0775
+RuntimeDirectoryMode=0750
 
 [Install]
 WantedBy=multi-user.target

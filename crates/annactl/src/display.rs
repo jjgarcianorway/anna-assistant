@@ -692,9 +692,8 @@ fn get_user_groups() -> String {
 
 /// Get list of helpers and whether they were installed by Anna
 fn get_helpers_list() -> Vec<(String, bool)> {
-    let deps_path = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(".anna/installed_deps.txt");
+    // v0.3.32: Use system path for installed_deps.txt
+    let deps_path = anna_shared::paths::paths().installed_deps_file();
 
     let anna_installed: std::collections::HashSet<String> = if deps_path.exists() {
         std::fs::read_to_string(&deps_path)
@@ -1031,12 +1030,9 @@ pub fn mark_alerts_shown() {
 /// v0.3.10: Added detailed flag for expanded information
 /// v0.3.20: Updated to match spec requirements
 pub fn print_stats(detailed: bool) {
-    // v0.3.8: Use shared paths for consistency with daemon
+    // v0.3.32: Use system paths for all state
     let mem_path = memory_path();
-    // Tickets are in ~/.local/share/anna/
-    let data_dir = dirs::data_local_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("anna");
+    let p = anna_shared::paths::paths();
 
     println!();
     println_colored("ANNA STATISTICS", BOLD);
@@ -1138,7 +1134,7 @@ pub fn print_stats(detailed: bool) {
     println!();
 
     // TICKET METRICS
-    let tickets_path = data_dir.join("tickets.json");
+    let tickets_path = p.tickets_file();
     if tickets_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&tickets_path) {
             if let Ok(store) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -1209,13 +1205,12 @@ pub fn print_stats(detailed: bool) {
     if detailed {
         println_colored("ACTIVITY", CYAN);
 
-        let fix_history_path = data_dir.join("fix_history.json");
+        // v0.3.32: Use system paths
+        let fix_history_path = p.fix_history_file();
         let fixes_count = count_json_array(&fix_history_path, "fixes");
         println!("  fixes applied: {}", fixes_count);
 
-        let deps_path = dirs::home_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join(".anna/installed_deps.txt");
+        let deps_path = p.installed_deps_file();
         let helpers_count = if deps_path.exists() {
             std::fs::read_to_string(&deps_path).ok()
                 .map(|c| c.lines().filter(|l| !l.is_empty()).count())

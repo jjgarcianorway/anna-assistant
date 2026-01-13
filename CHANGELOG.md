@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.32] - 2026-01-13
+
+### Security Fix - Permissions Model Hardening
+
+**SECURITY: Fixed overly permissive 775 permissions that allowed group-write access.**
+
+- **Directories now 750** (rwxr-x---) - root owns, anna group can read/traverse
+- **Files now 640** (rw-r-----) - root owns, anna group can read
+- **Socket now 660** (rw-rw----) - root owns, anna group can connect
+- **Daemon is only writer** - all state changes go through RPC
+
+This prevents any anna group member from directly modifying:
+- Update ledger (could corrupt truth about installed version)
+- Recipes (could inject malicious commands)
+- Stats/tickets (could manipulate metrics)
+
+### Fixed
+
+- `display.rs` now uses system paths for installed_deps.txt, tickets.json, fix_history.json
+- Removed remaining `dirs::` calls in production code (kept only in migration/user-config code)
+- Socket permissions changed from 0666 to 0660
+
+### Added
+
+- `tests/acceptance_gates_v0.3.32.sh` - comprehensive proof script for all acceptance gates
+- Acceptance gates: A) No home writes, B) Permissions, C) Socket access, D) Migration, E) Updater
+
 ## [0.3.31] - 2026-01-13
 
 ### Changed - System-Wide Architecture (No Per-User State)

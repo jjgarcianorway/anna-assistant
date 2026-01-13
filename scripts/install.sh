@@ -295,62 +295,59 @@ setup_group() {
 }
 
 # Install directories
+# v0.3.32: Security fix - daemon-only writes (750/640), group reads via socket RPC
 install_directories() {
     print_section "install" "directories"
 
+    # Config: root owns, world-readable (no secrets)
     $SUDO mkdir -p "$CONFIG_DIR"
-    $SUDO chgrp "$ANNA_GROUP" "$CONFIG_DIR"
     $SUDO chmod 755 "$CONFIG_DIR"
-    print_item_ok "/etc/anna"
+    print_item_ok "/etc/anna (755 root:root)"
 
+    # State: root owns, anna group can read (for diagnostics)
+    # Daemon is only writer via RPC
     $SUDO mkdir -p "$STATE_DIR"
-    $SUDO chgrp "$ANNA_GROUP" "$STATE_DIR"
-    $SUDO chmod 775 "$STATE_DIR"
-    print_item_ok "/var/lib/anna"
+    $SUDO chown root:$ANNA_GROUP "$STATE_DIR"
+    $SUDO chmod 750 "$STATE_DIR"
+    print_item_ok "/var/lib/anna (750 root:anna)"
 
-    # v0.3.31: Subdirectories with anna group access
-    $SUDO mkdir -p "${STATE_DIR}/backups"
-    $SUDO chgrp "$ANNA_GROUP" "${STATE_DIR}/backups"
-    $SUDO chmod 775 "${STATE_DIR}/backups"
-    print_item_ok "/var/lib/anna/backups"
+    # Subdirectories - same model
+    for subdir in backups wiki recipes; do
+        $SUDO mkdir -p "${STATE_DIR}/${subdir}"
+        $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/${subdir}"
+        $SUDO chmod 750 "${STATE_DIR}/${subdir}"
+        print_item_ok "/var/lib/anna/${subdir} (750 root:anna)"
+    done
 
-    $SUDO mkdir -p "${STATE_DIR}/wiki"
-    $SUDO chgrp "$ANNA_GROUP" "${STATE_DIR}/wiki"
-    $SUDO chmod 775 "${STATE_DIR}/wiki"
-    print_item_ok "/var/lib/anna/wiki"
-
-    $SUDO mkdir -p "${STATE_DIR}/recipes"
-    $SUDO chgrp "$ANNA_GROUP" "${STATE_DIR}/recipes"
-    $SUDO chmod 775 "${STATE_DIR}/recipes"
-    print_item_ok "/var/lib/anna/recipes"
-
+    # Logs: root owns, anna group can read
     $SUDO mkdir -p "$LOG_DIR"
-    $SUDO chgrp "$ANNA_GROUP" "$LOG_DIR"
-    $SUDO chmod 775 "$LOG_DIR"
-    print_item_ok "/var/log/anna"
+    $SUDO chown root:$ANNA_GROUP "$LOG_DIR"
+    $SUDO chmod 750 "$LOG_DIR"
+    print_item_ok "/var/log/anna (750 root:anna)"
 
-    # v0.3.31: /run/anna is created by systemd RuntimeDirectory
-    # But we also create tmpfiles.d config for manual starts
+    # Runtime: socket directory
     $SUDO mkdir -p "$RUN_DIR"
-    $SUDO chgrp "$ANNA_GROUP" "$RUN_DIR"
-    $SUDO chmod 775 "$RUN_DIR"
-    print_item_ok "/run/anna"
+    $SUDO chown root:$ANNA_GROUP "$RUN_DIR"
+    $SUDO chmod 750 "$RUN_DIR"
+    print_item_ok "/run/anna (750 root:anna)"
 
+    # Models: ollama storage
     $SUDO mkdir -p "${STATE_DIR}/models"
-    print_item_ok "/var/lib/anna/models"
+    $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/models"
+    $SUDO chmod 750 "${STATE_DIR}/models"
+    print_item_ok "/var/lib/anna/models (750 root:anna)"
     echo ""
 }
 
-# v0.3.31: Install tmpfiles.d for /run/anna persistence across reboots
+# v0.3.32: Install tmpfiles.d for /run/anna persistence across reboots
 install_tmpfiles() {
     print_section "install" "tmpfiles.d"
 
     $SUDO tee "/etc/tmpfiles.d/anna.conf" > /dev/null << 'EOF'
-# Anna runtime directory
-# Created on boot before annad.service starts
-d /run/anna 0775 root anna -
+# Anna runtime directory - daemon writes, anna group can connect to socket
+d /run/anna 0750 root anna -
 EOF
-    print_item_ok "/etc/tmpfiles.d/anna.conf"
+    print_item_ok "/etc/tmpfiles.d/anna.conf (750 root:anna)"
     echo ""
 }
 
@@ -392,9 +389,10 @@ StandardOutput=journal
 StandardError=journal
 Environment="OLLAMA_MODELS=/var/lib/anna/models"
 
-# v0.3.31: System-wide paths - no HOME needed
+# v0.3.32: System-wide paths - no HOME needed
+# Socket at /run/anna/anna.sock with 0660 for group access
 RuntimeDirectory=anna
-RuntimeDirectoryMode=0775
+RuntimeDirectoryMode=0750
 
 [Install]
 WantedBy=multi-user.target
