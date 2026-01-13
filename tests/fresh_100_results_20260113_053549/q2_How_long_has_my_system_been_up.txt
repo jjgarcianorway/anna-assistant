@@ -1,0 +1,8 @@
+
+
+[32mAnna: [0mSystem uptime: up 9 hours, 11 minutes
+
+
+[2m(0 iterations)[0m
+TIME: .006822174s
+EXIT: 0

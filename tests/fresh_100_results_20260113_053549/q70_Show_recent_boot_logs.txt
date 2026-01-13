@@ -1,0 +1,26 @@
+
+[36mYou: [0mShow recent boot logs
+
+[2m  $ [0mjournalctl -b --no-pager | head -30
+[2m  jan. 12 20:24:01 cachyos kernel: Linux version 6.18.5-2-cachyos (linux-cachyos@cachyos) (clang version 21.1.6, LLD 21.1.6) #1 SMP PREEMPT_DYNAMIC Mon, 12 Jan 2026 12:52:54 +0000
+jan. 12 20:24:01 cachyos kernel: Command line: initrd=\initramfs-linux-cachyos.img root=UUID=3c5e632a-8ae9-4e92-b60b-be6710e71b6c rw rootflags=subvol=/@ zswap.enabled=0 nowatchdog splash
+jan. 12 20:24:01 cachyos kernel: x86/split lock detection: #AC: crashing the kernel on kernel split_locks and warning on user-space spl...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mlogs [0m[32mprovided [0m[32mare [0m[32mfrom [0m[32mthe [0m[32mboot [0m[32mprocess [0m[32mof [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32mkernel [0m[32mversion [0m[32m6.18.5-2-cachyos. [0m[32mThey [0m[32mdetail [0m[32mthe [0m[32minitial [0m[32msetup [0m[32mand [0m[32mconfiguration [0m[32msteps [0m[32mperformed [0m[32mby [0m[32mthe [0m[32mkernel [0m[32mduring [0m[32mstartup, [0m[32mincluding [0m[32mmemory [0m[32mmapping, [0m[32mdevice [0m[32minitialization, [0m[32mand [0m[32mcommand-line [0m[32mparameters.
+
+To [0m[32mview [0m[32mrecent [0m[32mboot [0m[32mlogs [0m[32mon [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem, [0m[32myou [0m[32mcan [0m[32muse:
+
+```bash
+journalctl [0m[32m-b [0m[32m-1
+```
+
+This [0m[32mcommand [0m[32mwill [0m[32mshow [0m[32mthe [0m[32mmost [0m[32mrecent [0m[32mboot [0m[32mlog [0m[32mentries. [0m[32mIf [0m[32myou [0m[32mwant [0m[32mto [0m[32msee [0m[32mmore [0m[32mdetailed [0m[32mor [0m[32mspecific [0m[32mlogs, [0m[32myou [0m[32mcan [0m[32madjust [0m[32mthe [0m[32mcommand [0m[32maccordingly. [0m[32mFor [0m[32mexample, [0m[32mto [0m[32minclude [0m[32mdebug [0m[32minformation, [0m[32myou [0m[32mmight [0m[32muse:
+
+```bash
+journalctl [0m[32m-xb [0m[32m--no-pager [0m[32m-o [0m[32mcat [0m[32m| [0m[32mless
+```
+
+This [0m[32mcombination [0m[32mof [0m[32mcommands [0m[32mwill [0m[32mdisplay [0m[32mboot [0m[32mlogs [0m[32mfrom [0m[32mthe [0m[32mprevious [0m[32mboot [0m[32msession [0m[32min [0m[32ma [0m[32mmore [0m[32mreadable [0m[32mformat [0m[32musing [0m[32m`less`.[0m[31mError: [0mNo result received from daemon
+TIME: 5.199491625s
+EXIT: 0

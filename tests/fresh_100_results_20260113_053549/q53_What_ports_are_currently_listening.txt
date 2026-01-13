@@ -1,0 +1,45 @@
+
+[36mYou: [0mWhat ports are currently listening?
+
+[2m  $ [0mss -tlnp | head -15
+[2m  State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      128        127.0.0.1:57343      0.0.0.0:*    users:(("steam",pid=11088,fd=59))        
+LISTEN 0      128        127.0.0.1:39931      0.0.0.0:*    users:(("steam",pid=11088,fd=100))       
+LISTEN 0      128          0.0.0.0:38540      0.0.0.0:*    users:(("sshd",pid=1253,fd=6))           
+LISTEN 0      10         127.0.0.1:39865      0.0.0.0:*    users:(("bpftune",pid=1252,fd=6))    ...[0m
+[2m  $ [0mss -tlnp | head -15
+[2m  State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      128        127.0.0.1:57343      0.0.0.0:*    users:(("steam",pid=11088,fd=59))        
+LISTEN 0      128        127.0.0.1:39931      0.0.0.0:*    users:(("steam",pid=11088,fd=100))       
+LISTEN 0      128          0.0.0.0:38540      0.0.0.0:*    users:(("sshd",pid=1253,fd=6))           
+LISTEN 0      10         127.0.0.1:39865      0.0.0.0:*    users:(("bpftune",pid=1252,fd=6))    ...[0m
+[2m  $ [0mss -tlnp | head -15
+[2m  State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      128        127.0.0.1:57343      0.0.0.0:*    users:(("steam",pid=11088,fd=59))        
+LISTEN 0      128        127.0.0.1:39931      0.0.0.0:*    users:(("steam",pid=11088,fd=100))       
+LISTEN 0      128          0.0.0.0:38540      0.0.0.0:*    users:(("sshd",pid=1253,fd=6))           
+LISTEN 0      10         127.0.0.1:39865      0.0.0.0:*    users:(("bpftune",pid=1252,fd=6))    ...[0m
+[2m  $ [0mss -tlnp | head -15
+[2m  State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      128        127.0.0.1:57343      0.0.0.0:*    users:(("steam",pid=11088,fd=59))        
+LISTEN 0      128        127.0.0.1:39931      0.0.0.0:*    users:(("steam",pid=11088,fd=100))       
+LISTEN 0      128          0.0.0.0:38540      0.0.0.0:*    users:(("sshd",pid=1253,fd=6))           
+LISTEN 0      10         127.0.0.1:39865      0.0.0.0:*    users:(("bpftune",pid=1252,fd=6))    ...[0m
+[2m  $ [0mss -tlnp | head -15
+[2m  State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      128        127.0.0.1:57343      0.0.0.0:*    users:(("steam",pid=11088,fd=59))        
+LISTEN 0      128        127.0.0.1:39931      0.0.0.0:*    users:(("steam",pid=11088,fd=100))       
+LISTEN 0      128          0.0.0.0:38540      0.0.0.0:*    users:(("sshd",pid=1253,fd=6))           
+LISTEN 0      10         127.0.0.1:39865      0.0.0.0:*    users:(("bpftune",pid=1252,fd=6))    ...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthe [0m[32mfollowing [0m[32mports [0m[32mare [0m[32mcurrently [0m[32mlistening:
+
+- [0m[32m`38540` [0m[32m(TCP) [0m[32m- [0m[32mListened [0m[32mby [0m[32m`sshd`
+- [0m[32m`5355` [0m[32m(UDP [0m[32mand [0m[32mTCP) [0m[32m- [0m[32mListened [0m[32mby [0m[32m`systemd-resolve`
+- [0m[32m`11434`, [0m[32m`27060`, [0m[32m`34319`, [0m[32m`39865`, [0m[32m`39931`, [0m[32m`43237`, [0m[32m`57343` [0m[32m(TCP) [0m[32m- [0m[32mListened [0m[32mby [0m[32mvarious [0m[32mprocesses, [0m[32mincluding [0m[32m`bpftune`, [0m[32m`steam`, [0m[32mand [0m[32m`ollama`
+- [0m[32m`127.0.0.1:27036`, [0m[32m`127.0.0.53:53`, [0m[32m`127.0.0.54:53` [0m[32m(TCP) [0m[32m- [0m[32mListened [0m[32mby [0m[32m`systemd-resolve`
+
+These [0m[32mports [0m[32mare [0m[32mprimarily [0m[32mlistening [0m[32mon [0m[32mthe [0m[32mloopback [0m[32maddress [0m[32m(`127.0.0.1`), [0m[32mwhich [0m[32mmeans [0m[32mthey [0m[32mare [0m[32monly [0m[32maccessible [0m[32mfrom [0m[32mwithin [0m[32mthe [0m[32mlocal [0m[32mmachine.[0m[31mError: [0mNo result received from daemon
+TIME: 56.107219929s
+EXIT: 0

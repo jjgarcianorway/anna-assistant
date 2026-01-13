@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhat AUR helper is installed if any?
+
+[2m  $ [0mwhich yay paru 2>/dev/null | head -1 || echo 'No AUR helper found'
+[2m  /usr/bin/paru[0m
+
+[32mAnna: [0mAUR helper: /usr/bin/paru
+
+
+[2m(0 iterations)[0m
+TIME: .009579701s
+EXIT: 0

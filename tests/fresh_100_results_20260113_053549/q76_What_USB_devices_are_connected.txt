@@ -1,0 +1,67 @@
+
+[36mYou: [0mWhat USB devices are connected?
+
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 003: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 003: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 003: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 003: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  $ [0mlsusb
+[2m  Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 17ef:f006 Lenovo Idea5003
+Bus 001 Device 003: ID 05ac:0500 Apple, Inc. Apple MagSafe Charger
+Bus 001 Device 004: ID 046d:c52b Logitech, Inc. Unifying Receiver
+Bus 001 Device 005: ID 10a5:d805 FPC FPC L:0005 FW:2127092
+Bus 001 Device 006: ID 174f:1820 Syntek Integrated Camera
+Bus 001 Device 007: ID 8087:0033 Intel Corp. AX211 Bluetooth
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mUSB [0m[32mdevice [0m[32mlist, [0m[32mthe [0m[32mfollowing [0m[32mdevices [0m[32mare [0m[32mconnected:
+
+- [0m[32mLenovo [0m[32mIdea5003 [0m[32m(Bus [0m[32m1 [0m[32mDevice [0m[32m2)
+- [0m[32mApple [0m[32mMagSafe [0m[32mCharger [0m[32m(Bus [0m[32m1 [0m[32mDevice [0m[32m3)
+- [0m[32mLogitech [0m[32mUnifying [0m[32mReceiver [0m[32m(Bus [0m[32m1 [0m[32mDevice [0m[32m4)
+- [0m[32mFPC [0m[32mFPC [0m[32mL:0005 [0m[32m(Bus [0m[32m1 [0m[32mDevice [0m[32m5, [0m[32mfirmware [0m[32mversion [0m[32m2127092)
+- [0m[32mSyntek [0m[32mIntegrated [0m[32mCamera [0m[32m(Bus [0m[32m1 [0m[32mDevice [0m[32m6)
+- [0m[32mIntel [0m[32mCorp. [0m[32mAX211 [0m[32mBluetooth [0m[32m(Bus [0m[32m1 [0m[32mDevice [0m[32m7)
+
+No [0m[32mdevices [0m[32mare [0m[32mconnected [0m[32mto [0m[32mBus [0m[32m2, [0m[32mBus [0m[32m3, [0m[32mor [0m[32mBus [0m[32m4 [0m[32mas [0m[32mshown [0m[32min [0m[32mthe [0m[32mdata [0m[32mprovided.[0m[31mError: [0mNo result received from daemon
+TIME: 40.483826767s
+EXIT: 0

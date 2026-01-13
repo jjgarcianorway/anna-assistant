@@ -1,0 +1,42 @@
+
+[36mYou: [0mWhat failed login attempts occurred recently?
+
+[2m  $ [0msystemctl --failed
+[2m  UNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.[0m
+[2m  $ [0mjournalctl -p err -b --no-pager | tail -20
+[2m  jan. 12 22:39:30 razorback runuser[58351]: pam_lastlog2(runuser:session): SQL error: database is locked
+jan. 12 22:48:21 razorback sudo[68747]: pam_unix(sudo:auth): conversation failed
+jan. 12 22:48:21 razorback sudo[68747]: pam_unix(sudo:auth): auth could not identify password for [lhoqvso]
+jan. 12 22:48:23 razorback sudo[68978]: pam_unix(sudo:auth): conversation failed
+jan. 12 22:48:23 razorback sudo[68978]: pam_unix(sudo:auth): auth could not identify password for [lhoqvso]
+jan. 12 22:48:25 r...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mChecking [0m[32mrecent [0m[32mfailures...
+
+The [0m[32mprovided [0m[32mlogs [0m[32mdo [0m[32mnot [0m[32mindicate [0m[32many [0m[32mfailed [0m[32mlogin [0m[32mattempts [0m[32mfor [0m[32mregular [0m[32muser [0m[32maccounts. [0m[32mHowever, [0m[32mthere [0m[32mare [0m[32mmultiple [0m[32mentries [0m[32mrelated [0m[32mto [0m[32mauthentication [0m[32missues:
+
+1. [0m[32m`pam_unix(sudo:auth): [0m[32mauth [0m[32mcould [0m[32mnot [0m[32midentify [0m[32mpassword [0m[32mfor [0m[32m[lhoqvso]` [0m[32m- [0m[32mThis [0m[32mmessage [0m[32mappears [0m[32m7 [0m[32mtimes [0m[32mbetween [0m[32m22:48 [0m[32mand [0m[32m23:57 [0m[32mon [0m[32mJanuary [0m[32m12th. [0m[32mThe [0m[32muser [0m[32m"lhoqvso" [0m[32mis [0m[32mattempting [0m[32mto [0m[32muse [0m[32m`sudo`, [0m[32mbut [0m[32mthe [0m[32msystem [0m[32mcannot [0m[32mauthenticate [0m[32mtheir [0m[32mpassword.
+
+2. [0m[32mSQL [0m[32merrors [0m[32m(`pam_lastlog2(runuser:session): [0m[32mSQL [0m[32merror: [0m[32mdatabase [0m[32mis [0m[32mlocked`) [0m[32m- [0m[32mThese [0m[32moccur [0m[32mtwice [0m[32mat [0m[32m22:39 [0m[32mand [0m[32m23:24 [0m[32mon [0m[32mJanuary [0m[32m12th, [0m[32mindicating [0m[32man [0m[32missue [0m[32mwith [0m[32mthe [0m[32mlastlog [0m[32mdatabase.
+
+To [0m[32maddress [0m[32mthese [0m[32missues:
+
+- [0m[32mFor [0m[32mthe [0m[32mauthentication [0m[32mproblem:
+ [0m[32m [0m[32m- [0m[32mEnsure [0m[32mthat [0m[32mthe [0m[32muser [0m[32m"lhoqvso" [0m[32mexists [0m[32min [0m[32myour [0m[32msystem.
+ [0m[32m [0m[32m- [0m[32mCheck [0m[32mif [0m[32mthere [0m[32mare [0m[32many [0m[32mlocal [0m[32mor [0m[32mglobal [0m[32maccount [0m[32mlockouts [0m[32mfor [0m[32mthis [0m[32muser.
+ [0m[32m [0m[32m- [0m[32mVerify [0m[32mthat [0m[32mthe [0m[32mpassword [0m[32mis [0m[32mcorrectly [0m[32mentered. [0m[32mIf [0m[32myou're [0m[32musing [0m[32ma [0m[32mgraphical [0m[32minterface, [0m[32mmake [0m[32msure [0m[32mit's [0m[32mproperly [0m[32mhandling [0m[32mkeyboard [0m[32minput.
+
+- [0m[32mFor [0m[32mthe [0m[32mSQL [0m[32mdatabase [0m[32mlocking [0m[32missue:
+ [0m[32m [0m[32m- [0m[32mRun [0m[32m`sudo [0m[32msystemctl [0m[32mrestart [0m[32msystemd-logind` [0m[32mto [0m[32mrestart [0m[32mthe [0m[32mlogin [0m[32mservice [0m[32mand [0m[32msee [0m[32mif [0m[32mthat [0m[32mresolves [0m[32mthe [0m[32mproblem [0m[32mtemporarily.
+ [0m[32m [0m[32m- [0m[32mConsider [0m[32mrunning [0m[32m`journalctl [0m[32m--vacuum-time=1d` [0m[32mto [0m[32mclean [0m[32mup [0m[32mold [0m[32mlogs [0m[32m(if [0m[32mnecessary) [0m[32mor [0m[32m`systemctl [0m[32mreboot` [0m[32mas [0m[32ma [0m[32mlast [0m[32mresort.
+ [0m[32m [0m[32m- [0m[32mIf [0m[32mthe [0m[32missue [0m[32mpersists, [0m[32myou [0m[32mmay [0m[32mneed [0m[32mto [0m[32mmanually [0m[32munlock [0m[32mthe [0m[32mdatabase [0m[32mby [0m[32mstopping [0m[32m`systemd-logind`, [0m[32mrenaming [0m[32mits [0m[32mlastlog [0m[32mfile [0m[32m(`/var/lib/systemd/units/systemd-user-sessions.service.lastlog`), [0m[32mand [0m[32mthen [0m[32mrestarting [0m[32m`systemd-logind`.
+
+If [0m[32mthese [0m[32msteps [0m[32mresolve [0m[32mthe [0m[32missues, [0m[32mmonitoring [0m[32mshould [0m[32mreturn [0m[32mto [0m[32mnormal.[0m
+
+
+[2m(1 iterations)[0m
+TIME: 19.236953768s
+EXIT: 0

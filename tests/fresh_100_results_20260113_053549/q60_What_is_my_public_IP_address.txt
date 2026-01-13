@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhat is my public IP address?
+
+[2m  $ [0mcurl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com
+[2m  84.49.223.220[0m
+
+[32mAnna: [0mPublic IP: 84.49.223.220
+
+
+[2m(0 iterations)[0m
+TIME: .188870907s
+EXIT: 0

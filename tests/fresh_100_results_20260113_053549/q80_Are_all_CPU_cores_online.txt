@@ -1,0 +1,24 @@
+
+[36mYou: [0mAre all CPU cores online?
+
+[2m  $ [0mlscpu | grep -i core
+[2m  Model name:                              Intel(R) Core(TM) i9-14900HX
+Thread(s) per core:                      2
+Core(s) per socket:                      24[0m
+[2m  $ [0mlscpu | grep -i online
+[2m  [0m
+[2m  $ [0mlscpu | grep -i online
+[2m  [0m
+[2m  $ [0mlscpu | grep -i online
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32minformation:
+
+- [0m[32mModel [0m[32mname: [0m[32mIntel(R) [0m[32mCore(TM) [0m[32mi9-14900HX
+- [0m[32mThread(s) [0m[32mper [0m[32mcore: [0m[32m2
+- [0m[32mCore(s) [0m[32mper [0m[32msocket: [0m[32m24
+
+The [0m[32mdata [0m[32mdoes [0m[32mnot [0m[32mindicate [0m[32mwhether [0m[32mall [0m[32mCPU [0m[32mcores [0m[32mare [0m[32monline [0m[32mor [0m[32moffline. [0m[32mTo [0m[32mdetermine [0m[32mif [0m[32mall [0m[32mCPU [0m[32mcores [0m[32mare [0m[32monline, [0m[32myou [0m[32mwould [0m[32mneed [0m[32mto [0m[32mcheck [0m[32mthe [0m[32msystem [0m[32musing [0m[32ma [0m[32mcommand [0m[32mlike [0m[32m`lscpu` [0m[32mor [0m[32m`grep [0m[32m"Online"` [0m[32min [0m[32mcombination [0m[32mwith [0m[32m`cat [0m[32m/sys/devices/system/cpu/online`. [0m[32mHowever, [0m[32mgiven [0m[32monly [0m[32mthis [0m[32minformation, [0m[32mwe [0m[32mcannot [0m[32mdefinitively [0m[32mstate [0m[32mwhether [0m[32mall [0m[32m48 [0m[32mlogical [0m[32mprocessors [0m[32m(24 [0m[32mcores [0m[32m× [0m[32m2 [0m[32mthreads) [0m[32mare [0m[32monline.[0m[31mError: [0mNo result received from daemon
+TIME: 30.870110287s
+EXIT: 0

@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhat is my local IP address?
+
+[2m  $ [0mip -4 addr show | grep inet | grep -v 127.0.0.1 | awk '{print $2}'
+[2m  10.0.0.2/24[0m
+
+[32mAnna: [0mLocal IP: 10.0.0.2/24
+
+
+[2m(0 iterations)[0m
+TIME: .021507661s
+EXIT: 0

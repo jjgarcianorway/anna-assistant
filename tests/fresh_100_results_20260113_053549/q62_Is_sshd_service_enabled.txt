@@ -1,0 +1,16 @@
+
+[36mYou: [0mIs sshd service enabled?
+
+[2m  $ [0msystemctl is-active --quiet sshd && echo "sshd service is enabled" || echo "sshd service is not enabled"
+[2m  sshd service is enabled[0m
+[2m  $ [0msystemctl is-active --quiet sshd && echo "sshd service is enabled" || echo "sshd service is not enabled"
+[2m  sshd service is enabled[0m
+[2m  $ [0msystemctl is-active --quiet sshd && echo "sshd service is enabled" || echo "sshd service is not enabled"
+[2m  sshd service is enabled[0m
+[2m  $ [0msystemctl is-active --quiet sshd && echo "sshd service is enabled" || echo "sshd service is not enabled"
+[2m  sshd service is enabled[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32msshd [0m[32mservice [0m[32mis [0m[32menabled.[0m[31mError: [0mNo result received from daemon
+TIME: 14.234207971s
+EXIT: 0

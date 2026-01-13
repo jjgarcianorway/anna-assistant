@@ -1,0 +1,32 @@
+
+[36mYou: [0mShow disk I/O statistics
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32mshow [0m[32mdisk [0m[32mI/O [0m[32mstatistics [0m[32min [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32m`pacman`, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32m`iostat` [0m[32mutility [0m[32mfrom [0m[32mthe [0m[32m`sysstat` [0m[32mpackage. [0m[32mHere’s [0m[32mhow [0m[32mto [0m[32mdo [0m[32mit:
+
+1. [0m[32mInstall [0m[32m`sysstat` [0m[32mif [0m[32mit [0m[32mis [0m[32mnot [0m[32malready [0m[32minstalled:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32msudo [0m[32mpacman [0m[32m-S [0m[32msysstat
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32mRun [0m[32m`iostat` [0m[32mto [0m[32mdisplay [0m[32mdisk [0m[32mI/O [0m[32mstatistics:
+ [0m[32m [0m[32m [0m[32m```sh
+ [0m[32m [0m[32m [0m[32miostat [0m[32m-dx [0m[32m5
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mThis [0m[32mcommand [0m[32mwill [0m[32mgive [0m[32myou [0m[32mdetailed [0m[32mdisk [0m[32mstatistics [0m[32mevery [0m[32m5 [0m[32mseconds.
+
+If [0m[32myou [0m[32mwant [0m[32mto [0m[32mmonitor [0m[32mthe [0m[32msystem [0m[32mfor [0m[32ma [0m[32mlonger [0m[32mperiod, [0m[32myou [0m[32mcan [0m[32mrun [0m[32mit [0m[32mwithout [0m[32many [0m[32moptions [0m[32mto [0m[32mget [0m[32mgeneral [0m[32mI/O [0m[32mstatistics:
+
+```sh
+iostat
+```
+
+For [0m[32mmore [0m[32mdetailed [0m[32mhelp [0m[32mand [0m[32moptions, [0m[32myou [0m[32mcan [0m[32muse:
+```sh
+man [0m[32miostat
+```
+
+This [0m[32mwill [0m[32mprovide [0m[32myou [0m[32mwith [0m[32mcomprehensive [0m[32mdisk [0m[32mI/O [0m[32mstatistics.[0m[31mError: [0mNo result received from daemon
+TIME: 4.247280885s
+EXIT: 0

@@ -1,0 +1,12 @@
+
+[36mYou: [0mHow many packages are installed on my system?
+
+[2m  $ [0mpacman -Q | wc -l
+[2m  1408[0m
+
+[32mAnna: [0mYou have 1408 packages installed
+
+
+[2m(0 iterations)[0m
+TIME: .102766855s
+EXIT: 0

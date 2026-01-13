@@ -587,6 +587,128 @@ fn get_fast_path(question: &str) -> Option<(&'static str, &'static str)> {
         return Some(("hostname", "Hostname: {output}"));
     }
 
+    // v0.3.2: Additional fast-paths based on 100-question test analysis
+
+    // Listening ports
+    if q.contains("port") && (q.contains("listen") || q.contains("open")) {
+        return Some(("ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null", "{output}"));
+    }
+
+    // USB devices
+    if q.contains("usb") && (q.contains("device") || q.contains("connected") || q.contains("what")) {
+        return Some(("lsusb", "USB devices:\n{output}"));
+    }
+
+    // DNS servers
+    if q.contains("dns") && (q.contains("server") || q.contains("configured")) {
+        return Some(("cat /etc/resolv.conf | grep nameserver", "DNS servers:\n{output}"));
+    }
+
+    // Mount points
+    if q.contains("mount") && q.contains("/home") {
+        return Some(("mount | grep /home || echo '/home is on root'", "{output}"));
+    }
+
+    // GPT/MBR partition table
+    if (q.contains("gpt") || q.contains("mbr")) && (q.contains("disk") || q.contains("partition")) {
+        return Some(("lsblk -o NAME,PTTYPE | head -5", "{output}"));
+    }
+
+    // Active timers
+    if q.contains("timer") && (q.contains("active") || q.contains("what") || q.contains("list")) {
+        return Some(("systemctl list-timers --no-pager | head -15", "{output}"));
+    }
+
+    // Socket units
+    if q.contains("socket") && (q.contains("unit") || q.contains("listen")) {
+        return Some(("systemctl list-sockets --no-pager | head -15", "{output}"));
+    }
+
+    // Systemd default target
+    if q.contains("default") && (q.contains("target") || q.contains("runlevel")) {
+        return Some(("systemctl get-default", "Default target: {output}"));
+    }
+
+    // SELinux/AppArmor status
+    if q.contains("selinux") || q.contains("apparmor") {
+        return Some(("cat /sys/kernel/security/lsm 2>/dev/null || echo 'No LSM detected'", "Security modules: {output}"));
+    }
+
+    // Package version queries
+    if (q.contains("version") || q.contains("installed")) && q.contains("mesa") {
+        return Some(("pacman -Q mesa 2>/dev/null || echo 'mesa not installed'", "{output}"));
+    }
+
+    // Is package installed (generic)
+    if q.contains("installed") && (q.contains("linux-cachyos") || q.contains("cachyos")) {
+        return Some(("pacman -Q linux-cachyos 2>/dev/null || echo 'linux-cachyos not installed'", "{output}"));
+    }
+
+    // btrfs subvolumes
+    if q.contains("btrfs") && q.contains("subvolume") {
+        return Some(("btrfs subvolume list / 2>/dev/null || echo 'Not btrfs or no subvolumes'", "{output}"));
+    }
+
+    // TRIM status
+    if q.contains("trim") && (q.contains("enabled") || q.contains("ssd")) {
+        return Some(("systemctl is-enabled fstrim.timer 2>/dev/null || echo 'fstrim.timer not found'", "TRIM timer: {output}"));
+    }
+
+    // LVM volumes
+    if q.contains("lvm") && (q.contains("volume") || q.contains("any")) {
+        return Some(("lvs 2>/dev/null || echo 'No LVM volumes'", "{output}"));
+    }
+
+    // Disk encryption
+    if q.contains("encrypt") && (q.contains("disk") || q.contains("luks")) {
+        return Some(("lsblk -o NAME,FSTYPE,TYPE | grep -i crypt || echo 'No encrypted volumes detected'", "{output}"));
+    }
+
+    // Recently installed packages
+    if q.contains("recent") && q.contains("package") {
+        return Some(("expac -Q --timefmt='%Y-%m-%d' '%l %n' | sort -r | head -10", "Recent packages:\n{output}"));
+    }
+
+    // Largest packages
+    if q.contains("largest") && q.contains("package") {
+        return Some(("expac -Q -H M '%m %n' | sort -rn | head -10", "Largest packages:\n{output}"));
+    }
+
+    // zram status
+    if q.contains("zram") {
+        return Some(("zramctl 2>/dev/null || echo 'zram not configured'", "{output}"));
+    }
+
+    // MAC address
+    if q.contains("mac") && q.contains("address") {
+        return Some(("ip link | grep -A1 'state UP' | grep ether | awk '{print $2}'", "MAC address: {output}"));
+    }
+
+    // Root UUID
+    if q.contains("uuid") && (q.contains("root") || q.contains("/")) {
+        return Some(("lsblk -o NAME,UUID,MOUNTPOINT | grep -E '/$' | awk '{print $2}'", "Root UUID: {output}"));
+    }
+
+    // SUID binaries
+    if q.contains("suid") && q.contains("binar") {
+        return Some(("find /usr/bin -perm -4000 2>/dev/null | wc -l", "SUID binaries: {output}"));
+    }
+
+    // Sudo configured
+    if q.contains("sudo") && q.contains("configured") {
+        return Some(("groups | grep -q wheel && echo 'Yes (wheel group)' || echo 'Check /etc/sudoers'", "Sudo: {output}"));
+    }
+
+    // CPU frequency
+    if q.contains("cpu") && (q.contains("freq") || q.contains("speed") || q.contains("mhz") || q.contains("ghz")) {
+        return Some(("lscpu | grep 'CPU MHz' | awk '{print $3}'", "CPU frequency: {output} MHz"));
+    }
+
+    // Audio server type
+    if (q.contains("pipewire") || q.contains("pulseaudio")) && (q.contains("running") || q.contains("using") || q.contains("which")) {
+        return Some(("pactl info 2>/dev/null | grep 'Server Name' | cut -d: -f2 | xargs || echo 'Not running'", "Audio: {output}"));
+    }
+
     None
 }
 

@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhat groups am I a member of?
+
+[2m  $ [0mgroups
+[2m  root[0m
+
+[32mAnna: [0mYour groups: root
+
+
+[2m(0 iterations)[0m
+TIME: .006987838s
+EXIT: 0

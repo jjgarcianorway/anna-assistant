@@ -1,0 +1,14 @@
+
+[36mYou: [0mIs any zram swap configured?
+
+[2m  $ [0mswapon --show
+[2m  NAME       TYPE      SIZE   USED PRIO
+/dev/zram0 partition  31G 385,2M  100[0m
+
+[32mAnna: [0mNAME       TYPE      SIZE   USED PRIO
+/dev/zram0 partition  31G 385,2M  100
+
+
+[2m(0 iterations)[0m
+TIME: .006985046s
+EXIT: 0

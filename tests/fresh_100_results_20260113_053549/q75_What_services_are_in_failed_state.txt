@@ -1,0 +1,16 @@
+
+[36mYou: [0mWhat services are in failed state?
+
+[2m  $ [0msystemctl --failed --no-pager
+[2m  UNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.[0m
+
+[32mAnna: [0mUNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.
+
+
+[2m(0 iterations)[0m
+TIME: .010564287s
+EXIT: 0

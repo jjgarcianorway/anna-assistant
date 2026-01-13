@@ -1,0 +1,44 @@
+
+[36mYou: [0mIs any user service running?
+
+[2m  $ [0msystemctl list-units --type=service --state=running | head -20
+[2m  UNIT                          LOAD   ACTIVE SUB     DESCRIPTION
+  accounts-daemon.service       loaded active running Accounts Service
+  ananicy-cpp.service           loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++
+  annad.service                 loaded active running Anna Assistant Daemon
+  avahi-daemon.service          loaded active running Avahi mDNS/DNS-SD Stack
+  bluetooth.service             loaded active running Bluetooth service
+  bolt.service                  loaded ...[0m
+[2m  $ [0msystemctl list-units --type=service --state=running | head -20
+[2m  UNIT                          LOAD   ACTIVE SUB     DESCRIPTION
+  accounts-daemon.service       loaded active running Accounts Service
+  ananicy-cpp.service           loaded active running Ananicy-Cpp - ANother Auto NICe daemon in C++
+  annad.service                 loaded active running Anna Assistant Daemon
+  avahi-daemon.service          loaded active running Avahi mDNS/DNS-SD Stack
+  bluetooth.service             loaded active running Bluetooth service
+  bolt.service                  loaded ...[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mYes, [0m[32mseveral [0m[32muser [0m[32mservices [0m[32mare [0m[32mrunning [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThe [0m[32mfollowing [0m[32mservices [0m[32mare [0m[32mlisted [0m[32mas [0m[32m"loaded [0m[32mactive [0m[32mrunning":
+
+- [0m[32maccounts-daemon.service
+- [0m[32mananicy-cpp.service
+- [0m[32mannad.service
+- [0m[32mavahi-daemon.service
+- [0m[32mbluetooth.service
+- [0m[32mbolt.service
+- [0m[32mbpftune.service
+- [0m[32mcolord.service
+- [0m[32mdbus-broker.service
+- [0m[32mfwupd.service
+- [0m[32mgdm.service
+- [0m[32miio-sensor-proxy.service
+- [0m[32mNetworkManager.service
+- [0m[32mnvidia-powerd.service
+- [0m[32mollama.service
+- [0m[32mpolkit.service
+- [0m[32mpower-profiles-daemon.service
+- [0m[32mrtkit-daemon.service
+- [0m[32msshd.service[0m[31mError: [0mNo result received from daemon
+TIME: 38.545646373s
+EXIT: 0

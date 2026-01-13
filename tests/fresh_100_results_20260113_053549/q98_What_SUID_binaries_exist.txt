@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhat SUID binaries exist?
+
+[2m  $ [0mid
+[2m  uid=0(root) gid=0(root) groups=0(root)[0m
+
+[32mAnna: [0muid=0(root) gid=0(root) groups=0(root)
+
+
+[2m(0 iterations)[0m
+TIME: .007961479s
+EXIT: 0

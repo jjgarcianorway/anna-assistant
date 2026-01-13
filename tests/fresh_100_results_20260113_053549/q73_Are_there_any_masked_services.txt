@@ -1,0 +1,10 @@
+
+[36mYou: [0mAre there any masked services?
+
+[2m  $ [0msystemctl --failed | grep -w masked &> /dev/null && echo "Yes" || echo "No"
+[2m  No[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthere [0m[32mare [0m[32mno [0m[32mmasked [0m[32mservices [0m[32min [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32musing [0m[32mpacman [0m[32mfor [0m[32mpackage [0m[32mmanagement.[0m[31mError: [0mNo result received from daemon
+TIME: 5.990347403s
+EXIT: 0

@@ -1,0 +1,14 @@
+
+[36mYou: [0mAre there any LVM volumes?
+
+[2m  $ [0mpacman -Qtdq | grep lvm2
+[2m  [0m
+[2m  $ [0mpvs
+[2m  [0m
+[2m  $ [0mpvs | grep -q "pv" && echo "Yes" || echo "No"
+[2m  No[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthere [0m[32mare [0m[32mno [0m[32mLVM [0m[32mvolumes [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem.[0m[31mError: [0mNo result received from daemon
+TIME: 21.737176699s
+EXIT: 0

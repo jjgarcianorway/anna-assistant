@@ -1,0 +1,32 @@
+
+[36mYou: [0mWhat PCI devices are present?
+
+[2m  $ [0mlspci | head -20
+[2m  00:00.0 Host bridge: Intel Corporation Device a702 (rev 01)
+00:01.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 5.0 Graphics Port (PEG010) (rev 01)
+00:04.0 Signal processing controller: Intel Corporation Raptor Lake Dynamic Platform and Thermal Framework Processor Participant (rev 01)
+00:06.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 4.0 Graphics Port (rev 01)
+00:08.0 System peripheral: Intel Corporation GNA Scoring Accelerator module (rev 01)
+00:0a.0 Signal processing cont...[0m
+[2m  $ [0mlspci | head -20
+[2m  00:00.0 Host bridge: Intel Corporation Device a702 (rev 01)
+00:01.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 5.0 Graphics Port (PEG010) (rev 01)
+00:04.0 Signal processing controller: Intel Corporation Raptor Lake Dynamic Platform and Thermal Framework Processor Participant (rev 01)
+00:06.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 4.0 Graphics Port (rev 01)
+00:08.0 System peripheral: Intel Corporation GNA Scoring Accelerator module (rev 01)
+00:0a.0 Signal processing cont...[0m
+[2m  $ [0mlspci | grep -A 20 PCI
+[2m  00:01.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 5.0 Graphics Port (PEG010) (rev 01)
+00:04.0 Signal processing controller: Intel Corporation Raptor Lake Dynamic Platform and Thermal Framework Processor Participant (rev 01)
+00:06.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 4.0 Graphics Port (rev 01)
+00:08.0 System peripheral: Intel Corporation GNA Scoring Accelerator module (rev 01)
+00:0a.0 Signal processing controller: Intel Corporation Raptor Lake Crashlog and Telemetry...[0m
+[2m  $ [0mlspci | head -20
+[2m  00:00.0 Host bridge: Intel Corporation Device a702 (rev 01)
+00:01.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 5.0 Graphics Port (PEG010) (rev 01)
+00:04.0 Signal processing controller: Intel Corporation Raptor Lake Dynamic Platform and Thermal Framework Processor Participant (rev 01)
+00:06.0 PCI bridge: Intel Corporation Raptor Lake PCI Express 4.0 Graphics Port (rev 01)
+00:08.0 System peripheral: Intel Corporation GNA Scoring Accelerator module (rev 01)
+00:0a.0 Signal processing cont...[0m
+TIME: 60.002716826s
+EXIT: 124

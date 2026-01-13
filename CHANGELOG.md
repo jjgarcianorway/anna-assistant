@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-01-13
+
+### Added
+- **Expanded Fast-Paths** - 25+ new instant response patterns based on 100-question test
+  - Listening ports, USB devices, DNS servers, mount points
+  - GPT/MBR detection, active timers, socket units, default target
+  - SELinux/AppArmor status, package versions, btrfs subvolumes
+  - TRIM status, LVM volumes, encryption detection
+  - CPU frequency, MAC address, UUID, SUID binaries, zram status
+
+### Performance
+- 100-question test baseline: 27% fast (<0.1s), 53% slow (5-30s)
+- New fast-paths target 50%+ instant responses after daemon restart
+
 ## [0.3.1] - 2026-01-12
 
 ### Added

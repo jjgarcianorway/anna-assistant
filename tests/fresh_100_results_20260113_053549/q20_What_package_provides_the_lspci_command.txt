@@ -1,0 +1,18 @@
+
+[36mYou: [0mWhat package provides the lspci command?
+
+[2m  $ [0mpacman -Q | grep ^lspci-doneNONE
+[2m  [0m
+[2m  $ [0mpacman -Q | grep ^pciutils
+[2m  pciutils 3.14.0-1.1[0m
+[2m  $ [0mpacman -Q | grep ^pciutils
+[2m  pciutils 3.14.0-1.1[0m
+[2m  $ [0mpacman -Q | grep ^pciutils
+[2m  pciutils 3.14.0-1.1[0m
+[2m  $ [0mpacman -Q | grep ^pciutils
+[2m  pciutils 3.14.0-1.1[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mpackage [0m[32mproviding [0m[32mthe [0m[32m`lspci` [0m[32mcommand [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem [0m[32mis [0m[32m`pciutils`, [0m[32mversion [0m[32m3.14.0-1.1.[0m[31mError: [0mNo result received from daemon
+TIME: 25.116183865s
+EXIT: 0

@@ -1,0 +1,22 @@
+
+[36mYou: [0mIs linux-cachyos kernel installed?
+
+[2m  $ [0mpacman -Q | grep linux-cachyos
+[2m  linux-cachyos 6.18.5-2
+linux-cachyos-headers 6.18.5-2
+linux-cachyos-nvidia-open 6.18.5-2[0m
+[2m  $ [0mpacman -Q linux-cachyos
+[2m  linux-cachyos 6.18.5-2[0m
+[2m  $ [0mpacman -Q | grep linux-cachyos
+[2m  linux-cachyos 6.18.5-2
+linux-cachyos-headers 6.18.5-2
+linux-cachyos-nvidia-open 6.18.5-2[0m
+[2m  $ [0mpacman -Q linux-cachyos
+[2m  linux-cachyos 6.18.5-2[0m
+[2m  $ [0mpacman -Q linux-cachyos
+[2m  linux-cachyos 6.18.5-2[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthe [0m[32m`linux-cachyos` [0m[32mkernel [0m[32mversion [0m[32m6.18.5-2 [0m[32mis [0m[32minstalled [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mAdditionally, [0m[32mrelated [0m[32mpackages [0m[32msuch [0m[32mas [0m[32m`linux-cachyos-headers` [0m[32mand [0m[32m`linux-cachyos-nvidia-open` [0m[32mare [0m[32malso [0m[32minstalled.[0m[31mError: [0mNo result received from daemon
+TIME: 22.868467249s
+EXIT: 0

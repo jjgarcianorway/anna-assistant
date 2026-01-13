@@ -1,0 +1,21 @@
+
+[36mYou: [0mWhat display resolution am I using?
+
+[2m  $ [0mxrandr | grep "\* connected" | cut -d' ' -f4 | head -1
+[2m  Can't open display[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32merror [0m[32m"Can't [0m[32mopen [0m[32mdisplay" [0m[32msuggests [0m[32mthat [0m[32mthere [0m[32mmight [0m[32mbe [0m[32man [0m[32missue [0m[32mwith [0m[32maccessing [0m[32mthe [0m[32mX [0m[32mserver [0m[32mor [0m[32mgraphical [0m[32menvironment [0m[32mfrom [0m[32mwhere [0m[32myou [0m[32mare [0m[32mtrying [0m[32mto [0m[32mcheck [0m[32mthe [0m[32mresolution. [0m[32mThis [0m[32mcould [0m[32mbe [0m[32mdue [0m[32mto [0m[32mincorrect [0m[32mDISPLAY [0m[32mvariable [0m[32msetting [0m[32mor [0m[32mthe [0m[32mabsence [0m[32mof [0m[32ma [0m[32mrunning [0m[32mX [0m[32mserver.
+
+To [0m[32mdetermine [0m[32mthe [0m[32mcurrent [0m[32mdisplay [0m[32mresolution, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse [0m[32mcommands [0m[32mlike [0m[32m`xrandr` [0m[32min [0m[32ma [0m[32mterminal [0m[32mwhen [0m[32mconnected [0m[32mto [0m[32ma [0m[32mgraphical [0m[32msession. [0m[32mHowever, [0m[32msince [0m[32mwe [0m[32mcan't [0m[32mrun [0m[32mcommands [0m[32mhere [0m[32mand [0m[32myou're [0m[32mfacing [0m[32m"Can't [0m[32mopen [0m[32mdisplay," [0m[32mit [0m[32mindicates [0m[32mthat [0m[32meither:
+
+1. [0m[32mYou [0m[32mare [0m[32mtrying [0m[32mto [0m[32mrun [0m[32mthe [0m[32mcommand [0m[32mfrom [0m[32ma [0m[32mnon-graphical [0m[32m(text) [0m[32mconsole.
+2. [0m[32mThe [0m[32mX [0m[32mserver [0m[32mis [0m[32mnot [0m[32mrunning.
+
+If [0m[32myou [0m[32mneed [0m[32mto [0m[32mcheck [0m[32mthe [0m[32mresolution, [0m[32mensure [0m[32myour [0m[32mX [0m[32mserver [0m[32mis [0m[32mrunning [0m[32mand [0m[32mthen [0m[32muse:
+```sh
+xrandr [0m[32m| [0m[32mgrep [0m[32m"current"
+```
+This [0m[32mwill [0m[32mshow [0m[32mthe [0m[32mcurrent [0m[32mdisplay [0m[32mresolution [0m[32mamong [0m[32mother [0m[32minformation. [0m[32mIf [0m[32myou [0m[32mare [0m[32min [0m[32ma [0m[32mtext-based [0m[32menvironment, [0m[32myou [0m[32mmay [0m[32mneed [0m[32mto [0m[32mstart [0m[32man [0m[32mX [0m[32msession [0m[32mor [0m[32mlog [0m[32minto [0m[32ma [0m[32mgraphical [0m[32minterface [0m[32mfirst.[0m[31mError: [0mNo result received from daemon
+TIME: 11.677059139s
+EXIT: 0

@@ -1,0 +1,18 @@
+
+[36mYou: [0mIs base-devel group fully installed?
+
+[2m  $ [0mpacman -Qe | grep base-devel > /dev/null && echo "Yes" || echo "No"
+[2m  Yes[0m
+[2m  $ [0mpacman -Qe | grep base-devel > /dev/null && echo "Yes" || echo "No"
+[2m  Yes[0m
+[2m  $ [0mpacman -Qe | grep base-devel > /dev/null && echo "Yes" || echo "No"
+[2m  Yes[0m
+[2m  $ [0mpacman -Qe | grep base-devel > /dev/null && echo "Yes" || echo "No"
+[2m  Yes[0m
+[2m  $ [0mpacman -Qe | grep base-devel > /dev/null && echo "Yes" || echo "No"
+[2m  Yes[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthe [0m[32mbase-devel [0m[32mgroup [0m[32mis [0m[32mfully [0m[32minstalled.[0m[31mError: [0mNo result received from daemon
+TIME: 24.085457214s
+EXIT: 0

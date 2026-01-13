@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhen was the last pacman sync?
+
+[2m  $ [0mpacman -Qe | grep 'Install Date' | sort -rn | head -1 | cut -d' ' -f5-
+[2m  [0m
+[2m  $ [0mpacman -Qe | grep 'Install Date' | sort -rn | head -1 | cut -d' ' -f5-
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthere [0m[32mis [0m[32mno [0m[32minformation [0m[32mavailable [0m[32mto [0m[32mdetermine [0m[32mwhen [0m[32mthe [0m[32mlast [0m[32m`pacman` [0m[32msync [0m[32moccurred. [0m[32mAdditional [0m[32mdetails [0m[32mor [0m[32mlogs [0m[32mwould [0m[32mbe [0m[32mneeded [0m[32mto [0m[32manswer [0m[32mthis [0m[32mquestion [0m[32maccurately.[0m[31mError: [0mNo result received from daemon
+TIME: 11.368736009s
+EXIT: 0

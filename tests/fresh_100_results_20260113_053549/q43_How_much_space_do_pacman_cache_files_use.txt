@@ -1,0 +1,26 @@
+
+[36mYou: [0mHow much space do pacman cache files use?
+
+[2m  $ [0mpacman -Qi archlinux-mirrorlist | grep 'Installed Size' | awk '{print $4}'
+[2m  error: package 'archlinux-mirrorlist' was not found[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32merror [0m[32mmessage [0m[32m"error: [0m[32mpackage [0m[32m'archlinux-mirrorlist' [0m[32mwas [0m[32mnot [0m[32mfound" [0m[32mindicates [0m[32mthat [0m[32mthere [0m[32mmight [0m[32mbe [0m[32man [0m[32missue [0m[32mwith [0m[32myour [0m[32mpackage [0m[32mdatabase [0m[32mor [0m[32mcache. [0m[32mThis [0m[32mdoes [0m[32mnot [0m[32mdirectly [0m[32mprovide [0m[32minformation [0m[32mabout [0m[32mthe [0m[32mspace [0m[32mused [0m[32mby [0m[32mpacman [0m[32mcache [0m[32mfiles.
+
+To [0m[32mdetermine [0m[32mhow [0m[32mmuch [0m[32mspace [0m[32mpacman [0m[32mcache [0m[32mfiles [0m[32mare [0m[32musing, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32mcommand:
+
+```bash
+du [0m[32m-sh [0m[32m/var/cache/pacman/pkg/
+```
+
+This [0m[32mcommand [0m[32mwill [0m[32mshow [0m[32myou [0m[32mthe [0m[32mtotal [0m[32msize [0m[32mof [0m[32mthe [0m[32m`pkg` [0m[32mdirectory [0m[32min [0m[32mthe [0m[32m`/var/cache/pacman/pkg/` [0m[32mpath, [0m[32mwhich [0m[32mcontains [0m[32mthe [0m[32mcached [0m[32mpackage [0m[32mfiles.
+
+However, [0m[32msince [0m[32mthe [0m[32mprovided [0m[32mdata [0m[32monly [0m[32mmentions [0m[32man [0m[32merror [0m[32mrelated [0m[32mto [0m[32ma [0m[32mpackage [0m[32mnot [0m[32mbeing [0m[32mfound, [0m[32mit [0m[32mmight [0m[32mbe [0m[32museful [0m[32mfirst [0m[32mto [0m[32mcheck [0m[32mand [0m[32mpossibly [0m[32mupdate [0m[32myour [0m[32mpackage [0m[32mdatabase:
+
+```bash
+pacman [0m[32m-Sy
+```
+
+This [0m[32mcommand [0m[32mwill [0m[32msynchronize [0m[32mthe [0m[32mpackage [0m[32mdatabases. [0m[32mAfter [0m[32mensuring [0m[32mthat [0m[32myour [0m[32mpackage [0m[32mdatabases [0m[32mare [0m[32mup-to-date, [0m[32myou [0m[32mcan [0m[32mproceed [0m[32mto [0m[32mcheck [0m[32mthe [0m[32msize [0m[32mof [0m[32mthe [0m[32mcache [0m[32mas [0m[32mmentioned [0m[32mearlier.[0m[31mError: [0mNo result received from daemon
+TIME: 11.471432253s
+EXIT: 0

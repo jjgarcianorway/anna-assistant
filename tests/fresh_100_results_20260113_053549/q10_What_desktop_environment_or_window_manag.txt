@@ -1,0 +1,32 @@
+
+[36mYou: [0mWhat desktop environment or window manager is running?
+
+[2m  $ [0mecho $XDG_CURRENT_DESKTOP
+[2m  [0m
+[2m  $ [0mecho $XDG_SESSION_TYPE
+[2m  [0m
+[2m  $ [0mecho $XDG_CURRENT_DESKTOP
+[2m  [0m
+[2m  $ [0mecho $XDG_SESSION_TYPE
+[2m  [0m
+[2m  $ [0mecho $XDG_CURRENT_DESKTOP
+[2m  [0m
+[2m  $ [0mecho $XDG_SESSION_TYPE
+[2m  [0m
+[2m  $ [0mecho $XDG_CURRENT_DESKTOP
+[2m  [0m
+[2m  $ [0mecho $XDG_CURRENT_DESKTOP
+[2m  [0m
+[2m  $ [0mecho $XDG_SESSION_TYPE
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mI'm [0m[32msorry, [0m[32mbut [0m[32mI [0m[32mdon't [0m[32mhave [0m[32many [0m[32mdata [0m[32mto [0m[32mwork [0m[32mwith [0m[32mfrom [0m[32myour [0m[32mprovided [0m[32mcollection. [0m[32mCould [0m[32myou [0m[32mplease [0m[32mrun [0m[32mthe [0m[32mfollowing [0m[32mcommand [0m[32mand [0m[32mprovide [0m[32mthe [0m[32moutput [0m[32mso [0m[32mI [0m[32mcan [0m[32mhelp [0m[32mdetermine [0m[32mwhich [0m[32mdesktop [0m[32menvironment [0m[32mor [0m[32mwindow [0m[32mmanager [0m[32mis [0m[32mrunning [0m[32mon [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem?
+
+```bash
+echo [0m[32m$DESKTOP_SESSION [0m[32m&& [0m[32mecho [0m[32m$XDG_CURRENT_DESKTOP
+```
+
+This [0m[32mwill [0m[32mgive [0m[32mme [0m[32mthe [0m[32mnecessary [0m[32minformation [0m[32mto [0m[32manswer [0m[32myour [0m[32mquestion [0m[32maccurately.[0m[31mError: [0mNo result received from daemon
+TIME: 27.587985959s
+EXIT: 0

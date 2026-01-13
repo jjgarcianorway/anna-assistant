@@ -1,0 +1,21 @@
+
+[36mYou: [0mWhat mount options are used for root?
+
+[2m  $ [0mfindmnt / -o OPTIONS
+[2m  OPTIONS
+rw,noatime,compress=zstd:3,ssd,discard=async,space_cache=v2,commit=120,subvolid=256,subvol=/@[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mThe [0m[32mmount [0m[32moptions [0m[32mused [0m[32mfor [0m[32mthe [0m[32mroot [0m[32mfilesystem [0m[32mare:
+
+- [0m[32mrw: [0m[32mRead-write [0m[32maccess.
+- [0m[32mnoatime: [0m[32mAvoid [0m[32mupdating [0m[32mthe [0m[32maccessed [0m[32mtime [0m[32mon [0m[32mfiles.
+- [0m[32mcompress=zstd:3: [0m[32mCompress [0m[32mdata [0m[32musing [0m[32mzstd [0m[32mcompression [0m[32mwith [0m[32mlevel [0m[32m3.
+- [0m[32mssd: [0m[32mOptimize [0m[32mfor [0m[32mSSD [0m[32mdevices.
+- [0m[32mdiscard=async: [0m[32mAsynchronous [0m[32mdiscarding [0m[32mof [0m[32munused [0m[32mblocks [0m[32mto [0m[32mfree [0m[32mspace.
+- [0m[32mspace_cache=v2: [0m[32mUse [0m[32mversion [0m[32m2 [0m[32mof [0m[32mthe [0m[32mspace [0m[32mcache.
+- [0m[32mcommit=120: [0m[32mTransaction [0m[32mcommit [0m[32minterval [0m[32mis [0m[32mset [0m[32mto [0m[32m120 [0m[32mseconds.
+- [0m[32msubvolid=256: [0m[32mMount [0m[32ma [0m[32mspecific [0m[32msubvolume [0m[32mwith [0m[32mID [0m[32m256.
+- [0m[32msubvol=/@: [0m[32mMount [0m[32mthe [0m[32msubvolume [0m[32mnamed [0m[32m"@".[0m[31mError: [0mNo result received from daemon
+TIME: 10.760023752s
+EXIT: 0

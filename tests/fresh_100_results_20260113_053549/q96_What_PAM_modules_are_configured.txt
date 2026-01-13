@@ -1,0 +1,25 @@
+
+[36mYou: [0mWhat PAM modules are configured?
+
+[2m  $ [0mpacman -Qm | grep pam_modules.conf
+[2m  [0m
+[2m  $ [0mcat /etc/pam.d/* | grep -oP '(?<=^#\s*?)module_path\s*\K[^#]+' | sort | uniq
+[2m  grep: length of lookbehind assertion is not limited[0m
+[2m  $ [0mcat /etc/pam.d/* | grep -oP '(?<=^#\\s*?)module_path\\s*\\K[^#]+' | sort | uniq
+[2m  grep: length of lookbehind assertion is not limited[0m
+[2m  $ [0mcat /etc/pam.d/* | grep -oP '(?<=^#?\s*?)module_path\s*=\s*[^#]+' | sort | uniq
+[2m  grep: length of lookbehind assertion is not limited[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32minformation [0m[32mprovided [0m[32min [0m[32mthe [0m[32mlogs, [0m[32mit [0m[32mseems [0m[32mthat [0m[32mthere [0m[32mwere [0m[32mmultiple [0m[32minstances [0m[32mof [0m[32mthe [0m[32m`grep` [0m[32mcommand [0m[32mattempting [0m[32mto [0m[32mrun [0m[32mwith [0m[32moutput [0m[32mindicating [0m[32mthat [0m[32mthe [0m[32mlength [0m[32mof [0m[32mlookbehind [0m[32massertions [0m[32mis [0m[32mnot [0m[32mlimited. [0m[32mHowever, [0m[32mthis [0m[32moutput [0m[32mdoes [0m[32mnot [0m[32mprovide [0m[32many [0m[32mspecific [0m[32mdetails [0m[32mabout [0m[32mPAM [0m[32m(Pluggable [0m[32mAuthentication [0m[32mModules) [0m[32mconfigurations.
+
+To [0m[32mdetermine [0m[32mwhich [0m[32mPAM [0m[32mmodules [0m[32mare [0m[32mconfigured [0m[32mon [0m[32myour [0m[32mArch [0m[32mLinux [0m[32msystem, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32mneed [0m[32mto [0m[32mcheck [0m[32mfiles [0m[32min [0m[32mthe [0m[32m`/etc/pam.d/` [0m[32mdirectory [0m[32mand [0m[32mpossibly [0m[32mrelated [0m[32mconfiguration [0m[32mfiles [0m[32msuch [0m[32mas [0m[32mthose [0m[32min [0m[32m`/etc/security/`.
+
+Since [0m[32mno [0m[32mrelevant [0m[32minformation [0m[32mis [0m[32mpresent [0m[32min [0m[32mthe [0m[32mlogs [0m[32mprovided, [0m[32mI [0m[32mcannot [0m[32mgive [0m[32ma [0m[32mspecific [0m[32mlist [0m[32mof [0m[32mconfigured [0m[32mPAM [0m[32mmodules. [0m[32mIf [0m[32myou [0m[32mhave [0m[32maccess [0m[32mto [0m[32mthese [0m[32mconfiguration [0m[32mfiles, [0m[32myou [0m[32mcan [0m[32minspect [0m[32mthem [0m[32mdirectly:
+
+- [0m[32mLook [0m[32mat [0m[32meach [0m[32mfile [0m[32min [0m[32m`/etc/pam.d/` [0m[32mfor [0m[32mlines [0m[32mthat [0m[32mspecify [0m[32mwhich [0m[32mPAM [0m[32mmodules [0m[32mare [0m[32mbeing [0m[32mused.
+- [0m[32mCheck [0m[32mother [0m[32mrelated [0m[32mconfigurations [0m[32msuch [0m[32mas [0m[32m`/etc/security/pam_env.conf`.
+
+If [0m[32myou [0m[32mneed [0m[32massistance [0m[32mwith [0m[32minspecting [0m[32mthese [0m[32mfiles [0m[32mor [0m[32mrequire [0m[32mfurther [0m[32minformation [0m[32mon [0m[32mhow [0m[32mto [0m[32mdo [0m[32mso, [0m[32mplease [0m[32mlet [0m[32mme [0m[32mknow![0m[31mError: [0mNo result received from daemon
+TIME: 35.820188700s
+EXIT: 0

@@ -1,0 +1,18 @@
+
+[36mYou: [0mWhat socket unNetworkManager.services are listening?
+
+[2m  $ [0mss -tlnp | head -15
+[2m  State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      128        127.0.0.1:57343      0.0.0.0:*    users:(("steam",pid=11088,fd=59))        
+LISTEN 0      128        127.0.0.1:39931      0.0.0.0:*    users:(("steam",pid=11088,fd=100))       
+LISTEN 0      128          0.0.0.0:38540      0.0.0.0:*    users:(("sshd",pid=1253,fd=6))           
+LISTEN 0      10         127.0.0.1:39865      0.0.0.0:*    users:(("bpftune",pid=1252,fd=6))    ...[0m
+[2m  $ [0mss -tnlp | grep NetworkManager
+[2m  [0m
+[2m  $ [0mss -tnlp | grep NetworkManager
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthere [0m[32mare [0m[32mno [0m[32msocket [0m[32mconnections [0m[32mrelated [0m[32mto [0m[32mNetworkManager.services [0m[32mlistening. [0m[32mThe [0m[32mlisted [0m[32msockets [0m[32mare [0m[32mfor [0m[32mvarious [0m[32mservices [0m[32msuch [0m[32mas [0m[32mSteam, [0m[32mSSHd, [0m[32mbpftune, [0m[32msystemd-resolve, [0m[32mand [0m[32mollama. [0m[32mNone [0m[32mof [0m[32mthese [0m[32mentries [0m[32mindicate [0m[32many [0m[32mservice [0m[32mmanaged [0m[32mby [0m[32mNetworkManager [0m[32mor [0m[32mspecifically [0m[32massociated [0m[32mwith [0m[32mnetwork [0m[32mmanagement [0m[32mtasks.[0m[31mError: [0mNo result received from daemon
+TIME: 24.862424035s
+EXIT: 0

@@ -1,0 +1,20 @@
+
+[36mYou: [0mWhat is my system locale?
+
+[2m  $ [0mlocale | head -5
+[2m  LANG=en_US.UTF-8
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=nb_NO.UTF-8
+LC_TIME=nb_NO.UTF-8
+LC_COLLATE="en_US.UTF-8"[0m
+
+[32mAnna: [0mLANG=en_US.UTF-8
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=nb_NO.UTF-8
+LC_TIME=nb_NO.UTF-8
+LC_COLLATE="en_US.UTF-8"
+
+
+[2m(0 iterations)[0m
+TIME: .008068894s
+EXIT: 0

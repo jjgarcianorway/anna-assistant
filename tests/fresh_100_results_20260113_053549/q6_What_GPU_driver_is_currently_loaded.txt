@@ -1,0 +1,32 @@
+
+[36mYou: [0mWhat GPU driver is currently loaded?
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32mdetermine [0m[32mwhich [0m[32mGPU [0m[32mdriver [0m[32mis [0m[32mcurrently [0m[32mloaded [0m[32mon [0m[32man [0m[32mArch [0m[32mLinux [0m[32msystem, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse [0m[32mcommands [0m[32mlike [0m[32m`lshw`, [0m[32m`inxi`, [0m[32mor [0m[32mcheck [0m[32mspecific [0m[32msysfs [0m[32mfiles. [0m[32mHowever, [0m[32mbased [0m[32msolely [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided [0m[32m(no [0m[32mcommand [0m[32moutput), [0m[32mI [0m[32mcannot [0m[32mgive [0m[32ma [0m[32mspecific [0m[32manswer [0m[32mabout [0m[32mthe [0m[32mcurrent [0m[32mGPU [0m[32mdriver.
+
+If [0m[32myou'd [0m[32mlike [0m[32mto [0m[32mfind [0m[32mout [0m[32mwhich [0m[32mGPU [0m[32mdriver [0m[32mis [0m[32mloaded, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32msteps:
+
+1. [0m[32mList [0m[32mavailable [0m[32mGPUs [0m[32mand [0m[32mtheir [0m[32mdrivers:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mlshw [0m[32m-c [0m[32mdisplay
+ [0m[32m [0m[32m [0m[32m```
+
+2. [0m[32mCheck [0m[32mthe [0m[32mkernel [0m[32mmodule [0m[32mthat [0m[32mis [0m[32mcurrently [0m[32min [0m[32muse:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mlspci [0m[32m-k [0m[32m| [0m[32mgrep [0m[32m-EA3 [0m[32m'VGA|3D|Display'
+ [0m[32m [0m[32m [0m[32m```
+
+3. [0m[32mInspect [0m[32msysfs [0m[32mfor [0m[32mloaded [0m[32mmodules:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mcat [0m[32m/sys/class/drm/card0/device/pp_dmi
+ [0m[32m [0m[32m [0m[32m```
+
+4. [0m[32mList [0m[32mall [0m[32mloaded [0m[32mkernel [0m[32mmodules:
+ [0m[32m [0m[32m [0m[32m```
+ [0m[32m [0m[32m [0m[32mlsmod [0m[32m| [0m[32mgrep [0m[32m-i [0m[32mgpu
+ [0m[32m [0m[32m [0m[32m```
+
+Run [0m[32mone [0m[32mor [0m[32mmore [0m[32mof [0m[32mthese [0m[32mcommands [0m[32min [0m[32myour [0m[32mterminal [0m[32mto [0m[32mdetermine [0m[32mthe [0m[32mcurrent [0m[32mGPU [0m[32mdriver.[0m[31mError: [0mNo result received from daemon
+TIME: 5.616612050s
+EXIT: 0

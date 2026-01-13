@@ -1,0 +1,16 @@
+
+[36mYou: [0mShow the 5 slowest services at boot
+
+[2m  $ [0msystemctl --failed | grep -v "loaded" | sort -rn -k 4 | head -n 5
+[2m  UNIT LOAD ACTIVE SUB DESCRIPTION[0m
+[2m  $ [0msystemctl --failed | grep -v "loaded" | sort -rn -k 4 | head -n 5
+[2m  UNIT LOAD ACTIVE SUB DESCRIPTION[0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32mdata, [0m[32mthere [0m[32mis [0m[32mno [0m[32minformation [0m[32mabout [0m[32mthe [0m[32mload [0m[32mtimes [0m[32mor [0m[32mboot [0m[32mservices [0m[32mof [0m[32mthe [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mThe [0m[32mtable [0m[32mappears [0m[32mto [0m[32mbe [0m[32mempty [0m[32mand [0m[32mdoes [0m[32mnot [0m[32mcontain [0m[32many [0m[32mUNIT [0m[32mentries [0m[32mwith [0m[32mrelevant [0m[32mdetails [0m[32msuch [0m[32mas [0m[32mload [0m[32mtimes [0m[32mor [0m[32mactive [0m[32msub-states.
+
+To [0m[32mshow [0m[32mthe [0m[32m5 [0m[32mslowest [0m[32mservices [0m[32mat [0m[32mboot, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32muse [0m[32mtools [0m[32mlike [0m[32m`systemd-analyze` [0m[32mor [0m[32mexamine [0m[32mthe [0m[32m`load-time` [0m[32mfield [0m[32min [0m[32mthe [0m[32m`systemctl [0m[32mlist-unit-files [0m[32m--type=service` [0m[32mcommand [0m[32moutput. [0m[32mHowever, [0m[32msince [0m[32mno [0m[32mdata [0m[32mis [0m[32mprovided, [0m[32mit's [0m[32mnot [0m[32mpossible [0m[32mto [0m[32mdetermine [0m[32mwhich [0m[32mservices [0m[32mare [0m[32mthe [0m[32mslowest.
+
+If [0m[32myou [0m[32mhave [0m[32madditional [0m[32mdata [0m[32mor [0m[32mlogs [0m[32mrelated [0m[32mto [0m[32mservice [0m[32mloading [0m[32mtimes, [0m[32mplease [0m[32mprovide [0m[32mthat [0m[32minformation [0m[32mso [0m[32mI [0m[32mcan [0m[32massist [0m[32mfurther.[0m[31mError: [0mNo result received from daemon
+TIME: 18.644921098s
+EXIT: 0

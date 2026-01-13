@@ -1,0 +1,26 @@
+
+
+[33mSYSTEM ALERT[0m
+  🔴 CRITICAL: High temperature: 97°C
+     Suggested fix: Improve cooling immediately
+
+
+[33mSYSTEM ALERT[0m
+  🟡 Warning: USB removed: Apple, Inc. Apple MagSafe Charger
+     Suggested fix: Check if device was intentionally removed
+
+[36mYou: [0mIs the firewall enabled?
+
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mTo [0m[32mcheck [0m[32mif [0m[32mthe [0m[32mfirewall [0m[32mis [0m[32menabled [0m[32min [0m[32mArch [0m[32mLinux [0m[32musing [0m[32m`iptables`, [0m[32myou [0m[32mcan [0m[32muse [0m[32mthe [0m[32mfollowing [0m[32mcommand:
+
+```sh
+sudo [0m[32miptables [0m[32m-L
+```
+
+If [0m[32mthe [0m[32mfirewall [0m[32mis [0m[32menabled, [0m[32myou [0m[32mshould [0m[32msee [0m[32ma [0m[32mlist [0m[32mof [0m[32mrules. [0m[32mIf [0m[32mno [0m[32moutput [0m[32mis [0m[32mdisplayed [0m[32mand [0m[32mthere's [0m[32mno [0m[32mmention [0m[32mof [0m[32many [0m[32mchains [0m[32mor [0m[32mrules, [0m[32mit [0m[32mmight [0m[32mindicate [0m[32mthat [0m[32mthe [0m[32mfirewall [0m[32mis [0m[32mnot [0m[32mconfigured [0m[32mor [0m[32menabled.
+
+Since [0m[32mno [0m[32mcommand [0m[32moutput [0m[32mis [0m[32mavailable [0m[32min [0m[32mthis [0m[32mdata, [0m[32mwe [0m[32mcannot [0m[32mdetermine [0m[32mif [0m[32mthe [0m[32mfirewall [0m[32mis [0m[32menabled [0m[32mor [0m[32mdisabled [0m[32mbased [0m[32mon [0m[32mthe [0m[32mprovided [0m[32minformation [0m[32malone.[0m[31mError: [0mNo result received from daemon
+TIME: 6.294952451s
+EXIT: 0

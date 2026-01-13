@@ -1,0 +1,12 @@
+
+[36mYou: [0mWhat CPU do I have and how many cores?
+
+[2m  $ [0mlscpu | grep 'Model name' | cut -d: -f2 | xargs
+[2m  Intel(R) Core(TM) i9-14900HX[0m
+
+[32mAnna: [0mCPU: Intel(R) Core(TM) i9-14900HX
+
+
+[2m(0 iterations)[0m
+TIME: .008382518s
+EXIT: 0

@@ -1,0 +1,14 @@
+
+[36mYou: [0mIs any VPN connection active?
+
+[2m  $ [0mss -tlnp | grep VPN
+[2m  [0m
+[2m  $ [0mss -tlnp | grep udp | wc -l
+[2m  0[0m
+[2m  $ [0mss -tlnp | grep VPN
+[2m  [0m
+[2m  [internal][0m
+
+[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32mdata [0m[32mprovided, [0m[32mthere [0m[32mis [0m[32mno [0m[32minformation [0m[32mindicating [0m[32mthat [0m[32many [0m[32mVPN [0m[32mconnection [0m[32mis [0m[32mactive. [0m[32mThe [0m[32mresponse [0m[32m"0" [0m[32msuggests [0m[32mthat [0m[32mno [0m[32mactive [0m[32mconnections [0m[32mmatch [0m[32mthe [0m[32mquery [0m[32mor [0m[32mcriteria [0m[32mfor [0m[32midentifying [0m[32man [0m[32mactive [0m[32mVPN [0m[32mconnection.[0m[31mError: [0mNo result received from daemon
+TIME: 20.503779893s
+EXIT: 0
