@@ -12,7 +12,7 @@ REPO="jjgarcianorway/anna-assistant"
 # Fetch latest version from GitHub releases API (single source of truth)
 fetch_version() {
     local version
-    version=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+    version=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"v([^"]+)".*/\1/')
     if [ -z "$version" ]; then
         echo "Failed to fetch latest version from GitHub" >&2
         exit 1

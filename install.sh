@@ -25,7 +25,7 @@ echo "Architecture: $ARCH_NAME"
 
 # Get latest release version
 echo "Fetching latest release..."
-LATEST=$(curl -sSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST=$(curl -sSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
 
 if [ -z "$LATEST" ]; then
     echo "Error: Could not fetch latest release"
