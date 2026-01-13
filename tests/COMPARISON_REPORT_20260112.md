@@ -60,7 +60,7 @@ The test revealed significant stability issues with the LLM backend (Ollama) cau
 1. **Increase circuit breaker threshold** - Current threshold too aggressive
 2. **Pre-warm LLM on daemon start** - Avoid cold start timeouts
 3. **Add more pattern matches** - Common errors should bypass LLM entirely
-4. **Update system daemon** - Run: `sudo cp target/release/anna* /usr/local/bin/`
+4. **Update system daemon** - Push changes to GitHub and let auto-update handle deployment
 5. **Add LLM health monitoring** - Proactively detect Ollama issues
 
 ## Sample Responses

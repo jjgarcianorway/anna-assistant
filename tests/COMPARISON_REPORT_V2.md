@@ -93,11 +93,12 @@ Q: "fan spinning at idle"
 
 ## DEPLOYMENT
 
-To test v0.0.909 with pattern matching:
+Deployment is handled via GitHub releases. Push changes, tag, and create a release.
+The daemon auto-updates from GitHub releases (downloads binaries, verifies checksums, installs atomically).
 
+To manually trigger an update check:
 ```bash
-sudo cp /home/lhoqvso/anna-assistant/target/release/annad /usr/local/bin/annad
-sudo systemctl restart annad
+annactl update check
 ```
 
 Then run:

@@ -123,14 +123,14 @@ Future versions may add:
 - Auto-update enable/disable
 - Update check interval override
 
-## TODO (v0.0.1)
+## Implementation Status
 
-The following are not yet implemented in v0.0.1:
-- [ ] Actual update check against GitHub API
-- [ ] Artifact download and staging
-- [ ] Checksum verification during update
-- [ ] Atomic swap mechanism
-- [ ] Rollback on failure
-- [ ] Audit logging
+All update features are implemented as of v0.3.11:
+- [x] Update check against GitHub API (every 600s)
+- [x] Artifact download to staging directory
+- [x] SHA256 checksum verification
+- [x] Atomic swap mechanism (staging + rename)
+- [x] Rollback on failure
+- [x] Update ledger (audit logging)
 
-v0.0.1 only records update check timestamps. Full implementation planned for v0.1.0.
+The daemon auto-updates when a new release is available on GitHub.
