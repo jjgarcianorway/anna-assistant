@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-01-13
+
+### Added
+- **Arch Wiki Citations** - Instant error responses now include wiki sources
+  - Pacman lock, GPGME errors, root password reset cite Arch Wiki
+  - chmod 777 disaster, kernel boot issues cite relevant wiki pages
+  - Display manager, HiDPI, Steam, Docker, Flatpak issues cite wiki
+  - Citations include wiki URLs for easy reference
+  - ~15 troubleshooting responses now grounded with wiki sources
+
 ## [0.3.8] - 2026-01-13
 
 ### Fixed
