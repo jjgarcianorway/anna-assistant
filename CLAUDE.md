@@ -79,8 +79,7 @@ Without uploading `annactl-linux-x86_64`, `annad-linux-x86_64`, and `SHA256SUMS`
 ### Post-Release Documentation Updates
 Every new version must also:
 1. Update README.md (description of what works)
-2. Update ROADMAP.md (remove implemented, keep detailed missing items)
-3. Update FEATURES.md (tested and verified features)
+2. Update CHANGELOG.md (what changed)
 
 ### Critical Invariants
 - Auto-update must ALWAYS work
@@ -91,9 +90,8 @@ Every new version must also:
 - `crates/anna-shared/` - Shared types and utilities
 - `crates/annad/` - Daemon (backend)
 - `crates/annactl/` - CLI client
-- `VISION.md` - Full product vision (authoritative)
-- `ROADMAP.md` - Planned features by phase
-- `FEATURES.md` - Implemented features
+- `scripts/` - Install, uninstall, update scripts
+- `docs/UPDATE_PROTOCOL.md` - Update contract
 
 ## How annactl Works (The Pipeline)
 
@@ -292,3 +290,37 @@ No exceptions. No user-mode fallbacks.
 - NEVER ask user to run manual verification commands
 - NEVER create markdown files unless explicitly requested
 - NEVER add features during cleanup/governance tasks
+- NEVER show users manual recovery commands (use auto-healing instead)
+- NEVER expose error messages containing "Run: sudo..." or similar
+
+### Self-Healing Governance (v0.3.36+)
+
+Anna must recover automatically from infrastructure failures. Users should never see manual commands.
+
+**Recovery Hierarchy (in order):**
+1. Retry the operation silently
+2. Use pkexec for privilege escalation if needed
+3. Report failure with user-friendly message (no commands)
+
+**Subsystems with Auto-Recovery:**
+- `daemon` - Socket connection, daemon start via systemctl/pkexec
+- `ollama` - Service start via systemctl/pkexec/direct spawn
+- `permissions` - Auto-add user to anna group via pkexec
+- `models` - Retry model loading with backoff
+- `wiki` - Retry wiki initialization
+
+**Error Message Rules:**
+- Show what failed, not how to fix it manually
+- Example bad: "Run: sudo systemctl start ollama"
+- Example good: "Ollama unavailable. Attempting recovery..."
+- If recovery fails completely: "Infrastructure unavailable. Contact support."
+
+**Test Enforcement:**
+Code must include tests that grep for forbidden patterns:
+- "sudo systemctl"
+- "Run: sudo"
+- "Try: sudo"
+- "Execute: "
+- "Run this command"
+
+Any file containing these patterns in user-facing code fails CI.

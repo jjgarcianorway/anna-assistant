@@ -22,6 +22,7 @@ pub mod ralph;
 pub mod recipes;
 pub mod recovery;  // v0.3.36: Self-healing recovery
 pub mod server;
+pub mod specialist;  // v0.3.37: Specialist dispatch system
 pub mod state;
 pub mod team_speak;
 pub mod translator;

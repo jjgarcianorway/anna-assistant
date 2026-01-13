@@ -125,6 +125,56 @@ pub enum Event {
         reason: String,
         suggested_probes: Vec<String>,
     },
+
+    // === Ticket Events (Phase 10) ===
+    /// Ticket lifecycle event for specialist dispatch
+    TicketLifecycle(TicketEvent),
+}
+
+/// Ticket lifecycle events for fly-on-the-wall display.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "ticket_event", content = "data")]
+pub enum TicketEvent {
+    /// New ticket created.
+    Created {
+        ticket_id: String,
+        department: String,
+        question_summary: String,
+    },
+    /// Ticket assigned to specialist.
+    Assigned {
+        ticket_id: String,
+        specialist_id: String,
+        specialist_name: String,
+        department: String,
+    },
+    /// Specialist working on ticket.
+    Working {
+        ticket_id: String,
+        specialist_id: String,
+        action: String,
+    },
+    /// Ticket escalated to senior.
+    Escalated {
+        ticket_id: String,
+        from_specialist: String,
+        to_specialist: String,
+        reason: String,
+    },
+    /// Ticket resolved successfully.
+    Resolved {
+        ticket_id: String,
+        specialist_id: String,
+        specialist_name: String,
+        confidence: f32,
+        learned_recipe: bool,
+    },
+    /// Ticket failed.
+    Failed {
+        ticket_id: String,
+        specialist_id: Option<String>,
+        reason: String,
+    },
 }
 
 /// Types of processing steps
@@ -347,6 +397,51 @@ impl EventBus {
             suggested_probes,
         });
     }
+
+    // === Ticket convenience methods ===
+
+    /// Emit ticket created event.
+    pub fn ticket_created(&self, ticket_id: &str, department: &str, question: &str) {
+        self.emit(Event::TicketLifecycle(TicketEvent::Created {
+            ticket_id: ticket_id.to_string(),
+            department: department.to_string(),
+            question_summary: truncate_for_display(question, 50),
+        }));
+    }
+
+    /// Emit ticket assigned event.
+    pub fn ticket_assigned(
+        &self,
+        ticket_id: &str,
+        specialist_id: &str,
+        specialist_name: &str,
+        department: &str,
+    ) {
+        self.emit(Event::TicketLifecycle(TicketEvent::Assigned {
+            ticket_id: ticket_id.to_string(),
+            specialist_id: specialist_id.to_string(),
+            specialist_name: specialist_name.to_string(),
+            department: department.to_string(),
+        }));
+    }
+
+    /// Emit ticket resolved event.
+    pub fn ticket_resolved(
+        &self,
+        ticket_id: &str,
+        specialist_id: &str,
+        specialist_name: &str,
+        confidence: f32,
+        learned_recipe: bool,
+    ) {
+        self.emit(Event::TicketLifecycle(TicketEvent::Resolved {
+            ticket_id: ticket_id.to_string(),
+            specialist_id: specialist_id.to_string(),
+            specialist_name: specialist_name.to_string(),
+            confidence,
+            learned_recipe,
+        }));
+    }
 }
 
 impl Default for EventBus {
@@ -384,6 +479,15 @@ fn redact_command(command: &str) -> String {
         }
     }
     result
+}
+
+/// Truncate string for display.
+fn truncate_for_display(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len.saturating_sub(3)])
+    }
 }
 
 /// Redact sensitive information from output

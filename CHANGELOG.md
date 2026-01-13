@@ -7,6 +7,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.37] - 2026-01-13
+
+### Added - Phase 10: Specialist System Enablement
+
+Anna now has a structured IT department with deterministic specialist dispatch (no LLM in this phase).
+
+**New Specialist Module** (`annad/src/specialist/`):
+
+- `domain.rs`: Domain enum mapping IntentSubjects to specialist domains
+- `registry.rs`: Static registry of 16 specialists (8 domains x 2 levels)
+- `dispatch.rs`: DispatchEngine with deterministic routing and escalation rules
+- `executor.rs`: SpecialistExecutor with helper/recipe integration
+- `output.rs`: SpecialistOutput enum (structured, not user-facing text)
+- `events.rs`: TicketEvent variants for fly-on-the-wall display
+- `stats.rs`: Per-specialist performance metrics
+
+**Dispatch Rules**:
+- HIGH confidence (>=0.85) + recipe = direct execution (skip specialist)
+- Medium confidence = route to junior specialist
+- Unclear intent = route to senior specialist
+
+**Escalation Rules** (Critical Invariant):
+- Only juniors can request escalation
+- **Escalation REFUSED at HIGH confidence** (>=0.85)
+- Seniors cannot escalate
+
+**16 Specialists Across 8 Domains**:
+- Network: Michael (Jr), Sarah (Sr)
+- Desktop: Alex (Jr), Emma (Sr)
+- System: James (Jr), Lisa (Sr)
+- Packages: David (Jr), Nina (Sr)
+- Hardware: Ryan (Jr), Sophie (Sr)
+- Audio: Chris (Jr), Maria (Sr)
+- Storage: Kevin (Jr), Rachel (Sr)
+- Security: Tom (Jr), Elena (Sr)
+
+Each specialist has:
+- Defined `allowed_helpers` (commands they can use)
+- Supported `IntentAction` types
+- Expertise keywords for fine-grained routing
+
+**Event Bus Extensions** (`anna-shared/src/event_bus.rs`):
+- `TicketEvent` enum for ticket lifecycle
+- Convenience methods: `ticket_created()`, `ticket_assigned()`, `ticket_resolved()`
+
+**Recipe Learning Hook**:
+- HIGH confidence resolutions can emit learned recipes
+- `should_learn` flag in SpecialistOutput
+
+**Test Coverage** (39 new tests):
+- Domain mapping tests
+- Specialist registry tests
+- Dispatch routing tests
+- Escalation refusal tests
+- Executor helper restriction tests
+- Stats tracking tests
+- Event creation tests
+
 ## [0.3.36] - 2026-01-13
 
 ### Added - Phase 8: Proactive Monitoring and Auto-Healing

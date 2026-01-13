@@ -98,7 +98,7 @@ pub struct VerificationStep {
 }
 
 /// Where a recipe came from
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RecipeSource {
     /// Built-in basic recipe
     BuiltIn,
