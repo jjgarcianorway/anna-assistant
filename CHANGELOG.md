@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.38] - 2026-01-13
+
+### Fixed - Socket Creation Reliability
+
+Fixed critical issue where the daemon would silently fail to create the socket directory.
+
+**Socket Directory Creation**:
+- No longer swallows errors with `.ok()` - now properly logs and reports failures
+- Creates `/run/anna/` with proper 750 permissions if it doesn't exist
+- Provides clear error message if directory creation fails
+
+**Systemd Notification Order**:
+- Moved `sd_notify(Ready)` to AFTER socket is bound and listening
+- Previously notified systemd before socket was ready, causing race conditions
+- Clients can now connect immediately after service reports ready
+
+**Root Cause**: The previous code used `fs::create_dir_all(parent).await.ok()` which silently ignored any errors creating the socket directory. Combined with premature systemd notification, this caused the daemon to report "ready" without actually having a working socket.
+
 ## [0.3.37] - 2026-01-13
 
 ### Added - Phase 10: Specialist System Enablement

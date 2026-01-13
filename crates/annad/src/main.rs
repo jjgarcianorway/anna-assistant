@@ -10,7 +10,7 @@ use anna_shared::memory::Memory;
 use anna_shared::VERSION;
 use anna_shared::wiki;
 use anyhow::Result;
-use sd_notify::NotifyState;
+use sd_notify::NotifyState;  // Used for watchdog pings
 use tracing::{debug, info, warn, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -202,12 +202,8 @@ async fn main() -> Result<()> {
     });
 
     // Create and run server
+    // v0.3.38: Systemd notify moved to server.run() AFTER socket is ready
     let server = Server::new(state);
-
-    // v0.0.999: Notify systemd we're ready to accept connections
-    let _ = sd_notify::notify(false, &[NotifyState::Ready]);
-    info!("Daemon ready, notified systemd");
-
     server.run().await?;
 
     Ok(())

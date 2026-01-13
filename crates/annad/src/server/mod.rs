@@ -66,9 +66,26 @@ impl Server {
     async fn setup_socket(&self, socket_path: &str) -> Result<()> {
         let path = Path::new(socket_path);
 
-        // Create parent directory if needed
+        // Create parent directory if needed (don't silently fail!)
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).await.ok();
+            if !parent.exists() {
+                info!("Creating socket directory: {:?}", parent);
+                fs::create_dir_all(parent).await.map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to create socket directory {:?}: {}. \
+                         Check that the daemon has permission to write to /run/",
+                        parent, e
+                    )
+                })?;
+
+                // Set permissions: 750 root:anna
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let perms = std::fs::Permissions::from_mode(0o750);
+                    std::fs::set_permissions(parent, perms).ok();
+                }
+            }
         }
 
         // Remove old socket if it exists
@@ -92,6 +109,11 @@ impl Server {
             std::fs::set_permissions(socket_path, perms)?;
             info!("Socket permissions set to 0660");
         }
+
+        // v0.3.38: Notify systemd AFTER socket is ready (not before!)
+        // This ensures clients can connect immediately after ready notification
+        let _ = sd_notify::notify(false, &[sd_notify::NotifyState::Ready]);
+        info!("Daemon ready, socket accepting connections");
 
         loop {
             match listener.accept().await {

@@ -411,7 +411,7 @@ These guarantees are enforced in code, not just prompts.
 
 ## Version
 
-Current: **v0.3.37**
+Current: **v0.3.38**
 
 Recent highlights:
 - **Specialist system** - Deterministic dispatch to domain specialists (Phase 10)
