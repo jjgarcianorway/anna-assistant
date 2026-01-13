@@ -6,6 +6,7 @@ pub mod deps;
 pub mod helpers;
 pub mod memory;
 pub mod monitor;
+pub mod postmortem;
 pub mod profile;
 pub mod recipe;
 pub mod rpc;

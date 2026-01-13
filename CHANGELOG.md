@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.16] - 2026-01-13
+
+### Added
+- **Postmortem Analysis System** - Systematic learning from failures
+  - `FailureAnalysis` with root cause identification
+  - `NegativeMemory` - store what DIDN'T work and why
+  - `DecayingBelief` - confidence decay with system drift
+  - `CommandCost` - score commands on intrusiveness, reversibility, latency
+  - `LearningMode` - Solver/Investigator/Cautious modes based on novelty
+  - `TemporalTruth` - time-aware facts with validity windows
+  - Automatic countermeasure generation
+  - Belief strength categorization (Strong/Moderate/Weak/Stale/Falsified)
+
 ## [0.3.15] - 2026-01-13
 
 ### Added
