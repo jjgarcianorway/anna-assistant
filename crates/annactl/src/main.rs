@@ -153,7 +153,10 @@ async fn run_repl() -> Result<()> {
                         print_status().await;
                     }
                     "stats" => {
-                        print_stats();
+                        print_stats(false);
+                    }
+                    "stats --detailed" | "stats -d" => {
+                        print_stats(true);
                     }
                     "help" => {
                         println!("Just ask questions about your Arch Linux system!");
@@ -193,7 +196,10 @@ async fn main() -> Result<()> {
                 print_status().await;
             }
             "stats" => {
-                print_stats();
+                print_stats(false);
+            }
+            "stats --detailed" | "stats -d" => {
+                print_stats(true);
             }
             "reset" => {
                 handle_reset().await;
@@ -205,6 +211,7 @@ async fn main() -> Result<()> {
                 println!("  annactl                  Start interactive REPL");
                 println!("  annactl status           Show daemon status");
                 println!("  annactl stats            Show activity statistics");
+                println!("  annactl stats -d         Show detailed statistics");
                 println!("  annactl reset            Reset all statistics and learning data");
                 println!("  annactl <question>       Ask a question");
                 println!();

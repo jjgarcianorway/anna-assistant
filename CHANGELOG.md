@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-01-13
+
+### Added
+- **Detailed Stats View** - `annactl stats -d` shows expanded statistics
+  - Answer breakdown: instant vs memory vs LLM answers
+  - Performance metrics: avg/fastest/slowest response times
+  - Reliability score percentage
+  - Recipes learned count
+  - Color-coded indicators (green for fast, etc.)
+
 ## [0.3.9] - 2026-01-13
 
 ### Added

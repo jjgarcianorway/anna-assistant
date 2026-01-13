@@ -655,7 +655,8 @@ pub fn mark_alerts_shown() {
 }
 
 /// Print comprehensive stats
-pub fn print_stats() {
+/// v0.3.10: Added detailed flag for expanded information
+pub fn print_stats(detailed: bool) {
     // v0.3.8: Use shared paths for consistency with daemon
     let mem_path = memory_path();
     // Tickets are in ~/.local/share/anna/
@@ -699,6 +700,22 @@ pub fn print_stats() {
     println!("{}", rpg.xp_bar());
 
     println!("  Questions:     {} answered", rpg.total_questions);
+
+    // v0.3.10: Detailed breakdown
+    if detailed && rpg.total_questions > 0 {
+        print!("    Instant:     ");
+        let instant_pct = rpg.instant_answers as f64 / rpg.total_questions as f64 * 100.0;
+        print_colored(&format!("{} ({:.0}%)", rpg.instant_answers, instant_pct), if instant_pct > 50.0 { GREEN } else { DIM });
+        println!();
+        print!("    Memory:      ");
+        let memory_pct = rpg.memory_answers as f64 / rpg.total_questions as f64 * 100.0;
+        print_colored(&format!("{} ({:.0}%)", rpg.memory_answers, memory_pct), DIM);
+        println!();
+        print!("    LLM:         ");
+        let llm_pct = rpg.llm_answers as f64 / rpg.total_questions as f64 * 100.0;
+        print_colored(&format!("{} ({:.0}%)", rpg.llm_answers, llm_pct), DIM);
+        println!();
+    }
     println!();
 
     // ACTIVITY
@@ -717,7 +734,38 @@ pub fn print_stats() {
             .unwrap_or(0)
     } else { 0 };
     println!("  Helpers:       {} installed", helpers_count);
+
+    // v0.3.10: Detailed performance metrics
+    if detailed {
+        println!("  Recipes:       {} learned", rpg.recipes_learned);
+    }
     println!();
+
+    // v0.3.10: Performance section (detailed only)
+    if detailed && rpg.total_questions > 0 {
+        println_colored("PERFORMANCE", CYAN);
+
+        print!("  Avg Response:  ");
+        let avg_color = if rpg.avg_response_ms < 100 { GREEN } else if rpg.avg_response_ms < 1000 { YELLOW } else { DIM };
+        println_colored(&format!("{}ms", rpg.avg_response_ms), avg_color);
+
+        if rpg.fastest_response_ms > 0 {
+            print!("  Fastest:       ");
+            println_colored(&format!("{}ms", rpg.fastest_response_ms), GREEN);
+        }
+
+        if rpg.slowest_response_ms > 0 {
+            print!("  Slowest:       ");
+            println_colored(&format!("{}ms", rpg.slowest_response_ms), DIM);
+        }
+
+        print!("  Reliability:   ");
+        let rel_pct = rpg.reliability * 100.0;
+        let rel_color = if rel_pct >= 95.0 { GREEN } else if rel_pct >= 80.0 { YELLOW } else { RED };
+        println_colored(&format!("{:.1}%", rel_pct), rel_color);
+
+        println!();
+    }
 
     // TICKET METRICS
     let tickets_path = data_dir.join("tickets.json");
