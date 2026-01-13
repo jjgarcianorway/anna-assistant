@@ -1,9 +1,0 @@
-
-
-[33mSYSTEM ALERT[0m
-  🔴 CRITICAL: High temperature: 95°C
-     Suggested fix: Improve cooling immediately
-
-[36mYou: [0mUpdate my system fully and report changes
-
-[2m  $ [0mpacman -Syu --needed --noconfirm

@@ -21,7 +21,7 @@ pub mod state;
 pub use cache::{
     get_cached_command, cache_command, get_perf_config, reload_perf_config,
     get_wiki_config, is_wiki_circuit_open, wiki_record_success, wiki_record_failure,
-    get_cached_recipe_book,
+    get_cached_recipe_book, get_cached_wiki_search, cache_wiki_search, CachedWikiResult,
     // v0.0.926: Memory fast path
     check_memory_fast_path, boost_experience_usefulness, MemoryFastPathResult,
     // v0.0.933: LLM memoization
@@ -32,6 +32,14 @@ pub use cache::{
     get_timeout_fallback, TimeoutFallbackResult,
     // v0.0.944: Command failure tracking
     record_command_failure, check_command_failure, record_command_success, get_failing_commands,
+    // v0.0.920: Answer caching
+    get_cached_answer, cache_answer, clear_answer_cache, normalize_question,
+    // v0.0.921: Session failure cache
+    is_known_failed_command, record_command_failure_cache, clear_failure_cache,
+    // v0.0.922: Inflight requests
+    is_request_inflight, register_inflight_request, complete_inflight_request,
+    // v0.0.945: Clear all caches
+    clear_all_caches,
 };
 pub use command::{
     execute_command, execute_command_with_retry, execute_commands_parallel,

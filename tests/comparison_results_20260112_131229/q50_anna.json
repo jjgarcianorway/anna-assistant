@@ -1,8 +1,0 @@
-{
-  "question_num": 50,
-  "category": "Obscure",
-  "question": "xdg-open doesn't open files with the right application",
-  "status": "timeout",
-  "response_time_ms": 60004,
-  "exit_code": 124
-}

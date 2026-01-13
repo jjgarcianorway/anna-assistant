@@ -45,39 +45,82 @@ pub struct VerificationResult {
     pub unverified_count: usize,
 }
 
-/// v0.3.26: Format evidence line for display with doc citations
+/// v0.3.27: Format evidence line for display with doc citations and failed probes
 fn format_evidence_line(
     findings: &[Finding],
     doc_citations: &[String],
+    failed_probes: &[String],
     debug_mode: bool,
 ) -> String {
+    // v0.3.27: Always emit Evidence line if there are findings or citations
+    // If all probes failed, say so explicitly
     if findings.is_empty() && doc_citations.is_empty() {
         return String::new();
+    }
+
+    let successful_findings: Vec<&Finding> = findings.iter().filter(|f| f.success).collect();
+    let failed_findings: Vec<&Finding> = findings.iter().filter(|f| !f.success).collect();
+
+    // If ALL probes failed, emit explicit failure notice
+    if !findings.is_empty() && successful_findings.is_empty() && doc_citations.is_empty() {
+        return format!(
+            "Evidence: [ALL PROBES FAILED: {}]",
+            failed_probes.join(", ")
+        );
     }
 
     if debug_mode {
         // Verbose format with exit codes and doc citations
         let mut lines = vec!["Evidence:".to_string()];
         for f in findings {
-            let exit_code = if f.success { 0 } else { 1 };
+            // v0.3.28: Phase 3 F15 - mark empty output on success
+            let status = if f.success {
+                if f.output.trim().is_empty() { "OK, empty" } else { "OK" }
+            } else {
+                "FAILED"
+            };
             lines.push(format!(
-                "  [Probe: `{}` (exit {})]",
-                f.command, exit_code
+                "  [Probe: `{}` ({})]",
+                f.command, status
             ));
         }
         for cite in doc_citations {
             lines.push(format!("  {}", cite));
         }
+        if !failed_probes.is_empty() {
+            lines.push(format!("  [Failed probes: {}]", failed_probes.join(", ")));
+        }
         lines.join("\n")
     } else {
-        // Concise format - probes and doc citations
-        let mut parts: Vec<String> = findings.iter().map(|f| f.command.clone()).collect();
+        // Concise format - successful probes and doc citations
+        // v0.3.27: Mark failed probes explicitly
+        // v0.3.28: Phase 3 F15 - mark empty output probes
+        let mut parts: Vec<String> = successful_findings
+            .iter()
+            .map(|f| {
+                if f.output.trim().is_empty() {
+                    format!("{}[empty]", f.command)
+                } else {
+                    f.command.clone()
+                }
+            })
+            .collect();
         parts.extend(doc_citations.iter().cloned());
-        format!("Evidence: {}", parts.join(", "))
+
+        if !failed_findings.is_empty() {
+            let failed_cmds: Vec<String> = failed_findings.iter().map(|f| format!("{}[FAILED]", f.command)).collect();
+            parts.extend(failed_cmds);
+        }
+
+        if parts.is_empty() {
+            "Evidence: [no successful probes]".to_string()
+        } else {
+            format!("Evidence: {}", parts.join(", "))
+        }
     }
 }
 
-/// v0.3.26: Verify answer through ClaimGate with question context for doc requirements
+/// v0.3.27: Verify answer through ClaimGate with question context for doc requirements
 fn verify_answer(
     answer: &str,
     question: &str,
@@ -116,22 +159,33 @@ fn verify_answer(
     let verified_count = verified.verified_claims.len();
     let unverified_count = verified.unverified_claims.len();
 
-    if !verified.unverified_claims.is_empty() {
+    // v0.3.27: Log blocking information
+    if verified.claims_blocked {
+        info!(
+            "ClaimGate: BLOCKED {} unverified claims, {} verified, probes_failed={}",
+            unverified_count, verified_count, verified.probes_failed
+        );
+        for reason in &verified.block_reasons {
+            debug!("Block reason: {}", reason);
+        }
+    } else if !verified.unverified_claims.is_empty() {
         info!(
             "ClaimGate: {} claims verified, {} unverified, docs_required={}, docs_found={}",
             verified_count, unverified_count, verified.docs_required, verified.docs_found
         );
     }
 
-    // Format evidence line with doc citations
-    let evidence_line = format_evidence_line(findings, &verified.doc_citations, debug_mode);
+    // v0.3.27: Format evidence line with failed probes info
+    let evidence_line = format_evidence_line(
+        findings,
+        &verified.doc_citations,
+        &verified.failed_probes,
+        debug_mode,
+    );
 
     VerificationResult {
-        answer: if verified.unverified_claims.is_empty() {
-            answer.to_string()
-        } else {
-            verified.verified_text
-        },
+        // v0.3.27: Use verified_text which has blocked claims replaced with uncertainty
+        answer: verified.verified_text,
         evidence_line,
         needs_investigation: verified.needs_investigation,
         suggested_probes: verified.suggested_probes,

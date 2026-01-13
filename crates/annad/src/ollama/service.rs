@@ -195,6 +195,7 @@ pub async fn is_running() -> bool {
 }
 
 /// Get detailed diagnostics when Ollama is not working
+/// v0.3.36: Removed manual command suggestions - Anna handles recovery automatically
 pub fn get_ollama_diagnostics() -> Vec<String> {
     let mut diagnostics = Vec::new();
 
@@ -205,8 +206,7 @@ pub fn get_ollama_diagnostics() -> Vec<String> {
         .unwrap_or(false);
 
     if !ollama_exists {
-        diagnostics
-            .push("Ollama not installed. Install with: sudo pacman -S ollama".to_string());
+        diagnostics.push("Ollama is not installed".to_string());
         return diagnostics;
     }
 
@@ -218,8 +218,7 @@ pub fn get_ollama_diagnostics() -> Vec<String> {
         .unwrap_or(false);
 
     if !process_running {
-        diagnostics.push("Ollama process not running".to_string());
-        diagnostics.push("Start with: sudo systemctl start ollama".to_string());
+        diagnostics.push("Ollama process is not running".to_string());
     }
 
     let port_check = Command::new("ss")
@@ -239,10 +238,7 @@ pub fn get_ollama_diagnostics() -> Vec<String> {
         .unwrap_or_else(|_| "unknown".to_string());
 
     if service_status != "active" {
-        diagnostics.push(format!("Ollama service status: {}", service_status));
-        if service_status == "failed" {
-            diagnostics.push("Check logs: journalctl -u ollama -n 20".to_string());
-        }
+        diagnostics.push(format!("Ollama systemd service status: {}", service_status));
     }
 
     let disk_check = Command::new("df")
@@ -268,9 +264,7 @@ pub fn get_ollama_diagnostics() -> Vec<String> {
     }
 
     if diagnostics.is_empty() {
-        diagnostics
-            .push("Ollama appears configured correctly but API not responding".to_string());
-        diagnostics.push("Try restarting: sudo systemctl restart ollama".to_string());
+        diagnostics.push("Ollama appears configured correctly but API is not responding".to_string());
     }
 
     diagnostics
@@ -361,12 +355,13 @@ pub async fn ensure_gpu_acceleration() -> Result<bool> {
 
 /// Try to restart Ollama service to fix GPU issues
 /// v0.0.999: NEVER use sudo - it triggers pam_faillock and locks out the user!
+/// v0.3.36: Updated error messages to not include manual commands
 async fn restart_ollama_service() -> Result<()> {
     info!("Attempting to restart Ollama for GPU acceleration...");
 
     // v0.0.999: DO NOT attempt systemctl restart - it requires sudo and failed attempts
     // will trigger pam_faillock, locking out the user's account!
-    // Instead, we try to work with what we have or warn the user.
+    // Instead, we try to work with what we have or fall back gracefully.
 
     // Try to kill only the ollama runner (model process), not the main serve
     // The runner might reload with GPU support
@@ -392,9 +387,9 @@ async fn restart_ollama_service() -> Result<()> {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    // If we still can't get GPU working, warn the user
-    warn!("GPU acceleration unavailable. Run 'sudo systemctl restart ollama' to fix.");
-    Err(anyhow!("GPU acceleration requires manual restart: sudo systemctl restart ollama"))
+    // If we still can't get GPU working, continue without GPU
+    warn!("GPU acceleration unavailable - continuing with CPU mode");
+    Err(anyhow!("GPU acceleration could not be enabled - running in CPU mode"))
 }
 
 /// List available models

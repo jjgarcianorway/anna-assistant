@@ -1,14 +1,17 @@
 #!/bin/bash
-# Anna vs Claude Comparison Test
-# Tests 100 tricky real-world questions for reliability, response time, and accuracy
+# Anna Performance Test v3
+# Tests 100 tricky real-world questions measuring:
+# - Response time
+# - Completion rate (reliability)
+# - Answer type (real answer vs clarification request)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ANNACTL="/home/lhoqvso/anna-assistant/target/release/annactl"
-QUESTIONS_FILE="$SCRIPT_DIR/tricky_100_questions.txt"
-RESULTS_DIR="$SCRIPT_DIR/comparison_results_$(date +%Y%m%d_%H%M%S)"
-SUMMARY_FILE="$RESULTS_DIR/summary.json"
+ANNACTL="${SCRIPT_DIR}/../target/release/annactl"
+QUESTIONS_FILE="$SCRIPT_DIR/tricky_100_v3.txt"
+RESULTS_DIR="$SCRIPT_DIR/results_v3_$(date +%Y%m%d_%H%M%S)"
+TIMEOUT_SECS=60
 
 mkdir -p "$RESULTS_DIR"
 
@@ -17,36 +20,93 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${BLUE}================================${NC}"
-echo -e "${BLUE}  Anna Performance Test${NC}"
-echo -e "${BLUE}  100 Tricky Real-World Questions${NC}"
-echo -e "${BLUE}================================${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║         Anna Performance Test v3 - 100 Questions            ║${NC}"
+echo -e "${CYAN}║         Measuring: Speed, Reliability, Accuracy             ║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo "Results directory: $RESULTS_DIR"
-echo "Started at: $(date)"
+echo "Results: $RESULTS_DIR"
+echo "Started: $(date)"
 echo ""
 
-# Check if annactl exists
+# Build if needed
 if [ ! -f "$ANNACTL" ]; then
-    echo -e "${RED}Error: annactl not found at $ANNACTL${NC}"
-    echo "Run: cargo build --release --workspace"
-    exit 1
+    echo -e "${YELLOW}Building annactl...${NC}"
+    cargo build --release --workspace --quiet
 fi
 
-# Check if questions file exists
-if [ ! -f "$QUESTIONS_FILE" ]; then
-    echo -e "${RED}Error: Questions file not found at $QUESTIONS_FILE${NC}"
-    exit 1
+# Ensure daemon is running
+if ! "$ANNACTL" status &>/dev/null; then
+    echo -e "${YELLOW}Starting anna daemon...${NC}"
+    "$ANNACTL" --daemon &
+    sleep 3
 fi
 
-# Initialize counters
+# Initialize arrays for statistics
+declare -a response_times
+declare -a categories
 total=0
-success=0
+completed=0
 timeout_count=0
 error_count=0
-total_time=0
+clarification_count=0
+real_answer_count=0
+
+# Patterns that indicate Anna asked for clarification instead of answering
+CLARIFICATION_PATTERNS=(
+    "Could you.*specific"
+    "Could you.*clarify"
+    "Could you.*tell me"
+    "Can you.*more detail"
+    "What.*specifically"
+    "Which.*exactly"
+    "I need more information"
+    "please provide"
+    "what are you trying"
+    "Could you please"
+    "help me understand"
+)
+
+# Function to check if response is a clarification request
+is_clarification() {
+    local response="$1"
+    for pattern in "${CLARIFICATION_PATTERNS[@]}"; do
+        if echo "$response" | grep -qiE "$pattern"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Function to get answer quality score (0-3)
+# 0 = error/timeout, 1 = clarification, 2 = short answer, 3 = detailed answer
+get_quality_score() {
+    local response="$1"
+    local status="$2"
+
+    if [ "$status" != "success" ]; then
+        echo 0
+        return
+    fi
+
+    if is_clarification "$response"; then
+        echo 1
+        return
+    fi
+
+    local len=${#response}
+    if [ $len -lt 200 ]; then
+        echo 2
+    else
+        echo 3
+    fi
+}
+
+echo -e "${BLUE}Running tests...${NC}"
+echo ""
 
 # Read questions and test
 while IFS='|' read -r num category question || [ -n "$num" ]; do
@@ -55,125 +115,226 @@ while IFS='|' read -r num category question || [ -n "$num" ]; do
     [[ -z "$num" ]] && continue
 
     total=$((total + 1))
+    categories[$total]="$category"
 
-    echo -e "${YELLOW}[$num/100]${NC} ${BLUE}[$category]${NC} $question"
+    # Show progress
+    printf "${YELLOW}[%3d/100]${NC} ${BLUE}%-10s${NC} %.50s" "$num" "[$category]" "$question"
 
-    # Prepare output file
-    result_file="$RESULTS_DIR/q${num}_anna.json"
+    # Files for this question
+    response_file="$RESULTS_DIR/q${num}_response.txt"
+    meta_file="$RESULTS_DIR/q${num}_meta.json"
 
-    # Record start time (nanoseconds)
-    start_time=$(date +%s%N)
+    # Record start time
+    start_ns=$(date +%s%N)
 
-    # Run anna with timeout (60 seconds max)
-    if timeout 60 "$ANNACTL" "$question" > "$RESULTS_DIR/q${num}_anna.txt" 2>&1; then
-        end_time=$(date +%s%N)
-        elapsed_ms=$(( (end_time - start_time) / 1000000 ))
-        total_time=$((total_time + elapsed_ms))
-        success=$((success + 1))
+    # Run anna with timeout
+    if timeout $TIMEOUT_SECS "$ANNACTL" "$question" > "$response_file" 2>&1; then
+        end_ns=$(date +%s%N)
+        elapsed_ms=$(( (end_ns - start_ns) / 1000000 ))
+        response_times+=($elapsed_ms)
+        completed=$((completed + 1))
 
-        # Get response length
-        response_len=$(wc -c < "$RESULTS_DIR/q${num}_anna.txt")
+        # Read response
+        response=$(cat "$response_file")
+        response_len=${#response}
+
+        # Check if it's a clarification request
+        if is_clarification "$response"; then
+            clarification_count=$((clarification_count + 1))
+            answer_type="clarification"
+            status_icon="${YELLOW}?${NC}"
+        else
+            real_answer_count=$((real_answer_count + 1))
+            answer_type="answer"
+            status_icon="${GREEN}✓${NC}"
+        fi
+
+        quality=$(get_quality_score "$response" "success")
+
+        # Display result
+        if [ $elapsed_ms -lt 5000 ]; then
+            time_color="${GREEN}"
+        elif [ $elapsed_ms -lt 15000 ]; then
+            time_color="${YELLOW}"
+        else
+            time_color="${RED}"
+        fi
+
+        printf " ${status_icon} ${time_color}%5dms${NC} %4db\n" "$elapsed_ms" "$response_len"
 
         # Save metadata
-        cat > "$result_file" << EOF
+        cat > "$meta_file" << EOF
 {
-  "question_num": $num,
+  "num": $num,
   "category": "$category",
-  "question": "$question",
+  "question": "$(echo "$question" | sed 's/"/\\"/g')",
   "status": "success",
+  "answer_type": "$answer_type",
   "response_time_ms": $elapsed_ms,
-  "response_length": $response_len
+  "response_length": $response_len,
+  "quality_score": $quality
 }
 EOF
-
-        if [ $elapsed_ms -lt 3000 ]; then
-            echo -e "  ${GREEN}OK${NC} (${elapsed_ms}ms, ${response_len} bytes)"
-        elif [ $elapsed_ms -lt 10000 ]; then
-            echo -e "  ${YELLOW}OK${NC} (${elapsed_ms}ms, ${response_len} bytes)"
-        else
-            echo -e "  ${YELLOW}SLOW${NC} (${elapsed_ms}ms, ${response_len} bytes)"
-        fi
     else
         exit_code=$?
-        end_time=$(date +%s%N)
-        elapsed_ms=$(( (end_time - start_time) / 1000000 ))
+        end_ns=$(date +%s%N)
+        elapsed_ms=$(( (end_ns - start_ns) / 1000000 ))
 
         if [ $exit_code -eq 124 ]; then
             timeout_count=$((timeout_count + 1))
             status="timeout"
-            echo -e "  ${RED}TIMEOUT${NC} (60s limit)"
+            printf " ${RED}TIMEOUT${NC}\n"
         else
             error_count=$((error_count + 1))
             status="error"
-            echo -e "  ${RED}ERROR${NC} (exit code: $exit_code)"
+            printf " ${RED}ERROR($exit_code)${NC}\n"
         fi
 
-        cat > "$result_file" << EOF
+        cat > "$meta_file" << EOF
 {
-  "question_num": $num,
+  "num": $num,
   "category": "$category",
-  "question": "$question",
+  "question": "$(echo "$question" | sed 's/"/\\"/g')",
   "status": "$status",
+  "answer_type": "none",
   "response_time_ms": $elapsed_ms,
-  "exit_code": $exit_code
+  "exit_code": $exit_code,
+  "quality_score": 0
 }
 EOF
     fi
 
     # Brief pause between questions
-    sleep 0.5
+    sleep 0.3
 
 done < "$QUESTIONS_FILE"
 
 # Calculate statistics
-avg_time=0
-if [ $success -gt 0 ]; then
-    avg_time=$((total_time / success))
+if [ ${#response_times[@]} -gt 0 ]; then
+    # Sort response times
+    IFS=$'\n' sorted=($(sort -n <<<"${response_times[*]}")); unset IFS
+
+    total_time=0
+    for t in "${response_times[@]}"; do
+        total_time=$((total_time + t))
+    done
+
+    avg_time=$((total_time / ${#response_times[@]}))
+    min_time=${sorted[0]}
+    max_time=${sorted[-1]}
+
+    # Median
+    mid=$((${#sorted[@]} / 2))
+    if [ $((${#sorted[@]} % 2)) -eq 0 ]; then
+        median=$(( (sorted[mid-1] + sorted[mid]) / 2 ))
+    else
+        median=${sorted[mid]}
+    fi
+
+    # P95
+    p95_idx=$(( ${#sorted[@]} * 95 / 100 ))
+    p95_time=${sorted[p95_idx]}
+else
+    avg_time=0
+    min_time=0
+    max_time=0
+    median=0
+    p95_time=0
 fi
 
-success_rate=$(echo "scale=1; $success * 100 / $total" | bc)
+completion_rate=$(echo "scale=1; $completed * 100 / $total" | bc)
+answer_rate=$(echo "scale=1; $real_answer_count * 100 / $total" | bc)
+clarification_rate=$(echo "scale=1; $clarification_count * 100 / $total" | bc)
 
+# Results Summary
 echo ""
-echo -e "${BLUE}================================${NC}"
-echo -e "${BLUE}  Test Results Summary${NC}"
-echo -e "${BLUE}================================${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║                    RESULTS SUMMARY                          ║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo "Total questions:  $total"
-echo -e "Successful:       ${GREEN}$success${NC}"
-echo -e "Timeouts:         ${RED}$timeout_count${NC}"
-echo -e "Errors:           ${RED}$error_count${NC}"
+echo -e "${BLUE}Reliability:${NC}"
+echo "  Total questions:     $total"
+echo -e "  Completed:           ${GREEN}$completed${NC} (${completion_rate}%)"
+echo -e "  Timeouts:            ${RED}$timeout_count${NC}"
+echo -e "  Errors:              ${RED}$error_count${NC}"
 echo ""
-echo "Success rate:     ${success_rate}%"
-echo "Avg response:     ${avg_time}ms"
-echo "Total test time:  $((total_time / 1000))s"
+echo -e "${BLUE}Response Quality:${NC}"
+echo -e "  Real answers:        ${GREEN}$real_answer_count${NC} (${answer_rate}%)"
+echo -e "  Clarifications:      ${YELLOW}$clarification_count${NC} (${clarification_rate}%)"
 echo ""
-echo "Completed at: $(date)"
+echo -e "${BLUE}Response Time:${NC}"
+echo "  Average:             ${avg_time}ms"
+echo "  Median:              ${median}ms"
+echo "  Min:                 ${min_time}ms"
+echo "  Max:                 ${max_time}ms"
+echo "  P95:                 ${p95_time}ms"
+echo ""
 
-# Save summary
-cat > "$SUMMARY_FILE" << EOF
+# Category breakdown
+echo -e "${BLUE}Category Breakdown:${NC}"
+for cat in Error Hardware Package Network Display Boot Perf; do
+    cat_total=$(grep -c "|$cat|" "$QUESTIONS_FILE" 2>/dev/null || echo 0)
+    cat_answered=$(grep -l "\"category\": \"$cat\"" "$RESULTS_DIR"/*.json 2>/dev/null | xargs grep -l "\"answer_type\": \"answer\"" 2>/dev/null | wc -l || echo 0)
+    cat_clarify=$(grep -l "\"category\": \"$cat\"" "$RESULTS_DIR"/*.json 2>/dev/null | xargs grep -l "\"answer_type\": \"clarification\"" 2>/dev/null | wc -l || echo 0)
+
+    if [ "$cat_total" -gt 0 ]; then
+        printf "  %-10s answered: %2d/%2d  clarify: %2d\n" "$cat" "$cat_answered" "$cat_total" "$cat_clarify"
+    fi
+done
+
+# Save summary JSON
+cat > "$RESULTS_DIR/summary.json" << EOF
 {
   "test_date": "$(date -Iseconds)",
+  "test_version": "v3",
   "total_questions": $total,
-  "successful": $success,
+  "completed": $completed,
+  "completion_rate_percent": $completion_rate,
   "timeouts": $timeout_count,
   "errors": $error_count,
-  "success_rate_percent": $success_rate,
-  "avg_response_time_ms": $avg_time,
-  "total_test_time_ms": $total_time,
-  "results_directory": "$RESULTS_DIR"
+  "real_answers": $real_answer_count,
+  "clarifications": $clarification_count,
+  "answer_rate_percent": $answer_rate,
+  "response_time_ms": {
+    "average": $avg_time,
+    "median": $median,
+    "min": $min_time,
+    "max": $max_time,
+    "p95": $p95_time
+  }
 }
 EOF
 
-echo "Summary saved to: $SUMMARY_FILE"
-
-# Generate category breakdown
 echo ""
-echo -e "${BLUE}Category Breakdown:${NC}"
-for cat in Ambiguous EdgeCase MultiStep Obscure Security Performance Recovery Context; do
-    cat_total=$(grep -c "|$cat|" "$QUESTIONS_FILE" 2>/dev/null || echo 0)
-    cat_success=$(ls "$RESULTS_DIR"/q*_anna.json 2>/dev/null | xargs grep -l "\"status\": \"success\"" 2>/dev/null | xargs grep -l "\"category\": \"$cat\"" 2>/dev/null | wc -l || echo 0)
-    if [ "$cat_total" -gt 0 ]; then
-        cat_rate=$(echo "scale=0; $cat_success * 100 / $cat_total" | bc)
-        echo "  $cat: $cat_success/$cat_total (${cat_rate}%)"
-    fi
-done
+echo "Completed: $(date)"
+echo "Results saved to: $RESULTS_DIR"
+echo ""
+
+# Quick analysis of what types of questions got clarification
+if [ $clarification_count -gt 0 ]; then
+    echo -e "${YELLOW}Questions that got clarification requests (sample):${NC}"
+    grep -l "\"answer_type\": \"clarification\"" "$RESULTS_DIR"/*.json 2>/dev/null | head -5 | while read f; do
+        q=$(jq -r '.question' "$f" 2>/dev/null || echo "?")
+        printf "  - %.60s\n" "$q"
+    done
+    echo ""
+fi
+
+# Performance grade
+if [ "$answer_rate" = "0" ]; then
+    grade="F"
+elif (( $(echo "$answer_rate < 30" | bc -l) )); then
+    grade="D"
+elif (( $(echo "$answer_rate < 50" | bc -l) )); then
+    grade="C"
+elif (( $(echo "$answer_rate < 70" | bc -l) )); then
+    grade="B"
+elif (( $(echo "$answer_rate < 85" | bc -l) )); then
+    grade="A"
+else
+    grade="A+"
+fi
+
+echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}  OVERALL GRADE: ${GREEN}$grade${NC}  (${answer_rate}% answered, ${median}ms median)"
+echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"

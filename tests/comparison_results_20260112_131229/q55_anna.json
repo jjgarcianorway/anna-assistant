@@ -1,8 +1,0 @@
-{
-  "question_num": 55,
-  "category": "Obscure",
-  "question": "timeshift says btrfs detected but can't create snapshots",
-  "status": "timeout",
-  "response_time_ms": 60005,
-  "exit_code": 124
-}

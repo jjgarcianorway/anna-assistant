@@ -156,14 +156,12 @@ pub fn apply_change(
     // Create backup first
     let backup_path = backup_file(file_path, name)?;
 
-    // Expand ~ to home directory
-    let expanded_path = if file_path.starts_with("~/") {
-        dirs::home_dir()
-            .map(|h| h.join(&file_path[2..]))
-            .unwrap_or_else(|| PathBuf::from(file_path))
-    } else {
-        PathBuf::from(file_path)
-    };
+    // Reject user home directory paths (invariant 2)
+    if file_path.starts_with("~/") || file_path.contains("$HOME") {
+        return Err("Anna does not modify user home directories. Use system paths only.".to_string());
+    }
+
+    let expanded_path = PathBuf::from(file_path);
 
     // Create parent directories if needed
     if let Some(parent) = expanded_path.parent() {
@@ -206,14 +204,12 @@ pub fn append_to_file(
     // Create backup first
     let backup_path = backup_file(file_path, name)?;
 
-    // Expand ~ to home directory
-    let expanded_path = if file_path.starts_with("~/") {
-        dirs::home_dir()
-            .map(|h| h.join(&file_path[2..]))
-            .unwrap_or_else(|| PathBuf::from(file_path))
-    } else {
-        PathBuf::from(file_path)
-    };
+    // Reject user home directory paths (invariant 2)
+    if file_path.starts_with("~/") || file_path.contains("$HOME") {
+        return Err("Anna does not modify user home directories. Use system paths only.".to_string());
+    }
+
+    let expanded_path = PathBuf::from(file_path);
 
     // Read existing content
     let existing = fs::read_to_string(&expanded_path).unwrap_or_default();
@@ -273,14 +269,12 @@ pub fn undo_change(change: &ChangeRecord) -> Result<String, String> {
         return Err("Backup file not found - cannot undo".to_string());
     }
 
-    // Expand ~ in file path
-    let file_path = if change.file_path.starts_with("~/") {
-        dirs::home_dir()
-            .map(|h| h.join(&change.file_path[2..]))
-            .unwrap_or_else(|| PathBuf::from(&change.file_path))
-    } else {
-        PathBuf::from(&change.file_path)
-    };
+    // Reject user home directory paths (invariant 2)
+    if change.file_path.starts_with("~/") || change.file_path.contains("$HOME") {
+        return Err("Anna does not modify user home directories. Use system paths only.".to_string());
+    }
+
+    let file_path = PathBuf::from(&change.file_path);
 
     // Restore from backup
     fs::copy(&backup, &file_path)

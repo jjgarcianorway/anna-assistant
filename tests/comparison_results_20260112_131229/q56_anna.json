@@ -1,8 +1,0 @@
-{
-  "question_num": 56,
-  "category": "Obscure",
-  "question": "yay fails with git clone permission denied",
-  "status": "timeout",
-  "response_time_ms": 60004,
-  "exit_code": 124
-}

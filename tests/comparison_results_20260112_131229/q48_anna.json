@@ -1,8 +1,0 @@
-{
-  "question_num": 48,
-  "category": "Obscure",
-  "question": "systemd-resolved is conflicting with NetworkManager",
-  "status": "timeout",
-  "response_time_ms": 60004,
-  "exit_code": 124
-}

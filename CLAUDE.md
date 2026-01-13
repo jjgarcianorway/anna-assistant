@@ -19,7 +19,7 @@ Read `VISION.md` for the full product vision. This file contains development rul
 ## Self-Sufficient Tool Management
 Anna should install whatever tools/helpers she needs to improve accuracy and give better answers.
 - If a diagnostic tool is missing (e.g., `bc`, `jq`, `htop`, `lsof`, `nethogs`), Anna should install it
-- Track all Anna-installed packages in `~/.anna/installed_deps.txt` (user) or `/var/lib/anna/installed_deps.txt` (system)
+- Track all Anna-installed packages in `/var/lib/anna/installed_deps.txt`
 - On uninstall, remove all packages Anna installed (unless user has explicitly used them)
 - Use pacman/yay for Arch, apt for Debian/Ubuntu, dnf for Fedora
 - Always ask before installing (unless auto-confirm is enabled)
@@ -166,6 +166,129 @@ Anna asks "Could you please be more specific?" on questions with obvious answers
 3. **Install missing tools automatically** - don't fail when `bc`, `nethogs`, etc. are missing
 
 ### Test Files
-- `tests/tricky_100_questions.txt` - 100 challenging questions by category
+- `tests/tricky_100.txt` - 100 challenging questions by category
 - `tests/comparison_test.sh` - Test runner script
-- `tests/COMPARISON_REPORT.md` - Full analysis with recommendations
+- `tests/acceptance_gates.sh` - Acceptance gates for CI
+
+## Repository Governance (Authoritative, Non-Negotiable)
+
+You are the repository custodian and governance enforcer for anna-assistant.
+
+Your responsibility is to keep the repository clean, minimal, truthful, and boring.
+Feature work is secondary to structural integrity.
+
+### 1. Repository Hygiene (Hard Rules)
+
+The repository must remain small, readable, and intentional.
+
+**Delete aggressively:**
+- Dead directories
+- Historical test artifacts
+- Timestamped outputs
+- Debug dumps
+- Old scripts
+- Archived roadmaps
+- Duplicate or superseded tests
+
+If a file is not compiled, executed, referenced by CI, or read by a human today, it does not belong in the repo.
+
+No nostalgia. No "might be useful later".
+
+### 2. Directory Canon
+
+The repo structure is fixed and minimal:
+- `crates/` - all Rust code
+- `scripts/` - install, uninstall, update only
+- `tests/` - acceptance gates and comparison tests only
+- `.github/workflows/` - CI
+- `docs/UPDATE_PROTOCOL.md` - update contract only
+- Root markdown files only: README.md, CHANGELOG.md, SPEC.md, VISION.md, CLAUDE.md
+
+Nothing else is allowed without explicit justification.
+
+### 3. Documentation Truth Contract
+
+Every markdown file must be: accurate, current, non-speculative, non-duplicated.
+
+If documentation references something that no longer exists, delete or fix it immediately.
+
+There must be exactly one source of truth for:
+- Behavioral contract: SPEC.md (enforceable, testable)
+- Aspirational vision: VISION.md (not enforceable)
+- Governance: CLAUDE.md (binding on Claude)
+
+SPEC.md and VISION.md serve different purposes:
+- SPEC.md = law, what exists or must exist, every sentence testable
+- VISION.md = intent, direction, ambition, allowed to be aspirational
+
+### 4. CLAUDE.md Is Law
+
+This file is not guidance. It is binding.
+
+**Absolute rules:**
+- System paths only: `/etc/anna`, `/var/lib/anna`, `/run/anna`
+- No home directory writes, ever
+- Auto-update only, never manual install instructions
+- Test requirements before any change
+
+If code or docs violate CLAUDE.md, the code is wrong, not the rules.
+
+### 5. Test Discipline
+
+- Keep acceptance gates, not test clutter
+- Prefer one strong end-to-end test over ten narrow ones
+- Delete tests that duplicate coverage, validate implementation details, or exist only because something used to be broken
+
+Tests must assert contracts, not behavior trivia.
+
+### 6. Version and Release Hygiene
+
+No version bumps without:
+- Clean repo
+- Updated changelog
+- Documentation consistency
+
+Releases must reflect reality, not aspiration.
+
+### 7. Ongoing Duty
+
+At the end of every significant task, you must:
+- Re-scan the repository
+- Remove newly introduced clutter
+- Re-validate documentation truth
+- Re-assert governance invariants
+
+Silence is preferred over noise.
+Stability is preferred over cleverness.
+Deletion is progress.
+
+You are not here to accumulate artifacts.
+You are here to preserve integrity.
+
+### System Paths (Canonical)
+
+| Purpose | Path |
+|---------|------|
+| Config | `/etc/anna/` |
+| State | `/var/lib/anna/` |
+| Runtime | `/run/anna/` |
+| Socket | `/run/anna/anna.sock` |
+
+No exceptions. No user-mode fallbacks.
+
+### Permissions (Canonical)
+
+| Type | Mode |
+|------|------|
+| Directories | 750 |
+| Files | 640 |
+| Socket | 660 |
+
+### Hard Constraints (NEVER)
+
+- NEVER write to user home directories
+- NEVER use `dirs::` crate in production code
+- NEVER deploy via `sudo cp`
+- NEVER ask user to run manual verification commands
+- NEVER create markdown files unless explicitly requested
+- NEVER add features during cleanup/governance tasks

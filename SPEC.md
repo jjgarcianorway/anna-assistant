@@ -1,278 +1,130 @@
-# Anna Specification v0.0.18
+# Anna Specification
 
-This document is the authoritative specification for Anna. All implementation
-must conform to this spec. If code and spec conflict, update spec first, then code.
+This document is law. Every statement is testable. CI enforces it.
 
-## Overview
+## What Anna Is
 
-Anna is a local AI assistant for Linux systems. It consists of two components:
-- **annad**: A root-level systemd service that manages system state, Ollama, and models
-- **annactl**: A user-facing CLI that communicates with annad over a Unix socket
+Anna is a local Linux assistant that answers system questions using real data.
 
-## Architecture
+When you ask "how much disk space do I have?", Anna:
+1. Runs diagnostic commands (e.g., `df -h`)
+2. Parses the output
+3. Synthesizes a natural language answer grounded in that output
 
-```
-┌─────────────┐     Unix Socket     ┌─────────────┐
-│   annactl   │ ◄─────────────────► │    annad    │
-│  (user CLI) │    JSON-RPC 2.0     │  (root svc) │
-└─────────────┘                     └─────────────┘
-                                          │
-                                          ▼
-                                   ┌─────────────┐
-                                   │   Ollama    │
-                                   │  (managed)  │
-                                   └─────────────┘
-```
+Anna does not guess. Anna does not hallucinate. If Anna cannot determine the answer from probe output, Anna says so.
 
-## Component Specifications
+## What Anna Is Not
 
-### annad (Daemon)
+- A general-purpose chatbot
+- A web search engine
+- A code generator
+- A remote management tool
+- A security scanner
 
-**Runs as**: root (systemd service)
-**Socket**: `/run/anna/anna.sock`
-**Config**: `/etc/anna/config.toml`
-**State directory**: `/var/lib/anna/`
-**Log**: systemd journal
+## Problems Anna Solves
 
-**Responsibilities**:
-1. Install and manage Ollama
-2. Probe hardware (CPU, RAM, GPU) and select appropriate model
-3. Pull and manage models based on hardware capabilities
-4. Maintain installation ledger at `/var/lib/anna/ledger.json`
-5. Provide RPC interface for annactl
-6. Run update check every 60 seconds, auto-update if enabled
-7. Self-healing: repair permissions, restart services, re-pull models
-8. Run system probes for grounded LLM responses
-9. Execute service desk pipeline for all requests
-10. Deterministic fallback when LLM times out
-11. Track per-stage latency statistics (v0.0.16)
+1. "What is the state of my system?" - Disk, RAM, CPU, services, packages
+2. "Why is X happening?" - Diagnostics via targeted probes
+3. "How do I do Y?" - Procedural guidance from Arch Wiki, man pages, --help
+4. "Fix X for me" - Configuration changes with backup and rollback
 
-### annactl (CLI)
+## Problems Anna Refuses
 
-**Runs as**: Current user
-**Connects to**: `/run/anna/anna.sock`
+- Questions requiring internet search
+- Questions about other machines
+- Questions outside Linux system administration
+- Requests requiring speculation or prediction
 
-**Commands** (locked CLI surface - no additions allowed):
-- `annactl <request>` - Send request to Anna
-- `annactl` (no args) - Enter REPL mode
-- `annactl status` - Show system status
-- `annactl status --debug` - Show status with latency stats (v0.0.16)
-- `annactl reset` - Reset learned data
-- `annactl uninstall` - Trigger safe uninstall
-- `annactl -V` / `annactl --version` - Show version
+## Guarantees
 
-## Configuration (v0.0.13+)
+| Guarantee | Enforcement |
+|-----------|-------------|
+| Every factual claim is backed by probe output or trusted docs | ClaimGate verification |
+| No answer contains invented data | Grounding check before emit |
+| User can see what commands were run | Evidence line in output |
+| Configuration changes are backed up | Backup created before modification |
+| All state in /etc/anna, /var/lib/anna, /run/anna | Acceptance gate |
+| Daemon updates itself from GitHub releases | Auto-update mechanism |
+| Uninstaller removes all Anna artifacts | Uninstall verification |
 
-`/etc/anna/config.toml`:
-```toml
-[daemon]
-debug_mode = true
-auto_update = true
-update_interval = 600
+## Failure Modes
 
-[llm]
-provider = "ollama"
-translator_model = "qwen2.5:1.5b-instruct"
-specialist_model = "qwen2.5:7b-instruct"
-supervisor_model = "qwen2.5:1.5b-instruct"
-translator_timeout_secs = 4
-specialist_timeout_secs = 12
-supervisor_timeout_secs = 6
-probe_timeout_secs = 4
-request_timeout_secs = 20  # v0.0.16: Global request timeout
-```
+| Failure | Behavior |
+|---------|----------|
+| Probe command fails | Report failure, do not guess |
+| LLM returns ungrounded claim | Block or mark as unverified |
+| Cannot determine answer | Say "I don't know" explicitly |
+| Ollama unavailable | Report in status, degrade gracefully |
+| Update check fails | Continue running, log failure |
 
-## Service Desk Architecture
+### Extended Failure Mode Contracts (Phase 3)
 
-### Internal Roles
+| Failure | Detection | Required Behavior | Forbidden |
+|---------|-----------|-------------------|-----------|
+| Conflicting probes | Probes disagree on same state | Set `conflicts_detected=true`, BLOCK single-truth assertion | Asserting one truth when probes conflict |
+| Socket EACCES | Client receives permission denied | Print message containing "permission" and suggest anna group | Generic "cannot connect" error |
+| Empty probe output (success) | Exit code 0 but stdout empty | Set `output_empty=true`, mark in evidence as `[empty]` | Factual assertion from empty output |
+| Backup failure | `backup_file()` returns Err | Abort change, propagate error | Proceeding to write after backup fails |
 
-1. **Translator** (LLM-based): Converts user text to structured JSON ticket
-2. **Dispatcher**: Routes to appropriate specialist, runs probes
-3. **Specialist**: Domain expert (System/Network/Storage/Security/Packages)
-4. **Supervisor**: Quality control with deterministic scoring
-5. **Deterministic Answerer**: Fallback when LLM unavailable
+Each row is testable via the field or output pattern specified.
 
-### Pipeline Flow
+## System Paths
 
-```
-User Query
-    │
-    ▼
-┌─────────────────┐
-│  Deterministic  │──── Known query? ────► Direct Answer
-│     Router      │     (help, cpu, ram)
-└────────┬────────┘
-         │ Unknown
-         ▼
-┌─────────────────┐
-│   Translator    │──── Confidence < 0.7 ────► Clarification
-│    (LLM)        │
-└────────┬────────┘
-         │ High confidence
-         ▼
-┌─────────────────┐
-│   Dispatcher    │──► Run probes (max 3)
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Specialist    │──── Timeout? ────► Deterministic Fallback
-│    (LLM)        │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Supervisor    │──► Score reliability
-└─────────────────┘
-```
+| Purpose | Path |
+|---------|------|
+| Config | /etc/anna/ |
+| State | /var/lib/anna/ |
+| Runtime | /run/anna/ |
+| Socket | /run/anna/anna.sock |
 
-### Deterministic Router (v0.0.14+)
+No user home directory writes. No exceptions.
 
-Overrides LLM for known query classes:
+## Permissions
 
-| Pattern | Action | Domain |
-|---------|--------|--------|
-| "help" | Return help text | - |
-| cpu/processor | Hardware snapshot | System |
-| ram/memory amount | Hardware snapshot | System |
-| gpu/graphics | Hardware snapshot | System |
-| "top memory/processes" | Run top_memory probe | System |
-| "top cpu" | Run top_cpu probe | System |
-| disk/storage/space | Run disk_usage probe | Storage |
-| network/interface/ip | Run network_addrs probe | Network |
-| slow/sluggish | Multi-probe diagnostic | System |
+| Type | Mode |
+|------|------|
+| Directories | 750 |
+| Files | 640 |
+| Socket | 660 |
 
-### Triage Rules (v0.0.15+)
+## Unverified Claim Definition
 
-- **Confidence threshold**: < 0.7 triggers clarification
-- **Probe cap**: Maximum 3 probes per query
-- **Clarification max reliability**: Capped at 40%
+A claim is **unverified** if any of the following apply:
 
-### Deterministic Answerer
+1. The claim asserts system state (service running, file exists, port open) but no probe was run to verify it
+2. The claim asserts system state but the relevant probe failed (exit code != 0)
+3. The claim asserts system state but probe output contradicts the claim
+4. The claim requires documentation (how-to, syntax, behavior) but no trusted doc was cited
 
-**Supported Query Types**:
+**Unverified claims must be BLOCKED, not emitted.** The response must either:
+- Omit the unverified factual sentence entirely, OR
+- Replace it with an explicit uncertainty statement: "I cannot verify [X] because [reason]"
 
-| Query Type | Data Sources | Output Format |
-|------------|--------------|---------------|
-| CpuInfo | Hardware snapshot | Model, cores |
-| RamInfo | Hardware snapshot | Total GB |
-| GpuInfo | Hardware snapshot | Model, VRAM |
-| TopMemoryProcesses | ps aux --sort=-%mem | PID, COMMAND, %MEM, RSS, USER (10 rows) |
-| DiskSpace | df -h | Mount, usage %, CRITICAL/WARNING flags |
-| NetworkInterfaces | ip addr show | Active first, type detection |
+This is testable: any response containing a factual pattern (see ClaimGate) without corresponding evidence in the Evidence line is a test failure.
 
-**Output Requirements** (v0.0.16):
-- Process tables include PID column
-- RSS formatted human-readable (12M, 1.2G)
-- Disk shows CRITICAL (>=95%) and WARNING (>=85%)
-- Network shows active interface first with type (WiFi/Ethernet)
+## Hard Invariants
 
-### Reliability Scoring
+These are testable. CI must enforce them.
 
-| Signal | Condition | Points |
-|--------|-----------|--------|
-| translator_confident | confidence >= 0.7 AND no timeout | 20 |
-| probe_coverage | all requested probes succeeded | 20 |
-| answer_grounded | deterministic OR answer references data | 20 |
-| no_invention | deterministic OR no hedging words | 20 |
-| clarification_not_needed | answer is not empty | 20 |
+1. Anna must never emit a factual claim without evidence
+2. Anna must never write to user home directories
+3. Anna must never require manual commands for install/update/uninstall
+4. All state must reside in system paths only
+5. Socket permissions must be 0660 (root:anna)
+6. Directory permissions must be 750
+7. Auto-update must succeed when new release exists
+8. Uninstall must remove all Anna-created files
+9. Status command must report daemon health, version, update state
+10. Probe failures must not produce invented answers
+11. Configuration changes must create backups
+12. Deployment must be via auto-update or installer script only
+13. Build must succeed with zero errors
+14. All acceptance gates must pass before release
 
-**Scoring Rules**:
-- `grounded=true` only if parsed data count > 0
-- Empty parser result = clarification needed
-- Coverage based on actual probe success
+## Definition of Done
 
-### Timeout Handling
-
-| Stage | Timeout | On Timeout |
-|-------|---------|------------|
-| Global request | 20s (configurable) | Graceful timeout response |
-| Translator | 4s | Use deterministic router |
-| Probe (each) | 4s | Skip, mark as failed |
-| Specialist | 12s | Try deterministic answerer |
-| Supervisor | 6s | Deterministic scoring |
-
-### Probe Allowlist
-
-| Probe ID | Command |
-|----------|---------|
-| top_memory | `ps aux --sort=-%mem` |
-| top_cpu | `ps aux --sort=-%cpu` |
-| cpu_info | `lscpu` |
-| memory_info | `free -h` |
-| disk_usage | `df -h` |
-| block_devices | `lsblk` |
-| network_addrs | `ip addr show` |
-| network_routes | `ip route` |
-| listening_ports | `ss -tulpn` |
-| failed_services | `systemctl --failed` |
-| system_logs | `journalctl -p warning..alert -n 200 --no-pager` |
-
-### Evidence Redaction (v0.0.15+)
-
-Automatic removal of sensitive patterns:
-- Private keys (BEGIN...PRIVATE KEY)
-- Password hashes (/etc/shadow format)
-- AWS keys (AKIA...)
-- API tokens (Bearer, api_key, etc.)
-
-Applied even in debug mode for security.
-
-## Latency Statistics (v0.0.16)
-
-Per-stage latency tracking for last 20 requests:
-
-- **translator**: LLM translation time
-- **probes**: Total probe execution time
-- **specialist**: LLM specialist time
-- **total**: End-to-end request time
-
-Exposed via `annactl status --debug`:
-```
-Latency Stats (last 20 requests):
-translator      avg 120ms, p95 250ms
-probes          avg 80ms, p95 150ms
-specialist      avg 1200ms, p95 2500ms
-total           avg 1500ms, p95 3000ms
-samples         20
-```
-
-## Display Modes
-
-**debug OFF** (fly-on-the-wall):
-```
-anna v0.0.16
-──────────────────────────────────────
-[you]
-what cpu do i have?
-
-[anna]
-AMD Ryzen 7 5800X (8 cores)
-
-reliability 100% | domain system
-──────────────────────────────────────
-```
-
-**debug ON** (troubleshooting):
-```
-[anna->translator] starting (timeout 4s) [0.0s]
-[anna] translator complete [0.12s]
-[anna->probe] running top_memory [0.12s]
-[anna] probe top_memory ok (45ms) [0.17s]
-...
-```
-
-## Constraints
-
-1. **400-line limit**: No source file may exceed 400 lines
-2. **CLI surface locked**: Only listed commands allowed
-3. **LLM optional for answers**: Deterministic fallback when LLM unavailable
-4. **Grounding mandatory**: All responses must be grounded in data
-5. **No invented facts**: Never claim facts not in context
-6. **Probe allowlist**: Only read-only commands allowed
-7. **Max 3 probes**: Per query limit enforced
-
-## Version
-
-- Version: 0.0.18
-- Status: UX hardening - fixed duplicate output, CLI help handling, deterministic stage display
+Anna is "done" when:
+1. All guarantees are enforceable via automated tests
+2. No manual intervention required for install, update, or uninstall
+3. Zero home directory writes
+4. Zero invented facts in production output

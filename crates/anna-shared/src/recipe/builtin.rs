@@ -1,86 +1,11 @@
 //! Built-in recipes for common tasks.
+//! NOTE: Anna does not modify user home directories (invariant 2).
+//! Recipes that would modify ~/.* files have been removed.
 
 use super::types::*;
 
 /// Add built-in recipes to a recipe book
 pub fn add_builtin_recipes(book: &mut RecipeBook) {
-    // Recipe: Enable vim syntax highlighting
-    book.recipes.push(Recipe {
-        id: "vim-syntax-highlighting".to_string(),
-        name: "Enable Vim Syntax Highlighting".to_string(),
-        keywords: vec![
-            "vim".to_string(),
-            "syntax".to_string(),
-            "highlighting".to_string(),
-            "color".to_string(),
-        ],
-        patterns: vec![
-            "enable vim syntax highlighting".to_string(),
-            "turn on vim syntax".to_string(),
-            "vim colors".to_string(),
-            "syntax highlighting vim".to_string(),
-        ],
-        context: RecipeContext {
-            editor: Some("vim".to_string()),
-            ..Default::default()
-        },
-        commands: vec![RecipeCommand {
-            command:
-                "grep -q 'syntax on' ~/.vimrc 2>/dev/null || echo 'syntax on' >> ~/.vimrc"
-                    .to_string(),
-            description: "Enable syntax highlighting in .vimrc".to_string(),
-            modifies_system: true,
-            backup_file: Some("~/.vimrc".to_string()),
-            needs_root: false,
-        }],
-        verification: Some(VerificationStep {
-            command: "grep 'syntax on' ~/.vimrc".to_string(),
-            expected_contains: Some("syntax on".to_string()),
-            expected_not_contains: None,
-        }),
-        source: RecipeSource::BuiltIn,
-        success_count: 0,
-        last_used: None,
-        enabled: true,
-    });
-
-    // Recipe: Enable nvim syntax highlighting
-    book.recipes.push(Recipe {
-        id: "nvim-syntax-highlighting".to_string(),
-        name: "Enable Neovim Syntax Highlighting".to_string(),
-        keywords: vec![
-            "nvim".to_string(),
-            "neovim".to_string(),
-            "syntax".to_string(),
-            "highlighting".to_string(),
-        ],
-        patterns: vec![
-            "enable neovim syntax highlighting".to_string(),
-            "nvim syntax".to_string(),
-            "neovim colors".to_string(),
-        ],
-        context: RecipeContext {
-            editor: Some("nvim".to_string()),
-            ..Default::default()
-        },
-        commands: vec![RecipeCommand {
-            command: "mkdir -p ~/.config/nvim && grep -q 'syntax on' ~/.config/nvim/init.vim 2>/dev/null || echo 'syntax on' >> ~/.config/nvim/init.vim".to_string(),
-            description: "Enable syntax highlighting in nvim config".to_string(),
-            modifies_system: true,
-            backup_file: Some("~/.config/nvim/init.vim".to_string()),
-            needs_root: false,
-        }],
-        verification: Some(VerificationStep {
-            command: "grep 'syntax on' ~/.config/nvim/init.vim".to_string(),
-            expected_contains: Some("syntax on".to_string()),
-            expected_not_contains: None,
-        }),
-        source: RecipeSource::BuiltIn,
-        success_count: 0,
-        last_used: None,
-        enabled: true,
-    });
-
     // Recipe: Check disk usage
     book.recipes.push(Recipe {
         id: "disk-usage".to_string(),

@@ -1,8 +1,0 @@
-
-[36mYou: [0mHow much space do pacman cache files use?
-
-[2m  $ [0mpacman -Qi | grep 'Size:'
-[2m  [0m
-[2m  $ [0mpacman -Sc --printdir | xargs du -sc | grep total | awk '{print $1}'
-TIME: 60.003254554s
-EXIT: 124

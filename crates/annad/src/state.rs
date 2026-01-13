@@ -1,7 +1,7 @@
 //! Daemon state management.
 
 use anna_shared::session::{Session, SessionStore};
-use anna_shared::status::{DaemonState, UpdateCheckState};
+use anna_shared::status::{DaemonState, RecoveryStatus, UpdateCheckState};
 use anna_shared::{DEFAULT_UPDATE_CHECK_INTERVAL, VERSION};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
@@ -97,6 +97,8 @@ pub struct StateInner {
     /// Answer cache for identical questions (normalized question -> (answer, timestamp))
     answer_cache: HashMap<String, CachedAnswer>,
     // v0.0.891: Removed command_cache - consolidated into core_loop.rs COMMAND_CACHE
+    /// v0.3.36: Self-healing recovery metrics
+    pub recovery_status: RecoveryStatus,
 }
 
 /// A cached answer with timestamp
@@ -187,6 +189,7 @@ impl StateInner {
             restart_pending: false,
             session_save_counter: 0,
             answer_cache: HashMap::new(),
+            recovery_status: RecoveryStatus::default(),
         }
     }
 
@@ -383,6 +386,8 @@ impl StateInner {
             backup_info,
             // v0.3.29: Skill learning status with actual recipe counts
             learning_status: Self::get_learning_status(),
+            // v0.3.36: Self-healing recovery metrics
+            recovery_status: self.recovery_status.clone(),
         }
     }
 

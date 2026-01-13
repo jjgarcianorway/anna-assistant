@@ -1,8 +1,0 @@
-{
-  "question_num": 51,
-  "category": "Obscure",
-  "question": "electron apps are blurry on hidpi",
-  "status": "timeout",
-  "response_time_ms": 60005,
-  "exit_code": 124
-}

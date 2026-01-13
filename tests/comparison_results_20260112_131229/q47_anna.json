@@ -1,8 +1,0 @@
-{
-  "question_num": 47,
-  "category": "Obscure",
-  "question": "error: GPGME error: No data",
-  "status": "timeout",
-  "response_time_ms": 60004,
-  "exit_code": 124
-}

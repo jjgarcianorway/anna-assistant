@@ -2,6 +2,7 @@
 //!
 //! v0.3.35: Anna NEVER tells users to run manual commands.
 //! Instead, she detects daemon state and attempts automatic recovery.
+//! v0.3.36: Added permission auto-fix via pkexec
 //!
 //! Recovery Flow:
 //! 1. Check if socket exists
@@ -9,7 +10,8 @@
 //! 3. If privilege escalation needed, use pkexec (polkit GUI prompt)
 //! 4. Wait for socket with timeout
 //! 5. Retry connection
-//! 6. Report status in natural language (never raw errors)
+//! 6. If permission denied, offer to fix via pkexec
+//! 7. Report status in natural language (never raw errors)
 
 use anna_shared::socket_path;
 use anyhow::{anyhow, Result};
@@ -24,6 +26,10 @@ const DAEMON_START_TIMEOUT_SECS: u64 = 15;
 
 /// Interval between socket availability checks
 const SOCKET_CHECK_INTERVAL_MS: u64 = 200;
+
+/// Whether permission fix has been attempted this session
+static PERMISSION_FIX_ATTEMPTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// Result of a daemon recovery attempt
 #[derive(Debug)]
@@ -83,20 +89,72 @@ pub async fn ensure_daemon_running() -> Result<RecoveryResult> {
         DaemonState::Running => Ok(RecoveryResult::AlreadyRunning),
 
         DaemonState::PermissionDenied => {
-            // This is a configuration issue, not a daemon issue
-            // User needs to be in anna group - but we don't tell them to run commands
-            Err(anyhow!(
-                "Anna cannot connect due to permissions.\n\n\
-                 Your user account needs to be in the 'anna' group.\n\
-                 This was set up during installation - you may need to log out and back in\n\
-                 for the group membership to take effect."
-            ))
+            // v0.3.36: Attempt to fix permissions via pkexec
+            attempt_permission_fix().await
         }
 
         DaemonState::NotRunning | DaemonState::NotResponding => {
             // Attempt automatic recovery
             attempt_daemon_start().await
         }
+    }
+}
+
+/// v0.3.36: Attempt to fix permission issues via pkexec
+/// This adds the current user to the 'anna' group
+async fn attempt_permission_fix() -> Result<RecoveryResult> {
+    use std::sync::atomic::Ordering;
+
+    // Only attempt once per session to avoid spamming pkexec prompts
+    if PERMISSION_FIX_ATTEMPTED.swap(true, Ordering::SeqCst) {
+        return Err(anyhow!(
+            "Anna cannot connect due to permissions.\n\n\
+             Your user account needs to be in the 'anna' group.\n\
+             The permission fix was already attempted this session.\n\
+             Please log out and back in for group membership to take effect."
+        ));
+    }
+
+    // Get current username
+    let username = std::env::var("USER").or_else(|_| std::env::var("LOGNAME"));
+    let Ok(username) = username else {
+        return Err(anyhow!(
+            "Anna cannot connect due to permissions.\n\n\
+             Your user account needs to be in the 'anna' group.\n\
+             Could not determine current username to attempt fix."
+        ));
+    };
+
+    // Check if pkexec is available
+    if !is_command_available("pkexec") {
+        return Err(anyhow!(
+            "Anna cannot connect due to permissions.\n\n\
+             Your user account needs to be in the 'anna' group.\n\
+             This was set up during installation - you may need to log out and back in\n\
+             for the group membership to take effect."
+        ));
+    }
+
+    // Try to add user to anna group via pkexec
+    eprintln!("Anna needs to add your user to the 'anna' group...");
+    let status = Command::new("pkexec")
+        .args(["usermod", "-aG", "anna", &username])
+        .status();
+
+    if matches!(status, Ok(s) if s.success()) {
+        // Group added, but user needs to log out/in
+        Err(anyhow!(
+            "Anna has added your user to the 'anna' group.\n\n\
+             Please log out and back in for the change to take effect,\n\
+             then try again."
+        ))
+    } else {
+        Err(anyhow!(
+            "Anna cannot connect due to permissions.\n\n\
+             Your user account needs to be in the 'anna' group.\n\
+             This was set up during installation - you may need to log out and back in\n\
+             for the group membership to take effect."
+        ))
     }
 }
 
@@ -301,5 +359,19 @@ mod tests {
         assert!(source.contains("DaemonState::NotRunning"));
         assert!(source.contains("DaemonState::NotResponding"));
         assert!(source.contains("DaemonState::PermissionDenied"));
+    }
+
+    /// v0.3.36: Verify permission auto-fix exists
+    #[test]
+    fn test_permission_auto_fix_exists() {
+        let source = include_str!("daemon_recovery.rs");
+        assert!(
+            source.contains("attempt_permission_fix"),
+            "Should have permission auto-fix function"
+        );
+        assert!(
+            source.contains("pkexec") && source.contains("usermod"),
+            "Permission fix should use pkexec to add user to group"
+        );
     }
 }

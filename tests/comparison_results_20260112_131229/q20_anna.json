@@ -1,8 +1,0 @@
-{
-  "question_num": 20,
-  "category": "EdgeCase",
-  "question": "my laptop takes 3 seconds longer to boot than yesterday",
-  "status": "success",
-  "response_time_ms": 15119,
-  "response_length": 12872
-}

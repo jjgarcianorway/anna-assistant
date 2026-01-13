@@ -1,8 +1,0 @@
-{
-  "question_num": 41,
-  "category": "MultiStep",
-  "question": "create a bootable usb with persistence from this running system",
-  "status": "success",
-  "response_time_ms": 1719,
-  "response_length": 6178
-}

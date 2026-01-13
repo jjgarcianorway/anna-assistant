@@ -1,8 +1,0 @@
-{
-  "question_num": 63,
-  "category": "Security",
-  "question": "is there any suspicious network activity",
-  "status": "timeout",
-  "response_time_ms": 60003,
-  "exit_code": 124
-}

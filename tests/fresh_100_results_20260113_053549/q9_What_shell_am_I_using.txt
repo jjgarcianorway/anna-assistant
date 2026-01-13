@@ -1,8 +1,0 @@
-
-
-[32mAnna: [0mYour shell is /usr/bin/bash
-
-
-[2m(0 iterations)[0m
-TIME: .006473995s
-EXIT: 0

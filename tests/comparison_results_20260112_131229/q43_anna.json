@@ -1,8 +1,0 @@
-{
-  "question_num": 43,
-  "category": "MultiStep",
-  "question": "set up automatic git backup of my config files to github",
-  "status": "success",
-  "response_time_ms": 1860,
-  "response_length": 9457
-}

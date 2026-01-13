@@ -7,12 +7,12 @@
 //! - Smart fix suggestions based on findings
 //! - Auto-update from GitHub
 //! - Unix socket server for client communication
+//! - Self-healing infrastructure (v0.3.36)
 
 pub mod autofix;  // TODO: Remove after full migration to llm_core
 pub mod binary_watcher;
 pub mod changes;
 pub mod core_loop;
-mod core_loop_old;  // Legacy - being replaced by llm_core
 pub mod department;
 pub mod intent;
 pub mod llm_core;  // NEW: Pure LLM-driven core loop
@@ -20,6 +20,7 @@ pub mod ollama;
 pub mod patterns;  // TODO: Remove after full migration to llm_core
 pub mod ralph;
 pub mod recipes;
+pub mod recovery;  // v0.3.36: Self-healing recovery
 pub mod server;
 pub mod state;
 pub mod team_speak;

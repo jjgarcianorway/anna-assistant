@@ -1,8 +1,0 @@
-{
-  "question_num": 54,
-  "category": "Obscure",
-  "question": "journalctl shows thousands of kernel: pcieport errors",
-  "status": "timeout",
-  "response_time_ms": 60004,
-  "exit_code": 124
-}

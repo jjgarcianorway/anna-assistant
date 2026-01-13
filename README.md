@@ -411,14 +411,14 @@ These guarantees are enforced in code, not just prompts.
 
 ## Version
 
-Current: **v0.3.35**
+Current: **v0.3.36**
 
 Recent highlights:
-- **Self-healing daemon connection** - Anna automatically starts the daemon if not running
-- **No manual commands** - Error 111/connection refused handled automatically
-- **Translator intelligence** - deterministic intent classification and recipe resolution
-- **ClaimGate enforcement** - factual claims require probe evidence or trusted docs
-- **Evidence line** - every answer shows its sources (debug mode: full provenance)
+- **Proactive auto-healing** - Anna monitors and recovers her own infrastructure
+- **Self-healing daemon** - Automatic daemon start, permission fixes via pkexec
+- **Recovery dashboard** - `annactl status` shows subsystem health and recovery metrics
+- **Translator intelligence** - Deterministic intent classification and recipe resolution
+- **ClaimGate enforcement** - Factual claims require probe evidence or trusted docs
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.
 

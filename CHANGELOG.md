@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.36] - 2026-01-13
+
+### Added - Phase 8: Proactive Monitoring and Auto-Healing
+
+Anna now proactively monitors and self-heals her own infrastructure without ever requiring manual commands from users.
+
+**New Recovery Framework**
+
+`anna-shared/src/status/recovery.rs`:
+- `SubsystemHealth` enum: Healthy, Degraded, Recovering, Unavailable
+- `RecoveryOutcome` enum: Success, Failed, Skipped, NeedsEscalation
+- `RecoveryStatus` struct: Tracks all subsystem health metrics
+- `SubsystemRecoveryMetrics`: Per-subsystem recovery statistics
+
+**Ollama Health Recovery** (`annad/src/recovery.rs`):
+- Automatic detection of Ollama service failures
+- Multi-step recovery: systemctl -> pkexec -> direct process start
+- Recovery event tracking with timestamps and durations
+- Circuit breaker integration for graceful degradation
+
+**Socket Permission Auto-Fix** (`annactl/src/daemon_recovery.rs`):
+- Detects permission denied errors on socket connection
+- Automatically adds user to 'anna' group via pkexec
+- One-time attempt per session to avoid spamming auth prompts
+- Clear guidance about logout/login requirement
+
+**Health Dashboard** (annactl status):
+- New RECOVERY section shows self-healing status
+- Per-subsystem health: ollama, models, wiki
+- Recovery attempt counts and success rates
+- Last recovery timestamps
+
+**Daemon State Tracking** (`annad/src/state.rs`):
+- `recovery_status` field added to StateInner
+- Recovery metrics exposed in DaemonStatus RPC
+
+**Error Message Improvements**:
+- Removed manual command suggestions from `get_ollama_diagnostics()`
+- Removed "sudo systemctl restart ollama" from GPU acceleration errors
+- All errors now use natural language without raw commands
+
+**Tests Added** (375 total):
+- `test_no_manual_commands_in_recovery` - verifies annad recovery module
+- `test_permission_auto_fix_exists` - verifies annactl auto-fix
+- `test_success_rate_calculation` - verifies recovery metrics
+- `test_consecutive_failures_health` - verifies health state transitions
+- `test_overall_health` - verifies aggregate health calculation
+
 ## [0.3.35] - 2026-01-13
 
 ### Fixed - Self-Healing Daemon Connection (Error 111)

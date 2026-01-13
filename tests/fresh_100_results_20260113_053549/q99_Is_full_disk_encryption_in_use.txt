@@ -1,8 +1,0 @@
-
-[36mYou: [0mIs full disk encryption in use?
-
-[2m  [internal][0m
-
-[32mANSWER: [0m[32mBased [0m[32mon [0m[32mthe [0m[32minformation [0m[32mprovided, [0m[32mthere [0m[32mis [0m[32mno [0m[32mcommand [0m[32moutput [0m[32mavailable [0m[32mto [0m[32mdetermine [0m[32mif [0m[32mfull [0m[32mdisk [0m[32mencryption [0m[32mis [0m[32min [0m[32muse [0m[32mon [0m[32mthis [0m[32mArch [0m[32mLinux [0m[32msystem. [0m[32mTo [0m[32mcheck [0m[32mfor [0m[32mfull [0m[32mdisk [0m[32mencryption, [0m[32myou [0m[32mwould [0m[32mtypically [0m[32mlook [0m[32mfor [0m[32mfiles [0m[32mrelated [0m[32mto [0m[32mcryptsetup [0m[32mor [0m[32mother [0m[32mfull-disk-encryption [0m[32mtools, [0m[32mor [0m[32mexamine [0m[32mthe [0m[32mkernel [0m[32mparameters [0m[32mand [0m[32mfile [0m[32msystems. [0m[32mHowever, [0m[32mwithout [0m[32many [0m[32moutput [0m[32mfrom [0m[32mrelevant [0m[32mcommands, [0m[32mwe [0m[32mcannot [0m[32mconfirm [0m[32mor [0m[32mdeny [0m[32mthe [0m[32muse [0m[32mof [0m[32mfull [0m[32mdisk [0m[32mencryption.[0m[31mError: [0mNo result received from daemon
-TIME: 7.230768384s
-EXIT: 0
