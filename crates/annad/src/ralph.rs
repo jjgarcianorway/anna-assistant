@@ -709,6 +709,113 @@ fn get_fast_path(question: &str) -> Option<(&'static str, &'static str)> {
         return Some(("pactl info 2>/dev/null | grep 'Server Name' | cut -d: -f2 | xargs || echo 'Not running'", "Audio: {output}"));
     }
 
+    // v0.3.7: Additional fast-paths for common questions
+
+    // Last reboot
+    if q.contains("reboot") && (q.contains("last") || q.contains("when")) {
+        return Some(("who -b | awk '{print $3, $4}'", "Last reboot: {output}"));
+    }
+
+    // SSH service status
+    if q.contains("ssh") && (q.contains("running") || q.contains("enabled") || q.contains("status")) {
+        return Some(("systemctl is-active sshd 2>/dev/null || systemctl is-active ssh 2>/dev/null || echo 'not running'", "SSH: {output}"));
+    }
+
+    // Bluetooth status
+    if q.contains("bluetooth") && (q.contains("enabled") || q.contains("status") || q.contains("running") || q.contains("on")) {
+        return Some(("systemctl is-active bluetooth 2>/dev/null && bluetoothctl show 2>/dev/null | grep -E 'Powered|Name' || echo 'bluetooth service not running'", "{output}"));
+    }
+
+    // WiFi network (SSID)
+    if (q.contains("wifi") || q.contains("wireless")) && (q.contains("connected") || q.contains("ssid") || q.contains("network") || q.contains("what")) {
+        return Some(("iwgetid -r 2>/dev/null || nmcli -t -f active,ssid dev wifi | grep '^yes' | cut -d: -f2 || echo 'Not connected'", "WiFi: {output}"));
+    }
+
+    // WiFi signal strength
+    if (q.contains("wifi") || q.contains("wireless")) && q.contains("signal") {
+        return Some(("iwconfig 2>/dev/null | grep 'Signal level' | awk -F'=' '{print $3}' || echo 'No wireless'", "Signal: {output}"));
+    }
+
+    // Network interfaces
+    if q.contains("network") && (q.contains("interface") || q.contains("adapter")) {
+        return Some(("ip -br link | head -10", "Network interfaces:\n{output}"));
+    }
+
+    // Docker containers
+    if q.contains("docker") && (q.contains("container") || q.contains("running") || q.contains("list")) {
+        return Some(("docker ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null || echo 'Docker not running'", "{output}"));
+    }
+
+    // Systemd journal size
+    if q.contains("journal") && (q.contains("size") || q.contains("how big") || q.contains("space")) {
+        return Some(("journalctl --disk-usage 2>/dev/null", "{output}"));
+    }
+
+    // Partitions/disks
+    if (q.contains("partition") || q.contains("disk")) && (q.contains("list") || q.contains("what") || q.contains("show")) {
+        return Some(("lsblk -o NAME,SIZE,TYPE,MOUNTPOINT | head -20", "{output}"));
+    }
+
+    // Bootloader type
+    if q.contains("bootloader") || (q.contains("grub") && q.contains("using")) || (q.contains("systemd-boot") && q.contains("using")) {
+        return Some(("[ -d /sys/firmware/efi ] && (bootctl status 2>/dev/null | head -5 || echo 'EFI system, bootctl not available') || echo 'BIOS/Legacy boot'", "{output}"));
+    }
+
+    // Kernel modules loaded
+    if q.contains("module") && (q.contains("loaded") || q.contains("kernel") || q.contains("how many")) {
+        return Some(("lsmod | wc -l", "Kernel modules loaded: {output}"));
+    }
+
+    // Nvidia driver
+    if q.contains("nvidia") && (q.contains("driver") || q.contains("version") || q.contains("installed")) {
+        return Some(("nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || pacman -Q nvidia 2>/dev/null || echo 'NVIDIA driver not found'", "NVIDIA: {output}"));
+    }
+
+    // VPN status
+    if q.contains("vpn") && (q.contains("connected") || q.contains("running") || q.contains("active")) {
+        return Some(("nmcli -t -f NAME,TYPE,DEVICE con show --active | grep vpn || ip link | grep -E 'tun|wg' || echo 'No VPN detected'", "{output}"));
+    }
+
+    // Firewall status
+    if q.contains("firewall") && (q.contains("enabled") || q.contains("running") || q.contains("status") || q.contains("active")) {
+        return Some(("systemctl is-active ufw 2>/dev/null || systemctl is-active firewalld 2>/dev/null || iptables -L 2>/dev/null | head -5 || echo 'No firewall detected'", "Firewall: {output}"));
+    }
+
+    // Screen brightness
+    if q.contains("brightness") && (q.contains("screen") || q.contains("level") || q.contains("what")) {
+        return Some(("cat /sys/class/backlight/*/brightness 2>/dev/null | head -1 || echo 'No backlight control'", "Brightness: {output}"));
+    }
+
+    // Session type (X11/Wayland)
+    if q.contains("x11") || q.contains("wayland") || (q.contains("session") && q.contains("type")) {
+        return Some(("echo $XDG_SESSION_TYPE", "Session: {output}"));
+    }
+
+    // Total RAM
+    if q.contains("ram") && q.contains("total") {
+        return Some(("free -h | awk '/Mem:/ {print $2}'", "Total RAM: {output}"));
+    }
+
+    // CPU cores
+    if q.contains("cpu") && (q.contains("core") || q.contains("thread")) {
+        return Some(("nproc", "CPU cores: {output}"));
+    }
+
+    // Arch mirror
+    if q.contains("mirror") && (q.contains("arch") || q.contains("pacman") || q.contains("using")) {
+        return Some(("head -1 /etc/pacman.d/mirrorlist | grep -v '#' || grep -m1 '^Server' /etc/pacman.d/mirrorlist", "Mirror: {output}"));
+    }
+
+    // Last pacman sync
+    if q.contains("pacman") && (q.contains("sync") || q.contains("update") || q.contains("last")) && !q.contains("lock") {
+        return Some(("stat -c %y /var/lib/pacman/sync/*.db | head -1 | cut -d. -f1", "Last sync: {output}"));
+    }
+
+    // Hostname/domain
+    if q.contains("domain") || q.contains("fqdn") {
+        return Some(("hostname -f 2>/dev/null || hostname", "FQDN: {output}"));
+    }
+
     None
 }
 

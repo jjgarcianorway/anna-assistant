@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-01-13
+
+### Added
+- **Expanded Fast-Paths** - 20+ new instant response patterns
+  - System: last reboot, CPU cores, FQDN, kernel modules
+  - Network: SSH status, WiFi SSID/signal, Bluetooth, VPN, network interfaces
+  - Hardware: NVIDIA driver, display brightness, session type (X11/Wayland)
+  - Services: Docker containers, firewall status
+  - Arch: mirror location, last pacman sync
+  - Storage: journal size, disk partitions, bootloader
+
+### Performance
+- Fast-path coverage expanded significantly for common sysadmin queries
+- 0 iterations = instant response without LLM
+
 ## [0.3.6] - 2026-01-13
 
 ### Added
