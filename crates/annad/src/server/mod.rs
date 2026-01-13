@@ -33,7 +33,9 @@ impl Server {
     pub async fn run(&self) -> Result<()> {
         // Setup socket
         let socket_path = socket_path();
+        info!("Server starting, socket path: {}", socket_path);
         self.setup_socket(&socket_path).await?;
+        info!("Socket setup complete");
 
         // Start initialization in background
         let init_state = self.state.clone();
@@ -97,7 +99,14 @@ impl Server {
     }
 
     async fn run_socket_server(&self, socket_path: &str) -> Result<()> {
-        let listener = UnixListener::bind(socket_path)?;
+        info!("Binding socket at {}", socket_path);
+        let listener = match UnixListener::bind(socket_path) {
+            Ok(l) => l,
+            Err(e) => {
+                error!("Failed to bind socket at {}: {}", socket_path, e);
+                return Err(anyhow::anyhow!("Socket bind failed: {}", e));
+            }
+        };
         info!("Listening on {}", socket_path);
 
         // v0.3.32: Socket permissions - owner + anna group only
