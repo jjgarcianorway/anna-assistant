@@ -41,25 +41,19 @@ pub struct ChangeHistory {
 }
 
 impl ChangeHistory {
-    /// Get data directory
+    /// Get data directory (system-wide)
     fn data_dir() -> PathBuf {
-        let dir = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join("anna");
-        fs::create_dir_all(&dir).ok();
-        dir
+        anna_shared::paths::paths().data_dir.clone()
     }
 
-    /// Get backup directory
+    /// Get backup directory (system-wide)
     fn backup_dir() -> PathBuf {
-        let dir = Self::data_dir().join("backups");
-        fs::create_dir_all(&dir).ok();
-        dir
+        anna_shared::paths::paths().backups_dir()
     }
 
-    /// Get history file path
+    /// Get history file path (system-wide)
     fn history_path() -> PathBuf {
-        Self::data_dir().join("change_history.json")
+        anna_shared::paths::paths().changes_file()
     }
 
     /// Load change history

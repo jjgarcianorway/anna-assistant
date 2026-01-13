@@ -1,5 +1,8 @@
 //! Shared types for Anna.
 //! Contains types for daemon-client communication and shared functionality.
+//!
+//! ARCHITECTURAL INVARIANT: Anna is system-wide with ZERO state in user home directories.
+//! All paths are defined in the `paths` module and use /etc/anna, /var/lib/anna, /run/anna.
 
 pub mod claim_gate;
 pub mod config;
@@ -10,7 +13,9 @@ pub mod experiment;
 pub mod helpers;
 pub mod integration;
 pub mod memory;
+pub mod migration;
 pub mod monitor;
+pub mod paths;
 pub mod postmortem;
 pub mod profile;
 pub mod recipe;
@@ -28,9 +33,13 @@ pub mod user_context;
 pub mod version;
 pub mod wiki;
 
-// Socket path (can be overridden with ANNA_SOCKET env var)
+// Re-export paths for convenience
+pub use paths::{paths, Paths};
+
+// Socket path (uses system paths, can be overridden with ANNA_SOCKET env var)
 pub fn socket_path() -> String {
-    std::env::var("ANNA_SOCKET").unwrap_or_else(|_| "/run/anna.sock".to_string())
+    std::env::var("ANNA_SOCKET")
+        .unwrap_or_else(|_| paths().socket_file().to_string_lossy().to_string())
 }
 
 // Version

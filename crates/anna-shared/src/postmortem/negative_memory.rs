@@ -161,12 +161,9 @@ impl NegativeMemory {
     }
 }
 
-/// Get the negative memory file path
+/// Get the negative memory file path (system-wide)
 fn negative_memory_path() -> PathBuf {
-    let data_dir = dirs::data_local_dir()
-        .or_else(dirs::home_dir)
-        .unwrap_or_else(|| PathBuf::from("."));
-    data_dir.join("anna").join("negative_memory.json")
+    crate::paths::paths().negative_memory_file()
 }
 
 /// Load negative memory from disk

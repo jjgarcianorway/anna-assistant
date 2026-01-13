@@ -79,13 +79,9 @@ fn save_recipe(recipe: &Recipe) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// Get the recipe directory
+/// Get the recipe directory (system-wide)
 fn get_recipe_dir() -> Result<PathBuf, String> {
-    let data_dir = dirs::data_local_dir()
-        .or_else(dirs::home_dir)
-        .ok_or("Cannot determine data directory")?;
-
-    Ok(data_dir.join("anna").join("recipes"))
+    Ok(crate::paths::paths().recipes_dir())
 }
 
 /// Load all promoted recipes from disk

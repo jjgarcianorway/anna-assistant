@@ -1,19 +1,18 @@
 //! Tool dependency management for Anna.
 //!
 //! v0.0.909: Anna can install tools she needs and clean them up on uninstall.
+//!
+//! INVARIANT: Deps tracking is system-wide at /var/lib/anna/installed_deps.txt.
 
+use crate::paths::paths;
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::Command;
 
-/// Get the path to the installed deps file
+/// Get the path to the installed deps file (system-wide)
 pub fn deps_file_path() -> PathBuf {
-    if let Some(home) = dirs::home_dir() {
-        home.join(".anna/installed_deps.txt")
-    } else {
-        PathBuf::from("/var/lib/anna/installed_deps.txt")
-    }
+    paths().installed_deps_file()
 }
 
 /// Check if a command is available in PATH

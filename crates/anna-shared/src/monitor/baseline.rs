@@ -60,12 +60,9 @@ pub struct BaselineChanges {
 }
 
 impl SystemBaseline {
-    /// Path to baseline file
+    /// Path to baseline file (system-wide)
     pub fn path() -> PathBuf {
-        dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("/var/lib"))
-            .join("anna")
-            .join("baseline.json")
+        crate::paths::paths().baseline_file()
     }
 
     /// Load baseline from disk

@@ -60,10 +60,9 @@ impl Default for AnnaXP {
 }
 
 impl AnnaXP {
+    /// XP path (system-wide)
     fn xp_path() -> PathBuf {
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/xp.json")
+        anna_shared::paths::paths().xp_file()
     }
 
     pub fn load() -> Self {

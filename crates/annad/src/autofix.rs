@@ -79,13 +79,9 @@ pub struct FixHistory {
 }
 
 impl FixHistory {
-    /// Get the path to the fix history file
+    /// Get the path to the fix history file (system-wide)
     fn history_path() -> PathBuf {
-        let data_dir = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join("anna");
-        fs::create_dir_all(&data_dir).ok();
-        data_dir.join("fix_history.json")
+        anna_shared::paths::paths().fix_history_file()
     }
 
     /// Load fix history from disk

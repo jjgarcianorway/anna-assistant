@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.31] - 2026-01-13
+
+### Changed - System-Wide Architecture (No Per-User State)
+
+**ARCHITECTURAL INVARIANT: Anna is now system-wide with ZERO state in user home directories.**
+
+- **Central `Paths` struct** (`anna-shared/src/paths.rs`) defines ALL locations:
+  - Config: `/etc/anna/config.toml`
+  - State/Data: `/var/lib/anna/` (stats, tickets, memory, recipes, wiki, ledgers)
+  - Runtime: `/run/anna/anna.sock`
+  - Logs: journald
+  - Backups: `/var/lib/anna/backups/`
+
+- **Removed all `~/.anna` and `~/.local/share/anna` usage** from production code
+  - Stats, tickets, memory, fix_history now at `/var/lib/anna/`
+  - Single update ledger at `/var/lib/anna/update_ledger.json`
+  - Recipes at `/var/lib/anna/recipes/`
+
+- **Migration module** (`anna-shared/src/migration.rs`) for legacy paths:
+  - Detects `~/.anna` and `~/.local/share/anna` from all users
+  - Merges content into `/var/lib/anna/` with proper merge rules:
+    - Tickets: merge by ID, keep newest by timestamp
+    - Stats: sum totals, keep highest reliability
+    - Recipes: deduplicate by content
+    - Ledgers: keep most recent valid chain
+  - Creates backup before migration
+  - Writes tombstone file after completion
+  - Idempotent (runs once, then skips)
+
+- **Tests updated** to verify system-wide paths:
+  - `test_no_home_in_system_paths` - verifies no home directory indicators
+  - `test_paths_use_correct_base_dirs` - verifies /etc/anna, /var/lib/anna, /run/anna
+  - `test_stats_path_consistency` - verifies all code uses same system path
+  - `test_tickets_path_consistency` - verifies all code uses same system path
+
+### Breaking Changes
+
+- All state files moved from `~/.anna/` to `/var/lib/anna/`
+- Config moved from `~/.anna/config.toml` to `/etc/anna/config.toml`
+- Socket moved from `/run/anna.sock` to `/run/anna/anna.sock`
+- Existing user data will be migrated automatically on first run
+
+### Not Yet Implemented
+
+- Permissions model (anna user/group, polkit rules)
+- Installer updates for creating system directories
+- Multi-user access control via anna group
+
 ## [0.3.30] - 2026-01-13
 
 ### Fixed - SEVERITY-0 Reliability Hotfix (Contract Enforcement)

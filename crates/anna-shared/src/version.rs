@@ -103,11 +103,12 @@ pub fn is_newer_version(current: &str, remote: &str) -> bool {
 
 /// Read VERSION file at runtime (for verification)
 pub fn read_version_file() -> Option<String> {
-    // Try relative to binary first, then common locations
+    // Try relative to binary first, then system locations
+    // v0.3.31: Use system paths only
     let paths = [
         std::path::PathBuf::from("VERSION"),
         std::path::PathBuf::from("/usr/local/share/anna/VERSION"),
-        dirs::data_local_dir().map(|d| d.join("anna/VERSION")).unwrap_or_default(),
+        crate::paths::paths().data_dir.join("VERSION"),
     ];
 
     for path in &paths {

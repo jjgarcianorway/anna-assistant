@@ -223,10 +223,9 @@ pub struct TicketStore {
 }
 
 impl TicketStore {
+    /// Store path (system-wide)
     fn store_path() -> PathBuf {
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/tickets.json")
+        anna_shared::paths::paths().tickets_file()
     }
 
     pub fn load() -> Self {

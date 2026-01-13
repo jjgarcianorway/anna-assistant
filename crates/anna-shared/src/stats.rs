@@ -1,7 +1,11 @@
 //! Anna stats persistence.
 //! v0.2.7: Initial implementation - tracks RPG stats across sessions
 //! v0.3.21: Truthful stats contract - all numbers backed by audit trail
+//!
+//! INVARIANT: Stats are system-wide at /var/lib/anna/stats.json.
+//! No per-user stats. No home directory paths.
 
+use crate::paths::paths;
 use crate::status::RpgStats;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -9,13 +13,9 @@ use std::fs;
 use std::path::PathBuf;
 use tracing::debug;
 
-/// Stats file path
+/// Stats file path (system-wide)
 fn stats_path() -> PathBuf {
-    if let Some(home) = dirs::home_dir() {
-        home.join(".anna/stats.json")
-    } else {
-        PathBuf::from("/var/lib/anna/stats.json")
-    }
+    paths().stats_file()
 }
 
 /// Persistent stats that survive daemon restarts
@@ -150,13 +150,9 @@ pub enum AnswerType {
 // v0.3.21: Truthful Stats Contract
 // =============================================================================
 
-/// Audit trail path
+/// Audit trail path (system-wide)
 fn audit_trail_path() -> PathBuf {
-    if let Some(home) = dirs::home_dir() {
-        home.join(".anna/stats_audit.jsonl")
-    } else {
-        PathBuf::from("/var/lib/anna/stats_audit.jsonl")
-    }
+    paths().data_dir.join("stats_audit.jsonl")
 }
 
 /// v0.3.21: Single audit event for stats verification

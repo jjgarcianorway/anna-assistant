@@ -1,16 +1,17 @@
 //! Update ledger for tracking update attempts.
+//!
+//! INVARIANT: There is exactly ONE update ledger at /var/lib/anna/update_ledger.json.
+//! No per-user ledgers. No home directory paths.
 
+use crate::paths::paths;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-/// Path to the update ledger file
+/// Path to the update ledger file (system-wide)
 fn ledger_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".anna")
-        .join("update_ledger.json")
+    paths().update_ledger_file()
 }
 
 /// A single update check entry

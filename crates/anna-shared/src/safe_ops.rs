@@ -100,16 +100,14 @@ impl SafeReset {
     }
 
     /// Backup all Anna data files
+    /// INVARIANT: All data is at /var/lib/anna, no per-user paths
     fn backup_all(backup_dir: &PathBuf) -> Result<()> {
         let data_dir = anna_data_dir();
-        let local_data = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna");
 
         // Memory
         backup_file(&memory_path(), backup_dir, "memory.json")?;
 
-        // Config
+        // Config (now at /etc/anna/config.toml, but backup from data_dir for legacy)
         backup_file(&data_dir.join("config.toml"), backup_dir, "config.toml")?;
 
         // Stats
@@ -121,11 +119,11 @@ impl SafeReset {
         // Installed deps
         backup_file(&data_dir.join("installed_deps.txt"), backup_dir, "installed_deps.txt")?;
 
-        // Tickets
-        backup_file(&local_data.join("tickets.json"), backup_dir, "tickets.json")?;
+        // Tickets (now at /var/lib/anna)
+        backup_file(&data_dir.join("tickets.json"), backup_dir, "tickets.json")?;
 
-        // Fix history
-        backup_file(&local_data.join("fix_history.json"), backup_dir, "fix_history.json")?;
+        // Fix history (now at /var/lib/anna)
+        backup_file(&data_dir.join("fix_history.json"), backup_dir, "fix_history.json")?;
 
         // Model preferences (if exists)
         backup_file(&data_dir.join("model_prefs.json"), backup_dir, "model_prefs.json")?;
@@ -316,11 +314,10 @@ impl SafeReset {
     /// Reset ticket tracker
     /// v0.3.23: Always report counts for deterministic output
     /// v0.3.30: TRANSACTIONAL - single atomic pass, no retry loops
+    /// v0.3.31: System-wide paths at /var/lib/anna
     fn reset_tickets() -> Result<Vec<String>> {
         let mut cleared = Vec::new();
-        let tickets_path = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/tickets.json");
+        let tickets_path = anna_data_dir().join("tickets.json");
 
         // TRANSACTIONAL: Read counts first, then delete once
         let (resolved, failed, escalated) = if tickets_path.exists() {
@@ -354,10 +351,8 @@ impl SafeReset {
             resolved, failed, escalated
         ));
 
-        // Clear fix history
-        let fix_history_path = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/fix_history.json");
+        // Clear fix history (now at /var/lib/anna)
+        let fix_history_path = anna_data_dir().join("fix_history.json");
 
         let fixes_count = if fix_history_path.exists() {
             let count = if let Ok(content) = fs::read_to_string(&fix_history_path) {
@@ -448,21 +443,19 @@ impl SafeReset {
         }
 
         let data_dir = anna_data_dir();
-        let local_data = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna");
 
         let mut restored = Vec::new();
 
         // Restore each file if it exists in backup
+        // v0.3.31: All paths are now under /var/lib/anna
         let restore_pairs: Vec<(&str, PathBuf)> = vec![
             ("memory.json", memory_path()),
             ("config.toml", data_dir.join("config.toml")),
             ("stats.json", data_dir.join("stats.json")),
             ("stats_audit.jsonl", data_dir.join("stats_audit.jsonl")),
             ("installed_deps.txt", data_dir.join("installed_deps.txt")),
-            ("tickets.json", local_data.join("tickets.json")),
-            ("fix_history.json", local_data.join("fix_history.json")),
+            ("tickets.json", data_dir.join("tickets.json")),
+            ("fix_history.json", data_dir.join("fix_history.json")),
             ("model_prefs.json", data_dir.join("model_prefs.json")),
         ];
 
@@ -1263,65 +1256,62 @@ mod tests {
     #[test]
     fn test_stats_path_consistency() {
         // SEVERITY-0 BUG: Verify all code paths use the same stats path.
-        // If different code uses different paths, reset might clear one while
-        // stats reads from another.
+        // v0.3.31: All paths are now system-wide under /var/lib/anna
 
-        use crate::stats::PersistentStats;
+        use crate::paths::paths;
 
-        // Get the path that load() and save() use
-        let stats_path_from_load = {
-            // We can't call stats_path() directly, but we can verify the path logic
-            if let Some(home) = dirs::home_dir() {
-                home.join(".anna/stats.json")
-            } else {
-                PathBuf::from("/var/lib/anna/stats.json")
-            }
-        };
+        // Get the path from the central Paths struct
+        let stats_path_from_paths = paths().stats_file();
 
         // Get the path that reset uses (from anna_data_dir())
         let stats_path_from_reset = anna_data_dir().join("stats.json");
 
         // These MUST be the same path
         assert_eq!(
-            stats_path_from_load.to_string_lossy(),
+            stats_path_from_paths.to_string_lossy(),
             stats_path_from_reset.to_string_lossy(),
-            "CRITICAL: stats_path() and anna_data_dir().join(\"stats.json\") diverge! \
-             This would cause reset to clear one file while stats reads another."
+            "CRITICAL: paths().stats_file() and anna_data_dir().join(\"stats.json\") diverge!"
+        );
+
+        // Verify path is system-wide (no home directory)
+        assert!(
+            !stats_path_from_paths.to_string_lossy().contains("/home/"),
+            "Stats path should not be under /home/"
+        );
+        assert!(
+            stats_path_from_paths.to_string_lossy().starts_with("/var/lib/anna"),
+            "Stats path should be under /var/lib/anna"
         );
     }
 
     #[test]
     fn test_tickets_path_consistency() {
         // SEVERITY-0 BUG: Verify all code paths use the same tickets path.
+        // v0.3.31: All paths are now system-wide under /var/lib/anna
 
-        // Path used by reset_tickets()
-        let tickets_path_from_reset = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/tickets.json");
+        use crate::paths::paths;
 
-        // Path used by daemon's TicketStore
-        // (from annad/src/department/tickets.rs TicketStore::store_path())
-        let tickets_path_from_store = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/tickets.json");
+        // Path from central Paths struct
+        let tickets_path = paths().tickets_file();
 
-        // Path used by annactl's print_stats()
-        // (from annactl/src/display.rs)
-        let tickets_path_from_display = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna")
-            .join("tickets.json");
+        // Path used by reset_tickets() (should match)
+        let tickets_path_from_reset = anna_data_dir().join("tickets.json");
 
-        // All three MUST be the same
+        // These MUST be the same
         assert_eq!(
+            tickets_path.to_string_lossy(),
             tickets_path_from_reset.to_string_lossy(),
-            tickets_path_from_store.to_string_lossy(),
-            "CRITICAL: reset_tickets() and TicketStore use different paths!"
+            "CRITICAL: paths().tickets_file() and anna_data_dir().join(\"tickets.json\") diverge!"
         );
-        assert_eq!(
-            tickets_path_from_reset.to_string_lossy(),
-            tickets_path_from_display.to_string_lossy(),
-            "CRITICAL: reset_tickets() and print_stats() use different paths!"
+
+        // Verify path is system-wide (no home directory)
+        assert!(
+            !tickets_path.to_string_lossy().contains("/home/"),
+            "Tickets path should not be under /home/"
+        );
+        assert!(
+            tickets_path.to_string_lossy().starts_with("/var/lib/anna"),
+            "Tickets path should be under /var/lib/anna"
         );
     }
 

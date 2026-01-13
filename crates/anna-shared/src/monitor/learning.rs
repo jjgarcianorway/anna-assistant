@@ -148,12 +148,9 @@ pub struct DetectedChanges {
 }
 
 impl SystemLearning {
-    /// Path to learning data
+    /// Path to learning data (system-wide)
     pub fn path() -> PathBuf {
-        dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("/var/lib"))
-            .join("anna")
-            .join("learning.json")
+        crate::paths::paths().learning_file()
     }
 
     /// Load learning data

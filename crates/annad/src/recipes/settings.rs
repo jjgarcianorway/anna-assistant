@@ -39,10 +39,9 @@ impl ConversationSettings {
         }
     }
 
+    /// Settings path (system-wide)
     fn settings_path() -> PathBuf {
-        dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/conversation_settings.json")
+        anna_shared::paths::paths().data_dir.join("conversation_settings.json")
     }
 
     pub fn load() -> Self {

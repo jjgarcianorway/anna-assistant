@@ -1,7 +1,9 @@
 //! Persistent configuration for Anna.
 //!
-//! Stored at ~/.anna/config.toml
+//! INVARIANT: Config is system-wide at /etc/anna/config.toml.
+//! No per-user config. No home directory paths.
 
+use crate::paths::paths;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -245,16 +247,14 @@ impl AnnaConfig {
     }
 }
 
-/// Get Anna data directory (~/.anna)
+/// Get Anna data directory (/var/lib/anna)
 pub fn anna_data_dir() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("/tmp"))
-        .join(".anna")
+    paths().data_dir.clone()
 }
 
-/// Get config file path
+/// Get config file path (/etc/anna/config.toml)
 pub fn config_path() -> PathBuf {
-    anna_data_dir().join("config.toml")
+    paths().config_file()
 }
 
 /// v0.0.895: Get Ollama URL from config or environment
