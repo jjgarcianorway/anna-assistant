@@ -13,6 +13,7 @@ pub mod safe_ops;
 pub mod session;
 pub mod skill_promotion;
 pub mod status;
+pub mod structured_output;
 pub mod stats;
 pub mod update_ledger;
 pub mod user_context;

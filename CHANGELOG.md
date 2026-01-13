@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.15] - 2026-01-13
+
+### Added
+- **Structured JSON Output Parsing** - Type-safe parsing for system commands
+  - Network: `ip -j addr` (interfaces, addresses), `ss -j` (sockets)
+  - Storage: `lsblk -J` (block devices, partitions)
+  - Systemd: `systemctl show --output=json` (service info, state)
+  - Auto-detection of JSON-capable commands with `json_flag_for()`
+  - `with_json_output()` to enhance commands with JSON flags
+  - Typed structs: `NetworkInterface`, `SocketInfo`, `BlockDevice`, `ServiceInfo`
+
 ## [0.3.14] - 2026-01-13
 
 ### Added
