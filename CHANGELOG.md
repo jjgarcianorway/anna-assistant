@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.19] - 2026-01-13
+
+### Added
+- **Integration Layer** - Wires all learning subsystems into the decision loop
+  - `KnowledgeRetrieval` - Hard precedence: live probes → docs → skills → semantic → episodic
+  - `ProvenanceRecord` - Every answer must cite sources (which episode, probe, doc chunk)
+  - `SkillGatekeeper` - Skills must pass sandbox tests before host use
+  - `SkillTier` - Candidate (sandbox only), Probation (cautious), Trusted (normal)
+  - `UncertaintyDetector` - "I don't know" as first-class control state with numeric triggers
+  - `FalsificationEngine` - Active adversarial hypothesis testing
+  - `BudgetController` - Hard caps (commands, time, disk, network) with mode-specific limits
+  - Wiki corpus integration with required citations
+
+### Changed
+- Episodic memory now marked as "evidence only, not fact"
+- Skill promotion requires functional tests AND safety invariants
+- Budget differs by mode: Solver < Investigator < Lab
+
 ## [0.3.18] - 2026-01-13
 
 ### Added
