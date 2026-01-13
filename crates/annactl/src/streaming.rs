@@ -180,6 +180,20 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
     if !result.needs_clarification {
         println!();
         println_colored(&format!("({} iterations)", result.iterations), DIM);
+
+        // v0.3.6: Display citations if present
+        if !result.citations.is_empty() {
+            println!();
+            println_colored("Sources:", DIM);
+            for cite in &result.citations {
+                print_colored("  - ", DIM);
+                print!("{}", cite.source);
+                if let Some(ref url) = cite.url {
+                    print_colored(&format!(" ({})", url), DIM);
+                }
+                println!();
+            }
+        }
     }
 
     Ok(result)

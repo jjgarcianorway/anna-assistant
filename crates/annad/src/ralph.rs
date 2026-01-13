@@ -736,6 +736,7 @@ fn try_instant_error(question: &str) -> Option<AskResult> {
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     })
 }
 
@@ -833,6 +834,13 @@ async fn try_fast_path(question: &str) -> Option<AskResult> {
             ticket.resolve(&answer, 5); // Fast-path = 5 XP
             department::update_ticket(&ticket);
 
+            // v0.3.6: Add citation for the command that grounded this answer
+            let citation = anna_shared::rpc::Citation {
+                source: format!("Command: {}", cmd),
+                url: None,
+                section: None,
+            };
+
             Some(AskResult {
                 answer,
                 success: true,
@@ -855,6 +863,7 @@ async fn try_fast_path(question: &str) -> Option<AskResult> {
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![citation],
             })
         }
         Err(_) => None, // Fall back to full loop
@@ -1079,6 +1088,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                     needs_clarification: false,
                     clarification_question: None,
                     cached: false,
+                    citations: vec![],
                 });
             }
             Err(e) => {
@@ -1176,6 +1186,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             });
         }
 
@@ -1212,6 +1223,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         needs_clarification: state.confidence < 0.3, // v0.1.6: Lowered from 0.5 to reduce note spam
         clarification_question: state.not_done_reason,
         cached: false,
+        citations: vec![],
     })
 }
 
@@ -1549,6 +1561,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                     needs_clarification: false,
                     clarification_question: None,
                     cached: false,
+                    citations: vec![],
                 };
 
                 let resp = StreamingResponse::Done {
@@ -1727,6 +1740,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             };
 
             let resp = StreamingResponse::Done {
@@ -1778,6 +1792,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         needs_clarification: state.confidence < 0.3, // v0.1.6: Lowered from 0.5 to reduce note spam
         clarification_question: state.not_done_reason,
         cached: false,
+        citations: vec![],
     };
 
     let resp = anna_shared::rpc::StreamingResponse::Done {

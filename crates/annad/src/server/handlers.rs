@@ -105,6 +105,7 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                     needs_clarification: false,
                     clarification_question: None,
                     cached: true, // Mark as cached since it's from memory
+                    citations: vec![],
                 };
                 return match serde_json::to_value(&result) {
                     Ok(v) => RpcResponse::success(&request.id, v),
@@ -129,6 +130,7 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                             needs_clarification: false,
                             clarification_question: None,
                             cached: true,
+                            citations: vec![],
                         };
                         return match serde_json::to_value(&result) {
                             Ok(v) => RpcResponse::success(&request.id, v),
@@ -195,6 +197,7 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                         needs_clarification: false,
                         clarification_question: None,
                         cached: false,
+                        citations: vec![],
                     };
                     match serde_json::to_value(&result) {
                         Ok(v) => RpcResponse::success(&request.id, v),

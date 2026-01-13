@@ -2919,6 +2919,7 @@ Corrected answer:"#,
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     })
 }
 
@@ -3087,6 +3088,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             needs_clarification: false,
             clarification_question: None,
             cached: false,
+            citations: vec![],
         };
         send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
         return Ok(result);
@@ -3219,6 +3221,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
             needs_clarification: true,
             clarification_question: Some(clarification_question.to_string()),
             cached: false,
+            citations: vec![],
         };
         send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
         return Ok(result);
@@ -3247,6 +3250,7 @@ pub async fn execute_question_streaming<W: AsyncWriteExt + Unpin>(
                 needs_clarification: true,
                 clarification_question: Some(clarification.to_string()),
                 cached: false,
+                citations: vec![],
             };
             send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
             return Ok(result);
@@ -3923,6 +3927,7 @@ RESPOND IN ENGLISH ONLY."#,
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     };
     send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
@@ -4154,6 +4159,7 @@ Keep the answer focused and practical."#,
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     };
     send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
@@ -4387,6 +4393,7 @@ async fn handle_troubleshoot_diagnostic<W: AsyncWriteExt + Unpin>(
             needs_clarification: false,
             clarification_question: None,
             cached: false,
+            citations: vec![],
         };
         send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
         return Ok(result);
@@ -4500,6 +4507,7 @@ RESPOND IN ENGLISH ONLY."#,
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     };
     send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 
@@ -4666,6 +4674,7 @@ Answer briefly using the command output. RESPOND IN ENGLISH ONLY."#, sub_q, sub_
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     };
     send_streaming(writer, &StreamingResponse::Done { result: result.clone() }).await?;
 

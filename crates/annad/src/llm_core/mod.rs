@@ -82,6 +82,7 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
             needs_clarification: false,
             clarification_question: None,
             cached: false,
+            citations: vec![],
         });
     }
 
@@ -141,6 +142,7 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
                     needs_clarification: true,
                     clarification_question: Some("Confirm fix?".to_string()),
                     cached: false,
+                    citations: vec![],
                 });
             }
             NextStep::OutOfScope(reason) => {
@@ -153,6 +155,7 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
                     needs_clarification: false,
                     clarification_question: None,
                     cached: false,
+                    citations: vec![],
                 });
             }
         }
@@ -170,6 +173,7 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     })
 }
 
@@ -217,6 +221,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
             needs_clarification: false,
             clarification_question: None,
             cached: false,
+            citations: vec![],
         };
         let response = StreamingResponse::Done { result: result.clone() };
         let json = serde_json::to_string(&response)?;
@@ -299,6 +304,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
                     needs_clarification: true,
                     clarification_question: Some("Confirm fix?".to_string()),
                     cached: false,
+                    citations: vec![],
                 };
                 let response = StreamingResponse::Done { result: result.clone() };
                 let json = serde_json::to_string(&response)?;
@@ -315,6 +321,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
                     needs_clarification: false,
                     clarification_question: None,
                     cached: false,
+                    citations: vec![],
                 };
                 let response = StreamingResponse::Done { result: result.clone() };
                 let json = serde_json::to_string(&response)?;
@@ -348,6 +355,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
         needs_clarification: false,
         clarification_question: None,
         cached: false,
+        citations: vec![],
     };
 
     let response = StreamingResponse::Done { result: result.clone() };

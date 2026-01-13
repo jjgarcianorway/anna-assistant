@@ -110,6 +110,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -136,6 +137,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -167,6 +169,7 @@ pub async fn handle_streaming_request(
             needs_clarification: false,
             clarification_question: None,
             cached: false,
+            citations: vec![],
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -197,6 +200,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result: ask_result };
             let json = serde_json::to_string(&done)?;
@@ -221,6 +225,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -261,6 +266,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: true,
                 clarification_question: recipe_result.confirmation_prompt,
                 cached: false,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -276,6 +282,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: false,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -332,6 +339,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: true,
+                citations: vec![],
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -410,6 +418,7 @@ pub async fn handle_streaming_request(
                 needs_clarification: false,
                 clarification_question: None,
                 cached: true,
+                citations: vec![],
             };
             let json = serde_json::to_string(&StreamingResponse::Done { result })?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;

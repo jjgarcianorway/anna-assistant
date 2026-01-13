@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-01-13
+
+### Added
+- **Answer Citations** - Grounded answers now show their sources
+  - Citation struct added to AskResult for tracking sources
+  - Fast-path responses show command citations (e.g., "Command: uname -r")
+  - Sources section displayed after answer with source name
+  - Foundation for Arch Wiki citations in future
+
 ## [0.3.5] - 2026-01-13
 
 ### Added

@@ -187,6 +187,19 @@ pub struct RpcError {
     pub message: String,
 }
 
+/// v0.3.6: Citation source for answer grounding
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Citation {
+    /// Source name (e.g., "Arch Wiki: Pacman")
+    pub source: String,
+    /// URL to the source
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    /// Specific section referenced
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+}
+
 /// Result of asking a question
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AskResult {
@@ -209,6 +222,9 @@ pub struct AskResult {
     /// If true, this answer was returned from cache (instant)
     #[serde(default)]
     pub cached: bool,
+    /// v0.3.6: Sources used to ground the answer
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub citations: Vec<Citation>,
 }
 
 /// Result of reset operation
