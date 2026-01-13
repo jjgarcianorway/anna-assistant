@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-01-13
+
+### Fixed
+- **Auto-Update Dynamic Paths** - Auto-update now works from any binary location
+  - Uses `std::env::current_exe()` to determine actual binary directory
+  - Fixes "Permission denied" errors when running from `target/release/`
+  - Works in both dev mode and production (`/usr/local/bin/`)
+  - Updated: `install_binary_pair()`, `verify_pair_consistency()`, `schedule_daemon_restart()`, `rollback_binaries()`
+
 ## [0.3.10] - 2026-01-13
 
 ### Added

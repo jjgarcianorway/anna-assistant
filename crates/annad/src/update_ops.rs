@@ -73,20 +73,37 @@ pub fn verify_binary_version(path: &Path, expected_version: &str, name: &str) ->
     Ok(())
 }
 
+/// Get the binary directory from current executable
+/// v0.3.11: Dynamic binary location instead of hardcoded /usr/local/bin
+fn get_bin_dir() -> Result<std::path::PathBuf> {
+    let exe = std::env::current_exe()
+        .map_err(|e| anyhow!("Cannot determine binary location: {}", e))?;
+    exe.parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| anyhow!("Cannot determine binary directory"))
+}
+
 /// Install both binaries together (atomic pair update)
 /// v0.0.318: Better error messages when binary is in use
 /// v0.0.387: Use staging + atomic rename to update even while binaries are running
+/// v0.3.11: Use dynamic binary location instead of hardcoded /usr/local/bin
 pub fn install_binary_pair(annactl: &Path, annad: &Path) -> Result<()> {
+    let bin_dir = get_bin_dir()?;
+    let annactl_dest = bin_dir.join("annactl");
+    let annad_dest = bin_dir.join("annad");
+    let annactl_new = bin_dir.join("annactl.new");
+    let annad_new = bin_dir.join("annad.new");
+
     // Stage both binaries first (copy to .new files)
-    std::fs::copy(annactl, "/usr/local/bin/annactl.new")
+    std::fs::copy(annactl, &annactl_new)
         .map_err(|e| anyhow!("Failed to stage annactl: {}", e))?;
 
-    std::fs::copy(annad, "/usr/local/bin/annad.new")
+    std::fs::copy(annad, &annad_new)
         .map_err(|e| anyhow!("Failed to stage annad: {}", e))?;
 
     // Atomic rename for annactl - works even if binary is running
     // rename() is atomic and works on busy executables (unlike copy)
-    std::fs::rename("/usr/local/bin/annactl.new", "/usr/local/bin/annactl")
+    std::fs::rename(&annactl_new, &annactl_dest)
         .map_err(|e| anyhow!("Failed to install annactl: {}", e))?;
 
     // annad.new stays staged - will be renamed during restart
@@ -94,8 +111,13 @@ pub fn install_binary_pair(annactl: &Path, annad: &Path) -> Result<()> {
 }
 
 /// Verify both installed binaries report the same version
+/// v0.3.11: Use dynamic binary location
 pub fn verify_pair_consistency(expected_version: &str) -> Result<()> {
-    let annactl_output = Command::new("/usr/local/bin/annactl")
+    let bin_dir = get_bin_dir()?;
+    let annactl_path = bin_dir.join("annactl");
+    let annad_new_path = bin_dir.join("annad.new");
+
+    let annactl_output = Command::new(&annactl_path)
         .arg("--version")
         .output()
         .map_err(|e| anyhow!("annactl --version failed: {}", e))?;
@@ -109,7 +131,7 @@ pub fn verify_pair_consistency(expected_version: &str) -> Result<()> {
     }
 
     // annad.new should also have correct version
-    let annad_output = Command::new("/usr/local/bin/annad.new")
+    let annad_output = Command::new(&annad_new_path)
         .arg("--version")
         .output()
         .map_err(|e| anyhow!("annad.new --version failed: {}", e))?;
@@ -127,17 +149,25 @@ pub fn verify_pair_consistency(expected_version: &str) -> Result<()> {
 }
 
 /// Schedule daemon restart after update
+/// v0.3.11: Use dynamic binary location
 pub fn schedule_daemon_restart() -> Result<()> {
+    let bin_dir = get_bin_dir()?;
+    let annad_new = bin_dir.join("annad.new");
+    let annad_dest = bin_dir.join("annad");
+
     // Move new binary into place and restart
     // This is done via a short shell script to ensure atomic replacement
-    let script = r#"
-#!/bin/bash
-mv /usr/local/bin/annad.new /usr/local/bin/annad
+    let script = format!(
+        r#"#!/bin/bash
+mv "{}" "{}"
 systemctl restart annad
-"#;
+"#,
+        annad_new.display(),
+        annad_dest.display()
+    );
 
     let script_path = "/tmp/anna-restart.sh";
-    std::fs::write(script_path, script)?;
+    std::fs::write(script_path, &script)?;
     std::fs::set_permissions(
         script_path,
         std::os::unix::fs::PermissionsExt::from_mode(0o755),
@@ -188,12 +218,18 @@ pub async fn verify_assets_exist(client: &reqwest::Client, version: &str) -> Res
 }
 
 /// Rollback installed binaries from backups
+/// v0.3.11: Use dynamic binary location
 pub fn rollback_binaries(backup_annactl: &Path, backup_annad: &Path) {
+    let bin_dir = match get_bin_dir() {
+        Ok(dir) => dir,
+        Err(_) => return, // Can't determine location, skip rollback
+    };
+
     if backup_annactl.exists() {
-        std::fs::copy(backup_annactl, "/usr/local/bin/annactl").ok();
+        std::fs::copy(backup_annactl, bin_dir.join("annactl")).ok();
     }
     if backup_annad.exists() {
-        std::fs::copy(backup_annad, "/usr/local/bin/annad").ok();
+        std::fs::copy(backup_annad, bin_dir.join("annad")).ok();
     }
 }
 
