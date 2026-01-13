@@ -757,7 +757,7 @@ fn try_diagnostic_path(question: &str) -> Option<(Vec<String>, Vec<String>, &'st
 
     // v0.3.3: Add fly-on-the-wall elements to diagnostic path
     let dept_name = department::determine_department(question);
-    let ticket = department::create_ticket(question, dept_name);
+    let mut ticket = department::create_ticket(question, dept_name);
 
     dialogue.push(DialogueStep {
         step_type: StepType::TicketCreated,
@@ -765,6 +765,10 @@ fn try_diagnostic_path(question: &str) -> Option<(Vec<String>, Vec<String>, &'st
     });
 
     if let Some(spec) = department::get_specialist_for_topic(question) {
+        // v0.3.5: Assign ticket to specialist for stats tracking
+        ticket.assign(spec.name);
+        department::update_ticket(&ticket);
+
         let assignment = team_speak::anna_assigns_to(spec, question);
         dialogue.push(DialogueStep {
             step_type: StepType::TeamAssignment,
@@ -819,6 +823,15 @@ async fn try_fast_path(question: &str) -> Option<AskResult> {
             }
 
             let answer = template.replace("{output}", &clean_output);
+
+            // v0.3.5: Track ticket and specialist for stats even on fast-path
+            let dept_name = department::determine_department(question);
+            let mut ticket = department::create_ticket(question, dept_name);
+            if let Some(spec) = department::get_specialist_for_topic(question) {
+                ticket.assign(spec.name);
+            }
+            ticket.resolve(&answer, 5); // Fast-path = 5 XP
+            department::update_ticket(&ticket);
 
             Some(AskResult {
                 answer,
@@ -1574,7 +1587,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
 
     // v0.3.3: Create ticket for fly-on-the-wall experience
     let dept_name = department::determine_department(question);
-    let ticket = department::create_ticket(question, dept_name);
+    let mut ticket = department::create_ticket(question, dept_name);
     let ticket_id = ticket.case_number.clone();
 
     // Show ticket creation
@@ -1588,6 +1601,10 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
     // v0.3.3: Dispatch to appropriate specialist with improved dialogue
     let specialist = department::get_specialist_for_topic(question);
     let assigned_spec_name = if let Some(spec) = specialist {
+        // v0.3.5: Assign ticket to specialist for stats tracking
+        ticket.assign(spec.name);
+        department::update_ticket(&ticket);
+
         // Anna assigns the ticket
         let assignment = team_speak::anna_assigns_to(spec, question);
         let step = DialogueStep {

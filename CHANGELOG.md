@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-01-13
+
+### Added
+- **Per-Specialist Stats** - Real performance tracking from ticket history
+  - Specialists now track tickets handled, resolved, and escalated
+  - Average resolution time tracked per specialist
+  - Fast-path responses also create tickets for proper tracking
+
+- **Top Performers Leaderboard** - Shows top 3 specialists in status display
+  - Ranked by tickets resolved
+  - Shows resolution rate percentage
+  - Displays average resolution time
+
 ## [0.3.4] - 2026-01-13
 
 ### Added

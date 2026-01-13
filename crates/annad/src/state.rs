@@ -356,27 +356,59 @@ impl StateInner {
     }
 
     /// v0.3.3: Get team roster and ticket statistics for status display
+    /// v0.3.5: Added per-specialist stats from ticket history
     fn get_team_and_tickets() -> (anna_shared::status::TeamRoster, anna_shared::status::TicketTracker) {
         use anna_shared::status::{TeamRoster, TicketTracker, SpecialistStats, SpecialistStatus, DepartmentTicketStats, ActiveTicket};
         use crate::department::{get_department, get_ticket_store, TicketStatus as DeptTicketStatus};
         use std::collections::HashMap;
 
-        // Build team roster from department
+        let store = get_ticket_store();
+
+        // v0.3.5: First, collect per-specialist stats from ticket history
+        let mut spec_tickets: HashMap<String, (u64, u64, u64, Vec<i64>)> = HashMap::new(); // (handled, resolved, escalated, resolution_times)
+
+        for ticket in &store.tickets {
+            if let Some(ref assigned) = ticket.assigned_to {
+                let entry = spec_tickets.entry(assigned.clone()).or_insert((0, 0, 0, Vec::new()));
+                entry.0 += 1; // handled
+                if ticket.status == DeptTicketStatus::Resolved {
+                    entry.1 += 1; // resolved
+                    if let Some(time) = ticket.resolution_time_secs() {
+                        entry.3.push(time * 1000); // store as ms
+                    }
+                }
+                if ticket.was_escalated {
+                    entry.2 += 1; // escalated
+                }
+            }
+        }
+
+        // Build team roster from department with real stats
         let dept = get_department();
         let mut specialists_map: HashMap<String, Vec<SpecialistStats>> = HashMap::new();
         let mut total = 0;
         let mut available = 0;
 
         for specialist in &dept.specialists {
+            // Look up this specialist's actual stats
+            let (handled, resolved, escalated, avg_ms) = if let Some((h, r, e, times)) = spec_tickets.get(specialist.name) {
+                let avg = if times.is_empty() { 0 } else {
+                    times.iter().sum::<i64>() as u64 / times.len() as u64
+                };
+                (*h, *r, *e, avg)
+            } else {
+                (0, 0, 0, 0)
+            };
+
             let stats = SpecialistStats {
                 name: specialist.name.to_string(),
                 department: specialist.department.to_string(),
                 is_senior: specialist.role == crate::department::SpecialistRole::Senior
                     || specialist.role == crate::department::SpecialistRole::Manager,
-                tickets_handled: 0,
-                tickets_resolved: 0,
-                tickets_escalated: 0,
-                avg_resolution_ms: 0,
+                tickets_handled: handled,
+                tickets_resolved: resolved,
+                tickets_escalated: escalated,
+                avg_resolution_ms: avg_ms,
                 top_topics: specialist.expertise.iter().take(3).map(|s| s.to_string()).collect(),
                 current_status: SpecialistStatus::Available,
             };
@@ -396,8 +428,7 @@ impl StateInner {
             available_count: available,
         };
 
-        // Build ticket tracker from ticket store
-        let store = get_ticket_store();
+        // Build ticket tracker from ticket store (reuse store from above)
         let mut dept_stats: HashMap<String, DepartmentTicketStats> = HashMap::new();
 
         // Count tickets per department

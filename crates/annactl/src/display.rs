@@ -219,6 +219,36 @@ pub async fn print_status() {
                     }
                     println!();
                 }
+
+                // v0.3.5: Top performers leaderboard
+                let mut all_specialists: Vec<_> = roster.specialists.values().flatten().collect();
+                all_specialists.sort_by(|a, b| b.tickets_resolved.cmp(&a.tickets_resolved));
+                let top_performers: Vec<_> = all_specialists.into_iter()
+                    .filter(|s| s.tickets_handled > 0)
+                    .take(3)
+                    .collect();
+
+                if !top_performers.is_empty() {
+                    println_colored("  Top Performers:", DIM);
+                    for (i, spec) in top_performers.iter().enumerate() {
+                        let medal = match i { 0 => "1.", 1 => "2.", 2 => "3.", _ => "  " };
+                        let rate = if spec.tickets_handled > 0 {
+                            spec.tickets_resolved as f64 / spec.tickets_handled as f64 * 100.0
+                        } else { 0.0 };
+                        print!("    ");
+                        print_colored(medal, YELLOW);
+                        print!(" ");
+                        print_colored(&format!("{:12}", spec.name), CYAN);
+                        print!(" {} resolved", spec.tickets_resolved);
+                        print_colored(&format!(" ({:.0}%)", rate),
+                            if rate >= 80.0 { GREEN } else if rate >= 50.0 { YELLOW } else { DIM });
+                        if spec.avg_resolution_ms > 0 {
+                            let secs = spec.avg_resolution_ms / 1000;
+                            print_colored(&format!(" avg {}s", secs), DIM);
+                        }
+                        println!();
+                    }
+                }
                 println!();
             }
 
