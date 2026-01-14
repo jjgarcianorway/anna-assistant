@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.42] - 2026-01-14
+
+### Fixed - Socket File Group Ownership
+
+Fixed critical bug where the socket file `/run/anna/anna.sock` was owned by `root:root` instead of `root:anna`, preventing users in the anna group from connecting.
+
+**Root Cause**: v0.3.41 fixed the directory ownership but not the socket file itself. When `UnixListener::bind()` creates the socket, it defaults to root:root ownership.
+
+**Fix**: Added `chown :anna` call after socket creation to set proper group ownership.
+
 ## [0.3.41] - 2026-01-13
 
 ### Fixed - Socket Directory Group Ownership

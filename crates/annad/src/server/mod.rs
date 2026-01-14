@@ -117,6 +117,26 @@ impl Server {
             let perms = std::fs::Permissions::from_mode(0o660);
             std::fs::set_permissions(socket_path, perms)?;
             info!("Socket permissions set to 0660");
+
+            // v0.3.42: Set socket group ownership to 'anna'
+            // Without this, socket is root:root and users in anna group can't connect
+            match std::process::Command::new("chown")
+                .args([":anna", socket_path])
+                .output()
+            {
+                Ok(output) if output.status.success() => {
+                    info!("Socket group set to 'anna'");
+                }
+                Ok(output) => {
+                    warn!(
+                        "Failed to set socket group: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+                Err(e) => {
+                    warn!("Failed to run chown: {}", e);
+                }
+            }
         }
 
         // v0.3.38: Notify systemd AFTER socket is ready (not before!)
