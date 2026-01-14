@@ -169,7 +169,6 @@ Wants=ollama.service
 
 [Service]
 Type=notify
-ExecStartPre=/usr/bin/chown root:anna /run/anna
 ExecStart=/usr/local/bin/annad
 Restart=always
 RestartSec=3
@@ -177,8 +176,6 @@ WatchdogSec=60
 TimeoutStopSec=10
 MemoryMax=2G
 Environment=RUST_BACKTRACE=1
-RuntimeDirectory=anna
-RuntimeDirectoryMode=0750
 
 [Install]
 WantedBy=multi-user.target
