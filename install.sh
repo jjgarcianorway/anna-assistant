@@ -32,7 +32,11 @@ echo "Architecture: $ARCH_NAME"
 
 # Get latest release version
 echo "Fetching latest release..."
-LATEST=$(curl -sSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+if command -v jq &> /dev/null; then
+    LATEST=$(curl -sSL "https://api.github.com/repos/$REPO/releases/latest" | jq -r '.tag_name')
+else
+    LATEST=$(curl -sSL "https://api.github.com/repos/$REPO/releases/latest" | grep -m1 '"tag_name"' | cut -d'"' -f4)
+fi
 
 if [ -z "$LATEST" ]; then
     echo -e "${RED}Error: Could not fetch latest release${NC}"
