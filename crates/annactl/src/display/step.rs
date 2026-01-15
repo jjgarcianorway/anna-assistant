@@ -49,46 +49,29 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
         StepType::ConfirmationRequest => {
             println!();
             print_colored("Anna: ", YELLOW);
-            println!("Please confirm:");
-            for line in step.content.lines() {
-                println!("  {}", line);
-            }
+            println!("{}", step.content);
             println!();
         }
         StepType::MissingInfo => {
-            print_colored("Anna: ", RED);
-            println!("Missing information:");
-            for line in step.content.lines() {
-                println!("  - {}", line);
-            }
+            print_colored("Anna: ", YELLOW);
+            println!("{}", step.content);
         }
         StepType::SystemAlert => {
             println!();
-            println_colored("SYSTEM ALERT", YELLOW);
-            for line in step.content.lines() {
-                println!("  {}", line);
-            }
+            print_colored("Anna: ", YELLOW);
+            println!("{}", step.content);
             println!();
         }
         StepType::LlmError => {
-            if debug {
-                print_colored("Error: ", RED);
-                if let Ok(ctx) =
-                    serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
-                {
-                    println!("{}", ctx.message);
-                } else {
-                    println!("{}", step.content);
-                }
+            print_colored("Anna: ", RED);
+            if let Ok(ctx) =
+                serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
+            {
+                println!("{}", ctx.message);
+            } else if debug {
+                println!("{}", step.content);
             } else {
-                print_colored("  [X] ", RED);
-                if let Ok(ctx) =
-                    serde_json::from_str::<anna_shared::rpc::LlmErrorContext>(&step.content)
-                {
-                    println_colored(&ctx.message, RED);
-                } else {
-                    println_colored("An error occurred", RED);
-                }
+                println!("Unable to process request.");
             }
             println!();
         }
@@ -122,8 +105,8 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
         // Investigator mode (always visible - explicit entry/exit)
         StepType::InvestigationStart => {
             println!();
-            print_colored("INVESTIGATING: ", CYAN);
-            println!("{}", step.content);
+            print_colored("Anna: ", CYAN);
+            println!("Investigating: {}", step.content);
         }
         StepType::InvestigationHypothesis => {
             print_colored("  Hypothesis: ", DIM);
@@ -141,13 +124,13 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
         }
         StepType::InvestigationComplete => {
             println!();
-            print_colored("INVESTIGATION COMPLETE: ", GREEN);
+            print_colored("Anna: ", GREEN);
             println!("{}", step.content);
         }
         StepType::ExperimentStart => {
             println!();
-            print_colored("EXPERIMENT: ", MAGENTA);
-            println!("{}", step.content);
+            print_colored("Anna: ", MAGENTA);
+            println!("Trying: {}", step.content);
         }
         StepType::ExperimentResult => {
             print_colored("  Result: ", DIM);
@@ -229,17 +212,7 @@ pub fn print_dialogue(result: &AskResult) {
 /// Print timeout error
 pub fn print_timeout_error(timeout_secs: u64) {
     println!();
-    println_colored("REQUEST TIMED OUT", RED);
-    println!();
-    println!("  The request took longer than {}s.", timeout_secs);
-    println!();
-    println_colored("Possible causes:", YELLOW);
-    println!("  - Ollama model is loading (first query is slow)");
-    println!("  - Complex question requiring many iterations");
-    println!("  - LLM server is overloaded");
-    println!();
-    println_colored("Try:", GREEN);
-    println!("  - Run again - model may be loaded now");
-    println!("  - Check: annactl status");
+    print_colored("Anna: ", YELLOW);
+    println!("Request took longer than {}s. Try again shortly.", timeout_secs);
     println!();
 }

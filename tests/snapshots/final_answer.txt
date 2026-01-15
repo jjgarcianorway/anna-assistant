@@ -1,0 +1,3 @@
+
+[32mAnna: [0mYour disk has 234GB free out of 500GB (47% used).
+

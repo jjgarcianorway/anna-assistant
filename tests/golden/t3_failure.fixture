@@ -1,0 +1,4 @@
+# T3: Failure path - stream interruption or timeout
+# No Done packet = failure per terminality contract
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Marcus (Performance) is handling this."}}}
+# Stream ends without Done - simulates timeout/interruption

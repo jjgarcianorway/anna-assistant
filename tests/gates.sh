@@ -105,6 +105,25 @@ check_system_paths() {
 }
 
 # ================================================
+# GATE: UX Golden Tests
+# ================================================
+check_ux_golden() {
+    echo "=== Checking UX Golden Tests ==="
+
+    if [ -x "$REPO_ROOT/tests/ux_golden.sh" ]; then
+        if "$REPO_ROOT/tests/ux_golden.sh" >/dev/null 2>&1; then
+            pass "UX golden tests passed"
+        else
+            fail "UX golden tests failed"
+            return 1
+        fi
+    else
+        info "ux_golden.sh not found, skipping"
+    fi
+    return 0
+}
+
+# ================================================
 # GATE: Release Artifacts Exist
 # ================================================
 check_release_artifacts() {
@@ -182,6 +201,8 @@ main() {
     check_no_manual_commands || true
     echo
     check_system_paths || true
+    echo
+    check_ux_golden || true
     echo
 
     if $CHECK_RELEASE; then

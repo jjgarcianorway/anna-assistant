@@ -2,11 +2,13 @@
 //! v0.1.0: Added UI utilities for Hollywood-style experience
 //! v0.3.21: Added event renderer for truth-first output
 //! v0.3.35: Added daemon_recovery for self-healing connection
+//! v0.3.51: Added fake_daemon for golden transcript testing
 
 mod daemon_recovery;
 mod dialogue;
 mod display;
 mod event_renderer;
+mod fake_daemon;
 mod rpc;
 mod spinner;
 mod streaming;

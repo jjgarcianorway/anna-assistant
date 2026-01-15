@@ -416,6 +416,15 @@ A: Yes! Set `ANNA_OLLAMA_MODEL` environment variable or edit `/etc/anna/config.t
 **Q: How do I report bugs?**
 A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
 
+## UX Contract
+
+Anna's output format is frozen and regression-tested. See `docs/UX_SPEC.md` for the canonical formatting rules.
+
+Run golden tests locally:
+```bash
+./tests/ux_golden.sh
+```
+
 ## Truth Guarantees
 
 Anna is designed with truth-first principles:
@@ -434,13 +443,13 @@ These guarantees are enforced in code, not just prompts.
 
 ## Version
 
-Current: **v0.3.50**
+Current: **v0.3.51**
 
 Recent highlights:
+- **UX regression lock** - Frozen UX contract with snapshot tests (Phase 19)
+- **UX polish** - Calmer, more consistent output format (Phase 18)
 - **Action execution** - Anna executes system changes, not just describes them (Phase 16)
 - **Verification & rollback** - All changes verified, rolled back on failure (Phase 17)
-- **Template plans** - GDM resolution, disable sleep, lid close behavior
-- **Idempotency** - Plans skip if already configured
 - **Specialist system** - Deterministic dispatch to domain specialists
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.

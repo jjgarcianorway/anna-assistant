@@ -1,0 +1,196 @@
+#!/bin/bash
+# UX Golden Transcript Test Harness
+# Validates UX contract per docs/UX_SPEC.md
+# Does NOT require Ollama or root access
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+PASS_COUNT=0
+FAIL_COUNT=0
+
+pass() { echo -e "${GREEN}[PASS]${NC} $1"; PASS_COUNT=$((PASS_COUNT + 1)); }
+fail() { echo -e "${RED}[FAIL]${NC} $1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
+info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
+
+echo "======================================"
+echo "  UX GOLDEN TEST HARNESS"
+echo "  $(date -u)"
+echo "======================================"
+echo
+
+cd "$REPO_ROOT"
+
+# ================================================
+# TEST 1: Snapshot Tests Pass
+# ================================================
+echo "=== T1: Snapshot Tests ==="
+if cargo test --package annactl snapshot_tests 2>&1 | grep -q "test result: ok"; then
+    pass "All snapshot tests pass"
+else
+    fail "Snapshot tests failed"
+fi
+echo
+
+# ================================================
+# TEST 2: UX Contract Patterns
+# ================================================
+echo "=== T2: UX Contract Patterns ==="
+
+# Check: No "ANSWER:" in step.rs or streaming.rs
+if grep -q '"ANSWER:' crates/annactl/src/streaming.rs crates/annactl/src/display/step.rs 2>/dev/null; then
+    fail "Found 'ANSWER:' prefix (should use 'Anna:')"
+else
+    pass "No 'ANSWER:' prefix found"
+fi
+
+# Check: No "Please confirm:" wrapper
+if grep -q '"Please confirm:' crates/annactl/src/display/step.rs 2>/dev/null; then
+    fail "Found 'Please confirm:' wrapper"
+else
+    pass "No 'Please confirm:' wrapper"
+fi
+
+# Check: No "Missing information:" wrapper
+if grep -q '"Missing information:' crates/annactl/src/display/step.rs 2>/dev/null; then
+    fail "Found 'Missing information:' wrapper"
+else
+    pass "No 'Missing information:' wrapper"
+fi
+
+# Check: No "SYSTEM ALERT" header
+if grep -q '"SYSTEM ALERT' crates/annactl/src/display/step.rs 2>/dev/null; then
+    fail "Found 'SYSTEM ALERT' header"
+else
+    pass "No 'SYSTEM ALERT' header"
+fi
+
+# Check: No verbose timeout explanation
+TIMEOUT_LINES=$(grep -A20 "fn print_timeout_error" crates/annactl/src/display/step.rs | wc -l)
+if [ "$TIMEOUT_LINES" -lt 10 ]; then
+    pass "Timeout error is concise ($TIMEOUT_LINES lines)"
+else
+    fail "Timeout error too verbose ($TIMEOUT_LINES lines)"
+fi
+
+# Check: Consistent indicators [OK]/[!]/[X]
+if grep -q '\[OK\]' crates/annactl/src/ui.rs && \
+   grep -q '\[!\]' crates/annactl/src/ui.rs && \
+   grep -q '\[X\]' crates/annactl/src/ui.rs; then
+    pass "Consistent status indicators [OK]/[!]/[X]"
+else
+    fail "Inconsistent status indicators"
+fi
+
+# Check: Error message uses "Unable to complete" not "[FAILED]"
+if grep -q '\[FAILED\]' crates/annactl/src/streaming.rs 2>/dev/null; then
+    fail "Found '[FAILED]' marker (should use 'Unable to complete')"
+else
+    pass "No '[FAILED]' marker found"
+fi
+echo
+
+# ================================================
+# TEST 3: Exposure Level Boundaries
+# ================================================
+echo "=== T3: Exposure Boundaries ==="
+
+# Check: Debug-only output uses debug variable from is_debug_mode()
+DEBUG_VAR=$(grep -c "if debug" crates/annactl/src/display/step.rs || echo "0")
+DEBUG_INIT=$(grep -c "is_debug_mode()" crates/annactl/src/display/step.rs || echo "0")
+if [ "$DEBUG_VAR" -gt 5 ] && [ "$DEBUG_INIT" -gt 0 ]; then
+    pass "Debug mode boundary checks found (init:$DEBUG_INIT, uses:$DEBUG_VAR)"
+else
+    fail "Insufficient debug mode boundary checks"
+fi
+
+# Check: No forbidden patterns in user-facing output
+FORBIDDEN_PATTERNS="sudo systemctl|Run: sudo|Try: sudo"
+if grep -E "$FORBIDDEN_PATTERNS" crates/annactl/src/display/step.rs 2>/dev/null | grep -v test | grep -v "#"; then
+    fail "Found forbidden patterns in step.rs"
+else
+    pass "No forbidden command patterns in step.rs"
+fi
+echo
+
+# ================================================
+# TEST 4: Golden Fixtures Exist
+# ================================================
+echo "=== T4: Golden Fixtures ==="
+
+if [ -f "$SCRIPT_DIR/golden/t1_simple_query.fixture" ]; then
+    pass "T1 fixture exists"
+else
+    fail "T1 fixture missing"
+fi
+
+if [ -f "$SCRIPT_DIR/golden/t2_confirmation.fixture" ]; then
+    pass "T2 fixture exists"
+else
+    fail "T2 fixture missing"
+fi
+
+if [ -f "$SCRIPT_DIR/golden/t3_failure.fixture" ]; then
+    pass "T3 fixture exists"
+else
+    fail "T3 fixture missing"
+fi
+echo
+
+# ================================================
+# TEST 5: UX Spec Exists and Valid
+# ================================================
+echo "=== T5: UX Spec Document ==="
+
+if [ -f "$REPO_ROOT/docs/UX_SPEC.md" ]; then
+    pass "UX_SPEC.md exists"
+
+    # Check required sections
+    if grep -q "Prefix Rules" "$REPO_ROOT/docs/UX_SPEC.md"; then
+        pass "Contains Prefix Rules section"
+    else
+        fail "Missing Prefix Rules section"
+    fi
+
+    if grep -q "Do Not Regress" "$REPO_ROOT/docs/UX_SPEC.md"; then
+        pass "Contains regression checklist"
+    else
+        fail "Missing regression checklist"
+    fi
+
+    # Check line count
+    SPEC_LINES=$(wc -l < "$REPO_ROOT/docs/UX_SPEC.md")
+    if [ "$SPEC_LINES" -le 250 ]; then
+        pass "UX_SPEC.md is within limit ($SPEC_LINES/250 lines)"
+    else
+        fail "UX_SPEC.md exceeds 250 lines ($SPEC_LINES)"
+    fi
+else
+    fail "UX_SPEC.md not found"
+fi
+echo
+
+# ================================================
+# Summary
+# ================================================
+echo "======================================"
+echo "  SUMMARY"
+echo "======================================"
+echo -e "Passed: ${GREEN}$PASS_COUNT${NC}"
+echo -e "Failed: ${RED}$FAIL_COUNT${NC}"
+echo
+
+if [ "$FAIL_COUNT" -gt 0 ]; then
+    echo -e "${RED}UX GOLDEN TESTS FAILED${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}UX GOLDEN TESTS PASSED${NC}"
+exit 0

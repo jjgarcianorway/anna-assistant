@@ -1,0 +1,9 @@
+Anna -> Marcus (Desktop) is handling this.
+
+Anna: I will configure GDM resolution.
+
+Steps:
+  1. Create config file
+  2. Set resolution
+  3. Restart GDM
+

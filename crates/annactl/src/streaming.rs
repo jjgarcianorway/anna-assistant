@@ -93,11 +93,11 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         if matches!(step.step_type, StepType::FinalPrompt) {
                             // About to receive tokens - start spinner
                             println!();
-                            print_colored("ANSWER: ", GREEN);
+                            print_colored("Anna: ", GREEN);
                             flush_stdout();
                             in_answer = true;
                             _waiting_for_answer = true;
-                            spinner = Some(Spinner::new("thinking..."));
+                            spinner = Some(Spinner::new(""));
                         }
                         // Start spinner while internal processing
                         if matches!(step.step_type, StepType::SpecialistWorking | StepType::TeamAssignment) {
@@ -205,11 +205,11 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                 println!(); // Clean up partial answer line
             }
             println!();
-            print_colored("[FAILED] ", RED);
+            print_colored("Unable to complete request. ", RED);
             if received_any_content {
-                println!("Stream terminated without completion. Partial results discarded.");
+                println!("Connection interrupted before completion.");
             } else {
-                println!("No response received from daemon.");
+                println!("No response received.");
             }
             return Err(anyhow!("Stream terminated without Done packet - request failed"));
         }
@@ -319,17 +319,17 @@ mod tests {
 
         // Verify proper failure message is printed
         assert!(
-            source.contains("[FAILED]"),
-            "Should print [FAILED] marker on stream termination"
+            source.contains("Unable to complete request"),
+            "Should print failure message on stream termination"
         );
 
         // Verify both cases are handled
         assert!(
-            source.contains("Stream terminated without completion"),
+            source.contains("Connection interrupted before completion"),
             "Should handle partial stream case"
         );
         assert!(
-            source.contains("No response received from daemon"),
+            source.contains("No response received"),
             "Should handle empty stream case"
         );
     }

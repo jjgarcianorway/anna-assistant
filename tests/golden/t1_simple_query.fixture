@@ -1,0 +1,11 @@
+# T1: Simple factual query - clean answer
+# Format: JSON streaming responses, one per line
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Kevin (Storage) is handling this."}}}
+{"Step":{"step":{"step_type":"FinalPrompt","content":""}}}
+{"Token":{"token":"Your"}}
+{"Token":{"token":" disk"}}
+{"Token":{"token":" has"}}
+{"Token":{"token":" 234GB"}}
+{"Token":{"token":" free"}}
+{"Token":{"token":"."}}
+{"Done":{"result":{"answer":"Your disk has 234GB free.","success":true,"iterations":1,"commands_executed":["df -h"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[{"source":"df -h","url":null}]}}}

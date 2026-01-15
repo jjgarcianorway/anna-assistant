@@ -1,0 +1,8 @@
+
+[33mAnna: [0mI will configure GDM resolution to 1920x1080.
+
+Steps:
+  1. Create /etc/gdm/custom.conf
+  2. Set WaylandEnable=false
+  3. Restart GDM service
+

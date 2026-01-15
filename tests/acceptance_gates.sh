@@ -304,6 +304,28 @@ fi
 echo
 
 # ================================================
+# GATE G: UX Golden Tests
+# ================================================
+echo "======================================"
+echo "  GATE G: UX Golden Tests"
+echo "======================================"
+echo
+
+SCRIPT_DIR_G="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$SCRIPT_DIR_G/ux_golden.sh" ]; then
+    info "Running UX golden tests..."
+    if "$SCRIPT_DIR_G/ux_golden.sh" >/dev/null 2>&1; then
+        pass "UX golden tests passed"
+    else
+        fail "UX golden tests failed"
+    fi
+else
+    warn "ux_golden.sh not found"
+fi
+
+echo
+
+# ================================================
 # Summary
 # ================================================
 echo "======================================"

@@ -1,0 +1,8 @@
+Anna -> Kevin (Storage) is handling this.
+
+Anna: Your disk has 234GB free.
+
+(1 iterations)
+
+Sources:
+  - df -h

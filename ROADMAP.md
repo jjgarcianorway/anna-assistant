@@ -42,6 +42,19 @@
 - Idempotency (preflight checks)
 - 400-line gate enforcement
 
+### Phase 18: UX Polish (v0.3.50)
+- Calmer prefix ("Anna:" instead of "ANSWER:")
+- Concise error messages
+- Consistent status indicators
+- Silent spinners allowed
+
+### Phase 19: UX Regression Lock (v0.3.51)
+- Canonical UX spec (docs/UX_SPEC.md)
+- Snapshot tests for rendering
+- Golden transcript fixtures
+- Pattern-based contract validation
+- CI-integrated regression gate
+
 ## Frozen (Not Planned)
 
 - No new specialists
@@ -51,17 +64,8 @@
 
 ## Future Phases
 
-### Phase 18: Additional Templates
-- More power management scenarios
-- Package management templates
-- Service configuration templates
-
-### Phase 19: Learning from Execution
-- Track successful plans
-- Build recipe from executed plans
-- Instant replay of known-good plans
-
-### Phase 20: Multi-Step Diagnostics
-- Chained investigation plans
-- Progressive narrowing
-- Root cause analysis
+### Phase 20: Model Selection Benchmark + Hardware-Aware Routing
+- Model performance benchmarking
+- Hardware capability detection
+- Automatic model selection based on query complexity
+- Memory-aware routing

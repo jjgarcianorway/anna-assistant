@@ -1,0 +1,2 @@
+
+[35mAnna: [0mTrying: restart nginx service

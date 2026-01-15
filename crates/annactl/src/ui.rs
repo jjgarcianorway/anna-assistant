@@ -180,7 +180,7 @@ pub fn print_success(message: &str) {
 }
 
 pub fn print_error(message: &str) {
-    println!("\x1b[31m[!]\x1b[0m {}", message);
+    println!("\x1b[31m[X]\x1b[0m {}", message);
 }
 
 pub fn print_warning(message: &str) {

@@ -1,0 +1,5 @@
+# T2: ActionPlan confirmation flow
+# Shows: plan -> prompt -> user responds yes -> execute -> verify OK
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Marcus (Desktop) is handling this."}}}
+{"Step":{"step":{"step_type":"ConfirmationRequest","content":"I will configure GDM resolution.\n\nSteps:\n  1. Create config file\n  2. Set resolution\n  3. Restart GDM"}}}
+{"Done":{"result":{"answer":"I will configure GDM resolution.","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":true,"clarification_question":"Proceed? (yes/no)","cached":false,"citations":[]}}}

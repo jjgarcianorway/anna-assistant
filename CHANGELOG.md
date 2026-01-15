@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.51] - 2026-01-15
+
+### Added - Phase 19: UX Regression Lock
+
+Freezes the UX contract with deterministic tests.
+
+**UX Spec (docs/UX_SPEC.md):**
+- Canonical formatting rules for all output
+- Prefix rules (Anna:, [OK], [!], [X])
+- Spinner behavior
+- Error message templates
+- Exposure level boundaries
+- Regression checklist
+
+**Snapshot tests:**
+- New `display/snapshot_tests.rs` module
+- Tests for all step type renderings
+- Pattern-based contract validation
+- Stored expectations in `tests/snapshots/`
+
+**Golden transcript harness:**
+- `tests/ux_golden.sh` validates UX contract
+- Pattern checks for forbidden output
+- Exposure boundary verification
+- Integrated into gates.sh and acceptance_gates.sh
+
+**Fixtures:**
+- T1: Simple factual query
+- T2: Confirmation flow
+- T3: Failure path
+
+### Changed - Phase 18: UX Polish
+
+**Output format improvements:**
+- "Anna:" prefix instead of "ANSWER:"
+- Silent spinners (no "thinking..." text)
+- Concise timeout messages
+- Removed "Please confirm:" wrapper
+- Removed "Missing information:" wrapper
+- Removed "SYSTEM ALERT" header
+- Consistent [OK]/[!]/[X] indicators
+- "Unable to complete request" instead of "[FAILED]"
+
 ## [0.3.50] - 2026-01-15
 
 ### Added - Phase 17: Verification & Rollback Framework

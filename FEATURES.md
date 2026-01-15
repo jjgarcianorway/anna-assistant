@@ -50,6 +50,13 @@ Shipped features only. Every item is verified working in v0.3.50.
 - No telemetry
 - Ollama for LLM inference
 
+## UX Regression Lock (v0.3.51)
+- Canonical UX spec (docs/UX_SPEC.md)
+- Snapshot tests for rendering
+- Golden transcript fixtures
+- Pattern-based contract validation
+- CI-integrated regression gate
+
 ## System Integration
 - Systemd service
 - Auto-update from GitHub releases

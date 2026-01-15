@@ -9,6 +9,8 @@ pub mod step;
 pub mod stats_cmd;
 pub mod alerts;
 mod welcome;
+#[cfg(test)]
+mod snapshot_tests;
 
 // Re-export commonly used items
 pub use colors::*;
