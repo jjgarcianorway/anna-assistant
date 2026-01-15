@@ -92,6 +92,13 @@
 - PolicyBasis step type for Debug-mode tracing
 - Cold start conservative defaults
 
+### Phase 25: Execution Safety and Reversibility Hardening (v0.3.58)
+- PreflightResult, VerificationStatus, Reversibility enums
+- Verification strictness: Unknown = Failed
+- Elevated confirmation for non-reversible actions
+- Outcome recording for all action paths
+- Telemetry enrichment: preflight, verification, elevated_confirmation
+
 ## Frozen (Not Planned)
 
 - No new specialists

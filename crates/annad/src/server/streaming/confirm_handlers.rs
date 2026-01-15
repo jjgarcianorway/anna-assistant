@@ -1,8 +1,12 @@
 //! Confirmation handlers for pending actions (recipes, plans, autofixes).
+//! Phase 25: Elevated confirmation, outcome recording, and safety telemetry.
 
-use anna_shared::action_plan::ActionPlan;
+use anna_shared::action_plan::{ActionPlan, PreflightResult, Reversibility, VerificationStatus};
+use anna_shared::intent_class::IntentClass;
+use anna_shared::outcome_ledger::{append_outcome, Outcome, OutcomeRecord};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
+use std::time::Instant;
 use tokio::io::AsyncWriteExt;
 use tracing::info;
 
@@ -11,6 +15,12 @@ use crate::plan_executor::{execute_plan, format_execution_result, is_plan_expire
 use crate::recipes;
 
 use super::helpers::{extract_recipe_id, send_filtered_final_answer, set_pending_recipe};
+
+/// Phase 25: Check if response is elevated yes ("yes I understand").
+fn is_elevated_yes_response(response: &str) -> bool {
+    let r = response.to_lowercase().trim().to_string();
+    r == "yes i understand" || r == "yes, i understand" || r == "i understand, yes"
+}
 
 /// Handle pending recipe confirmation
 pub async fn handle_pending_recipe(
@@ -132,7 +142,20 @@ pub async fn handle_template_plan(
 ) -> Result<()> {
     info!("Template plan matched");
 
-    let confirmation_msg = plan.format_for_confirmation();
+    // Phase 25: Check reversibility for elevated confirmation
+    let needs_elevated = plan.reversibility() == Reversibility::NonReversible;
+
+    let confirmation_msg = if needs_elevated {
+        // Elevated confirmation message for non-reversible actions
+        format!(
+            "{}\n\nWARNING: This action cannot be undone.\nReason: {}\n\nType 'yes I understand' to proceed, or 'no' to cancel.",
+            plan.format_for_confirmation().trim_end_matches("\nProceed? (yes/no)"),
+            plan.rollback.reason.as_deref().unwrap_or("Non-reversible operation")
+        )
+    } else {
+        plan.format_for_confirmation()
+    };
+
     let step = DialogueStep {
         step_type: StepType::ConfirmationRequest,
         content: confirmation_msg.clone(),
@@ -143,6 +166,12 @@ pub async fn handle_template_plan(
 
     set_pending_plan(session_id, plan);
 
+    let clarification = if needs_elevated {
+        "Type 'yes I understand' to proceed".to_string()
+    } else {
+        "Proceed? (yes/no)".to_string()
+    };
+
     let result = anna_shared::rpc::AskResult {
         answer: confirmation_msg,
         success: true,
@@ -150,7 +179,7 @@ pub async fn handle_template_plan(
         commands_executed: vec![],
         dialogue: vec![],
         needs_clarification: true,
-        clarification_question: Some("Proceed? (yes/no)".to_string()),
+        clarification_question: Some(clarification),
         cached: false,
         citations: vec![],
     };
@@ -233,7 +262,20 @@ pub async fn handle_pending_plan(
     session_id: &str,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
-    if is_yes_response(question) {
+    let start_time = Instant::now();
+    let request_id = pending_plan.id.clone();
+
+    // Phase 25: Check if elevated confirmation is needed
+    let needs_elevated = pending_plan.reversibility() == Reversibility::NonReversible;
+
+    // Phase 25: Determine if response is accepted
+    let accepted = if needs_elevated {
+        is_elevated_yes_response(question)
+    } else {
+        is_yes_response(question)
+    };
+
+    if accepted {
         info!("Executing plan {} (user confirmed)", pending_plan.id);
 
         let step = DialogueStep {
@@ -246,6 +288,24 @@ pub async fn handle_pending_plan(
 
         let exec_result = execute_plan(&pending_plan);
         let result_msg = format_execution_result(&exec_result, &pending_plan);
+
+        // Phase 25: Record outcome with extended telemetry
+        let outcome = if exec_result.success {
+            Outcome::Resolved
+        } else {
+            Outcome::Failed
+        };
+        let outcome_record = OutcomeRecord::new_action(
+            &request_id,
+            IntentClass::Mutating,
+            outcome,
+            false,
+            start_time.elapsed().as_millis() as u64,
+            pending_plan.preflight_result,
+            exec_result.verification_status,
+            needs_elevated,
+        );
+        let _ = append_outcome(&outcome_record);
 
         send_filtered_final_answer(writer, &result_msg).await?;
 
@@ -266,6 +326,19 @@ pub async fn handle_pending_plan(
         return Ok(());
     } else if is_no_response(question) {
         info!("Plan {} cancelled by user", pending_plan.id);
+
+        // Phase 25: Record cancellation
+        let outcome_record = OutcomeRecord::new_action(
+            &request_id,
+            IntentClass::Mutating,
+            Outcome::Cancelled,
+            false,
+            start_time.elapsed().as_millis() as u64,
+            pending_plan.preflight_result,
+            VerificationStatus::Unknown, // Never executed
+            needs_elevated,
+        );
+        let _ = append_outcome(&outcome_record);
 
         let cancel_msg = "No problem, I won't make any changes.";
         send_filtered_final_answer(writer, cancel_msg).await?;
@@ -289,11 +362,23 @@ pub async fn handle_pending_plan(
 
     // Invalid input - prompt again
     info!("Invalid response for plan {}: '{}'", pending_plan.id, question);
-    let prompt_msg = "Please type 'yes' to proceed or 'no' to cancel.";
+
+    // Phase 25: Different prompt for elevated confirmation
+    let prompt_msg = if needs_elevated {
+        "Please type 'yes I understand' to proceed or 'no' to cancel."
+    } else {
+        "Please type 'yes' to proceed or 'no' to cancel."
+    };
     send_filtered_final_answer(writer, prompt_msg).await?;
 
     // Re-store the plan for retry
     set_pending_plan(session_id, pending_plan);
+
+    let clarification = if needs_elevated {
+        "Type 'yes I understand' to proceed".to_string()
+    } else {
+        "Proceed? (yes/no)".to_string()
+    };
 
     let result = anna_shared::rpc::AskResult {
         answer: prompt_msg.to_string(),
@@ -302,7 +387,7 @@ pub async fn handle_pending_plan(
         commands_executed: vec![],
         dialogue: vec![],
         needs_clarification: true,
-        clarification_question: Some("Proceed? (yes/no)".to_string()),
+        clarification_question: Some(clarification),
         cached: false,
         citations: vec![],
     };
@@ -318,6 +403,19 @@ pub async fn handle_expired_plan(
     writer: &mut tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
     info!("Plan expired for session {}", session_id);
+
+    // Phase 25: Record expired outcome
+    let outcome_record = OutcomeRecord::new_action(
+        &uuid::Uuid::new_v4().to_string(),
+        IntentClass::Mutating,
+        Outcome::Expired,
+        false,
+        0, // Duration unknown for expired plans
+        PreflightResult::Unknown, // Plan may have had preflight but we lost the reference
+        VerificationStatus::Unknown,
+        false,
+    );
+    let _ = append_outcome(&outcome_record);
 
     let expire_msg = "The pending action has expired. Please repeat your request.";
     send_filtered_final_answer(writer, expire_msg).await?;

@@ -1,9 +1,47 @@
 //! ActionPlan - Structured executable plans for system changes.
 //! Phase 16: Turn fallback into real execution.
 //! Phase 17: Verification and rollback support.
+//! Phase 25: Execution safety and reversibility hardening.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Preflight result - structured outcome of preflight check (Phase 25).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum PreflightResult {
+    /// Preflight passed, safe to proceed
+    #[default]
+    Passed,
+    /// Preflight blocked, changes not needed (idempotent skip)
+    Blocked,
+    /// Preflight could not determine state (treat as blocked, outcome = Cancelled)
+    Unknown,
+}
+
+/// Verification status - structured verification outcome (Phase 25).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum VerificationStatus {
+    /// Verification passed - observable state change confirmed
+    Passed,
+    /// Verification failed - state change not observed
+    Failed,
+    /// Verification could not determine state (treat as failed)
+    #[default]
+    Unknown,
+}
+
+/// Reversibility classification (Phase 25).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum Reversibility {
+    /// Action can be rolled back
+    #[default]
+    Reversible,
+    /// Action cannot be rolled back - needs elevated confirmation
+    NonReversible,
+}
 
 /// A single step in an action plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +137,17 @@ impl Default for RollbackInfo {
     }
 }
 
+impl RollbackInfo {
+    /// Phase 25: Get reversibility classification.
+    pub fn reversibility(&self) -> Reversibility {
+        if self.possible {
+            Reversibility::Reversible
+        } else {
+            Reversibility::NonReversible
+        }
+    }
+}
+
 /// A complete action plan that Anna can execute.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionPlan {
@@ -122,6 +171,12 @@ pub struct ActionPlan {
     pub changes_needed: bool,
     /// Reason if no changes needed.
     pub skip_reason: Option<String>,
+    /// Phase 25: Structured preflight result.
+    #[serde(default)]
+    pub preflight_result: PreflightResult,
+    /// Phase 25: Reason if preflight blocked/unknown.
+    #[serde(default)]
+    pub preflight_reason: Option<String>,
 }
 
 impl ActionPlan {
@@ -138,6 +193,8 @@ impl ActionPlan {
             original_question: question.to_string(),
             changes_needed: true,
             skip_reason: None,
+            preflight_result: PreflightResult::Passed,
+            preflight_reason: None,
         }
     }
 
@@ -164,7 +221,23 @@ impl ActionPlan {
     pub fn mark_no_changes(&mut self, reason: &str) {
         self.changes_needed = false;
         self.skip_reason = Some(reason.to_string());
+        self.preflight_result = PreflightResult::Blocked;
+        self.preflight_reason = Some(reason.to_string());
         self.steps.clear();
+    }
+
+    /// Phase 25: Mark plan as preflight unknown (cannot safely proceed).
+    pub fn mark_preflight_unknown(&mut self, reason: &str) {
+        self.changes_needed = false;
+        self.skip_reason = Some(reason.to_string());
+        self.preflight_result = PreflightResult::Unknown;
+        self.preflight_reason = Some(reason.to_string());
+        self.steps.clear();
+    }
+
+    /// Phase 25: Get reversibility classification.
+    pub fn reversibility(&self) -> Reversibility {
+        self.rollback.reversibility()
     }
 
     /// Mark rollback as not possible.
@@ -219,6 +292,9 @@ pub struct PlanExecutionResult {
     pub success: bool,
     pub step_results: Vec<StepResult>,
     pub verification_result: Option<VerificationResult>,
+    /// Phase 25: Structured verification status.
+    #[serde(default)]
+    pub verification_status: VerificationStatus,
     pub rollback_performed: bool,
     pub rollback_success: Option<bool>,
     pub completed_at: DateTime<Utc>,
@@ -275,5 +351,37 @@ mod tests {
         plan.set_no_rollback("Destructive operation");
 
         assert!(!plan.rollback.possible);
+    }
+
+    #[test]
+    fn test_phase25_preflight_result() {
+        let mut plan = ActionPlan::new("test", "Test", "Testing");
+        assert_eq!(plan.preflight_result, PreflightResult::Passed);
+
+        plan.mark_no_changes("Already configured");
+        assert_eq!(plan.preflight_result, PreflightResult::Blocked);
+
+        let mut plan2 = ActionPlan::new("test", "Test", "Testing");
+        plan2.mark_preflight_unknown("Cannot determine state");
+        assert_eq!(plan2.preflight_result, PreflightResult::Unknown);
+    }
+
+    #[test]
+    fn test_phase25_reversibility() {
+        let mut plan = ActionPlan::new("test", "Test", "Testing");
+        assert_eq!(plan.reversibility(), Reversibility::Reversible);
+
+        plan.set_no_rollback("Destructive operation");
+        assert_eq!(plan.reversibility(), Reversibility::NonReversible);
+    }
+
+    #[test]
+    fn test_phase25_verification_status_serialization() {
+        let status = VerificationStatus::Passed;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, "\"passed\"");
+
+        let status: VerificationStatus = serde_json::from_str("\"unknown\"").unwrap();
+        assert_eq!(status, VerificationStatus::Unknown);
     }
 }

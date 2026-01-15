@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.58] - 2026-01-15
+
+### Changed - Phase 25: Execution Safety and Reversibility Hardening
+
+Every mutating action is now provably safe, reversible, and bounded.
+
+**A) Core types (action_plan.rs):**
+- PreflightResult: Passed, Blocked, Unknown
+- VerificationStatus: Passed, Failed, Unknown
+- Reversibility: Reversible, NonReversible
+- RollbackInfo::reversibility() method
+
+**B) Telemetry enrichment (outcome_ledger.rs):**
+- OutcomeRecord extended: preflight, verification, elevated_confirmation
+- OutcomeRecord::new_action() constructor for Action mode
+- OutcomeStats tracks preflight/verification aggregates
+
+**C) Verification strictness (plan_executor.rs):**
+- Unknown verification = Failed (not Resolved)
+- run_verification() returns (VerificationResult, VerificationStatus)
+- Explicit verification_status in PlanExecutionResult
+
+**D) Elevated confirmation (confirm_handlers.rs):**
+- NonReversible actions require "yes I understand"
+- Elevated warning: "This action cannot be undone"
+- Outcome recording for all action paths (execution, cancellation, expiry)
+
+**Key invariants:**
+- Unknown preflight → Cancelled (not executed)
+- Unknown verification → Failed (not success)
+- Non-reversible requires elevated confirmation
+
 ## [0.3.57] - 2026-01-15
 
 ### Changed - Phase 24: Confidence Calibration

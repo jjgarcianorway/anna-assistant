@@ -1,8 +1,10 @@
 //! Outcome Ledger - Truthful request outcome tracking.
 //!
 //! Phase 23: Records exactly one outcome per request. No fake stats.
+//! Phase 25: Extended with preflight/verification status for actions.
 //! Append-only JSONL format at /var/lib/anna/outcomes.jsonl.
 
+use crate::action_plan::{PreflightResult, VerificationStatus};
 use crate::intent_class::IntentClass;
 use crate::paths::paths;
 use anyhow::Result;
@@ -63,6 +65,15 @@ pub struct OutcomeRecord {
     pub escalated: bool,
     /// Total request duration in milliseconds
     pub duration_ms: u64,
+    /// Phase 25: Preflight result (only for Action mode)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preflight: Option<PreflightResult>,
+    /// Phase 25: Verification status (only for Action mode)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification: Option<VerificationStatus>,
+    /// Phase 25: Was elevated confirmation required
+    #[serde(default)]
+    pub elevated_confirmation: bool,
 }
 
 /// Serializable intent class (avoids importing full IntentClass in stats)
@@ -83,7 +94,7 @@ impl From<IntentClass> for IntentClassRecord {
 }
 
 impl OutcomeRecord {
-    /// Create a new outcome record.
+    /// Create a new outcome record (for Dialogue mode).
     pub fn new(
         request_id: &str,
         mode: RequestMode,
@@ -100,6 +111,34 @@ impl OutcomeRecord {
             outcome,
             escalated,
             duration_ms,
+            preflight: None,
+            verification: None,
+            elevated_confirmation: false,
+        }
+    }
+
+    /// Phase 25: Create outcome record for Action mode with extended telemetry.
+    pub fn new_action(
+        request_id: &str,
+        intent: IntentClass,
+        outcome: Outcome,
+        escalated: bool,
+        duration_ms: u64,
+        preflight: PreflightResult,
+        verification: VerificationStatus,
+        elevated_confirmation: bool,
+    ) -> Self {
+        Self {
+            ts_utc: chrono::Utc::now().to_rfc3339(),
+            request_id: request_id.to_string(),
+            mode: RequestMode::Action,
+            intent: intent.into(),
+            outcome,
+            escalated,
+            duration_ms,
+            preflight: Some(preflight),
+            verification: Some(verification),
+            elevated_confirmation,
         }
     }
 }
@@ -170,11 +209,27 @@ pub struct OutcomeStats {
     pub escalated: u64,
     /// All durations for percentile calculations
     pub durations_ms: Vec<u64>,
+    /// Phase 25: Actions with preflight passed
+    pub preflight_passed: u64,
+    /// Phase 25: Actions with preflight blocked
+    pub preflight_blocked: u64,
+    /// Phase 25: Actions with preflight unknown
+    pub preflight_unknown: u64,
+    /// Phase 25: Actions with verification passed
+    pub verification_passed: u64,
+    /// Phase 25: Actions with verification failed
+    pub verification_failed: u64,
+    /// Phase 25: Actions with verification unknown
+    pub verification_unknown: u64,
+    /// Phase 25: Actions with elevated confirmation
+    pub elevated_confirmations: u64,
 }
 
 impl OutcomeStats {
     /// Compute statistics from ledger records.
     pub fn from_records(records: &[OutcomeRecord]) -> Self {
+        use crate::action_plan::{PreflightResult, VerificationStatus};
+
         let mut stats = Self::default();
 
         for record in records {
@@ -194,6 +249,27 @@ impl OutcomeStats {
 
             if record.escalated {
                 stats.escalated += 1;
+            }
+
+            // Phase 25: Track preflight/verification stats for actions
+            if let Some(preflight) = record.preflight {
+                match preflight {
+                    PreflightResult::Passed => stats.preflight_passed += 1,
+                    PreflightResult::Blocked => stats.preflight_blocked += 1,
+                    PreflightResult::Unknown => stats.preflight_unknown += 1,
+                }
+            }
+
+            if let Some(verification) = record.verification {
+                match verification {
+                    VerificationStatus::Passed => stats.verification_passed += 1,
+                    VerificationStatus::Failed => stats.verification_failed += 1,
+                    VerificationStatus::Unknown => stats.verification_unknown += 1,
+                }
+            }
+
+            if record.elevated_confirmation {
+                stats.elevated_confirmations += 1;
             }
 
             stats.durations_ms.push(record.duration_ms);
@@ -338,5 +414,58 @@ mod tests {
         assert!(!Outcome::Failed.is_success());
         assert!(!Outcome::Cancelled.is_success());
         assert!(!Outcome::Cancelled.is_failure());
+    }
+
+    #[test]
+    fn test_phase25_action_record() {
+        use crate::action_plan::{PreflightResult, VerificationStatus};
+
+        let record = OutcomeRecord::new_action(
+            "action-123",
+            IntentClass::Mutating,
+            Outcome::Resolved,
+            false,
+            500,
+            PreflightResult::Passed,
+            VerificationStatus::Passed,
+            false,
+        );
+
+        assert_eq!(record.mode, RequestMode::Action);
+        assert_eq!(record.preflight, Some(PreflightResult::Passed));
+        assert_eq!(record.verification, Some(VerificationStatus::Passed));
+        assert!(!record.elevated_confirmation);
+
+        let json = serde_json::to_string(&record).unwrap();
+        assert!(json.contains("\"preflight\":\"passed\""));
+        assert!(json.contains("\"verification\":\"passed\""));
+    }
+
+    #[test]
+    fn test_phase25_stats_aggregation() {
+        use crate::action_plan::{PreflightResult, VerificationStatus};
+
+        let records = vec![
+            OutcomeRecord::new_action(
+                "1", IntentClass::Mutating, Outcome::Resolved, false, 100,
+                PreflightResult::Passed, VerificationStatus::Passed, false,
+            ),
+            OutcomeRecord::new_action(
+                "2", IntentClass::Mutating, Outcome::Failed, false, 200,
+                PreflightResult::Passed, VerificationStatus::Failed, false,
+            ),
+            OutcomeRecord::new_action(
+                "3", IntentClass::Mutating, Outcome::Cancelled, false, 50,
+                PreflightResult::Unknown, VerificationStatus::Unknown, true,
+            ),
+        ];
+
+        let stats = OutcomeStats::from_records(&records);
+        assert_eq!(stats.preflight_passed, 2);
+        assert_eq!(stats.preflight_unknown, 1);
+        assert_eq!(stats.verification_passed, 1);
+        assert_eq!(stats.verification_failed, 1);
+        assert_eq!(stats.verification_unknown, 1);
+        assert_eq!(stats.elevated_confirmations, 1);
     }
 }

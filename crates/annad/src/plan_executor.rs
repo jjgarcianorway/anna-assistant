@@ -1,9 +1,11 @@
 //! Plan Executor - Execute ActionPlans with proper privilege handling.
 //! Phase 16: Turn fallback into real execution.
 //! Phase 17: State capture, verification, and rollback.
+//! Phase 25: Verification strictness (Unknown = Failed).
 
 use anna_shared::action_plan::{
     ActionPlan, ActionStep, PlanExecutionResult, StepResult, VerificationResult,
+    VerificationStatus,
 };
 use chrono::{Duration, Utc};
 use std::collections::HashMap;
@@ -145,8 +147,12 @@ fn run_step_verification(step: &ActionStep) -> Option<bool> {
 }
 
 /// Run final verification check.
-fn run_verification(plan: &ActionPlan) -> Option<VerificationResult> {
-    let verification = plan.verification.as_ref()?;
+/// Phase 25: Returns (VerificationResult, VerificationStatus) for strictness.
+fn run_verification(plan: &ActionPlan) -> (Option<VerificationResult>, VerificationStatus) {
+    let verification = match plan.verification.as_ref() {
+        Some(v) => v,
+        None => return (None, VerificationStatus::Unknown),
+    };
 
     info!("Running verification: {}", verification.description);
 
@@ -159,7 +165,14 @@ fn run_verification(plan: &ActionPlan) -> Option<VerificationResult> {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let passed = stdout.contains(&verification.success_pattern);
 
-            Some(VerificationResult {
+            // Phase 25: Determine verification status
+            let status = if passed {
+                VerificationStatus::Passed
+            } else {
+                VerificationStatus::Failed
+            };
+
+            let result = VerificationResult {
                 passed,
                 actual_output: stdout,
                 explanation: if passed {
@@ -170,13 +183,19 @@ fn run_verification(plan: &ActionPlan) -> Option<VerificationResult> {
                         verification.success_pattern
                     )
                 },
-            })
+            };
+
+            (Some(result), status)
         }
-        Err(e) => Some(VerificationResult {
-            passed: false,
-            actual_output: String::new(),
-            explanation: format!("Verification command failed: {}", e),
-        }),
+        Err(e) => {
+            // Phase 25: Command execution error = Unknown
+            let result = VerificationResult {
+                passed: false,
+                actual_output: String::new(),
+                explanation: format!("Verification command failed: {}", e),
+            };
+            (Some(result), VerificationStatus::Unknown)
+        }
     }
 }
 
@@ -210,11 +229,13 @@ pub fn execute_plan(plan: &ActionPlan) -> PlanExecutionResult {
 
     // Handle no-changes case
     if !plan.changes_needed {
+        // Phase 25: No verification when no changes needed
         return PlanExecutionResult {
             plan_id: plan.id.clone(),
             success: true,
             step_results: Vec::new(),
             verification_result: None,
+            verification_status: VerificationStatus::Passed, // No changes = trivially verified
             rollback_performed: false,
             rollback_success: None,
             completed_at: Utc::now(),
@@ -254,20 +275,18 @@ pub fn execute_plan(plan: &ActionPlan) -> PlanExecutionResult {
         step_results.push(result);
     }
 
-    // Run verification if all steps succeeded
-    let verification_result = if all_success {
+    // Phase 25: Run verification with status tracking
+    let (verification_result, verification_status) = if all_success {
         run_verification(plan)
     } else {
-        None
+        (None, VerificationStatus::Unknown)
     };
 
-    // Determine if rollback needed
-    let verification_failed = verification_result
-        .as_ref()
-        .map(|v| !v.passed)
-        .unwrap_or(false);
+    // Phase 25: Success requires verification_status == Passed (Unknown = Failed)
+    let verification_success = verification_status == VerificationStatus::Passed;
+    let overall_success = all_success && verification_success;
 
-    let need_rollback = !all_success || verification_failed;
+    let need_rollback = !overall_success;
     let mut rollback_performed = false;
     let mut rollback_success = None;
 
@@ -278,15 +297,16 @@ pub fn execute_plan(plan: &ActionPlan) -> PlanExecutionResult {
     }
 
     // Cleanup stash on success
-    if all_success && !verification_failed {
+    if overall_success {
         let _ = stash.cleanup();
     }
 
     PlanExecutionResult {
         plan_id: plan.id.clone(),
-        success: all_success && !verification_failed,
+        success: overall_success,
         step_results,
         verification_result,
+        verification_status,
         rollback_performed,
         rollback_success,
         completed_at: Utc::now(),
@@ -393,5 +413,15 @@ mod tests {
         let _ = take_pending_plan("ttl-test");
         // Non-existent plan should return false
         assert!(!is_plan_expired("nonexistent-xyz"));
+    }
+
+    #[test]
+    fn test_phase25_no_changes_verification_status() {
+        let mut plan = ActionPlan::new("test", "Test", "Testing");
+        plan.mark_no_changes("Already configured");
+        let result = execute_plan(&plan);
+        assert!(result.success);
+        // Phase 25: No changes = trivially verified (Passed)
+        assert_eq!(result.verification_status, VerificationStatus::Passed);
     }
 }
