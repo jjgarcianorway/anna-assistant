@@ -2,6 +2,7 @@
 //! v0.0.993: Added automatic fix detection and offer
 //! v0.0.998: Added configuration recipes
 //! v0.0.998: Added Hollywood IT teams experience
+//! v0.3.49: Phase 16 - Action plan execution
 
 use anna_shared::rpc::{DialogueStep, RpcRequest, StepType, StreamingResponse};
 use anna_shared::exposure::gate::filter_final_answer;
@@ -16,6 +17,8 @@ use crate::autofix::{
     get_fix_history_summary,
 };
 use crate::core_loop::execute_question_streaming;
+use crate::plan_executor::{self, execute_plan, format_execution_result, take_pending_plan, set_pending_plan, has_pending_plan};
+use crate::plan_generator;
 use crate::ralph;
 use crate::recipes;
 use crate::state::SharedState;
@@ -93,6 +96,68 @@ pub async fn handle_streaming_request(
         let json = serde_json::to_string(&response)?;
         writer.write_all(format!("{}\n", json).as_bytes()).await?;
         return Ok(());
+    }
+
+    // Phase 16: Check if this is a response to a pending action plan
+    if let Some(pending_plan) = take_pending_plan(session_id) {
+        if is_yes_response(question) {
+            info!("Executing plan {} (user confirmed)", pending_plan.id);
+
+            // Show what we're doing
+            let step = DialogueStep {
+                step_type: StepType::UnderstandingCheck,
+                content: format!("Executing: {}", pending_plan.summary),
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Execute the plan
+            let exec_result = execute_plan(&pending_plan);
+            let result_msg = format_execution_result(&exec_result, &pending_plan);
+
+            // Send result
+            send_filtered_final_answer(&mut writer, &result_msg).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: result_msg,
+                success: exec_result.success,
+                iterations: 0,
+                commands_executed: pending_plan.steps.iter().map(|s| s.command.clone()).collect(),
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        } else if is_no_response(question) {
+            info!("Plan {} cancelled by user", pending_plan.id);
+
+            let cancel_msg = "No problem, I won't make any changes.";
+            send_filtered_final_answer(&mut writer, cancel_msg).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: cancel_msg.to_string(),
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
+        // Not yes/no - fall through to normal processing (re-store the plan)
+        set_pending_plan(session_id, pending_plan);
     }
 
     // v0.0.994: Check if this is a response to a pending autofix
@@ -289,6 +354,41 @@ pub async fn handle_streaming_request(
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
             return Ok(());
         }
+    }
+
+    // Phase 16: Check if this matches an action plan template
+    // These are well-known system configuration tasks that Anna can execute
+    if let Some(plan) = plan_generator::generate_template_plan(question) {
+        info!("Template plan matched for: {}", question);
+
+        // Present the plan for confirmation
+        let confirmation_msg = plan.format_for_confirmation();
+        let step = DialogueStep {
+            step_type: StepType::ConfirmationRequest,
+            content: confirmation_msg.clone(),
+        };
+        let response = StreamingResponse::Step { step };
+        let json = serde_json::to_string(&response)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+        // Store pending plan
+        set_pending_plan(session_id, plan);
+
+        let result = anna_shared::rpc::AskResult {
+            answer: confirmation_msg,
+            success: true,
+            iterations: 0,
+            commands_executed: vec![],
+            dialogue: vec![],
+            needs_clarification: true,
+            clarification_question: Some("Proceed? (yes/no)".to_string()),
+            cached: false,
+            citations: vec![],
+        };
+        let done = StreamingResponse::Done { result };
+        let json = serde_json::to_string(&done)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        return Ok(());
     }
 
     // Check for pending critical system alerts and notify user

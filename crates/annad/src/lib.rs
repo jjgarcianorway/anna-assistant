@@ -18,6 +18,8 @@ pub mod intent;
 pub mod llm_core;  // NEW: Pure LLM-driven core loop
 pub mod ollama;
 pub mod patterns;  // TODO: Remove after full migration to llm_core
+pub mod plan_executor;  // Phase 16: Action plan execution
+pub mod plan_generator;  // Phase 16: Generate plans from LLM
 pub mod ralph;
 pub mod recipes;
 pub mod recovery;  // v0.3.36: Self-healing recovery

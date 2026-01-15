@@ -4,6 +4,7 @@
 //! ARCHITECTURAL INVARIANT: Anna is system-wide with ZERO state in user home directories.
 //! All paths are defined in the `paths` module and use /etc/anna, /var/lib/anna, /run/anna.
 
+pub mod action_plan;
 pub mod claim_gate;
 pub mod config;
 pub mod deps;

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.49] - 2026-01-15
+
+### Added - Phase 16: Action Execution & Confirmation Loop
+
+Anna can now execute system changes instead of just describing them.
+
+**ActionPlan system:**
+- New `anna-shared/action_plan.rs`: Structured plans with steps, verification, rollback
+- New `annad/plan_executor.rs`: Execute plans with pkexec for privilege escalation
+- New `annad/plan_generator.rs`: Generate plans from templates or LLM
+
+**Template plans for common tasks:**
+- GDM resolution configuration
+- Disable sleep/suspend (mask systemd targets, configure logind)
+- Lid close behavior configuration
+
+**Execution flow:**
+1. User asks "change GDM resolution to 1920x1080" or "disable sleep"
+2. Anna presents structured plan with steps
+3. User confirms with "yes"
+4. Anna executes each step, reports results
+5. Verification check confirms success
+
+**Key components:**
+- `ActionPlan`: Steps, verification, rollback definition
+- `PlanExecutionResult`: Step results, verification outcome
+- `set_pending_plan()` / `take_pending_plan()`: Session-based pending state
+- `execute_plan()`: Run steps with pkexec for sudo commands
+- `format_for_confirmation()`: User-friendly plan presentation
+
+**Changes:**
+- `server/streaming.rs`: Added plan handling before main loop
+- Template plans bypass LLM for well-known configurations
+
 ## [0.3.48] - 2026-01-15
 
 ### Fixed - Phase 15: Answer Path Complete Enforcement
