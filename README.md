@@ -69,6 +69,29 @@ Consider: closing some tabs, or accepting your fate as a Chrome farmer.
 
 *It's like watching a TV show about a competent IT department. Except it's real and it's your computer.*
 
+### Dialogue Timeline (v0.3.43)
+
+Every ticket creates a structured timeline that can be replayed:
+
+```
+> check my disk space
+
+--- internal comms ---
+[0.0s] Anna -> Storage: New request: "check my disk space"
+[0.1s] Kevin (Jr, Storage) -> Anna: I'll take this one.
+[0.2s] [stor-jr] Running df -h
+[0.4s] Kevin (Jr, Storage) -> Anna: Resolved with 95% confidence.
+[0.4s] Anna -> Kevin (Jr, Storage): Noted. I'll remember this for next time.
+
+Your root partition (/) has 234GB free out of 500GB.
+```
+
+Features:
+- Chronological timeline of all ticket activity
+- Human-readable dialogue between Anna and specialists
+- Redaction of sensitive data by default (debug mode shows raw events)
+- Deterministic replay of completed tickets
+
 ## Features That Actually Work
 
 ### Natural Language Everything

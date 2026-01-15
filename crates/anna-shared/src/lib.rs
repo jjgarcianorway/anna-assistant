@@ -22,6 +22,7 @@ pub mod session;
 pub mod status;
 pub mod stats;
 pub mod teaching;
+pub mod timeline;
 pub mod update_ledger;
 pub mod user_context;
 pub mod version;

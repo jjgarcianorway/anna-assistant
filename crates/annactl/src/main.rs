@@ -4,6 +4,7 @@
 //! v0.3.35: Added daemon_recovery for self-healing connection
 
 mod daemon_recovery;
+mod dialogue;
 mod display;
 mod event_renderer;
 mod rpc;

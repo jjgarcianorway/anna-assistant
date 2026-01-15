@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.43] - 2026-01-14
+
+### Added - Phase 11: Human-Readable Internal Dialogue
+
+Transforms internal specialist activity into coherent, chronological, human-readable narrative.
+
+**New Timeline Module** (`anna-shared/src/timeline/`):
+
+- `types.rs`: TimelineEntry, DialogueTimeline, EntryKind, ActionType
+- `narrator.rs`: Converts entries to human-readable DialogueLine
+- `builder.rs`: TimelineBuilder constructs timelines from events
+- `redaction.rs`: RedactionMode, pattern-based redaction of sensitive data
+- `replay.rs`: ReplaySession, ReplayFingerprint for deterministic replay
+- `streaming.rs`: DialogueStream, StreamEvent for incremental output
+
+**Dialogue Renderer** (`annactl/src/dialogue/`):
+
+- `renderer.rs`: Terminal rendering with speaker colors
+- `consumer.rs`: TerminalConsumer implements DialogueConsumer trait
+
+**Key Features**:
+
+1. **Dialogue Timeline Model** - Structured, ordered timeline recording:
+   - Ticket creation, translator decisions, specialist assignments
+   - Actions taken, escalations, recovery attempts, resolution
+
+2. **Internal Dialogue Renderer** - Natural language dialogue:
+   - "Anna -> Junior Network Specialist"
+   - "Junior -> Senior" escalations
+   - Professional, concise, no emojis
+
+3. **Translator as Narrator** - Explains without exposing internals
+
+4. **Streaming Support Hooks** - DialogueStream with mpsc channel
+
+5. **Redaction Rules** - Internal data marked and redacted by default:
+   - Passwords, API keys, home paths redacted
+   - Debug mode exposes raw events
+   - Forbidden pattern validation (no "sudo systemctl" in output)
+
+6. **Replay Capability** - Deterministic replay with fingerprint verification
+
+**Test Coverage**: 157 tests in anna-shared (including 30+ new timeline tests)
+
 ## [0.3.42] - 2026-01-14
 
 ### Fixed - Socket File Group Ownership
