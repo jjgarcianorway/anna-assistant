@@ -88,6 +88,14 @@ pub enum StreamingResponse {
     /// A token from the LLM (for streaming final answer)
     #[serde(rename = "token")]
     Token { token: String },
+    /// v0.3.44: Internal comms dialogue line (fly-on-the-wall)
+    #[serde(rename = "dialogue")]
+    Dialogue {
+        speaker: String,
+        recipient: Option<String>,
+        message: String,
+        offset_ms: u64,
+    },
     /// Validation warning (v0.0.889) - issues detected during streaming
     #[serde(rename = "validation")]
     Validation { warning: ValidationWarning },

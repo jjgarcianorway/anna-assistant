@@ -368,6 +368,12 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
 
     let mut state = InvestigationState::default();
     let mut dialogue = Vec::new();
+    let start_time = std::time::Instant::now();
+
+    // v0.3.44: Check if internal comms is enabled
+    let show_internal_comms = anna_shared::config::AnnaConfig::load()
+        .map(|c| c.show_internal_comms)
+        .unwrap_or(false);
 
     // Helper to send streaming updates
     async fn send_step<W: AsyncWriteExt + Unpin>(
@@ -382,7 +388,32 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
         Ok(())
     }
 
+    // v0.3.44: Helper to send internal comms dialogue
+    async fn send_dialogue<W: AsyncWriteExt + Unpin>(
+        writer: &mut W,
+        speaker: &str,
+        recipient: Option<&str>,
+        message: &str,
+        start_time: std::time::Instant,
+        enabled: bool,
+    ) -> Result<()> {
+        if !enabled {
+            return Ok(());
+        }
+        let offset_ms = start_time.elapsed().as_millis() as u64;
+        let response = StreamingResponse::Dialogue {
+            speaker: speaker.to_string(),
+            recipient: recipient.map(|s| s.to_string()),
+            message: message.to_string(),
+            offset_ms,
+        };
+        let json = serde_json::to_string(&response)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        Ok(())
+    }
+
     // PHASE 1: UNDERSTAND
+    send_dialogue(writer, "Anna", None, &format!("New request: \"{}\"", question), start_time, show_internal_comms).await?;
     send_step(writer, DialogueStep {
         step_type: StepType::AnnaToLlm,
         content: "Understanding question...".to_string(),
@@ -409,9 +440,11 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     }
 
     // PHASE 2: INVESTIGATE
+    send_dialogue(writer, "Anna", Some("Analyst"), "Running diagnostics...", start_time, show_internal_comms).await?;
     loop {
         state.iteration += 1;
         if state.iteration > MAX_ITERATIONS {
+            send_dialogue(writer, "Analyst", Some("Anna"), "Max iterations reached, compiling results.", start_time, show_internal_comms).await?;
             break;
         }
 
@@ -424,8 +457,10 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
 
         match next {
             NextStep::Investigate(commands) => {
+                send_dialogue(writer, "Analyst", Some("Anna"), &format!("Running {} probe(s).", commands.len()), start_time, show_internal_comms).await?;
                 for cmd in commands {
                     // Show command being executed
+                    send_dialogue(writer, "Analyst", None, &format!("[probe] {}", cmd), start_time, show_internal_comms).await?;
                     send_step(writer, DialogueStep {
                         step_type: StepType::CommandExec,
                         content: cmd.clone(),
@@ -457,7 +492,10 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
                     state.findings.push(Finding { command: cmd, output, success });
                 }
             }
-            NextStep::Answer => break,
+            NextStep::Answer => {
+                send_dialogue(writer, "Analyst", Some("Anna"), "Enough data gathered. Ready to answer.", start_time, show_internal_comms).await?;
+                break;
+            }
             NextStep::SuggestFix { problem, fix_command, explanation } => {
                 let raw_answer = format!(
                     "I found the issue: {}\n\n\
@@ -523,12 +561,14 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     }
 
     // PHASE 3: GENERATE ANSWER
+    send_dialogue(writer, "Anna", None, "Generating final answer...", start_time, show_internal_comms).await?;
     send_step(writer, DialogueStep {
         step_type: StepType::AnnaToLlm,
         content: "Generating answer...".to_string(),
     }, &mut dialogue).await?;
 
     let raw_answer = generate_answer(model, question, &state).await?;
+    send_dialogue(writer, "Anna", None, "Answer ready.", start_time, show_internal_comms).await?;
 
     // v0.3.25: Verify answer through ClaimGate with evidence line
     let debug_mode = anna_shared::config::AnnaConfig::load()

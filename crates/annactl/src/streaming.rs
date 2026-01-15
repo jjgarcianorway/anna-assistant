@@ -116,6 +116,29 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
                         print_colored(&token, GREEN);
                         flush_stdout();
                     }
+                    Ok(StreamingResponse::Dialogue { speaker, recipient, message, offset_ms }) => {
+                        // v0.3.44: Internal comms dialogue line
+                        received_any_content = true;
+                        if let Some(ref mut s) = spinner {
+                            s.stop();
+                            spinner = None;
+                        }
+                        if in_answer {
+                            println!();
+                            in_answer = false;
+                        }
+                        // Format: [0.0s] Speaker -> Recipient: message
+                        let offset_secs = offset_ms as f64 / 1000.0;
+                        print_colored(&format!("[{:.1}s] ", offset_secs), DIM);
+                        print_colored(&speaker, CYAN);
+                        if let Some(ref recip) = recipient {
+                            print!(" -> ");
+                            print_colored(recip, MAGENTA);
+                        }
+                        print!(": ");
+                        println!("{}", message);
+                        flush_stdout();
+                    }
                     Ok(StreamingResponse::Validation { warning }) => {
                         // Display validation warning (v0.0.889)
                         // Only show high severity warnings to avoid noise

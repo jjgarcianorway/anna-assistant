@@ -19,6 +19,10 @@ pub struct AnnaConfig {
     #[serde(default)]
     pub teaching_mode: bool,
 
+    /// v0.3.44: Show internal comms - fly-on-the-wall view of IT department
+    #[serde(default)]
+    pub show_internal_comms: bool,
+
     /// Auto-install helpers when needed
     #[serde(default = "default_true")]
     pub auto_install_helpers: bool,
@@ -197,6 +201,7 @@ impl Default for AnnaConfig {
         Self {
             debug_mode: true,
             teaching_mode: false, // v0.3.29: Off by default
+            show_internal_comms: false, // v0.3.44: Off by default
             auto_install_helpers: true,
             ask_clarification: true,
             wiki: WikiConfig::default(),
@@ -237,6 +242,8 @@ impl AnnaConfig {
     pub fn set(&mut self, key: &str, value: bool) -> Result<()> {
         match key {
             "debug_mode" | "debug" => self.debug_mode = value,
+            "show_internal_comms" | "internal_comms" => self.show_internal_comms = value,
+            "teaching_mode" | "teaching" => self.teaching_mode = value,
             "auto_install_helpers" | "auto_install" => self.auto_install_helpers = value,
             "ask_clarification" | "clarification" => self.ask_clarification = value,
             "use_embeddings" | "embeddings" => self.wiki.use_embeddings = value,

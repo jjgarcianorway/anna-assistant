@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.44] - 2026-01-15
+
+### Added - Internal Comms Integration (Phase 11 Wiring)
+
+Wires the Phase 11 timeline system into the live streaming output.
+
+**New Configuration Setting**:
+- `show_internal_comms` in `/etc/anna/config.toml` - Enable/disable fly-on-the-wall view
+- Natural language control: "show internal comms" / "hide internal comms"
+
+**StreamingResponse Enhancement**:
+- New `Dialogue` variant for internal comms lines
+- Fields: speaker, recipient (optional), message, offset_ms
+- Rendered with timestamp, speaker colors (Cyan/Magenta)
+
+**Integration Points**:
+- `llm_core/mod.rs`: Emits dialogue events during question processing
+- `streaming.rs` (annactl): Renders dialogue lines in real-time
+
+**Example Output** (when enabled):
+```
+[0.0s] Anna: New request: "what's my disk usage?"
+[0.1s] Anna -> Analyst: Running diagnostics...
+[0.3s] Analyst -> Anna: Running 2 probe(s).
+[0.4s] Analyst: [probe] df -h
+[0.8s] Analyst -> Anna: Enough data gathered. Ready to answer.
+[1.2s] Anna: Generating final answer...
+[1.5s] Anna: Answer ready.
+```
+
 ## [0.3.43] - 2026-01-14
 
 ### Added - Phase 11: Human-Readable Internal Dialogue
