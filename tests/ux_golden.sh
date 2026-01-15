@@ -212,6 +212,68 @@ fi
 echo
 
 # ================================================
+# TEST 4C: Status Fixtures (Phase 21)
+# ================================================
+echo "=== T4C: Status Fixtures ==="
+
+# Status healthy fixture
+if [ -f "$SCRIPT_DIR/golden/status_healthy.fixture" ]; then
+    pass "status_healthy fixture exists"
+    # Validate: Must have all 7 sections
+    if grep -q "VERSION" "$SCRIPT_DIR/golden/status_healthy.fixture" && \
+       grep -q "UPDATES" "$SCRIPT_DIR/golden/status_healthy.fixture" && \
+       grep -q "SERVICE" "$SCRIPT_DIR/golden/status_healthy.fixture" && \
+       grep -q "PERMISSIONS" "$SCRIPT_DIR/golden/status_healthy.fixture" && \
+       grep -q "CONFIG" "$SCRIPT_DIR/golden/status_healthy.fixture" && \
+       grep -q "HELPERS" "$SCRIPT_DIR/golden/status_healthy.fixture" && \
+       grep -q "MODELS" "$SCRIPT_DIR/golden/status_healthy.fixture"; then
+        pass "status_healthy fixture contains all 7 sections"
+    else
+        fail "status_healthy fixture missing sections"
+    fi
+else
+    fail "status_healthy fixture missing"
+fi
+
+# Status daemon down fixture
+if [ -f "$SCRIPT_DIR/golden/status_daemon_down.fixture" ]; then
+    pass "status_daemon_down fixture exists"
+    if grep -q '\[X\].*not running' "$SCRIPT_DIR/golden/status_daemon_down.fixture"; then
+        pass "status_daemon_down shows [X] not running"
+    else
+        fail "status_daemon_down missing [X] not running"
+    fi
+else
+    fail "status_daemon_down fixture missing"
+fi
+
+# Status no group fixture
+if [ -f "$SCRIPT_DIR/golden/status_no_group.fixture" ]; then
+    pass "status_no_group fixture exists"
+    if grep -q '\[X\].*not in anna group' "$SCRIPT_DIR/golden/status_no_group.fixture"; then
+        pass "status_no_group shows [X] not in anna group"
+    else
+        fail "status_no_group missing [X] not in anna group"
+    fi
+else
+    fail "status_no_group fixture missing"
+fi
+
+# Status no updates fixture
+if [ -f "$SCRIPT_DIR/golden/status_no_updates.fixture" ]; then
+    pass "status_no_updates fixture exists"
+    if grep -q "unknown" "$SCRIPT_DIR/golden/status_no_updates.fixture" && \
+       grep -q "never" "$SCRIPT_DIR/golden/status_no_updates.fixture"; then
+        pass "status_no_updates shows unknown/never values"
+    else
+        fail "status_no_updates missing unknown/never values"
+    fi
+else
+    fail "status_no_updates fixture missing"
+fi
+echo
+
+# ================================================
 # TEST 5: UX Spec Exists and Valid
 # ================================================
 echo "=== T5: UX Spec Document ==="
@@ -241,6 +303,34 @@ if [ -f "$REPO_ROOT/docs/UX_SPEC.md" ]; then
     fi
 else
     fail "UX_SPEC.md not found"
+fi
+
+# STATUS_SPEC.md (Phase 21)
+if [ -f "$REPO_ROOT/docs/STATUS_SPEC.md" ]; then
+    pass "STATUS_SPEC.md exists"
+
+    # Check required sections
+    if grep -q "Section Order" "$REPO_ROOT/docs/STATUS_SPEC.md"; then
+        pass "STATUS_SPEC contains Section Order"
+    else
+        fail "STATUS_SPEC missing Section Order"
+    fi
+
+    if grep -q "Do Not Regress" "$REPO_ROOT/docs/STATUS_SPEC.md"; then
+        pass "STATUS_SPEC contains regression checklist"
+    else
+        fail "STATUS_SPEC missing regression checklist"
+    fi
+
+    # Check line count
+    STATUS_LINES=$(wc -l < "$REPO_ROOT/docs/STATUS_SPEC.md")
+    if [ "$STATUS_LINES" -le 250 ]; then
+        pass "STATUS_SPEC.md is within limit ($STATUS_LINES/250 lines)"
+    else
+        fail "STATUS_SPEC.md exceeds 250 lines ($STATUS_LINES)"
+    fi
+else
+    fail "STATUS_SPEC.md not found"
 fi
 echo
 

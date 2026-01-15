@@ -1,0 +1,32 @@
+# Status No Group Fixture
+# User is not in anna group - PERMISSIONS shows [X]
+# At Dialogue exposure level
+
+VERSION
+  annactl:      0.3.54
+  annad:        0.3.54
+  available:    unknown
+  consistency:  [OK]
+
+UPDATES
+  interval:     60s
+  last_check:   never
+  last_result:  never
+  next_check:   unknown
+
+SERVICE
+  daemon:       [OK] running
+  socket:       /run/anna/anna.sock
+  socket_mode:  0660 anna:anna
+  last_error:   none
+
+PERMISSIONS
+  /etc/anna:    root:anna 755
+  /var/lib/anna: root:anna 750
+  /run/anna:    root:anna 750
+  /var/log/anna: root:anna 750
+  user_groups:  [X] not in anna group (wheel users)
+
+CONFIG
+  exposure:     dialogue
+  teaching:     disabled

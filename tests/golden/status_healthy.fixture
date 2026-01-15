@@ -1,0 +1,40 @@
+# Status Healthy Fixture
+# All sections visible at Debug exposure level, all OK
+# Pattern: VERSION always shown, UPDATES/SERVICE at Summary+, PERMISSIONS/CONFIG at Dialogue+, HELPERS/MODELS at Debug
+
+VERSION
+  annactl:      0.3.54
+  annad:        0.3.54
+  available:    0.3.54 [OK]
+  consistency:  [OK]
+
+UPDATES
+  interval:     60s
+  last_check:   38s ago
+  last_result:  [OK]
+  next_check:   22s
+
+SERVICE
+  daemon:       [OK] running
+  socket:       /run/anna/anna.sock
+  socket_mode:  0660 anna:anna
+  last_error:   none
+
+PERMISSIONS
+  /etc/anna:    root:anna 755
+  /var/lib/anna: root:anna 750
+  /run/anna:    root:anna 750
+  /var/log/anna: root:anna 750
+  user_groups:  anna wheel
+
+CONFIG
+  exposure:     debug
+  teaching:     enabled
+
+HELPERS
+  bc            [OK] user
+  jq            [OK] anna
+
+MODELS
+  default:      llama3.2:3b
+  translator:   llama3.2:3b

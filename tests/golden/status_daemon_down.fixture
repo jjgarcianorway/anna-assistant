@@ -1,0 +1,8 @@
+# Status Daemon Down Fixture
+# Daemon unreachable - only SERVICE section shows with [X]
+
+SERVICE
+  daemon:       [X] not running
+  socket:       /run/anna/anna.sock
+  socket_mode:  [X] unavailable
+  last_error:   daemon not running

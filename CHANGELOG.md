@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.54] - 2026-01-15
+
+### Added - Phase 21: Status as a Product
+
+Makes `annactl status` a first-class, deterministic dashboard.
+
+**STATUS_SPEC.md (docs/STATUS_SPEC.md):**
+- Canonical 7-section contract: VERSION, UPDATES, SERVICE, PERMISSIONS, CONFIG, HELPERS, MODELS
+- Section visibility tied to exposure levels (Silent: VERSION only, Debug: all 7)
+- Deterministic sorting (alphabetical for HELPERS/MODELS)
+- Indicator rules ([OK], [!], [X])
+- "unknown" for missing values, "disabled" for disabled features
+
+**Refactored status.rs:**
+- Simplified from 14+ sections to 7 canonical sections
+- Exposure-gated visibility per STATUS_SPEC
+- Deterministic output format
+- Removed unused status_detail functions
+
+**Status golden fixtures:**
+- status_healthy.fixture - All sections [OK]
+- status_daemon_down.fixture - SERVICE [X]
+- status_no_group.fixture - PERMISSIONS [X] not in anna group
+- status_no_updates.fixture - unknown/never values
+
+**Tests:**
+- 39 UX golden tests (up from 27)
+- STATUS_SPEC validation in ux_golden.sh
+- Status fixture structure validation
+
 ## [0.3.53] - 2026-01-15
 
 ### Changed - Phase 20: User Experience Reality Pass

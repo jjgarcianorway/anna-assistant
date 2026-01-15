@@ -61,6 +61,12 @@
 - Plan confirmation lifecycle edge cases (TTL, invalid input, expired)
 - CI hygiene verification
 
+### Phase 21: Status as a Product (v0.3.54)
+- STATUS_SPEC.md canonical contract
+- 7 deterministic sections: VERSION, UPDATES, SERVICE, PERMISSIONS, CONFIG, HELPERS, MODELS
+- Exposure-gated visibility
+- Status golden fixtures (healthy, daemon_down, no_group, no_updates)
+
 ## Frozen (Not Planned)
 
 - No new specialists
@@ -70,7 +76,7 @@
 
 ## Future Phases
 
-### Phase 21: Model Selection Benchmark + Hardware-Aware Routing
+### Phase 22: Model Selection Benchmark + Hardware-Aware Routing
 - Model performance benchmarking
 - Hardware capability detection
 - Automatic model selection based on query complexity

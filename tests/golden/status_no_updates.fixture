@@ -1,0 +1,21 @@
+# Status No Updates Fixture
+# Update checker has never run - shows unknown/never
+# At Summary exposure level
+
+VERSION
+  annactl:      0.3.54
+  annad:        0.3.54
+  available:    unknown
+  consistency:  [OK]
+
+UPDATES
+  interval:     60s
+  last_check:   never
+  last_result:  never
+  next_check:   unknown
+
+SERVICE
+  daemon:       [OK] running
+  socket:       /run/anna/anna.sock
+  socket_mode:  0660 anna:anna
+  last_error:   none
