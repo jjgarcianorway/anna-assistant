@@ -245,6 +245,63 @@ cargo test --package annad --test e2e_exposure_smoke
 cargo test --package annad --test e2e_exposure_smoke -- --ignored
 ```
 
+## Action Plan Lifecycle (v0.3.50)
+
+Anna can execute system configuration changes through ActionPlans.
+
+### Plan Structure
+```
+ActionPlan {
+  summary: "Set GDM resolution to 1920x1080"
+  explanation: "Why this works..."
+  steps: [
+    ActionStep { command, needs_sudo, affects_files, verify_command, rollback_command }
+  ]
+  verification: { command, success_pattern }
+  rollback: { possible, reason, steps }
+  changes_needed: bool
+}
+```
+
+### Execution Flow
+
+1. **Template Match** - Check if question matches GDM/sleep/lid template
+2. **Preflight** - Check if changes needed (idempotency)
+3. **State Capture** - Backup files and unit states to `/var/lib/anna/rollback/<plan_id>/`
+4. **Confirmation** - Present plan to user, await "yes"
+5. **Execute** - Run steps via pkexec
+6. **Per-Step Verify** - Verify each step succeeded
+7. **Final Verify** - Authoritative check
+8. **Rollback** - On failure, restore state in reverse order
+9. **Cleanup** - Remove stash on success
+
+### Template Plans
+
+| Template | Trigger | Verification |
+|----------|---------|--------------|
+| GDM Resolution | "gdm" + "resolution" | monitors.xml exists, owner gdm:gdm |
+| Disable Sleep | "disable/prevent/stop" + "sleep/suspend" | sleep.target masked, IdleAction=ignore |
+| Lid Close | "lid" + "close/closing" | HandleLidSwitch set correctly |
+
+### Rollback Guarantees
+
+- Files: Backed up before modification, restored on failure
+- Systemd Units: Mask/unmask state captured, restored on failure
+- Idempotent: Second run is no-op if already configured
+
+### Testing
+
+```bash
+# Dry run (no changes)
+./tests/phase17_validation.sh --dry-run
+
+# Full test (requires pkexec)
+./tests/phase17_validation.sh
+
+# Rollback test
+./tests/phase17_validation.sh --rollback-test
+```
+
 ## Definition of Done
 
 Anna is "done" when:
@@ -252,3 +309,4 @@ Anna is "done" when:
 2. No manual intervention required for install, update, or uninstall
 3. Zero home directory writes
 4. Zero invented facts in production output
+5. All action plans have verification and rollback

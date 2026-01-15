@@ -434,14 +434,14 @@ These guarantees are enforced in code, not just prompts.
 
 ## Version
 
-Current: **v0.3.38**
+Current: **v0.3.50**
 
 Recent highlights:
-- **Specialist system** - Deterministic dispatch to domain specialists (Phase 10)
-- **16 specialists** - 8 domains x 2 levels (junior/senior), each with defined helpers
-- **Escalation rules** - Juniors can escalate, but not at HIGH confidence
-- **Proactive auto-healing** - Anna monitors and recovers her own infrastructure
-- **Recovery dashboard** - `annactl status` shows subsystem health and recovery metrics
+- **Action execution** - Anna executes system changes, not just describes them (Phase 16)
+- **Verification & rollback** - All changes verified, rolled back on failure (Phase 17)
+- **Template plans** - GDM resolution, disable sleep, lid close behavior
+- **Idempotency** - Plans skip if already configured
+- **Specialist system** - Deterministic dispatch to domain specialists
 
 See [CHANGELOG.md](CHANGELOG.md) for the full story.
 

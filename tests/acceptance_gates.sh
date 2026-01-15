@@ -39,6 +39,28 @@ echo "======================================"
 echo
 
 # ================================================
+# GATE 0: Code Quality Gates (400-line limit, etc)
+# ================================================
+echo "======================================"
+echo "  GATE 0: Code Quality Gates"
+echo "======================================"
+echo
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -x "$SCRIPT_DIR/gates.sh" ]; then
+    info "Running code quality gates..."
+    if "$SCRIPT_DIR/gates.sh" --line-limit-only; then
+        pass "Code quality gates passed"
+    else
+        fail "Code quality gates failed"
+    fi
+else
+    warn "gates.sh not found, skipping code quality checks"
+fi
+
+echo
+
+# ================================================
 # GATE A: No Home Writes in Codebase
 # ================================================
 echo "======================================"

@@ -344,3 +344,50 @@ FinalAnswer MUST obey:
 - Replay restrictions
 
 Violations are considered CRITICAL DEFECTS.
+
+## 400-LINE RULE (Phase 17)
+
+All new Rust files MUST stay under 400 lines.
+
+**Enforced by:**
+- `tests/gates.sh --line-limit-only` (CI gate)
+- `tests/acceptance_gates.sh` calls gates.sh
+
+**Legacy files are grandfathered** but listed explicitly in gates.sh.
+New code exceeding 400 lines fails CI.
+
+## ACTION PLAN LIFECYCLE (Phase 16-17)
+
+When Anna executes system changes:
+
+1. **Template match** - Check if question matches known template (GDM, sleep, lid)
+2. **Preflight check** - Verify if changes are actually needed (idempotency)
+3. **State capture** - Backup affected files/units to `/var/lib/anna/rollback/`
+4. **User confirmation** - Present plan, wait for "yes"
+5. **Execute steps** - Run commands with pkexec
+6. **Per-step verification** - Verify each step succeeded
+7. **Final verification** - Authoritative check that goal was achieved
+8. **Rollback on failure** - Restore state if verification fails
+9. **Cleanup** - Remove stash on success
+
+**Key invariants:**
+- No manual commands in plan presentation
+- All changes are reversible (or explicitly marked non-reversible)
+- Rollback restores pre-execution state exactly
+
+## RELEASE VERIFICATION (Mandatory)
+
+A release is NOT complete unless:
+1. Tag exists on GitHub
+2. GitHub release exists
+3. `annactl-linux-x86_64` binary attached
+4. `annad-linux-x86_64` binary attached
+5. `SHA256SUMS` attached with correct hashes
+
+**Verify with:**
+```bash
+gh release view v0.X.XX --json tagName,assets
+# Must show all 3 assets
+```
+
+Do not claim "released" until verification passes.
