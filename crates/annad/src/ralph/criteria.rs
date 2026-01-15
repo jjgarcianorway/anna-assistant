@@ -1,4 +1,7 @@
 //! Completion criteria and iteration state for the Ralph loop.
+//! Phase 22: Integrates IntentClass for iteration limits.
+
+use anna_shared::intent_class::{classify_intent, IntentClass};
 
 /// Completion criteria for a question
 #[derive(Debug, Clone)]
@@ -11,6 +14,8 @@ pub struct CompletionCriteria {
     pub max_iterations: u32,
     /// Whether grounding in command output is required
     pub requires_grounding: bool,
+    /// Phase 22: Intent classification for answer contract
+    pub intent_class: IntentClass,
 }
 
 impl Default for CompletionCriteria {
@@ -20,6 +25,7 @@ impl Default for CompletionCriteria {
             min_confidence: 0.7,
             max_iterations: 5,
             requires_grounding: true,
+            intent_class: IntentClass::ReadOnly,
         }
     }
 }
@@ -71,6 +77,12 @@ pub struct SelfEvaluation {
 pub fn determine_criteria(question: &str) -> CompletionCriteria {
     let q = question.to_lowercase();
 
+    // Phase 22: Classify intent first
+    let intent_class = classify_intent(question);
+
+    // Phase 22: READ_ONLY questions get max 3 iterations
+    let readonly_max_iter = 3;
+
     // HowTo questions - instructions, don't need live output
     if q.contains("how do i")
         || q.contains("how to")
@@ -82,8 +94,9 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
         return CompletionCriteria {
             answer_type: AnswerType::HowTo,
             min_confidence: 0.6,
-            max_iterations: 3,
+            max_iterations: readonly_max_iter,
             requires_grounding: false, // Instructions don't need live data
+            intent_class,
         };
     }
 
@@ -96,11 +109,17 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
         || q.contains("fix")
         || q.contains("why")
     {
+        // Phase 22: Even troubleshooting caps at 3 for READ_ONLY, 5 for MUTATING
+        let max_iter = match intent_class {
+            IntentClass::ReadOnly => readonly_max_iter,
+            IntentClass::Mutating => 5,
+        };
         return CompletionCriteria {
             answer_type: AnswerType::Troubleshoot,
             min_confidence: 0.7,
-            max_iterations: 5,
+            max_iterations: max_iter,
             requires_grounding: true,
+            intent_class,
         };
     }
 
@@ -111,15 +130,22 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
             min_confidence: 0.5,
             max_iterations: 2,
             requires_grounding: false,
+            intent_class,
         };
     }
 
     // Default: Factual query
+    // Phase 22: Cap at 3 for READ_ONLY
+    let max_iter = match intent_class {
+        IntentClass::ReadOnly => readonly_max_iter,
+        IntentClass::Mutating => 5,
+    };
     CompletionCriteria {
         answer_type: AnswerType::Factual,
         min_confidence: 0.7,
-        max_iterations: 5,
+        max_iterations: max_iter,
         requires_grounding: true,
+        intent_class,
     }
 }
 
@@ -185,5 +211,32 @@ mod tests {
     #[test]
     fn test_quick_quality_check_refusal() {
         assert!(!quick_quality_check("I cannot answer that question"));
+    }
+
+    // Phase 22: Intent classification and iteration limits
+
+    #[test]
+    fn test_readonly_intent_caps_iterations() {
+        // READ_ONLY questions should have max 3 iterations
+        let criteria = determine_criteria("what is my disk usage?");
+        assert!(matches!(criteria.intent_class, IntentClass::ReadOnly));
+        assert!(criteria.max_iterations <= 3);
+    }
+
+    #[test]
+    fn test_mutating_intent_allows_more_iterations() {
+        // MUTATING questions can have up to 5 iterations
+        let criteria = determine_criteria("fix this bluetooth problem");
+        // "fix" triggers MUTATING
+        assert!(matches!(criteria.intent_class, IntentClass::Mutating));
+        assert_eq!(criteria.max_iterations, 5);
+    }
+
+    #[test]
+    fn test_diagnostic_readonly_caps_iterations() {
+        // Diagnostic READ_ONLY should also cap at 3
+        let criteria = determine_criteria("check swap usage and swappiness");
+        assert!(matches!(criteria.intent_class, IntentClass::ReadOnly));
+        assert!(criteria.max_iterations <= 3);
     }
 }

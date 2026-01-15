@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use anna_shared::exposure::gate::filter_final_answer;
+use anna_shared::exposure::gate::filter_final_answer_default;
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
 
@@ -28,13 +28,14 @@ pub fn take_pending_recipe(session_id: &str) -> Option<String> {
     None
 }
 
-/// Phase 15: Send a FinalAnswer with mandatory filtering.
-/// All FinalAnswer content MUST go through filter_final_answer().
+/// Phase 15/22: Send a FinalAnswer with mandatory filtering.
+/// All FinalAnswer content MUST go through filter_final_answer_default().
+/// Uses ReadOnly intent by default (conservative: no "would you like" offers).
 pub async fn send_filtered_final_answer<W: tokio::io::AsyncWriteExt + Unpin>(
     writer: &mut W,
     content: &str,
 ) -> Result<()> {
-    let filtered = filter_final_answer(content);
+    let filtered = filter_final_answer_default(content);
     let step = DialogueStep {
         step_type: StepType::FinalAnswer,
         content: filtered.content,

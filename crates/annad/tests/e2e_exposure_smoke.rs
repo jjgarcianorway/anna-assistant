@@ -180,24 +180,24 @@ fn test_step_type_classification_consistency() {
 
 #[test]
 fn test_final_answer_sanitization() {
-    use anna_shared::exposure::{filter_final_answer, BlockReason};
+    use anna_shared::exposure::{filter_final_answer_default, BlockReason};
 
     // Sudo blocked
-    let result = filter_final_answer("You can fix this with sudo systemctl restart nginx");
+    let result = filter_final_answer_default("You can fix this with sudo systemctl restart nginx");
     assert!(result.emit && result.content != "You can fix this with sudo systemctl restart nginx");
     assert!(matches!(result.block_reason, Some(BlockReason::ForbiddenPatterns { .. })));
 
     // "run this command" blocked
-    let result = filter_final_answer("Run this command to check: df -h");
+    let result = filter_final_answer_default("Run this command to check: df -h");
     assert!(result.emit && result.block_reason.is_some());
 
     // Edit file blocked
-    let result = filter_final_answer("Edit the file /etc/fstab with the new mount options");
+    let result = filter_final_answer_default("Edit the file /etc/fstab with the new mount options");
     assert!(result.emit && result.block_reason.is_some());
 
     // Clean answer passes
     let answer = "Your disk usage is 45%. The largest directory is /var at 12GB.";
-    let result = filter_final_answer(answer);
+    let result = filter_final_answer_default(answer);
     assert!(result.emit && result.content == answer && result.block_reason.is_none());
 }
 

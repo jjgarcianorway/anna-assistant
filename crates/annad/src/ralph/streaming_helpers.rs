@@ -3,7 +3,7 @@
 //! v0.3.46: All dialogue emission filtered through ExposureGate.
 //! No specialist or Ralph loop may bypass this filtering.
 
-use anna_shared::exposure::{DialogueClassification, ExposureGate, filter_final_answer};
+use anna_shared::exposure::{DialogueClassification, ExposureGate, filter_final_answer_default};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
 
@@ -66,6 +66,9 @@ pub fn classify_step(step_type: &StepType) -> Option<DialogueClassification> {
         StepType::ValidationPrompt => Some(DialogueClassification::Diagnostic),
         StepType::ValidationResponse => Some(DialogueClassification::Diagnostic),
         StepType::FinalPrompt => Some(DialogueClassification::Diagnostic),
+
+        // Phase 22: Heartbeat - always visible (Informational)
+        StepType::Heartbeat => Some(DialogueClassification::Informational),
     }
 }
 
@@ -90,9 +93,10 @@ pub async fn send_step<W: tokio::io::AsyncWriteExt + Unpin>(
 ) -> Result<()> {
     // Check if this step type requires filtering
     if let Some(classification) = classify_step(&step.step_type) {
-        // Phase 15: FinalAnswer uses special filter with fallback
+        // Phase 15/22: FinalAnswer uses special filter with fallback
+        // Uses default (ReadOnly) intent for backwards compatibility
         let result = if step.step_type == StepType::FinalAnswer {
-            filter_final_answer(&step.content)
+            filter_final_answer_default(&step.content)
         } else {
             gate.filter(&step.content, classification)
         };
@@ -130,6 +134,53 @@ pub async fn push_and_send<W: tokio::io::AsyncWriteExt + Unpin>(
 
     // Filter before sending to user
     send_step(writer, step, gate).await
+}
+
+/// Phase 22: Send a heartbeat step during long operations.
+pub async fn send_heartbeat<W: tokio::io::AsyncWriteExt + Unpin>(
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<()> {
+    let step = DialogueStep {
+        step_type: StepType::Heartbeat,
+        content: ".".to_string(),
+    };
+    send_step(writer, step, gate).await
+}
+
+/// Phase 22: Heartbeat interval (2 seconds)
+const HEARTBEAT_INTERVAL_SECS: u64 = 2;
+
+/// Phase 22: Run an async operation with periodic heartbeats.
+/// Sends a heartbeat every 2 seconds while waiting for the operation.
+pub async fn with_heartbeat<W, F, T>(
+    writer: &mut W,
+    gate: &ExposureGate,
+    operation: F,
+) -> Result<T>
+where
+    W: tokio::io::AsyncWriteExt + Unpin,
+    F: std::future::Future<Output = Result<T>>,
+{
+    use tokio::time::{interval, Duration};
+
+    let mut heartbeat_interval = interval(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
+    // Skip the first tick (fires immediately)
+    heartbeat_interval.tick().await;
+
+    tokio::pin!(operation);
+
+    loop {
+        tokio::select! {
+            result = &mut operation => {
+                return result;
+            }
+            _ = heartbeat_interval.tick() => {
+                // Send heartbeat, ignore errors (non-critical)
+                let _ = send_heartbeat(writer, gate).await;
+            }
+        }
+    }
 }
 
 /// Send the final Done response.

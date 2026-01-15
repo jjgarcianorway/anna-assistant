@@ -225,6 +225,8 @@ pub enum StepType {
     ExperimentStart,
     /// v0.3.29: Experiment result
     ExperimentResult,
+    /// v0.3.55: Phase 22 heartbeat for long operations
+    Heartbeat,
 }
 
 /// LLM error types for context preservation (v0.0.890)

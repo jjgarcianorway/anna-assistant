@@ -114,7 +114,7 @@ static ALARM_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
     ]
 });
 
-// Manual command patterns - Phase 15
+// Manual command patterns - Phase 15 + Phase 22 enhancements
 // Anna executes actions, not the user. These patterns block manual instructions.
 static MANUAL_COMMAND_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
     vec![
@@ -134,8 +134,28 @@ static MANUAL_COMMAND_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock:
         (Regex::new(r"(?i)\badd\s+(this|the|these)\s+(line|entry|section)").unwrap(), "[action]"),
         (Regex::new(r"(?i)\bmodify\s+(this|the|your)\s+(file|config)").unwrap(), "[action]"),
         (Regex::new(r"(?i)\bchange\s+(this|the)\s+(line|value)\s+to\b").unwrap(), "[action]"),
-        // Direct command suggestions in code blocks are caught by shell patterns
+        // Direct command suggestions in code blocks
         (Regex::new(r"```\s*(sh|bash|shell)?\s*\n[^`]*\b(sudo|systemctl|pacman|nano|vim)\b").unwrap(), "[action]"),
+        // Phase 22: Block command instructions (not mentions in Evidence summaries)
+        // These patterns match when commands appear as instructions at line start or after prompts
+        (Regex::new(r"(?i)^cat\s+/proc/").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^free\s+-[hmg]").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^journalctl\s").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^systemctl\s").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^pacman\s+-").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^apt\s+(list|show|search|install|remove)").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^df\s+-").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^du\s+-").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^lsblk\b").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^swapon\s+-").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)^pactl\s").unwrap(), "[probe]"),
+        // Shell prompt patterns ($ or > followed by command)
+        (Regex::new(r"(?i)\$\s*(cat|free|df|du|systemctl|journalctl|pacman|apt)\s").unwrap(), "[probe]"),
+        (Regex::new(r"(?i)>\s*(cat|free|df|du|systemctl|journalctl|pacman|apt)\s").unwrap(), "[probe]"),
+        // Forbidden phrases
+        (Regex::new(r"(?i)\bwould you like me to\b").unwrap(), "[offer]"),
+        (Regex::new(r"(?i)\bI need to handle it myself\b").unwrap(), "[offer]"),
+        (Regex::new(r"(?i)\bI can help.+but.+handle it\b").unwrap(), "[offer]"),
     ]
 });
 
@@ -284,9 +304,12 @@ mod tests {
 
     #[test]
     fn test_clean_patterns_pass() {
+        // Phase 22: Updated - evidence should use summaries, not raw commands
         let approved = [
-            "Request processed.", "Analysis complete.", "[probe] systemctl status",
+            "Request processed.", "Analysis complete.", "[probe]",
             "The service will be restarted.", "Configuration changes have been applied.",
+            "Evidence: disk usage, memory info", "Analysis shows 45% disk usage.",
+            "Your swap usage is 1.2GB.", "PipeWire is running.",
         ];
         for text in approved {
             assert!(sanitize_dialogue(text).is_clean, "Should pass: {}", text);

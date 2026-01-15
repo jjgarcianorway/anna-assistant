@@ -3,6 +3,7 @@
 
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
+use anna_shared::probe_ledger::ProbeLedger;
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::teaching;
 use anyhow::Result;
@@ -19,7 +20,7 @@ use super::diagnostic::try_diagnostic_path;
 use super::fast_path::try_fast_path;
 use super::instant::try_instant_error;
 use super::recipe_learning::{build_teaching_context, learn_recipe_from_answer};
-use super::streaming_helpers::{build_final_answer, push_and_send, send_dialogue_steps, send_done};
+use super::streaming_helpers::{build_final_answer, push_and_send, send_dialogue_steps, send_done, with_heartbeat};
 use super::verification::{truncate, verify_answer};
 
 /// Streaming version of the Ralph loop with real-time progress updates.
@@ -151,7 +152,8 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         None
     };
 
-    // Track investigation probes
+    // Track investigation probes with deduplication (Phase 22)
+    let mut probe_ledger = ProbeLedger::new();
     let mut probe_count: usize = 0;
     let mut experiment_count: usize = 0;
 
@@ -170,6 +172,12 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         let commands = get_commands(model, question, &state).await?;
 
         for cmd in &commands {
+            // Phase 22: Deduplicate probes via ProbeLedger
+            if !probe_ledger.should_execute(cmd) {
+                debug!("Skipping duplicate probe: {}", cmd);
+                continue;
+            }
+
             let risk = estimate_command_risk(cmd);
             let is_risky = risk > 0.3;
 
@@ -213,10 +221,11 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             }
         }
 
-        let answer = generate_answer(model, question, &state, &criteria).await?;
+        // Phase 22: Wrap LLM calls with heartbeat emission
+        let answer = with_heartbeat(writer, gate, generate_answer(model, question, &state, &criteria)).await?;
         state.answer = Some(answer.clone());
 
-        let eval = self_evaluate(model, question, &answer, &state, &criteria).await?;
+        let eval = with_heartbeat(writer, gate, self_evaluate(model, question, &answer, &state, &criteria)).await?;
         state.confidence = eval.confidence;
 
         if eval.is_complete && eval.confidence >= criteria.min_confidence {

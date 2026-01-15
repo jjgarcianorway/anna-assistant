@@ -1,0 +1,22 @@
+# Phase 22: Thermal throttling query - READ_ONLY answer
+# Expected: Direct answer, max 3 evidence items, no commands
+{"Step":{"step":{"step_type":"TicketCreated","content":"THERMAL-001"}}}
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Kevin (System) is handling this."}}}
+{"Step":{"step":{"step_type":"InvestigationStart","content":"detect thermal throttling and overheating"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"cat /sys/class/thermal/thermal_zone*/temp"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"dmesg | grep -i thermal | tail -5"}}}
+{"Step":{"step":{"step_type":"InvestigationComplete","content":"2 probes, 0 experiments run"}}}
+{"Token":{"token":"No"}}
+{"Token":{"token":" thermal"}}
+{"Token":{"token":" throttling"}}
+{"Token":{"token":" detected"}}
+{"Token":{"token":"."}}
+{"Token":{"token":" CPU"}}
+{"Token":{"token":" temperature"}}
+{"Token":{"token":" is"}}
+{"Token":{"token":" 52C"}}
+{"Token":{"token":" ("}}
+{"Token":{"token":"normal"}}
+{"Token":{"token":")"}}
+{"Token":{"token":"."}}
+{"Done":{"result":{"answer":"No thermal throttling detected. CPU temperature is 52C (normal).\n\nEvidence: /sys/class/thermal/*, dmesg thermal","success":true,"iterations":1,"commands_executed":["cat /sys/class/thermal/thermal_zone*/temp","dmesg | grep -i thermal | tail -5"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

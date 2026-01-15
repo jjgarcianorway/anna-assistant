@@ -216,12 +216,19 @@ pub async fn ask_streaming(question: &str, session_id: &str) -> Result<AskResult
     };
 
     // Only print metadata for successful, complete results
+    // Phase 22: Only show iteration count in Debug mode
     if !result.needs_clarification {
-        println!();
-        println_colored(&format!("({} iterations)", result.iterations), DIM);
+        let debug_mode = anna_shared::config::AnnaConfig::load()
+            .map(|c| c.debug_mode)
+            .unwrap_or(false);
 
-        // v0.3.6: Display citations if present
-        if !result.citations.is_empty() {
+        if debug_mode {
+            println!();
+            println_colored(&format!("({} iterations)", result.iterations), DIM);
+        }
+
+        // v0.3.6: Display citations if present (only in debug mode per Phase 22)
+        if debug_mode && !result.citations.is_empty() {
             println!();
             println_colored("Sources:", DIM);
             for cite in &result.citations {

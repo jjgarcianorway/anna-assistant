@@ -7,6 +7,7 @@
 
 use super::levels::{DialogueClassification, ExposureLevel};
 use super::sanitize::sanitize_dialogue;
+use crate::intent_class::IntentClass;
 
 /// Result of filtering a dialogue line through ExposureGate.
 #[derive(Debug, Clone)]
@@ -129,22 +130,29 @@ impl ExposureGate {
     }
 }
 
-/// Fallback message when FinalAnswer is blocked due to policy violations.
-/// Phase 15: Anna executes actions, not the user.
-const FALLBACK_ANSWER: &str = "I can help with this, but I need to handle it myself rather than providing manual instructions. Would you like me to proceed with the necessary changes? I'll explain what will be done and ask for confirmation before making any modifications.";
+/// Fallback for READ_ONLY intents - direct answer, no confirmation.
+/// Phase 22: READ_ONLY questions get direct answers without "would you like me to" offers.
+const FALLBACK_READONLY: &str = "Analysis complete. The system state has been checked.";
+
+/// Fallback for MUTATING intents - ActionPlan flow with confirmation.
+/// Phase 15/22: MUTATING operations require confirmation before execution.
+const FALLBACK_MUTATING: &str = "This operation requires changes. An action plan will be prepared for your approval before any modifications are made.";
 
 /// Convenience function to filter through a gate from config.
 pub fn filter_dialogue(content: &str, classification: DialogueClassification) -> GateResult {
     ExposureGate::from_config().filter(content, classification)
 }
 
-/// Filter a FinalAnswer with fallback on policy violation.
-/// Phase 15: FinalAnswer is NOT privileged - it must be sanitized.
-/// If the answer contains forbidden patterns (manual commands), return fallback.
+/// Filter a FinalAnswer with intent-aware fallback on policy violation.
+/// Phase 15/22: FinalAnswer is NOT privileged - it must be sanitized.
+/// If the answer contains forbidden patterns (manual commands), return appropriate fallback.
+///
+/// READ_ONLY: Gets direct answer fallback (no "would you like me to" offers)
+/// MUTATING: Gets ActionPlan confirmation fallback
 ///
 /// Note: FinalAnswer uses Summary level (not Silent) because answers should
 /// always be visible. Only forbidden pattern violations cause fallback.
-pub fn filter_final_answer(content: &str) -> GateResult {
+pub fn filter_final_answer(content: &str, intent: IntentClass) -> GateResult {
     // Use Summary level to ensure answers are always visible
     // The only thing that blocks FinalAnswer is forbidden patterns
     let gate = ExposureGate::new(ExposureLevel::Summary);
@@ -153,13 +161,23 @@ pub fn filter_final_answer(content: &str) -> GateResult {
     if result.emit {
         result
     } else {
-        // Answer was blocked due to forbidden patterns - return fallback
+        // Answer was blocked - use intent-appropriate fallback
+        let fallback = match intent {
+            IntentClass::ReadOnly => FALLBACK_READONLY,
+            IntentClass::Mutating => FALLBACK_MUTATING,
+        };
         GateResult {
             emit: true,
-            content: FALLBACK_ANSWER.to_string(),
+            content: fallback.to_string(),
             block_reason: result.block_reason,
         }
     }
+}
+
+/// Filter a FinalAnswer without intent context (defaults to ReadOnly).
+/// Backwards-compatible wrapper for existing call sites.
+pub fn filter_final_answer_default(content: &str) -> GateResult {
+    filter_final_answer(content, IntentClass::ReadOnly)
 }
 
 /// Convenience function to check if dialogue is enabled.
@@ -305,5 +323,47 @@ mod tests {
         assert!(!ExposureGate::new(ExposureLevel::Summary).diagnostic_visible());
         assert!(!ExposureGate::new(ExposureLevel::Dialogue).diagnostic_visible());
         assert!(ExposureGate::new(ExposureLevel::Debug).diagnostic_visible());
+    }
+
+    // Phase 22: Intent-aware fallback tests
+
+    #[test]
+    fn test_filter_final_answer_readonly_fallback() {
+        // Content with forbidden patterns should get READ_ONLY fallback
+        let result = filter_final_answer("sudo pacman -Syu", IntentClass::ReadOnly);
+        assert!(result.emit);
+        assert!(result.content.contains("Analysis complete"));
+        assert!(!result.content.contains("would you like"));
+        assert!(!result.content.contains("Would you like"));
+    }
+
+    #[test]
+    fn test_filter_final_answer_mutating_fallback() {
+        // Content with forbidden patterns should get MUTATING fallback
+        let result = filter_final_answer("sudo pacman -Syu", IntentClass::Mutating);
+        assert!(result.emit);
+        assert!(result.content.contains("requires changes"));
+        assert!(result.content.contains("approval"));
+    }
+
+    #[test]
+    fn test_filter_final_answer_clean_content_passes() {
+        // Clean content passes through regardless of intent
+        let clean = "The disk usage is at 45%.";
+        let result_ro = filter_final_answer(clean, IntentClass::ReadOnly);
+        let result_mut = filter_final_answer(clean, IntentClass::Mutating);
+
+        assert!(result_ro.emit);
+        assert_eq!(result_ro.content, clean);
+        assert!(result_mut.emit);
+        assert_eq!(result_mut.content, clean);
+    }
+
+    #[test]
+    fn test_filter_final_answer_default_uses_readonly() {
+        // Default function should use ReadOnly fallback
+        let result = filter_final_answer_default("sudo pacman -Syu");
+        assert!(result.emit);
+        assert!(result.content.contains("Analysis complete"));
     }
 }

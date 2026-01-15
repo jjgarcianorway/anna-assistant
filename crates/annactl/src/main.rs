@@ -118,7 +118,8 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool, sessi
                     // Display clarification question and prompt user
                     println!();
                     if let Some(ref clarification_q) = result.clarification_question {
-                        print_colored("ANNA needs clarification: ", YELLOW);
+                        // Phase 22: Consistent "Anna:" prefix, no "ANNA needs clarification"
+                        print_colored("Anna: ", YELLOW);
                         println!("{}", clarification_q);
                     }
                     print_colored("> ", CYAN);

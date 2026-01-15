@@ -1,0 +1,26 @@
+# Phase 22: Swap usage query - READ_ONLY answer
+# Expected: Direct answer, max 3 evidence items, no commands
+{"Step":{"step":{"step_type":"TicketCreated","content":"SWAP-001"}}}
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Kevin (System) is handling this."}}}
+{"Step":{"step":{"step_type":"InvestigationStart","content":"check swap usage and swappiness value"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"swapon --show"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"cat /proc/sys/vm/swappiness"}}}
+{"Step":{"step":{"step_type":"InvestigationComplete","content":"2 probes, 0 experiments run"}}}
+{"Token":{"token":"Swap"}}
+{"Token":{"token":" usage"}}
+{"Token":{"token":" is"}}
+{"Token":{"token":" 1.2GB"}}
+{"Token":{"token":" of"}}
+{"Token":{"token":" 8GB"}}
+{"Token":{"token":" ("}}
+{"Token":{"token":"15%"}}
+{"Token":{"token":")."}}
+{"Token":{"token":" Swappiness"}}
+{"Token":{"token":" is"}}
+{"Token":{"token":" set"}}
+{"Token":{"token":" to"}}
+{"Token":{"token":" 60"}}
+{"Token":{"token":" ("}}
+{"Token":{"token":"default"}}
+{"Token":{"token":")."}}
+{"Done":{"result":{"answer":"Swap usage is 1.2GB of 8GB (15%). Swappiness is set to 60 (default).\n\nEvidence: swapon --show, cat /proc/sys/vm/swappiness","success":true,"iterations":1,"commands_executed":["swapon --show","cat /proc/sys/vm/swappiness"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

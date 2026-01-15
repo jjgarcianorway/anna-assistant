@@ -1,0 +1,18 @@
+# Phase 22: Audio stack query - READ_ONLY answer
+# Expected: Direct answer, max 3 evidence items, no commands
+{"Step":{"step":{"step_type":"TicketCreated","content":"AUDIO-001"}}}
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Alex (Audio) is handling this."}}}
+{"Step":{"step":{"step_type":"InvestigationStart","content":"is my audio stack using pipewire or pulseaudio"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"pactl info"}}}
+{"Step":{"step":{"step_type":"InvestigationComplete","content":"1 probes, 0 experiments run"}}}
+{"Token":{"token":"Your"}}
+{"Token":{"token":" audio"}}
+{"Token":{"token":" stack"}}
+{"Token":{"token":" is"}}
+{"Token":{"token":" using"}}
+{"Token":{"token":" PipeWire"}}
+{"Token":{"token":" with"}}
+{"Token":{"token":" PulseAudio"}}
+{"Token":{"token":" compatibility"}}
+{"Token":{"token":"."}}
+{"Done":{"result":{"answer":"Your audio stack is using PipeWire with PulseAudio compatibility.\n\nEvidence: pactl info","success":true,"iterations":1,"commands_executed":["pactl info"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

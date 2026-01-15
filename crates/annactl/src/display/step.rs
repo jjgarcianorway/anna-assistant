@@ -193,6 +193,13 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
                 println_colored(&format!("  {}", step.content), DIM);
             }
         }
+
+        // Phase 22: Heartbeat - show activity indicator
+        StepType::Heartbeat => {
+            use std::io::Write;
+            print_colored(".", DIM);
+            let _ = std::io::stdout().flush();
+        }
     }
 }
 

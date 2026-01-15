@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.55] - 2026-01-15
+
+### Added - Phase 22: Reality Pass: Read-Only Intelligence
+
+Fixes real user transcript regressions and enforces READ_ONLY/MUTATING answer contracts.
+
+**A) Intent classifier (intent_class.rs):**
+- READ_ONLY vs MUTATING classification based on keywords
+- READ_ONLY: detect, show, check, diagnose, "what is", "how much"
+- MUTATING: change, set, configure, install, fix, enable, disable
+- Default: Questions (?) are READ_ONLY, imperatives are READ_ONLY unless clearly mutating
+
+**B) Answer contract enforcement (gate.rs):**
+- Separate fallbacks for READ_ONLY and MUTATING intents
+- READ_ONLY fallback: "Analysis complete" (no "would you like" offers)
+- MUTATING fallback: "Action plan will be prepared for your approval"
+- filter_final_answer now takes IntentClass parameter
+
+**C) Probe deduplication (probe_ledger.rs):**
+- Per-request ProbeLedger prevents duplicate probe execution
+- Iteration limits: READ_ONLY max 3 iterations, MUTATING max 5
+- CompletionCriteria now includes IntentClass
+
+**D) Evidence formatting (evidence.rs):**
+- Max 3 evidence items in non-Debug mode
+- Concise evidence summaries, not raw command output
+
+**E) Streaming heartbeat:**
+- New StepType::Heartbeat for long operations
+- with_heartbeat() wrapper sends heartbeat every 2s during LLM calls
+- Visual feedback during slow operations
+
+**F) Transcript contamination fixes:**
+- "ANNA needs clarification" -> "Anna:" for consistency
+- "(N iterations)" and "Sources:" only visible in Debug mode
+- Command patterns only match at line start (not in Evidence summaries)
+
+**G) Golden fixtures:**
+- phase22_swap.fixture - Swap usage READ_ONLY answer
+- phase22_audio.fixture - Audio stack READ_ONLY answer
+- phase22_thermal.fixture - Thermal throttling READ_ONLY answer
+- phase22_bluetooth.fixture - Bluetooth suspend READ_ONLY answer
+
+**Contract (docs/READONLY_CONTRACT.md):**
+- Classification rules for READ_ONLY vs MUTATING
+- Forbidden patterns in READ_ONLY answers
+- Evidence format rules (max 3 lines)
+- Enforcement chain documentation
+
 ## [0.3.54] - 2026-01-15
 
 ### Added - Phase 21: Status as a Product

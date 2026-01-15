@@ -67,6 +67,16 @@
 - Exposure-gated visibility
 - Status golden fixtures (healthy, daemon_down, no_group, no_updates)
 
+### Phase 22: Reality Pass: Read-Only Intelligence (v0.3.55)
+- READ_ONLY vs MUTATING intent classification
+- Answer contract enforcement (no "would you like" for READ_ONLY)
+- Probe deduplication via ProbeLedger
+- Iteration limits (READ_ONLY: 3, MUTATING: 5)
+- Evidence formatting rules (max 3 items)
+- Streaming heartbeat for long operations
+- Transcript contamination fixes
+- Golden fixtures for swap/audio/thermal/bluetooth scenarios
+
 ## Frozen (Not Planned)
 
 - No new specialists
@@ -76,7 +86,7 @@
 
 ## Future Phases
 
-### Phase 22: Model Selection Benchmark + Hardware-Aware Routing
+### Phase 23: Model Selection Benchmark + Hardware-Aware Routing
 - Model performance benchmarking
 - Hardware capability detection
 - Automatic model selection based on query complexity

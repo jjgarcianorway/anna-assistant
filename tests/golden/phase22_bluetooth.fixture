@@ -1,0 +1,31 @@
+# Phase 22: Bluetooth suspend query - READ_ONLY answer
+# Expected: Direct answer, max 3 evidence items, no commands
+{"Step":{"step":{"step_type":"TicketCreated","content":"BT-001"}}}
+{"Step":{"step":{"step_type":"TeamAssignment","content":"Alex (Network) is handling this."}}}
+{"Step":{"step":{"step_type":"InvestigationStart","content":"why does bluetooth fail after suspend"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"systemctl status bluetooth"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"dmesg | grep -i bluetooth | tail -5"}}}
+{"Step":{"step":{"step_type":"InvestigationProbe","content":"journalctl -b -u bluetooth | tail -10"}}}
+{"Step":{"step":{"step_type":"InvestigationComplete","content":"3 probes, 0 experiments run"}}}
+{"Token":{"token":"Bluetooth"}}
+{"Token":{"token":" service"}}
+{"Token":{"token":" fails"}}
+{"Token":{"token":" after"}}
+{"Token":{"token":" suspend"}}
+{"Token":{"token":" because"}}
+{"Token":{"token":" the"}}
+{"Token":{"token":" adapter"}}
+{"Token":{"token":" loses"}}
+{"Token":{"token":" firmware"}}
+{"Token":{"token":"."}}
+{"Token":{"token":" This"}}
+{"Token":{"token":" is"}}
+{"Token":{"token":" a"}}
+{"Token":{"token":" known"}}
+{"Token":{"token":" issue"}}
+{"Token":{"token":" with"}}
+{"Token":{"token":" Intel"}}
+{"Token":{"token":" AX200"}}
+{"Token":{"token":" adapters"}}
+{"Token":{"token":"."}}
+{"Done":{"result":{"answer":"Bluetooth service fails after suspend because the adapter loses firmware. This is a known issue with Intel AX200 adapters.\n\nEvidence: systemctl status bluetooth, dmesg bluetooth, journalctl bluetooth","success":true,"iterations":1,"commands_executed":["systemctl status bluetooth","dmesg | grep -i bluetooth | tail -5","journalctl -b -u bluetooth | tail -10"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

@@ -64,7 +64,10 @@ fn format_verbose(
     lines.join("\n")
 }
 
-/// Concise format - successful probes and doc citations
+/// Phase 22: Maximum evidence items in non-Debug mode
+const MAX_EVIDENCE_ITEMS: usize = 3;
+
+/// Concise format - successful probes and doc citations (max 3 items in non-Debug)
 fn format_concise(
     successful_findings: &[&Finding],
     failed_findings: &[&Finding],
@@ -72,8 +75,10 @@ fn format_concise(
 ) -> String {
     // v0.3.27: Mark failed probes explicitly
     // v0.3.28: Phase 3 F15 - mark empty output probes
+    // Phase 22: Limit to MAX_EVIDENCE_ITEMS
     let mut parts: Vec<String> = successful_findings
         .iter()
+        .take(MAX_EVIDENCE_ITEMS) // Phase 22: limit items
         .map(|f| {
             if f.output.trim().is_empty() {
                 format!("{}[empty]", f.command)
@@ -82,11 +87,17 @@ fn format_concise(
             }
         })
         .collect();
-    parts.extend(doc_citations.iter().cloned());
 
-    if !failed_findings.is_empty() {
+    // Only add doc citations if we have room
+    let remaining = MAX_EVIDENCE_ITEMS.saturating_sub(parts.len());
+    parts.extend(doc_citations.iter().take(remaining).cloned());
+
+    // Only add failed probes info if we have room and there are failures
+    if !failed_findings.is_empty() && parts.len() < MAX_EVIDENCE_ITEMS {
+        let remaining = MAX_EVIDENCE_ITEMS.saturating_sub(parts.len());
         let failed_cmds: Vec<String> = failed_findings
             .iter()
+            .take(remaining)
             .map(|f| format!("{}[FAILED]", f.command))
             .collect();
         parts.extend(failed_cmds);
