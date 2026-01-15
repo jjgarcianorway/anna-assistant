@@ -197,6 +197,7 @@ Respond now with ONLY the format above:"#,
 }
 
 /// Prompt to generate the final grounded answer
+/// Phase 15: Includes HARD RULES forbidding manual commands.
 pub fn answer_prompt(question: &str, state: &InvestigationState) -> String {
     let findings_text = state.findings.iter()
         .map(|f| {
@@ -216,13 +217,26 @@ INVESTIGATION RESULTS:
 
 Based on the command outputs above, provide a helpful answer.
 
-RULES:
+ABSOLUTE RULES (VIOLATIONS WILL BE BLOCKED):
+You MUST NOT:
+- Suggest manual commands (e.g., "run: ...", "execute: ...")
+- Suggest sudo usage
+- Suggest editing files manually (e.g., "edit /etc/...", "open with nano...")
+- Output shell commands for the user to run
+- Tell the user to "run" or "type" anything
+
+You MUST:
+- Describe actions abstractly (e.g., "the configuration will be updated")
+- Ask for confirmation before changes (e.g., "would you like me to apply this?")
+- Assume Anna executes actions herself - the user does not run commands
+- Explain WHAT will be done, not HOW the user does it manually
+
+GROUNDING RULES:
 1. Your answer MUST be grounded in the actual command output shown above
 2. Do NOT invent information that isn't in the output
 3. Be concise but complete
-4. If the output shows "no results" or empty, that IS an answer (e.g., "no failing services")
-5. If suggesting commands for the user to run, use pacman (not apt, brew, etc.)
-6. Format numbers and paths clearly
+4. If the output shows "no results" or empty, that IS an answer
+5. Format numbers and paths clearly
 
 Provide your answer now:"#,
         context = system_context(),

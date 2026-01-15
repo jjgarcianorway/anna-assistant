@@ -130,7 +130,8 @@ impl Department {
                     name: "Sophie",
                     role: SpecialistRole::Senior,
                     department: "Hardware",
-                    expertise: &["firmware", "bios", "uefi", "acpi", "power management", "sensors", "overclocking"],
+                    // Phase 15: Added sleep/suspend/hibernate for power management routing
+                    expertise: &["firmware", "bios", "uefi", "acpi", "power management", "sensors", "overclocking", "sleep", "suspend", "hibernate", "idle", "lid"],
                     model_tier: "deep",
                 },
 
@@ -284,6 +285,15 @@ pub fn get_specialist_for_topic(topic: &str) -> Option<&'static Specialist> {
 /// Determine department from question keywords
 pub fn determine_department(question: &str) -> &'static str {
     let q = question.to_lowercase();
+
+    // Phase 15: Power management routes to Hardware (Sophie has power management expertise)
+    // Must check BEFORE display/screen checks to avoid false routing
+    if q.contains("sleep") || q.contains("suspend") || q.contains("hibernate")
+       || q.contains("power management") || q.contains("lid close")
+       || (q.contains("idle") && (q.contains("disable") || q.contains("prevent") || q.contains("timeout")))
+       || q.contains("acpi") {
+        return "Hardware";
+    }
 
     if q.contains("wifi") || q.contains("network") || q.contains("internet")
        || q.contains("ethernet") || q.contains("dns") || q.contains("ip ")

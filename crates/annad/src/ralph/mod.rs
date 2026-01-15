@@ -17,7 +17,7 @@ mod fast_path_patterns;
 mod instant;
 mod recipe_learning;
 mod streaming;
-mod streaming_helpers;
+pub mod streaming_helpers;
 mod verification;
 
 // Re-export public API

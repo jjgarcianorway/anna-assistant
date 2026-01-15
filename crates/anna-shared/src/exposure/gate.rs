@@ -129,9 +129,37 @@ impl ExposureGate {
     }
 }
 
+/// Fallback message when FinalAnswer is blocked due to policy violations.
+/// Phase 15: Anna executes actions, not the user.
+const FALLBACK_ANSWER: &str = "I can help with this, but I need to handle it myself rather than providing manual instructions. Would you like me to proceed with the necessary changes? I'll explain what will be done and ask for confirmation before making any modifications.";
+
 /// Convenience function to filter through a gate from config.
 pub fn filter_dialogue(content: &str, classification: DialogueClassification) -> GateResult {
     ExposureGate::from_config().filter(content, classification)
+}
+
+/// Filter a FinalAnswer with fallback on policy violation.
+/// Phase 15: FinalAnswer is NOT privileged - it must be sanitized.
+/// If the answer contains forbidden patterns (manual commands), return fallback.
+///
+/// Note: FinalAnswer uses Summary level (not Silent) because answers should
+/// always be visible. Only forbidden pattern violations cause fallback.
+pub fn filter_final_answer(content: &str) -> GateResult {
+    // Use Summary level to ensure answers are always visible
+    // The only thing that blocks FinalAnswer is forbidden patterns
+    let gate = ExposureGate::new(ExposureLevel::Summary);
+    let result = gate.filter(content, DialogueClassification::Informational);
+
+    if result.emit {
+        result
+    } else {
+        // Answer was blocked due to forbidden patterns - return fallback
+        GateResult {
+            emit: true,
+            content: FALLBACK_ANSWER.to_string(),
+            block_reason: result.block_reason,
+        }
+    }
 }
 
 /// Convenience function to check if dialogue is enabled.

@@ -395,6 +395,97 @@ fn test_e2e_full_exposure_with_daemon() {
 }
 
 // ============================================================================
+// PHASE 15: ANSWER CONTRACT ENFORCEMENT TESTS
+// ============================================================================
+
+/// Phase 15: FinalAnswer containing manual commands must be blocked/fallback
+#[test]
+fn test_final_answer_sanitization_blocks_sudo() {
+    use anna_shared::exposure::{filter_final_answer, BlockReason};
+
+    // Answer containing sudo must trigger fallback
+    let answer = "You can fix this with sudo systemctl restart nginx";
+    let result = filter_final_answer(answer);
+
+    // Should emit (fallback), not original content
+    assert!(result.emit);
+    assert_ne!(result.content, answer); // Content changed to fallback
+    assert!(result.block_reason.is_some());
+    assert!(matches!(result.block_reason, Some(BlockReason::ForbiddenPatterns { .. })));
+}
+
+/// Phase 15: FinalAnswer with "run this command" must be blocked
+#[test]
+fn test_final_answer_sanitization_blocks_run_command() {
+    use anna_shared::exposure::filter_final_answer;
+
+    let answer = "Run this command to check: df -h";
+    let result = filter_final_answer(answer);
+
+    assert!(result.emit);
+    assert_ne!(result.content, answer);
+    assert!(result.block_reason.is_some());
+}
+
+/// Phase 15: FinalAnswer with edit instructions must be blocked
+#[test]
+fn test_final_answer_sanitization_blocks_edit_file() {
+    use anna_shared::exposure::filter_final_answer;
+
+    let answer = "Edit the file /etc/fstab with the new mount options";
+    let result = filter_final_answer(answer);
+
+    assert!(result.emit);
+    assert_ne!(result.content, answer);
+    assert!(result.block_reason.is_some());
+}
+
+/// Phase 15: Clean FinalAnswer passes through unchanged
+#[test]
+fn test_final_answer_clean_passes() {
+    use anna_shared::exposure::filter_final_answer;
+
+    let answer = "Your disk usage is 45%. The largest directory is /var at 12GB.";
+    let result = filter_final_answer(answer);
+
+    assert!(result.emit);
+    assert_eq!(result.content, answer);
+    assert!(result.block_reason.is_none());
+}
+
+/// Phase 15: Power intent routing test
+#[test]
+fn test_power_intent_routing() {
+    use annad::patterns::power::match_patterns;
+
+    // "prevent suspend everywhere" must route to power
+    let result = match_patterns("prevent suspend everywhere");
+    assert!(result.is_some());
+    assert_eq!(result.as_ref().unwrap().topic, Some("power".to_string()));
+
+    // "disable sleep on lid close" must route to power
+    let result = match_patterns("disable sleep on lid close");
+    assert!(result.is_some());
+    assert_eq!(result.as_ref().unwrap().topic, Some("power".to_string()));
+
+    // "never sleep even on GDM" must route to power
+    let result = match_patterns("never sleep even on GDM");
+    assert!(result.is_some());
+    assert_eq!(result.as_ref().unwrap().topic, Some("power".to_string()));
+}
+
+/// Phase 15: FinalAnswer is now classified (no longer bypasses)
+#[test]
+fn test_final_answer_has_classification() {
+    use anna_shared::rpc::StepType;
+    use annad::ralph::streaming_helpers::classify_step;
+
+    // FinalAnswer must have a classification (not None)
+    let classification = classify_step(&StepType::FinalAnswer);
+    assert!(classification.is_some(), "FinalAnswer must be classified for filtering");
+}
+
+// ============================================================================
 // COMBINED ASSERTION SUMMARY
 // ============================================================================
 
@@ -418,5 +509,16 @@ fn test_phase14_preflight_summary() {
     println!("  - ExposureGate.filter() < 1ms budget: TESTED");
     println!("\nOllama-dependent tests:");
     println!("  - Marked with #[ignore], skip gracefully when unavailable");
+    println!("\n=== Phase 15 Answer Contract Enforcement ===\n");
+    println!("FinalAnswer Sanitization:");
+    println!("  - sudo commands blocked with fallback: TESTED");
+    println!("  - 'run this command' blocked: TESTED");
+    println!("  - 'edit file' instructions blocked: TESTED");
+    println!("  - Clean answers pass unchanged: TESTED");
+    println!("  - FinalAnswer has classification (not None): TESTED");
+    println!("\nPower Intent Routing:");
+    println!("  - 'prevent suspend everywhere' -> power: TESTED");
+    println!("  - 'disable sleep on lid close' -> power: TESTED");
+    println!("  - 'never sleep even on GDM' -> power: TESTED");
     println!("\n=== All pre-flight checks passed ===\n");
 }

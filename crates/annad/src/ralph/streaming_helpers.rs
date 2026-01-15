@@ -3,7 +3,7 @@
 //! v0.3.46: All dialogue emission filtered through ExposureGate.
 //! No specialist or Ralph loop may bypass this filtering.
 
-use anna_shared::exposure::{DialogueClassification, ExposureGate};
+use anna_shared::exposure::{DialogueClassification, ExposureGate, filter_final_answer};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
 
@@ -13,13 +13,21 @@ use anyhow::Result;
 /// - Informational: Summary+ (status updates)
 /// - Procedural: Dialogue+ (step-by-step actions)
 /// - Diagnostic: Debug only (raw output, errors)
+///
+/// Phase 15: FinalAnswer is NO LONGER privileged. It MUST be sanitized.
+/// This prevents LLM-generated manual commands from reaching the user.
 pub fn classify_step(step_type: &StepType) -> Option<DialogueClassification> {
     match step_type {
-        // Always shown - bypass filtering
-        StepType::FinalAnswer => None,
+        // Phase 15: FinalAnswer MUST be sanitized (no longer bypasses)
+        // Uses Informational so it's always visible, but still filtered
+        StepType::FinalAnswer => Some(DialogueClassification::Informational),
+
+        // UserQuestion is user input - no filtering needed
         StepType::UserQuestion => None,
+        // Clarification interactions - no filtering needed
         StepType::ClarificationQuestion => None,
         StepType::ClarificationResponse => None,
+        // System alerts are pre-validated - no filtering needed
         StepType::SystemAlert => None,
 
         // Informational: status updates, completion notifications
@@ -74,6 +82,7 @@ async fn send_step_internal<W: tokio::io::AsyncWriteExt + Unpin>(
 }
 
 /// Send a step over the streaming connection with exposure filtering.
+/// Phase 15: FinalAnswer is ALWAYS filtered - uses fallback on policy violation.
 pub async fn send_step<W: tokio::io::AsyncWriteExt + Unpin>(
     writer: &mut W,
     step: DialogueStep,
@@ -81,18 +90,24 @@ pub async fn send_step<W: tokio::io::AsyncWriteExt + Unpin>(
 ) -> Result<()> {
     // Check if this step type requires filtering
     if let Some(classification) = classify_step(&step.step_type) {
-        let result = gate.filter(&step.content, classification);
+        // Phase 15: FinalAnswer uses special filter with fallback
+        let result = if step.step_type == StepType::FinalAnswer {
+            filter_final_answer(&step.content)
+        } else {
+            gate.filter(&step.content, classification)
+        };
+
         if !result.emit {
             return Ok(()); // Blocked by exposure gate
         }
-        // Send with sanitized content
+        // Send with sanitized/fallback content
         let filtered_step = DialogueStep {
             step_type: step.step_type,
             content: result.content,
         };
         send_step_internal(writer, filtered_step).await
     } else {
-        // No filtering required (FinalAnswer, UserQuestion)
+        // No filtering required (UserQuestion, ClarificationQuestion, etc.)
         send_step_internal(writer, step).await
     }
 }
@@ -164,8 +179,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_classify_step_final_answer_bypasses() {
-        assert!(classify_step(&StepType::FinalAnswer).is_none());
+    fn test_classify_step_final_answer_filtered() {
+        // Phase 15: FinalAnswer is now filtered (no longer bypasses)
+        let classification = classify_step(&StepType::FinalAnswer);
+        assert!(classification.is_some());
+        assert_eq!(classification.unwrap(), DialogueClassification::Informational);
     }
 
     #[test]

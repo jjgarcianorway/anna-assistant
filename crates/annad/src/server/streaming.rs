@@ -4,6 +4,7 @@
 //! v0.0.998: Added Hollywood IT teams experience
 
 use anna_shared::rpc::{DialogueStep, RpcRequest, StepType, StreamingResponse};
+use anna_shared::exposure::gate::filter_final_answer;
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
@@ -42,6 +43,23 @@ fn take_pending_recipe(session_id: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Phase 15: Send a FinalAnswer with mandatory filtering.
+/// All FinalAnswer content MUST go through filter_final_answer().
+async fn send_filtered_final_answer<W: tokio::io::AsyncWriteExt + Unpin>(
+    writer: &mut W,
+    content: &str,
+) -> Result<()> {
+    let filtered = filter_final_answer(content);
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: filtered.content,
+    };
+    let response = StreamingResponse::Step { step };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+    Ok(())
 }
 
 /// Handle a streaming AskStreaming request
@@ -119,17 +137,12 @@ pub async fn handle_streaming_request(
         } else if is_no_response(question) {
             info!("Autofix {} cancelled by user", pending_fix.id);
 
-            // Show cancellation message
-            let step = DialogueStep {
-                step_type: StepType::FinalAnswer,
-                content: "No problem, I won't make any changes.".to_string(),
-            };
-            let response = StreamingResponse::Step { step };
-            let json = serde_json::to_string(&response)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            // Show cancellation message (Phase 15: filtered)
+            let cancel_msg = "No problem, I won't make any changes.";
+            send_filtered_final_answer(&mut writer, cancel_msg).await?;
 
             let result = anna_shared::rpc::AskResult {
-                answer: "No problem, I won't make any changes.".to_string(),
+                answer: cancel_msg.to_string(),
                 success: true,
                 iterations: 0,
                 commands_executed: vec![],
@@ -152,13 +165,8 @@ pub async fn handle_streaming_request(
         info!("User asking about fix history");
         let summary = get_fix_history_summary();
 
-        let step = DialogueStep {
-            step_type: StepType::FinalAnswer,
-            content: summary.clone(),
-        };
-        let response = StreamingResponse::Step { step };
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        // Phase 15: Filter through ExposureGate
+        send_filtered_final_answer(&mut writer, &summary).await?;
 
         let result = anna_shared::rpc::AskResult {
             answer: summary,
@@ -183,13 +191,8 @@ pub async fn handle_streaming_request(
             info!("Executing recipe {} (user confirmed)", pending_recipe_id);
             let result = recipes::execute_confirmed_recipe(&pending_recipe_id);
 
-            let step = DialogueStep {
-                step_type: StepType::FinalAnswer,
-                content: result.message.clone(),
-            };
-            let response = StreamingResponse::Step { step };
-            let json = serde_json::to_string(&response)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            // Phase 15: Filter through ExposureGate
+            send_filtered_final_answer(&mut writer, &result.message).await?;
 
             let ask_result = anna_shared::rpc::AskResult {
                 answer: result.message,
@@ -208,16 +211,12 @@ pub async fn handle_streaming_request(
             return Ok(());
         } else if is_no_response(question) {
             info!("Recipe {} cancelled by user", pending_recipe_id);
-            let step = DialogueStep {
-                step_type: StepType::FinalAnswer,
-                content: "No problem, I won't make any changes.".to_string(),
-            };
-            let response = StreamingResponse::Step { step };
-            let json = serde_json::to_string(&response)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            // Phase 15: Filter through ExposureGate
+            let cancel_msg = "No problem, I won't make any changes.";
+            send_filtered_final_answer(&mut writer, cancel_msg).await?;
 
             let result = anna_shared::rpc::AskResult {
-                answer: "No problem, I won't make any changes.".to_string(),
+                answer: cancel_msg.to_string(),
                 success: true,
                 iterations: 0,
                 commands_executed: vec![],
@@ -239,17 +238,18 @@ pub async fn handle_streaming_request(
     if let Some(recipe_result) = recipes::try_recipe(question) {
         info!("Recipe matched for: {}", question);
 
-        let step = DialogueStep {
-            step_type: if recipe_result.needs_confirmation {
-                StepType::ConfirmationRequest
-            } else {
-                StepType::FinalAnswer
-            },
-            content: recipe_result.message.clone(),
-        };
-        let response = StreamingResponse::Step { step };
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        // Phase 15: Only FinalAnswer needs filtering, ConfirmationRequest doesn't
+        if recipe_result.needs_confirmation {
+            let step = DialogueStep {
+                step_type: StepType::ConfirmationRequest,
+                content: recipe_result.message.clone(),
+            };
+            let response = StreamingResponse::Step { step };
+            let json = serde_json::to_string(&response)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        } else {
+            send_filtered_final_answer(&mut writer, &recipe_result.message).await?;
+        }
 
         if recipe_result.needs_confirmation {
             // Extract recipe ID from the pending recipe system
@@ -320,14 +320,8 @@ pub async fn handle_streaming_request(
         let state_guard = state.read().await;
         if let Some(cached_answer) = state_guard.get_cached_answer(question) {
             info!("Returning cached answer for: {}", question);
-            // Send cached answer as a quick streaming response
-            let step = DialogueStep {
-                step_type: StepType::FinalAnswer,
-                content: cached_answer.clone(),
-            };
-            let response = StreamingResponse::Step { step: step.clone() };
-            let json = serde_json::to_string(&response)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            // Phase 15: Filter cached answer through ExposureGate
+            send_filtered_final_answer(&mut writer, &cached_answer).await?;
 
             // Send done with AskResult
             let result = anna_shared::rpc::AskResult {
@@ -335,7 +329,7 @@ pub async fn handle_streaming_request(
                 success: true,
                 iterations: 0,
                 commands_executed: vec![],
-                dialogue: vec![step],
+                dialogue: vec![],
                 needs_clarification: false,
                 clarification_question: None,
                 cached: true,
@@ -402,12 +396,8 @@ pub async fn handle_streaming_request(
             let json = serde_json::to_string(&StreamingResponse::Step { step: step.clone() })?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
 
-            let step = DialogueStep {
-                step_type: StepType::FinalAnswer,
-                content: cached_answer.clone(),
-            };
-            let json = serde_json::to_string(&StreamingResponse::Step { step: step.clone() })?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            // Phase 15: Filter cached answer through ExposureGate
+            send_filtered_final_answer(&mut writer, &cached_answer).await?;
 
             let result = anna_shared::rpc::AskResult {
                 answer: cached_answer,

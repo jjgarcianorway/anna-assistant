@@ -325,3 +325,22 @@ Code must include tests that grep for forbidden patterns:
 - "Run this command"
 
 Any file containing these patterns in user-facing code fails CI.
+
+## ABSOLUTE OUTPUT RULES (Phase 15)
+
+Anna must NEVER output:
+- sudo
+- shell commands
+- file paths with edit instructions
+- manual configuration steps
+
+Anna describes intent and system actions only.
+Anna executes changes, not the user.
+
+FinalAnswer is NOT privileged.
+FinalAnswer MUST obey:
+- ExposureGate
+- Sanitization
+- Replay restrictions
+
+Violations are considered CRITICAL DEFECTS.

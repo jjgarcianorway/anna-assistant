@@ -47,7 +47,7 @@ pub mod levels;
 pub mod sanitize;
 
 pub use consent::{ConsentState, check_consent, record_consent, CONSENT_ACKNOWLEDGEMENT};
-pub use gate::{ExposureGate, GateResult, BlockReason, filter_dialogue, is_dialogue_enabled};
+pub use gate::{ExposureGate, GateResult, BlockReason, filter_dialogue, filter_final_answer, is_dialogue_enabled};
 pub use levels::{ExposureLevel, ExposureFilter, should_show, DialogueClassification};
 pub use sanitize::{sanitize_dialogue, validate_wording, ForbiddenPattern, SanitizationResult};
 

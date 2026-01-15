@@ -394,7 +394,7 @@ impl LlmErrorContext {
 }
 
 /// Types of dialogue steps
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StepType {
     /// User's original question
     UserQuestion,

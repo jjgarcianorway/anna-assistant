@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.48] - 2026-01-15
+
+### Fixed - Phase 15: Answer Path Complete Enforcement
+
+Fixes critical gap where `server/streaming.rs` shortcut paths bypassed FinalAnswer filtering.
+
+**server/streaming.rs now filters ALL FinalAnswer emissions:**
+- Created `send_filtered_final_answer()` helper function
+- Updated 7 direct FinalAnswer emissions to use filter:
+  - Autofix cancelled message
+  - Fix history summary
+  - Recipe execution result
+  - Recipe cancelled message
+  - Recipe result (non-confirmation path)
+  - Cached answer (two paths)
+- ConfirmationRequest remains unfiltered (not user-facing answer)
+
+**Power management routing enhanced:**
+- `determine_department()` now routes sleep/suspend/hibernate to Hardware
+- Added: sleep, suspend, hibernate, idle, lid close, acpi keywords
+- Sophie (hw-sr) now has full power management expertise keywords
+- Q9 "prevent computer from sleeping when idle" correctly routes to Hardware
+
+**Changes:**
+- `server/streaming.rs`: Import `filter_final_answer`, add helper, update 7 emission sites
+- `department/specialists.rs`: Add power keywords to `determine_department()`, extend Sophie's expertise
+
+## [0.3.47] - 2026-01-15
+
+### Added - Phase 15: Answer Contract Enforcement
+
+Closes the last integrity gap: LLM-generated answers now obey sanitization rules.
+
+**FinalAnswer is NO LONGER privileged:**
+- FinalAnswer now routed through ExposureGate (was: bypass)
+- Classification: `Informational` (always visible, but filtered)
+- Fallback message on policy violation instead of empty/blocked
+
+**ManualCommands forbidden pattern category:**
+- Detects: `sudo`, `run this command`, `edit file`, `nano/vim /path`
+- Blocks answers with manual instructions
+- Returns safe fallback: "I can help with this, but I need to handle it myself..."
+
+**Power Management intent routing fixed:**
+- Added `match_power_control()` pattern matcher
+- Keywords: disable, prevent, stop, never, cannot, don't + sleep, suspend, lid, idle
+- Routes to Power specialist, NOT Desktop
+- Tests: "disable sleep everywhere", "prevent suspend on lid close", "never sleep on GDM"
+
+**LLM prompt hard rules:**
+- `answer_prompt()` now includes ABSOLUTE RULES section
+- Forbids: sudo, shell commands, edit instructions
+- Requires: abstract descriptions, confirmation before changes
+
+**CLAUDE.md updated:**
+- New section: ABSOLUTE OUTPUT RULES (Phase 15)
+- FinalAnswer must obey ExposureGate, Sanitization, Replay
+
+**Tests added:**
+- `test_final_answer_sanitization_blocks_sudo`
+- `test_final_answer_sanitization_blocks_run_command`
+- `test_final_answer_sanitization_blocks_edit_file`
+- `test_final_answer_clean_passes`
+- `test_power_intent_routing`
+- `test_final_answer_has_classification`
+
 ### Added - Phase 14: Production Hardening (Pre-flight Gate)
 
 E2E smoke test harness validating ExposureGate behavior across all exposure levels.

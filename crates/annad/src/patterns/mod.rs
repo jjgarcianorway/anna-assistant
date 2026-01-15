@@ -35,7 +35,7 @@ mod network;
 mod nvidia;
 mod pacman;
 mod performance;
-mod power;
+pub mod power;
 mod printing;
 mod process;
 mod recovery;

@@ -20,6 +20,9 @@ pub enum ForbiddenPattern {
     Consciousness,
     /// Alarm language (error, failure, danger, etc. in dialogue)
     Alarm,
+    /// Manual commands (sudo, shell commands, edit instructions)
+    /// Added in Phase 15: Anna executes actions, not the user.
+    ManualCommands,
 }
 
 impl ForbiddenPattern {
@@ -30,6 +33,7 @@ impl ForbiddenPattern {
             Self::Authority => "Authority language implies Anna has power over user",
             Self::Consciousness => "Consciousness language implies Anna is sentient",
             Self::Alarm => "Alarm language creates anxiety",
+            Self::ManualCommands => "Manual commands violate contract: Anna executes, not user",
         }
     }
 }
@@ -110,6 +114,31 @@ static ALARM_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
     ]
 });
 
+// Manual command patterns - Phase 15
+// Anna executes actions, not the user. These patterns block manual instructions.
+static MANUAL_COMMAND_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+    vec![
+        // sudo instructions
+        (Regex::new(r"(?i)\bsudo\s").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\brun:\s*sudo\b").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\btry:\s*sudo\b").unwrap(), "[action]"),
+        // Shell command patterns in prose
+        (Regex::new(r"(?i)\brun\s+(this|the|these)\s+command").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\bexecute\s+(this|the|these)\s+command").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\btype\s+(this|the|these)\s+command").unwrap(), "[action]"),
+        // File editing instructions
+        (Regex::new(r"(?i)\bedit\s+(this|the|your)\s+file").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\bopen\s+.+\s+in\s+(nano|vim|vi|emacs|gedit|kate)").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\b(nano|vim|vi)\s+/").unwrap(), "[action]"),
+        // Manual config instructions
+        (Regex::new(r"(?i)\badd\s+(this|the|these)\s+(line|entry|section)").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\bmodify\s+(this|the|your)\s+(file|config)").unwrap(), "[action]"),
+        (Regex::new(r"(?i)\bchange\s+(this|the)\s+(line|value)\s+to\b").unwrap(), "[action]"),
+        // Direct command suggestions in code blocks are caught by shell patterns
+        (Regex::new(r"```\s*(sh|bash|shell)?\s*\n[^`]*\b(sudo|systemctl|pacman|nano|vim)\b").unwrap(), "[action]"),
+    ]
+});
+
 /// Validate text against forbidden patterns.
 pub fn sanitize_dialogue(text: &str) -> SanitizationResult {
     let mut violations = Vec::new();
@@ -155,6 +184,18 @@ pub fn sanitize_dialogue(text: &str) -> SanitizationResult {
         for m in re.find_iter(text) {
             violations.push(Violation {
                 pattern: ForbiddenPattern::Alarm,
+                matched: m.as_str().to_string(),
+                position: m.start(),
+                replacement,
+            });
+        }
+    }
+
+    // Check manual command patterns (Phase 15)
+    for (re, replacement) in MANUAL_COMMAND_PATTERNS.iter() {
+        for m in re.find_iter(text) {
+            violations.push(Violation {
+                pattern: ForbiddenPattern::ManualCommands,
                 matched: m.as_str().to_string(),
                 position: m.start(),
                 replacement,
@@ -307,5 +348,61 @@ mod tests {
         let text = "[probe] systemctl status";
         let result = sanitize_dialogue(text);
         assert!(result.is_clean);
+    }
+
+    // Phase 15: Manual command detection tests
+    #[test]
+    fn test_manual_command_sudo_detected() {
+        let text = "Run: sudo pacman -Syu to update.";
+        let result = sanitize_dialogue(text);
+        assert!(!result.is_clean);
+        assert!(result.violations.iter().any(|v| v.pattern == ForbiddenPattern::ManualCommands));
+    }
+
+    #[test]
+    fn test_manual_command_inline_sudo() {
+        let text = "You can fix this with sudo systemctl restart nginx";
+        let result = sanitize_dialogue(text);
+        assert!(!result.is_clean);
+        assert!(result.violations.iter().any(|v| v.pattern == ForbiddenPattern::ManualCommands));
+    }
+
+    #[test]
+    fn test_manual_command_run_this_command() {
+        let text = "Run this command to fix it: df -h";
+        let result = sanitize_dialogue(text);
+        assert!(!result.is_clean);
+        assert!(result.violations.iter().any(|v| v.pattern == ForbiddenPattern::ManualCommands));
+    }
+
+    #[test]
+    fn test_manual_command_edit_file() {
+        let text = "Edit the file /etc/fstab with your changes.";
+        let result = sanitize_dialogue(text);
+        assert!(!result.is_clean);
+        assert!(result.violations.iter().any(|v| v.pattern == ForbiddenPattern::ManualCommands));
+    }
+
+    #[test]
+    fn test_manual_command_nano_vim() {
+        let text = "Open it with nano /etc/hosts";
+        let result = sanitize_dialogue(text);
+        assert!(!result.is_clean);
+        assert!(result.violations.iter().any(|v| v.pattern == ForbiddenPattern::ManualCommands));
+    }
+
+    #[test]
+    fn test_clean_abstract_actions_pass() {
+        // These describe WHAT Anna will do, not instructions for user
+        let clean_texts = [
+            "I'll update the system configuration.",
+            "The service will be restarted.",
+            "Configuration changes have been applied.",
+            "The file has been modified with the new settings.",
+            "Power management policy updated.",
+        ];
+        for text in clean_texts {
+            assert!(sanitize_dialogue(text).is_clean, "Should pass: {}", text);
+        }
     }
 }
