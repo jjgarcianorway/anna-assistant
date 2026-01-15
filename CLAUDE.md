@@ -293,6 +293,7 @@ No exceptions. No user-mode fallbacks.
 - NEVER show users manual recovery commands (use auto-healing instead)
 - NEVER expose error messages containing "Run: sudo..." or similar
 - NEVER let specialists self-govern visibility (Phase 13: all filtering through ExposureGate)
+- NEVER embed tokens/credentials in git remote URLs; use `gh auth` or credential helpers instead
 
 ### Self-Healing Governance (v0.3.36+)
 

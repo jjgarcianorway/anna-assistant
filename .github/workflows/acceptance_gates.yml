@@ -2,6 +2,7 @@ name: Acceptance Gates
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v*'
   pull_request:
