@@ -1,5 +1,4 @@
-//! Memory data types and structures.
-//! v0.0.930: Added keyword index for faster recall
+//! Memory data types and structures (v0.0.930: keyword index for faster recall)
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -68,7 +67,6 @@ impl Memory {
         sorted.into_iter().map(|(id, _)| id).collect()
     }
 }
-
 /// A learned experience from a past interaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Experience {

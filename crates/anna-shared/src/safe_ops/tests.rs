@@ -71,42 +71,35 @@ fn test_reset_memory_uses_actual_array_counts() {
 }
 
 #[test]
-fn test_reset_stats_clears_legacy_xp() {
-    let xp_path = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("anna/xp.json");
-    assert!(xp_path.to_string_lossy().contains("anna/xp.json")
-         || xp_path.to_string_lossy().contains("anna\\xp.json"));
+fn test_reset_stats_uses_system_path() {
+    let paths = crate::paths::Paths::system();
+    let stats_path = paths.stats_file();
+    assert!(stats_path.starts_with("/var/lib/anna"), "Stats must use system path");
 }
 
 #[test]
-fn test_reset_tickets_clears_all_ticket_data() {
-    let local_data = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("anna");
-    let tickets_path = local_data.join("tickets.json");
-    let fix_history_path = local_data.join("fix_history.json");
-    assert_eq!(tickets_path.parent(), fix_history_path.parent());
+fn test_reset_tickets_uses_system_path() {
+    let paths = crate::paths::Paths::system();
+    let data_dir = &paths.data_dir;
+    assert!(data_dir.starts_with("/var/lib/anna"), "Tickets must use system path");
 }
 
 #[test]
 fn test_backup_includes_all_data_files() {
-    let data_dir = anna_data_dir();
-    let local_data = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("anna");
+    let paths = crate::paths::Paths::system();
     let expected_files = vec![
         memory_path(),
-        data_dir.join("config.toml"),
-        data_dir.join("stats.json"),
-        data_dir.join("stats_audit.jsonl"),
-        data_dir.join("installed_deps.txt"),
-        local_data.join("tickets.json"),
-        local_data.join("fix_history.json"),
-        data_dir.join("model_prefs.json"),
+        paths.data_dir.join("config.toml"),
+        paths.stats_file(),
+        paths.data_dir.join("stats_audit.jsonl"),
+        paths.data_dir.join("installed_deps.txt"),
+        paths.data_dir.join("tickets.json"),
+        paths.data_dir.join("fix_history.json"),
+        paths.data_dir.join("model_prefs.json"),
     ];
-    for path in expected_files {
-        assert!(!path.to_string_lossy().is_empty());
+    for path in &expected_files {
+        assert!(path.starts_with("/var/lib/anna") || path.starts_with("/etc/anna"),
+                "Path {} must use system paths", path.display());
     }
 }
 
@@ -167,14 +160,11 @@ fn test_reset_output_always_has_counts() {
 
 #[test]
 fn test_legacy_migration_is_one_time() {
-    let xp_path = dirs::data_local_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("anna/xp.json");
-    if !xp_path.exists() {
-        let result = SafeReset::migrate_legacy_xp();
-        assert!(result.is_ok());
-        assert!(result.unwrap().is_none(), "Should return None when no legacy file exists");
-    }
+    // Legacy migration uses system paths now - test that migrate returns None when no legacy exists
+    let result = SafeReset::migrate_legacy_xp();
+    assert!(result.is_ok());
+    // Returns None when no legacy file exists (which is the normal case on system paths)
+    assert!(result.unwrap().is_none(), "Should return None when no legacy file exists");
 }
 
 #[test]

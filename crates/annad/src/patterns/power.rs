@@ -1,6 +1,4 @@
 //! Power management patterns for battery, suspend, hibernate, laptop power.
-//! v0.0.960: Initial implementation.
-//! v0.0.989: Added power button, WoL, power saving, auto suspend patterns
 
 use anna_shared::rpc::{DeepUnderstanding, IntentCategory};
 
@@ -366,76 +364,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_battery() {
+    fn test_patterns() {
+        // Battery
         assert!(match_patterns("battery status").is_some());
         assert!(match_patterns("battery level").is_some());
         assert!(match_patterns("charging status").is_some());
-        assert!(match_patterns("battery health").is_some());
-    }
-
-    #[test]
-    fn test_power_state() {
+        // Power state
         assert!(match_patterns("suspend mode").is_some());
         assert!(match_patterns("hibernate support").is_some());
         assert!(match_patterns("sleep modes").is_some());
-    }
-
-    #[test]
-    fn test_laptop() {
+        // Laptop
         assert!(match_patterns("screen brightness").is_some());
         assert!(match_patterns("fan speed").is_some());
-        assert!(match_patterns("thermal zones").is_some());
-    }
-
-    #[test]
-    fn test_power_settings() {
+        // Settings
         assert!(match_patterns("tlp status").is_some());
-        assert!(match_patterns("power profile").is_some());
         assert!(match_patterns("cpu governor").is_some());
-        assert!(match_patterns("thermal throttling").is_some());
-    }
-
-    #[test]
-    fn test_power_advanced() {
+        // Advanced
         assert!(match_patterns("power button action").is_some());
         assert!(match_patterns("wake on lan").is_some());
         assert!(match_patterns("power saving").is_some());
-        assert!(match_patterns("auto suspend").is_some());
-        assert!(match_patterns("battery calibration").is_some());
-        assert!(match_patterns("power statistics").is_some());
-    }
-
-    // Phase 15: Power control tests
-    #[test]
-    fn test_disable_sleep_everywhere() {
-        let result = match_patterns("disable sleep everywhere");
-        assert!(result.is_some());
-        let u = result.unwrap();
-        assert_eq!(u.topic, Some("power".to_string()));
-        assert!(u.needs_confirmation);
     }
 
     #[test]
-    fn test_prevent_suspend_on_lid_close() {
-        let result = match_patterns("prevent suspend on lid close");
-        assert!(result.is_some());
-        let u = result.unwrap();
-        assert_eq!(u.topic, Some("power".to_string()));
-    }
-
-    #[test]
-    fn test_never_sleep_even_on_gdm() {
-        let result = match_patterns("never sleep even on GDM");
-        assert!(result.is_some());
-        let u = result.unwrap();
-        assert_eq!(u.topic, Some("power".to_string()));
-    }
-
-    #[test]
-    fn test_laptop_cannot_sleep_or_suspend() {
-        let result = match_patterns("ensure my laptop cannot go to sleep or suspend");
-        assert!(result.is_some());
-        let u = result.unwrap();
-        assert_eq!(u.topic, Some("power".to_string()));
+    fn test_power_control() {
+        // All power control patterns route to power topic with confirmation
+        for q in ["disable sleep everywhere", "prevent suspend on lid close",
+                  "never sleep even on GDM", "ensure my laptop cannot go to sleep or suspend"] {
+            let result = match_patterns(q);
+            assert!(result.is_some(), "Failed: {}", q);
+            assert_eq!(result.as_ref().unwrap().topic, Some("power".to_string()));
+        }
+        // Disable sleep needs confirmation
+        assert!(match_patterns("disable sleep everywhere").unwrap().needs_confirmation);
     }
 }

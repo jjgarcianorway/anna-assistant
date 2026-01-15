@@ -1,99 +1,36 @@
 #!/bin/bash
-# Anna Installer
-# Usage: curl -sSL <url>/install.sh | bash
-# Note: sudo is NOT required for curl - installer will request it when needed
-#
-# v0.0.70: Version is fetched from GitHub releases API (single source of truth)
-
+# Anna Installer - curl -sSL <url>/install.sh | bash
+# v0.0.70: Version fetched from GitHub releases API
 set -e
 
 REPO="jjgarcianorway/anna-assistant"
-
-# Fetch latest version from GitHub releases API (single source of truth)
 fetch_version() {
     local version
     version=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"v([^"]+)".*/\1/')
-    if [ -z "$version" ]; then
-        echo "Failed to fetch latest version from GitHub" >&2
-        exit 1
-    fi
+    [[ -z "$version" ]] && { echo "Failed to fetch latest version from GitHub" >&2; exit 1; }
     echo "$version"
 }
 
 VERSION=$(fetch_version)
-INSTALL_DIR="/usr/local/bin"
-CONFIG_DIR="/etc/anna"
-STATE_DIR="/var/lib/anna"
-LOG_DIR="/var/log/anna"
-RUN_DIR="/run/anna"
-SYSTEMD_DIR="/etc/systemd/system"
-ANNA_GROUP="anna"
+INSTALL_DIR="/usr/local/bin" CONFIG_DIR="/etc/anna" STATE_DIR="/var/lib/anna"
+LOG_DIR="/var/log/anna" RUN_DIR="/run/anna" SYSTEMD_DIR="/etc/systemd/system" ANNA_GROUP="anna"
 
 # Colors (24-bit true color)
-C_HEADER=$'\033[38;2;255;210;120m'
-C_OK=$'\033[38;2;120;255;120m'
-C_ERR=$'\033[38;2;255;100;100m'
-C_DIM=$'\033[38;2;140;140;140m'
-C_CYAN=$'\033[38;2;120;200;255m'
-C_BOLD=$'\033[1m'
-C_RESET=$'\033[0m'
-
-# Symbols
-SYM_OK="✓"
-SYM_ERR="✗"
-SYM_ARROW="›"
-
+C_HEADER=$'\033[38;2;255;210;120m' C_OK=$'\033[38;2;120;255;120m' C_ERR=$'\033[38;2;255;100;100m'
+C_DIM=$'\033[38;2;140;140;140m' C_CYAN=$'\033[38;2;120;200;255m' C_BOLD=$'\033[1m' C_RESET=$'\033[0m'
+SYM_OK="+" SYM_ERR="x" SYM_ARROW=">"
 HR="${C_DIM}──────────────────────────────────────────────────────────────────────────────${C_RESET}"
-
-# Get current username
 USERNAME=$(whoami)
 
-print_header() {
-    echo ""
-    echo "${C_HEADER}anna-install v${VERSION}${C_RESET}"
-    echo "$HR"
-    echo "No hidden steps. Every action is shown. Checksums are mandatory."
-    echo "$HR"
-    echo ""
-}
+print_header() { echo ""; echo "${C_HEADER}anna-install v${VERSION}${C_RESET}"; echo "$HR"; echo "No hidden steps. Every action shown. Checksums mandatory."; echo "$HR"; echo ""; }
+print_greeting() { echo ""; echo "${C_CYAN}Hello ${USERNAME}${C_RESET}, thanks for giving me the opportunity to live"; echo "in your computer! I promise to take good care of it... and you! ;)"; echo ""; }
+print_section() { echo "${C_DIM}[${C_RESET}$1${C_DIM}]${C_RESET} $2"; }
+print_ok() { echo "  ${C_OK}${SYM_OK}${C_RESET} $1"; }
+print_item_ok() { printf "  %-20s ${C_OK}${SYM_OK}${C_RESET}\n" "$1"; }
+print_err() { echo "  ${C_ERR}${SYM_ERR}${C_RESET} $1"; }
+print_footer() { echo ""; echo "$HR"; echo "Run: ${C_BOLD}annactl status${C_RESET}"; echo "$HR"; echo ""; }
+fail() { print_err "$1"; exit 1; }
 
-print_greeting() {
-    echo ""
-    echo "${C_CYAN}Hello ${USERNAME}${C_RESET}, thanks a lot for giving me the opportunity to live"
-    echo "in your computer! I promise to take good care of it... and you! ;)"
-    echo ""
-}
-
-print_section() {
-    echo "${C_DIM}[${C_RESET}$1${C_DIM}]${C_RESET} $2"
-}
-
-print_ok() {
-    echo "  ${C_OK}${SYM_OK}${C_RESET} $1"
-}
-
-print_item_ok() {
-    printf "  %-20s ${C_OK}${SYM_OK}${C_RESET}\n" "$1"
-}
-
-print_err() {
-    echo "  ${C_ERR}${SYM_ERR}${C_RESET} $1"
-}
-
-print_footer() {
-    echo ""
-    echo "$HR"
-    echo "Run: ${C_BOLD}annactl status${C_RESET}"
-    echo "$HR"
-    echo ""
-}
-
-fail() {
-    print_err "$1"
-    exit 1
-}
-
-# Detect architecture
 detect_arch() {
     local arch=$(uname -m)
     case "$arch" in
@@ -103,284 +40,132 @@ detect_arch() {
     esac
 }
 
-# Check preflight requirements
 preflight() {
     print_section "preflight" "linux + systemd + tools"
-
-    # Check architecture
-    ARCH=$(detect_arch)
-    print_ok "arch: ${ARCH}"
-
-    # Check systemd
-    if ! command -v systemctl &> /dev/null; then
-        fail "systemd not found"
-    fi
-    print_ok "systemd: ok"
-
-    # Check required tools
-    local tools="curl sha256sum"
+    ARCH=$(detect_arch); print_ok "arch: ${ARCH}"
+    command -v systemctl &>/dev/null || fail "systemd not found"; print_ok "systemd: ok"
     local missing=""
-    for tool in $tools; do
-        if ! command -v "$tool" &> /dev/null; then
-            missing="$missing $tool"
-        fi
-    done
-    if [ -n "$missing" ]; then
-        fail "missing tools:$missing"
-    fi
-    print_ok "curl sha256sum: ok"
-    echo ""
+    for tool in curl sha256sum; do command -v "$tool" &>/dev/null || missing="$missing $tool"; done
+    [[ -n "$missing" ]] && fail "missing tools:$missing"
+    print_ok "curl sha256sum: ok"; echo ""
 }
 
-# Fetch release artifacts
 fetch_artifacts() {
     print_section "fetch" "release artifacts"
-
     local base_url="https://github.com/${REPO}/releases/download/v${VERSION}"
     TMPDIR=$(mktemp -d)
-
-    # Download annactl
-    if curl -sSL "${base_url}/annactl-linux-${ARCH}" -o "${TMPDIR}/annactl" 2>/dev/null; then
-        print_item_ok "annactl-${ARCH}"
-    else
-        fail "failed to download annactl"
-    fi
-
-    # Download annad
-    if curl -sSL "${base_url}/annad-linux-${ARCH}" -o "${TMPDIR}/annad" 2>/dev/null; then
-        print_item_ok "annad-${ARCH}"
-    else
-        fail "failed to download annad"
-    fi
-
-    # Download checksums
-    if curl -sSL "${base_url}/SHA256SUMS" -o "${TMPDIR}/SHA256SUMS" 2>/dev/null; then
-        print_item_ok "SHA256SUMS"
-    else
-        fail "failed to download SHA256SUMS"
-    fi
+    curl -sSL "${base_url}/annactl-linux-${ARCH}" -o "${TMPDIR}/annactl" 2>/dev/null && print_item_ok "annactl-${ARCH}" || fail "failed to download annactl"
+    curl -sSL "${base_url}/annad-linux-${ARCH}" -o "${TMPDIR}/annad" 2>/dev/null && print_item_ok "annad-${ARCH}" || fail "failed to download annad"
+    curl -sSL "${base_url}/SHA256SUMS" -o "${TMPDIR}/SHA256SUMS" 2>/dev/null && print_item_ok "SHA256SUMS" || fail "failed to download SHA256SUMS"
     echo ""
 }
 
-# Verify checksums
 verify_checksums() {
     print_section "verify" "checksums"
-
     cd "$TMPDIR"
-
-    # Extract expected checksums
     local annactl_expected=$(grep "annactl-linux-${ARCH}" SHA256SUMS | awk '{print $1}')
     local annad_expected=$(grep "annad-linux-${ARCH}" SHA256SUMS | awk '{print $1}')
-
-    # Compute actual checksums
     local annactl_actual=$(sha256sum annactl | awk '{print $1}')
     local annad_actual=$(sha256sum annad | awk '{print $1}')
-
-    # Verify
-    if [ "$annactl_expected" = "$annactl_actual" ]; then
-        printf "  annactl  ${C_OK}OK${C_RESET}\n"
-    else
-        fail "annactl checksum mismatch"
-    fi
-
-    if [ "$annad_expected" = "$annad_actual" ]; then
-        printf "  annad    ${C_OK}OK${C_RESET}\n"
-    else
-        fail "annad checksum mismatch"
-    fi
+    [[ "$annactl_expected" = "$annactl_actual" ]] && printf "  annactl  ${C_OK}OK${C_RESET}\n" || fail "annactl checksum mismatch"
+    [[ "$annad_expected" = "$annad_actual" ]] && printf "  annad    ${C_OK}OK${C_RESET}\n" || fail "annad checksum mismatch"
     echo ""
 }
 
-# Request sudo with explanation
 request_sudo() {
     print_section "sudo" "needed to write to /usr/local/bin, /etc, systemd, /var/lib"
-    echo ""
-    echo "  Anna needs root access to:"
+    echo ""; echo "  Anna needs root access to:"
     echo "    ${SYM_ARROW} Install binaries to /usr/local/bin"
     echo "    ${SYM_ARROW} Create config in /etc/anna"
     echo "    ${SYM_ARROW} Create data directory in /var/lib/anna"
-    echo "    ${SYM_ARROW} Install systemd service"
-    echo ""
-
-    if [ "$EUID" -eq 0 ]; then
-        SUDO=""
-        print_ok "already running as root"
+    echo "    ${SYM_ARROW} Install systemd service"; echo ""
+    if [[ "$EUID" -eq 0 ]]; then SUDO=""; print_ok "already running as root"
     else
         echo "  ${SYM_ARROW} Requesting sudo access..."
-        if sudo -v; then
-            SUDO="sudo"
-            print_ok "sudo access granted"
-        else
-            fail "sudo access required but denied"
-        fi
+        sudo -v && { SUDO="sudo"; print_ok "sudo access granted"; } || fail "sudo access required but denied"
     fi
     echo ""
 }
 
-# Stop existing service if running (for upgrades)
 stop_existing_service() {
     if systemctl is-active --quiet annad 2>/dev/null; then
         print_section "upgrade" "stopping existing annad service"
-        $SUDO systemctl stop annad
-        print_ok "annad stopped"
-        echo ""
-        UPGRADE_MODE=true
-    else
-        UPGRADE_MODE=false
-    fi
+        $SUDO systemctl stop annad; print_ok "annad stopped"; echo ""; UPGRADE_MODE=true
+    else UPGRADE_MODE=false; fi
 }
 
-# v0.0.299: Remove stale binaries from user-local paths that shadow /usr/local/bin
 cleanup_stale_binaries() {
-    local user_local_bin="${HOME}/.local/bin"
-    local stale_found=false
-
-    # Check for old annactl in ~/.local/bin
-    if [ -x "${user_local_bin}/annactl" ]; then
-        stale_found=true
-        print_section "cleanup" "removing stale binaries"
-        rm -f "${user_local_bin}/annactl"
-        print_ok "removed ${user_local_bin}/annactl (shadowing /usr/local/bin)"
+    local user_local_bin="${HOME}/.local/bin" stale_found=false
+    if [[ -x "${user_local_bin}/annactl" ]]; then
+        stale_found=true; print_section "cleanup" "removing stale binaries"
+        rm -f "${user_local_bin}/annactl"; print_ok "removed ${user_local_bin}/annactl"
     fi
-
-    # Check for old annad in ~/.local/bin
-    if [ -x "${user_local_bin}/annad" ]; then
-        stale_found=true
-        if [ "$stale_found" = false ]; then
-            print_section "cleanup" "removing stale binaries"
-        fi
-        rm -f "${user_local_bin}/annad"
-        print_ok "removed ${user_local_bin}/annad (shadowing /usr/local/bin)"
+    if [[ -x "${user_local_bin}/annad" ]]; then
+        [[ "$stale_found" = false ]] && print_section "cleanup" "removing stale binaries"
+        rm -f "${user_local_bin}/annad"; print_ok "removed ${user_local_bin}/annad"; stale_found=true
     fi
-
-    if [ "$stale_found" = true ]; then
-        echo ""
-    fi
+    [[ "$stale_found" = true ]] && echo ""
 }
 
-# Install binaries
 install_binaries() {
     print_section "install" "binaries"
-
     chmod +x "${TMPDIR}/annactl" "${TMPDIR}/annad"
-
-    $SUDO cp "${TMPDIR}/annactl" "${INSTALL_DIR}/annactl"
-    print_item_ok "/usr/local/bin/annactl"
-
-    $SUDO cp "${TMPDIR}/annad" "${INSTALL_DIR}/annad"
-    print_item_ok "/usr/local/bin/annad"
+    $SUDO cp "${TMPDIR}/annactl" "${INSTALL_DIR}/annactl"; print_item_ok "/usr/local/bin/annactl"
+    $SUDO cp "${TMPDIR}/annad" "${INSTALL_DIR}/annad"; print_item_ok "/usr/local/bin/annad"
     echo ""
 }
 
-# Setup anna group and add current user
 setup_group() {
     print_section "security" "group setup"
-
-    # Create anna group if it doesn't exist
-    if ! getent group "$ANNA_GROUP" > /dev/null 2>&1; then
-        $SUDO groupadd "$ANNA_GROUP"
-        print_ok "created group: ${ANNA_GROUP}"
-    else
-        print_ok "group exists: ${ANNA_GROUP}"
-    fi
-
-    # Add current user to anna group if not already member
-    if ! groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b"; then
-        $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"
-        print_ok "added ${USERNAME} to ${ANNA_GROUP} group"
-    else
-        print_ok "${USERNAME} already in ${ANNA_GROUP} group"
-    fi
+    getent group "$ANNA_GROUP" >/dev/null 2>&1 && print_ok "group exists: ${ANNA_GROUP}" || { $SUDO groupadd "$ANNA_GROUP"; print_ok "created group: ${ANNA_GROUP}"; }
+    groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b" && print_ok "${USERNAME} already in ${ANNA_GROUP} group" || { $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"; print_ok "added ${USERNAME} to ${ANNA_GROUP} group"; }
     echo ""
 }
 
-# Install directories
-# v0.3.32: Security fix - daemon-only writes (750/640), group reads via socket RPC
 install_directories() {
     print_section "install" "directories"
-
-    # Config: root owns, world-readable (no secrets)
-    $SUDO mkdir -p "$CONFIG_DIR"
-    $SUDO chmod 755 "$CONFIG_DIR"
-    print_item_ok "/etc/anna (755 root:root)"
-
-    # State: root owns, anna group can read (for diagnostics)
-    # Daemon is only writer via RPC
-    $SUDO mkdir -p "$STATE_DIR"
-    $SUDO chown root:$ANNA_GROUP "$STATE_DIR"
-    $SUDO chmod 750 "$STATE_DIR"
-    print_item_ok "/var/lib/anna (750 root:anna)"
-
-    # Subdirectories - same model
+    $SUDO mkdir -p "$CONFIG_DIR"; $SUDO chmod 755 "$CONFIG_DIR"; print_item_ok "/etc/anna (755 root:root)"
+    $SUDO mkdir -p "$STATE_DIR"; $SUDO chown root:$ANNA_GROUP "$STATE_DIR"; $SUDO chmod 750 "$STATE_DIR"; print_item_ok "/var/lib/anna (750 root:anna)"
     for subdir in backups wiki recipes; do
-        $SUDO mkdir -p "${STATE_DIR}/${subdir}"
-        $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/${subdir}"
-        $SUDO chmod 750 "${STATE_DIR}/${subdir}"
+        $SUDO mkdir -p "${STATE_DIR}/${subdir}"; $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/${subdir}"; $SUDO chmod 750 "${STATE_DIR}/${subdir}"
         print_item_ok "/var/lib/anna/${subdir} (750 root:anna)"
     done
-
-    # Logs: root owns, anna group can read
-    $SUDO mkdir -p "$LOG_DIR"
-    $SUDO chown root:$ANNA_GROUP "$LOG_DIR"
-    $SUDO chmod 750 "$LOG_DIR"
-    print_item_ok "/var/log/anna (750 root:anna)"
-
-    # Runtime: socket directory
-    $SUDO mkdir -p "$RUN_DIR"
-    $SUDO chown root:$ANNA_GROUP "$RUN_DIR"
-    $SUDO chmod 750 "$RUN_DIR"
-    print_item_ok "/run/anna (750 root:anna)"
-
-    # Models: ollama storage
-    $SUDO mkdir -p "${STATE_DIR}/models"
-    $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/models"
-    $SUDO chmod 750 "${STATE_DIR}/models"
-    print_item_ok "/var/lib/anna/models (750 root:anna)"
-    echo ""
+    $SUDO mkdir -p "$LOG_DIR"; $SUDO chown root:$ANNA_GROUP "$LOG_DIR"; $SUDO chmod 750 "$LOG_DIR"; print_item_ok "/var/log/anna (750 root:anna)"
+    $SUDO mkdir -p "$RUN_DIR"; $SUDO chown root:$ANNA_GROUP "$RUN_DIR"; $SUDO chmod 750 "$RUN_DIR"; print_item_ok "/run/anna (750 root:anna)"
+    $SUDO mkdir -p "${STATE_DIR}/models"; $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/models"; $SUDO chmod 750 "${STATE_DIR}/models"
+    print_item_ok "/var/lib/anna/models (750 root:anna)"; echo ""
 }
 
-# v0.3.32: Install tmpfiles.d for /run/anna persistence across reboots
 install_tmpfiles() {
     print_section "install" "tmpfiles.d"
-
-    $SUDO tee "/etc/tmpfiles.d/anna.conf" > /dev/null << 'EOF'
-# Anna runtime directory - daemon writes, anna group can connect to socket
+    $SUDO tee "/etc/tmpfiles.d/anna.conf" >/dev/null <<'EOF'
 d /run/anna 0750 root anna -
 EOF
-    print_item_ok "/etc/tmpfiles.d/anna.conf (750 root:anna)"
-    echo ""
+    print_item_ok "/etc/tmpfiles.d/anna.conf (750 root:anna)"; echo ""
 }
 
-# Install config
 install_config() {
     print_section "install" "config (create if missing)"
-
-    if [ ! -f "${CONFIG_DIR}/config.toml" ]; then
-        $SUDO tee "${CONFIG_DIR}/config.toml" > /dev/null << 'EOF'
-# Anna configuration
+    if [[ ! -f "${CONFIG_DIR}/config.toml" ]]; then
+        $SUDO tee "${CONFIG_DIR}/config.toml" >/dev/null <<'EOF'
 [daemon]
 debug_mode = true
 auto_update = true
 update_interval = 600
-
 [llm]
 provider = "ollama"
 EOF
     fi
-    print_item_ok "/etc/anna/config.toml"
-    echo ""
+    print_item_ok "/etc/anna/config.toml"; echo ""
 }
 
-# Install systemd service
 install_service() {
     print_section "service" "systemd"
-
-    $SUDO tee "${SYSTEMD_DIR}/annad.service" > /dev/null << 'EOF'
+    $SUDO tee "${SYSTEMD_DIR}/annad.service" >/dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
 After=network.target ollama.service
 Wants=ollama.service
-
 [Service]
 Type=notify
 ExecStart=/usr/local/bin/annad
@@ -389,88 +174,40 @@ RestartSec=3
 WatchdogSec=60
 TimeoutStopSec=10
 MemoryMax=2G
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0750
 Environment=RUST_BACKTRACE=1
-
 [Install]
 WantedBy=multi-user.target
 EOF
     print_item_ok "annad.service installed"
-
-    $SUDO systemctl daemon-reload
-    $SUDO systemctl enable annad --quiet
-    print_item_ok "enable"
-
-    $SUDO systemctl start annad
-    print_item_ok "start"
-    echo ""
+    $SUDO systemctl daemon-reload; $SUDO systemctl enable annad --quiet; print_item_ok "enable"
+    $SUDO systemctl start annad; print_item_ok "start"; echo ""
 }
 
-# v0.0.73: Verify installed binaries respond and versions match
 verify_binaries() {
     print_section "verify" "installed binaries"
-
-    # Query annactl version
-    local annactl_ver
+    local annactl_ver annad_ver
     annactl_ver=$("${INSTALL_DIR}/annactl" --version 2>/dev/null | head -1)
-    if [ -n "$annactl_ver" ]; then
-        printf "  annactl  ${C_OK}${annactl_ver}${C_RESET}\n"
-    else
-        fail "annactl --version failed"
-    fi
-
-    # Query annad version
-    local annad_ver
+    [[ -n "$annactl_ver" ]] && printf "  annactl  ${C_OK}${annactl_ver}${C_RESET}\n" || fail "annactl --version failed"
     annad_ver=$("${INSTALL_DIR}/annad" --version 2>/dev/null | head -1)
-    if [ -n "$annad_ver" ]; then
-        printf "  annad    ${C_OK}${annad_ver}${C_RESET}\n"
-    else
-        fail "annad --version failed"
-    fi
-
-    # v0.0.73: Check versions match (compare base version without git SHA)
+    [[ -n "$annad_ver" ]] && printf "  annad    ${C_OK}${annad_ver}${C_RESET}\n" || fail "annad --version failed"
     local annactl_base=$(echo "$annactl_ver" | sed 's/annactl //' | cut -d' ' -f1)
     local annad_base=$(echo "$annad_ver" | sed 's/annad //' | cut -d' ' -f1)
-
-    if [ "$annactl_base" = "$annad_base" ]; then
-        print_ok "versions match: ${annactl_base}"
-    else
-        print_err "version mismatch: annactl=${annactl_base} annad=${annad_base}"
-        echo "  ${C_ERR}Warning: Client and daemon versions should match${C_RESET}"
-    fi
+    [[ "$annactl_base" = "$annad_base" ]] && print_ok "versions match: ${annactl_base}" || { print_err "version mismatch: annactl=${annactl_base} annad=${annad_base}"; echo "  ${C_ERR}Warning: Client and daemon versions should match${C_RESET}"; }
     echo ""
 }
 
-# Handoff message
-print_handoff() {
-    print_section "handoff" "annad will bootstrap the required local LLM (ollama + models)"
-}
-
-# Cleanup
-cleanup() {
-    rm -rf "$TMPDIR" 2>/dev/null || true
-}
-
+print_handoff() { print_section "handoff" "annad will bootstrap the required local LLM (ollama + models)"; }
+cleanup() { rm -rf "$TMPDIR" 2>/dev/null || true; }
 trap cleanup EXIT
 
-# Main
 main() {
-    print_header
-    print_greeting
-    preflight
-    fetch_artifacts
-    verify_checksums
-    cleanup_stale_binaries  # v0.0.299: Remove old binaries from ~/.local/bin before sudo
-    request_sudo
-    stop_existing_service
-    install_binaries
-    verify_binaries  # v0.0.73: Verify binaries respond and match
-    setup_group
-    install_directories
-    install_tmpfiles
-    install_config
-    install_service
-    print_handoff
-    print_footer
+    print_header; print_greeting; preflight; fetch_artifacts; verify_checksums
+    cleanup_stale_binaries; request_sudo; stop_existing_service
+    install_binaries; verify_binaries; setup_group
+    install_directories; install_tmpfiles; install_config; install_service
+    print_handoff; print_footer
 }
 
 main "$@"

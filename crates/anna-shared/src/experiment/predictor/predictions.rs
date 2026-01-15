@@ -1,173 +1,8 @@
-//! Side Effect Predictor - Predict what a command will do before running it.
+//! Individual command prediction functions.
 
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use super::types::{SideEffect, SideEffectType};
 
-/// A predicted side effect of a command
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SideEffect {
-    /// What type of side effect
-    pub effect_type: SideEffectType,
-    /// Targets (files, services, packages, etc.)
-    pub targets: Vec<String>,
-    /// Confidence in this prediction (0.0-1.0)
-    pub confidence: f32,
-    /// Is this reversible?
-    pub reversible: bool,
-    /// Description
-    pub description: String,
-}
-
-/// Types of side effects
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SideEffectType {
-    /// File creation
-    FileCreate,
-    /// File modification
-    FileModify,
-    /// File deletion
-    FileDelete,
-    /// Directory creation
-    DirCreate,
-    /// Directory deletion
-    DirDelete,
-    /// Permission change
-    PermissionChange,
-    /// Package installation
-    PackageInstall,
-    /// Package removal
-    PackageRemove,
-    /// Package upgrade
-    PackageUpgrade,
-    /// Service start
-    ServiceStart,
-    /// Service stop
-    ServiceStop,
-    /// Service restart
-    ServiceRestart,
-    /// Service enable
-    ServiceEnable,
-    /// Service disable
-    ServiceDisable,
-    /// Network change
-    NetworkChange,
-    /// Firewall rule
-    FirewallRule,
-    /// Mount operation
-    MountOperation,
-    /// User/group change
-    UserChange,
-    /// Kernel module
-    KernelModule,
-    /// System reboot
-    SystemReboot,
-    /// Unknown
-    Unknown,
-}
-
-impl SideEffectType {
-    /// Get risk level (0.0-1.0)
-    pub fn risk_level(&self) -> f32 {
-        match self {
-            SideEffectType::FileCreate => 0.1,
-            SideEffectType::FileModify => 0.3,
-            SideEffectType::FileDelete => 0.5,
-            SideEffectType::DirCreate => 0.1,
-            SideEffectType::DirDelete => 0.6,
-            SideEffectType::PermissionChange => 0.4,
-            SideEffectType::PackageInstall => 0.3,
-            SideEffectType::PackageRemove => 0.5,
-            SideEffectType::PackageUpgrade => 0.4,
-            SideEffectType::ServiceStart => 0.2,
-            SideEffectType::ServiceStop => 0.4,
-            SideEffectType::ServiceRestart => 0.3,
-            SideEffectType::ServiceEnable => 0.2,
-            SideEffectType::ServiceDisable => 0.4,
-            SideEffectType::NetworkChange => 0.5,
-            SideEffectType::FirewallRule => 0.5,
-            SideEffectType::MountOperation => 0.6,
-            SideEffectType::UserChange => 0.5,
-            SideEffectType::KernelModule => 0.7,
-            SideEffectType::SystemReboot => 0.8,
-            SideEffectType::Unknown => 0.5,
-        }
-    }
-
-    /// Is this type generally reversible?
-    pub fn is_reversible(&self) -> bool {
-        match self {
-            SideEffectType::FileCreate => true,
-            SideEffectType::FileModify => false, // Without backup
-            SideEffectType::FileDelete => false, // Without backup
-            SideEffectType::DirCreate => true,
-            SideEffectType::DirDelete => false,
-            SideEffectType::PermissionChange => true,
-            SideEffectType::PackageInstall => true,
-            SideEffectType::PackageRemove => true,
-            SideEffectType::PackageUpgrade => false, // Downgrade is complex
-            SideEffectType::ServiceStart => true,
-            SideEffectType::ServiceStop => true,
-            SideEffectType::ServiceRestart => true,
-            SideEffectType::ServiceEnable => true,
-            SideEffectType::ServiceDisable => true,
-            SideEffectType::NetworkChange => true,
-            SideEffectType::FirewallRule => true,
-            SideEffectType::MountOperation => true,
-            SideEffectType::UserChange => true,
-            SideEffectType::KernelModule => true,
-            SideEffectType::SystemReboot => false,
-            SideEffectType::Unknown => false,
-        }
-    }
-}
-
-/// Predict side effects for a list of commands
-pub fn predict_side_effects(commands: &[String]) -> Vec<SideEffect> {
-    let mut effects = Vec::new();
-
-    for cmd in commands {
-        effects.extend(predict_command_effects(cmd));
-    }
-
-    // Deduplicate and merge
-    deduplicate_effects(effects)
-}
-
-/// Predict side effects for a single command
-fn predict_command_effects(cmd: &str) -> Vec<SideEffect> {
-    let parts: Vec<&str> = cmd.split_whitespace().collect();
-    let base_cmd = parts.first().map(|s| *s).unwrap_or("");
-
-    match base_cmd {
-        "pacman" => predict_pacman_effects(cmd, &parts),
-        "yay" | "paru" | "pikaur" => predict_aur_helper_effects(cmd, &parts),
-        "systemctl" => predict_systemctl_effects(cmd, &parts),
-        "rm" => predict_rm_effects(cmd, &parts),
-        "cp" | "mv" => predict_copy_move_effects(cmd, &parts),
-        "mkdir" => predict_mkdir_effects(&parts),
-        "touch" => predict_touch_effects(&parts),
-        "chmod" | "chown" | "chgrp" => predict_permission_effects(cmd, &parts),
-        "mount" | "umount" => predict_mount_effects(cmd, &parts),
-        "ip" | "nmcli" => predict_network_effects(cmd, &parts),
-        "iptables" | "nft" | "firewall-cmd" => predict_firewall_effects(cmd),
-        "useradd" | "usermod" | "userdel" | "groupadd" | "groupmod" | "groupdel" => {
-            predict_user_effects(cmd, &parts)
-        }
-        "reboot" | "shutdown" | "poweroff" => {
-            vec![SideEffect {
-                effect_type: SideEffectType::SystemReboot,
-                targets: vec!["system".to_string()],
-                confidence: 1.0,
-                reversible: false,
-                description: "System will reboot/shutdown".to_string(),
-            }]
-        }
-        "modprobe" | "insmod" | "rmmod" => predict_kernel_effects(cmd, &parts),
-        _ => Vec::new(),
-    }
-}
-
-fn predict_pacman_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_pacman_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let mut effects = Vec::new();
 
     // Extract packages from command
@@ -177,7 +12,11 @@ fn predict_pacman_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
         .map(|p| p.to_string())
         .collect();
 
-    if cmd.contains("-S") && !cmd.contains("-Ss") && !cmd.contains("-Si") && !cmd.contains("-Sq") {
+    if cmd.contains("-S")
+        && !cmd.contains("-Ss")
+        && !cmd.contains("-Si")
+        && !cmd.contains("-Sq")
+    {
         for pkg in &packages {
             effects.push(SideEffect {
                 effect_type: SideEffectType::PackageInstall,
@@ -214,12 +53,12 @@ fn predict_pacman_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     effects
 }
 
-fn predict_aur_helper_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_aur_helper_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     // AUR helpers work similarly to pacman
     predict_pacman_effects(cmd, parts)
 }
 
-fn predict_systemctl_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_systemctl_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let mut effects = Vec::new();
 
     let services: Vec<String> = parts
@@ -292,7 +131,7 @@ fn predict_systemctl_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     effects
 }
 
-fn predict_rm_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_rm_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let mut effects = Vec::new();
     let is_recursive = parts.iter().any(|p| p.contains('r'));
     let is_force = parts.iter().any(|p| p.contains('f'));
@@ -322,7 +161,7 @@ fn predict_rm_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     effects
 }
 
-fn predict_copy_move_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_copy_move_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let mut effects = Vec::new();
     let is_move = cmd.starts_with("mv") || parts.first() == Some(&"mv");
 
@@ -359,7 +198,7 @@ fn predict_copy_move_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     effects
 }
 
-fn predict_mkdir_effects(parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_mkdir_effects(parts: &[&str]) -> Vec<SideEffect> {
     let targets: Vec<String> = parts
         .iter()
         .filter(|p| !p.starts_with('-') && **p != "mkdir" && **p != "sudo")
@@ -378,7 +217,7 @@ fn predict_mkdir_effects(parts: &[&str]) -> Vec<SideEffect> {
         .collect()
 }
 
-fn predict_touch_effects(parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_touch_effects(parts: &[&str]) -> Vec<SideEffect> {
     let targets: Vec<String> = parts
         .iter()
         .filter(|p| !p.starts_with('-') && **p != "touch" && **p != "sudo")
@@ -397,7 +236,7 @@ fn predict_touch_effects(parts: &[&str]) -> Vec<SideEffect> {
         .collect()
 }
 
-fn predict_permission_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_permission_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let targets: Vec<String> = parts
         .iter()
         .filter(|p| {
@@ -423,7 +262,7 @@ fn predict_permission_effects(cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
         .collect()
 }
 
-fn predict_mount_effects(cmd: &str, _parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_mount_effects(cmd: &str, _parts: &[&str]) -> Vec<SideEffect> {
     vec![SideEffect {
         effect_type: SideEffectType::MountOperation,
         targets: vec!["filesystem".to_string()],
@@ -437,7 +276,7 @@ fn predict_mount_effects(cmd: &str, _parts: &[&str]) -> Vec<SideEffect> {
     }]
 }
 
-fn predict_network_effects(_cmd: &str, _parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_network_effects(_cmd: &str, _parts: &[&str]) -> Vec<SideEffect> {
     vec![SideEffect {
         effect_type: SideEffectType::NetworkChange,
         targets: vec!["network".to_string()],
@@ -447,7 +286,7 @@ fn predict_network_effects(_cmd: &str, _parts: &[&str]) -> Vec<SideEffect> {
     }]
 }
 
-fn predict_firewall_effects(_cmd: &str) -> Vec<SideEffect> {
+pub fn predict_firewall_effects(_cmd: &str) -> Vec<SideEffect> {
     vec![SideEffect {
         effect_type: SideEffectType::FirewallRule,
         targets: vec!["firewall".to_string()],
@@ -457,7 +296,7 @@ fn predict_firewall_effects(_cmd: &str) -> Vec<SideEffect> {
     }]
 }
 
-fn predict_user_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_user_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let users: Vec<String> = parts
         .iter()
         .filter(|p| !p.starts_with('-') && !p.contains('='))
@@ -477,7 +316,7 @@ fn predict_user_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
         .collect()
 }
 
-fn predict_kernel_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
+pub fn predict_kernel_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
     let modules: Vec<String> = parts
         .iter()
         .filter(|p| !p.starts_with('-'))
@@ -495,56 +334,4 @@ fn predict_kernel_effects(_cmd: &str, parts: &[&str]) -> Vec<SideEffect> {
             description: format!("Kernel module operation: {}", m),
         })
         .collect()
-}
-
-/// Deduplicate and merge similar effects
-fn deduplicate_effects(effects: Vec<SideEffect>) -> Vec<SideEffect> {
-    let mut seen: HashSet<(String, String)> = HashSet::new();
-    let mut result = Vec::new();
-
-    for effect in effects {
-        let key = (
-            format!("{:?}", effect.effect_type),
-            effect.targets.join(","),
-        );
-        if !seen.contains(&key) {
-            seen.insert(key);
-            result.push(effect);
-        }
-    }
-
-    result
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_pacman_prediction() {
-        let effects = predict_side_effects(&["pacman -S vim".to_string()]);
-        assert!(!effects.is_empty());
-        assert!(effects.iter().any(|e| e.effect_type == SideEffectType::PackageInstall));
-    }
-
-    #[test]
-    fn test_systemctl_prediction() {
-        let effects = predict_side_effects(&["systemctl restart nginx".to_string()]);
-        assert!(!effects.is_empty());
-        assert!(effects.iter().any(|e| e.effect_type == SideEffectType::ServiceRestart));
-    }
-
-    #[test]
-    fn test_rm_prediction() {
-        let effects = predict_side_effects(&["rm -rf /tmp/test".to_string()]);
-        assert!(!effects.is_empty());
-        assert!(effects.iter().any(|e| e.effect_type == SideEffectType::DirDelete));
-    }
-
-    #[test]
-    fn test_reboot_prediction() {
-        let effects = predict_side_effects(&["reboot".to_string()]);
-        assert!(!effects.is_empty());
-        assert!(effects.iter().any(|e| e.effect_type == SideEffectType::SystemReboot));
-    }
 }

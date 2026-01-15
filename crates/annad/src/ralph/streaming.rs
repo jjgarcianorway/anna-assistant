@@ -1,6 +1,4 @@
-//! Streaming version of the Ralph loop.
-//! Sends progress updates to the client in real-time.
-//!
+//! Streaming Ralph loop with real-time progress updates.
 //! v0.3.46: All dialogue filtered through ExposureGate before emission.
 
 use anna_shared::experiment::estimate_command_risk;
@@ -146,14 +144,8 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         let assignment = team_speak::anna_assigns_to(spec, question);
         push_and_send(writer, &mut dialogue, StepType::TeamAssignment, assignment, gate).await?;
         let ack = team_speak::specialist_acknowledges(spec);
-        push_and_send(
-            writer,
-            &mut dialogue,
-            StepType::SpecialistWorking,
-            format!("{}: {}", spec.name, ack),
-            gate,
-        )
-        .await?;
+        push_and_send(writer, &mut dialogue, StepType::SpecialistWorking,
+            format!("{}: {}", spec.name, ack), gate).await?;
         Some(spec.name.to_string())
     } else {
         None
@@ -189,14 +181,8 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                 experiment_count += 1;
                 ticket.start_experimenting();
                 department::update_ticket(&ticket);
-                push_and_send(
-                    writer,
-                    &mut dialogue,
-                    StepType::ExperimentStart,
-                    format!("[risk={:.2}] expected=success", risk),
-                    gate,
-                )
-                .await?;
+                push_and_send(writer, &mut dialogue, StepType::ExperimentStart,
+                    format!("[risk={:.2}] expected=success", risk), gate).await?;
             }
 
             match execute_command(cmd) {
@@ -204,44 +190,21 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                     let clean_output = strip_ansi_codes(&output);
                     state.commands.push(cmd.clone());
                     state.outputs.push(clean_output.clone());
-                    push_and_send(
-                        writer,
-                        &mut dialogue,
-                        StepType::InvestigationResult,
-                        truncate(&clean_output, 500),
-                        gate,
-                    )
-                    .await?;
-
+                    push_and_send(writer, &mut dialogue, StepType::InvestigationResult,
+                        truncate(&clean_output, 500), gate).await?;
                     if is_risky {
-                        let actual =
-                            if clean_output.contains("error") || clean_output.contains("failed") {
-                                "failed"
-                            } else {
-                                "success"
-                            };
-                        push_and_send(
-                            writer,
-                            &mut dialogue,
-                            StepType::ExperimentResult,
-                            format!("actual={}", actual),
-                            gate,
-                        )
-                        .await?;
+                        let actual = if clean_output.contains("error") || clean_output.contains("failed")
+                            { "failed" } else { "success" };
+                        push_and_send(writer, &mut dialogue, StepType::ExperimentResult,
+                            format!("actual={}", actual), gate).await?;
                         ticket.start_investigating();
                         department::update_ticket(&ticket);
                     }
                 }
                 Err(e) => {
                     if is_risky {
-                        push_and_send(
-                            writer,
-                            &mut dialogue,
-                            StepType::ExperimentResult,
-                            format!("actual=error ({})", e),
-                            gate,
-                        )
-                        .await?;
+                        push_and_send(writer, &mut dialogue, StepType::ExperimentResult,
+                            format!("actual=error ({})", e), gate).await?;
                         ticket.start_investigating();
                         department::update_ticket(&ticket);
                     }
@@ -279,14 +242,9 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     }
 
     // Max iterations - return best effort
-    push_and_send(
-        writer,
-        &mut dialogue,
-        StepType::InvestigationComplete,
+    push_and_send(writer, &mut dialogue, StepType::InvestigationComplete,
         format!("{} probes, {} experiments run (max iterations reached)", probe_count, experiment_count),
-        gate,
-    )
-    .await?;
+        gate).await?;
 
     let raw_answer = state.answer.unwrap_or_else(|| {
         "I couldn't fully answer your question. Please try rephrasing.".to_string()
@@ -324,39 +282,19 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 /// Finish successful streaming loop with final answer.
 #[allow(clippy::too_many_arguments)]
 async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
-    writer: &mut W,
-    dialogue: &mut Vec<DialogueStep>,
-    ticket: &mut department::Ticket,
-    state: &IterationState,
-    answer: &str,
-    question: &str,
-    iteration: u32,
-    probe_count: usize,
-    experiment_count: usize,
-    assigned_spec_name: &Option<String>,
-    confidence: f32,
-    gate: &ExposureGate,
+    writer: &mut W, dialogue: &mut Vec<DialogueStep>, ticket: &mut department::Ticket,
+    state: &IterationState, answer: &str, question: &str, iteration: u32,
+    probe_count: usize, experiment_count: usize, assigned_spec_name: &Option<String>,
+    confidence: f32, gate: &ExposureGate,
 ) -> Result<AskResult> {
     // End investigation mode
-    push_and_send(
-        writer,
-        dialogue,
-        StepType::InvestigationComplete,
-        format!("{} probes, {} experiments run", probe_count, experiment_count),
-        gate,
-    )
-    .await?;
+    push_and_send(writer, dialogue, StepType::InvestigationComplete,
+        format!("{} probes, {} experiments run", probe_count, experiment_count), gate).await?;
 
     // Specialist reports completion
     if let Some(ref spec_name) = assigned_spec_name {
-        push_and_send(
-            writer,
-            dialogue,
-            StepType::TeamDialogue,
-            format!("{} -> Anna: I've got the answer.", spec_name),
-            gate,
-        )
-        .await?;
+        push_and_send(writer, dialogue, StepType::TeamDialogue,
+            format!("{} -> Anna: I've got the answer.", spec_name), gate).await?;
     }
 
     // Verify answer through ClaimGate

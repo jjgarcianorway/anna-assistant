@@ -382,26 +382,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_firewall_status() {
-        let result = match_patterns("firewall status");
-        assert!(result.is_some());
-    }
-
-    #[test]
-    fn test_ssh_keys() {
-        let result = match_patterns("list ssh keys");
-        assert!(result.is_some());
-    }
-
-    #[test]
-    fn test_list_users() {
-        let result = match_patterns("list all users");
-        assert!(result.is_some());
-    }
-
-    #[test]
-    fn test_sudo_users() {
-        let result = match_patterns("who has sudo access");
-        assert!(result.is_some());
+    fn test_security_patterns() {
+        assert!(match_patterns("firewall status").is_some());
+        assert!(match_patterns("list ssh keys").is_some());
+        assert!(match_patterns("list all users").is_some());
+        assert!(match_patterns("who has sudo access").is_some());
     }
 }

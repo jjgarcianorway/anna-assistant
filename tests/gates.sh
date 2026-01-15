@@ -23,57 +23,13 @@ info() { echo -e "${YELLOW}[INFO]${NC} $1"; }
 # ================================================
 # GATE: 400-Line Limit
 # ================================================
-# Legacy files grandfathered in - these existed before Phase 17
-# New code MUST stay under 400 lines
-LEGACY_ALLOWLIST=(
-    "crates/anna-shared/src/memory/mod.rs"
-    "crates/anna-shared/src/memory/types.rs"
-    "crates/anna-shared/src/monitor/learning.rs"
-    "crates/anna-shared/src/experiment/predictor.rs"
-    "crates/anna-shared/src/teaching.rs"
-    "crates/anna-shared/src/paths.rs"
-    "crates/anna-shared/src/stats.rs"
-    "crates/anna-shared/src/event_bus.rs"
-    "crates/anna-shared/src/exposure/sanitize.rs"
-    "crates/anna-shared/src/rpc.rs"
-    "crates/annad/src/core_loop/fallback.rs"
-    "crates/annad/src/patterns/test_500.rs"
-    "crates/annad/src/patterns/audio.rs"
-    "crates/annad/src/patterns/systemd.rs"
-    "crates/annad/src/patterns/desktop.rs"
-    "crates/annad/src/patterns/security.rs"
-    "crates/annad/src/patterns/howto.rs"
-    "crates/annad/src/patterns/factual.rs"
-    "crates/annad/src/patterns/tests.rs"
-    "crates/annad/src/patterns/power.rs"
-    "crates/annad/src/ollama/service.rs"
-    "crates/annad/src/server/streaming.rs"
-    "crates/annad/src/department/tickets.rs"
-    "crates/annad/src/llm_core/mod.rs"
-    "crates/annad/src/autofix.rs"
-    "crates/annad/src/ralph/streaming.rs"
-    "crates/annad/src/state.rs"
-    "crates/annad/tests/e2e_exposure_smoke.rs"
-    "scripts/install_anna.sh"
-    "scripts/install.sh"
-    "tests/phase17_validation.sh"
-)
-
-is_legacy_file() {
-    local file="$1"
-    local rel_path="${file#$REPO_ROOT/}"
-    for legacy in "${LEGACY_ALLOWLIST[@]}"; do
-        if [[ "$rel_path" == "$legacy" ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
+# ALL files must be under 400 lines. NO exceptions.
+# NO allowlists. NO grandfathering.
 
 check_line_limits() {
     local MAX_LINES=400
     local FAILED=0
-    local LEGACY_WARN=0
+    local VIOLATION_COUNT=0
 
     echo "=== Checking 400-Line Limit ==="
 
@@ -103,24 +59,18 @@ check_line_limits() {
 
                 LINES=$(wc -l < "$file")
                 if [ "$LINES" -gt "$MAX_LINES" ]; then
-                    if is_legacy_file "$file"; then
-                        # Legacy file - warn but don't fail
-                        LEGACY_WARN=$((LEGACY_WARN + 1))
-                    else
-                        fail "$file has $LINES lines (limit: $MAX_LINES)"
-                        FAILED=1
-                    fi
+                    fail "$file has $LINES lines (limit: $MAX_LINES)"
+                    VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
+                    FAILED=1
                 fi
             done < <(find "$REPO_ROOT/$dir" -name "*.$ext" -type f -print0 2>/dev/null)
         done
     done
 
-    if [ "$LEGACY_WARN" -gt 0 ]; then
-        info "$LEGACY_WARN legacy files exceed limit (grandfathered)"
-    fi
-
     if [ "$FAILED" -eq 0 ]; then
-        pass "All new files under $MAX_LINES lines"
+        pass "LINE_LIMIT: PASS (0 files > 400 lines)"
+    else
+        echo -e "${RED}LINE_LIMIT: FAIL ($VIOLATION_COUNT files > 400 lines)${NC}"
     fi
 
     return $FAILED

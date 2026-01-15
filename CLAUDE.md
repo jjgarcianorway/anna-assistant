@@ -347,14 +347,13 @@ Violations are considered CRITICAL DEFECTS.
 
 ## 400-LINE RULE (Phase 17)
 
-All new Rust files MUST stay under 400 lines.
+ALL files MUST stay under 400 lines. NO exceptions. NO allowlists.
 
 **Enforced by:**
-- `tests/gates.sh --line-limit-only` (CI gate)
-- `tests/acceptance_gates.sh` calls gates.sh
+- `tests/gates.sh --line-limit-only` (CI gate - hard fail)
+- `.github/workflows/acceptance_gates.yml` runs on every push/PR
 
-**Legacy files are grandfathered** but listed explicitly in gates.sh.
-New code exceeding 400 lines fails CI.
+Files over 400 lines MUST be split into submodules.
 
 ## ACTION PLAN LIFECYCLE (Phase 16-17)
 

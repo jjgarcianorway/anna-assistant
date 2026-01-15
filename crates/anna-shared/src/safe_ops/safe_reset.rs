@@ -188,41 +188,10 @@ impl SafeReset {
     }
 
     /// Migrate legacy xp.json into PersistentStats (one-time).
+    /// NOTE: Legacy user-local paths are no longer supported. System paths only.
     pub(crate) fn migrate_legacy_xp() -> Result<Option<String>> {
-        let xp_path = dirs::data_local_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("anna/xp.json");
-
-        if !xp_path.exists() {
-            return Ok(None);
-        }
-
-        let content = match fs::read_to_string(&xp_path) {
-            Ok(c) => c,
-            Err(_) => return Ok(None),
-        };
-
-        let xp: serde_json::Value = match serde_json::from_str(&content) {
-            Ok(v) => v,
-            Err(_) => {
-                fs::remove_file(&xp_path)?;
-                return Ok(Some("Legacy XP (invalid, removed)".to_string()));
-            }
-        };
-
-        let total_xp = xp.get("total_xp").and_then(|v| v.as_u64()).unwrap_or(0);
-        let level = xp.get("level").and_then(|v| v.as_u64()).unwrap_or(1);
-
-        fs::remove_file(&xp_path)?;
-
-        if total_xp > 0 || level > 1 {
-            Ok(Some(format!(
-                "Legacy XP migrated ({} XP, level {}) - file removed",
-                total_xp, level
-            )))
-        } else {
-            Ok(Some("Legacy XP (empty, removed)".to_string()))
-        }
+        // System paths only - no legacy user-local data to migrate
+        Ok(None)
     }
 
     /// Reset ticket tracker.

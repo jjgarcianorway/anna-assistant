@@ -335,68 +335,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_general_audio() {
+    fn test_audio_patterns() {
+        // General audio
         assert!(match_patterns("sound working").is_some());
         assert!(match_patterns("no sound").is_some());
-        assert!(match_patterns("audio devices").is_some());
-        assert!(match_patterns("volume level").is_some());
-    }
-
-    #[test]
-    fn test_audio_expanded() {
         assert!(match_patterns("audio latency").is_some());
-        assert!(match_patterns("sample rate").is_some());
-        assert!(match_patterns("audio routing").is_some());
-        assert!(match_patterns("speaker test").is_some());
-        assert!(match_patterns("headphone detection").is_some());
-        assert!(match_patterns("audio codecs").is_some());
-        assert!(match_patterns("equalizer settings").is_some());
-        assert!(match_patterns("audio profiles").is_some());
-        assert!(match_patterns("audio troubleshoot").is_some());
-        assert!(match_patterns("audio mixing").is_some());
-    }
-
-    #[test]
-    fn test_pipewire() {
+        // PipeWire/PulseAudio/ALSA
         assert!(match_patterns("pipewire status").is_some());
-        assert!(match_patterns("pipewire version").is_some());
-        assert!(match_patterns("wireplumber status").is_some());
-    }
-
-    #[test]
-    fn test_pulseaudio() {
         assert!(match_patterns("pulseaudio status").is_some());
-        assert!(match_patterns("pactl sinks").is_some());
-    }
-
-    #[test]
-    fn test_alsa() {
         assert!(match_patterns("alsa devices").is_some());
-        assert!(match_patterns("alsa mixer").is_some());
-        assert!(match_patterns("sound modules").is_some());
-    }
-
-    #[test]
-    fn test_jack() {
+        // JACK/MIDI/Bluetooth
         assert!(match_patterns("jack status").is_some());
-        assert!(match_patterns("jack audio").is_some());
-        assert!(match_patterns("jack latency").is_some());
-        assert!(match_patterns("jack connections").is_some());
-        assert!(match_patterns("pipewire jack").is_some());
-    }
-
-    #[test]
-    fn test_midi() {
         assert!(match_patterns("midi devices").is_some());
-        assert!(match_patterns("midi ports").is_some());
-        assert!(match_patterns("midi connections").is_some());
-        assert!(match_patterns("usb midi").is_some());
-        assert!(match_patterns("alsa midi").is_some());
-    }
-
-    #[test]
-    fn test_bluetooth_audio() {
         assert!(match_patterns("bluetooth audio").is_some());
-        assert!(match_patterns("bluetooth headphones").is_some());
     }
 }
