@@ -5,13 +5,16 @@
 use anna_shared::action_plan::{
     ActionPlan, ActionStep, PlanExecutionResult, StepResult, VerificationResult,
 };
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::plan_stash::PlanStash;
+
+/// TTL for pending plans (5 minutes).
+const PLAN_TTL_MINUTES: i64 = 5;
 
 /// Store pending plans by session ID.
 static PENDING_PLANS: RwLock<Option<HashMap<String, ActionPlan>>> = RwLock::new(None);
@@ -26,13 +29,35 @@ pub fn set_pending_plan(session_id: &str, plan: ActionPlan) {
 }
 
 /// Get and remove a pending plan for a session.
+/// Returns None if plan has expired (TTL exceeded).
 pub fn take_pending_plan(session_id: &str) -> Option<ActionPlan> {
     if let Ok(mut guard) = PENDING_PLANS.write() {
         if let Some(map) = guard.as_mut() {
-            return map.remove(session_id);
+            if let Some(plan) = map.remove(session_id) {
+                // Check TTL
+                let age = Utc::now() - plan.created_at;
+                if age > Duration::minutes(PLAN_TTL_MINUTES) {
+                    info!("Plan {} expired ({}min old)", plan.id, age.num_minutes());
+                    return None;
+                }
+                return Some(plan);
+            }
         }
     }
     None
+}
+
+/// Check if a pending plan has expired.
+pub fn is_plan_expired(session_id: &str) -> bool {
+    if let Ok(guard) = PENDING_PLANS.read() {
+        if let Some(map) = guard.as_ref() {
+            if let Some(plan) = map.get(session_id) {
+                let age = Utc::now() - plan.created_at;
+                return age > Duration::minutes(PLAN_TTL_MINUTES);
+            }
+        }
+    }
+    false
 }
 
 /// Check if there's a pending plan for a session.
@@ -340,27 +365,33 @@ mod tests {
     #[test]
     fn test_execute_simple_step() {
         let step = ActionStep::new("Echo test", "echo 'hello world'", false);
-
         let result = execute_step(&step, 0);
-        assert!(result.success);
-        assert!(result.output.contains("hello"));
+        assert!(result.success && result.output.contains("hello"));
     }
 
     #[test]
     fn test_execute_failing_step() {
-        let step = ActionStep::new("Failing command", "exit 1", false);
-
-        let result = execute_step(&step, 0);
-        assert!(!result.success);
+        let step = ActionStep::new("Failing", "exit 1", false);
+        assert!(!execute_step(&step, 0).success);
     }
 
     #[test]
     fn test_no_changes_plan() {
         let mut plan = ActionPlan::new("test", "Test", "Testing");
         plan.mark_no_changes("Already configured");
-
         let result = execute_plan(&plan);
-        assert!(result.success);
-        assert!(result.step_results.is_empty());
+        assert!(result.success && result.step_results.is_empty());
+    }
+
+    #[test]
+    fn test_plan_ttl_and_expiry() {
+        assert_eq!(PLAN_TTL_MINUTES, 5);
+        // Fresh plan should not be expired
+        let plan = ActionPlan::new("test", "Test", "Testing");
+        set_pending_plan("ttl-test", plan);
+        assert!(!is_plan_expired("ttl-test"));
+        let _ = take_pending_plan("ttl-test");
+        // Non-existent plan should return false
+        assert!(!is_plan_expired("nonexistent-xyz"));
     }
 }

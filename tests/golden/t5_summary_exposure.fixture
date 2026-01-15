@@ -1,0 +1,5 @@
+# T5: Summary exposure - minimal progress + answer
+# At Summary level, brief progress and final answer visible
+{"Step":{"step":{"step_type":"FinalPrompt","content":""}}}
+{"Token":{"token":"Your disk has 234GB free."}}
+{"Done":{"result":{"answer":"Your disk has 234GB free.","success":true,"iterations":1,"commands_executed":["df -h"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

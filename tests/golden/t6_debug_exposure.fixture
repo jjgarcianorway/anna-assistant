@@ -1,0 +1,9 @@
+# T6: Debug exposure - internal steps visible
+# At Debug level, LLM prompts and command output visible
+{"Step":{"step":{"step_type":"AnnaToLlm","content":"[prompt to LLM]"}}}
+{"Step":{"step":{"step_type":"LlmCommands","content":"df -h"}}}
+{"Step":{"step":{"step_type":"CommandExec","content":"df -h"}}}
+{"Step":{"step":{"step_type":"CommandOutput","content":"Filesystem Size Used Avail"}}}
+{"Step":{"step":{"step_type":"FinalPrompt","content":""}}}
+{"Token":{"token":"Your disk has 234GB free."}}
+{"Done":{"result":{"answer":"Your disk has 234GB free.","success":true,"iterations":1,"commands_executed":["df -h"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

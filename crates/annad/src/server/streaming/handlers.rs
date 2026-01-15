@@ -8,14 +8,14 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 use crate::autofix::{get_fix_history_summary, take_pending_autofix};
-use crate::plan_executor::take_pending_plan;
+use crate::plan_executor::{has_pending_plan, is_plan_expired, take_pending_plan};
 use crate::plan_generator;
 use crate::recipes;
 use crate::state::SharedState;
 
 use crate::server::alerts::get_pending_alerts;
 use super::confirm_handlers::{
-    handle_pending_autofix, handle_pending_plan, handle_pending_recipe,
+    handle_expired_plan, handle_pending_autofix, handle_pending_plan, handle_pending_recipe,
     handle_recipe_match, handle_template_plan,
 };
 use super::helpers::{is_fix_history_question, send_filtered_final_answer, take_pending_recipe};
@@ -54,6 +54,12 @@ pub async fn handle_streaming_request(
     }
 
     // Phase 16: Check if this is a response to a pending action plan
+    // First check if a plan exists but has expired
+    if has_pending_plan(session_id) && is_plan_expired(session_id) {
+        // Take and discard the expired plan, then notify user
+        let _ = take_pending_plan(session_id);
+        return handle_expired_plan(session_id, &mut writer).await;
+    }
     if let Some(pending_plan) = take_pending_plan(session_id) {
         return handle_pending_plan(pending_plan, question, session_id, &mut writer).await;
     }

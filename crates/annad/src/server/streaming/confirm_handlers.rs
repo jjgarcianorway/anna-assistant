@@ -7,7 +7,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 use crate::autofix::{execute_autofix, is_no_response, is_yes_response, AutoFix};
-use crate::plan_executor::{execute_plan, format_execution_result, set_pending_plan};
+use crate::plan_executor::{execute_plan, format_execution_result, is_plan_expired, set_pending_plan};
 use crate::recipes;
 
 use super::helpers::{extract_recipe_id, send_filtered_final_answer, set_pending_recipe};
@@ -286,7 +286,55 @@ pub async fn handle_pending_plan(
         writer.write_all(format!("{}\n", json).as_bytes()).await?;
         return Ok(());
     }
-    // Not yes/no - re-store the plan and continue
+
+    // Invalid input - prompt again
+    info!("Invalid response for plan {}: '{}'", pending_plan.id, question);
+    let prompt_msg = "Please type 'yes' to proceed or 'no' to cancel.";
+    send_filtered_final_answer(writer, prompt_msg).await?;
+
+    // Re-store the plan for retry
     set_pending_plan(session_id, pending_plan);
+
+    let result = anna_shared::rpc::AskResult {
+        answer: prompt_msg.to_string(),
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue: vec![],
+        needs_clarification: true,
+        clarification_question: Some("Proceed? (yes/no)".to_string()),
+        cached: false,
+        citations: vec![],
+    };
+    let done = StreamingResponse::Done { result };
+    let json = serde_json::to_string(&done)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+    Ok(())
+}
+
+/// Handle expired plan - inform user and clear state
+pub async fn handle_expired_plan(
+    session_id: &str,
+    writer: &mut tokio::net::unix::OwnedWriteHalf,
+) -> Result<()> {
+    info!("Plan expired for session {}", session_id);
+
+    let expire_msg = "The pending action has expired. Please repeat your request.";
+    send_filtered_final_answer(writer, expire_msg).await?;
+
+    let result = anna_shared::rpc::AskResult {
+        answer: expire_msg.to_string(),
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue: vec![],
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+    };
+    let done = StreamingResponse::Done { result };
+    let json = serde_json::to_string(&done)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
     Ok(())
 }

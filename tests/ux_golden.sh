@@ -145,6 +145,73 @@ fi
 echo
 
 # ================================================
+# TEST 4B: Exposure Level Fixtures
+# ================================================
+echo "=== T4B: Exposure Level Fixtures ==="
+
+# T4: Silent exposure - only Done packet
+if [ -f "$SCRIPT_DIR/golden/t4_silent_exposure.fixture" ]; then
+    pass "T4 silent fixture exists"
+    # Validate: No Step packets in silent mode
+    if grep -q '"Step"' "$SCRIPT_DIR/golden/t4_silent_exposure.fixture"; then
+        fail "T4 silent fixture should not contain Step packets"
+    else
+        pass "T4 silent fixture contains no Step packets"
+    fi
+    # Validate: Must have Done packet
+    if grep -q '"Done"' "$SCRIPT_DIR/golden/t4_silent_exposure.fixture"; then
+        pass "T4 silent fixture contains Done packet"
+    else
+        fail "T4 silent fixture missing Done packet"
+    fi
+else
+    fail "T4 silent fixture missing"
+fi
+
+# T5: Summary exposure - minimal progress
+if [ -f "$SCRIPT_DIR/golden/t5_summary_exposure.fixture" ]; then
+    pass "T5 summary fixture exists"
+    # Validate: Should have FinalPrompt step
+    if grep -q '"FinalPrompt"' "$SCRIPT_DIR/golden/t5_summary_exposure.fixture"; then
+        pass "T5 summary fixture contains FinalPrompt"
+    else
+        fail "T5 summary fixture missing FinalPrompt"
+    fi
+    # Validate: Should NOT have debug-only steps (AnnaToLlm, CommandExec)
+    if grep -qE '"AnnaToLlm"|"CommandExec"' "$SCRIPT_DIR/golden/t5_summary_exposure.fixture"; then
+        fail "T5 summary fixture should not contain debug-only steps"
+    else
+        pass "T5 summary fixture excludes debug-only steps"
+    fi
+else
+    fail "T5 summary fixture missing"
+fi
+
+# T6: Debug exposure - all steps visible
+if [ -f "$SCRIPT_DIR/golden/t6_debug_exposure.fixture" ]; then
+    pass "T6 debug fixture exists"
+    # Validate: Should have debug-only steps
+    if grep -q '"AnnaToLlm"' "$SCRIPT_DIR/golden/t6_debug_exposure.fixture"; then
+        pass "T6 debug fixture contains AnnaToLlm"
+    else
+        fail "T6 debug fixture missing AnnaToLlm"
+    fi
+    if grep -q '"CommandExec"' "$SCRIPT_DIR/golden/t6_debug_exposure.fixture"; then
+        pass "T6 debug fixture contains CommandExec"
+    else
+        fail "T6 debug fixture missing CommandExec"
+    fi
+    if grep -q '"CommandOutput"' "$SCRIPT_DIR/golden/t6_debug_exposure.fixture"; then
+        pass "T6 debug fixture contains CommandOutput"
+    else
+        fail "T6 debug fixture missing CommandOutput"
+    fi
+else
+    fail "T6 debug fixture missing"
+fi
+echo
+
+# ================================================
 # TEST 5: UX Spec Exists and Valid
 # ================================================
 echo "=== T5: UX Spec Document ==="

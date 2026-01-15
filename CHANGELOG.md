@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.53] - 2026-01-15
+
+### Changed - Phase 20: User Experience Reality Pass
+
+Hardening and fixes only, no new features.
+
+**A) Golden fixtures for exposure levels:**
+- T4: Silent exposure (answer only, no steps)
+- T5: Summary exposure (minimal progress + answer)
+- T6: Debug exposure (all internal steps visible)
+- Updated tests/ux_golden.sh to validate exposure fixtures
+
+**B) Streaming termination:**
+- Verified deterministic single-line error messages
+- Terminality contract tests all pass
+
+**C) Plan confirmation lifecycle:**
+- Added 5-minute TTL for pending plans
+- Invalid input now prompts "Please type 'yes' or 'no'"
+- Expired plans inform user to repeat request
+
+**D) CI hygiene:**
+- All gates pass locally and in CI
+- 400-line limit enforced across all files
+
 ## [0.3.52] - 2026-01-15
 
 ### Added - Phase 19: UX Regression Lock

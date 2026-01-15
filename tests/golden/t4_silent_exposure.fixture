@@ -1,0 +1,3 @@
+# T4: Silent exposure - answer only, no intermediate steps
+# At Silent level, only the final answer is visible
+{"Done":{"result":{"answer":"Your disk has 234GB free.","success":true,"iterations":1,"commands_executed":["df -h"],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[]}}}

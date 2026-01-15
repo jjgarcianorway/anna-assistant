@@ -55,6 +55,12 @@
 - Pattern-based contract validation
 - CI-integrated regression gate
 
+### Phase 20: User Experience Reality Pass (v0.3.53)
+- Golden fixtures for Silent/Summary/Debug exposure levels
+- Deterministic streaming termination
+- Plan confirmation lifecycle edge cases (TTL, invalid input, expired)
+- CI hygiene verification
+
 ## Frozen (Not Planned)
 
 - No new specialists
@@ -64,7 +70,7 @@
 
 ## Future Phases
 
-### Phase 20: Model Selection Benchmark + Hardware-Aware Routing
+### Phase 21: Model Selection Benchmark + Hardware-Aware Routing
 - Model performance benchmarking
 - Hardware capability detection
 - Automatic model selection based on query complexity
