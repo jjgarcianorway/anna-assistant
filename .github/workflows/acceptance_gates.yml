@@ -14,6 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check 400-line limit (ALL files)
+        run: |
+          chmod +x tests/gates.sh
+          bash tests/gates.sh --line-limit-only
+
       - name: Install Rust
         uses: dtolnay/rust-action@stable
 
