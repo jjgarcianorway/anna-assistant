@@ -1,11 +1,9 @@
 //! ActionPlan - Structured executable plans for system changes.
 //! Phase 16: Turn fallback into real execution.
-//!
-//! When Anna would have given manual instructions (blocked by sanitization),
-//! she instead generates an ActionPlan that she can execute herself.
+//! Phase 17: Verification and rollback support.
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// A single step in an action plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,29 +14,57 @@ pub struct ActionStep {
     pub command: String,
     /// Whether this command requires elevated privileges.
     pub needs_sudo: bool,
-    /// Expected output pattern (for verification).
-    pub expected_output: Option<String>,
+    /// Files that will be modified (for backup).
+    pub affects_files: Vec<String>,
+    /// Systemd units that will be modified (for state capture).
+    pub affects_units: Vec<String>,
+    /// Per-step verification command (quick check).
+    pub verify_command: Option<String>,
+    /// Expected pattern in verify output.
+    pub verify_pattern: Option<String>,
+    /// Rollback command if this step needs undoing.
+    pub rollback_command: Option<String>,
 }
 
-/// A complete action plan that Anna can execute.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActionPlan {
-    /// Unique identifier for this plan.
-    pub id: String,
-    /// Short summary of what this plan does (shown to user).
-    pub summary: String,
-    /// Detailed explanation of the changes.
-    pub explanation: String,
-    /// The steps to execute.
-    pub steps: Vec<ActionStep>,
-    /// How to verify the plan succeeded.
-    pub verification: Option<VerificationCheck>,
-    /// Steps to undo the changes (for Phase 17).
-    pub rollback: Option<Vec<ActionStep>>,
-    /// When this plan was created.
-    pub created_at: DateTime<Utc>,
-    /// The original question that triggered this plan.
-    pub original_question: String,
+impl ActionStep {
+    /// Create a new step with minimal required fields.
+    pub fn new(description: &str, command: &str, needs_sudo: bool) -> Self {
+        Self {
+            description: description.to_string(),
+            command: command.to_string(),
+            needs_sudo,
+            affects_files: Vec::new(),
+            affects_units: Vec::new(),
+            verify_command: None,
+            verify_pattern: None,
+            rollback_command: None,
+        }
+    }
+
+    /// Builder: Add affected files.
+    pub fn with_files(mut self, files: &[&str]) -> Self {
+        self.affects_files = files.iter().map(|s| s.to_string()).collect();
+        self
+    }
+
+    /// Builder: Add affected units.
+    pub fn with_units(mut self, units: &[&str]) -> Self {
+        self.affects_units = units.iter().map(|s| s.to_string()).collect();
+        self
+    }
+
+    /// Builder: Add per-step verification.
+    pub fn with_verify(mut self, command: &str, pattern: &str) -> Self {
+        self.verify_command = Some(command.to_string());
+        self.verify_pattern = Some(pattern.to_string());
+        self
+    }
+
+    /// Builder: Add rollback command.
+    pub fn with_rollback(mut self, command: &str) -> Self {
+        self.rollback_command = Some(command.to_string());
+        self
+    }
 }
 
 /// Verification check to confirm plan succeeded.
@@ -52,43 +78,50 @@ pub struct VerificationCheck {
     pub description: String,
 }
 
-/// Result of executing an action plan.
+/// Rollback information for a plan.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlanExecutionResult {
-    /// The plan that was executed.
-    pub plan_id: String,
-    /// Whether all steps succeeded.
-    pub success: bool,
-    /// Results for each step.
-    pub step_results: Vec<StepResult>,
-    /// Verification result if verification was defined.
-    pub verification_result: Option<VerificationResult>,
-    /// When execution completed.
-    pub completed_at: DateTime<Utc>,
+pub struct RollbackInfo {
+    /// Whether rollback is possible.
+    pub possible: bool,
+    /// Reason if rollback not possible.
+    pub reason: Option<String>,
+    /// Explicit rollback steps (if not using captured state).
+    pub steps: Vec<ActionStep>,
 }
 
-/// Result of executing a single step.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StepResult {
-    /// Index of the step.
-    pub step_index: usize,
-    /// Whether the step succeeded.
-    pub success: bool,
-    /// Command output.
-    pub output: String,
-    /// Error message if failed.
-    pub error: Option<String>,
+impl Default for RollbackInfo {
+    fn default() -> Self {
+        Self {
+            possible: true,
+            reason: None,
+            steps: Vec::new(),
+        }
+    }
 }
 
-/// Result of verification check.
+/// A complete action plan that Anna can execute.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VerificationResult {
-    /// Whether verification passed.
-    pub passed: bool,
-    /// Actual output from verification command.
-    pub actual_output: String,
-    /// Explanation of result.
+pub struct ActionPlan {
+    /// Unique identifier for this plan.
+    pub id: String,
+    /// Short summary of what this plan does (shown to user).
+    pub summary: String,
+    /// Detailed explanation of the changes.
     pub explanation: String,
+    /// The steps to execute.
+    pub steps: Vec<ActionStep>,
+    /// Final verification (authoritative check).
+    pub verification: Option<VerificationCheck>,
+    /// Rollback information.
+    pub rollback: RollbackInfo,
+    /// When this plan was created.
+    pub created_at: DateTime<Utc>,
+    /// The original question that triggered this plan.
+    pub original_question: String,
+    /// Whether preflight determined changes are needed.
+    pub changes_needed: bool,
+    /// Reason if no changes needed.
+    pub skip_reason: Option<String>,
 }
 
 impl ActionPlan {
@@ -100,29 +133,44 @@ impl ActionPlan {
             explanation: explanation.to_string(),
             steps: Vec::new(),
             verification: None,
-            rollback: None,
+            rollback: RollbackInfo::default(),
             created_at: Utc::now(),
             original_question: question.to_string(),
+            changes_needed: true,
+            skip_reason: None,
         }
     }
 
-    /// Add a step to the plan.
+    /// Add a step to the plan (legacy method for compatibility).
     pub fn add_step(&mut self, description: &str, command: &str, needs_sudo: bool) {
-        self.steps.push(ActionStep {
-            description: description.to_string(),
-            command: command.to_string(),
-            needs_sudo,
-            expected_output: None,
-        });
+        self.steps.push(ActionStep::new(description, command, needs_sudo));
     }
 
-    /// Set verification check.
+    /// Add a step with full configuration.
+    pub fn add_step_full(&mut self, step: ActionStep) {
+        self.steps.push(step);
+    }
+
+    /// Set final verification check.
     pub fn set_verification(&mut self, command: &str, success_pattern: &str, description: &str) {
         self.verification = Some(VerificationCheck {
             command: command.to_string(),
             success_pattern: success_pattern.to_string(),
             description: description.to_string(),
         });
+    }
+
+    /// Mark plan as no changes needed (idempotent).
+    pub fn mark_no_changes(&mut self, reason: &str) {
+        self.changes_needed = false;
+        self.skip_reason = Some(reason.to_string());
+        self.steps.clear();
+    }
+
+    /// Mark rollback as not possible.
+    pub fn set_no_rollback(&mut self, reason: &str) {
+        self.rollback.possible = false;
+        self.rollback.reason = Some(reason.to_string());
     }
 
     /// Check if any step requires sudo.
@@ -132,25 +180,66 @@ impl ActionPlan {
 
     /// Format the plan for user confirmation.
     pub fn format_for_confirmation(&self) -> String {
-        let mut output = String::new();
+        if !self.changes_needed {
+            return format!(
+                "No changes needed. {}",
+                self.skip_reason.as_deref().unwrap_or("Already configured.")
+            );
+        }
 
+        let mut output = String::new();
         output.push_str(&format!("I'll {}.\n\n", self.summary.to_lowercase()));
         output.push_str(&self.explanation);
         output.push_str("\n\nSteps:\n");
 
         for (i, step) in self.steps.iter().enumerate() {
-            let sudo_marker = if step.needs_sudo { " [requires sudo]" } else { "" };
+            let sudo_marker = if step.needs_sudo { " [sudo]" } else { "" };
             output.push_str(&format!("  {}. {}{}\n", i + 1, step.description, sudo_marker));
         }
 
         if self.requires_sudo() {
-            output.push_str("\nThis will require administrator privileges.\n");
+            output.push_str("\nRequires administrator privileges.\n");
+        }
+
+        if !self.rollback.possible {
+            if let Some(ref reason) = self.rollback.reason {
+                output.push_str(&format!("\nNote: {}\n", reason));
+            }
         }
 
         output.push_str("\nProceed? (yes/no)");
-
         output
     }
+}
+
+/// Result of executing an action plan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanExecutionResult {
+    pub plan_id: String,
+    pub success: bool,
+    pub step_results: Vec<StepResult>,
+    pub verification_result: Option<VerificationResult>,
+    pub rollback_performed: bool,
+    pub rollback_success: Option<bool>,
+    pub completed_at: DateTime<Utc>,
+}
+
+/// Result of executing a single step.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StepResult {
+    pub step_index: usize,
+    pub success: bool,
+    pub output: String,
+    pub error: Option<String>,
+    pub verified: Option<bool>,
+}
+
+/// Result of verification check.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationResult {
+    pub passed: bool,
+    pub actual_output: String,
+    pub explanation: String,
 }
 
 #[cfg(test)]
@@ -158,45 +247,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_action_plan_creation() {
-        let mut plan = ActionPlan::new(
-            "disable sleep",
-            "Disable system sleep",
-            "This will configure systemd to prevent automatic sleep.",
-        );
+    fn test_action_step_builder() {
+        let step = ActionStep::new("Test", "echo test", false)
+            .with_files(&["/etc/test.conf"])
+            .with_units(&["test.service"])
+            .with_verify("test -f /etc/test.conf", "")
+            .with_rollback("rm /etc/test.conf");
 
-        plan.add_step(
-            "Mask sleep targets",
-            "systemctl mask sleep.target suspend.target",
-            true,
-        );
-
-        plan.set_verification(
-            "systemctl status sleep.target",
-            "masked",
-            "Verify sleep target is masked",
-        );
-
-        assert_eq!(plan.steps.len(), 1);
-        assert!(plan.requires_sudo());
-        assert!(plan.verification.is_some());
+        assert_eq!(step.affects_files.len(), 1);
+        assert_eq!(step.affects_units.len(), 1);
+        assert!(step.rollback_command.is_some());
     }
 
     #[test]
-    fn test_format_for_confirmation() {
-        let mut plan = ActionPlan::new(
-            "test",
-            "Test operation",
-            "This is a test.",
-        );
-        plan.add_step("Step one", "echo hello", false);
-        plan.add_step("Step two", "sudo systemctl restart test", true);
+    fn test_plan_no_changes() {
+        let mut plan = ActionPlan::new("test", "Test", "Testing");
+        plan.mark_no_changes("Already configured");
 
-        let formatted = plan.format_for_confirmation();
-        // Summary is lowercased in "I'll {summary}."
-        assert!(formatted.contains("test operation"));
-        assert!(formatted.contains("Step one"));
-        assert!(formatted.contains("[requires sudo]"));
-        assert!(formatted.contains("Proceed? (yes/no)"));
+        assert!(!plan.changes_needed);
+        assert!(plan.steps.is_empty());
+        assert!(plan.format_for_confirmation().contains("No changes needed"));
+    }
+
+    #[test]
+    fn test_plan_no_rollback() {
+        let mut plan = ActionPlan::new("test", "Test", "Testing");
+        plan.set_no_rollback("Destructive operation");
+
+        assert!(!plan.rollback.possible);
     }
 }

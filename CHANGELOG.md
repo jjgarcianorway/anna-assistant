@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.50] - 2026-01-15
+
+### Added - Phase 17: Verification & Rollback Framework
+
+Plan execution now verifies changes and supports rollback on failure.
+
+**State capture for rollback:**
+- New `annad/plan_stash.rs`: Capture pre-execution state
+- Backups stored in `/var/lib/anna/rollback/<plan_id>/<step_index>/`
+- File backups before modification
+- Systemd unit state capture (masked, enabled status)
+
+**Verification framework:**
+- New `annad/plan_verify.rs`: Verification functions for common checks
+- `verify_file_contains()`: Check file existence and content
+- `verify_file_owner()`: Check file ownership
+- `verify_unit_masked()`: Check systemd unit mask status
+- `verify_logind_setting()`: Check effective logind config via loginctl
+
+**Per-step verification and rollback:**
+- ActionStep now supports `with_verify()` and `with_rollback()` builders
+- Each step can declare affected files (`with_files()`) and units (`with_units()`)
+- Per-step verification runs after each command
+- Rollback executes in reverse order on failure
+
+**Idempotency / preflight checks:**
+- Templates check existing state before making changes
+- `gdm_already_configured()`: Check monitors.xml resolution
+- `sleep_already_disabled()`: Check masked targets and logind IdleAction
+- `lid_already_configured()`: Check HandleLidSwitch setting
+- Plans marked "no changes needed" skip execution
+
+**Updated templates:**
+- GDM resolution: Preflight check, file backup, ownership verification
+- Sleep disable: Preflight check, unit mask/unmask rollback, logind config backup
+- Lid close: Preflight check, config file rollback
+
+**Code organization:**
+- Split `plan_generator.rs` into `plan_generator.rs` (LLM) + `plan_templates.rs` (templates)
+- All Phase 17 files under 400 lines
+- CI gate added to enforce 400-line limit on plan_* files
+
+**Execution result enhancement:**
+- `PlanExecutionResult` now includes `rollback_performed` and `rollback_success`
+- Format shows rollback status when applicable
+
 ## [0.3.49] - 2026-01-15
 
 ### Added - Phase 16: Action Execution & Confirmation Loop

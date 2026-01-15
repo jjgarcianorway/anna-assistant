@@ -1,5 +1,6 @@
 //! Plan Generator - Generate ActionPlans from LLM.
 //! Phase 16: Turn fallback into real execution.
+//! Phase 17: Preflight checks, verification, and rollback.
 //!
 //! When the LLM would have given manual instructions (blocked by sanitization),
 //! we ask it to generate a structured ActionPlan instead.
@@ -10,6 +11,9 @@ use serde::Deserialize;
 use tracing::{debug, info, warn};
 
 use crate::ollama;
+
+// Re-export template plan generation from dedicated module
+pub use crate::plan_templates::generate_template_plan;
 
 /// Request structure for plan generation.
 #[derive(Debug, Deserialize)]
@@ -102,203 +106,9 @@ JSON only, no markdown, no explanation outside the JSON:"#
     Ok(plan)
 }
 
-/// Generate a plan for common system configuration tasks.
-/// This uses pre-defined templates for well-known operations.
-pub fn generate_template_plan(question: &str) -> Option<ActionPlan> {
-    let q = question.to_lowercase();
-
-    // GDM resolution
-    if q.contains("gdm") && q.contains("resolution") {
-        return Some(gdm_resolution_plan(question));
-    }
-
-    // Disable sleep/suspend
-    if (q.contains("disable") || q.contains("prevent") || q.contains("stop"))
-        && (q.contains("sleep") || q.contains("suspend"))
-    {
-        return Some(disable_sleep_plan(question));
-    }
-
-    // Lid close behavior
-    if q.contains("lid") && (q.contains("close") || q.contains("closing")) {
-        return Some(lid_close_plan(question));
-    }
-
-    None
-}
-
-fn gdm_resolution_plan(question: &str) -> ActionPlan {
-    // Extract resolution from question (default to 1920x1080)
-    let resolution = extract_resolution(question).unwrap_or_else(|| "1920x1080".to_string());
-
-    let mut plan = ActionPlan::new(
-        question,
-        &format!("Set GDM login screen resolution to {}", resolution),
-        "This configures the display resolution for the GDM login screen by setting up \
-         a custom Wayland configuration. The change takes effect on next login.",
-    );
-
-    // Step 1: Create monitors.xml config
-    plan.add_step(
-        "Create GDM monitor configuration",
-        &format!(
-            r#"mkdir -p /var/lib/gdm/.config && cat > /var/lib/gdm/.config/monitors.xml << 'EOF'
-<monitors version="2">
-  <configuration>
-    <logicalmonitor>
-      <x>0</x>
-      <y>0</y>
-      <primary>yes</primary>
-      <monitor>
-        <monitorspec>
-          <connector>*</connector>
-          <vendor>unknown</vendor>
-          <product>unknown</product>
-          <serial>unknown</serial>
-        </monitorspec>
-        <mode>
-          <width>{}</width>
-          <height>{}</height>
-          <rate>60</rate>
-        </mode>
-      </monitor>
-    </logicalmonitor>
-  </configuration>
-</monitors>
-EOF"#,
-            resolution.split('x').next().unwrap_or("1920"),
-            resolution.split('x').nth(1).unwrap_or("1080")
-        ),
-        true,
-    );
-
-    // Step 2: Set permissions
-    plan.add_step(
-        "Set proper ownership",
-        "chown -R gdm:gdm /var/lib/gdm/.config",
-        true,
-    );
-
-    plan.set_verification(
-        "cat /var/lib/gdm/.config/monitors.xml | grep -q 'width'",
-        "width",
-        "Verify monitor configuration exists",
-    );
-
-    plan
-}
-
-fn disable_sleep_plan(question: &str) -> ActionPlan {
-    let mut plan = ActionPlan::new(
-        question,
-        "Disable automatic sleep and suspend",
-        "This masks the systemd sleep targets and configures logind to ignore idle timeouts. \
-         The system will no longer automatically sleep or suspend.",
-    );
-
-    // Step 1: Mask sleep targets
-    plan.add_step(
-        "Mask systemd sleep targets",
-        "systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target",
-        true,
-    );
-
-    // Step 2: Configure logind
-    plan.add_step(
-        "Configure logind to ignore idle",
-        r#"mkdir -p /etc/systemd/logind.conf.d && cat > /etc/systemd/logind.conf.d/no-idle.conf << 'EOF'
-[Login]
-IdleAction=ignore
-IdleActionSec=0
-EOF"#,
-        true,
-    );
-
-    // Step 3: Restart logind
-    plan.add_step("Apply logind changes", "systemctl restart systemd-logind", true);
-
-    plan.set_verification(
-        "systemctl status sleep.target | head -3",
-        "masked",
-        "Verify sleep target is masked",
-    );
-
-    plan
-}
-
-fn lid_close_plan(question: &str) -> ActionPlan {
-    // Determine the desired action (default to ignore)
-    let action = if question.to_lowercase().contains("nothing")
-        || question.to_lowercase().contains("ignore")
-    {
-        "ignore"
-    } else if question.to_lowercase().contains("lock") {
-        "lock"
-    } else if question.to_lowercase().contains("suspend") {
-        "suspend"
-    } else {
-        "ignore" // Default: do nothing
-    };
-
-    let mut plan = ActionPlan::new(
-        question,
-        &format!("Configure lid close to {}", action),
-        &format!(
-            "This configures the system to {} when the laptop lid is closed. \
-             Applies to both AC power and battery.",
-            action
-        ),
-    );
-
-    plan.add_step(
-        "Configure lid close behavior",
-        &format!(
-            r#"mkdir -p /etc/systemd/logind.conf.d && cat > /etc/systemd/logind.conf.d/lid.conf << 'EOF'
-[Login]
-HandleLidSwitch={}
-HandleLidSwitchExternalPower={}
-HandleLidSwitchDocked={}
-EOF"#,
-            action, action, action
-        ),
-        true,
-    );
-
-    plan.add_step("Apply changes", "systemctl restart systemd-logind", true);
-
-    plan.set_verification(
-        &format!("grep -r 'HandleLidSwitch={}' /etc/systemd/logind.conf.d/", action),
-        action,
-        "Verify lid switch configuration",
-    );
-
-    plan
-}
-
-/// Extract resolution from a question string.
-fn extract_resolution(question: &str) -> Option<String> {
-    // Common patterns: "1920x1080", "2560x1440", "3840x2160"
-    let re = regex::Regex::new(r"(\d{3,4})[xX×](\d{3,4})").ok()?;
-    re.captures(question)
-        .map(|c| format!("{}x{}", &c[1], &c[2]))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_extract_resolution() {
-        assert_eq!(
-            extract_resolution("set to 1920x1080"),
-            Some("1920x1080".to_string())
-        );
-        assert_eq!(
-            extract_resolution("change to 2560X1440"),
-            Some("2560x1440".to_string())
-        );
-        assert_eq!(extract_resolution("no resolution here"), None);
-    }
 
     #[test]
     fn test_generate_template_plan_gdm() {
@@ -306,7 +116,8 @@ mod tests {
         assert!(plan.is_some());
         let plan = plan.unwrap();
         assert!(plan.summary.contains("GDM"));
-        assert!(plan.requires_sudo());
+        // Plan requires sudo unless already configured (idempotent)
+        assert!(plan.requires_sudo() || !plan.changes_needed);
     }
 
     #[test]
@@ -315,7 +126,6 @@ mod tests {
         assert!(plan.is_some());
         let plan = plan.unwrap();
         assert!(plan.summary.contains("sleep"));
-        assert!(plan.steps.len() >= 2);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Plan Executor - Execute ActionPlans with proper privilege handling.
 //! Phase 16: Turn fallback into real execution.
+//! Phase 17: State capture, verification, and rollback.
 
 use anna_shared::action_plan::{
     ActionPlan, ActionStep, PlanExecutionResult, StepResult, VerificationResult,
@@ -9,6 +10,8 @@ use std::collections::HashMap;
 use std::process::Command;
 use std::sync::RwLock;
 use tracing::{debug, info, warn};
+
+use crate::plan_stash::PlanStash;
 
 /// Store pending plans by session ID.
 static PENDING_PLANS: RwLock<Option<HashMap<String, ActionPlan>>> = RwLock::new(None);
@@ -62,11 +65,14 @@ fn execute_step(step: &ActionStep, step_index: usize) -> StepResult {
 
             if output.status.success() {
                 info!("Step {} succeeded", step_index + 1);
+                // Run per-step verification if defined
+                let verified = run_step_verification(step);
                 StepResult {
                     step_index,
                     success: true,
                     output: stdout,
                     error: None,
+                    verified,
                 }
             } else {
                 warn!("Step {} failed: {}", step_index + 1, stderr);
@@ -75,6 +81,7 @@ fn execute_step(step: &ActionStep, step_index: usize) -> StepResult {
                     success: false,
                     output: stdout,
                     error: Some(stderr),
+                    verified: None,
                 }
             }
         }
@@ -85,12 +92,34 @@ fn execute_step(step: &ActionStep, step_index: usize) -> StepResult {
                 success: false,
                 output: String::new(),
                 error: Some(e.to_string()),
+                verified: None,
             }
         }
     }
 }
 
-/// Run verification check.
+/// Run per-step verification if defined.
+fn run_step_verification(step: &ActionStep) -> Option<bool> {
+    let verify_cmd = step.verify_command.as_ref()?;
+    let verify_pattern = step.verify_pattern.as_ref()?;
+
+    debug!("Running step verification: {}", verify_cmd);
+
+    match Command::new("sh").arg("-c").arg(verify_cmd).output() {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let passed = stdout.contains(verify_pattern) || verify_pattern.is_empty();
+            debug!("Step verification passed: {}", passed);
+            Some(passed)
+        }
+        Err(e) => {
+            warn!("Step verification failed: {}", e);
+            Some(false)
+        }
+    }
+}
+
+/// Run final verification check.
 fn run_verification(plan: &ActionPlan) -> Option<VerificationResult> {
     let verification = plan.verification.as_ref()?;
 
@@ -126,19 +155,75 @@ fn run_verification(plan: &ActionPlan) -> Option<VerificationResult> {
     }
 }
 
-/// Execute an action plan.
+/// Execute rollback for failed steps.
+fn execute_rollback(stash: &PlanStash, failed_step: usize) -> bool {
+    info!("Executing rollback up to step {}", failed_step);
+
+    // Rollback in reverse order
+    for step_idx in (0..=failed_step).rev() {
+        if let Some(step_state) = stash.get_step_state(step_idx) {
+            // Restore files
+            for backup in &step_state.file_backups {
+                if let Err(e) = step_state.restore_file(backup) {
+                    warn!("Failed to restore file: {}", e);
+                }
+            }
+            // Restore unit states
+            for unit_state in &step_state.unit_states {
+                if let Err(e) = step_state.restore_unit_state(unit_state) {
+                    warn!("Failed to restore unit state: {}", e);
+                }
+            }
+        }
+    }
+    true
+}
+
+/// Execute an action plan with state capture and rollback support.
 pub fn execute_plan(plan: &ActionPlan) -> PlanExecutionResult {
     info!("Executing plan: {} ({})", plan.summary, plan.id);
 
+    // Handle no-changes case
+    if !plan.changes_needed {
+        return PlanExecutionResult {
+            plan_id: plan.id.clone(),
+            success: true,
+            step_results: Vec::new(),
+            verification_result: None,
+            rollback_performed: false,
+            rollback_success: None,
+            completed_at: Utc::now(),
+        };
+    }
+
+    // Initialize stash for rollback
+    let mut stash = PlanStash::new(&plan.id);
+    let stash_initialized = stash.init().is_ok();
+
     let mut step_results = Vec::new();
     let mut all_success = true;
+    let mut failed_step: Option<usize> = None;
 
     for (i, step) in plan.steps.iter().enumerate() {
+        // Capture state before execution
+        if stash_initialized {
+            let step_state = stash.create_step_state(i);
+            for file in &step.affects_files {
+                let _ = step_state.backup_file(file);
+            }
+            for unit in &step.affects_units {
+                let _ = step_state.capture_unit_state(unit);
+            }
+        }
+
+        // Execute step
         let result = execute_step(step, i);
-        if !result.success {
+        let step_failed = !result.success || result.verified == Some(false);
+
+        if step_failed {
             all_success = false;
+            failed_step = Some(i);
             step_results.push(result);
-            // Stop on first failure
             break;
         }
         step_results.push(result);
@@ -151,18 +236,34 @@ pub fn execute_plan(plan: &ActionPlan) -> PlanExecutionResult {
         None
     };
 
-    // Update success based on verification
-    let final_success = if let Some(ref v) = verification_result {
-        all_success && v.passed
-    } else {
-        all_success
-    };
+    // Determine if rollback needed
+    let verification_failed = verification_result
+        .as_ref()
+        .map(|v| !v.passed)
+        .unwrap_or(false);
+
+    let need_rollback = !all_success || verification_failed;
+    let mut rollback_performed = false;
+    let mut rollback_success = None;
+
+    if need_rollback && plan.rollback.possible && stash_initialized {
+        let rollback_to = failed_step.unwrap_or(plan.steps.len().saturating_sub(1));
+        rollback_performed = true;
+        rollback_success = Some(execute_rollback(&stash, rollback_to));
+    }
+
+    // Cleanup stash on success
+    if all_success && !verification_failed {
+        let _ = stash.cleanup();
+    }
 
     PlanExecutionResult {
         plan_id: plan.id.clone(),
-        success: final_success,
+        success: all_success && !verification_failed,
         step_results,
         verification_result,
+        rollback_performed,
+        rollback_success,
         completed_at: Utc::now(),
     }
 }
@@ -170,6 +271,14 @@ pub fn execute_plan(plan: &ActionPlan) -> PlanExecutionResult {
 /// Format execution result for display to user.
 pub fn format_execution_result(result: &PlanExecutionResult, plan: &ActionPlan) -> String {
     let mut output = String::new();
+
+    // Handle no-changes case
+    if !plan.changes_needed {
+        return format!(
+            "No changes needed. {}",
+            plan.skip_reason.as_deref().unwrap_or("Already configured.")
+        );
+    }
 
     if result.success {
         output.push_str(&format!("Done. {}\n", plan.summary));
@@ -198,6 +307,16 @@ pub fn format_execution_result(result: &PlanExecutionResult, plan: &ActionPlan) 
         output.push_str(&format!("\n[{}] {}\n", status, v.explanation));
     }
 
+    // Show rollback status
+    if result.rollback_performed {
+        let status = match result.rollback_success {
+            Some(true) => "Changes rolled back successfully.",
+            Some(false) => "Rollback attempted but had errors.",
+            None => "Rollback status unknown.",
+        };
+        output.push_str(&format!("\n{}\n", status));
+    }
+
     output
 }
 
@@ -220,12 +339,7 @@ mod tests {
 
     #[test]
     fn test_execute_simple_step() {
-        let step = ActionStep {
-            description: "Echo test".to_string(),
-            command: "echo 'hello world'".to_string(),
-            needs_sudo: false,
-            expected_output: None,
-        };
+        let step = ActionStep::new("Echo test", "echo 'hello world'", false);
 
         let result = execute_step(&step, 0);
         assert!(result.success);
@@ -234,14 +348,19 @@ mod tests {
 
     #[test]
     fn test_execute_failing_step() {
-        let step = ActionStep {
-            description: "Failing command".to_string(),
-            command: "exit 1".to_string(),
-            needs_sudo: false,
-            expected_output: None,
-        };
+        let step = ActionStep::new("Failing command", "exit 1", false);
 
         let result = execute_step(&step, 0);
         assert!(!result.success);
+    }
+
+    #[test]
+    fn test_no_changes_plan() {
+        let mut plan = ActionPlan::new("test", "Test", "Testing");
+        plan.mark_no_changes("Already configured");
+
+        let result = execute_plan(&plan);
+        assert!(result.success);
+        assert!(result.step_results.is_empty());
     }
 }
