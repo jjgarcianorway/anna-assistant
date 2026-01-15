@@ -3,6 +3,7 @@
 //! INVARIANT: Config is system-wide at /etc/anna/config.toml.
 //! No per-user config. No home directory paths.
 
+use crate::exposure::ExposureLevel;
 use crate::paths::paths;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -19,9 +20,14 @@ pub struct AnnaConfig {
     #[serde(default)]
     pub teaching_mode: bool,
 
-    /// v0.3.44: Show internal comms - fly-on-the-wall view of IT department
+    /// v0.3.44: Show internal comms - fly-on-the-wall view (deprecated, use exposure_level)
     #[serde(default)]
     pub show_internal_comms: bool,
+
+    /// v0.3.45: Exposure level - controls what internal information is shown
+    /// Levels: silent, summary, dialogue, debug
+    #[serde(default)]
+    pub exposure_level: ExposureLevel,
 
     /// Auto-install helpers when needed
     #[serde(default = "default_true")]
@@ -201,7 +207,8 @@ impl Default for AnnaConfig {
         Self {
             debug_mode: true,
             teaching_mode: false, // v0.3.29: Off by default
-            show_internal_comms: false, // v0.3.44: Off by default
+            show_internal_comms: false, // v0.3.44: Deprecated, use exposure_level
+            exposure_level: ExposureLevel::Silent, // v0.3.45: Silent by default
             auto_install_helpers: true,
             ask_clarification: true,
             wiki: WikiConfig::default(),
@@ -242,7 +249,15 @@ impl AnnaConfig {
     pub fn set(&mut self, key: &str, value: bool) -> Result<()> {
         match key {
             "debug_mode" | "debug" => self.debug_mode = value,
-            "show_internal_comms" | "internal_comms" => self.show_internal_comms = value,
+            "show_internal_comms" | "internal_comms" => {
+                self.show_internal_comms = value;
+                // Migrate to exposure_level
+                self.exposure_level = if value {
+                    ExposureLevel::Dialogue
+                } else {
+                    ExposureLevel::Silent
+                };
+            }
             "teaching_mode" | "teaching" => self.teaching_mode = value,
             "auto_install_helpers" | "auto_install" => self.auto_install_helpers = value,
             "ask_clarification" | "clarification" => self.ask_clarification = value,
@@ -251,6 +266,26 @@ impl AnnaConfig {
         }
         self.save()?;
         Ok(())
+    }
+
+    /// Set exposure level by name.
+    pub fn set_exposure(&mut self, level: &str) -> Result<()> {
+        self.exposure_level = ExposureLevel::from_str(level)
+            .ok_or_else(|| anyhow::anyhow!("Unknown exposure level: {}", level))?;
+        // Sync deprecated field for backward compatibility
+        self.show_internal_comms = self.exposure_level >= ExposureLevel::Dialogue;
+        self.save()
+    }
+
+    /// Get effective exposure level (handles migration from show_internal_comms).
+    pub fn effective_exposure_level(&self) -> ExposureLevel {
+        // If old show_internal_comms is set but new exposure_level is default,
+        // migrate the setting
+        if self.show_internal_comms && self.exposure_level == ExposureLevel::Silent {
+            ExposureLevel::Dialogue
+        } else {
+            self.exposure_level
+        }
     }
 }
 

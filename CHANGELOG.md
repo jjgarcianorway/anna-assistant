@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.45] - 2026-01-15
+
+### Added - Phase 12: Trust Boundaries and Exposure Control
+
+Defines and enforces strict boundaries for what users can see, understand, and influence.
+
+**New Exposure Module** (`anna-shared/src/exposure/`):
+
+- `mod.rs`: Mental model contract (what Anna is/isn't)
+- `levels.rs`: ExposureLevel enum (Silent, Summary, Dialogue, Debug)
+- `sanitize.rs`: Forbidden pattern detection and wording validation
+- `consent.rs`: First-time acknowledgement and consent tracking
+
+**Exposure Levels**:
+
+| Level    | Dialogue | Metadata | Timing | Debug |
+|----------|----------|----------|--------|-------|
+| Silent   | No       | No       | No     | No    |
+| Summary  | No       | Summary  | No     | No    |
+| Dialogue | Yes      | Summary  | Yes    | No    |
+| Debug    | Yes      | Full     | Yes    | Yes   |
+
+**Forbidden Dialogue Patterns** (enforced by sanitization):
+- Urgency language (critical, urgent, immediately)
+- Authority language (must, required, mandatory)
+- Consciousness attribution (thinks, decides, wants)
+- Alarm language (danger, warning!, panic)
+
+**Replay Redaction Enforcement**:
+- Replays obey exposure level at record time
+- Cannot elevate above recorded level via replay
+- Tests verify no elevation through historical playback
+
+**Config Changes**:
+- New `exposure_level` setting (silent, summary, dialogue, debug)
+- Backward compatible with `show_internal_comms` boolean
+- `effective_exposure_level()` handles migration
+
+**Wording Audit**:
+- `render_failure` renamed to `render_incomplete`
+- "Failed:" changed to "Unable to complete:"
+- All user-facing dialogue passes sanitization tests
+
+**Documentation**:
+- SPEC.md updated with Exposure Model section
+- Mental model contract documented in code
+
 ## [0.3.44] - 2026-01-15
 
 ### Added - Internal Comms Integration (Phase 11 Wiring)

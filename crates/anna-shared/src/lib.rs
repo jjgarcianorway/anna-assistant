@@ -10,6 +10,7 @@ pub mod deps;
 pub mod docs;
 pub mod event_bus;
 pub mod experiment;
+pub mod exposure;
 pub mod helpers;
 pub mod memory;
 pub mod monitor;

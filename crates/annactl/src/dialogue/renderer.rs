@@ -67,10 +67,11 @@ pub fn render_resolution(specialist: &str, confidence: f32, learned: bool) {
     }
 }
 
-/// Render a failure message.
-pub fn render_failure(reason: &str) {
+/// Render a completion message when request could not be fulfilled.
+/// v0.3.45: Use calm, professional language (no alarmism).
+pub fn render_incomplete(reason: &str) {
     println!();
-    print_colored("Failed: ", YELLOW);
+    print_colored("Unable to complete: ", YELLOW);
     println!("{}", reason);
 }
 

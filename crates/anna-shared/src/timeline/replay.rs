@@ -1,7 +1,13 @@
 //! Replay - Deterministic replay of completed timelines.
 //!
 //! A completed ticket can be replayed to produce the same dialogue.
+//!
+//! REPLAY REDACTION ENFORCEMENT (v0.3.45):
+//! - Replays must obey the exposure level active at record time
+//! - No elevation via replay - cannot see more than was recorded
+//! - Debug information only visible if recorded at Debug level
 
+use crate::exposure::ExposureLevel;
 use super::narrator::{narrate_timeline, DialogueLine};
 use super::redaction::RedactionMode;
 use super::types::DialogueTimeline;
@@ -16,8 +22,12 @@ pub struct ReplaySession {
     position: usize,
     /// Narrated dialogue lines.
     dialogue: Vec<DialogueLine>,
-    /// Redaction mode.
+    /// Redaction mode (legacy).
     mode: RedactionMode,
+    /// v0.3.45: Exposure level at record time.
+    recorded_at: ExposureLevel,
+    /// v0.3.45: Current playback exposure level.
+    playback_level: ExposureLevel,
 }
 
 impl ReplaySession {
@@ -25,12 +35,80 @@ impl ReplaySession {
     pub fn new(timeline: DialogueTimeline, mode: RedactionMode) -> Self {
         let include_internal = matches!(mode, RedactionMode::Debug);
         let dialogue = narrate_timeline(&timeline, include_internal);
+        let recorded_at = if include_internal {
+            ExposureLevel::Debug
+        } else {
+            ExposureLevel::Dialogue
+        };
         Self {
             timeline,
             position: 0,
             dialogue,
             mode,
+            recorded_at,
+            playback_level: recorded_at,
         }
+    }
+
+    /// v0.3.45: Create with explicit exposure levels.
+    pub fn with_exposure(
+        timeline: DialogueTimeline,
+        recorded_at: ExposureLevel,
+        playback_level: ExposureLevel,
+    ) -> Self {
+        // Enforce: cannot elevate above recorded level
+        let effective_level = std::cmp::min(recorded_at, playback_level);
+        let include_internal = effective_level >= ExposureLevel::Debug;
+        let dialogue = narrate_timeline(&timeline, include_internal);
+
+        // Filter dialogue based on exposure level
+        let dialogue = Self::filter_by_exposure(&dialogue, effective_level);
+
+        let mode = if effective_level >= ExposureLevel::Debug {
+            RedactionMode::Debug
+        } else {
+            RedactionMode::Normal
+        };
+
+        Self {
+            timeline,
+            position: 0,
+            dialogue,
+            mode,
+            recorded_at,
+            playback_level: effective_level,
+        }
+    }
+
+    /// Filter dialogue lines by exposure level.
+    fn filter_by_exposure(lines: &[DialogueLine], level: ExposureLevel) -> Vec<DialogueLine> {
+        if level >= ExposureLevel::Dialogue {
+            lines.to_vec()
+        } else if level >= ExposureLevel::Summary {
+            // Summary: only show resolution lines
+            lines.iter()
+                .filter(|l| l.message.contains("Resolved") || l.message.contains("complete"))
+                .cloned()
+                .collect()
+        } else {
+            // Silent: no dialogue
+            Vec::new()
+        }
+    }
+
+    /// Check if playback was restricted below recorded level.
+    pub fn was_restricted(&self) -> bool {
+        self.playback_level < self.recorded_at
+    }
+
+    /// Get the recorded exposure level.
+    pub fn recorded_level(&self) -> ExposureLevel {
+        self.recorded_at
+    }
+
+    /// Get the playback exposure level.
+    pub fn playback_level(&self) -> ExposureLevel {
+        self.playback_level
     }
 
     /// Get the next dialogue line.
@@ -239,5 +317,68 @@ mod tests {
             assert_eq!(l1.speaker, l2.speaker);
             assert_eq!(l1.message, l2.message);
         }
+    }
+
+    // v0.3.45: Exposure level tests
+
+    #[test]
+    fn test_replay_exposure_no_elevation() {
+        let timeline = create_test_timeline();
+
+        // Record at Dialogue level
+        let session = ReplaySession::with_exposure(
+            timeline.clone(),
+            ExposureLevel::Dialogue,
+            ExposureLevel::Debug, // Try to elevate
+        );
+
+        // Should be capped at Dialogue (cannot elevate above recorded level)
+        assert_eq!(session.playback_level(), ExposureLevel::Dialogue);
+        // Not "restricted" since we're at recorded level, just capped
+        assert!(!session.was_restricted());
+    }
+
+    #[test]
+    fn test_replay_exposure_can_restrict() {
+        let timeline = create_test_timeline();
+
+        // Record at Debug level
+        let session = ReplaySession::with_exposure(
+            timeline.clone(),
+            ExposureLevel::Debug,
+            ExposureLevel::Summary, // Restrict playback
+        );
+
+        // Should be restricted to Summary
+        assert_eq!(session.playback_level(), ExposureLevel::Summary);
+        assert!(session.was_restricted());
+    }
+
+    #[test]
+    fn test_replay_silent_shows_nothing() {
+        let timeline = create_test_timeline();
+
+        let session = ReplaySession::with_exposure(
+            timeline,
+            ExposureLevel::Dialogue,
+            ExposureLevel::Silent,
+        );
+
+        assert_eq!(session.total_lines(), 0);
+    }
+
+    #[test]
+    fn test_replay_respects_recorded_level() {
+        let timeline = create_test_timeline();
+
+        // If recorded at Silent, can never see dialogue
+        let session = ReplaySession::with_exposure(
+            timeline,
+            ExposureLevel::Silent,
+            ExposureLevel::Debug, // Even at Debug playback
+        );
+
+        // Silent recording means no dialogue to replay
+        assert_eq!(session.playback_level(), ExposureLevel::Silent);
     }
 }

@@ -68,6 +68,63 @@ Anna does not guess. Anna does not hallucinate. If Anna cannot determine the ans
 
 Each row is testable via the field or output pattern specified.
 
+## Exposure Model (v0.3.45)
+
+Anna enforces strict information boundaries through exposure levels.
+
+### Mental Model Contract
+
+**What Anna IS:**
+- A software tool that executes commands and processes text
+- A local assistant running on the user's machine
+- A deterministic system following programmed rules
+
+**What Anna is NOT:**
+- Not conscious, aware, or sentient
+- Not an entity with desires, feelings, or intentions
+- Not an authority figure or decision-maker
+
+**What "Internal Dialogue" represents:**
+- Processing stages shown in human-readable format
+- Routing decisions displayed as conversation for clarity
+- Debug information formatted for readability
+- NOT actual communication between conscious entities
+
+### Exposure Levels
+
+| Level    | Dialogue | Metadata | Timing | Debug |
+|----------|----------|----------|--------|-------|
+| Silent   | No       | No       | No     | No    |
+| Summary  | No       | Summary  | No     | No    |
+| Dialogue | Yes      | Summary  | Yes    | No    |
+| Debug    | Yes      | Full     | Yes    | Yes   |
+
+Levels are strictly ordered: Silent < Summary < Dialogue < Debug.
+No implicit escalation. No partial overlap.
+
+### Consent Requirements
+
+- Internal dialogue never appears by surprise
+- First enablement requires explicit acknowledgement
+- No alerts or error-style language during enablement
+- Consent state persists across sessions
+
+### Replay Redaction
+
+- Replays obey the exposure level at record time
+- Cannot elevate above recorded level via replay
+- Debug information only visible if recorded at Debug level
+
+### Forbidden Dialogue Patterns
+
+The sanitization layer rejects:
+- Urgency language (critical, urgent, immediately)
+- Authority language (must, required, mandatory)
+- Consciousness attribution (thinks, decides, wants)
+- Alarm language (danger, warning!, panic)
+
+This is testable: any user-visible dialogue containing forbidden patterns fails validation.
+
 ## System Paths
 
 | Purpose | Path |

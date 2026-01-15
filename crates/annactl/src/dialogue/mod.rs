@@ -6,4 +6,4 @@ pub mod consumer;
 pub mod renderer;
 
 pub use consumer::TerminalConsumer;
-pub use renderer::{render_line, render_timeline, render_resolution, render_failure};
+pub use renderer::{render_line, render_timeline, render_resolution, render_incomplete};
