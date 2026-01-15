@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.51] - 2026-01-15
+## [0.3.52] - 2026-01-15
 
 ### Added - Phase 19: UX Regression Lock
 

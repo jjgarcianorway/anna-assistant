@@ -48,7 +48,7 @@
 - Consistent status indicators
 - Silent spinners allowed
 
-### Phase 19: UX Regression Lock (v0.3.51)
+### Phase 19: UX Regression Lock (v0.3.52)
 - Canonical UX spec (docs/UX_SPEC.md)
 - Snapshot tests for rendering
 - Golden transcript fixtures

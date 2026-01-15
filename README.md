@@ -443,7 +443,7 @@ These guarantees are enforced in code, not just prompts.
 
 ## Version
 
-Current: **v0.3.51**
+Current: **v0.3.52**
 
 Recent highlights:
 - **UX regression lock** - Frozen UX contract with snapshot tests (Phase 19)
