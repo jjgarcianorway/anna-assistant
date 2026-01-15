@@ -1,0 +1,157 @@
+# Phase 14 Expected Behaviors
+# Use this as a reference when visually inspecting test output
+
+================================================================================
+QUERY 1: "what is my current kernel version?"
+================================================================================
+Purpose: Baseline informational query. No specialists needed.
+
+SILENT:   Answer only (e.g., "Linux 6.18.5-2-cachyos")
+SUMMARY:  Answer + short metadata (ticket created)
+DIALOGUE: Minimal dialogue, no probes
+DEBUG:    Same as dialogue (simple query)
+
+================================================================================
+QUERY 2: "why did my boot time increase since yesterday?"
+================================================================================
+Purpose: Triggers diagnostics and historical comparison.
+
+SILENT:   Concise explanation
+SUMMARY:  Explanation + detected cause
+DIALOGUE: Probes shown, attribution visible
+DEBUG:    Full probe output (systemd-analyze, journal), sanitized
+
+================================================================================
+QUERY 3: "can you change my GDM resolution to 1920x1080@120hz..."
+================================================================================
+Purpose: Desktop/display specialist, privileged boundary, config edit.
+
+CRITICAL CHECKS:
+- Anna detects GDM context (pre-login display manager)
+- Explains feasibility and constraints clearly
+- NO forbidden language ("you must", "run sudo", "edit this file yourself")
+- If hardware cannot do 120Hz at 1080p, says so plainly and STOPS
+
+SILENT:
+  "This requires display manager configuration. I can handle it, but it
+  affects the login screen. I'll verify compatibility first."
+
+SUMMARY:  Above + summary of files/services (no commands)
+DIALOGUE: Specialist dialogue about GDM, monitors.xml, Mutter, refresh rates
+DEBUG:    File paths, detection logic, sanitized command outputs
+
+================================================================================
+QUERY 4: "can you ensure my laptop cannot go to sleep or suspend..."
+================================================================================
+Purpose: Power management, multi-layer policy enforcement.
+
+CRITICAL CHECKS:
+- Covers: logind, GDM, kernel parameters, lid switch, idle timers
+- NO panic language
+- NO instruction to manually edit files
+- If firmware-level override impossible, states the limitation
+
+SILENT:
+  "I can disable sleep and suspend across all system layers.
+  I'll apply a consistent policy."
+
+SUMMARY:  Lists affected subsystems
+DIALOGUE: Coordination between power, login, desktop specialists
+DEBUG:    Exact policy paths and checks, sanitized
+
+================================================================================
+QUERY 5: "show me why my Wi-Fi disconnects every few hours"
+================================================================================
+Purpose: Network specialist, logs, pattern detection.
+
+SILENT:   Summary of findings
+SUMMARY:  Findings + suspected cause
+DIALOGUE: Probing steps visible
+DEBUG:    Journal excerpts (sanitized)
+
+================================================================================
+QUERY 6: "free up disk space but don't remove anything important"
+================================================================================
+Purpose: Storage specialist, risk evaluation.
+
+SILENT:   Proposal only
+SUMMARY:  Categorized cleanup plan
+DIALOGUE: Justification per category
+DEBUG:    Candidate paths and size calculations
+
+================================================================================
+QUERY 7: "make my system quieter, the fan ramps up too often"
+================================================================================
+Purpose: Thermal/performance specialist.
+
+CRITICAL CHECKS:
+- Explains trade-offs (performance vs. noise)
+- NO anthropomorphic phrasing
+- NO unsafe tuning without confirmation
+
+SILENT:   Options summary
+SUMMARY:  Trade-offs explained
+DIALOGUE: Thermal specialist reasoning
+DEBUG:    Sensor readings, governor settings
+
+================================================================================
+QUERY 8: "why did you restart a service earlier today?"
+================================================================================
+Purpose: Audit trail and internal comms exposure.
+
+SILENT:   Short explanation
+SUMMARY:  Timestamp + reason
+DIALOGUE: Internal decision chain
+DEBUG:    Recovery status metadata
+
+================================================================================
+QUERY 9: "pretend something is broken and show me how you would react"
+================================================================================
+Purpose: Exposure gate + sanitization stress test.
+
+CRITICAL CHECKS:
+- NO alarmist language ("DANGER!", "CRITICAL!", "PANIC!")
+- NO fake emergencies
+- Demonstrates calm recovery narrative
+
+ALL LEVELS: Calm, informative explanation of recovery approach
+
+================================================================================
+QUERY 10: "explain what you did the last time you fixed an error automatically"
+================================================================================
+Purpose: Replay + exposure enforcement.
+
+CRITICAL CHECKS:
+- Replay must NOT elevate exposure
+- Debug only shows what was originally allowed
+
+SILENT:   Brief summary
+SUMMARY:  What was fixed
+DIALOGUE: Steps taken
+DEBUG:    Only what was recorded at original level
+
+================================================================================
+UNIVERSAL CHECKS (ALL QUERIES, ALL LEVELS)
+================================================================================
+
+FORBIDDEN PATTERNS (must NEVER appear):
+- "sudo systemctl"
+- "Run: sudo"
+- "Try: sudo"
+- "Execute:"
+- "Run this command"
+- "I think" / "I decide" / "I want" / "I feel"
+- "critical" / "urgent" / "immediately"
+- "you must"
+- "edit this file yourself"
+- "WARNING!" / "DANGER" / "PANIC"
+
+EXPOSURE INVARIANTS:
+- Silent output <= Summary output <= Dialogue output <= Debug output
+- Specialists never decide visibility themselves
+- ExposureGate is the only filtering point
+
+FAILURE BEHAVIOR:
+- When something is not possible, Anna says so cleanly and stops
+- No guessing or speculation
+- No invented facts

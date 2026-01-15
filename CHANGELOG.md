@@ -7,6 +7,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Phase 14: Production Hardening (Pre-flight Gate)
+
+E2E smoke test harness validating ExposureGate behavior across all exposure levels.
+
+**New Test Suite** (`crates/annad/tests/e2e_exposure_smoke.rs`):
+
+| Test Count | Type |
+|------------|------|
+| 13 | Automated (run always) |
+| 1 | Ignored (requires Ollama) |
+
+**Tests Added:**
+- Exposure level invariants (Silent/Summary/Dialogue/Debug)
+- Forbidden pattern sanitization at all levels
+- Replay elevation prevention
+- Performance budget (<1ms per filter)
+- Error recovery message validation
+
+**Ollama Skip Detection:**
+- Graceful skip when Ollama unavailable (not a failure)
+- Clear skip reason in output
+
+**Running:**
+```bash
+cargo test --package annad --test e2e_exposure_smoke
+```
+
+**Acceptance Test Suite** (`tests/phase14_acceptance.sh`):
+
+10 real-world queries designed to exercise the full Phase 13-14 pipeline:
+1. Kernel version (baseline)
+2. Boot time diagnostics (historical comparison)
+3. GDM resolution change (display specialist, privilege boundary)
+4. Disable sleep/suspend (power management, multi-layer)
+5. Wi-Fi disconnects (network specialist, logs)
+6. Disk space cleanup (storage specialist, risk eval)
+7. Fan noise reduction (thermal specialist)
+8. Service restart audit (internal comms)
+9. Simulated failure (sanitization stress test)
+10. Auto-fix replay (exposure enforcement)
+
+**Running acceptance tests:**
+```bash
+# Single level
+./tests/phase14_acceptance.sh dialogue
+
+# All levels with comparison
+./tests/phase14_acceptance.sh all
+```
+
+## [0.3.46] - 2026-01-15
+
+### Added - Phase 13: Specialist System Refinement and Live Exposure Enforcement
+
+Connects the exposure system to real execution paths. All dialogue emission now flows through central ExposureGate filtering.
+
+**New ExposureGate Module** (`anna-shared/src/exposure/gate.rs`):
+
+Central filtering for all dialogue emission. No specialist or Ralph loop may bypass this gate.
+
+- `ExposureGate::filter()`: Single enforcement point for dialogue visibility
+- `GateResult`: Emit flag, sanitized content, block reason
+- `BlockReason`: ExposureLevelTooLow, ForbiddenPatterns, EmptyContent
+
+**DialogueClassification** (structural tagging, not sentiment):
+
+| Classification | Min Level | Purpose |
+|---------------|-----------|---------|
+| Informational | Summary   | Status updates, completion notifications |
+| Procedural    | Dialogue  | Step-by-step actions, assignments |
+| Diagnostic    | Debug     | Raw output, prompts, technical details |
+
+**StepType Classification**:
+- Always shown: FinalAnswer, UserQuestion, ClarificationQuestion, SystemAlert
+- Informational: TicketCreated, InvestigationComplete, IntentResult, WikiResults
+- Procedural: TeamAssignment, SpecialistWorking, InvestigationProbe, CommandExec
+- Diagnostic: CommandOutput, InvestigationResult, ValidationPrompt
+
+**Integration Points Updated**:
+- `llm_core/mod.rs`: Replaced `show_internal_comms` with ExposureGate
+- `ralph/streaming.rs`: All `push_and_send()` calls now filter through ExposureGate
+- `ralph/streaming_helpers.rs`: Added `classify_step()` for StepType classification
+
+**Hard Constraint Added**:
+- CLAUDE.md: "NEVER let specialists self-govern visibility"
+
+**SPEC.md Updated**:
+- New section: "Specialist Execution and Exposure Guarantees"
+- Documented central filtering contract and classification rules
+
+**Execution Flow** (textual diagram):
+```
+User Query
+    |
+[Specialist/Ralph Loop emits DialogueStep]
+    |
+[classify_step() determines DialogueClassification]
+    |
+[ExposureGate.filter(content, classification)]
+    |
+[Check: exposure level >= required level?]
+    |-- No --> Block (silent drop)
+    |-- Yes --> [Sanitize: forbidden patterns?]
+                    |-- Violation --> Block
+                    |-- Clean --> Emit to user
+```
+
+**Example: Same query at different exposure levels**:
+```
+Query: "what's my disk usage?"
+
+Silent:    [answer only]
+Summary:   [0.1s] Ticket #42 created
+           [answer]
+Dialogue:  [0.1s] Ticket #42 created
+           [0.2s] Anna -> James: Investigate disk usage
+           [0.3s] James: Running probe: df -h
+           [0.5s] Investigation complete
+           [answer]
+Debug:     [all above plus]
+           [0.4s] Output: /dev/sda1  50G  30G  20G  60% /
+           [validation prompts, raw LLM responses]
+           [answer]
+```
+
+**Deferred Items** (explicitly tracked, not in scope):
+- Specialist domain-specific filtering rules
+- Real-time exposure level switching mid-query
+- Per-specialist exposure overrides
+
 ## [0.3.45] - 2026-01-15
 
 ### Added - Phase 12: Trust Boundaries and Exposure Control

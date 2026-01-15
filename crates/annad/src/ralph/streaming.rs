@@ -1,7 +1,10 @@
 //! Streaming version of the Ralph loop.
 //! Sends progress updates to the client in real-time.
+//!
+//! v0.3.46: All dialogue filtered through ExposureGate before emission.
 
 use anna_shared::experiment::estimate_command_risk;
+use anna_shared::exposure::ExposureGate;
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::teaching;
 use anyhow::Result;
@@ -27,10 +30,13 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     question: &str,
     writer: &mut W,
 ) -> Result<AskResult> {
+    // v0.3.46: Create ExposureGate for central filtering
+    let gate = ExposureGate::from_config();
+
     // Try instant error response first for known issues
     if let Some(result) = try_instant_error(question) {
         info!("Instant error response streaming completed");
-        send_dialogue_steps(writer, &result.dialogue).await?;
+        send_dialogue_steps(writer, &result.dialogue, &gate).await?;
         send_done(writer, &result).await?;
         return Ok(result);
     }
@@ -38,8 +44,8 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     // Try fast-path first for simple queries
     if let Some(mut result) = try_fast_path(question).await {
         info!("Fast-path streaming completed");
-        send_dialogue_steps(writer, &result.dialogue).await?;
-        push_and_send(writer, &mut result.dialogue, StepType::FinalAnswer, result.answer.clone())
+        send_dialogue_steps(writer, &result.dialogue, &gate).await?;
+        push_and_send(writer, &mut result.dialogue, StepType::FinalAnswer, result.answer.clone(), &gate)
             .await?;
         send_done(writer, &result).await?;
         return Ok(result);
@@ -48,7 +54,7 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     // Try diagnostic path for ambiguous queries (streaming)
     if let Some((executed, outputs, intro, mut dialogue)) = try_diagnostic_path(question) {
         info!("Diagnostic path streaming: analyzing {} outputs", outputs.len());
-        send_dialogue_steps(writer, &dialogue).await?;
+        send_dialogue_steps(writer, &dialogue, &gate).await?;
 
         let data_context = outputs.join("\n---\n");
         let prompt = format!(
@@ -82,7 +88,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
 
                 let final_answer =
                     build_final_answer(&verification.answer, &verification.evidence_line, None);
-                push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone())
+                push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone(), &gate)
                     .await?;
 
                 let result = AskResult {
@@ -106,7 +112,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
     }
 
     // Full Ralph loop with streaming
-    run_full_loop_streaming(model, question, writer).await
+    run_full_loop_streaming(model, question, writer, &gate).await
 }
 
 /// Run the full Ralph loop with streaming progress.
@@ -114,6 +120,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     writer: &mut W,
+    gate: &ExposureGate,
 ) -> Result<AskResult> {
     let criteria = determine_criteria(question);
     info!("Ralph streaming: {:?}, max {} iterations", criteria.answer_type, criteria.max_iterations);
@@ -123,12 +130,12 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     let mut iteration = 0;
 
     // Record and send user's question
-    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string()).await?;
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
 
     // Create ticket for fly-on-the-wall experience
     let dept_name = department::determine_department(question);
     let mut ticket = department::create_ticket(question, dept_name);
-    push_and_send(writer, &mut dialogue, StepType::TicketCreated, ticket.case_number.clone())
+    push_and_send(writer, &mut dialogue, StepType::TicketCreated, ticket.case_number.clone(), gate)
         .await?;
 
     // Dispatch to appropriate specialist
@@ -137,13 +144,14 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         ticket.assign(spec.name);
         department::update_ticket(&ticket);
         let assignment = team_speak::anna_assigns_to(spec, question);
-        push_and_send(writer, &mut dialogue, StepType::TeamAssignment, assignment).await?;
+        push_and_send(writer, &mut dialogue, StepType::TeamAssignment, assignment, gate).await?;
         let ack = team_speak::specialist_acknowledges(spec);
         push_and_send(
             writer,
             &mut dialogue,
             StepType::SpecialistWorking,
             format!("{}: {}", spec.name, ack),
+            gate,
         )
         .await?;
         Some(spec.name.to_string())
@@ -156,7 +164,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     let mut experiment_count: usize = 0;
 
     // Start investigation mode
-    push_and_send(writer, &mut dialogue, StepType::InvestigationStart, question.to_string())
+    push_and_send(writer, &mut dialogue, StepType::InvestigationStart, question.to_string(), gate)
         .await?;
 
     ticket.start_investigating();
@@ -174,7 +182,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             let is_risky = risk > 0.3;
 
             probe_count += 1;
-            push_and_send(writer, &mut dialogue, StepType::InvestigationProbe, cmd.clone())
+            push_and_send(writer, &mut dialogue, StepType::InvestigationProbe, cmd.clone(), gate)
                 .await?;
 
             if is_risky {
@@ -186,6 +194,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                     &mut dialogue,
                     StepType::ExperimentStart,
                     format!("[risk={:.2}] expected=success", risk),
+                    gate,
                 )
                 .await?;
             }
@@ -200,6 +209,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                         &mut dialogue,
                         StepType::InvestigationResult,
                         truncate(&clean_output, 500),
+                        gate,
                     )
                     .await?;
 
@@ -215,6 +225,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                             &mut dialogue,
                             StepType::ExperimentResult,
                             format!("actual={}", actual),
+                            gate,
                         )
                         .await?;
                         ticket.start_investigating();
@@ -228,6 +239,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                             &mut dialogue,
                             StepType::ExperimentResult,
                             format!("actual=error ({})", e),
+                            gate,
                         )
                         .await?;
                         ticket.start_investigating();
@@ -257,6 +269,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                 experiment_count,
                 &assigned_spec_name,
                 eval.confidence,
+                gate,
             )
             .await;
         }
@@ -271,6 +284,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         &mut dialogue,
         StepType::InvestigationComplete,
         format!("{} probes, {} experiments run (max iterations reached)", probe_count, experiment_count),
+        gate,
     )
     .await?;
 
@@ -289,7 +303,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     let verification = verify_answer(&raw_answer, question, &evidence, debug_mode);
     let final_answer =
         build_final_answer(&verification.answer, &verification.evidence_line, None);
-    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone()).await?;
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone(), gate).await?;
 
     let result = AskResult {
         answer: final_answer,
@@ -321,6 +335,7 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     experiment_count: usize,
     assigned_spec_name: &Option<String>,
     confidence: f32,
+    gate: &ExposureGate,
 ) -> Result<AskResult> {
     // End investigation mode
     push_and_send(
@@ -328,6 +343,7 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         dialogue,
         StepType::InvestigationComplete,
         format!("{} probes, {} experiments run", probe_count, experiment_count),
+        gate,
     )
     .await?;
 
@@ -338,6 +354,7 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             dialogue,
             StepType::TeamDialogue,
             format!("{} -> Anna: I've got the answer.", spec_name),
+            gate,
         )
         .await?;
     }
@@ -374,7 +391,7 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     // Build and send final answer
     let final_answer =
         build_final_answer(&verification.answer, &verification.evidence_line, teaching_block);
-    push_and_send(writer, dialogue, StepType::FinalAnswer, final_answer.clone()).await?;
+    push_and_send(writer, dialogue, StepType::FinalAnswer, final_answer.clone(), gate).await?;
 
     // Learn recipe and update ticket
     learn_recipe_from_answer(question, &state.commands, confidence);

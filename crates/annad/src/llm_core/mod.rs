@@ -370,10 +370,9 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     let mut dialogue = Vec::new();
     let start_time = std::time::Instant::now();
 
-    // v0.3.44: Check if internal comms is enabled
-    let show_internal_comms = anna_shared::config::AnnaConfig::load()
-        .map(|c| c.show_internal_comms)
-        .unwrap_or(false);
+    // v0.3.46: Use ExposureGate for central filtering (replaces show_internal_comms)
+    use anna_shared::exposure::{ExposureGate, DialogueClassification};
+    let exposure_gate = ExposureGate::from_config();
 
     // Helper to send streaming updates
     async fn send_step<W: AsyncWriteExt + Unpin>(
@@ -388,23 +387,26 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
         Ok(())
     }
 
-    // v0.3.44: Helper to send internal comms dialogue
-    async fn send_dialogue<W: AsyncWriteExt + Unpin>(
+    // v0.3.46: Helper to send internal comms dialogue through ExposureGate
+    async fn send_dialogue_gated<W: AsyncWriteExt + Unpin>(
         writer: &mut W,
         speaker: &str,
         recipient: Option<&str>,
         message: &str,
         start_time: std::time::Instant,
-        enabled: bool,
+        gate: &ExposureGate,
+        classification: DialogueClassification,
     ) -> Result<()> {
-        if !enabled {
+        // Filter through ExposureGate - central enforcement
+        let result = gate.filter(message, classification);
+        if !result.emit {
             return Ok(());
         }
         let offset_ms = start_time.elapsed().as_millis() as u64;
         let response = StreamingResponse::Dialogue {
             speaker: speaker.to_string(),
             recipient: recipient.map(|s| s.to_string()),
-            message: message.to_string(),
+            message: result.content,
             offset_ms,
         };
         let json = serde_json::to_string(&response)?;
@@ -413,7 +415,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     }
 
     // PHASE 1: UNDERSTAND
-    send_dialogue(writer, "Anna", None, &format!("New request: \"{}\"", question), start_time, show_internal_comms).await?;
+    send_dialogue_gated(writer, "Anna", None, &format!("New request: \"{}\"", question), start_time, &exposure_gate, DialogueClassification::Informational).await?;
     send_step(writer, DialogueStep {
         step_type: StepType::AnnaToLlm,
         content: "Understanding question...".to_string(),
@@ -440,11 +442,11 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     }
 
     // PHASE 2: INVESTIGATE
-    send_dialogue(writer, "Anna", Some("Analyst"), "Running diagnostics...", start_time, show_internal_comms).await?;
+    send_dialogue_gated(writer, "Anna", Some("Analyst"), "Running diagnostics...", start_time, &exposure_gate, DialogueClassification::Procedural).await?;
     loop {
         state.iteration += 1;
         if state.iteration > MAX_ITERATIONS {
-            send_dialogue(writer, "Analyst", Some("Anna"), "Max iterations reached, compiling results.", start_time, show_internal_comms).await?;
+            send_dialogue_gated(writer, "Analyst", Some("Anna"), "Max iterations reached, compiling results.", start_time, &exposure_gate, DialogueClassification::Informational).await?;
             break;
         }
 
@@ -457,10 +459,10 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
 
         match next {
             NextStep::Investigate(commands) => {
-                send_dialogue(writer, "Analyst", Some("Anna"), &format!("Running {} probe(s).", commands.len()), start_time, show_internal_comms).await?;
+                send_dialogue_gated(writer, "Analyst", Some("Anna"), &format!("Running {} probe(s).", commands.len()), start_time, &exposure_gate, DialogueClassification::Procedural).await?;
                 for cmd in commands {
                     // Show command being executed
-                    send_dialogue(writer, "Analyst", None, &format!("[probe] {}", cmd), start_time, show_internal_comms).await?;
+                    send_dialogue_gated(writer, "Analyst", None, &format!("[probe] {}", cmd), start_time, &exposure_gate, DialogueClassification::Procedural).await?;
                     send_step(writer, DialogueStep {
                         step_type: StepType::CommandExec,
                         content: cmd.clone(),
@@ -493,7 +495,7 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
                 }
             }
             NextStep::Answer => {
-                send_dialogue(writer, "Analyst", Some("Anna"), "Enough data gathered. Ready to answer.", start_time, show_internal_comms).await?;
+                send_dialogue_gated(writer, "Analyst", Some("Anna"), "Enough data gathered. Ready to answer.", start_time, &exposure_gate, DialogueClassification::Informational).await?;
                 break;
             }
             NextStep::SuggestFix { problem, fix_command, explanation } => {
@@ -561,14 +563,14 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     }
 
     // PHASE 3: GENERATE ANSWER
-    send_dialogue(writer, "Anna", None, "Generating final answer...", start_time, show_internal_comms).await?;
+    send_dialogue_gated(writer, "Anna", None, "Generating final answer...", start_time, &exposure_gate, DialogueClassification::Informational).await?;
     send_step(writer, DialogueStep {
         step_type: StepType::AnnaToLlm,
         content: "Generating answer...".to_string(),
     }, &mut dialogue).await?;
 
     let raw_answer = generate_answer(model, question, &state).await?;
-    send_dialogue(writer, "Anna", None, "Answer ready.", start_time, show_internal_comms).await?;
+    send_dialogue_gated(writer, "Anna", None, "Answer ready.", start_time, &exposure_gate, DialogueClassification::Informational).await?;
 
     // v0.3.25: Verify answer through ClaimGate with evidence line
     let debug_mode = anna_shared::config::AnnaConfig::load()

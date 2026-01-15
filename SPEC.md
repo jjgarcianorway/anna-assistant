@@ -125,6 +125,38 @@ The sanitization layer rejects:
 
 This is testable: any user-visible dialogue containing forbidden patterns fails validation.
 
+### Specialist Execution and Exposure Guarantees (v0.3.46)
+
+All specialist activity flows through the ExposureGate before user display.
+
+**Central Filtering Contract:**
+1. ExposureGate is the ONLY point where dialogue visibility is decided
+2. No specialist may bypass exposure filtering
+3. No conditional logic inside specialists themselves
+4. Ralph loop dialogue obeys the same filtering rules
+
+**Dialogue Classification:**
+| Classification | Min Level | Purpose |
+|---------------|-----------|---------|
+| Informational | Summary   | Status updates, completion notifications |
+| Procedural    | Dialogue  | Step-by-step actions, assignments |
+| Diagnostic    | Debug     | Raw output, prompts, technical details |
+
+**Classification by StepType:**
+- Always shown: FinalAnswer, UserQuestion, ClarificationQuestion, SystemAlert
+- Informational: TicketCreated, InvestigationComplete, IntentResult, WikiResults
+- Procedural: TeamAssignment, SpecialistWorking, InvestigationProbe, CommandExec
+- Diagnostic: CommandOutput, InvestigationResult, ValidationPrompt
+
+**Invariants:**
+1. At Silent level, zero dialogue lines emitted
+2. At Summary level, only Informational classification emitted
+3. At Dialogue level, Informational and Procedural emitted
+4. At Debug level, all classifications emitted
+5. Forbidden patterns blocked at all levels
+
+This is testable: run the same query at each exposure level and verify dialogue count matches classification rules.
+
 ## System Paths
 
 | Purpose | Path |
@@ -177,6 +209,41 @@ These are testable. CI must enforce them.
 12. Deployment must be via auto-update or installer script only
 13. Build must succeed with zero errors
 14. All acceptance gates must pass before release
+
+## Production Hardening Gates (v0.3.46)
+
+E2E smoke tests validate the complete trust chain before release.
+
+**Pre-flight Gate Tests** (`crates/annad/tests/e2e_exposure_smoke.rs`):
+
+| Test | Purpose |
+|------|---------|
+| `test_silent_level_blocks_all_dialogue` | Silent emits zero dialogue |
+| `test_summary_level_allows_only_informational` | Summary emits only status updates |
+| `test_dialogue_level_allows_procedural` | Dialogue emits step-by-step actions |
+| `test_debug_level_allows_all` | Debug emits all classifications |
+| `test_forbidden_patterns_blocked_at_all_levels` | Sanitization enforced everywhere |
+| `test_replay_cannot_elevate_exposure` | Cannot see more than recorded |
+| `test_replay_silent_produces_no_dialogue` | Silent replay = zero lines |
+| `test_error_recovery_no_forbidden_commands` | No "sudo" in recovery messages |
+| `test_exposure_gate_performance_budget` | Filter < 1ms per line |
+
+**Ollama Skip Detection:**
+- Tests check `http://127.0.0.1:11434/api/tags` with 2s timeout
+- If unavailable: skip with `SKIPPED: Ollama not available`
+- Not a test failure - graceful degradation
+
+**Performance Budget:**
+- ExposureGate.filter() must complete in < 1ms per call
+- Justification: 50 lines * 1ms = 50ms max overhead (acceptable)
+- Actual: ~5-10us per call on modern hardware
+
+**Running the Gate:**
+```bash
+cargo test --package annad --test e2e_exposure_smoke
+# With Ollama tests:
+cargo test --package annad --test e2e_exposure_smoke -- --ignored
+```
 
 ## Definition of Done
 

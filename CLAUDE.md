@@ -292,6 +292,7 @@ No exceptions. No user-mode fallbacks.
 - NEVER add features during cleanup/governance tasks
 - NEVER show users manual recovery commands (use auto-healing instead)
 - NEVER expose error messages containing "Run: sudo..." or similar
+- NEVER let specialists self-govern visibility (Phase 13: all filtering through ExposureGate)
 
 ### Self-Healing Governance (v0.3.36+)
 

@@ -130,6 +130,43 @@ pub enum InfoCategory {
     RawEvents,
 }
 
+/// Dialogue classification for structural tagging (Phase 13).
+///
+/// This is NOT sentiment analysis. It is structural tagging only.
+/// Exposure rules act on classification plus level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DialogueClassification {
+    /// General status updates and progress information.
+    /// Example: "New request received", "Processing complete"
+    #[default]
+    Informational,
+    /// Step-by-step processing actions.
+    /// Example: "Running probe", "Executing recipe", "Checking docs"
+    Procedural,
+    /// Technical diagnostic output.
+    /// Example: "Command output", "Error details", "Raw data"
+    Diagnostic,
+}
+
+impl DialogueClassification {
+    /// Minimum exposure level required to see this classification.
+    pub fn required_level(&self) -> ExposureLevel {
+        match self {
+            // Informational shown at Summary and above
+            Self::Informational => ExposureLevel::Summary,
+            // Procedural shown at Dialogue and above
+            Self::Procedural => ExposureLevel::Dialogue,
+            // Diagnostic shown at Debug only
+            Self::Diagnostic => ExposureLevel::Debug,
+        }
+    }
+
+    /// Check if this classification is visible at the given level.
+    pub fn visible_at(&self, level: ExposureLevel) -> bool {
+        level >= self.required_level()
+    }
+}
+
 impl InfoCategory {
     /// Minimum exposure level required to see this category.
     pub fn required_level(&self) -> ExposureLevel {
@@ -233,5 +270,38 @@ mod tests {
                 assert!(!filter.show_raw_events(), "Level {:?} should not show raw events", level);
             }
         }
+    }
+
+    #[test]
+    fn test_dialogue_classification_visibility() {
+        // Informational: Summary and above
+        assert!(!DialogueClassification::Informational.visible_at(ExposureLevel::Silent));
+        assert!(DialogueClassification::Informational.visible_at(ExposureLevel::Summary));
+        assert!(DialogueClassification::Informational.visible_at(ExposureLevel::Dialogue));
+        assert!(DialogueClassification::Informational.visible_at(ExposureLevel::Debug));
+
+        // Procedural: Dialogue and above
+        assert!(!DialogueClassification::Procedural.visible_at(ExposureLevel::Silent));
+        assert!(!DialogueClassification::Procedural.visible_at(ExposureLevel::Summary));
+        assert!(DialogueClassification::Procedural.visible_at(ExposureLevel::Dialogue));
+        assert!(DialogueClassification::Procedural.visible_at(ExposureLevel::Debug));
+
+        // Diagnostic: Debug only
+        assert!(!DialogueClassification::Diagnostic.visible_at(ExposureLevel::Silent));
+        assert!(!DialogueClassification::Diagnostic.visible_at(ExposureLevel::Summary));
+        assert!(!DialogueClassification::Diagnostic.visible_at(ExposureLevel::Dialogue));
+        assert!(DialogueClassification::Diagnostic.visible_at(ExposureLevel::Debug));
+    }
+
+    #[test]
+    fn test_dialogue_classification_required_levels() {
+        assert_eq!(DialogueClassification::Informational.required_level(), ExposureLevel::Summary);
+        assert_eq!(DialogueClassification::Procedural.required_level(), ExposureLevel::Dialogue);
+        assert_eq!(DialogueClassification::Diagnostic.required_level(), ExposureLevel::Debug);
+    }
+
+    #[test]
+    fn test_dialogue_classification_default() {
+        assert_eq!(DialogueClassification::default(), DialogueClassification::Informational);
     }
 }

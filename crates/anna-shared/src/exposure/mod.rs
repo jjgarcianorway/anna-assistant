@@ -42,11 +42,13 @@
 //! No implicit escalation. No partial overlap.
 
 pub mod consent;
+pub mod gate;
 pub mod levels;
 pub mod sanitize;
 
 pub use consent::{ConsentState, check_consent, record_consent, CONSENT_ACKNOWLEDGEMENT};
-pub use levels::{ExposureLevel, ExposureFilter, should_show};
+pub use gate::{ExposureGate, GateResult, BlockReason, filter_dialogue, is_dialogue_enabled};
+pub use levels::{ExposureLevel, ExposureFilter, should_show, DialogueClassification};
 pub use sanitize::{sanitize_dialogue, validate_wording, ForbiddenPattern, SanitizationResult};
 
 /// Mental model assertion - used in tests to verify contract adherence.
