@@ -17,6 +17,7 @@ pub mod intent_class;
 pub mod memory;
 pub mod migration;
 pub mod monitor;
+pub mod outcome_ledger;
 pub mod paths;
 pub mod probe_ledger;
 pub mod profile;

@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.56] - 2026-01-15
+
+### Changed - Phase 23: Truthful Telemetry
+
+Replaces fake RPG stats with truthful request outcome tracking.
+
+**A) Outcome ledger (outcome_ledger.rs):**
+- New append-only JSONL ledger at /var/lib/anna/outcomes.jsonl
+- OutcomeRecord with: ts_utc, request_id, mode, intent, outcome, escalated, duration_ms
+- RequestMode: DIALOGUE or ACTION
+- Outcome: resolved, failed, cancelled, expired
+- Exactly one record per request
+
+**B) Stats from ledger:**
+- annactl stats now aggregates from outcomes.jsonl
+- REQUESTS section: total, read_only, mutating
+- TIMING section: avg, p50, p90 (detailed mode)
+- ESCALATION section: total, rate%
+- OUTCOMES section: resolved, failed, cancelled, expired, success rate
+- Unknown values show [!] instead of fake numbers
+
+**C) Removed fake stats:**
+- No more XP bars or RPG titles
+- No more invented reliability percentages
+- No more solved_alone fabrication
+- Status brief shows truthful outcome data
+
+**D) Lifecycle integration:**
+- main_handler.rs records outcome for every request path
+- Cached answers record as resolved
+- Errors record as failed
+- Request ID generated via UUID
+
+**Documentation:**
+- docs/TELEMETRY_SPEC.md - Outcome ledger specification
+
 ## [0.3.55] - 2026-01-15
 
 ### Added - Phase 22: Reality Pass: Read-Only Intelligence

@@ -1,8 +1,11 @@
 //! Main question handling logic.
 //! v0.1.1: Ralph loop integration
 //! v0.2.8: RPG stats tracking
+//! v0.3.56: Phase 23 - Outcome ledger integration
 
 use anna_shared::config::AnnaConfig;
+use anna_shared::intent_class::classify_intent;
+use anna_shared::outcome_ledger::{append_outcome, Outcome, OutcomeRecord, RequestMode};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
@@ -22,6 +25,10 @@ pub async fn handle_main_question(
     start_time: std::time::Instant,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
+    // v0.3.56: Phase 23 - Generate request ID and classify intent for outcome tracking
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let intent = classify_intent(question);
+
     // Check cache for identical recent question
     {
         let state_guard = state.read().await;
@@ -45,6 +52,19 @@ pub async fn handle_main_question(
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // v0.3.56: Record outcome for cached answer
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent,
+                Outcome::Resolved,
+                false, // not escalated
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
+
             return Ok(());
         }
     }
@@ -73,6 +93,19 @@ pub async fn handle_main_question(
                 };
                 let json = serde_json::to_string(&response)?;
                 writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+                // v0.3.56: Record failed outcome (daemon not ready)
+                let duration_ms = start_time.elapsed().as_millis() as u64;
+                let outcome_record = OutcomeRecord::new(
+                    &request_id,
+                    RequestMode::Dialogue,
+                    intent,
+                    Outcome::Failed,
+                    false,
+                    duration_ms,
+                );
+                let _ = append_outcome(&outcome_record);
+
                 return Ok(());
             }
         }
@@ -119,6 +152,19 @@ pub async fn handle_main_question(
             };
             let json = serde_json::to_string(&StreamingResponse::Done { result })?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // v0.3.56: Record outcome for cached answer (expanded)
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent,
+                Outcome::Resolved,
+                false,
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
+
             return Ok(());
         }
     }
@@ -176,6 +222,22 @@ pub async fn handle_main_question(
                 stats.record_answer(response_ms, answer_type);
                 let _ = stats.save();
             }
+
+            // v0.3.56: Phase 23 - Record outcome
+            let outcome = if ask_result.success {
+                Outcome::Resolved
+            } else {
+                Outcome::Failed
+            };
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent,
+                outcome,
+                false, // TODO: track escalation from ask_result if available
+                response_ms,
+            );
+            let _ = append_outcome(&outcome_record);
         }
         Err(e) => {
             // v0.3.30: Always attempt to send Error, don't propagate failures
@@ -188,6 +250,18 @@ pub async fn handle_main_question(
                 let _ = writer.flush().await;
             }
             warn!("Streaming request failed: {}", e);
+
+            // v0.3.56: Phase 23 - Record failed outcome
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent,
+                Outcome::Failed,
+                false,
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
         }
     }
 

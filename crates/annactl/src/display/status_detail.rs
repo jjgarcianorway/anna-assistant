@@ -1,41 +1,44 @@
 //! Detailed status sections: team, tickets, health, stats.
+//! v0.3.56: Phase 23 - Truthful telemetry from outcome ledger.
 
 use anna_shared::config::AnnaConfig;
+use anna_shared::outcome_ledger::OutcomeStats;
 use anna_shared::status::DaemonStatus;
 
 use super::colors::*;
 use super::formatting::*;
 
-pub fn print_stats_brief(status: &DaemonStatus) {
+/// Print brief stats from outcome ledger (Phase 23: truthful telemetry).
+pub fn print_stats_brief(_status: &DaemonStatus) {
     println_colored("STATS", CYAN);
-    let rpg = &status.rpg_stats;
 
-    print!("  ");
-    print_colored(&rpg.title, MAGENTA);
-    print!(" ");
-    println_colored(&rpg.xp_bar(), DIM);
-
-    if rpg.total_questions > 0 {
-        print!("  requests:      ");
-        print!("{}", rpg.total_questions);
-        let solved_alone = status.solved_alone_count;
-        if solved_alone > 0 {
-            let pct = (solved_alone as f64 / rpg.total_questions as f64 * 100.0) as u32;
-            print_colored(&format!(" ({}% solved alone)", pct), DIM);
+    // Load from outcome ledger
+    let stats = match OutcomeStats::load() {
+        Ok(s) if s.total > 0 => s,
+        _ => {
+            println_colored("  No telemetry data yet.", DIM);
+            println!();
+            return;
         }
-        println!();
+    };
+
+    print!("  requests:      ");
+    print!("{}", stats.total);
+    if let Some(rate) = stats.success_rate() {
+        let color = if rate >= 90.0 { GREEN } else if rate >= 70.0 { YELLOW } else { RED };
+        print_colored(&format!(" ({:.0}% success)", rate), color);
+    }
+    println!();
+
+    if let Some(avg) = stats.avg_duration_ms() {
+        print!("  avg time:      ");
+        let color = if avg < 1000 { GREEN } else if avg < 5000 { YELLOW } else { DIM };
+        println_colored(&format!("{}ms", avg), color);
     }
 
-    if rpg.total_questions > 5 {
-        print!("  reliability:   ");
-        let rel_pct = (rpg.reliability * 100.0) as u32;
-        let rel_color = if rel_pct >= 90 { GREEN } else if rel_pct >= 70 { YELLOW } else { RED };
-        println_colored(&format!("{}%", rel_pct), rel_color);
-    }
-
-    if status.escalated_tickets_count > 0 {
+    if stats.escalated > 0 {
         print!("  escalated:     ");
-        println_colored(&format!("{}", status.escalated_tickets_count), YELLOW);
+        println_colored(&format!("{}", stats.escalated), YELLOW);
     }
     println!();
 }

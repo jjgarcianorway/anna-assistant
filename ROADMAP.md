@@ -77,6 +77,13 @@
 - Transcript contamination fixes
 - Golden fixtures for swap/audio/thermal/bluetooth scenarios
 
+### Phase 23: Truthful Telemetry (v0.3.56)
+- Outcome ledger at /var/lib/anna/outcomes.jsonl
+- OutcomeRecord: ts_utc, request_id, mode, intent, outcome, escalated, duration_ms
+- Stats aggregated from ledger (no fake numbers)
+- Removed XP bars, titles, fake reliability percentages
+- Unknown values show [!] indicator
+
 ## Frozen (Not Planned)
 
 - No new specialists

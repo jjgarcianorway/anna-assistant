@@ -21,4 +21,5 @@ chrono.workspace = true
 futures-util.workspace = true
 regex.workspace = true
 dirs.workspace = true
+uuid.workspace = true
 sd-notify = "0.4"

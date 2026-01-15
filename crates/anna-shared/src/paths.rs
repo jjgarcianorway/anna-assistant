@@ -76,6 +76,8 @@ impl Paths {
     pub fn changes_file(&self) -> PathBuf { self.data_dir.join("changes.json") }
     pub fn baseline_file(&self) -> PathBuf { self.data_dir.join("baseline.json") }
     pub fn learning_file(&self) -> PathBuf { self.data_dir.join("learning.json") }
+    /// v0.3.56: Phase 23 outcomes ledger (append-only JSONL)
+    pub fn outcomes_ledger_file(&self) -> PathBuf { self.data_dir.join("outcomes.jsonl") }
 
     // Subdirectories
     pub fn backups_dir(&self) -> PathBuf { self.data_dir.join("backups") }
