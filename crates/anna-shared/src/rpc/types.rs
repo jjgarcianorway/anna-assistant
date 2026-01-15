@@ -227,6 +227,8 @@ pub enum StepType {
     ExperimentResult,
     /// v0.3.55: Phase 22 heartbeat for long operations
     Heartbeat,
+    /// v0.3.57: Phase 24 policy decision basis (Debug only)
+    PolicyBasis,
 }
 
 /// LLM error types for context preservation (v0.0.890)

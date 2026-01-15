@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.57] - 2026-01-15
+
+### Changed - Phase 24: Confidence Calibration
+
+Behavior modulation based on track record. No new capabilities - only adjusts existing knobs.
+
+**A) Telemetry consumer (telemetry_consumer.rs):**
+- Rolling window aggregation from outcomes.jsonl
+- 24-hour default window, 10-record minimum for decisions
+- Success rate, failure rate, escalation rate calculations
+
+**B) Policy dials (policy.rs):**
+- Pure functions: aggregates in, dial settings out
+- Iteration limits: adjusted by success rate (2-4 RO, 3-6 M)
+- Confidence level: High/Medium/Low/Unknown based on track record
+- Escalation threshold: tightened when failure rate high
+- 60-second policy cache to avoid ledger thrashing
+
+**C) Confidence phrasing (gate.rs):**
+- Low confidence: prepends "Based on available information, "
+- High/Medium: no change (confident language allowed)
+- Unknown (cold start): neutral phrasing
+
+**D) Debug-mode logging:**
+- PolicyBasis step type emitted in Debug mode
+- Shows decision basis for iterations, confidence, escalation
+
+**Dial settings:**
+- Cold start: RO:3, M:5, Unknown confidence, 30% escalation threshold
+- High success (>=95%): RO:4, M:6, High confidence, 40% threshold
+- Low success (<80%): RO:2, M:3, Low confidence, 20% threshold
+
 ## [0.3.56] - 2026-01-15
 
 ### Changed - Phase 23: Truthful Telemetry

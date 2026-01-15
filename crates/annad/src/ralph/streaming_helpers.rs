@@ -66,6 +66,8 @@ pub fn classify_step(step_type: &StepType) -> Option<DialogueClassification> {
         StepType::ValidationPrompt => Some(DialogueClassification::Diagnostic),
         StepType::ValidationResponse => Some(DialogueClassification::Diagnostic),
         StepType::FinalPrompt => Some(DialogueClassification::Diagnostic),
+        // Phase 24: Policy basis - Debug only
+        StepType::PolicyBasis => Some(DialogueClassification::Diagnostic),
 
         // Phase 22: Heartbeat - always visible (Informational)
         StepType::Heartbeat => Some(DialogueClassification::Informational),

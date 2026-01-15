@@ -4,10 +4,13 @@
 //! No specialist, no Ralph loop, no streaming path may bypass this gate.
 //!
 //! All dialogue emission must go through ExposureGate::filter() before rendering.
+//!
+//! Phase 24: Confidence phrasing modulation based on track record.
 
 use super::levels::{DialogueClassification, ExposureLevel};
 use super::sanitize::sanitize_dialogue;
 use crate::intent_class::IntentClass;
+use crate::policy::{get_policy, ConfidenceLevel};
 
 /// Result of filtering a dialogue line through ExposureGate.
 #[derive(Debug, Clone)]
@@ -145,6 +148,8 @@ pub fn filter_dialogue(content: &str, classification: DialogueClassification) ->
 
 /// Filter a FinalAnswer with intent-aware fallback on policy violation.
 /// Phase 15/22: FinalAnswer is NOT privileged - it must be sanitized.
+/// Phase 24: Applies confidence phrasing based on track record.
+///
 /// If the answer contains forbidden patterns (manual commands), return appropriate fallback.
 ///
 /// READ_ONLY: Gets direct answer fallback (no "would you like me to" offers)
@@ -159,7 +164,15 @@ pub fn filter_final_answer(content: &str, intent: IntentClass) -> GateResult {
     let result = gate.filter(content, DialogueClassification::Informational);
 
     if result.emit {
-        result
+        // Phase 24: Apply confidence phrasing modulation
+        let policy = get_policy();
+        let content_with_phrasing = apply_confidence_phrasing(&result.content, policy.confidence_level);
+
+        GateResult {
+            emit: true,
+            content: content_with_phrasing,
+            block_reason: None,
+        }
     } else {
         // Answer was blocked - use intent-appropriate fallback
         let fallback = match intent {
@@ -171,6 +184,52 @@ pub fn filter_final_answer(content: &str, intent: IntentClass) -> GateResult {
             content: fallback.to_string(),
             block_reason: result.block_reason,
         }
+    }
+}
+
+/// Phase 24: Apply confidence phrasing to answer based on track record.
+/// High confidence: no change (confident language allowed)
+/// Medium confidence: neutral phrasing (unchanged)
+/// Low/Unknown confidence: prepend hedge phrase
+fn apply_confidence_phrasing(content: &str, confidence: ConfidenceLevel) -> String {
+    // Don't modify very short content or empty content
+    if content.trim().len() < 20 {
+        return content.to_string();
+    }
+
+    // Check if content already starts with a hedge phrase
+    let lower = content.to_lowercase();
+    let already_hedged = lower.starts_with("based on")
+        || lower.starts_with("without")
+        || lower.starts_with("from the")
+        || lower.starts_with("according to");
+
+    if already_hedged {
+        return content.to_string();
+    }
+
+    match confidence {
+        ConfidenceLevel::High | ConfidenceLevel::Medium => {
+            // No modification needed
+            content.to_string()
+        }
+        ConfidenceLevel::Low => {
+            // Low confidence: subtle hedge
+            format!("Based on available information, {}", lowercase_first(content))
+        }
+        ConfidenceLevel::Unknown => {
+            // Unknown: explicit caveat (cold start)
+            content.to_string() // Don't add noise at cold start, just be neutral
+        }
+    }
+}
+
+/// Lowercase the first character of a string (for natural phrasing).
+fn lowercase_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) => c.to_lowercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
     }
 }
 

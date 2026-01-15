@@ -84,6 +84,14 @@
 - Removed XP bars, titles, fake reliability percentages
 - Unknown values show [!] indicator
 
+### Phase 24: Confidence Calibration (v0.3.57)
+- telemetry_consumer.rs: rolling window aggregation
+- policy.rs: pure dial-setting functions from aggregates
+- Iteration limits modulated by success rate
+- Confidence phrasing modulated by track record
+- PolicyBasis step type for Debug-mode tracing
+- Cold start conservative defaults
+
 ## Frozen (Not Planned)
 
 - No new specialists

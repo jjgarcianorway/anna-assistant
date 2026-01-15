@@ -1,8 +1,10 @@
 //! Streaming Ralph loop with real-time progress updates.
 //! v0.3.46: All dialogue filtered through ExposureGate before emission.
+//! v0.3.57: Phase 24 - Policy-driven behavior modulation.
 
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
+use anna_shared::policy::get_policy;
 use anna_shared::probe_ledger::ProbeLedger;
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::teaching;
@@ -31,6 +33,19 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 ) -> Result<AskResult> {
     // v0.3.46: Create ExposureGate for central filtering
     let gate = ExposureGate::from_config();
+
+    // v0.3.57: Phase 24 - Log policy decisions in Debug mode
+    if gate.diagnostic_visible() {
+        let policy = get_policy();
+        let basis = policy.format_debug_basis();
+        debug!("{}", basis);
+        // Emit policy basis as diagnostic step
+        let step = DialogueStep {
+            step_type: StepType::PolicyBasis,
+            content: basis,
+        };
+        let _ = super::streaming_helpers::send_step(writer, step, &gate).await;
+    }
 
     // Try instant error response first for known issues
     if let Some(result) = try_instant_error(question) {

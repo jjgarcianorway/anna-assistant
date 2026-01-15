@@ -200,6 +200,17 @@ fn print_step_internal(step: &anna_shared::rpc::DialogueStep, force_final_answer
             print_colored(".", DIM);
             let _ = std::io::stdout().flush();
         }
+
+        // Phase 24: Policy basis - Debug mode only
+        StepType::PolicyBasis => {
+            if debug {
+                println_colored("Policy:", DIM);
+                for line in step.content.lines().skip(1) {
+                    println_colored(line, DIM);
+                }
+                println!();
+            }
+        }
     }
 }
 

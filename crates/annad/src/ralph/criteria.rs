@@ -1,7 +1,9 @@
 //! Completion criteria and iteration state for the Ralph loop.
 //! Phase 22: Integrates IntentClass for iteration limits.
+//! Phase 24: Uses policy dials for iteration limits based on track record.
 
 use anna_shared::intent_class::{classify_intent, IntentClass};
+use anna_shared::policy::get_policy;
 
 /// Completion criteria for a question
 #[derive(Debug, Clone)]
@@ -80,8 +82,10 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
     // Phase 22: Classify intent first
     let intent_class = classify_intent(question);
 
-    // Phase 22: READ_ONLY questions get max 3 iterations
-    let readonly_max_iter = 3;
+    // Phase 24: Get iteration limits from policy (based on track record)
+    let policy = get_policy();
+    let readonly_max_iter = policy.readonly_max_iterations;
+    let mutating_max_iter = policy.mutating_max_iterations;
 
     // HowTo questions - instructions, don't need live output
     if q.contains("how do i")
@@ -109,10 +113,10 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
         || q.contains("fix")
         || q.contains("why")
     {
-        // Phase 22: Even troubleshooting caps at 3 for READ_ONLY, 5 for MUTATING
+        // Phase 24: Use policy-driven limits
         let max_iter = match intent_class {
             IntentClass::ReadOnly => readonly_max_iter,
-            IntentClass::Mutating => 5,
+            IntentClass::Mutating => mutating_max_iter,
         };
         return CompletionCriteria {
             answer_type: AnswerType::Troubleshoot,
@@ -128,17 +132,17 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
         return CompletionCriteria {
             answer_type: AnswerType::Simple,
             min_confidence: 0.5,
-            max_iterations: 2,
+            max_iterations: 2.min(readonly_max_iter), // Never exceed policy limit
             requires_grounding: false,
             intent_class,
         };
     }
 
     // Default: Factual query
-    // Phase 22: Cap at 3 for READ_ONLY
+    // Phase 24: Use policy-driven limits
     let max_iter = match intent_class {
         IntentClass::ReadOnly => readonly_max_iter,
-        IntentClass::Mutating => 5,
+        IntentClass::Mutating => mutating_max_iter,
     };
     CompletionCriteria {
         answer_type: AnswerType::Factual,
