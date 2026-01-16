@@ -5,6 +5,25 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.69] - 2026-01-16
+
+### Fixed - Phase 28: Capability Detection in Ralph Loop
+
+**Root cause found: Ralph loop was bypassing capability detection:**
+- The capability detection added in v0.3.67-68 was in `execute_question_streaming_llm`
+- But the active code path uses Ralph loop (`ralph_loop_streaming`) which is enabled by default
+- Added `is_capability_question()` and `answer_capability_question()` to Ralph loop
+- Now capability questions like "what are you allowed to do" properly bypass LLM
+
+## [0.3.68] - 2026-01-16
+
+### Fixed - Phase 28: Extended Capability Patterns
+
+- Added missing patterns to capability detection:
+  - "what are you allowed to do"
+  - "what is anna allowed to do"
+  - "allowed to do"
+
 ## [0.3.67] - 2026-01-16
 
 ### Fixed - Phase 28: Language Discipline

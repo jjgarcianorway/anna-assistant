@@ -2,12 +2,14 @@
 //! v0.3.46: All dialogue filtered through ExposureGate before emission.
 //! v0.3.57: Phase 24 - Policy-driven behavior modulation.
 //! v0.3.59: Phase 26 - Abstention tracking for low-confidence exits.
+//! v0.3.69: Phase 28 - Capability question grounding (bypass LLM for capability Qs).
 
+use anna_shared::declaration::CapabilityDeclaration;
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
 use anna_shared::policy::get_policy;
 use anna_shared::probe_ledger::ProbeLedger;
-use anna_shared::rpc::{AskResult, DialogueStep, StepType};
+use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anna_shared::teaching;
 use anyhow::Result;
 use tracing::{debug, info, warn};
@@ -26,12 +28,83 @@ use super::recipe_learning::{build_teaching_context, learn_recipe_from_answer};
 use super::streaming_helpers::{build_final_answer, push_and_send, send_dialogue_steps, send_done, with_heartbeat};
 use super::verification::{truncate, verify_answer};
 
+/// Phase 28: Detect if question is asking about Anna's capabilities.
+/// Ground capability answers in the declaration, not LLM.
+fn is_capability_question(question: &str) -> bool {
+    let q = question.to_lowercase();
+    let patterns = [
+        "what can you do",
+        "what are your capabilities",
+        "what commands can you run",
+        "what are you capable of",
+        "what can anna do",
+        "what are anna's capabilities",
+        "what is anna capable of",
+        "tell me your capabilities",
+        "list your capabilities",
+        "show your capabilities",
+        "what's your capability",
+        "your capabilities",
+        "what do you know how to do",
+        "what are you able to do",
+        "what are you allowed to do",
+        "what is anna allowed to do",
+        "allowed to do",
+    ];
+    patterns.iter().any(|p| q.contains(p))
+}
+
+/// Phase 28: Answer capability questions directly from the declaration.
+async fn answer_capability_question<W: tokio::io::AsyncWriteExt + Unpin>(
+    writer: &mut W,
+) -> Result<AskResult> {
+    info!("Answering capability question from declaration (not LLM)");
+
+    let decl = CapabilityDeclaration::from_ledger();
+    let answer = decl.render_onboarding();
+    let mut dialogue = Vec::new();
+
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.clone(),
+    };
+    dialogue.push(step.clone());
+    let response = StreamingResponse::Step { step };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0),
+    };
+
+    let response = StreamingResponse::Done { result: result.clone() };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+    Ok(result)
+}
+
 /// Streaming version of the Ralph loop with real-time progress updates.
 pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     writer: &mut W,
 ) -> Result<AskResult> {
+    // v0.3.69: Phase 28 - Ground capability questions in declaration, not LLM
+    if is_capability_question(question) {
+        return answer_capability_question(writer).await;
+    }
+
     // v0.3.46: Create ExposureGate for central filtering
     let gate = ExposureGate::from_config();
 
