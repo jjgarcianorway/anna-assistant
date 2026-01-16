@@ -9,16 +9,62 @@ mod dialogue;
 mod display;
 mod event_renderer;
 mod fake_daemon;
+#[allow(dead_code)]
+mod repair;
+#[allow(dead_code)]
+mod report; // Internal aggregation logic, not operator-facing
 mod rpc;
 mod spinner;
 mod streaming;
 mod ui;
 
+use anna_shared::declaration::CapabilityDeclaration;
 use anyhow::Result;
 use display::*;
 use std::io::{self, Write};
 use streaming::ask_streaming;
 use tokio::io::{AsyncBufReadExt, BufReader};
+
+/// Format for capability output
+enum CapabilitiesFormat {
+    /// Human-readable plain text
+    Plain,
+    /// Compact onboarding summary
+    Onboarding,
+    /// Deterministic format for diffing
+    Deterministic,
+}
+
+/// Show capability declaration
+fn show_capabilities(format: CapabilitiesFormat) {
+    let decl = CapabilityDeclaration::from_ledger();
+    let output = match format {
+        CapabilitiesFormat::Plain => decl.render_plain_text(),
+        CapabilitiesFormat::Onboarding => decl.render_onboarding(),
+        CapabilitiesFormat::Deterministic => decl.render_deterministic(),
+    };
+    println!("{}", output);
+}
+
+/// Show capabilities help
+fn show_capabilities_help() {
+    println!();
+    println_colored("CAPABILITY DECLARATION", BOLD);
+    println!();
+    println!("Anna declares her capabilities before acting. This command shows");
+    println!("what Anna can do, cannot do automatically, and will never do.");
+    println!();
+    println!("Usage:");
+    println!("  annactl capabilities             Human-readable declaration");
+    println!("  annactl capabilities --onboarding   Compact summary");
+    println!("  annactl capabilities --deterministic   Diffable format");
+    println!();
+    println!("Why this matters:");
+    println!("  Anna's trust is structural, not promised. This declaration is");
+    println!("  derived directly from the capability ledger and cannot diverge");
+    println!("  from actual behavior. What you see is what Anna can do.");
+    println!();
+}
 
 /// Handle reset command - clears data based on mode
 /// v0.3.20: Added modes per spec (memory, config, models, helpers, everything)
@@ -281,6 +327,24 @@ async fn main() -> Result<()> {
                     println!("Unknown reset mode '{}'. Use 'reset --help' for available modes.", mode_str);
                 }
             }
+            "repair wifi" => {
+                repair::handle_repair_wifi().await;
+            }
+            "repair" | "repair --help" | "repair -h" => {
+                repair::show_repair_help();
+            }
+            "capabilities" | "caps" => {
+                show_capabilities(CapabilitiesFormat::Plain);
+            }
+            "capabilities --onboarding" | "caps --onboarding" => {
+                show_capabilities(CapabilitiesFormat::Onboarding);
+            }
+            "capabilities --deterministic" | "caps --deterministic" => {
+                show_capabilities(CapabilitiesFormat::Deterministic);
+            }
+            "capabilities --help" | "caps --help" | "capabilities -h" | "caps -h" => {
+                show_capabilities_help();
+            }
             "help" | "--help" | "-h" => {
                 println!("Anna - Arch Linux Assistant");
                 println!();
@@ -289,7 +353,9 @@ async fn main() -> Result<()> {
                 println!("  annactl status           Show daemon status");
                 println!("  annactl stats            Show activity statistics");
                 println!("  annactl stats -d         Show detailed statistics");
+                println!("  annactl capabilities     Show what Anna can and cannot do");
                 println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
+                println!("  annactl repair wifi      Diagnose and repair WiFi issues");
                 println!("  annactl <question>       Ask a question");
                 println!();
                 println!("Reset modes: memory, config, models, helpers, everything");
@@ -297,7 +363,9 @@ async fn main() -> Result<()> {
                 println!("Examples:");
                 println!("  annactl \"what's my disk usage?\"");
                 println!("  annactl how do I install neovim");
+                println!("  annactl capabilities");
                 println!("  annactl reset memory");
+                println!("  annactl repair wifi");
             }
             "--version" | "-v" => {
                 println!("annactl {}", anna_shared::VERSION);

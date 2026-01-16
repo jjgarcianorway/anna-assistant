@@ -99,6 +99,22 @@
 - Outcome recording for all action paths
 - Telemetry enrichment: preflight, verification, elevated_confirmation
 
+### Phase 26: Decision Quality and Abstention Discipline (v0.3.59)
+- Abstained outcome: low confidence + no error = neutral outcome
+- AbstentionReason enum: LowConfidence, InsufficientEvidence, ConflictingData
+- Success rate excludes abstained (denominator = resolved + failed only)
+- Abstention stats in `annactl stats` output
+- AskResult extended with abstained flag and final_confidence
+
+### Phase 27: Evidence-Driven Control Policy (v0.3.60)
+- ProbeEffectivenessRecord: resolution_rate, abstention_rate, avg_duration_ms
+- FactFingerprint: xxhash64 of normalized probe outputs
+- EvidenceSnapshot: probes_run, evidence_completeness, fingerprint
+- Computed confidence: 0.4*completeness + 0.3*similarity + 0.3*history
+- adaptive_iteration_budget(): slow probe detection, hard cap at 6
+- OutcomeRecord: probes_used, fingerprint_hash fields
+- Cold start protection: <50 outcomes uses LLM confidence
+
 ## Frozen (Not Planned)
 
 - No new specialists
@@ -108,7 +124,7 @@
 
 ## Future Phases
 
-### Phase 23: Model Selection Benchmark + Hardware-Aware Routing
+### Phase 28: Model Selection Benchmark + Hardware-Aware Routing
 - Model performance benchmarking
 - Hardware capability detection
 - Automatic model selection based on query complexity

@@ -290,7 +290,7 @@ pub fn specialist_found_something(specialist: &Specialist, finding: &str) -> Str
             format!("{}: Here's what I found - {}", specialist.name, finding)
         }
         SpecialistRole::Manager => {
-            format!("{}: Analysis complete. {}", specialist.name, finding)
+            format!("{}: {}", specialist.name, finding)
         }
     }
 }

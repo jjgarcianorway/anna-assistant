@@ -2,6 +2,7 @@
 //!
 //! Phase 23: Records exactly one outcome per request. No fake stats.
 //! Phase 25: Extended with preflight/verification status for actions.
+//! Phase 26: Abstained outcome for low-confidence, no-error exits.
 //! Append-only JSONL format at /var/lib/anna/outcomes.jsonl.
 
 use crate::action_plan::{PreflightResult, VerificationStatus};
@@ -34,6 +35,8 @@ pub enum Outcome {
     Cancelled,
     /// Request timed out or TTL expired
     Expired,
+    /// Phase 26: Low confidence, no error - declined to answer
+    Abstained,
 }
 
 impl Outcome {
@@ -46,6 +49,23 @@ impl Outcome {
     pub fn is_failure(&self) -> bool {
         *self == Outcome::Failed
     }
+
+    /// Phase 26: Whether this outcome is neutral (excluded from success rate).
+    pub fn is_neutral(&self) -> bool {
+        matches!(self, Outcome::Cancelled | Outcome::Expired | Outcome::Abstained)
+    }
+}
+
+/// Phase 26: Reason for abstention when confidence is too low.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AbstentionReason {
+    /// Confidence below threshold after max iterations
+    LowConfidence { final_confidence: f32, threshold: f32 },
+    /// Not enough probes completed to form answer
+    InsufficientEvidence { probes_run: usize },
+    /// Probes returned contradictory information
+    ConflictingData,
 }
 
 /// A single outcome record in the ledger.
@@ -74,6 +94,15 @@ pub struct OutcomeRecord {
     /// Phase 25: Was elevated confirmation required
     #[serde(default)]
     pub elevated_confirmation: bool,
+    /// Phase 26: Reason for abstention (only when outcome is Abstained)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub abstention_reason: Option<AbstentionReason>,
+    /// Phase 27: Probes used during request processing
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probes_used: Option<Vec<String>>,
+    /// Phase 27: Fingerprint hash of system state at resolution
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint_hash: Option<u64>,
 }
 
 /// Serializable intent class (avoids importing full IntentClass in stats)
@@ -114,6 +143,35 @@ impl OutcomeRecord {
             preflight: None,
             verification: None,
             elevated_confirmation: false,
+            abstention_reason: None,
+            probes_used: None,
+            fingerprint_hash: None,
+        }
+    }
+
+    /// Phase 26: Create outcome record for abstention with reason.
+    pub fn new_abstention(
+        request_id: &str,
+        mode: RequestMode,
+        intent: IntentClass,
+        reason: AbstentionReason,
+        escalated: bool,
+        duration_ms: u64,
+    ) -> Self {
+        Self {
+            ts_utc: chrono::Utc::now().to_rfc3339(),
+            request_id: request_id.to_string(),
+            mode,
+            intent: intent.into(),
+            outcome: Outcome::Abstained,
+            escalated,
+            duration_ms,
+            preflight: None,
+            verification: None,
+            elevated_confirmation: false,
+            abstention_reason: Some(reason),
+            probes_used: None,
+            fingerprint_hash: None,
         }
     }
 
@@ -139,7 +197,22 @@ impl OutcomeRecord {
             preflight: Some(preflight),
             verification: Some(verification),
             elevated_confirmation,
+            abstention_reason: None,
+            probes_used: None,
+            fingerprint_hash: None,
         }
+    }
+
+    /// Phase 27: Set probes used for this outcome.
+    pub fn with_probes(mut self, probes: Vec<String>) -> Self {
+        self.probes_used = Some(probes);
+        self
+    }
+
+    /// Phase 27: Set fingerprint hash for this outcome.
+    pub fn with_fingerprint(mut self, hash: u64) -> Self {
+        self.fingerprint_hash = Some(hash);
+        self
     }
 }
 
@@ -205,6 +278,8 @@ pub struct OutcomeStats {
     pub cancelled: u64,
     /// Expired
     pub expired: u64,
+    /// Phase 26: Abstained (low confidence, no error)
+    pub abstained: u64,
     /// Escalated requests
     pub escalated: u64,
     /// All durations for percentile calculations
@@ -245,6 +320,7 @@ impl OutcomeStats {
                 Outcome::Failed => stats.failed += 1,
                 Outcome::Cancelled => stats.cancelled += 1,
                 Outcome::Expired => stats.expired += 1,
+                Outcome::Abstained => stats.abstained += 1,
             }
 
             if record.escalated {
@@ -323,6 +399,15 @@ impl OutcomeStats {
             None
         } else {
             Some((self.escalated as f64 / self.total as f64) * 100.0)
+        }
+    }
+
+    /// Phase 26: Abstention rate as percentage of total.
+    pub fn abstention_rate(&self) -> Option<f64> {
+        if self.total == 0 {
+            None
+        } else {
+            Some((self.abstained as f64 / self.total as f64) * 100.0)
         }
     }
 }
@@ -410,10 +495,24 @@ mod tests {
     fn test_outcome_properties() {
         assert!(Outcome::Resolved.is_success());
         assert!(!Outcome::Resolved.is_failure());
+        assert!(!Outcome::Resolved.is_neutral());
+
         assert!(Outcome::Failed.is_failure());
         assert!(!Outcome::Failed.is_success());
+        assert!(!Outcome::Failed.is_neutral());
+
         assert!(!Outcome::Cancelled.is_success());
         assert!(!Outcome::Cancelled.is_failure());
+        assert!(Outcome::Cancelled.is_neutral());
+
+        assert!(!Outcome::Expired.is_success());
+        assert!(!Outcome::Expired.is_failure());
+        assert!(Outcome::Expired.is_neutral());
+
+        // Phase 26: Abstained is neutral
+        assert!(!Outcome::Abstained.is_success());
+        assert!(!Outcome::Abstained.is_failure());
+        assert!(Outcome::Abstained.is_neutral());
     }
 
     #[test]
@@ -467,5 +566,81 @@ mod tests {
         assert_eq!(stats.verification_failed, 1);
         assert_eq!(stats.verification_unknown, 1);
         assert_eq!(stats.elevated_confirmations, 1);
+    }
+
+    #[test]
+    fn test_phase26_abstention_record() {
+        let record = OutcomeRecord::new_abstention(
+            "abstain-123",
+            RequestMode::Dialogue,
+            IntentClass::ReadOnly,
+            AbstentionReason::LowConfidence {
+                final_confidence: 0.35,
+                threshold: 0.5,
+            },
+            false,
+            2500,
+        );
+
+        assert_eq!(record.outcome, Outcome::Abstained);
+        assert!(record.abstention_reason.is_some());
+
+        let json = serde_json::to_string(&record).unwrap();
+        assert!(json.contains("\"outcome\":\"abstained\""));
+        assert!(json.contains("\"abstention_reason\""));
+        assert!(json.contains("\"low_confidence\""));
+    }
+
+    #[test]
+    fn test_phase26_success_rate_excludes_abstained() {
+        // Key invariant: success_rate denominator is resolved + failed only
+        let records = vec![
+            OutcomeRecord::new("1", RequestMode::Dialogue, IntentClass::ReadOnly, Outcome::Resolved, false, 100),
+            OutcomeRecord::new("2", RequestMode::Dialogue, IntentClass::ReadOnly, Outcome::Resolved, false, 100),
+            OutcomeRecord::new("3", RequestMode::Dialogue, IntentClass::ReadOnly, Outcome::Failed, false, 100),
+            OutcomeRecord::new_abstention(
+                "4",
+                RequestMode::Dialogue,
+                IntentClass::ReadOnly,
+                AbstentionReason::InsufficientEvidence { probes_run: 2 },
+                false,
+                100,
+            ),
+        ];
+
+        let stats = OutcomeStats::from_records(&records);
+        assert_eq!(stats.total, 4);
+        assert_eq!(stats.resolved, 2);
+        assert_eq!(stats.failed, 1);
+        assert_eq!(stats.abstained, 1);
+
+        // Success rate: 2/(2+1) = 66.67% - abstained excluded from denominator
+        let rate = stats.success_rate().unwrap();
+        assert!((rate - 66.67).abs() < 0.1);
+
+        // Abstention rate: 1/4 = 25%
+        let abstention_rate = stats.abstention_rate().unwrap();
+        assert!((abstention_rate - 25.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_phase26_abstention_reason_variants() {
+        // LowConfidence
+        let reason1 = AbstentionReason::LowConfidence {
+            final_confidence: 0.3,
+            threshold: 0.5,
+        };
+        let json1 = serde_json::to_string(&reason1).unwrap();
+        assert!(json1.contains("low_confidence"));
+
+        // InsufficientEvidence
+        let reason2 = AbstentionReason::InsufficientEvidence { probes_run: 1 };
+        let json2 = serde_json::to_string(&reason2).unwrap();
+        assert!(json2.contains("insufficient_evidence"));
+
+        // ConflictingData
+        let reason3 = AbstentionReason::ConflictingData;
+        let json3 = serde_json::to_string(&reason3).unwrap();
+        assert!(json3.contains("conflicting_data"));
     }
 }

@@ -1,0 +1,158 @@
+name: Release on Version Bump
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Cargo.toml'
+      - 'VERSION'
+
+# Prevent concurrent releases
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  detect-version-bump:
+    name: Detect Version Bump
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check.outputs.changed }}
+      new_version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for comparison
+
+      - name: Check for version bump
+        id: check
+        run: |
+          # Authoritative version source: Cargo.toml workspace package version
+          CURRENT_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\([^"]*\)"/\1/')
+          echo "Current version: $CURRENT_VERSION"
+
+          # Get version from previous commit
+          git show HEAD~1:Cargo.toml > prev_cargo.toml 2>/dev/null || echo 'version = "0.0.0"' > prev_cargo.toml
+          PREV_VERSION=$(grep '^version = ' prev_cargo.toml | head -1 | sed 's/version = "\([^"]*\)"/\1/')
+          echo "Previous version: $PREV_VERSION"
+          rm -f prev_cargo.toml
+
+          if [ "$CURRENT_VERSION" = "$PREV_VERSION" ]; then
+            echo "No version bump detected."
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Version bump detected: $PREV_VERSION -> $CURRENT_VERSION"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+  validate-changelog:
+    name: Validate Changelog
+    runs-on: ubuntu-latest
+    needs: detect-version-bump
+    if: needs.detect-version-bump.outputs.version_changed == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify CHANGELOG has entry for version
+        run: |
+          VERSION="${{ needs.detect-version-bump.outputs.new_version }}"
+          echo "Checking CHANGELOG.md for version $VERSION..."
+
+          if ! grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo ""
+            echo "ERROR: CHANGELOG.md missing entry for version $VERSION"
+            echo ""
+            echo "Add a section to CHANGELOG.md:"
+            echo ""
+            echo "## [$VERSION] - $(date +%Y-%m-%d)"
+            echo ""
+            echo "### Added/Changed/Fixed"
+            echo "- Description of changes"
+            echo ""
+            exit 1
+          fi
+
+          echo "OK: CHANGELOG has entry for $VERSION"
+
+      - name: Verify VERSION file matches
+        run: |
+          VERSION="${{ needs.detect-version-bump.outputs.new_version }}"
+          FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+
+          if [ "$VERSION" != "$FILE_VERSION" ]; then
+            echo "ERROR: VERSION file ($FILE_VERSION) does not match Cargo.toml ($VERSION)"
+            echo "Update VERSION file to: $VERSION"
+            exit 1
+          fi
+
+          echo "OK: VERSION file matches Cargo.toml"
+
+  create-tag-and-release:
+    name: Create Tag and Release
+    runs-on: ubuntu-latest
+    needs: [detect-version-bump, validate-changelog]
+    if: needs.detect-version-bump.outputs.version_changed == 'true'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if tag already exists
+        id: tag-check
+        run: |
+          VERSION="${{ needs.detect-version-bump.outputs.new_version }}"
+          TAG="v$VERSION"
+
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists; skipping."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag $TAG does not exist; will create."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        if: steps.tag-check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ needs.detect-version-bump.outputs.new_version }}"
+          TAG="v$VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+          echo "Created and pushed tag: $TAG"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The tag push triggers release.yml which handles the actual release creation
+      - name: Summary
+        run: |
+          VERSION="${{ needs.detect-version-bump.outputs.new_version }}"
+          TAG="v$VERSION"
+
+          if [ "${{ steps.tag-check.outputs.exists }}" = "true" ]; then
+            echo "Tag $TAG already existed. No action taken."
+          else
+            echo "Tag $TAG created. Release workflow will be triggered."
+            echo ""
+            echo "Monitor release progress:"
+            echo "  gh run list --workflow=release.yml --limit=1"
+          fi
+
+  no-version-bump:
+    name: No Version Bump
+    runs-on: ubuntu-latest
+    needs: detect-version-bump
+    if: needs.detect-version-bump.outputs.version_changed == 'false'
+    steps:
+      - name: Log no action needed
+        run: |
+          echo "No version bump detected."
+          echo "Current version: ${{ needs.detect-version-bump.outputs.new_version }}"
+          echo "No release will be created."

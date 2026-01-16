@@ -1,9 +1,12 @@
 //! Stats command display - Truthful telemetry from outcome ledger.
 //!
 //! Phase 23: All stats derived from /var/lib/anna/outcomes.jsonl.
+//! Phase 26: Added abstention tracking.
+//! Phase 27: Added probe effectiveness display.
 //! No fake XP, no fake titles, no invented percentages.
 
-use anna_shared::outcome_ledger::OutcomeStats;
+use anna_shared::outcome_ledger::{read_all_outcomes, OutcomeStats};
+use anna_shared::probe_stats::{aggregate_probe_effectiveness, top_probes_by_resolution};
 
 use super::colors::*;
 
@@ -99,6 +102,13 @@ pub fn print_stats(detailed: bool) {
     println_colored(&format!("{}", stats.cancelled), DIM);
     print!("  expired:       ");
     println_colored(&format!("{}", stats.expired), DIM);
+    // Phase 26: Show abstained count
+    print!("  abstained:     ");
+    if stats.abstained > 0 {
+        println_colored(&format!("{}", stats.abstained), YELLOW);
+    } else {
+        println_colored(&format!("{}", stats.abstained), DIM);
+    }
 
     if let Some(rate) = stats.success_rate() {
         print!("  success rate:  ");
@@ -108,7 +118,35 @@ pub fn print_stats(detailed: bool) {
         print!("  success rate:  ");
         println_colored("[!] (no decisive outcomes)", DIM);
     }
+    // Phase 26: Show abstention rate
+    if let Some(rate) = stats.abstention_rate() {
+        if rate > 0.0 {
+            print!("  abstain rate:  ");
+            let color = if rate < 5.0 { DIM } else if rate < 15.0 { YELLOW } else { RED };
+            println_colored(&format!("{:.1}%", rate), color);
+        }
+    }
     println!();
+
+    // Phase 27: Show probe effectiveness in detailed mode
+    if detailed {
+        if let Ok(records) = read_all_outcomes() {
+            let probe_stats = aggregate_probe_effectiveness(&records);
+            if !probe_stats.is_empty() {
+                println_colored("PROBE EFFECTIVENESS", CYAN);
+                let top = top_probes_by_resolution(&probe_stats, 5);
+                for probe in top {
+                    let rate_pct = (probe.resolution_rate * 100.0) as u32;
+                    let color = if rate_pct >= 90 { GREEN } else if rate_pct >= 70 { YELLOW } else { RED };
+                    print!("  ");
+                    print_colored(&format!("{:<20}", truncate_probe(&probe.probe_pattern, 20)), DIM);
+                    print_colored(&format!(" {:>3}%", rate_pct), color);
+                    println_colored(&format!("  (n={})", probe.sample_count), DIM);
+                }
+                println!();
+            }
+        }
+    }
 
     // Show ledger info in detailed mode
     if detailed {
@@ -121,5 +159,14 @@ pub fn print_stats(detailed: bool) {
                 println!();
             }
         }
+    }
+}
+
+/// Truncate probe pattern for display.
+fn truncate_probe(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max_len - 3])
     }
 }

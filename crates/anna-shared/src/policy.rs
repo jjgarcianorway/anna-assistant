@@ -1,11 +1,15 @@
 //! Policy - Pure functions for behavior modulation.
 //!
 //! Phase 24: Takes telemetry aggregates, outputs dial settings.
+//! Phase 27: Adds adaptive iteration budgets based on probe effectiveness.
 //! No new capabilities - only adjusts existing knobs based on track record.
 //!
 //! All decisions are deterministic and can be traced in Debug mode.
 
+use crate::intent_class::IntentClass;
+use crate::probe_stats::ProbeEffectivenessRecord;
 use crate::telemetry_consumer::TelemetrySnapshot;
+use std::collections::HashMap;
 
 /// Policy dial settings computed from telemetry.
 #[derive(Debug, Clone)]
@@ -254,6 +258,45 @@ pub fn refresh_policy() -> PolicyDials {
     dials
 }
 
+/// Phase 27: Compute adaptive iteration budget based on intent and probe stats.
+///
+/// Base budgets:
+/// - ReadOnly: 2
+/// - Mutating: 4
+///
+/// Boost (+1) if many probes are slow (avg > 500ms).
+/// Hard cap at 6 iterations.
+pub fn adaptive_iteration_budget(
+    intent: IntentClass,
+    probe_stats: &HashMap<String, ProbeEffectivenessRecord>,
+) -> usize {
+    let base = match intent {
+        IntentClass::ReadOnly => 2,
+        IntentClass::Mutating => 4,
+    };
+
+    // Boost budget if probes are slow
+    let slow_probe_count = probe_stats
+        .values()
+        .filter(|p| p.avg_duration_ms > 500)
+        .count();
+
+    let boost = if slow_probe_count > 2 { 1 } else { 0 };
+
+    // Hard cap at 6
+    (base + boost).min(6)
+}
+
+/// Phase 27: Get iteration budget with probe awareness.
+pub fn get_iteration_budget(intent: IntentClass) -> usize {
+    // For now, use simple defaults until probe stats are accumulated
+    // This will be enhanced to load probe stats from ledger
+    match intent {
+        IntentClass::ReadOnly => 3,
+        IntentClass::Mutating => 5,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -325,5 +368,53 @@ mod tests {
         assert!(!ConfidenceLevel::Medium.allows_confident_language());
         assert!(ConfidenceLevel::High.allows_confident_language());
         assert!(!ConfidenceLevel::Unknown.allows_confident_language());
+    }
+
+    #[test]
+    fn test_adaptive_iteration_budget_base() {
+        let empty_stats = HashMap::new();
+        assert_eq!(adaptive_iteration_budget(IntentClass::ReadOnly, &empty_stats), 2);
+        assert_eq!(adaptive_iteration_budget(IntentClass::Mutating, &empty_stats), 4);
+    }
+
+    #[test]
+    fn test_adaptive_iteration_budget_slow_probes() {
+        let mut stats = HashMap::new();
+        // Add 3 slow probes
+        for i in 0..3 {
+            stats.insert(
+                format!("probe_{}", i),
+                ProbeEffectivenessRecord {
+                    probe_pattern: format!("cmd{} *", i),
+                    resolution_rate: 0.8,
+                    abstention_rate: 0.1,
+                    avg_duration_ms: 600, // > 500ms threshold
+                    sample_count: 10,
+                },
+            );
+        }
+        // Should get +1 boost
+        assert_eq!(adaptive_iteration_budget(IntentClass::ReadOnly, &stats), 3);
+        assert_eq!(adaptive_iteration_budget(IntentClass::Mutating, &stats), 5);
+    }
+
+    #[test]
+    fn test_adaptive_iteration_budget_cap() {
+        let mut stats = HashMap::new();
+        // Add many slow probes
+        for i in 0..10 {
+            stats.insert(
+                format!("probe_{}", i),
+                ProbeEffectivenessRecord {
+                    probe_pattern: format!("cmd{} *", i),
+                    resolution_rate: 0.8,
+                    abstention_rate: 0.1,
+                    avg_duration_ms: 1000,
+                    sample_count: 10,
+                },
+            );
+        }
+        // Should be capped at 6
+        assert!(adaptive_iteration_budget(IntentClass::Mutating, &stats) <= 6);
     }
 }

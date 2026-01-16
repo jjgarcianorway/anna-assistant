@@ -95,6 +95,8 @@ pub async fn try_fast_path(question: &str) -> Option<AskResult> {
                 clarification_question: None,
                 cached: false,
                 citations: vec![citation],
+                abstained: false,
+                final_confidence: None, // Fast-path doesn't track confidence
             })
         }
         Err(_) => None, // Fall back to full loop

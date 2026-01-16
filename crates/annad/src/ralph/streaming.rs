@@ -1,6 +1,7 @@
 //! Streaming Ralph loop with real-time progress updates.
 //! v0.3.46: All dialogue filtered through ExposureGate before emission.
 //! v0.3.57: Phase 24 - Policy-driven behavior modulation.
+//! v0.3.59: Phase 26 - Abstention tracking for low-confidence exits.
 
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
@@ -115,6 +116,8 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                     clarification_question: None,
                     cached: false,
                     citations: vec![],
+                    abstained: false,
+                    final_confidence: None, // Diagnostic path doesn't track confidence
                 };
                 send_done(writer, &result).await?;
                 return Ok(result);
@@ -287,6 +290,13 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         build_final_answer(&verification.answer, &verification.evidence_line, None);
     push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone(), gate).await?;
 
+    // Phase 26: Determine if this is abstention vs failure
+    // Abstention: max iterations + low confidence + no execution errors
+    let has_execution_error = state.feedback.as_ref()
+        .map(|f| f.contains("failed") || f.contains("error"))
+        .unwrap_or(false);
+    let is_abstained = state.confidence < 0.5 && !has_execution_error;
+
     let result = AskResult {
         answer: final_answer,
         success: state.confidence >= 0.5,
@@ -297,6 +307,8 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         clarification_question: state.not_done_reason,
         cached: false,
         citations: vec![],
+        abstained: is_abstained,
+        final_confidence: Some(state.confidence),
     };
     send_done(writer, &result).await?;
 
@@ -372,6 +384,8 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: Some(confidence),
     };
     send_done(writer, &result).await?;
 

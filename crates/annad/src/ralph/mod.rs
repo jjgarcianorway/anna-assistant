@@ -10,8 +10,10 @@
 //! 4. Learn from attempts - each iteration improves the next
 
 mod commands;
+pub mod confidence;
 mod criteria;
 mod diagnostic;
+pub mod evidence;
 mod fast_path;
 mod fast_path_patterns;
 mod instant;
@@ -97,6 +99,8 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                     clarification_question: None,
                     cached: false,
                     citations: vec![],
+                    abstained: false,
+                    final_confidence: None,
                 });
             }
             Err(e) => {
@@ -198,6 +202,8 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
                 clarification_question: None,
                 cached: false,
                 citations: vec![],
+                abstained: false,
+                final_confidence: Some(eval.confidence),
             });
         }
 
@@ -225,6 +231,12 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         content: final_answer.clone(),
     });
 
+    // Phase 26: Determine if this is abstention vs failure
+    let has_execution_error = state.feedback.as_ref()
+        .map(|f| f.contains("failed") || f.contains("error"))
+        .unwrap_or(false);
+    let is_abstained = state.confidence < 0.5 && !has_execution_error;
+
     Ok(AskResult {
         answer: final_answer,
         success: state.confidence >= 0.5,
@@ -235,5 +247,7 @@ Be concise but complete. Start your response with "{}" (without quotes)."#,
         clarification_question: state.not_done_reason,
         cached: false,
         citations: vec![],
+        abstained: is_abstained,
+        final_confidence: Some(state.confidence),
     })
 }

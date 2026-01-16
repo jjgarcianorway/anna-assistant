@@ -133,9 +133,10 @@ impl ExposureGate {
     }
 }
 
-/// Fallback for READ_ONLY intents - direct answer, no confirmation.
-/// Phase 22: READ_ONLY questions get direct answers without "would you like me to" offers.
-const FALLBACK_READONLY: &str = "Analysis complete. The system state has been checked.";
+/// Fallback for READ_ONLY intents when LLM response contained forbidden patterns.
+/// Phase 28: Honest acknowledgment instead of empty non-answer.
+/// The LLM generated invalid output (e.g., manual commands) so we cannot show it.
+const FALLBACK_READONLY: &str = "Anna gathered information but could not format a valid response. See 'annactl capabilities' for what Anna can do.";
 
 /// Fallback for MUTATING intents - ActionPlan flow with confirmation.
 /// Phase 15/22: MUTATING operations require confirmation before execution.
@@ -391,7 +392,9 @@ mod tests {
         // Content with forbidden patterns should get READ_ONLY fallback
         let result = filter_final_answer("sudo pacman -Syu", IntentClass::ReadOnly);
         assert!(result.emit);
-        assert!(result.content.contains("Analysis complete"));
+        // Phase 28: Honest fallback instead of non-answer
+        assert!(result.content.contains("could not format a valid response"));
+        assert!(result.content.contains("annactl capabilities"));
         assert!(!result.content.contains("would you like"));
         assert!(!result.content.contains("Would you like"));
     }
@@ -423,6 +426,7 @@ mod tests {
         // Default function should use ReadOnly fallback
         let result = filter_final_answer_default("sudo pacman -Syu");
         assert!(result.emit);
-        assert!(result.content.contains("Analysis complete"));
+        // Phase 28: Honest fallback
+        assert!(result.content.contains("could not format a valid response"));
     }
 }

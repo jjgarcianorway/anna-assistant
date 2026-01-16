@@ -264,3 +264,14 @@ pub async fn reset(mode: anna_shared::rpc::ResetMode) -> Result<ResetResult> {
     let result = response.result.ok_or_else(|| anyhow!("No result"))?;
     serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
 }
+
+/// Diagnose WiFi issues (Phase 43).
+/// Returns an AssistedOperationResult with diagnosis and proposed steps.
+pub async fn diagnose_wifi() -> Result<anna_shared::rpc::AssistedOperationResult> {
+    let response = call(RpcMethod::DiagnoseWifi, None).await?;
+    if let Some(error) = response.error {
+        return Err(anyhow!("{}", error.message));
+    }
+    let result = response.result.ok_or_else(|| anyhow!("No result"))?;
+    serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
+}

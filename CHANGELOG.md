@@ -5,7 +5,448 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.67] - 2026-01-16
+
+### Fixed - Phase 28: Language Discipline
+
+**Killed "Analysis complete" poison phrase:**
+- The phrase "Analysis complete. The system state has been checked." was a non-answer
+- Replaced fallback with honest message: "Anna gathered information but could not format a valid response"
+- Fallback now points users to `annactl capabilities` for clarity
+- Removed "Analysis complete" from Manager dialogue style (team_speak.rs)
+
+**Capability questions now grounded in declaration, not LLM:**
+- Detect capability questions (e.g., "what can you do?") before LLM sees them
+- Answer directly from CapabilityDeclaration::from_ledger()
+- Prevents LLM from hallucinating abilities Anna doesn't have
+- 100% confidence on capability answers (they're from source of truth)
+
+### Fixed - Phase 28: Stability Validation Prep
+
+**Read-only questions no longer trigger "would you like" responses:**
+- Fixed LLM prompt that was instructing confirmation offers on all answers
+- New prompt: "DO NOT ask 'would you like me to...' - just answer"
+- Read-only intents now get direct answers without unsolicited offers
+
+**Operator instructions created:**
+- `docs/phase_28_stability_validation.md` - daily protocol for stability week
+- Defines failure criteria: manual redo = failed, asked Claude = failed
+- Requires 7 days of recorded outcomes before any changes
+
+### Added - Phases 51-53: Integration & Experience Mode
+
+Trust ergonomics phase: no new capabilities, just making existing system usable.
+
+**Phase 51: First-Time User Experience**
+- Rewrote denial messages to explain "why" using Anna's boundaries language
+- Removed jargon: "capability ledger" → explains what Anna can do
+- Removed jargon: "allowlist" → "command Anna can run"
+- Messages now reference `annactl capabilities` for transparency
+- Consistent "Anna will never..." pattern for forbidden operations
+- "Anna runs commands directly, not through a shell" explains shell limitations
+
+**Phase 52: Real-World Workflow Polishing**
+- Improved WiFi verification result messages with specific guidance
+- Healthier WiFi report uses conversational tone
+- Generic diagnosis message friendlier when fix isn't automated
+- Execution bridge errors give clearer user guidance
+- No logic changes - only message text improvements
+
+**Phase 53: Operational Documentation**
+- Created `docs/what_anna_can_do.md` for non-technical users
+- Explains capabilities without developer jargon
+- Covers: what Anna can read, diagnose, suggest, run
+- Covers: what Anna cannot do automatically
+- Covers: what Anna will never do (and why)
+- Target audience: cautious but non-technical user
+
+### Added - Phases 48-50: Stabilization Mode
+
+Stabilization of the capability boundary. No new features, no new commands, no new binaries.
+
+**Phase 48: Constitutional Freeze**
+- Created PHASES.md as authoritative phase registry
+- Constitutional rule: "Capability expansion requires a new phase declaration"
+- CI enforcement via capability_guardrails.yml constitutional freeze check
+- Documents frozen state: 11 binaries, 2 execution capabilities, 4 forbidden capabilities
+
+**Phase 49: Adversarial Audit (13 tests)**
+- Tests attempt to bypass security boundaries
+- Proves bypass is impossible without modifying guarded files
+- Test categories:
+  - `cannot_escalate_without_capability_change_arbitrary_binary`
+  - `cannot_escalate_without_capability_change_shell_escapes`
+  - `cannot_escalate_without_capability_change_pipe_injection`
+  - `cannot_escalate_without_capability_change_redirect_injection`
+  - `cannot_escalate_without_capability_change_privilege_escalation`
+  - `cannot_escalate_without_capability_change_wrong_confirmation`
+  - `cannot_escalate_without_capability_change_adapter_command_injection`
+  - `cannot_escalate_without_capability_change_policy_adapter_mismatch`
+  - `cannot_escalate_without_capability_change_declaration_policy_mismatch`
+
+**Phase 50: User Trust Review (11 tests)**
+- Simulates user interactions asking for forbidden things
+- Verifies responses reference declared capabilities, not hard-coded excuses
+- Test categories:
+  - `user_interaction_download_request` (verifies network denial)
+  - `user_interaction_package_install_request` (verifies package denial)
+  - `user_interaction_sudo_request` (verifies privilege escalation denial)
+  - `user_interaction_delete_request` (verifies destructive denial)
+  - `user_interaction_matches_capability_declaration`
+  - `user_trust_allowed_binaries_match_can_do`
+  - `user_trust_denial_reasons_are_informative`
+  - `user_trust_all_forbidden_explicitly_listed`
+
+**Defense in Depth Improvements:**
+- Command substitution now detects `${...}` variable expansion syntax
+- Shell brace expansion `{a,b,c}` patterns now rejected
+- Chaining detection catches `;` anywhere in arguments (not just as separate tokens)
+
+**Total Security Tests:** 104 tests covering Phases 45-50 capability boundary
+
+### Corrected - Phase 29: Scope Correction
+- Removed `annactl report` CLI command (introduced without operator request)
+- Internal aggregation logic retained as non-invokable module
+- No operator-facing interface exists unless explicitly requested
+
+## [0.3.66] - 2026-01-16
+
+### Added - Phase 47: Capability-Gated Command Policy Engine (Single Path)
+
+All command execution now flows through ONE authorization path. No more case-by-case special logic.
+
+**Command Policy Engine (command_policy.rs):**
+- `CommandSpec`: Commands represented as argv tokens (not shell strings)
+- `authorize_command()`: The ONLY function that can authorize execution
+- `CommandPolicyDecision`: Allowed (with capability_id) or Denied (with reason)
+- Derives allowed commands from capability ledger - no separate lists
+
+**HumanExecutionAdapter Refactored:**
+- Now MUST call `authorize_command()` before execution
+- `validate_command()` replaced with policy engine call
+- Single source of truth: capabilities.rs → policy → adapter
+
+**Hard Bans (Always Denied):**
+- Privilege escalation: sudo, su, pkexec, doas, runuser, dzdo
+- Shells: sh, bash, zsh, fish, dash, csh, tcsh, ksh
+- Destructive: rm, dd, mkfs, fdisk, parted, shred, wipefs
+- Network: wget, curl, nc, netcat, ssh, scp, rsync, ftp
+- Package managers: pacman, yay, apt, dnf, yum, zypper
+- Dangerous patterns: pipes, redirects, command substitution, chaining
+
+**Guardrail Tests (37 tests):**
+- `guardrail_policy_authorizes_exactly_ledger_binaries`
+- `guardrail_no_second_authorization_outside_policy`
+- `guardrail_human_execution_uses_policy`
+- `guardrail_hard_bans_comprehensive`
+- `guardrail_dangerous_patterns_in_args_denied`
+
+**Capability Change Checklist:**
+To add a new command: update ledger → bump version → update changelog → run tests → verify disclosure.
+
+**Why This Matters:**
+Adding any new command/capability is now impossible without updating the ledger, disclosure, and tests. "WiFi special logic" and "YouTube special logic" can no longer creep in. Every execution request is validated against the published truth.
+
+## [0.3.65] - 2026-01-16
+
+### Added - Phase 46: Capability Declaration & Runtime Trust Disclosure
+
+Anna now declares her capabilities before acting. This is not politeness - it prevents silent power growth.
+
+**CapabilityDeclaration Module (declaration.rs):**
+- Read-only view of Anna's capabilities derived from capability ledger
+- Architecturally isolated: imports only from capabilities.rs
+- Contains no execution code - physically cannot expand power
+- Three output formats: plain text, onboarding, deterministic
+
+**CLI Command (annactl capabilities):**
+- `annactl capabilities` - Full human-readable declaration
+- `annactl capabilities --onboarding` - Compact summary for first-time users
+- `annactl capabilities --deterministic` - Diffable format for version control
+- Aliases: `annactl caps` works identically
+
+**Isolation Invariant Tests:**
+- Verifies no execution-related module imports
+- Verifies no Command::new or process spawning code
+- Verifies only capabilities.rs imports allowed
+- 11 tests enforce structural isolation
+
+**Why This Matters:**
+Every request is now answered against a published truth, not improvisation.
+The declaration cannot diverge from actual behavior because it is derived
+directly from the capability ledger. Case-by-case pressure loses its leverage
+because the contract is visible.
+
+## [0.3.64] - 2026-01-16
+
+### Added - Phase 45: Trust Surface Review + Capability Ledger
+
+Anna's capabilities are now explicitly documented and enforced through a versioned contract.
+
+**Capability Ledger (capabilities.rs):**
+- Single source of truth for all Anna capabilities
+- LEDGER_VERSION 1.0 - must be bumped when capabilities change
+- Categories: Diagnosis, Proposal, Execution, Filesystem, Network
+- Execution levels: None, ManualOnly, HumanConfirmed, HumanConfirmedSafeAutomatic
+
+**Capability Entries:**
+- 14 total capabilities defined
+- 2 execution capabilities (require human confirmation)
+- 4 explicitly forbidden capabilities (NO_ prefix)
+- 11 unique allowed binaries across all capabilities
+
+**Guardrail Tests (capabilities_guardrails.rs):**
+- Adapter allowlist must match capability ledger
+- Forbidden binaries (sudo, wget, rm, etc.) verified absent
+- Confirmation strings verified immutable
+- Execution capabilities must have confirmation and audit
+- Binary count changes force test updates
+
+**CI Workflow (capability_guardrails.yml):**
+- Capability ledger changes require VERSION bump
+- Source code isolation checks (Command::new location)
+- Forbidden binary checks
+- Capability test execution
+
+**Trust Surface Report (docs/trust_surface.md):**
+- Deterministic, diffable capability documentation
+- Generated from capability ledger
+- Lists: can read, can suggest, can execute, will never do
+
+**ARCHITECTURE.md:**
+- "Trust Is a Shape, Not a Promise" section
+- Complete execution chain documented
+- WiFi repair example with all stages
+- Module structure and system paths
+
+**Key Invariant:**
+Anna's power is no longer implicit. Every capability is:
+- Named and described
+- Categorized by type and execution level
+- Tested for boundary enforcement
+- Versioned for change tracking
+
+## [0.3.63] - 2026-01-15
+
+### Added - Phase 43: End-to-End Assisted Ops to Human Execution
+
+Complete wiring from WiFi diagnosis through human-confirmed execution.
+
+**WiFi Diagnosis Updates (wifi_diagnosis.rs):**
+- Commands now classified as SafeAutomatic or ManualOnly
+- Safe commands: iw wlan0 link, lsmod, lspci, cat /etc/modprobe.d/iwlwifi.conf
+- Manual commands: All sudo operations (backup, config write, modprobe)
+- Added diagnosis_summary field populated from system state
+
+**CommandSafety Enum (types.rs):**
+- SafeAutomatic: Can execute via HumanExecutionAdapter
+- ManualOnly: Requires copy/paste by user (sudo commands)
+- Helper methods: safe_commands(), manual_commands(), citation_urls()
+
+**Execution Bridge (execution_bridge.rs):**
+- execution_request_from_assisted_op() helper
+- Creates ExecutionRequest for SafeAutomatic commands only
+- Requires exact confirmation: "I understand this will execute automatically."
+- Does NOT execute - only creates requests
+
+**Automatic Execution Support:**
+- AUTOMATIC_EXECUTION_CONFIRMATION constant added
+- ExecutionRequest.validate_automatic() for safe command validation
+- HumanExecutionAdapter accepts both confirmation types
+
+**annactl repair wifi Command:**
+- Calls daemon for WiFi diagnosis via RPC
+- Displays safe commands with automatic execution option
+- Displays manual commands with copy/paste instructions
+- Requires exact confirmation text for automatic execution
+- Executes through HumanExecutionAdapter with allowlist restrictions
+
+**RPC Types (rpc/mod.rs):**
+- DiagnoseWifi RPC method
+- AssistedOperationResult, ProposedStepResult, CommandSafety wire types
+- RiskLevel, SourceResult, SourceType for serialization
+
+**Isolation Verified:**
+- HumanExecutionAdapter::new only in repair.rs (production)
+- No Command::new in wifi_diagnosis.rs, execution_bridge.rs, types.rs
+- detection.rs uses Command::new for read-only diagnostics only
+
+## [0.3.62] - 2026-01-15
+
+### Added - Phase 42: Human-Mediated Execution Adapter
+
+The first and only execution path in the system, explicitly mediated by a human operator.
+
+**HumanExecutionAdapter (human_execution.rs):**
+- Accepts ExecutionRequest + runtime-provided command from human
+- Binary allowlist: iw, lsmod, lspci, cat, echo (initially)
+- Captures stdout, stderr, exit code, execution time
+- Returns HumanExecutionResult
+
+**Safety boundaries (non-negotiable):**
+- No access to stored plans, proposals, or intentions
+- No ability to construct commands itself
+- No fallback or default behavior
+- No retries
+- No sudo
+- No environment mutation outside the process
+- Explicit binary allowlist enforcement
+
+**Forbidden patterns rejected:**
+- sudo, pkexec, doas
+- Shell pipes (| sh, | bash)
+- Command substitution ($(), backticks)
+- Output redirection (>, >>)
+- Dangerous commands (rm, dd, mkfs, fdisk)
+
+**Audit trail:**
+- ExecutionAttempt record persisted for every execution
+- Contains: operator, exact command, command hash, timestamps, full output
+- Path: /var/lib/anna/execution_attempts/{attempt_id}.json
+
+**Invocation rules:**
+- ExecutionRequest must exist (human initiated)
+- Confirmation text must match exactly
+- Human must provide command at call time
+
+**Isolation guarantees verified:**
+- HumanExecutionAdapter only referenced in human_execution.rs
+- Not auto-wired to any daemon, RPC handler, or CLI
+- Removing this module returns system to execution-impossible
+
+24 tests verifying positive execution, failure handling, allowlist rejection, and isolation proofs.
+
+This adapter enables execution only where a human stands.
+
+## [0.3.61] - 2026-01-15
+
+### Added - Phase 40: Execution Request
+
+Human-issued execution requests as inert data, the hinge between "Anna explains" and "a human acts".
+
+**ExecutionRequest structure (execution_request.rs):**
+- request_id, proposal_id, recorded_utc, requested_by, requested_action
+- confirmation_text: MUST equal "I understand this will not execute automatically."
+- Structural validation only (no semantic interpretation)
+- JSON persistence with deterministic field order
+- Atomic writes to /var/lib/anna/execution_requests/{request_id}.v1.json
+
+**Explicit non-capabilities:**
+- DOES NOT execute
+- DOES NOT authorize execution
+- DOES NOT imply safety
+- DOES NOT select commands
+- DOES NOT validate proposals
+- DOES NOT bypass any gate
+- DOES NOT trigger anything
+
+**Isolation guarantees:**
+- Zero imports of ExecutionAdapter, ExecutionGate, or action_plan
+- Zero references from execution pipeline
+- 30 tests verifying structural validation, serialization, and isolation
+
+This record captures human intent to act. It performs no action.
+
+### Added - Phase 41: Release Packaging for Auto-Update
+
+Reproducible GitHub release workflow for Anna auto-update.
+
+**Release automation (.github/workflows/release.yml):**
+- Triggers on version tags v*.*.*
+- Runs cargo test --workspace
+- Builds release artifacts for Linux x86_64
+- Deterministic artifact naming: annad-linux-x86_64, annactl-linux-x86_64
+- Generates SHA256SUMS
+- Uploads all artifacts to GitHub Release
+
+**Documentation:**
+- UPDATE_CONTRACT.md: Where Anna checks for updates, artifact selection, integrity verification
+- RELEASING.md: Exact steps to cut a release
+
+**CI validation:**
+- Changelog validation on tag push (fails if CHANGELOG.md not updated for version)
+
+**Phase 41.1: Version bump implies release:**
+- release_on_version_bump.yml triggers on push to main when Cargo.toml/VERSION changes
+- Detects version bump by comparing current vs previous commit
+- Validates CHANGELOG.md has entry for new version
+- Creates and pushes tag automatically (triggers release.yml)
+- Prevents duplicates: exits if tag already exists
+- Concurrency control prevents race conditions
+
+This update mechanism downloads artifacts only. It performs no remote execution.
+
+## [0.3.60] - 2026-01-15
+
+### Changed - Phase 27: Evidence-Driven Control Policy
+
+Infrastructure for computed confidence based on empirical evidence.
+
+**A) Probe effectiveness (probe_stats.rs):**
+- ProbeEffectivenessRecord: resolution_rate, abstention_rate, avg_duration_ms
+- aggregate_probe_effectiveness() from outcome records
+- Pattern normalization (systemctl status * grouping)
+- top_probes_by_resolution() for stats display
+
+**B) Fact fingerprinting (fingerprint.rs):**
+- FactFingerprint: xxhash64 of normalized probe outputs
+- Normalization: strip dates, times, PIDs, addresses, UUIDs
+- similarity() via Jaccard index
+- find_best_match() for historical comparison
+
+**C) Evidence collection (evidence.rs, confidence.rs):**
+- EvidenceSnapshot: probes_run, evidence_completeness, fingerprint
+- Computed confidence formula: 0.4*completeness + 0.3*similarity + 0.3*history
+- Cold start protection: falls back to LLM confidence below 50 outcomes
+- Novel situation cap: fingerprint similarity=0 caps confidence at 0.7
+
+**D) Adaptive iteration budgets (policy.rs):**
+- adaptive_iteration_budget() with slow probe detection
+- Base: ReadOnly=2, Mutating=4
+- Boost: +1 if >2 probes avg >500ms
+- Hard cap: 6 iterations
+
+**E) Outcome enrichment:**
+- OutcomeRecord: probes_used, fingerprint_hash fields
+- main_handler.rs records probes_used from commands_executed
+- stats_cmd.rs shows probe effectiveness (detailed mode)
+
+**Key invariants:**
+- Computed confidence only active with sufficient data (>=50 outcomes)
+- All decisions traceable via formula components
+- No ML/cloud dependencies - pure control theory
+
+## [0.3.59] - 2026-01-15
+
+### Changed - Phase 26: Decision Quality and Abstention Discipline
+
+Abstention is now a first-class outcome when confidence is low but no error occurred.
+
+**A) Abstained outcome (outcome_ledger.rs):**
+- Outcome::Abstained: low confidence + no execution error
+- AbstentionReason: LowConfidence, InsufficientEvidence, ConflictingData
+- Outcome::is_neutral(): Cancelled, Expired, Abstained all neutral
+- OutcomeRecord::new_abstention() constructor with reason
+
+**B) Stats tracking:**
+- OutcomeStats.abstained count
+- OutcomeStats::abstention_rate() method
+- TelemetrySnapshot.abstained field for rolling window
+- success_rate() unchanged: resolved/(resolved+failed)
+
+**C) Abstention trigger (ralph/streaming.rs, mod.rs):**
+- Max iterations + confidence < 0.5 + no error = Abstained
+- AskResult extended: abstained, final_confidence fields
+- main_handler.rs records Abstained with reason
+
+**D) Stats display (stats_cmd.rs):**
+- Abstained count in OUTCOMES section
+- Abstention rate shown when > 0%
+
+**Key invariants:**
+- Abstained never counts as success or failure
+- Success rate denominator unchanged: resolved + failed only
+- AbstentionReason recorded for Debug-mode analysis
 
 ## [0.3.58] - 2026-01-15
 

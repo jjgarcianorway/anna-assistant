@@ -8,7 +8,9 @@
 //! - Auto-update from GitHub
 //! - Unix socket server for client communication
 //! - Self-healing infrastructure (v0.3.36)
+//! - Assisted operations (Phase 39): Supervised, human-executed fixes
 
+pub mod assisted_ops;  // Phase 39: Supervised assistance layer
 pub mod autofix;  // TODO: Remove after full migration to llm_core
 pub mod binary_watcher;
 pub mod changes;

@@ -340,5 +340,7 @@ pub fn try_instant_error(question: &str) -> Option<AskResult> {
         clarification_question: None,
         cached: false,
         citations: vec![citation],
+        abstained: false,
+        final_confidence: None, // Instant responses don't track confidence
     })
 }

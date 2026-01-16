@@ -126,6 +126,8 @@ async fn handle_fix_history_question(
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let done = StreamingResponse::Done { result };
     let json = serde_json::to_string(&done)?;

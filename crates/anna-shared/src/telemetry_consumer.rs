@@ -1,6 +1,7 @@
 //! Telemetry Consumer - Rolling window aggregation from outcome ledger.
 //!
 //! Phase 24: Reads outcomes.jsonl and provides aggregates for policy decisions.
+//! Phase 26: Added abstained tracking for decision quality metrics.
 //! No new metrics - only aggregations derivable from existing ledger fields.
 
 use crate::outcome_ledger::{read_all_outcomes, IntentClassRecord, Outcome, OutcomeRecord};
@@ -23,6 +24,8 @@ pub struct TelemetrySnapshot {
     pub cancelled: usize,
     /// Expired outcomes
     pub expired: usize,
+    /// Phase 26: Abstained outcomes (low confidence, no error)
+    pub abstained: usize,
     /// Escalated count
     pub escalated: usize,
     /// READ_ONLY outcomes
@@ -74,6 +77,7 @@ impl TelemetrySnapshot {
                 Outcome::Failed => snapshot.failed += 1,
                 Outcome::Cancelled => snapshot.cancelled += 1,
                 Outcome::Expired => snapshot.expired += 1,
+                Outcome::Abstained => snapshot.abstained += 1,
             }
 
             if record.escalated {
@@ -131,6 +135,15 @@ impl TelemetrySnapshot {
             None
         } else {
             Some(self.expired as f64 / self.total as f64)
+        }
+    }
+
+    /// Phase 26: Abstention rate (abstained / total), None if no data.
+    pub fn abstention_rate(&self) -> Option<f64> {
+        if self.total == 0 {
+            None
+        } else {
+            Some(self.abstained as f64 / self.total as f64)
         }
     }
 

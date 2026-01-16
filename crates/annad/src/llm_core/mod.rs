@@ -22,6 +22,7 @@ pub mod types;
 pub use streaming::execute_question_streaming_llm;
 pub use types::{Finding, InvestigationState, NextStep, Understanding, VerificationResult};
 
+use anna_shared::declaration::CapabilityDeclaration;
 use anna_shared::rpc::AskResult;
 use anyhow::Result;
 use tracing::{debug, info};
@@ -37,9 +38,52 @@ pub(crate) const MAX_ITERATIONS: u8 = 3;
 /// LLM timeout in seconds
 const LLM_TIMEOUT_SECS: u64 = 60;
 
+/// Detect if question is asking about Anna's capabilities
+/// Phase 28: Ground capability answers in the declaration, not LLM
+fn is_capability_question(question: &str) -> bool {
+    let q = question.to_lowercase();
+    let patterns = [
+        "what can you do",
+        "what are your capabilities",
+        "what commands can you run",
+        "what are you capable of",
+        "what can anna do",
+        "what are anna's capabilities",
+        "what is anna capable of",
+        "tell me your capabilities",
+        "list your capabilities",
+        "show your capabilities",
+        "what's your capability",
+        "your capabilities",
+        "what do you know how to do",
+        "what are you able to do",
+    ];
+    patterns.iter().any(|p| q.contains(p))
+}
+
 /// Main entry point - execute a question using pure LLM intelligence
 pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResult> {
     info!("LLM Core: Processing question: {}", question);
+
+    // Phase 28: Ground capability questions in the declaration, not LLM
+    if is_capability_question(question) {
+        info!("Answering capability question from declaration (not LLM)");
+        let decl = CapabilityDeclaration::from_ledger();
+        let answer = decl.render_onboarding();
+        return Ok(AskResult {
+            answer,
+            success: true,
+            iterations: 0,
+            commands_executed: vec![],
+            dialogue: vec![],
+            needs_clarification: false,
+            clarification_question: None,
+            cached: false,
+            citations: vec![],
+            abstained: false,
+            final_confidence: Some(1.0),
+        });
+    }
 
     let mut state = InvestigationState::default();
     let dialogue = Vec::new();
@@ -60,6 +104,8 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         });
     }
 
@@ -99,6 +145,8 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
                     clarification_question: None,
                     cached: false,
                     citations: vec![],
+                    abstained: false,
+                    final_confidence: None,
                 });
             }
         }
@@ -130,6 +178,8 @@ pub async fn execute_question_llm(model: &str, question: &str) -> Result<AskResu
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     })
 }
 
@@ -194,6 +244,8 @@ fn finish_with_suggested_fix(
         clarification_question: Some("Confirm fix?".to_string()),
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     })
 }
 

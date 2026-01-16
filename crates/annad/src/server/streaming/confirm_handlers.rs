@@ -46,6 +46,8 @@ pub async fn handle_pending_recipe(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result: ask_result };
         let json = serde_json::to_string(&done)?;
@@ -66,6 +68,8 @@ pub async fn handle_pending_recipe(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -111,6 +115,8 @@ pub async fn handle_recipe_match(
             clarification_question: recipe_result.confirmation_prompt,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -126,6 +132,8 @@ pub async fn handle_recipe_match(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -182,6 +190,8 @@ pub async fn handle_template_plan(
         clarification_question: Some(clarification),
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let done = StreamingResponse::Done { result };
     let json = serde_json::to_string(&done)?;
@@ -224,6 +234,8 @@ pub async fn handle_pending_autofix(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -245,6 +257,8 @@ pub async fn handle_pending_autofix(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -319,6 +333,8 @@ pub async fn handle_pending_plan(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -353,6 +369,8 @@ pub async fn handle_pending_plan(
             clarification_question: None,
             cached: false,
             citations: vec![],
+            abstained: false,
+            final_confidence: None,
         };
         let done = StreamingResponse::Done { result };
         let json = serde_json::to_string(&done)?;
@@ -390,6 +408,8 @@ pub async fn handle_pending_plan(
         clarification_question: Some(clarification),
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let done = StreamingResponse::Done { result };
     let json = serde_json::to_string(&done)?;
@@ -430,6 +450,8 @@ pub async fn handle_expired_plan(
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let done = StreamingResponse::Done { result };
     let json = serde_json::to_string(&done)?;

@@ -1,5 +1,6 @@
 //! Streaming execution for LLM core
 
+use anna_shared::declaration::CapabilityDeclaration;
 use anna_shared::exposure::{DialogueClassification, ExposureGate};
 use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
@@ -11,6 +12,32 @@ use super::types::{Finding, InvestigationState, NextStep};
 use super::{decide_next_step, generate_answer, understand_question, MAX_ITERATIONS};
 use crate::core_loop::command::execute_command;
 
+/// Detect if question is asking about Anna's capabilities
+/// Phase 28: Ground capability answers in the declaration, not LLM
+fn is_capability_question(question: &str) -> bool {
+    let q = question.to_lowercase();
+
+    // Direct capability questions
+    let patterns = [
+        "what can you do",
+        "what are your capabilities",
+        "what commands can you run",
+        "what are you capable of",
+        "what can anna do",
+        "what are anna's capabilities",
+        "what is anna capable of",
+        "tell me your capabilities",
+        "list your capabilities",
+        "show your capabilities",
+        "what's your capability",
+        "your capabilities",
+        "what do you know how to do",
+        "what are you able to do",
+    ];
+
+    patterns.iter().any(|p| q.contains(p))
+}
+
 /// Streaming version of execute_question
 /// session_context is accepted for API compatibility but not currently used
 pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
@@ -20,6 +47,11 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
     writer: &mut W,
 ) -> Result<AskResult> {
     info!("LLM Core (streaming): Processing question: {}", question);
+
+    // Phase 28: Ground capability questions in the declaration, not LLM
+    if is_capability_question(question) {
+        return answer_capability_question(writer).await;
+    }
 
     let mut state = InvestigationState::default();
     let mut dialogue = Vec::new();
@@ -102,6 +134,48 @@ pub async fn execute_question_streaming_llm<W: AsyncWriteExt + Unpin>(
 
     // PHASE 3: GENERATE ANSWER
     finish_with_answer(writer, model, question, &state, &mut dialogue, start_time, &exposure_gate).await
+}
+
+/// Phase 28: Answer capability questions directly from the declaration
+/// This ensures the answer is grounded in the actual capability ledger, not LLM hallucination
+async fn answer_capability_question<W: AsyncWriteExt + Unpin>(
+    writer: &mut W,
+) -> Result<AskResult> {
+    info!("Answering capability question from declaration (not LLM)");
+
+    let decl = CapabilityDeclaration::from_ledger();
+    let answer = decl.render_onboarding();
+    let mut dialogue = Vec::new();
+
+    // Send the answer
+    let step = DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.clone(),
+    };
+    dialogue.push(step.clone());
+    let response = StreamingResponse::Step { step };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0), // 100% confident - from declaration
+    };
+
+    let response = StreamingResponse::Done { result: result.clone() };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+    Ok(result)
 }
 
 /// Helper to send streaming updates
@@ -217,6 +291,8 @@ async fn finish_out_of_scope<W: AsyncWriteExt + Unpin>(
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let response = StreamingResponse::Done { result: result.clone() };
     let json = serde_json::to_string(&response)?;
@@ -241,6 +317,8 @@ async fn finish_out_of_scope_with_state<W: AsyncWriteExt + Unpin>(
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let response = StreamingResponse::Done { result: result.clone() };
     let json = serde_json::to_string(&response)?;
@@ -295,6 +373,8 @@ async fn finish_with_fix<W: AsyncWriteExt + Unpin>(
         clarification_question: Some("Confirm fix?".to_string()),
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
     let response = StreamingResponse::Done { result: result.clone() };
     let json = serde_json::to_string(&response)?;
@@ -360,6 +440,8 @@ async fn finish_with_answer<W: AsyncWriteExt + Unpin>(
         clarification_question: None,
         cached: false,
         citations: vec![],
+        abstained: false,
+        final_confidence: None,
     };
 
     let response = StreamingResponse::Done { result: result.clone() };

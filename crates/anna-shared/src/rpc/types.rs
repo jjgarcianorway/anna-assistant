@@ -103,6 +103,12 @@ pub struct AskResult {
     /// v0.3.6: Sources used to ground the answer
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub citations: Vec<Citation>,
+    /// Phase 26: True if answer was abstained due to low confidence
+    #[serde(default)]
+    pub abstained: bool,
+    /// Phase 26: Final confidence value (for outcome recording)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub final_confidence: Option<f32>,
 }
 
 /// Result of reset operation

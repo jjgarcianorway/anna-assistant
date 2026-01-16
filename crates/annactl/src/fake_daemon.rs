@@ -76,6 +76,8 @@ pub fn fixture_simple_answer() -> Vec<StreamingResponse> {
                     url: None,
                     section: None,
                 }],
+                abstained: false,
+                final_confidence: None,
             },
         },
     ]
@@ -107,6 +109,8 @@ pub fn fixture_confirmation_flow() -> Vec<StreamingResponse> {
                 clarification_question: Some("Proceed? (yes/no)".to_string()),
                 cached: false,
                 citations: vec![],
+                abstained: false,
+                final_confidence: None,
             },
         },
     ]

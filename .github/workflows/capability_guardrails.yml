@@ -1,0 +1,256 @@
+name: Capability Guardrails
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/anna-shared/src/capabilities.rs'
+      - 'crates/anna-shared/src/command_policy.rs'
+      - 'crates/anna-shared/src/human_execution.rs'
+      - 'crates/anna-shared/src/execution_request.rs'
+      - 'PHASES.md'
+      - 'VERSION'
+  pull_request:
+    paths:
+      - 'crates/anna-shared/src/capabilities.rs'
+      - 'crates/anna-shared/src/command_policy.rs'
+      - 'crates/anna-shared/src/human_execution.rs'
+      - 'crates/anna-shared/src/execution_request.rs'
+      - 'PHASES.md'
+      - 'VERSION'
+
+jobs:
+  capability-check:
+    name: Capability Ledger Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for capability ledger changes without version bump
+        id: ledger-check
+        run: |
+          echo "Checking for capability ledger changes..."
+
+          # Check if capabilities.rs changed
+          CAPS_CHANGED=false
+          if git diff HEAD~1 --name-only 2>/dev/null | grep -q "crates/anna-shared/src/capabilities.rs"; then
+            CAPS_CHANGED=true
+            echo "capabilities.rs changed"
+          fi
+
+          # Check if human_execution.rs allowlist changed
+          ALLOWLIST_CHANGED=false
+          if git diff HEAD~1 -- crates/anna-shared/src/human_execution.rs 2>/dev/null | grep -q "ALLOWED_BINARIES"; then
+            ALLOWLIST_CHANGED=true
+            echo "ALLOWED_BINARIES changed"
+          fi
+
+          # Check if confirmation strings changed
+          CONFIRM_CHANGED=false
+          if git diff HEAD~1 -- crates/anna-shared/src/execution_request.rs 2>/dev/null | grep -q "CONFIRMATION"; then
+            CONFIRM_CHANGED=true
+            echo "Confirmation strings changed"
+          fi
+
+          # Check if VERSION changed
+          VERSION_CHANGED=false
+          if git diff HEAD~1 --name-only 2>/dev/null | grep -q "VERSION"; then
+            VERSION_CHANGED=true
+            echo "VERSION changed"
+          fi
+
+          # If capability-related changes but no version bump, fail
+          if [ "$CAPS_CHANGED" = "true" ] || [ "$ALLOWLIST_CHANGED" = "true" ] || [ "$CONFIRM_CHANGED" = "true" ]; then
+            if [ "$VERSION_CHANGED" = "false" ]; then
+              echo ""
+              echo "========================================"
+              echo "CAPABILITY GUARDRAIL FAILURE"
+              echo "========================================"
+              echo ""
+              echo "Capability-related files changed but VERSION was not updated!"
+              echo ""
+              echo "Changed components:"
+              [ "$CAPS_CHANGED" = "true" ] && echo "  - capabilities.rs (capability ledger)"
+              [ "$ALLOWLIST_CHANGED" = "true" ] && echo "  - human_execution.rs (binary allowlist)"
+              [ "$CONFIRM_CHANGED" = "true" ] && echo "  - execution_request.rs (confirmation strings)"
+              echo ""
+              echo "To fix:"
+              echo "  1. Bump version in Cargo.toml and VERSION"
+              echo "  2. Update LEDGER_VERSION in capabilities.rs"
+              echo "  3. Update docs/trust_surface.md"
+              echo "  4. Add CHANGELOG entry"
+              echo ""
+              echo "This is a security-critical boundary. All changes must be versioned."
+              exit 1
+            fi
+          fi
+
+          echo ""
+          echo "Capability guardrail check passed."
+
+      - name: Constitutional Freeze Check (Phase 48+)
+        run: |
+          echo "Checking for capability expansion without phase declaration..."
+
+          # Check if capability files changed
+          CAPABILITY_FILES_CHANGED=false
+          for file in capabilities.rs command_policy.rs human_execution.rs; do
+            if git diff HEAD~1 --name-only 2>/dev/null | grep -q "crates/anna-shared/src/$file"; then
+              CAPABILITY_FILES_CHANGED=true
+              echo "Capability file changed: $file"
+            fi
+          done
+
+          # Check if PHASES.md changed
+          PHASES_CHANGED=false
+          if git diff HEAD~1 --name-only 2>/dev/null | grep -q "PHASES.md"; then
+            PHASES_CHANGED=true
+            echo "PHASES.md changed"
+          fi
+
+          # If capability files changed but PHASES.md didn't, check if it's a power expansion
+          if [ "$CAPABILITY_FILES_CHANGED" = "true" ] && [ "$PHASES_CHANGED" = "false" ]; then
+            # Check for new binaries or capabilities being added
+            POWER_EXPANSION=false
+
+            # Check for new entries in allowed_binaries arrays
+            if git diff HEAD~1 -- crates/anna-shared/src/capabilities.rs 2>/dev/null | grep -E "^\+" | grep -q "allowed_binaries"; then
+              POWER_EXPANSION=true
+            fi
+
+            # Check for new CAPABILITIES entries
+            if git diff HEAD~1 -- crates/anna-shared/src/capabilities.rs 2>/dev/null | grep -E "^\+.*Capability\s*\{" 2>/dev/null; then
+              POWER_EXPANSION=true
+            fi
+
+            # Check for new hard-coded binaries in policy
+            if git diff HEAD~1 -- crates/anna-shared/src/command_policy.rs 2>/dev/null | grep -E "^\+" | grep -qE '"[a-z]+"'; then
+              # Only flag if it looks like a new allowlist entry
+              if git diff HEAD~1 -- crates/anna-shared/src/command_policy.rs 2>/dev/null | grep -E "^\+" | grep -qE 'ALLOWED|allowed'; then
+                POWER_EXPANSION=true
+              fi
+            fi
+
+            if [ "$POWER_EXPANSION" = "true" ]; then
+              echo ""
+              echo "========================================"
+              echo "CONSTITUTIONAL FREEZE VIOLATION"
+              echo "========================================"
+              echo ""
+              echo "Capability expansion detected without phase declaration!"
+              echo ""
+              echo "As of Phase 48, capability expansion requires:"
+              echo "  1. A new phase entry in PHASES.md"
+              echo "  2. Version bump in Cargo.toml and VERSION"
+              echo "  3. CHANGELOG entry"
+              echo ""
+              echo "To fix:"
+              echo "  - If this is a bug fix, ensure no new power is added"
+              echo "  - If this is intentional expansion, add Phase 51+ to PHASES.md"
+              echo ""
+              echo "The constitutional rule: Capability expansion requires a new phase declaration."
+              exit 1
+            fi
+          fi
+
+          echo ""
+          echo "Constitutional freeze check passed."
+
+      - name: Verify trust surface document exists
+        run: |
+          if [ ! -f docs/trust_surface.md ]; then
+            echo "ERROR: docs/trust_surface.md is missing!"
+            echo ""
+            echo "This document must exist and be kept up to date with capability changes."
+            echo ""
+            echo "Generate it by running the trust surface generator in capabilities.rs"
+            exit 1
+          fi
+          echo "OK: trust_surface.md exists"
+
+  grep-guardrails:
+    name: Source Code Guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Command::new isolation
+        run: |
+          echo "Checking that Command::new is not in forbidden modules..."
+
+          FORBIDDEN_FILES=(
+            "crates/anna-shared/src/execution_request.rs"
+            "crates/anna-shared/src/capabilities.rs"
+            "crates/annad/src/assisted_ops/types.rs"
+            "crates/annad/src/assisted_ops/execution_bridge.rs"
+            "crates/annad/src/assisted_ops/wifi_diagnosis.rs"
+          )
+
+          FAILED=false
+          for file in "${FORBIDDEN_FILES[@]}"; do
+            if [ -f "$file" ]; then
+              if grep -n "Command::new\|std::process::Command" "$file" | grep -v "^[0-9]*:\s*//" | grep -v "grep"; then
+                echo ""
+                echo "GUARDRAIL FAILURE: Command::new found in $file"
+                echo ""
+                echo "This file must not contain execution logic."
+                echo "Execution must go through HumanExecutionAdapter only."
+                FAILED=true
+              fi
+            fi
+          done
+
+          if [ "$FAILED" = "true" ]; then
+            exit 1
+          fi
+
+          echo "OK: Command::new isolation verified"
+
+      - name: Check forbidden binaries not in allowlist
+        run: |
+          echo "Checking that forbidden binaries are not in allowlist..."
+
+          FORBIDDEN=(
+            "sudo" "pkexec" "doas" "su"
+            "wget" "curl" "nc" "netcat" "ssh" "scp"
+            "pacman" "yay" "apt" "apt-get" "dnf"
+            "rm" "dd" "mkfs" "fdisk" "shred"
+            "sh" "bash" "zsh" "eval"
+          )
+
+          ALLOWLIST_FILE="crates/anna-shared/src/human_execution.rs"
+
+          FAILED=false
+          for binary in "${FORBIDDEN[@]}"; do
+            if grep -q "\"$binary\"" "$ALLOWLIST_FILE" | grep "ALLOWED_BINARIES"; then
+              echo "GUARDRAIL FAILURE: Forbidden binary '$binary' found in allowlist!"
+              FAILED=true
+            fi
+          done
+
+          if [ "$FAILED" = "true" ]; then
+            echo ""
+            echo "These binaries are explicitly forbidden from the execution allowlist."
+            exit 1
+          fi
+
+          echo "OK: No forbidden binaries in allowlist"
+
+  run-capability-tests:
+    name: Run Capability Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run capability tests
+        run: |
+          cargo test --package anna-shared capabilities
+          echo "All capability tests passed"

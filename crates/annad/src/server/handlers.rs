@@ -108,6 +108,8 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                     clarification_question: None,
                     cached: true, // Mark as cached since it's from memory
                     citations: vec![],
+                    abstained: false,
+                    final_confidence: None,
                 };
                 return match serde_json::to_value(&result) {
                     Ok(v) => RpcResponse::success(&request.id, v),
@@ -133,6 +135,8 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                             clarification_question: None,
                             cached: true,
                             citations: vec![],
+                            abstained: false,
+                            final_confidence: None,
                         };
                         return match serde_json::to_value(&result) {
                             Ok(v) => RpcResponse::success(&request.id, v),
@@ -200,6 +204,8 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                         clarification_question: None,
                         cached: false,
                         citations: vec![],
+                        abstained: false,
+                        final_confidence: None,
                     };
                     match serde_json::to_value(&result) {
                         Ok(v) => RpcResponse::success(&request.id, v),
@@ -271,6 +277,90 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 }
             }
         }
+        RpcMethod::DiagnoseWifi => {
+            // Phase 43: WiFi diagnosis handler
+            info!("Processing WiFi diagnosis request");
+
+            use crate::assisted_ops::wifi_diagnosis::diagnose_slow_wifi;
+
+            match diagnose_slow_wifi() {
+                Some(operation) => {
+                    // Convert internal types to RPC types
+                    let result = convert_assisted_op_to_rpc(&operation);
+                    match serde_json::to_value(&result) {
+                        Ok(v) => RpcResponse::success(&request.id, v),
+                        Err(e) => {
+                            RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e))
+                        }
+                    }
+                }
+                None => {
+                    // No WiFi issue detected - return helpful message
+                    info!("WiFi diagnosis found no issues");
+                    RpcResponse::error(
+                        &request.id,
+                        -32603,
+                        "No WiFi issues detected. Your WiFi appears to be working correctly.",
+                    )
+                }
+            }
+        }
+    }
+}
+
+/// Convert internal AssistedOperation to RPC wire format (Phase 43).
+fn convert_assisted_op_to_rpc(
+    op: &crate::assisted_ops::AssistedOperation,
+) -> anna_shared::rpc::AssistedOperationResult {
+    use anna_shared::rpc::{
+        AssistedOperationResult, CommandSafety as RpcCommandSafety, ProposedStepResult,
+        RiskLevel as RpcRiskLevel, SourceResult, SourceType as RpcSourceType,
+    };
+    use crate::assisted_ops::{CommandSafety, RiskLevel, SourceType};
+
+    AssistedOperationResult {
+        operation_id: op.operation_id.clone(),
+        detected_problem: op.detected_problem.clone(),
+        explanation: op.explanation.clone(),
+        proposed_steps: op
+            .proposed_steps
+            .iter()
+            .map(|s| ProposedStepResult {
+                step_number: s.step_number,
+                description: s.description.clone(),
+                exact_command: s.exact_command.clone(),
+                why: s.why.clone(),
+                reversible: s.reversible,
+                reverse_command: s.reverse_command.clone(),
+                safety: match s.safety {
+                    CommandSafety::SafeAutomatic => RpcCommandSafety::SafeAutomatic,
+                    CommandSafety::ManualOnly => RpcCommandSafety::ManualOnly,
+                },
+            })
+            .collect(),
+        risk_level: match op.risk_level {
+            RiskLevel::Low => RpcRiskLevel::Low,
+            RiskLevel::Medium => RpcRiskLevel::Medium,
+            RiskLevel::High => RpcRiskLevel::High,
+            RiskLevel::Critical => RpcRiskLevel::Critical,
+        },
+        sources: op
+            .sources
+            .iter()
+            .map(|s| SourceResult {
+                source_type: match s.source_type {
+                    SourceType::ArchWiki => RpcSourceType::ArchWiki,
+                    SourceType::ManPage => RpcSourceType::ManPage,
+                    SourceType::Upstream => RpcSourceType::Upstream,
+                    SourceType::Kernel => RpcSourceType::Kernel,
+                    SourceType::Community => RpcSourceType::Community,
+                },
+                title: s.title.clone(),
+                reference: s.reference.clone(),
+            })
+            .collect(),
+        requires_reboot: op.requires_reboot,
+        diagnosis_summary: op.diagnosis_summary.clone(),
     }
 }
 

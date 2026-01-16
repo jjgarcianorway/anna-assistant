@@ -2,10 +2,11 @@
 //! v0.1.1: Ralph loop integration
 //! v0.2.8: RPG stats tracking
 //! v0.3.56: Phase 23 - Outcome ledger integration
+//! v0.3.59: Phase 26 - Abstention outcome recording
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::intent_class::classify_intent;
-use anna_shared::outcome_ledger::{append_outcome, Outcome, OutcomeRecord, RequestMode};
+use anna_shared::outcome_ledger::{append_outcome, AbstentionReason, Outcome, OutcomeRecord, RequestMode};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
@@ -48,6 +49,8 @@ pub async fn handle_main_question(
                 clarification_question: None,
                 cached: true,
                 citations: vec![],
+                abstained: false,
+                final_confidence: None,
             };
             let done = StreamingResponse::Done { result };
             let json = serde_json::to_string(&done)?;
@@ -149,6 +152,8 @@ pub async fn handle_main_question(
                 clarification_question: None,
                 cached: true,
                 citations: vec![],
+                abstained: false,
+                final_confidence: None,
             };
             let json = serde_json::to_string(&StreamingResponse::Done { result })?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
@@ -224,20 +229,46 @@ pub async fn handle_main_question(
             }
 
             // v0.3.56: Phase 23 - Record outcome
-            let outcome = if ask_result.success {
-                Outcome::Resolved
+            // v0.3.59: Phase 26 - Handle abstention
+            // v0.3.60: Phase 27 - Record probes used
+            let probes_used = if ask_result.commands_executed.is_empty() {
+                None
             } else {
-                Outcome::Failed
+                Some(ask_result.commands_executed.clone())
             };
-            let outcome_record = OutcomeRecord::new(
-                &request_id,
-                RequestMode::Dialogue,
-                intent,
-                outcome,
-                false, // TODO: track escalation from ask_result if available
-                response_ms,
-            );
-            let _ = append_outcome(&outcome_record);
+
+            if ask_result.abstained {
+                let reason = AbstentionReason::LowConfidence {
+                    final_confidence: ask_result.final_confidence.unwrap_or(0.0),
+                    threshold: 0.5,
+                };
+                let mut outcome_record = OutcomeRecord::new_abstention(
+                    &request_id,
+                    RequestMode::Dialogue,
+                    intent,
+                    reason,
+                    false,
+                    response_ms,
+                );
+                outcome_record.probes_used = probes_used;
+                let _ = append_outcome(&outcome_record);
+            } else {
+                let outcome = if ask_result.success {
+                    Outcome::Resolved
+                } else {
+                    Outcome::Failed
+                };
+                let mut outcome_record = OutcomeRecord::new(
+                    &request_id,
+                    RequestMode::Dialogue,
+                    intent,
+                    outcome,
+                    false, // TODO: track escalation from ask_result if available
+                    response_ms,
+                );
+                outcome_record.probes_used = probes_used;
+                let _ = append_outcome(&outcome_record);
+            }
         }
         Err(e) => {
             // v0.3.30: Always attempt to send Error, don't propagate failures
