@@ -1,23 +1,56 @@
-//! Teaching Mode - Explains why actions were taken with citations.
+//! Teaching Mode - Service desk teaching mirror.
 //!
 //! v0.3.29: Initial implementation for Milestone 4
 //! v0.3.71: Teaching Mode specification - intent classification
+//! v0.3.73: Teaching Mode v1 - service desk teaching mirror
 //!
-//! Teaching mode provides concise explanations for:
-//! - Probe-only questions: explains which probe was run and why
-//! - Procedural questions: explains meaning with doc citations
-//! - Risky actions: explains why considered risky and why sandboxing was used
+//! # Teaching Mode v1
 //!
-//! v0.3.71: Teaching Mode specification adds:
-//! - 5-intent classification (Status, ChangeAnalysis, Explanation, ServiceDesk, ActionRequest)
-//! - Hard constraints: no new execution, no guessing, no hallucination, no commands by default
-//! - Explanation and ServiceDesk intents enable teaching output (when config.teaching_mode = true)
+//! Teaches users how a real service desk reasons, without executing commands,
+//! without fixing things for them, and without risking the system.
+//!
+//! ## Hard Constraints
+//!
+//! - No new execution capabilities
+//! - No shell commands
+//! - No fixes performed implicitly
+//! - No proactive teaching
+//! - No gamification output
+//! - No "you should do X"
+//! - No invented causes or solutions
+//! - Teaching is explanation only, grounded in observed system state
+//!
+//! ## Routing
+//!
+//! - StatusQuestion -> existing data retrieval
+//! - ChangeQuestion -> Interpretation Mode
+//! - HowQuestion -> Teaching Mode
+//! - WhyQuestion -> Teaching Mode
+//! - FixRequest -> existing ActionRequest flow
+//! - GeneralLinuxQuestion -> Teaching Mode (only if tied to system state)
+//!
+//! ## Output Rules
+//!
+//! - Calm
+//! - Factual
+//! - Boring in the best way
+//! - Ends when explanation is complete
 
 mod tips;
 mod intent;
+mod mode;
+mod grounding;
+mod explanation;
 
 pub use tips::{classify_question, format_teaching_block, generate_teaching};
-pub use intent::{classify_teaching_intent, TeachingIntent, TeachingResponse, format_servicedesk_reasoning, format_explanation};
+pub use intent::{classify_teaching_intent, classify_teaching_question, TeachingIntent, TeachingResponse, format_servicedesk_reasoning, format_explanation};
+pub use mode::{
+    TeachingQuestion, TeachingOutput, TeachingExplanation as TeachingExplanationV1,
+    GroundingContext, StateEvidence, EvidenceSource, EvidencedConclusion,
+    ConclusionConfidence, format_teaching_output,
+};
+pub use grounding::{gather_grounding, has_sufficient_grounding, report_missing_grounding};
+pub use explanation::{generate_teaching_explanation, explain_group_warning};
 
 use serde::{Deserialize, Serialize};
 

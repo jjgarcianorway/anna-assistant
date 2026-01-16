@@ -5,6 +5,68 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.73] - 2026-01-16
+
+### Added - Teaching Mode v1 (Service Desk Teaching Mirror)
+
+**Teach users how a real service desk reasons, without executing commands.**
+
+Teaching Mode v1 is a friction-controlled layer that explains diagnostic reasoning
+without adding execution capability or suggesting actions.
+
+**Hard constraints:**
+- No shell commands
+- No fixes performed implicitly
+- No proactive teaching
+- No gamification output
+- No "you should do X"
+- No invented causes or solutions
+- Teaching is explanation only, grounded in observed system state
+
+**Question routing:**
+- StatusQuestion -> existing data retrieval
+- ChangeQuestion -> Interpretation Mode
+- HowQuestion -> Teaching Mode
+- WhyQuestion -> Teaching Mode
+- FixRequest -> existing ActionRequest flow
+- GeneralLinuxQuestion -> Teaching Mode (only if tied to system state)
+
+**Teaching Mode responsibilities:**
+1. **Explain like a service desk** - what signals to check, why they matter
+2. **Ground explanations in reality** - reference current state, baselines, diffs
+3. **Teach patterns, not steps** - explain why before how, never provide commands
+4. **Silent learning hook** - Interpretation Mode tracks resolutions for future reference
+
+**New modules:**
+- `teaching/mode.rs` - Core types and format_teaching_output()
+- `teaching/grounding.rs` - Connect explanations to real system state
+- `teaching/explanation.rs` - Service desk explanation generator
+- `teaching/intent.rs` - classify_teaching_question() for v1 routing
+
+**Example output (group warning):**
+```
+SERVICE DESK PERSPECTIVE
+========================
+
+Signals a service desk would examine:
+  - /etc/group file hash comparison against baseline
+  - Package manager logs for recent operations
+
+Why these signals matter:
+  The /etc/group file defines group memberships.
+  Changes can affect user access to devices.
+
+Conclusions from available evidence:
+  - Config file differs from baseline (supported)
+
+What is unknown:
+  - What specific change was made
+
+[End of teaching output]
+```
+
+**Forbidden outputs:** commands, step-by-step fixes, "you should", "try running".
+
 ## [0.3.72] - 2026-01-16
 
 ### Added - Interpretation Mode

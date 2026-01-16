@@ -1,6 +1,7 @@
 //! Teaching Mode Intent Classification
 //!
 //! v0.3.71: Teaching Mode specification implementation.
+//! v0.3.73: Teaching Mode v1 - maps to TeachingQuestion for service desk mirror.
 //!
 //! Hard constraints remain:
 //! - No new execution capabilities
@@ -11,6 +12,7 @@
 //!
 //! Teaching Mode adds explanation capabilities WITHOUT loosening safety.
 
+use super::mode::TeachingQuestion;
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -69,6 +71,77 @@ impl TeachingIntent {
     pub fn is_action_request(&self) -> bool {
         matches!(self, TeachingIntent::ActionRequest)
     }
+
+    /// Convert to TeachingQuestion for v1 service desk mirror.
+    ///
+    /// v0.3.73: Maps the 5-intent classification to the new TeachingQuestion types.
+    pub fn to_teaching_question(&self) -> TeachingQuestion {
+        match self {
+            TeachingIntent::Status => TeachingQuestion::Status,
+            TeachingIntent::ChangeAnalysis => TeachingQuestion::Change,
+            TeachingIntent::Explanation => TeachingQuestion::Why, // Explanation maps to Why
+            TeachingIntent::ServiceDesk => TeachingQuestion::How, // ServiceDesk maps to How
+            TeachingIntent::ActionRequest => TeachingQuestion::FixRequest,
+        }
+    }
+}
+
+/// Classify a question directly into TeachingQuestion type.
+///
+/// v0.3.73: Direct classification for Teaching Mode v1.
+pub fn classify_teaching_question(question: &str) -> TeachingQuestion {
+    let q = question.trim().to_lowercase();
+
+    // Check for explicit "how" questions
+    if q.starts_with("how ") && !q.starts_with("how much") && !q.starts_with("how many") {
+        // "how would you", "how does X work", "how to diagnose"
+        if q.contains("diagnose") || q.contains("troubleshoot") || q.contains("investigate")
+            || q.contains("would") || q.contains("approach")
+        {
+            return TeachingQuestion::How;
+        }
+        // "how does X work" is also a How question
+        if q.contains(" work") || q.contains(" function") {
+            return TeachingQuestion::How;
+        }
+    }
+
+    // Check for explicit "why" questions
+    if q.starts_with("why ") {
+        return TeachingQuestion::Why;
+    }
+
+    // Check for change questions (routes to Interpretation Mode)
+    if q.contains("what changed") || q.contains("what happened")
+        || q.contains("when did") || q.contains("show me the diff")
+        || q.contains("difference") || q.contains("history of")
+    {
+        return TeachingQuestion::Change;
+    }
+
+    // Check for fix/action requests
+    if q.starts_with("install ") || q.starts_with("uninstall ")
+        || q.starts_with("enable ") || q.starts_with("disable ")
+        || q.starts_with("start ") || q.starts_with("stop ")
+        || q.starts_with("restart ") || q.starts_with("fix ")
+        || q.contains("do it") || q.contains("go ahead")
+        || q.contains("apply") || q.contains("proceed")
+    {
+        return TeachingQuestion::FixRequest;
+    }
+
+    // Check for general Linux questions that need grounding
+    if q.starts_with("what is ") && !q.contains(" my ") && !q.contains(" the ") {
+        // "what is systemd" vs "what is my disk usage"
+        // General questions route to GeneralLinux (need grounding check)
+        return TeachingQuestion::GeneralLinux;
+    }
+    if q.starts_with("explain ") || q.contains("tell me about ") {
+        return TeachingQuestion::GeneralLinux;
+    }
+
+    // Default: Status question (safe, fact-based)
+    TeachingQuestion::Status
 }
 
 // Status patterns - asking about current state
