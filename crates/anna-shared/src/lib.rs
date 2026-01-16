@@ -157,6 +157,7 @@ pub mod fingerprint;
 pub mod helpers;
 pub mod intent_class;
 pub mod intention;
+pub mod interpretation;
 pub mod memory;
 pub mod migration;
 pub mod monitor;

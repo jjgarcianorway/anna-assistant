@@ -5,9 +5,14 @@
 //! v0.3.59: Phase 26 - Abstention outcome recording
 //! v0.3.70: Warning inquiry interception - DATA template routing
 //! v0.3.71: Teaching Mode - intent classification and routing
+//! v0.3.72: Interpretation Mode - resolution acknowledgment
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::intent_class::classify_intent;
+use anna_shared::interpretation::{
+    is_resolution_inquiry, detect_resolutions, attribute_resolution,
+    format_resolution_acknowledgment, format_no_resolution,
+};
 use anna_shared::monitor::{find_matching_issue, format_issue_evidence};
 use anna_shared::outcome_ledger::{append_outcome, AbstentionReason, Outcome, OutcomeRecord, RequestMode};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
@@ -93,6 +98,97 @@ pub async fn handle_main_question(
 
             let result = anna_shared::rpc::AskResult {
                 answer: no_issue_response,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(1.0),
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent.clone(),
+                Outcome::Resolved,
+                false,
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
+
+            return Ok(());
+        }
+    }
+
+    // v0.3.72: Interpretation Mode - check for resolution inquiry
+    // Only respond about resolutions when explicitly asked
+    if is_resolution_inquiry(question) {
+        info!("Resolution inquiry detected: {}", question);
+
+        // Detect any recent resolutions
+        let resolutions = detect_resolutions();
+
+        if !resolutions.is_empty() {
+            // Find the most relevant resolution (most recent)
+            let resolution = &resolutions[0];
+            let attribution = attribute_resolution(resolution);
+
+            info!(
+                "Found resolution: {:?} attributed to {:?}",
+                resolution.resolution, attribution.actor
+            );
+
+            // Format acknowledgment (strictly constrained output)
+            let acknowledgment = format_resolution_acknowledgment(resolution, &attribution);
+
+            send_filtered_final_answer(writer, &acknowledgment).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: acknowledgment,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(1.0),
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent.clone(),
+                Outcome::Resolved,
+                false,
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
+
+            return Ok(());
+        } else {
+            // No resolutions found - report that
+            info!("Resolution inquiry but no resolutions detected");
+            let no_resolution = format_no_resolution("requested subject");
+
+            send_filtered_final_answer(writer, &no_resolution).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: no_resolution,
                 success: true,
                 iterations: 0,
                 commands_executed: vec![],

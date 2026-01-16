@@ -5,6 +5,54 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.72] - 2026-01-16
+
+### Added - Interpretation Mode
+
+**Close the feedback loop without adding power.**
+
+Interpretation Mode detects when issues resolve and attributes the resolution to
+Anna, User, or Unknown - without adding execution capability, suggestions, or
+proactive output.
+
+**Four responsibilities:**
+1. **Recognition** - Detect when issues resolve (IssueCleared, ReturnedToBaseline, NewBaselineEstablished)
+2. **Attribution** - Determine actor: Anna (action in ledger), User (asked then resolved), Unknown
+3. **Learning** - Update silent competence record (internal, not user-facing)
+4. **Acknowledgment** - Only when user explicitly asks ("what changed?", "why is this resolved?")
+
+**Hard constraints:**
+- No new commands
+- No new execution paths
+- No fixes, suggestions, or "you could"
+- No hallucinated causes or intent
+- No user-visible gamification
+- No proactive output unless explicitly triggered
+
+**Operates on existing data:**
+- SystemBaseline snapshots and hashes
+- IssueStore warning history
+- Outcome ledger (what was asked, what state changed)
+
+**New modules:**
+- `interpretation/recognition.rs` - Resolution detection
+- `interpretation/attribution.rs` - Actor attribution logic
+- `interpretation/competence.rs` - Silent learning record
+- `interpretation/acknowledgment.rs` - Strictly gated output
+
+**Example allowed output (only when asked):**
+```
+RESOLUTION OBSERVED
+-------------------
+Issue: Config changed: group
+Status: Issue no longer active
+Attribution: External action (not Anna) (medium confidence)
+Evidence: Issue moved to history (acknowledged/resolved)
+[End of observation]
+```
+
+**Forbidden outputs:** speculation, praise, suggestions, proactive announcements.
+
 ## [0.3.71] - 2026-01-16
 
 ### Added - Teaching Mode Specification
