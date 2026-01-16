@@ -33,6 +33,9 @@ fn is_capability_question(question: &str) -> bool {
         "your capabilities",
         "what do you know how to do",
         "what are you able to do",
+        "what are you allowed to do",
+        "what is anna allowed to do",
+        "allowed to do",
     ];
 
     patterns.iter().any(|p| q.contains(p))
