@@ -5,6 +5,50 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.70] - 2026-01-16
+
+### Fixed - Observation Phase: Warning Inquiry Data Template
+
+**Critical fix: Warning inquiries now route to DATA, not EXPLANATION**
+
+When user asks "what is the group warning?", Anna previously fell into LLM explanation mode, producing:
+- Speculation about what "could" have changed
+- General Linux explanations about /etc/group
+- References to pacman, usermod, Arch Wiki
+
+This violated Observation Phase rules: Anna must report evidence, not interpret it.
+
+**New behavior:**
+- `is_warning_inquiry()` detects questions about warnings (e.g., "what is the X warning")
+- `find_matching_issue()` looks up the actual detected Issue from IssueStore
+- `format_issue_evidence()` returns DATA-only response:
+  - File affected
+  - Condition detected (hash mismatch)
+  - Evidence (raw details)
+  - Detection timestamp
+  - Baseline method (SHA-256 comparison)
+  - "[END OF EVIDENCE - No interpretation provided]"
+
+**Before:**
+> "The warning about /etc/group could indicate that user accounts were modified..."
+
+**After:**
+```
+EVIDENCE REPORT
+---------------
+File: /etc/group
+Condition: ConfigChanged
+Severity: Warning
+Evidence: File /etc/group has been modified since baseline.
+Detected: 2026-01-16T10:30:00Z
+Baseline: Hash mismatch against stored baseline
+Method: SHA-256 comparison of file contents
+
+[END OF EVIDENCE - No interpretation provided]
+```
+
+This is a trust boundary fix: Anna now behaves like `git diff`, not a blog post.
+
 ## [0.3.69] - 2026-01-16
 
 ### Fixed - Phase 28: Capability Detection in Ralph Loop

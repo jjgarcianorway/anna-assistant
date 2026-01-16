@@ -4,7 +4,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use super::types::{Issue, MonitorResults, Severity};
+use super::types::{Issue, IssueType, MonitorResults, Severity};
 use crate::config::anna_data_dir;
 
 /// Store for persistent issues tracking
@@ -99,6 +99,118 @@ impl IssueStore {
 /// Get issues storage path
 pub fn issues_path() -> PathBuf {
     anna_data_dir().join("issues.json")
+}
+
+/// v0.3.70: Find an issue matching a warning inquiry subject
+/// Returns the matching issue if found
+pub fn find_matching_issue(subject: &str) -> Option<Issue> {
+    let store = IssueStore::load().ok()?;
+    let subject_lower = subject.to_lowercase();
+
+    // Search active issues for a match
+    for issue in &store.active_issues {
+        let summary_lower = issue.summary.to_lowercase();
+        let details_lower = issue.details.to_lowercase();
+
+        // Match on subject appearing in summary or details
+        if summary_lower.contains(&subject_lower) || details_lower.contains(&subject_lower) {
+            return Some(issue.clone());
+        }
+
+        // Match specific file patterns
+        if subject_lower == "group" && details_lower.contains("/etc/group") {
+            return Some(issue.clone());
+        }
+        if subject_lower == "passwd" && details_lower.contains("/etc/passwd") {
+            return Some(issue.clone());
+        }
+        if subject_lower == "shadow" && details_lower.contains("/etc/shadow") {
+            return Some(issue.clone());
+        }
+        if subject_lower == "sudoers" && details_lower.contains("/etc/sudoers") {
+            return Some(issue.clone());
+        }
+        if (subject_lower == "sshd" || subject_lower == "ssh")
+            && details_lower.contains("sshd_config")
+        {
+            return Some(issue.clone());
+        }
+    }
+
+    None
+}
+
+/// v0.3.70: Format an issue as pure evidence - NO explanation, NO interpretation
+/// This is the DATA template for Observation Phase compliance
+pub fn format_issue_evidence(issue: &Issue) -> String {
+    let mut output = String::new();
+
+    // File/Entity affected
+    output.push_str("EVIDENCE REPORT\n");
+    output.push_str("---------------\n\n");
+
+    // Extract file path from details if present
+    if let Some(file_path) = extract_file_path(&issue.details) {
+        output.push_str(&format!("File: {}\n", file_path));
+    }
+
+    // Condition detected
+    output.push_str(&format!(
+        "Condition: {:?}\n",
+        issue.issue_type
+    ));
+
+    // Severity
+    output.push_str(&format!("Severity: {:?}\n", issue.severity));
+
+    // Evidence (raw data)
+    output.push_str(&format!("Evidence: {}\n", issue.details));
+
+    // Detection time
+    output.push_str(&format!("Detected: {}\n", issue.detected_at));
+
+    // Hash comparison note if config change
+    if matches!(issue.issue_type, IssueType::ConfigChanged) {
+        output.push_str("\nBaseline: Hash mismatch against stored baseline\n");
+        output.push_str("Method: SHA-256 comparison of file contents\n");
+    }
+
+    output.push_str("\n[END OF EVIDENCE - No interpretation provided]\n");
+
+    output
+}
+
+/// Helper to extract file path from issue details
+fn extract_file_path(details: &str) -> Option<String> {
+    // Look for common file path patterns
+    let patterns = [
+        "/etc/group",
+        "/etc/passwd",
+        "/etc/shadow",
+        "/etc/sudoers",
+        "/etc/ssh/sshd_config",
+        "/etc/fstab",
+        "/etc/hosts",
+        "/etc/hostname",
+        "/etc/resolv.conf",
+        "/etc/pacman.conf",
+        "/etc/mkinitcpio.conf",
+        "/etc/default/grub",
+        "/boot/loader/loader.conf",
+        "/etc/systemd/system.conf",
+        "/etc/security/limits.conf",
+        "/etc/pam.d/system-auth",
+        "/etc/firewalld/firewalld.conf",
+        "/etc/nftables.conf",
+    ];
+
+    for pattern in patterns {
+        if details.contains(pattern) {
+            return Some(pattern.to_string());
+        }
+    }
+
+    None
 }
 
 /// Format issues for display

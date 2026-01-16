@@ -86,6 +86,34 @@ pub async fn handle_streaming_request(
 
     // Phase 16: Check if this matches an action plan template
     if let Some(plan) = plan_generator::generate_template_plan(question) {
+        // NOOP short-circuit: if preflight determined no changes needed,
+        // emit terminal response without entering confirmation flow.
+        // This prevents "Proceed?" prompts when action set is empty.
+        if !plan.changes_needed {
+            let msg = format!(
+                "No changes needed. {}",
+                plan.skip_reason.as_deref().unwrap_or("Already configured.")
+            );
+            send_filtered_final_answer(&mut writer, &msg).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: msg,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: None,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
         return handle_template_plan(plan, session_id, &mut writer).await;
     }
 

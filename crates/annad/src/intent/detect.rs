@@ -269,9 +269,93 @@ pub fn is_semantically_destructive(question: &str) -> bool {
     false
 }
 
+/// v0.3.70: Detect if question is asking about a warning/issue Anna detected
+/// This routes to DATA-only response, not LLM explanation
+pub fn is_warning_inquiry(question: &str) -> Option<String> {
+    let q = question.to_lowercase();
+
+    // Patterns that indicate asking about a warning
+    let inquiry_patterns = [
+        "what is the", "what's the", "what does the",
+        "explain the", "tell me about the", "show me the",
+        "what is this", "what's this", "what does this",
+        "why is there a", "why do i have a", "why did i get a",
+        "what caused the", "what triggered the",
+    ];
+
+    // Warning-related terms
+    let warning_terms = [
+        "warning", "alert", "issue", "error", "problem",
+        "notification", "message", "notice",
+    ];
+
+    // Check for inquiry pattern + warning term
+    let has_inquiry = inquiry_patterns.iter().any(|p| q.contains(p));
+    let has_warning_term = warning_terms.iter().any(|t| q.contains(t));
+
+    if has_inquiry && has_warning_term {
+        // Extract the subject (e.g., "group" from "what is the group warning")
+        // Look for words between inquiry pattern and warning term
+        return extract_warning_subject(&q);
+    }
+
+    // Also match direct questions about specific files/configs that Anna monitors
+    let monitored_files = [
+        "group", "passwd", "shadow", "sudoers", "sshd_config",
+        "fstab", "hosts", "hostname", "resolv.conf", "pacman.conf",
+        "mkinitcpio.conf", "grub", "loader.conf", "system.conf",
+        "limits.conf", "system-auth", "firewalld.conf", "nftables.conf",
+    ];
+
+    for file in monitored_files {
+        if q.contains(file) && (has_inquiry || q.contains("change") || q.contains("differ")) {
+            return Some(file.to_string());
+        }
+    }
+
+    None
+}
+
+/// Extract the subject from a warning inquiry (e.g., "group" from "what is the group warning")
+fn extract_warning_subject(question: &str) -> Option<String> {
+    // Common config file names that might be subjects
+    let subjects = [
+        "group", "passwd", "shadow", "sudoers", "sshd", "ssh",
+        "fstab", "hosts", "hostname", "resolv", "pacman",
+        "mkinitcpio", "grub", "loader", "system", "limits",
+        "firewall", "nftables", "cron", "config", "usb", "pci", "hardware",
+    ];
+
+    for subject in subjects {
+        if question.contains(subject) {
+            return Some(subject.to_string());
+        }
+    }
+
+    // If no specific subject found, return generic "warning"
+    Some("warning".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_warning_inquiry_detection() {
+        // Should detect warning inquiries
+        assert!(is_warning_inquiry("what is the group warning?").is_some());
+        assert!(is_warning_inquiry("what does this warning mean?").is_some());
+        assert!(is_warning_inquiry("explain the config alert").is_some());
+        assert!(is_warning_inquiry("why do i have a passwd issue?").is_some());
+
+        // Should extract correct subjects
+        assert_eq!(is_warning_inquiry("what is the group warning?"), Some("group".to_string()));
+        assert_eq!(is_warning_inquiry("what is the sshd warning?"), Some("sshd".to_string()));
+
+        // Should NOT match regular questions
+        assert!(is_warning_inquiry("how do I install neovim?").is_none());
+        assert!(is_warning_inquiry("what is my disk usage?").is_none());
+    }
 
     #[test]
     fn test_detect_off_topic() {

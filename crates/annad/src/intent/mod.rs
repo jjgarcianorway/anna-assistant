@@ -16,6 +16,7 @@ pub use classify::{
     classify_intent, decompose_multi_question, deep_understand, detect_off_topic,
     format_intent_result, quick_classify, should_ask_confirmation,
 };
+pub use detect::is_warning_inquiry;
 pub use fallback::{fallback_classification, fallback_understanding};
 pub use parse::{extract_json_from_response, parse_quick_response, parse_understanding_response};
 

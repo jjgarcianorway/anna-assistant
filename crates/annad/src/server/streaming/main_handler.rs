@@ -3,9 +3,11 @@
 //! v0.2.8: RPG stats tracking
 //! v0.3.56: Phase 23 - Outcome ledger integration
 //! v0.3.59: Phase 26 - Abstention outcome recording
+//! v0.3.70: Warning inquiry interception - DATA template routing
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::intent_class::classify_intent;
+use anna_shared::monitor::{find_matching_issue, format_issue_evidence};
 use anna_shared::outcome_ledger::{append_outcome, AbstentionReason, Outcome, OutcomeRecord, RequestMode};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
 use anyhow::Result;
@@ -13,6 +15,7 @@ use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
 
 use crate::core_loop::execute_question_streaming;
+use crate::intent::is_warning_inquiry;
 use crate::ralph;
 use crate::state::SharedState;
 
@@ -29,6 +32,94 @@ pub async fn handle_main_question(
     // v0.3.56: Phase 23 - Generate request ID and classify intent for outcome tracking
     let request_id = uuid::Uuid::new_v4().to_string();
     let intent = classify_intent(question);
+
+    // v0.3.70: Check for warning inquiry FIRST - route to DATA template, not LLM
+    // This is critical for Observation Phase compliance
+    if let Some(subject) = is_warning_inquiry(question) {
+        info!("Warning inquiry detected for subject: {}", subject);
+
+        if let Some(issue) = find_matching_issue(&subject) {
+            info!("Found matching issue, returning evidence-only response");
+
+            // Format as pure evidence - NO LLM, NO explanation
+            let evidence = format_issue_evidence(&issue);
+
+            // Send the evidence as the answer
+            send_filtered_final_answer(writer, &evidence).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: evidence,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(1.0), // Evidence is authoritative
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Record outcome
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent.clone(),
+                Outcome::Resolved,
+                false,
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
+
+            return Ok(());
+        } else {
+            // Warning inquiry but no matching issue - report that clearly
+            info!("Warning inquiry but no matching issue found");
+            let no_issue_response = format!(
+                "No active issue found matching '{}'.\n\n\
+                 Current active issues can be viewed with: annactl status\n\n\
+                 [No data to report]",
+                subject
+            );
+
+            send_filtered_final_answer(writer, &no_issue_response).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: no_issue_response,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(1.0),
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            let duration_ms = start_time.elapsed().as_millis() as u64;
+            let outcome_record = OutcomeRecord::new(
+                &request_id,
+                RequestMode::Dialogue,
+                intent.clone(),
+                Outcome::Resolved,
+                false,
+                duration_ms,
+            );
+            let _ = append_outcome(&outcome_record);
+
+            return Ok(());
+        }
+    }
 
     // Check cache for identical recent question
     {

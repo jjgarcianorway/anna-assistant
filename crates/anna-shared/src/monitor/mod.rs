@@ -21,5 +21,5 @@ mod types;
 pub use baseline::{BaselineChanges, SystemBaseline, UsbDevice, PciDevice};
 pub use checks::{run_checks, update_baseline};
 pub use learning::{SystemLearning, DetectedChanges, PackageTransaction, PackageAction, PerfSample, IoBaseline};
-pub use store::{format_issues_summary, issues_path, IssueStore};
+pub use store::{find_matching_issue, format_issue_evidence, format_issues_summary, issues_path, IssueStore};
 pub use types::{Issue, IssueType, MonitorResults, MonitorThresholds, Severity};
