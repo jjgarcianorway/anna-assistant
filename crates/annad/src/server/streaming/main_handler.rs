@@ -4,12 +4,14 @@
 //! v0.3.56: Phase 23 - Outcome ledger integration
 //! v0.3.59: Phase 26 - Abstention outcome recording
 //! v0.3.70: Warning inquiry interception - DATA template routing
+//! v0.3.71: Teaching Mode - intent classification and routing
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::intent_class::classify_intent;
 use anna_shared::monitor::{find_matching_issue, format_issue_evidence};
 use anna_shared::outcome_ledger::{append_outcome, AbstentionReason, Outcome, OutcomeRecord, RequestMode};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
+use anna_shared::teaching::{classify_teaching_intent, TeachingIntent};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
@@ -120,6 +122,37 @@ pub async fn handle_main_question(
             return Ok(());
         }
     }
+
+    // v0.3.71: Teaching Mode - classify intent for routing and logging
+    let teaching_intent = classify_teaching_intent(question);
+    let teaching_mode_enabled = AnnaConfig::load()
+        .map(|c| c.teaching_mode)
+        .unwrap_or(false);
+
+    info!(
+        "Teaching Mode: classified as {:?} (allows_teaching: {}, requires_evidence: {}, enabled: {})",
+        teaching_intent,
+        teaching_intent.allows_teaching(),
+        teaching_intent.requires_evidence(),
+        teaching_mode_enabled
+    );
+
+    // Teaching Mode behavior (only when enabled):
+    // - Status/ChangeAnalysis: fact-based, grounded responses (always)
+    // - Explanation/ServiceDesk: teaching allowed IF config.teaching_mode == true
+    // - ActionRequest: routes to existing mutation flow (always)
+    //
+    // When Teaching Mode is disabled (default), all intents get Observation Phase behavior:
+    // evidence only, no interpretation.
+    //
+    // Hard constraints remain regardless of mode:
+    // - No new execution capabilities
+    // - No unsolicited actions
+    // - No guessing or hallucination
+    // - No shell commands unless explicitly allowed
+
+    // Store teaching context for use in Ralph loop (future: pass to LLM prompts)
+    let _teaching_context = (teaching_intent, teaching_mode_enabled);
 
     // Check cache for identical recent question
     {

@@ -5,6 +5,39 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.71] - 2026-01-16
+
+### Added - Teaching Mode Specification
+
+**Transition from "constrained sysadmin component" to "teaching service-desk agent"**
+
+Teaching Mode expands explanation and intent routing WITHOUT loosening safety.
+
+**Hard constraints remain:**
+- No new execution capabilities
+- No unsolicited actions
+- No guessing or hallucination
+- No shell commands unless explicitly allowed by user opt-in
+
+**New intent classification (5 categories):**
+1. **Status** - Answer from current snapshot (fact-based)
+2. **ChangeAnalysis** - Answer from diffs and history (evidence-based)
+3. **Explanation** - Explain what something is and why it matters
+4. **ServiceDesk** - Explain how an experienced Linux admin would reason
+5. **ActionRequest** - Routes to existing mutation flow
+
+**Teaching output rules:**
+- Explain why before how
+- Tie explanations to actual system state when available
+- If data is missing, state what evidence a service desk would request
+- Never invent causes or fixes
+
+**Configuration:**
+- `teaching_mode = false` (default): Pure Observation Phase, evidence only
+- `teaching_mode = true`: Enables explanation and service desk reasoning
+
+**Still a system component, not a general assistant.**
+
 ## [0.3.70] - 2026-01-16
 
 ### Fixed - Observation Phase: Warning Inquiry Data Template

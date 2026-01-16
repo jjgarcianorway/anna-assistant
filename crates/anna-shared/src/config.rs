@@ -16,7 +16,13 @@ pub struct AnnaConfig {
     #[serde(default = "default_true")]
     pub debug_mode: bool,
 
-    /// v0.3.29: Teaching mode - explains why actions were taken with citations
+    /// v0.3.71: Teaching Mode - enables explanation and service desk reasoning.
+    /// When true:
+    /// - Explanation intents get conceptual teaching (why before how)
+    /// - Service desk intents get diagnostic reasoning walkthrough
+    /// - Still NO commands by default, NO guessing, NO hallucination
+    /// When false (default):
+    /// - Pure Observation Phase: data only, no interpretation
     #[serde(default)]
     pub teaching_mode: bool,
 

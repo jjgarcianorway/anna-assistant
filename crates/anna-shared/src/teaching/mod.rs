@@ -1,15 +1,23 @@
 //! Teaching Mode - Explains why actions were taken with citations.
 //!
 //! v0.3.29: Initial implementation for Milestone 4
+//! v0.3.71: Teaching Mode specification - intent classification
 //!
 //! Teaching mode provides concise explanations for:
 //! - Probe-only questions: explains which probe was run and why
 //! - Procedural questions: explains meaning with doc citations
 //! - Risky actions: explains why considered risky and why sandboxing was used
+//!
+//! v0.3.71: Teaching Mode specification adds:
+//! - 5-intent classification (Status, ChangeAnalysis, Explanation, ServiceDesk, ActionRequest)
+//! - Hard constraints: no new execution, no guessing, no hallucination, no commands by default
+//! - Explanation and ServiceDesk intents enable teaching output (when config.teaching_mode = true)
 
 mod tips;
+mod intent;
 
 pub use tips::{classify_question, format_teaching_block, generate_teaching};
+pub use intent::{classify_teaching_intent, TeachingIntent, TeachingResponse, format_servicedesk_reasoning, format_explanation};
 
 use serde::{Deserialize, Serialize};
 
