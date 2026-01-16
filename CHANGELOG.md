@@ -5,6 +5,63 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.74] - 2026-01-16
+
+### Added - Capability Routing Layer
+
+**Deterministic operator-facing capability routing and total response formatting.**
+
+This layer forces all future capabilities through a single explicit, reusable contract.
+No implicit structure. No "best guess." No invalid outputs.
+
+**Five components:**
+
+1. **Static CapabilityId Registry** (`capability/registry.rs`)
+   - Canonical, immutable registry of all capabilities
+   - No dynamic registration, no inference
+   - Each capability declares: id, description, mode, relevant_warnings
+   - Mode: ReadOnly (can execute) vs Mutating (blocked at ExecutionGate)
+
+2. **Deterministic Router** (`capability/router.rs`)
+   - Pure function: `route_request(input) -> Supported | Unsupported`
+   - No fallback, no partial matches, no AI guessing
+   - Pattern-based matching for each capability category
+   - Unknown requests explicitly rejected with reason code
+
+3. **Total Response Formatter** (`capability/response.rs`)
+   - Every request produces exactly one of: Resolved, Abstained, Failed
+   - Impossible to emit "could not format a valid response"
+   - Mutating capabilities always abstain (ExecutionGateBlocked)
+   - ReadOnly capabilities resolve with artifacts or abstain (NoActionRequired)
+
+4. **Noise Containment** (`capability/noise.rs`)
+   - Warnings filtered by capability relevance
+   - Each capability declares which WarningCategory it cares about
+   - Prevents noise spillover between unrelated domains
+   - status.system sees All; status.disk sees only Storage
+
+5. **Demonstration Capability** (`capability/display_scale.rs`)
+   - `display.scale.gdm` - ReadOnly, gathers facts, proposes plan
+   - Demonstrates the contract: deterministic routing, total response, noise filtering
+   - Abstains from execution (would require Mutating mode)
+
+**Registered capabilities:**
+- Status: system, disk, memory, network, services, identity (ReadOnly)
+- Display: scale.gdm, scale.xorg, scale.wayland (ReadOnly)
+- Package: install, remove, update (Mutating - blocked)
+- Service: start, stop, restart, enable (Mutating - blocked)
+- Config: edit (Mutating - blocked)
+
+**Response guarantee:**
+```
+route_request(input)
+  └── Unsupported { reason_code, short_message }
+        └── format_response() → Abstained
+  └── Supported { capability_id }
+        └── ReadOnly → execute → Resolved | Abstained | Failed
+        └── Mutating → Abstained (ExecutionGateBlocked)
+```
+
 ## [0.3.73] - 2026-01-16
 
 ### Added - Teaching Mode v1 (Service Desk Teaching Mirror)

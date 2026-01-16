@@ -134,6 +134,7 @@ pub mod action_plan;
 pub mod capabilities;
 #[cfg(test)]
 mod capabilities_guardrails;
+pub mod capability;
 pub mod declaration;
 pub mod claim_gate;
 pub mod command_policy;
