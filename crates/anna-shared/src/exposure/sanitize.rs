@@ -23,6 +23,9 @@ pub enum ForbiddenPattern {
     /// Manual commands (sudo, shell commands, edit instructions)
     /// Added in Phase 15: Anna executes actions, not the user.
     ManualCommands,
+    /// Phase 34A: LLM evaluator output contamination (ALL CAPS evaluator patterns)
+    /// This prevents LLM internal evaluation responses from leaking into user output.
+    EvaluatorContamination,
 }
 
 impl ForbiddenPattern {
@@ -34,6 +37,7 @@ impl ForbiddenPattern {
             Self::Consciousness => "Consciousness language implies Anna is sentient",
             Self::Alarm => "Alarm language creates anxiety",
             Self::ManualCommands => "Manual commands violate contract: Anna executes, not user",
+            Self::EvaluatorContamination => "LLM evaluator output leaked into user response",
         }
     }
 }
@@ -159,6 +163,29 @@ static MANUAL_COMMAND_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock:
     ]
 });
 
+// Phase 34A: LLM evaluator contamination patterns
+// These patterns detect when LLM internal evaluation/rating output leaks into responses
+static EVALUATOR_CONTAMINATION_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+    vec![
+        // ALL CAPS evaluator keywords that indicate leaked evaluation output
+        (Regex::new(r"\bCOMPLETE\b").unwrap(), ""),
+        (Regex::new(r"\bINCOMPLETE\b").unwrap(), ""),
+        (Regex::new(r"\bCONFIDENCE[:\s]+\d+").unwrap(), ""),
+        (Regex::new(r"\bMISSING:\s").unwrap(), ""),
+        (Regex::new(r"\bEXPLANATION:\s").unwrap(), ""),
+        (Regex::new(r"\bANNA:\s+NONE\b").unwrap(), ""),
+        // Evaluation formatting patterns
+        (Regex::new(r"\b(YES|NO)/?(YES|NO)?/?(NA)?\b").unwrap(), ""),
+        // Rating scales that indicate evaluation output
+        (Regex::new(r"\bRATING:\s*\d+/\d+").unwrap(), ""),
+        (Regex::new(r"\bSCORE:\s*\d+").unwrap(), ""),
+        // "THE RESPONSE IS" evaluation phrase
+        (Regex::new(r"(?i)\bTHE RESPONSE IS\s+(COMPLETE|INCOMPLETE|SUFFICIENT|INSUFFICIENT)\b").unwrap(), ""),
+        // Structured evaluation output markers
+        (Regex::new(r"^\d+\.\s+(Does|Is|Are|Can)\s+.+\?\s+(YES|NO)").unwrap(), ""),
+    ]
+});
+
 /// Validate text against forbidden patterns.
 pub fn sanitize_dialogue(text: &str) -> SanitizationResult {
     let mut violations = Vec::new();
@@ -216,6 +243,18 @@ pub fn sanitize_dialogue(text: &str) -> SanitizationResult {
         for m in re.find_iter(text) {
             violations.push(Violation {
                 pattern: ForbiddenPattern::ManualCommands,
+                matched: m.as_str().to_string(),
+                position: m.start(),
+                replacement,
+            });
+        }
+    }
+
+    // Check evaluator contamination patterns (Phase 34A)
+    for (re, replacement) in EVALUATOR_CONTAMINATION_PATTERNS.iter() {
+        for m in re.find_iter(text) {
+            violations.push(Violation {
+                pattern: ForbiddenPattern::EvaluatorContamination,
                 matched: m.as_str().to_string(),
                 position: m.start(),
                 replacement,
@@ -313,6 +352,73 @@ mod tests {
         ];
         for text in approved {
             assert!(sanitize_dialogue(text).is_clean, "Should pass: {}", text);
+        }
+    }
+
+    // ==========================================================================
+    // Phase 34A: Evaluator Contamination Detection
+    // ==========================================================================
+
+    #[test]
+    fn test_evaluator_contamination_detected() {
+        // ALL CAPS evaluator output patterns should be blocked
+        assert!(!sanitize_dialogue("COMPLETE, CONFIDENCE 80").is_clean);
+        assert!(!sanitize_dialogue("INCOMPLETE, need more data").is_clean);
+        assert!(!sanitize_dialogue("EXPLANATION: the response is valid").is_clean);
+        assert!(!sanitize_dialogue("MISSING: specific values").is_clean);
+        assert!(!sanitize_dialogue("ANNA: NONE").is_clean);
+        assert!(!sanitize_dialogue("THE RESPONSE IS COMPLETE").is_clean);
+    }
+
+    #[test]
+    fn test_evaluator_contamination_partial_matches() {
+        // These should NOT be blocked - normal text containing evaluator-like words
+        // (in lowercase or natural context)
+        assert!(sanitize_dialogue("The installation is complete.").is_clean);
+        assert!(sanitize_dialogue("Your configuration appears incomplete.").is_clean);
+        assert!(sanitize_dialogue("Anna cannot process this request.").is_clean);
+    }
+
+    // ==========================================================================
+    // Phase 34A: Capability Abstain Messages Must Pass Filter
+    // ==========================================================================
+
+    #[test]
+    fn test_capability_abstain_messages_pass() {
+        // These are real abstain messages from display_scale.rs
+        // They MUST pass sanitization (not be blocked)
+        let abstain_messages = [
+            "Your system uses SDDM. GDM scaling is not applicable.",
+            "No monitors.xml found. Anna needs your display settings configured first.",
+            "What to do: Open Settings > Displays, set your preferred scale (e.g., 200%), and click Apply.",
+            "Your monitors.xml exists but has no scale setting.",
+            "GDM is already configured with scale 2. Log out to verify.",
+        ];
+        for msg in abstain_messages {
+            assert!(
+                sanitize_dialogue(msg).is_clean,
+                "Capability abstain message should pass: {}",
+                msg
+            );
+        }
+    }
+
+    #[test]
+    fn test_capability_confirmation_messages_pass() {
+        // Confirmation messages from ActionPlan formatting should pass
+        let confirmation_messages = [
+            "Detected:\n  This will copy your monitors.xml to GDM.",
+            "Plan:\n  Step 1: Create GDM configuration directory",
+            "Step 2: Copy display configuration to GDM [requires approval]",
+            "Step 3: Set file ownership for GDM [requires approval]",
+            "Anna: Proceed? (yes/no)",
+        ];
+        for msg in confirmation_messages {
+            assert!(
+                sanitize_dialogue(msg).is_clean,
+                "Capability confirmation message should pass: {}",
+                msg
+            );
         }
     }
 }

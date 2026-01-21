@@ -60,11 +60,40 @@ mod router;
 mod response;
 mod noise;
 mod display_scale;
+mod config_review_group;
+mod config_review_passwd;
+mod power_inhibit;
+mod thermal_status;
+mod audio_stack;
 
 pub use registry::{
-    Capability, CapabilityId, CapabilityMode, CapabilityRegistry, CAPABILITY_REGISTRY,
+    Capability, CapabilityId, CapabilityMode, CapabilityRegistry, WarningCategory,
+    CAPABILITY_REGISTRY,
 };
 pub use router::{route_request, CapabilityRoutingResult, UnsupportedReason};
-pub use response::{format_response, ResponseOutcome, ResponseArtifact};
-pub use noise::{filter_warnings, WarningRelevance};
-pub use display_scale::execute_display_scale_gdm;
+pub use response::{
+    build_policy_violation_response, format_outcome_to_string, format_response, AbstainReason,
+    CapabilityExecutionResult, FailedReason, ResponseArtifact, ResponseOutcome,
+};
+pub use noise::{filter_warnings, SystemWarning, WarningRelevance};
+pub use display_scale::{execute_display_scale_gdm, gather_probes, GdmScalingProbes};
+pub use config_review_group::{
+    execute_config_review_group_change, gather_probes as gather_group_change_probes,
+    GroupChangeProbes,
+};
+pub use config_review_passwd::{
+    execute_passwd_change_review, gather_probes as gather_passwd_change_probes,
+    PasswdChangeProbes,
+};
+pub use power_inhibit::{
+    execute_power_inhibit_sleep, gather_probes as gather_power_probes,
+    InhibitAction, InhibitTarget, PowerInhibitProbes,
+};
+pub use thermal_status::{
+    execute_thermal_status, gather_probes as gather_thermal_probes,
+    ThermalProbes,
+};
+pub use audio_stack::{
+    execute_audio_stack_detect, gather_probes as gather_audio_probes,
+    AudioProbes, AudioStack,
+};

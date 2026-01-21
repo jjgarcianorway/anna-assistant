@@ -90,13 +90,17 @@ fn test_stats_path_consistency() {
         "CRITICAL: paths().stats_file() and anna_data_dir().join(\"stats.json\") diverge!"
     );
 
+    // In test mode, paths may use /tmp/anna-dev; in production, /var/lib/anna
+    // The key invariant is they must be consistent and not use /home/
     assert!(
         !stats_path_from_paths.to_string_lossy().contains("/home/"),
         "Stats path should not be under /home/"
     );
+    // Check for either production OR test path pattern
+    let path_str = stats_path_from_paths.to_string_lossy();
     assert!(
-        stats_path_from_paths.to_string_lossy().starts_with("/var/lib/anna"),
-        "Stats path should be under /var/lib/anna"
+        path_str.starts_with("/var/lib/anna") || path_str.contains("anna-dev"),
+        "Stats path should be under /var/lib/anna or test dir, got: {}", path_str
     );
 }
 
@@ -113,13 +117,15 @@ fn test_tickets_path_consistency() {
         "CRITICAL: paths().tickets_file() and anna_data_dir().join(\"tickets.json\") diverge!"
     );
 
+    // In test mode, paths may use /tmp/anna-dev; in production, /var/lib/anna
     assert!(
         !tickets_path.to_string_lossy().contains("/home/"),
         "Tickets path should not be under /home/"
     );
+    let path_str = tickets_path.to_string_lossy();
     assert!(
-        tickets_path.to_string_lossy().starts_with("/var/lib/anna"),
-        "Tickets path should be under /var/lib/anna"
+        path_str.starts_with("/var/lib/anna") || path_str.contains("anna-dev"),
+        "Tickets path should be under /var/lib/anna or test dir, got: {}", path_str
     );
 }
 

@@ -1,0 +1,9 @@
+# Phase 33: power.inhibit.sleep (MUTATING) - Deterministic capability output
+# Expected: Detected + Plan + "Anna: Proceed? (yes/no)" - NO raw commands
+# Non-Debug mode output
+{"Step":{"step":{"step_type":"ConfirmationRequest","content":"Detected:\n  This will modify /etc/systemd/logind.conf to set lid close action to ignore.\n\nPlan:\n  Step 1: Backup current logind.conf [requires approval]\n  Step 2: Set HandleLidSwitch to ignore [requires approval]\n  Step 3: Apply changes (restart logind) [requires approval]\n\nAnna: Proceed? (yes/no)"}}}
+{"Done":{"result":{"answer":"Detected:\n  This will modify /etc/systemd/logind.conf to set lid close action to ignore.\n\nPlan:\n  Step 1: Backup current logind.conf [requires approval]\n  Step 2: Set HandleLidSwitch to ignore [requires approval]\n  Step 3: Apply changes (restart logind) [requires approval]\n\nAnna: Proceed? (yes/no)","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":true,"clarification_question":"Proceed? (yes/no)","cached":false,"citations":[],"abstained":false,"final_confidence":null}}}
+# CONTRACT ENFORCEMENT:
+# - commands_executed MUST be empty (no LLM path)
+# - No raw commands in content
+# - Step descriptions only, no shell syntax

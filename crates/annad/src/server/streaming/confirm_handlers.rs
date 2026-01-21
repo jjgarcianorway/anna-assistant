@@ -1,5 +1,6 @@
 //! Confirmation handlers for pending actions (recipes, plans, autofixes).
 //! Phase 25: Elevated confirmation, outcome recording, and safety telemetry.
+//! Phase 32: Capability confirmation lifecycle.
 
 use anna_shared::action_plan::{ActionPlan, PreflightResult, Reversibility, VerificationStatus};
 use anna_shared::intent_class::IntentClass;
@@ -11,10 +12,32 @@ use tokio::io::AsyncWriteExt;
 use tracing::info;
 
 use crate::autofix::{execute_autofix, is_no_response, is_yes_response, AutoFix};
-use crate::plan_executor::{execute_plan, format_execution_result, is_plan_expired, set_pending_plan};
+use crate::plan_executor::{execute_plan, is_plan_expired, set_pending_plan};
 use crate::recipes;
 
 use super::helpers::{extract_recipe_id, send_filtered_final_answer, set_pending_recipe};
+
+// =============================================================================
+// Phase 32: Output Contract Constants
+// =============================================================================
+
+/// Success message after execution.
+const MSG_DONE: &str = "Anna: Done.";
+
+/// Failure message after execution.
+const MSG_FAILED: &str = "Anna: Unable to complete request. Changes were rolled back.";
+
+/// Cancel message.
+const MSG_CANCELLED: &str = "Anna: Cancelled.";
+
+/// Expired message.
+const MSG_EXPIRED: &str = "Anna: The pending action has expired. Please repeat your request.";
+
+/// Invalid input prompt.
+const MSG_INVALID_INPUT: &str = "Anna: Please type 'yes' to proceed or 'no' to cancel.";
+
+/// Elevated invalid input prompt.
+const MSG_INVALID_INPUT_ELEVATED: &str = "Anna: Please type 'yes I understand' to proceed or 'no' to cancel.";
 
 /// Phase 25: Check if response is elevated yes ("yes I understand").
 fn is_elevated_yes_response(response: &str) -> bool {
@@ -292,16 +315,14 @@ pub async fn handle_pending_plan(
     if accepted {
         info!("Executing plan {} (user confirmed)", pending_plan.id);
 
-        let step = DialogueStep {
-            step_type: StepType::UnderstandingCheck,
-            content: format!("Executing: {}", pending_plan.summary),
-        };
-        let response = StreamingResponse::Step { step };
-        let json = serde_json::to_string(&response)?;
-        writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
         let exec_result = execute_plan(&pending_plan);
-        let result_msg = format_execution_result(&exec_result, &pending_plan);
+
+        // Phase 32: Use contract output messages
+        let result_msg = if exec_result.success {
+            MSG_DONE.to_string()
+        } else {
+            MSG_FAILED.to_string()
+        };
 
         // Phase 25: Record outcome with extended telemetry
         let outcome = if exec_result.success {
@@ -327,7 +348,7 @@ pub async fn handle_pending_plan(
             answer: result_msg,
             success: exec_result.success,
             iterations: 0,
-            commands_executed: pending_plan.steps.iter().map(|s| s.command.clone()).collect(),
+            commands_executed: vec![], // Phase 32: No commands in output
             dialogue: vec![],
             needs_clarification: false,
             clarification_question: None,
@@ -356,11 +377,11 @@ pub async fn handle_pending_plan(
         );
         let _ = append_outcome(&outcome_record);
 
-        let cancel_msg = "No problem, I won't make any changes.";
-        send_filtered_final_answer(writer, cancel_msg).await?;
+        // Phase 32: Use contract output message
+        send_filtered_final_answer(writer, MSG_CANCELLED).await?;
 
         let result = anna_shared::rpc::AskResult {
-            answer: cancel_msg.to_string(),
+            answer: MSG_CANCELLED.to_string(),
             success: true,
             iterations: 0,
             commands_executed: vec![],
@@ -381,11 +402,11 @@ pub async fn handle_pending_plan(
     // Invalid input - prompt again
     info!("Invalid response for plan {}: '{}'", pending_plan.id, question);
 
-    // Phase 25: Different prompt for elevated confirmation
+    // Phase 32: Use contract output messages
     let prompt_msg = if needs_elevated {
-        "Please type 'yes I understand' to proceed or 'no' to cancel."
+        MSG_INVALID_INPUT_ELEVATED
     } else {
-        "Please type 'yes' to proceed or 'no' to cancel."
+        MSG_INVALID_INPUT
     };
     send_filtered_final_answer(writer, prompt_msg).await?;
 
@@ -437,11 +458,11 @@ pub async fn handle_expired_plan(
     );
     let _ = append_outcome(&outcome_record);
 
-    let expire_msg = "The pending action has expired. Please repeat your request.";
-    send_filtered_final_answer(writer, expire_msg).await?;
+    // Phase 32: Use contract output message
+    send_filtered_final_answer(writer, MSG_EXPIRED).await?;
 
     let result = anna_shared::rpc::AskResult {
-        answer: expire_msg.to_string(),
+        answer: MSG_EXPIRED.to_string(),
         success: true,
         iterations: 0,
         commands_executed: vec![],
@@ -457,4 +478,97 @@ pub async fn handle_expired_plan(
     let json = serde_json::to_string(&done)?;
     writer.write_all(format!("{}\n", json).as_bytes()).await?;
     Ok(())
+}
+
+/// Phase 32: Handle capability confirmation flow.
+/// Formats the ActionPlan for user confirmation and stores it as pending.
+pub async fn handle_capability_confirmation(
+    plan: ActionPlan,
+    session_id: &str,
+    writer: &mut tokio::net::unix::OwnedWriteHalf,
+) -> Result<()> {
+    info!("Phase 32: Capability confirmation for plan: {}", plan.id);
+
+    // Phase 32: Format confirmation message following output contract
+    // - Detected block (evidence from probes)
+    // - Plan preview (step descriptions only, no commands)
+    // - "Anna: Proceed? (yes/no)"
+    let confirmation_msg = format_capability_confirmation(&plan);
+
+    // Send as confirmation request step
+    let step = DialogueStep {
+        step_type: StepType::ConfirmationRequest,
+        content: confirmation_msg.clone(),
+    };
+    let response = StreamingResponse::Step { step };
+    let json = serde_json::to_string(&response)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+    // Store pending plan for yes/no handling
+    set_pending_plan(session_id, plan);
+
+    // Return AskResult with needs_clarification
+    let result = anna_shared::rpc::AskResult {
+        answer: confirmation_msg,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue: vec![],
+        needs_clarification: true,
+        clarification_question: Some("Proceed? (yes/no)".to_string()),
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: None,
+    };
+    let done = StreamingResponse::Done { result };
+    let json = serde_json::to_string(&done)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+    Ok(())
+}
+
+/// Format capability confirmation message per Phase 32 contract.
+/// Output format:
+/// ```text
+/// Detected:
+///   Display Manager: GDM
+///   Session: wayland
+///   ...
+///
+/// Plan:
+///   Step 1: <description> [requires approval]
+///   Step 2: <description> [requires approval]
+///   ...
+///
+/// Anna: Proceed? (yes/no)
+/// ```
+fn format_capability_confirmation(plan: &ActionPlan) -> String {
+    let mut output = String::new();
+
+    // Detected block - use explanation as evidence summary
+    if !plan.explanation.is_empty() {
+        output.push_str("Detected:\n");
+        // Split explanation into lines for formatting
+        for line in plan.explanation.lines().take(6) {
+            output.push_str(&format!("  {}\n", line));
+        }
+        output.push('\n');
+    }
+
+    // Plan preview - step descriptions only, no commands
+    output.push_str("Plan:\n");
+    for (i, step) in plan.steps.iter().enumerate() {
+        let approval_marker = if step.needs_sudo {
+            " [requires approval]"
+        } else {
+            ""
+        };
+        output.push_str(&format!("  Step {}: {}{}\n", i + 1, step.description, approval_marker));
+    }
+    output.push('\n');
+
+    // Final prompt
+    output.push_str("Anna: Proceed? (yes/no)");
+
+    output
 }

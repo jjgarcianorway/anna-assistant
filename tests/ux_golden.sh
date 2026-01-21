@@ -335,6 +335,209 @@ fi
 echo
 
 # ================================================
+# TEST 5B: Phase 33 Capability Fixtures
+# ================================================
+echo "=== T5B: Phase 33 Capability Fixtures ==="
+
+# Phase 33.2: Validate capability golden fixtures exist and enforce contracts
+
+# ReadOnly capability: thermal_status
+if [ -f "$SCRIPT_DIR/golden/phase33_thermal_status.fixture" ]; then
+    pass "phase33_thermal_status fixture exists"
+    # Contract: commands_executed MUST be empty
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase33_thermal_status.fixture"; then
+        pass "thermal_status: commands_executed is empty (no LLM)"
+    else
+        fail "thermal_status: commands_executed should be empty"
+    fi
+    # Contract: Max 3 evidence lines - check "content" field in Step packet only
+    # Extract content from Step packet and count lines
+    CONTENT=$(grep '"Step"' "$SCRIPT_DIR/golden/phase33_thermal_status.fixture" | grep -o '"content":"[^"]*"' | head -1)
+    THERMAL_NEWLINES=$(echo "$CONTENT" | grep -o '\\n' | wc -l)
+    # N newlines = N+1 lines, so <=2 newlines means <=3 lines
+    if [ "$THERMAL_NEWLINES" -le 2 ]; then
+        pass "thermal_status: evidence capped at 3 lines"
+    else
+        fail "thermal_status: evidence exceeds 3 lines ($THERMAL_NEWLINES newlines = $((THERMAL_NEWLINES+1)) lines)"
+    fi
+else
+    fail "phase33_thermal_status fixture missing"
+fi
+
+# ReadOnly capability: audio_stack_detect
+if [ -f "$SCRIPT_DIR/golden/phase33_audio_stack_detect.fixture" ]; then
+    pass "phase33_audio_stack_detect fixture exists"
+    # Contract: commands_executed MUST be empty
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase33_audio_stack_detect.fixture"; then
+        pass "audio_stack: commands_executed is empty (no LLM)"
+    else
+        fail "audio_stack: commands_executed should be empty"
+    fi
+    # Contract: No raw commands in JSON output (exclude comment lines)
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase33_audio_stack_detect.fixture" | grep -qE 'pactl|pgrep|pw-metadata'; then
+        fail "audio_stack: contains raw commands"
+    else
+        pass "audio_stack: no raw commands in output"
+    fi
+else
+    fail "phase33_audio_stack_detect fixture missing"
+fi
+
+# Mutating capability: display_scale_gdm
+if [ -f "$SCRIPT_DIR/golden/phase33_display_scale_gdm.fixture" ]; then
+    pass "phase33_display_scale_gdm fixture exists"
+    # Contract: commands_executed MUST be empty
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase33_display_scale_gdm.fixture"; then
+        pass "display_scale: commands_executed is empty (no LLM)"
+    else
+        fail "display_scale: commands_executed should be empty"
+    fi
+    # Contract: No raw commands (no mkdir, cp, chown)
+    if grep -qE 'mkdir -p|cp /|chown ' "$SCRIPT_DIR/golden/phase33_display_scale_gdm.fixture"; then
+        fail "display_scale: contains raw commands"
+    else
+        pass "display_scale: no raw commands in output"
+    fi
+    # Contract: Contains confirmation request
+    if grep -q '"ConfirmationRequest"' "$SCRIPT_DIR/golden/phase33_display_scale_gdm.fixture"; then
+        pass "display_scale: contains ConfirmationRequest"
+    else
+        fail "display_scale: missing ConfirmationRequest"
+    fi
+else
+    fail "phase33_display_scale_gdm fixture missing"
+fi
+
+# Mutating capability: power_inhibit_sleep
+if [ -f "$SCRIPT_DIR/golden/phase33_power_inhibit_sleep.fixture" ]; then
+    pass "phase33_power_inhibit_sleep fixture exists"
+    # Contract: commands_executed MUST be empty
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase33_power_inhibit_sleep.fixture"; then
+        pass "power_inhibit: commands_executed is empty (no LLM)"
+    else
+        fail "power_inhibit: commands_executed should be empty"
+    fi
+    # Contract: No raw commands in JSON output (exclude comment lines)
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase33_power_inhibit_sleep.fixture" | grep -qE 'sed -i|systemctl kill|cp /'; then
+        fail "power_inhibit: contains raw commands"
+    else
+        pass "power_inhibit: no raw commands in output"
+    fi
+    # Contract: Contains confirmation request
+    if grep -q '"ConfirmationRequest"' "$SCRIPT_DIR/golden/phase33_power_inhibit_sleep.fixture"; then
+        pass "power_inhibit: contains ConfirmationRequest"
+    else
+        fail "power_inhibit: missing ConfirmationRequest"
+    fi
+else
+    fail "phase33_power_inhibit_sleep fixture missing"
+fi
+echo
+
+# ================================================
+# TEST 5C: Phase 34 Debug Mode Fixtures
+# ================================================
+echo "=== T5C: Phase 34 Debug Mode Fixtures ==="
+
+# Debug ReadOnly capability fixture
+if [ -f "$SCRIPT_DIR/golden/phase34_debug_readonly.fixture" ]; then
+    pass "phase34_debug_readonly fixture exists"
+    # Contract: commands_executed MUST be empty
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase34_debug_readonly.fixture"; then
+        pass "debug_readonly: commands_executed is empty (no LLM)"
+    else
+        fail "debug_readonly: commands_executed should be empty"
+    fi
+    # Contract: Debug output MUST have [DEBUG] labels
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase34_debug_readonly.fixture" | grep -q '\[DEBUG\]'; then
+        pass "debug_readonly: contains [DEBUG] labels"
+    else
+        fail "debug_readonly: missing [DEBUG] labels"
+    fi
+else
+    fail "phase34_debug_readonly fixture missing"
+fi
+
+# Debug Mutating capability fixture
+if [ -f "$SCRIPT_DIR/golden/phase34_debug_mutating.fixture" ]; then
+    pass "phase34_debug_mutating fixture exists"
+    # Contract: commands_executed MUST be empty
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase34_debug_mutating.fixture"; then
+        pass "debug_mutating: commands_executed is empty (no LLM)"
+    else
+        fail "debug_mutating: commands_executed should be empty"
+    fi
+    # Contract: Debug output MUST have [DEBUG] labels
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase34_debug_mutating.fixture" | grep -q '\[DEBUG\]'; then
+        pass "debug_mutating: contains [DEBUG] labels"
+    else
+        fail "debug_mutating: missing [DEBUG] labels"
+    fi
+    # Contract: Contains ConfirmationRequest
+    if grep -q '"ConfirmationRequest"' "$SCRIPT_DIR/golden/phase34_debug_mutating.fixture"; then
+        pass "debug_mutating: contains ConfirmationRequest"
+    else
+        fail "debug_mutating: missing ConfirmationRequest"
+    fi
+    # Contract: No raw commands in user content
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase34_debug_mutating.fixture" | grep -qE 'mkdir -p|cp /|chown '; then
+        fail "debug_mutating: contains raw commands"
+    else
+        pass "debug_mutating: no raw commands in output"
+    fi
+else
+    fail "phase34_debug_mutating fixture missing"
+fi
+echo
+
+# ================================================
+# TEST 5D: Phase 34A GDM Scale Fixture
+# ================================================
+echo "=== T5D: Phase 34A GDM Scale Fixture ==="
+
+if [ -f "$SCRIPT_DIR/golden/phase34a_gdm_scale.fixture" ]; then
+    pass "phase34a_gdm_scale fixture exists"
+
+    # CRITICAL: commands_executed must be empty (no LLM)
+    if grep -q '"commands_executed":\[\]' "$SCRIPT_DIR/golden/phase34a_gdm_scale.fixture"; then
+        pass "gdm_scale: commands_executed is empty (no LLM)"
+    else
+        fail "gdm_scale: commands_executed should be empty"
+    fi
+
+    # CRITICAL: Must NOT contain "could not format"
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase34a_gdm_scale.fixture" | grep -qi 'could not format'; then
+        fail "gdm_scale: contains forbidden 'could not format' message"
+    else
+        pass "gdm_scale: no 'could not format' message"
+    fi
+
+    # CRITICAL: Must NOT contain evaluator text
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase34a_gdm_scale.fixture" | grep -qE 'EXPLANATION:|ANNA: NONE|COMPLETE,|INCOMPLETE,'; then
+        fail "gdm_scale: contains evaluator contamination"
+    else
+        pass "gdm_scale: no evaluator contamination"
+    fi
+
+    # Must contain ConfirmationRequest OR FinalAnswer (abstain)
+    if grep -qE '"ConfirmationRequest"|"FinalAnswer"' "$SCRIPT_DIR/golden/phase34a_gdm_scale.fixture"; then
+        pass "gdm_scale: contains valid response type"
+    else
+        fail "gdm_scale: missing ConfirmationRequest or FinalAnswer"
+    fi
+
+    # No raw commands in output
+    if grep -v '^#' "$SCRIPT_DIR/golden/phase34a_gdm_scale.fixture" | grep -qE '"content":.*mkdir -p|"content":.*cp /|"content":.*chown '; then
+        fail "gdm_scale: raw commands visible in output"
+    else
+        pass "gdm_scale: no raw commands in output"
+    fi
+else
+    fail "phase34a_gdm_scale fixture missing"
+fi
+echo
+
+# ================================================
 # Summary
 # ================================================
 echo "======================================"

@@ -3,7 +3,9 @@
 //! v0.0.998: Added configuration recipes
 //! v0.0.998: Added Hollywood IT teams experience
 //! v0.3.49: Phase 16 - Action plan execution
+//! v0.3.76: Phase 34 - Unified capability response formatter
 
+pub mod capability_formatter;
 mod confirm_handlers;
 mod handlers;
 mod helpers;

@@ -180,12 +180,13 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
     // DISPLAY CAPABILITIES (ReadOnly for now)
     // =========================================================================
 
+    // Phase 31: GDM scaling is MUTATING - changes system files
     capabilities.insert(
         CapabilityId::new("display.scale.gdm"),
         Capability {
             id: CapabilityId::new("display.scale.gdm"),
-            description: "Analyze GDM display scaling configuration and propose changes.".to_string(),
-            mode: CapabilityMode::ReadOnly,
+            description: "Configure GDM login screen scaling by propagating monitors.xml.".to_string(),
+            mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Display],
         },
     );
@@ -302,6 +303,72 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
         },
     );
 
+    // =========================================================================
+    // CONFIG REVIEW CAPABILITIES (ReadOnly)
+    // =========================================================================
+
+    capabilities.insert(
+        CapabilityId::new("config.review.group_change"),
+        Capability {
+            id: CapabilityId::new("config.review.group_change"),
+            description: "Review changes to /etc/group and provide restore instructions.".to_string(),
+            mode: CapabilityMode::ReadOnly,
+            relevant_warnings: vec![WarningCategory::StatusIdentity, WarningCategory::Security],
+        },
+    );
+
+    capabilities.insert(
+        CapabilityId::new("config.review.passwd_change"),
+        Capability {
+            id: CapabilityId::new("config.review.passwd_change"),
+            description: "Review changes to /etc/passwd and explain what changed.".to_string(),
+            mode: CapabilityMode::ReadOnly,
+            relevant_warnings: vec![WarningCategory::StatusIdentity, WarningCategory::Security],
+        },
+    );
+
+    // =========================================================================
+    // POWER CAPABILITIES (Phase 33)
+    // =========================================================================
+
+    capabilities.insert(
+        CapabilityId::new("power.inhibit.sleep"),
+        Capability {
+            id: CapabilityId::new("power.inhibit.sleep"),
+            description: "Configure lid close, idle, and suspend key behavior.".to_string(),
+            mode: CapabilityMode::Mutating,
+            relevant_warnings: vec![WarningCategory::StatusIdentity],
+        },
+    );
+
+    // =========================================================================
+    // SYSTEM CAPABILITIES (Phase 33)
+    // =========================================================================
+
+    capabilities.insert(
+        CapabilityId::new("system.thermal.status"),
+        Capability {
+            id: CapabilityId::new("system.thermal.status"),
+            description: "Report CPU/GPU temperatures and fan speeds.".to_string(),
+            mode: CapabilityMode::ReadOnly,
+            relevant_warnings: vec![WarningCategory::StatusIdentity],
+        },
+    );
+
+    // =========================================================================
+    // AUDIO CAPABILITIES (Phase 33)
+    // =========================================================================
+
+    capabilities.insert(
+        CapabilityId::new("audio.stack.detect"),
+        Capability {
+            id: CapabilityId::new("audio.stack.detect"),
+            description: "Detect PipeWire vs PulseAudio and audio configuration.".to_string(),
+            mode: CapabilityMode::ReadOnly,
+            relevant_warnings: vec![WarningCategory::StatusIdentity],
+        },
+    );
+
     CapabilityRegistry { capabilities }
 });
 
@@ -320,7 +387,8 @@ mod tests {
         let id = CapabilityId::new("display.scale.gdm");
         let cap = CAPABILITY_REGISTRY.get(&id);
         assert!(cap.is_some());
-        assert_eq!(cap.unwrap().mode, CapabilityMode::ReadOnly);
+        // Phase 31: display.scale.gdm is now Mutating (changes system files)
+        assert_eq!(cap.unwrap().mode, CapabilityMode::Mutating);
     }
 
     #[test]

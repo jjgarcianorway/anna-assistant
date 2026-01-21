@@ -139,6 +139,17 @@ pub fn route_request(input: &str) -> CapabilityRoutingResult {
         return CapabilityRoutingResult::supported("status.services");
     }
 
+    // Config review for group must be checked BEFORE status.identity
+    // because both match on "group" keyword
+    if matches_config_review_group_change(&input) {
+        return CapabilityRoutingResult::supported("config.review.group_change");
+    }
+
+    // Config review for passwd changes
+    if matches_config_review_passwd_change(&input) {
+        return CapabilityRoutingResult::supported("config.review.passwd_change");
+    }
+
     if matches_status_identity(&input) {
         return CapabilityRoutingResult::supported("status.identity");
     }
@@ -157,6 +168,15 @@ pub fn route_request(input: &str) -> CapabilityRoutingResult {
 
     if matches_package_update(&input) {
         return CapabilityRoutingResult::supported("package.update");
+    }
+
+    // =========================================================================
+    // POWER OPERATIONS (Phase 33) - Check BEFORE service operations
+    // because "stop sleep" or "disable suspend" could match service patterns
+    // =========================================================================
+
+    if matches_power_inhibit_sleep(&input) {
+        return CapabilityRoutingResult::supported("power.inhibit.sleep");
     }
 
     // =========================================================================
@@ -182,9 +202,27 @@ pub fn route_request(input: &str) -> CapabilityRoutingResult {
     // =========================================================================
     // CONFIG OPERATIONS
     // =========================================================================
+    // Note: config.review.group_change is checked earlier in the STATUS section
+    // because it needs to match before status.identity
 
     if matches_config_edit(&input) {
         return CapabilityRoutingResult::supported("config.edit");
+    }
+
+    // =========================================================================
+    // SYSTEM STATUS (Phase 33)
+    // =========================================================================
+
+    if matches_thermal_status(&input) {
+        return CapabilityRoutingResult::supported("system.thermal.status");
+    }
+
+    // =========================================================================
+    // AUDIO OPERATIONS (Phase 33)
+    // =========================================================================
+
+    if matches_audio_stack_detect(&input) {
+        return CapabilityRoutingResult::supported("audio.stack.detect");
     }
 
     // =========================================================================
@@ -312,6 +350,201 @@ fn matches_config_edit(input: &str) -> bool {
         && (input.contains("config") || input.contains("/etc/"))
 }
 
+fn matches_config_review_group_change(input: &str) -> bool {
+    // Explicit config change notifications from Anna
+    if input.contains("config changed") && input.contains("group") {
+        return true;
+    }
+    if input.contains("config changed:") && input.contains("group") {
+        return true;
+    }
+
+    // Questions about group change warnings
+    if (input.contains("warn") || input.contains("why"))
+        && input.contains("config")
+        && input.contains("group")
+    {
+        return true;
+    }
+
+    // Review/diff requests for /etc/group
+    if (input.contains("review") || input.contains("diff"))
+        && (input.contains("/etc/group") || input.contains("group"))
+    {
+        return true;
+    }
+
+    // Direct reference to /etc/group changes
+    if input.contains("/etc/group")
+        && (input.contains("changed")
+            || input.contains("restore")
+            || input.contains("undo")
+            || input.contains("what now")
+            || input.contains("backup"))
+    {
+        return true;
+    }
+
+    // Undo/restore group changes
+    if (input.contains("undo") || input.contains("restore"))
+        && input.contains("group")
+        && (input.contains("change") || input.contains("backup") || input.contains("/etc"))
+    {
+        return true;
+    }
+
+    false
+}
+
+fn matches_config_review_passwd_change(input: &str) -> bool {
+    // Explicit config change notifications
+    if input.contains("config changed") && input.contains("passwd") { return true; }
+    if input.contains("config changed:") && input.contains("passwd") { return true; }
+
+    // Questions about passwd warnings
+    if (input.contains("warn") || input.contains("why")) && input.contains("passwd") { return true; }
+
+    // Review/diff requests for /etc/passwd
+    if (input.contains("review") || input.contains("diff") || input.contains("what changed"))
+        && (input.contains("/etc/passwd") || input.contains("passwd")) { return true; }
+
+    // Direct reference to /etc/passwd changes
+    if input.contains("/etc/passwd") && (input.contains("changed") || input.contains("what") || input.contains("why")) { return true; }
+
+    // User account change inquiries (when explicitly about passwd)
+    if (input.contains("user") && input.contains("account") && input.contains("changed")) { return true; }
+
+    // Anna warned about passwd
+    if input.contains("anna") && input.contains("warn") && (input.contains("passwd") || input.contains("user")) { return true; }
+
+    false
+}
+
+// =============================================================================
+// PHASE 33 MATCHERS
+// =============================================================================
+
+fn matches_power_inhibit_sleep(input: &str) -> bool {
+    // Lid close behavior
+    if input.contains("lid") && (input.contains("close") || input.contains("switch") || input.contains("sleep") || input.contains("suspend")) {
+        return true;
+    }
+
+    // Disable sleep/suspend
+    if (input.contains("disable") || input.contains("prevent") || input.contains("stop") || input.contains("block"))
+        && (input.contains("sleep") || input.contains("suspend") || input.contains("hibernate"))
+    {
+        return true;
+    }
+
+    // Keep laptop awake
+    if (input.contains("keep") || input.contains("stay"))
+        && (input.contains("awake") || input.contains("on"))
+        && (input.contains("laptop") || input.contains("close") || input.contains("lid"))
+    {
+        return true;
+    }
+
+    // Idle action configuration
+    if input.contains("idle") && (input.contains("action") || input.contains("sleep") || input.contains("suspend") || input.contains("timeout")) {
+        return true;
+    }
+
+    // Suspend key behavior
+    if (input.contains("suspend") || input.contains("sleep")) && input.contains("key") {
+        return true;
+    }
+
+    // Direct logind.conf reference
+    if input.contains("logind") && (input.contains("lid") || input.contains("sleep") || input.contains("suspend") || input.contains("idle")) {
+        return true;
+    }
+
+    false
+}
+
+fn matches_thermal_status(input: &str) -> bool {
+    // Direct temperature queries
+    if (input.contains("temperature") || input.contains("temp"))
+        && (input.contains("cpu") || input.contains("gpu") || input.contains("system") || input.contains("what") || input.contains("show") || input.contains("check"))
+    {
+        return true;
+    }
+
+    // Thermal zone queries
+    if input.contains("thermal") && (input.contains("zone") || input.contains("status") || input.contains("sensor")) {
+        return true;
+    }
+
+    // Fan speed queries
+    if input.contains("fan") && (input.contains("speed") || input.contains("rpm") || input.contains("status") || input.contains("running")) {
+        return true;
+    }
+
+    // Overheating concerns
+    if input.contains("overheat") || input.contains("too hot") || input.contains("running hot") {
+        return true;
+    }
+
+    // Sensors query
+    if (input.starts_with("sensors") || input == "sensors") {
+        return true;
+    }
+
+    // "How hot is my..."
+    if input.contains("hot") && (input.contains("cpu") || input.contains("gpu") || input.contains("laptop") || input.contains("computer")) {
+        return true;
+    }
+
+    false
+}
+
+fn matches_audio_stack_detect(input: &str) -> bool {
+    // Direct audio stack questions
+    if (input.contains("pipewire") || input.contains("pulseaudio") || input.contains("pulse audio"))
+        && (input.contains("using") || input.contains("running") || input.contains("have") || input.contains("detect") || input.contains("which"))
+    {
+        return true;
+    }
+
+    // Audio server status
+    if input.contains("audio") && (input.contains("server") || input.contains("daemon") || input.contains("stack") || input.contains("system")) {
+        return true;
+    }
+
+    // Sound system detection
+    if input.contains("sound") && (input.contains("system") || input.contains("server") || input.contains("work") || input.contains("setup")) {
+        return true;
+    }
+
+    // Sink/source queries
+    if (input.contains("sink") || input.contains("source") || input.contains("output") || input.contains("input"))
+        && input.contains("audio")
+    {
+        return true;
+    }
+
+    // What's handling audio
+    if (input.contains("what") || input.contains("which"))
+        && (input.contains("audio") || input.contains("sound"))
+        && !input.contains("play") // Exclude "what sound is playing"
+    {
+        return true;
+    }
+
+    // Sample rate queries
+    if input.contains("sample rate") || input.contains("audio quality") || input.contains("bit depth") {
+        return true;
+    }
+
+    // pactl/pw-cli detection queries
+    if input.contains("pactl") || input.contains("pw-cli") || input.contains("pw-dump") {
+        return true;
+    }
+
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -320,6 +553,11 @@ mod tests {
     fn test_gdm_scaling_routes_correctly() {
         let result = route_request("scale gdm login screen");
         assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "display.scale.gdm");
+
+        // Test with "up" which is how user phrases it
+        let result = route_request("scale up GDM login screen");
+        assert!(result.is_supported(), "Failed to route 'scale up GDM login screen'");
         assert_eq!(result.capability_id().unwrap().as_str(), "display.scale.gdm");
 
         let result = route_request("gdm hidpi scaling");
@@ -382,5 +620,254 @@ mod tests {
             result1.capability_id().map(|id| id.as_str()),
             result2.capability_id().map(|id| id.as_str())
         );
+    }
+
+    #[test]
+    fn test_config_review_group_change_routes_correctly() {
+        // Config change notification
+        let result = route_request("config changed: group");
+        assert!(result.is_supported());
+        assert_eq!(
+            result.capability_id().unwrap().as_str(),
+            "config.review.group_change"
+        );
+
+        // Question about warning
+        let result = route_request("why did you warn me config changed group");
+        assert!(result.is_supported());
+        assert_eq!(
+            result.capability_id().unwrap().as_str(),
+            "config.review.group_change"
+        );
+
+        // Review changes with diff
+        let result = route_request("review changes: diff /etc/group /etc/group.bak");
+        assert!(result.is_supported());
+        assert_eq!(
+            result.capability_id().unwrap().as_str(),
+            "config.review.group_change"
+        );
+
+        // Direct /etc/group question
+        let result = route_request("my /etc/group changed, what now");
+        assert!(result.is_supported());
+        assert_eq!(
+            result.capability_id().unwrap().as_str(),
+            "config.review.group_change"
+        );
+
+        // Undo request
+        let result = route_request("undo group change");
+        assert!(result.is_supported());
+        assert_eq!(
+            result.capability_id().unwrap().as_str(),
+            "config.review.group_change"
+        );
+
+        // Restore request
+        let result = route_request("restore /etc/group from backup");
+        assert!(result.is_supported());
+        assert_eq!(
+            result.capability_id().unwrap().as_str(),
+            "config.review.group_change"
+        );
+    }
+
+    #[test]
+    fn test_config_review_group_change_routing_is_deterministic() {
+        let inputs = [
+            "config changed: group",
+            "why did you warn me config changed group",
+            "my /etc/group changed, what now",
+            "undo group change",
+        ];
+
+        for input in inputs {
+            let result1 = route_request(input);
+            let result2 = route_request(input);
+            assert_eq!(
+                result1.capability_id().map(|id| id.as_str()),
+                result2.capability_id().map(|id| id.as_str()),
+                "Routing must be deterministic for: {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn test_config_review_passwd_change_routes_correctly() {
+        // Config change notification
+        let result = route_request("config changed: passwd");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "config.review.passwd_change");
+
+        // Why did passwd change
+        let result = route_request("why did passwd change");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "config.review.passwd_change");
+
+        // What changed in /etc/passwd
+        let result = route_request("what changed in /etc/passwd");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "config.review.passwd_change");
+
+        // Anna warned about passwd
+        let result = route_request("anna warned about passwd");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "config.review.passwd_change");
+
+        // Review passwd changes
+        let result = route_request("review passwd changes");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "config.review.passwd_change");
+
+        // User account changed
+        let result = route_request("user account changed");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "config.review.passwd_change");
+    }
+
+    // =========================================================================
+    // PHASE 33: Power, Thermal, Audio capability routing tests
+    // =========================================================================
+
+    #[test]
+    fn test_power_inhibit_sleep_routes_correctly() {
+        // Lid close patterns
+        let result = route_request("prevent lid close from sleeping");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+
+        let result = route_request("stop sleep when closing lid");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+
+        let result = route_request("keep laptop awake when lid closed");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+
+        // Suspend/hibernate patterns
+        let result = route_request("stop suspend");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+
+        let result = route_request("prevent hibernate");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+
+        // Idle action patterns
+        let result = route_request("idle action sleep");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+
+        // logind patterns
+        let result = route_request("configure logind lid switch");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "power.inhibit.sleep");
+    }
+
+    #[test]
+    fn test_thermal_status_routes_correctly() {
+        // Temperature queries
+        let result = route_request("what is my cpu temperature");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        let result = route_request("show gpu temp");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        let result = route_request("check system temperature");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        // Thermal zone queries
+        let result = route_request("thermal zone status");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        // Fan queries
+        let result = route_request("fan speed status");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        let result = route_request("is my fan running");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        // Overheating concerns
+        let result = route_request("is my laptop overheating");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        let result = route_request("my computer is running hot");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+
+        // Direct sensors query
+        let result = route_request("sensors");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "system.thermal.status");
+    }
+
+    #[test]
+    fn test_audio_stack_detect_routes_correctly() {
+        // Direct PipeWire/PulseAudio queries
+        let result = route_request("am I using pipewire or pulseaudio");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+
+        let result = route_request("is pipewire running");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+
+        let result = route_request("which audio server do I have");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+
+        // Audio system queries
+        let result = route_request("what audio system am I using");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+
+        let result = route_request("audio server status");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+
+        // Sound system queries
+        let result = route_request("does my sound system work");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+
+        // Sample rate queries
+        let result = route_request("what is my sample rate");
+        assert!(result.is_supported());
+        assert_eq!(result.capability_id().unwrap().as_str(), "audio.stack.detect");
+    }
+
+    #[test]
+    fn test_phase33_routing_is_deterministic() {
+        let inputs = [
+            // Power
+            "prevent lid close from sleeping",
+            "disable suspend",
+            // Thermal
+            "cpu temperature",
+            "fan speed status",
+            // Audio
+            "am I using pipewire",
+            "audio server status",
+        ];
+
+        for input in inputs {
+            let result1 = route_request(input);
+            let result2 = route_request(input);
+            assert_eq!(
+                result1.capability_id().map(|id| id.as_str()),
+                result2.capability_id().map(|id| id.as_str()),
+                "Phase 33 routing must be deterministic for: {}",
+                input
+            );
+        }
     }
 }

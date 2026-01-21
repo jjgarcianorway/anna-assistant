@@ -195,4 +195,98 @@ pub fn add_builtin_recipes(book: &mut RecipeBook) {
         last_used: None,
         enabled: true,
     });
+
+    // Recipe: Disable sleep/suspend
+    book.recipes.push(Recipe {
+        id: "disable-sleep".to_string(),
+        name: "Disable Sleep and Suspend".to_string(),
+        keywords: vec![
+            "sleep".to_string(),
+            "suspend".to_string(),
+            "hibernate".to_string(),
+            "disable".to_string(),
+            "never".to_string(),
+            "prevent".to_string(),
+        ],
+        patterns: vec![
+            "disable sleep".to_string(),
+            "prevent sleep".to_string(),
+            "never sleep".to_string(),
+            "stop sleeping".to_string(),
+            "disable suspend".to_string(),
+            "no suspend".to_string(),
+            "disable hibernate".to_string(),
+            "computer never sleep".to_string(),
+        ],
+        context: RecipeContext::default(),
+        commands: vec![RecipeCommand {
+            command: "systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target".to_string(),
+            description: "Mask all sleep/suspend systemd targets to prevent sleep".to_string(),
+            modifies_system: true,
+            backup_file: None,
+            needs_root: true,
+        }],
+        verification: Some(VerificationStep {
+            command: "systemctl status sleep.target".to_string(),
+            expected_contains: Some("masked".to_string()),
+            expected_not_contains: None,
+        }),
+        source: RecipeSource::BuiltIn,
+        success_count: 0,
+        last_used: None,
+        enabled: true,
+    });
+
+    // Recipe: GDM HiDPI scaling
+    book.recipes.push(Recipe {
+        id: "gdm-hidpi-scaling".to_string(),
+        name: "Scale GDM Login Screen (HiDPI)".to_string(),
+        keywords: vec![
+            "gdm".to_string(),
+            "login".to_string(),
+            "scale".to_string(),
+            "scaling".to_string(),
+            "hidpi".to_string(),
+            "tiny".to_string(),
+            "small".to_string(),
+            "screen".to_string(),
+        ],
+        patterns: vec![
+            "gdm scale".to_string(),
+            "gdm scaling".to_string(),
+            "login screen scale".to_string(),
+            "gdm tiny".to_string(),
+            "gdm small".to_string(),
+            "gdm hidpi".to_string(),
+            "scale gdm".to_string(),
+            "gdm 2x".to_string(),
+            "login screen too small".to_string(),
+        ],
+        context: RecipeContext::default(),
+        commands: vec![
+            RecipeCommand {
+                command: "sudo -u gdm dbus-launch gsettings set org.gnome.desktop.interface scaling-factor 2".to_string(),
+                description: "Set GDM interface scaling to 2x".to_string(),
+                modifies_system: true,
+                backup_file: None,
+                needs_root: true,
+            },
+            RecipeCommand {
+                command: "sudo -u gdm dbus-launch gsettings set org.gnome.desktop.interface text-scaling-factor 1.5".to_string(),
+                description: "Set GDM text scaling to 1.5x".to_string(),
+                modifies_system: true,
+                backup_file: None,
+                needs_root: true,
+            },
+        ],
+        verification: Some(VerificationStep {
+            command: "sudo -u gdm dbus-launch gsettings get org.gnome.desktop.interface scaling-factor".to_string(),
+            expected_contains: Some("2".to_string()),
+            expected_not_contains: None,
+        }),
+        source: RecipeSource::BuiltIn,
+        success_count: 0,
+        last_used: None,
+        enabled: true,
+    });
 }

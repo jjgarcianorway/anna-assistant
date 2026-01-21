@@ -5,6 +5,43 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.75] - 2026-01-21
+
+### Added - Phase 35 Capability Improvements
+
+**Five new capability handlers with deterministic routing:**
+
+1. **config.review.passwd_change** (ReadOnly)
+   - Reviews /etc/passwd changes vs backup
+   - Explains additions, removals, modifications
+   - Detects likely cause (useradd, usermod, package install)
+
+2. **system.thermal.status** (ReadOnly)
+   - Reports CPU/GPU temperatures from /sys/class/thermal
+   - Fan speeds from /sys/class/hwmon
+   - No lm-sensors dependency required
+
+3. **audio.stack.detect** (ReadOnly)
+   - Detects PipeWire vs PulseAudio
+   - Reports sample rate, default sink/source
+   - Zero-dependency probing
+
+4. **power.inhibit.sleep** (Mutating)
+   - Configures lid close, idle, suspend key behavior
+   - Modifies /etc/systemd/logind.conf.d/
+   - ActionPlan with verification and rollback
+
+5. **display.scale.gdm** (Mutating - improved)
+   - Now includes comprehensive verification
+   - Checks file ownership after propagation
+   - Full rollback support
+
+**All handlers:**
+- Under 400 lines each
+- Evidence capped at 3 lines
+- Comprehensive test coverage
+- No LLM calls (Phase 34 proof)
+
 ## [0.3.74] - 2026-01-16
 
 ### Added - Capability Routing Layer

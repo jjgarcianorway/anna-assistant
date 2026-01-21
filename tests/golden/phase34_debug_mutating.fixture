@@ -1,0 +1,11 @@
+# Phase 34: Debug mode output for Mutating capability (display.scale.gdm)
+# Expected: Deterministic debug plan structure with clear labels in content
+# Debug mode output (ANNA_DEBUG=1)
+{"Step":{"step":{"step_type":"ConfirmationRequest","content":"[DEBUG] ActionPlan:\n  ID: plan-display-scale-gdm\n  Summary: Copy display settings to GDM\n  Changes needed: true\n[DEBUG] Steps:\n  1. Create GDM configuration directory (sudo: true)\n  2. Copy display configuration to GDM (sudo: true)\n  3. Set file ownership for GDM (sudo: true)\n[DEBUG] Verification:\n  Check monitors.xml exists in GDM config\n[DEBUG] Rollback possible: true\n\nDetected:\n  This will copy your monitors.xml to GDM so the login screen uses the same scaling (2) as your session.\n\nPlan:\n  Step 1: Create GDM configuration directory [requires approval]\n  Step 2: Copy display configuration to GDM [requires approval]\n  Step 3: Set file ownership for GDM [requires approval]\n\nAnna: Proceed? (yes/no)"}}}
+{"Done":{"result":{"answer":"[DEBUG] ActionPlan:\n  ID: plan-display-scale-gdm\n  Summary: Copy display settings to GDM\n  Changes needed: true\n[DEBUG] Steps:\n  1. Create GDM configuration directory (sudo: true)\n  2. Copy display configuration to GDM (sudo: true)\n  3. Set file ownership for GDM (sudo: true)\n[DEBUG] Verification:\n  Check monitors.xml exists in GDM config\n[DEBUG] Rollback possible: true\n\nDetected:\n  This will copy your monitors.xml to GDM so the login screen uses the same scaling (2) as your session.\n\nPlan:\n  Step 1: Create GDM configuration directory [requires approval]\n  Step 2: Copy display configuration to GDM [requires approval]\n  Step 3: Set file ownership for GDM [requires approval]\n\nAnna: Proceed? (yes/no)","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":true,"clarification_question":"Proceed? (yes/no)","cached":false,"citations":[],"abstained":false,"final_confidence":null}}}
+# CONTRACT ENFORCEMENT:
+# - commands_executed MUST be empty (no LLM)
+# - Debug output MUST show ActionPlan structure with [DEBUG] labels
+# - Step descriptions only, no shell syntax in user-facing content
+# - No raw commands (no mkdir, cp, chown in user content)
+# - Rollback capability MUST be documented

@@ -1,0 +1,9 @@
+# Phase 33: audio.stack.detect (READ_ONLY) - Deterministic capability output
+# Expected: Concise output with max 3 evidence items, NO raw commands
+# Non-Debug mode output
+{"Step":{"step":{"step_type":"FinalAnswer","content":"Your system is using PipeWire (with PulseAudio compat).\nPipeWire is providing PulseAudio compatibility, so PulseAudio apps work seamlessly.\nRunning at 48000 Hz (professional)."}}}
+{"Done":{"result":{"answer":"Your system is using PipeWire (with PulseAudio compat).\nPipeWire is providing PulseAudio compatibility, so PulseAudio apps work seamlessly.\nRunning at 48000 Hz (professional).","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[],"abstained":false,"final_confidence":1.0}}}
+# CONTRACT ENFORCEMENT:
+# - commands_executed MUST be empty (no LLM path)
+# - Max 3 evidence items in output
+# - No raw commands in output

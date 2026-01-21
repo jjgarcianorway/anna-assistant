@@ -163,6 +163,9 @@ pub async fn chat_with_timeout(model: &str, prompt: &str, timeout_secs: u64) -> 
 
 /// Single LLM request attempt
 pub async fn chat_single_attempt(model: &str, prompt: &str, timeout_secs: u64) -> Result<String> {
+    // Phase 34: Record LLM call for test verification
+    crate::record_llm_call();
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(timeout_secs))
         .build()?;
@@ -218,6 +221,9 @@ pub async fn chat_streaming_validated<W>(
 where
     W: tokio::io::AsyncWriteExt + Unpin,
 {
+    // Phase 34: Record LLM call for test verification
+    crate::record_llm_call();
+
     use anna_shared::rpc::StreamingResponse;
     use crate::validation::StreamingValidator;
     use futures_util::StreamExt;

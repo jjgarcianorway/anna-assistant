@@ -1,0 +1,10 @@
+# Phase 34: Debug mode output for ReadOnly capability (system.thermal.status)
+# Expected: Deterministic debug evidence with clear labels in content
+# Debug mode output (ANNA_DEBUG=1)
+{"Step":{"step":{"step_type":"FinalAnswer","content":"[DEBUG] Evidence:\n  - temp_x86_pkg: 45.0C\n  - critical: 100.0C\n  - margin: 55.0C\n[DEBUG] Explanation:\nAll temperatures are within normal range.\nx86_pkg_temp: 45.0C (55.0C below critical)\nNo fan sensors detected. May be passive cooling or sensors not exposed."}}}
+{"Done":{"result":{"answer":"[DEBUG] Evidence:\n  - temp_x86_pkg: 45.0C\n  - critical: 100.0C\n  - margin: 55.0C\n[DEBUG] Explanation:\nAll temperatures are within normal range.\nx86_pkg_temp: 45.0C (55.0C below critical)\nNo fan sensors detected. May be passive cooling or sensors not exposed.","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[],"abstained":false,"final_confidence":1.0}}}
+# CONTRACT ENFORCEMENT:
+# - commands_executed MUST be empty (no LLM)
+# - Debug output MUST be labeled with [DEBUG] prefix
+# - Evidence MUST be deterministic (same input = same output)
+# - No raw commands in output

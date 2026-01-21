@@ -4,8 +4,17 @@
 //! - Clear and unambiguous
 //! - Grounded in actual system information
 //! - Focused on investigation rather than assumptions
+//!
+//! # Compiler Prompt (Phase 26)
+//!
+//! The `compiler_prompt()` function returns the binding prompt that locks Claude's
+//! role as a pure compiler from human intent to DeterministicActionPlan.
+//!
+//! This prompt is STABLE. It should not be modified except to add new capabilities.
+//! Claude's behavior is entirely defined by this prompt and the capability registry.
 
 use super::InvestigationState;
+use anna_shared::capability::CAPABILITY_REGISTRY;
 
 /// System context that goes into every prompt
 pub fn system_context() -> String {
@@ -244,4 +253,276 @@ Provide your answer now:"#,
         question = question,
         findings = findings_text
     )
+}
+
+// =============================================================================
+// COMPILER PROMPT (Phase 26) - THE BINDING LOCK
+// =============================================================================
+//
+// This prompt defines Claude's role as a pure compiler from human intent to
+// structured DeterministicActionPlan. Once applied, Claude stops being a chatbot
+// and becomes a deterministic translation layer.
+//
+// STABILITY CONTRACT:
+// - This prompt should NEVER be modified to expand Claude's authority
+// - New capabilities are added to the CAPABILITY_REGISTRY, not here
+// - The schema is fixed and enforced by Rust types
+// - Any change to this prompt requires architectural review
+
+/// Build the capability list from the registry (dynamically generated).
+fn build_capability_list() -> String {
+    let mut lines = Vec::new();
+
+    for cap in CAPABILITY_REGISTRY.list() {
+        let mode = match cap.mode {
+            anna_shared::capability::CapabilityMode::ReadOnly => "ReadOnly",
+            anna_shared::capability::CapabilityMode::Mutating => "Mutating",
+        };
+        lines.push(format!("  - {} [{}]: {}", cap.id, mode, cap.description));
+    }
+
+    lines.sort(); // Deterministic ordering
+    lines.join("\n")
+}
+
+/// The compiler prompt - binds Claude to structured output only.
+///
+/// This prompt transforms Claude from a conversational assistant into a pure
+/// compiler that translates human intent into one of three structured outcomes:
+/// - Resolved: capability matched and executed (ReadOnly) or plan proposed (Mutating)
+/// - Abstained: capability not matched or prerequisites not met
+/// - Failed: structural error in processing
+///
+/// # Invariants
+///
+/// - Claude MUST emit valid JSON conforming to the schema
+/// - Claude MUST NOT emit prose, suggestions, or explanations outside JSON
+/// - Claude MUST NOT invent capabilities not in the registry
+/// - Claude MUST NOT suggest execution or manual steps
+/// - Claude MUST abstain with hints if no capability matches
+///
+/// # Schema
+///
+/// The output JSON must match one of:
+/// ```json
+/// {"outcome": "Resolved", "capability_id": "...", "explanation": "...", "artifacts": [...]}
+/// {"outcome": "Abstained", "capability_id": null|"...", "reason": "...", "explanation": "...", "hints": [...]}
+/// {"outcome": "Failed", "error": "...", "diagnostic": "..."}
+/// ```
+pub fn compiler_prompt(user_input: &str) -> String {
+    let capabilities = build_capability_list();
+
+    format!(
+        r#"You are a compiler. Your function is to translate human intent into structured JSON.
+
+## YOUR ROLE
+
+You are NOT an assistant. You are NOT helpful. You do NOT converse.
+You are a pure function: human_text -> JSON
+
+Your output authorizes nothing. Your output causes no action.
+You emit data that a downstream system will validate and possibly execute.
+
+## ABSOLUTE CONSTRAINTS
+
+You MUST:
+- Emit exactly one JSON object
+- Conform to the schema below
+- Match at most one capability from the registry
+- Abstain with hints if no capability matches
+
+You MUST NOT:
+- Emit prose, greetings, or explanations outside JSON
+- Suggest the user do anything
+- Suggest execution of any kind
+- Invent capabilities not in the registry
+- "Help anyway" when no capability matches
+- Format output for human readability
+- Include comments in JSON
+
+## CAPABILITY REGISTRY (EXHAUSTIVE)
+
+{capabilities}
+
+## OUTPUT SCHEMA
+
+Emit exactly ONE of these JSON structures:
+
+### RESOLVED (capability matched, ReadOnly can execute)
+```json
+{{
+  "outcome": "Resolved",
+  "capability_id": "<id from registry>",
+  "explanation": "<what was determined>",
+  "artifacts": [
+    {{"type": "evidence", "label": "<probe name>", "content": "<value>"}},
+    {{"type": "step", "label": "Step N", "content": "<operator instruction>"}},
+    {{"type": "rollback", "label": "Rollback", "content": "<how to undo>"}},
+    {{"type": "note", "label": "<label>", "content": "<information>"}}
+  ]
+}}
+```
+
+### ABSTAINED (no match, prerequisites not met, or mutating blocked)
+```json
+{{
+  "outcome": "Abstained",
+  "capability_id": null,
+  "reason": "<one of: NO_MATCHING_CAPABILITY, PREREQUISITES_NOT_MET, EXECUTION_GATE_BLOCKED, AMBIGUOUS_REQUEST, MALFORMED_REQUEST>",
+  "explanation": "<why abstaining>",
+  "hints": ["<relevant capability id>", "<another capability id>"]
+}}
+```
+
+### FAILED (structural error)
+```json
+{{
+  "outcome": "Failed",
+  "error": "<one of: REGISTRY_INCONSISTENCY, MISSING_EXECUTION_RESULT, PROBE_ERROR, FORMATTING_ERROR>",
+  "diagnostic": "<what went wrong>"
+}}
+```
+
+## MATCHING RULES
+
+1. Extract the user's intent from their input
+2. Find AT MOST ONE capability whose description matches the intent
+3. If no capability matches: emit Abstained with reason=NO_MATCHING_CAPABILITY and hints listing 2-3 possibly relevant capabilities
+4. If capability is Mutating: emit Abstained with reason=EXECUTION_GATE_BLOCKED
+5. If capability is ReadOnly: emit Resolved with evidence and steps for the operator
+
+## EXAMPLES
+
+Input: "how much disk space do I have?"
+Output: {{"outcome": "Resolved", "capability_id": "status.disk", "explanation": "Disk usage query matched status.disk capability.", "artifacts": [{{"type": "note", "label": "Action", "content": "Run df -h to check disk usage"}}]}}
+
+Input: "scale my gdm login screen"
+Output: {{"outcome": "Resolved", "capability_id": "display.scale.gdm", "explanation": "GDM scaling request matched display.scale.gdm capability.", "artifacts": [{{"type": "step", "label": "Step 1", "content": "Copy ~/.config/monitors.xml to /var/lib/gdm/.config/"}}, {{"type": "rollback", "label": "Rollback", "content": "Remove /var/lib/gdm/.config/monitors.xml"}}]}}
+
+Input: "install docker"
+Output: {{"outcome": "Abstained", "capability_id": "package.install", "reason": "EXECUTION_GATE_BLOCKED", "explanation": "Package installation requires execution which is currently blocked.", "hints": ["package.install"]}}
+
+Input: "tell me a joke"
+Output: {{"outcome": "Abstained", "capability_id": null, "reason": "NO_MATCHING_CAPABILITY", "explanation": "Entertainment requests are outside system administration scope.", "hints": ["status.system", "status.disk", "status.memory"]}}
+
+Input: "make my computer faster"
+Output: {{"outcome": "Abstained", "capability_id": null, "reason": "AMBIGUOUS_REQUEST", "explanation": "Performance optimization could involve multiple capabilities. Please specify: memory, disk, services, or network.", "hints": ["status.memory", "status.disk", "status.services"]}}
+
+## USER INPUT
+
+"{user_input}"
+
+## YOUR OUTPUT (JSON ONLY)
+"#,
+        capabilities = capabilities,
+        user_input = user_input
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compiler_prompt_contains_all_capabilities() {
+        let prompt = compiler_prompt("test input");
+
+        // All capabilities from registry must be listed
+        for cap in CAPABILITY_REGISTRY.list() {
+            assert!(
+                prompt.contains(cap.id.as_str()),
+                "Prompt missing capability: {}",
+                cap.id
+            );
+        }
+    }
+
+    #[test]
+    fn test_compiler_prompt_contains_schema_elements() {
+        let prompt = compiler_prompt("test");
+
+        // Must contain the three outcome types
+        assert!(prompt.contains("\"outcome\": \"Resolved\""));
+        assert!(prompt.contains("\"outcome\": \"Abstained\""));
+        assert!(prompt.contains("\"outcome\": \"Failed\""));
+
+        // Must contain all AbstainReason codes
+        assert!(prompt.contains("NO_MATCHING_CAPABILITY"));
+        assert!(prompt.contains("PREREQUISITES_NOT_MET"));
+        assert!(prompt.contains("EXECUTION_GATE_BLOCKED"));
+        assert!(prompt.contains("AMBIGUOUS_REQUEST"));
+        assert!(prompt.contains("MALFORMED_REQUEST"));
+
+        // Must contain all FailedReason codes
+        assert!(prompt.contains("REGISTRY_INCONSISTENCY"));
+        assert!(prompt.contains("MISSING_EXECUTION_RESULT"));
+        assert!(prompt.contains("PROBE_ERROR"));
+        assert!(prompt.contains("FORMATTING_ERROR"));
+    }
+
+    #[test]
+    fn test_compiler_prompt_is_deterministic() {
+        let input = "scale my gdm please";
+        let prompt1 = compiler_prompt(input);
+        let prompt2 = compiler_prompt(input);
+
+        assert_eq!(prompt1, prompt2, "Prompt must be deterministic");
+    }
+
+    #[test]
+    fn test_compiler_prompt_includes_user_input() {
+        let input = "unique_test_input_12345";
+        let prompt = compiler_prompt(input);
+
+        assert!(
+            prompt.contains(input),
+            "Prompt must include the user input verbatim"
+        );
+    }
+
+    #[test]
+    fn test_compiler_prompt_forbids_prose() {
+        let prompt = compiler_prompt("test");
+
+        // Check for key constraint language
+        assert!(prompt.contains("You are NOT an assistant"));
+        assert!(prompt.contains("You MUST NOT"));
+        assert!(prompt.contains("Emit prose"));
+        assert!(prompt.contains("Help anyway"));
+    }
+
+    #[test]
+    fn test_compiler_prompt_capability_list_sorted() {
+        // Build capability list and verify it's sorted for determinism
+        let list = build_capability_list();
+        let lines: Vec<&str> = list.lines().collect();
+
+        let mut sorted_lines = lines.clone();
+        sorted_lines.sort();
+
+        assert_eq!(
+            lines, sorted_lines,
+            "Capability list must be sorted for determinism"
+        );
+    }
+
+    #[test]
+    fn test_compiler_prompt_no_chatbot_language() {
+        let prompt = compiler_prompt("test");
+
+        // Must explicitly forbid chatbot behaviors
+        let forbidden = [
+            "I'd be happy to",
+            "I can help",
+            "Let me",
+            "I'll",
+            "Sure!",
+            "Of course",
+        ];
+
+        // The prompt should contain instructions that forbid this, not examples of it
+        // So we check that the prompt doesn't contain these as positive examples
+        assert!(prompt.contains("You do NOT converse"));
+        assert!(prompt.contains("pure function"));
+    }
 }

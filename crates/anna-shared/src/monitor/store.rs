@@ -45,7 +45,15 @@ impl IssueStore {
     }
 
     /// Update with new check results
+    /// Phase 34A: Preserves notified/acknowledged flags for matching issues
     pub fn update(&mut self, results: MonitorResults) {
+        // Build lookup map of existing issues by (type, summary) to preserve flags
+        let existing_flags: std::collections::HashMap<(IssueType, String), (bool, bool)> =
+            self.active_issues
+                .iter()
+                .map(|i| ((i.issue_type.clone(), i.summary.clone()), (i.notified, i.acknowledged)))
+                .collect();
+
         // Mark old issues that are no longer present as resolved
         for old_issue in &mut self.active_issues {
             let still_present = results.issues.iter().any(|new| {
@@ -58,8 +66,17 @@ impl IssueStore {
             }
         }
 
-        // Keep only issues that are still present or new
-        self.active_issues = results.issues;
+        // Update active issues, preserving flags for issues that already existed
+        let mut new_issues = results.issues;
+        for issue in &mut new_issues {
+            let key = (issue.issue_type.clone(), issue.summary.clone());
+            if let Some(&(notified, acknowledged)) = existing_flags.get(&key) {
+                // Phase 34A: Preserve flags - issue already existed, keep its state
+                issue.notified = notified;
+                issue.acknowledged = acknowledged;
+            }
+        }
+        self.active_issues = new_issues;
         self.last_updated = Some(chrono::Utc::now().to_rfc3339());
 
         // Limit history size
@@ -211,6 +228,85 @@ fn extract_file_path(details: &str) -> Option<String> {
     }
 
     None
+}
+
+// =============================================================================
+// Phase 34A: Regression Tests
+// =============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_issue(issue_type: IssueType, summary: &str) -> Issue {
+        Issue {
+            issue_type,
+            severity: Severity::Warning,
+            summary: summary.to_string(),
+            details: String::new(),
+            detected_at: chrono::Utc::now().to_rfc3339(),
+            suggested_fix: None,
+            acknowledged: false,
+            notified: false,
+        }
+    }
+
+    fn make_results(issues: Vec<Issue>) -> MonitorResults {
+        MonitorResults {
+            issues,
+            checked_at: chrono::Utc::now().to_rfc3339(),
+            duration_ms: 100,
+        }
+    }
+
+    #[test]
+    fn test_config_banner_printed_once_per_session() {
+        // Phase 34A: Simulate two update cycles with the same issue
+        // The notified flag must be preserved so the alert shows only once
+
+        let mut store = IssueStore::default();
+
+        // First update: New issue detected
+        let issue1 = make_issue(IssueType::ConfigChanged, "Config changed: group");
+        store.update(make_results(vec![issue1]));
+
+        // Issue is fresh, should be unnotified
+        assert_eq!(store.get_unnotified().len(), 1, "First update: issue should be unnotified");
+
+        // Mark as notified (simulates what get_pending_alerts does)
+        store.mark_notified();
+        assert_eq!(store.get_unnotified().len(), 0, "After marking: no unnotified issues");
+
+        // Second update: Same issue still present (monitoring re-runs)
+        let issue2 = make_issue(IssueType::ConfigChanged, "Config changed: group");
+        store.update(make_results(vec![issue2]));
+
+        // KEY ASSERTION: notified flag must be preserved
+        // The banner should NOT appear again
+        assert_eq!(
+            store.get_unnotified().len(), 0,
+            "Phase 34A: After second update with same issue, notified flag must be preserved"
+        );
+    }
+
+    #[test]
+    fn test_new_issues_are_not_notified() {
+        // Verify new issues (different type/summary) are shown
+        let mut store = IssueStore::default();
+
+        // First issue
+        let issue1 = make_issue(IssueType::ConfigChanged, "Config changed: group");
+        store.update(make_results(vec![issue1]));
+        store.mark_notified();
+
+        // Different issue appears
+        let issue2 = make_issue(IssueType::ServiceFailed, "sshd.service failed");
+        store.update(make_results(vec![issue2]));
+
+        // New issue should be unnotified
+        assert_eq!(store.get_unnotified().len(), 1);
+        assert_eq!(store.get_unnotified()[0].summary, "sshd.service failed");
+    }
 }
 
 /// Format issues for display

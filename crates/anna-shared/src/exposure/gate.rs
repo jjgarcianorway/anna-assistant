@@ -21,6 +21,38 @@ pub struct GateResult {
     pub content: String,
     /// Reason for blocking (if emit is false).
     pub block_reason: Option<BlockReason>,
+    /// Additive warnings attached as metadata (never block content).
+    /// Phase 29: Warnings are additive, not terminal.
+    pub warnings: Vec<String>,
+}
+
+impl GateResult {
+    /// Create a result with no warnings.
+    pub fn new(emit: bool, content: String, block_reason: Option<BlockReason>) -> Self {
+        Self {
+            emit,
+            content,
+            block_reason,
+            warnings: Vec::new(),
+        }
+    }
+
+    /// Attach a warning as metadata (does not block content).
+    pub fn with_warning(mut self, warning: String) -> Self {
+        self.warnings.push(warning);
+        self
+    }
+
+    /// Attach multiple warnings as metadata.
+    pub fn with_warnings(mut self, warnings: Vec<String>) -> Self {
+        self.warnings.extend(warnings);
+        self
+    }
+
+    /// Check if any warnings are attached.
+    pub fn has_warnings(&self) -> bool {
+        !self.warnings.is_empty()
+    }
 }
 
 /// Reason why dialogue was blocked.
@@ -73,17 +105,18 @@ impl ExposureGate {
     ///
     /// Returns GateResult with emit=true if the dialogue should be shown.
     /// The content field contains the sanitized version.
+    /// Phase 29: Warnings are attached as metadata, never block content.
     pub fn filter(&self, content: &str, classification: DialogueClassification) -> GateResult {
         // Step 1: Check exposure level allows this classification
         if !classification.visible_at(self.level) {
-            return GateResult {
-                emit: false,
-                content: String::new(),
-                block_reason: Some(BlockReason::ExposureLevelTooLow {
+            return GateResult::new(
+                false,
+                String::new(),
+                Some(BlockReason::ExposureLevelTooLow {
                     current: self.level,
                     required: classification.required_level(),
                 }),
-            };
+            );
         }
 
         // Step 2: Sanitize content
@@ -91,30 +124,22 @@ impl ExposureGate {
 
         // Step 3: Check for forbidden patterns
         if !sanitized.is_clean {
-            return GateResult {
-                emit: false,
-                content: String::new(),
-                block_reason: Some(BlockReason::ForbiddenPatterns {
+            return GateResult::new(
+                false,
+                String::new(),
+                Some(BlockReason::ForbiddenPatterns {
                     violations: sanitized.violations.iter().map(|v| format!("{:?}: '{}'", v.pattern, v.matched)).collect(),
                 }),
-            };
+            );
         }
 
         // Step 4: Check for empty content
         if content.trim().is_empty() {
-            return GateResult {
-                emit: false,
-                content: String::new(),
-                block_reason: Some(BlockReason::EmptyContent),
-            };
+            return GateResult::new(false, String::new(), Some(BlockReason::EmptyContent));
         }
 
         // All checks passed - content is clean (no sanitization needed)
-        GateResult {
-            emit: true,
-            content: content.to_string(),
-            block_reason: None,
-        }
+        GateResult::new(true, content.to_string(), None)
     }
 
     /// Check if any dialogue would be visible at current level.
@@ -133,11 +158,6 @@ impl ExposureGate {
     }
 }
 
-/// Fallback for READ_ONLY intents when LLM response contained forbidden patterns.
-/// Phase 28: Honest acknowledgment instead of empty non-answer.
-/// The LLM generated invalid output (e.g., manual commands) so we cannot show it.
-const FALLBACK_READONLY: &str = "Anna gathered information but could not format a valid response. See 'annactl capabilities' for what Anna can do.";
-
 /// Fallback for MUTATING intents - ActionPlan flow with confirmation.
 /// Phase 15/22: MUTATING operations require confirmation before execution.
 const FALLBACK_MUTATING: &str = "This operation requires changes. An action plan will be prepared for your approval before any modifications are made.";
@@ -151,14 +171,28 @@ pub fn filter_dialogue(content: &str, classification: DialogueClassification) ->
 /// Phase 15/22: FinalAnswer is NOT privileged - it must be sanitized.
 /// Phase 24: Applies confidence phrasing based on track record.
 ///
-/// If the answer contains forbidden patterns (manual commands), return appropriate fallback.
+/// If the answer contains forbidden patterns (manual commands), return capability-aware fallback.
 ///
-/// READ_ONLY: Gets direct answer fallback (no "would you like me to" offers)
+/// READ_ONLY: Gets capability-routed response (Abstained with hints, not generic fallback)
 /// MUTATING: Gets ActionPlan confirmation fallback
 ///
 /// Note: FinalAnswer uses Summary level (not Silent) because answers should
 /// always be visible. Only forbidden pattern violations cause fallback.
 pub fn filter_final_answer(content: &str, intent: IntentClass) -> GateResult {
+    filter_final_answer_with_request(content, intent, None)
+}
+
+/// Filter a FinalAnswer with original request for capability routing.
+/// When the original request is provided, blocked output produces a capability-aware
+/// response instead of a generic fallback.
+/// Phase 29: Warnings are preserved as metadata, not lost in fallback.
+pub fn filter_final_answer_with_request(
+    content: &str,
+    intent: IntentClass,
+    original_request: Option<&str>,
+) -> GateResult {
+    use crate::capability::{build_policy_violation_response, format_outcome_to_string};
+
     // Use Summary level to ensure answers are always visible
     // The only thing that blocks FinalAnswer is forbidden patterns
     let gate = ExposureGate::new(ExposureLevel::Summary);
@@ -169,23 +203,37 @@ pub fn filter_final_answer(content: &str, intent: IntentClass) -> GateResult {
         let policy = get_policy();
         let content_with_phrasing = apply_confidence_phrasing(&result.content, policy.confidence_level);
 
-        GateResult {
-            emit: true,
-            content: content_with_phrasing,
-            block_reason: None,
-        }
+        // Phase 29: Preserve any warnings from the original result
+        GateResult::new(true, content_with_phrasing, None)
+            .with_warnings(result.warnings)
     } else {
         // Answer was blocked - use intent-appropriate fallback
         let fallback = match intent {
-            IntentClass::ReadOnly => FALLBACK_READONLY,
-            IntentClass::Mutating => FALLBACK_MUTATING,
+            IntentClass::ReadOnly => {
+                // Use capability routing to provide structured fallback
+                let request = original_request.unwrap_or("");
+                let response = build_policy_violation_response(request);
+                format_outcome_to_string(&response)
+            }
+            IntentClass::Mutating => FALLBACK_MUTATING.to_string(),
         };
-        GateResult {
-            emit: true,
-            content: fallback.to_string(),
-            block_reason: result.block_reason,
-        }
+        // Phase 29: Even on fallback, preserve warnings as metadata
+        GateResult::new(true, fallback, result.block_reason)
+            .with_warnings(result.warnings)
     }
+}
+
+/// Filter a FinalAnswer and attach pending system warnings as metadata.
+/// Phase 29: Warnings are additive - they accompany the primary response,
+/// never replace it.
+pub fn filter_final_answer_with_warnings(
+    content: &str,
+    intent: IntentClass,
+    original_request: Option<&str>,
+    pending_warnings: Vec<String>,
+) -> GateResult {
+    filter_final_answer_with_request(content, intent, original_request)
+        .with_warnings(pending_warnings)
 }
 
 /// Phase 24: Apply confidence phrasing to answer based on track record.
@@ -388,13 +436,23 @@ mod tests {
     // Phase 22: Intent-aware fallback tests
 
     #[test]
-    fn test_filter_final_answer_readonly_fallback() {
-        // Content with forbidden patterns should get READ_ONLY fallback
+    fn test_filter_final_answer_readonly_fallback_no_generic() {
+        // Content with forbidden patterns should get capability-aware fallback
         let result = filter_final_answer("sudo pacman -Syu", IntentClass::ReadOnly);
         assert!(result.emit);
-        // Phase 28: Honest fallback instead of non-answer
-        assert!(result.content.contains("could not format a valid response"));
-        assert!(result.content.contains("annactl capabilities"));
+        // CRITICAL: Must NOT contain the generic fallback message
+        assert!(
+            !result.content.contains("could not format a valid response"),
+            "Must not use generic fallback. Got: {}",
+            result.content
+        );
+        // Should have capability-aware response with hints
+        assert!(
+            result.content.contains("does not match any known capability")
+                || result.content.contains("Things I can help with"),
+            "Should have structured capability-aware response. Got: {}",
+            result.content
+        );
         assert!(!result.content.contains("would you like"));
         assert!(!result.content.contains("Would you like"));
     }
@@ -422,11 +480,154 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_final_answer_default_uses_readonly() {
-        // Default function should use ReadOnly fallback
+    fn test_filter_final_answer_default_no_generic_fallback() {
+        // Default function should use capability-aware fallback
         let result = filter_final_answer_default("sudo pacman -Syu");
         assert!(result.emit);
-        // Phase 28: Honest fallback
-        assert!(result.content.contains("could not format a valid response"));
+        // CRITICAL: Must NOT contain the generic fallback message
+        assert!(
+            !result.content.contains("could not format a valid response"),
+            "Must not use generic fallback. Got: {}",
+            result.content
+        );
+    }
+
+    #[test]
+    fn test_filter_final_answer_with_request_routing() {
+        // When request is provided, should route to matching capability
+        let result = filter_final_answer_with_request(
+            "sudo pacman -Syu",
+            IntentClass::ReadOnly,
+            Some("scale my gdm please"),
+        );
+        assert!(result.emit);
+        // Should NOT contain generic fallback
+        assert!(
+            !result.content.contains("could not format a valid response"),
+            "Must not use generic fallback. Got: {}",
+            result.content
+        );
+        // Should have capability-aware output (matched but blocked by policy)
+        assert!(
+            result.content.contains("matching capability")
+                || result.content.contains("cannot be displayed"),
+            "Should route to display.scale.gdm capability. Got: {}",
+            result.content
+        );
+    }
+
+    #[test]
+    fn test_filter_final_answer_includes_hints() {
+        // Unknown request should include capability hints
+        let result = filter_final_answer_with_request(
+            "sudo do something",
+            IntentClass::ReadOnly,
+            Some("tell me a joke"),
+        );
+        assert!(result.emit);
+        // Should have hints for available capabilities (human-readable format)
+        assert!(
+            result.content.contains("Things I can help with")
+                || result.content.contains("status")
+                || result.content.contains("disk"),
+            "Should include capability hints. Got: {}",
+            result.content
+        );
+    }
+
+    // Phase 29: Additive warning tests
+
+    #[test]
+    fn test_gate_result_warnings_default_empty() {
+        let result = GateResult::new(true, "content".to_string(), None);
+        assert!(!result.has_warnings());
+        assert!(result.warnings.is_empty());
+    }
+
+    #[test]
+    fn test_gate_result_with_warning() {
+        let result = GateResult::new(true, "content".to_string(), None)
+            .with_warning("Config changed: group".to_string());
+
+        assert!(result.has_warnings());
+        assert_eq!(result.warnings.len(), 1);
+        assert_eq!(result.warnings[0], "Config changed: group");
+    }
+
+    #[test]
+    fn test_gate_result_with_multiple_warnings() {
+        let warnings = vec![
+            "Config changed: group".to_string(),
+            "Config changed: passwd".to_string(),
+        ];
+        let result = GateResult::new(true, "content".to_string(), None)
+            .with_warnings(warnings);
+
+        assert!(result.has_warnings());
+        assert_eq!(result.warnings.len(), 2);
+    }
+
+    #[test]
+    fn test_warnings_preserved_on_clean_content() {
+        // Clean content should preserve warnings as metadata
+        let result = filter_final_answer_with_warnings(
+            "The disk usage is at 45%.",
+            IntentClass::ReadOnly,
+            None,
+            vec!["Config changed: group".to_string()],
+        );
+
+        assert!(result.emit);
+        assert_eq!(result.content, "The disk usage is at 45%.");
+        assert!(result.has_warnings());
+        assert_eq!(result.warnings[0], "Config changed: group");
+    }
+
+    #[test]
+    fn test_warnings_preserved_on_blocked_content() {
+        // Even when content is blocked, warnings should be preserved as metadata
+        let result = filter_final_answer_with_warnings(
+            "sudo pacman -Syu",
+            IntentClass::ReadOnly,
+            Some("scale my gdm please"),
+            vec!["Config changed: group".to_string()],
+        );
+
+        assert!(result.emit);
+        // Content is replaced with capability-aware fallback (matched but blocked by policy)
+        assert!(
+            result.content.contains("matching capability")
+                || result.content.contains("cannot be displayed"),
+            "Should have capability-aware fallback. Got: {}",
+            result.content
+        );
+        // But warnings are STILL preserved
+        assert!(
+            result.has_warnings(),
+            "Warnings should be preserved even on blocked content"
+        );
+        assert_eq!(result.warnings[0], "Config changed: group");
+    }
+
+    #[test]
+    fn test_warnings_additive_not_terminal() {
+        // Key invariant: warnings never block primary content
+        let clean_content = "GDM scaling has been configured to 2x.";
+        let warnings = vec!["Config changed: group".to_string()];
+
+        let result = filter_final_answer_with_warnings(
+            clean_content,
+            IntentClass::ReadOnly,
+            Some("scale my gdm please"),
+            warnings,
+        );
+
+        // Primary content passes through
+        assert!(result.emit);
+        assert_eq!(result.content, clean_content);
+        // Warnings are metadata, not blockers
+        assert!(result.has_warnings());
+        // Block reason should be None (warnings don't block)
+        assert!(result.block_reason.is_none());
     }
 }

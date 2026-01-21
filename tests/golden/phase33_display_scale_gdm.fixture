@@ -1,0 +1,9 @@
+# Phase 33: display.scale.gdm (MUTATING) - Deterministic capability output
+# Expected: Detected + Plan + "Anna: Proceed? (yes/no)" - NO raw commands
+# Non-Debug mode output
+{"Step":{"step":{"step_type":"ConfirmationRequest","content":"Detected:\n  This will copy your monitors.xml to GDM so the login screen uses the same scaling (2) as your session.\n\nPlan:\n  Step 1: Create GDM configuration directory [requires approval]\n  Step 2: Copy display configuration to GDM [requires approval]\n  Step 3: Set file ownership for GDM [requires approval]\n\nAnna: Proceed? (yes/no)"}}}
+{"Done":{"result":{"answer":"Detected:\n  This will copy your monitors.xml to GDM so the login screen uses the same scaling (2) as your session.\n\nPlan:\n  Step 1: Create GDM configuration directory [requires approval]\n  Step 2: Copy display configuration to GDM [requires approval]\n  Step 3: Set file ownership for GDM [requires approval]\n\nAnna: Proceed? (yes/no)","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":true,"clarification_question":"Proceed? (yes/no)","cached":false,"citations":[],"abstained":false,"final_confidence":null}}}
+# CONTRACT ENFORCEMENT:
+# - commands_executed MUST be empty (no LLM path)
+# - No raw commands in content (no mkdir, cp, chown, sed, etc.)
+# - Step descriptions only, no shell syntax

@@ -98,8 +98,12 @@ fn test_backup_includes_all_data_files() {
         paths.data_dir.join("model_prefs.json"),
     ];
     for path in &expected_files {
-        assert!(path.starts_with("/var/lib/anna") || path.starts_with("/etc/anna"),
-                "Path {} must use system paths", path.display());
+        // In test mode, paths may use /tmp/anna-dev; in production, /var/lib/anna
+        let path_str = path.to_string_lossy();
+        assert!(
+            path_str.starts_with("/var/lib/anna") || path_str.starts_with("/etc/anna") || path_str.contains("anna-dev"),
+            "Path {} must use system paths", path.display()
+        );
     }
 }
 

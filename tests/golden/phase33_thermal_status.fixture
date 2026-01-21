@@ -1,0 +1,10 @@
+# Phase 33: system.thermal.status (READ_ONLY) - Deterministic capability output
+# Expected: Concise output with max 3 evidence items, NO raw commands
+# Non-Debug mode output
+{"Step":{"step":{"step_type":"FinalAnswer","content":"All temperatures are within normal range.\nx86_pkg_temp: 45.0C (55.0C below critical)\nNo fan sensors detected. May be passive cooling or sensors not exposed."}}}
+{"Done":{"result":{"answer":"All temperatures are within normal range.\nx86_pkg_temp: 45.0C (55.0C below critical)\nNo fan sensors detected. May be passive cooling or sensors not exposed.","success":true,"iterations":0,"commands_executed":[],"dialogue":[],"needs_clarification":false,"clarification_question":null,"cached":false,"citations":[],"abstained":false,"final_confidence":1.0}}}
+# CONTRACT ENFORCEMENT:
+# - commands_executed MUST be empty (no LLM path)
+# - Max 3 evidence items in output
+# - No raw commands (no cat, grep, etc.)
+# - No sysfs paths shown to user

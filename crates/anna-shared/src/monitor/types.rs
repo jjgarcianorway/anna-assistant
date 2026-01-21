@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 /// Types of issues Anna can detect
 /// v0.0.990: Added security, hardware, and behavioral issue types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Phase 34A: Added Hash, Eq for use in HashMap keys
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum IssueType {
     /// Disk space below threshold
     DiskSpaceLow,
