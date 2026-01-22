@@ -210,6 +210,11 @@ async fn try_capability_routing(
 
     match outcome {
         ResponseOutcome::ConfirmationRequired { action_plan, .. } => {
+            // Phase 36: Low-risk capabilities skip confirmation and execute directly
+            if capability.low_risk {
+                info!("Phase 36: Low-risk capability, executing directly: {}", capability_id);
+                return Ok(Some(handle_low_risk_execution(action_plan, writer).await));
+            }
             // Wire to existing confirmation flow
             return Ok(Some(handle_capability_confirmation(action_plan, session_id, writer).await));
         }
@@ -314,6 +319,48 @@ async fn handle_readonly_capability(
     let result = anna_shared::rpc::AskResult {
         answer: explanation.to_string(),
         success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue: vec![],
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0),
+    };
+    let done = StreamingResponse::Done { result };
+    let json = serde_json::to_string(&done)?;
+    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+    Ok(())
+}
+
+/// Phase 36: Handle low-risk Mutating capabilities - execute directly without confirmation.
+async fn handle_low_risk_execution(
+    plan: anna_shared::action_plan::ActionPlan,
+    writer: &mut tokio::net::unix::OwnedWriteHalf,
+) -> Result<()> {
+    use crate::plan_executor::execute_plan;
+
+    // Execute the plan directly
+    let exec_result = execute_plan(&plan);
+
+    let (answer, success) = if exec_result.success {
+        ("Done.".to_string(), true)
+    } else {
+        // Extract error from failed step results
+        let error_msg = exec_result.step_results.iter()
+            .find_map(|s| s.error.as_ref())
+            .map(|e| e.as_str())
+            .unwrap_or("Unknown error");
+        (format!("Failed: {}", error_msg), false)
+    };
+
+    send_filtered_final_answer(writer, &answer).await?;
+
+    let result = anna_shared::rpc::AskResult {
+        answer,
+        success,
         iterations: 0,
         commands_executed: vec![],
         dialogue: vec![],

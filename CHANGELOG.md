@@ -5,6 +5,23 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.76] - 2026-01-21
+
+### Added - Phase 36: Low-Risk Capabilities Skip Confirmation
+
+Low-risk mutating capabilities now execute directly without confirmation prompts.
+
+**Changes:**
+- Added `low_risk: bool` field to Capability registry
+- Low-risk capabilities execute immediately (no "Proceed? yes/no" prompt)
+- `display.scale.gdm` marked as low-risk (reversible config copy)
+- `power.inhibit.sleep` marked as low-risk (reversible logind config)
+
+**Behavior:**
+- High-risk operations (package install, service changes) still require confirmation
+- Low-risk operations execute and return "Done." immediately
+- Failures still reported with error details
+
 ## [0.3.75] - 2026-01-21
 
 ### Added - Phase 35 Capability Improvements

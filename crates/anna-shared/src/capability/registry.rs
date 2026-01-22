@@ -58,6 +58,8 @@ pub struct Capability {
     pub mode: CapabilityMode,
     /// Warning categories this capability is relevant to.
     pub relevant_warnings: Vec<WarningCategory>,
+    /// Low-risk operations skip confirmation (reversible, no data loss).
+    pub low_risk: bool,
 }
 
 /// Categories of warnings for noise containment.
@@ -123,6 +125,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report overall system status including warnings and baseline state.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::All],
+            low_risk: false,
         },
     );
 
@@ -133,6 +136,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report disk usage and storage status.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::Storage],
+            low_risk: false,
         },
     );
 
@@ -143,6 +147,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report memory and swap usage.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::StatusIdentity],
+            low_risk: false,
         },
     );
 
@@ -153,6 +158,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report network connectivity and interface status.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::Network],
+            low_risk: false,
         },
     );
 
@@ -163,6 +169,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report systemd service status and failures.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::Service],
+            low_risk: false,
         },
     );
 
@@ -173,6 +180,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report user identity, groups, and permission state.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::StatusIdentity, WarningCategory::Security],
+            low_risk: false,
         },
     );
 
@@ -180,7 +188,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
     // DISPLAY CAPABILITIES (ReadOnly for now)
     // =========================================================================
 
-    // Phase 31: GDM scaling is MUTATING - changes system files
+    // Phase 31: GDM scaling is MUTATING but LOW RISK - just copies a config file
     capabilities.insert(
         CapabilityId::new("display.scale.gdm"),
         Capability {
@@ -188,6 +196,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Configure GDM login screen scaling by propagating monitors.xml.".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Display],
+            low_risk: true,  // Reversible, no data loss
         },
     );
 
@@ -198,6 +207,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Analyze Xorg display scaling configuration.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::Display],
+            low_risk: false,
         },
     );
 
@@ -208,6 +218,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Analyze Wayland display scaling configuration.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::Display],
+            low_risk: false,
         },
     );
 
@@ -222,6 +233,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Install packages via pacman (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Package],
+            low_risk: false,
         },
     );
 
@@ -232,6 +244,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Remove packages via pacman (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Package],
+            low_risk: false,
         },
     );
 
@@ -242,6 +255,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Update system packages via pacman (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Package],
+            low_risk: false,
         },
     );
 
@@ -256,6 +270,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Start a systemd service (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Service],
+            low_risk: false,
         },
     );
 
@@ -266,6 +281,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Stop a systemd service (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Service],
+            low_risk: false,
         },
     );
 
@@ -276,6 +292,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Restart a systemd service (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Service],
+            low_risk: false,
         },
     );
 
@@ -286,6 +303,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Enable a systemd service (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::Service],
+            low_risk: false,
         },
     );
 
@@ -300,6 +318,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Edit a configuration file (execution blocked).".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::StatusIdentity, WarningCategory::Security],
+            low_risk: false,
         },
     );
 
@@ -314,6 +333,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Review changes to /etc/group and provide restore instructions.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::StatusIdentity, WarningCategory::Security],
+            low_risk: false,
         },
     );
 
@@ -324,11 +344,12 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Review changes to /etc/passwd and explain what changed.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::StatusIdentity, WarningCategory::Security],
+            low_risk: false,
         },
     );
 
     // =========================================================================
-    // POWER CAPABILITIES (Phase 33)
+    // POWER CAPABILITIES (Phase 33) - LOW RISK, reversible config changes
     // =========================================================================
 
     capabilities.insert(
@@ -338,6 +359,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Configure lid close, idle, and suspend key behavior.".to_string(),
             mode: CapabilityMode::Mutating,
             relevant_warnings: vec![WarningCategory::StatusIdentity],
+            low_risk: true,  // Reversible, no data loss
         },
     );
 
@@ -352,6 +374,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Report CPU/GPU temperatures and fan speeds.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::StatusIdentity],
+            low_risk: false,
         },
     );
 
@@ -366,6 +389,7 @@ pub static CAPABILITY_REGISTRY: LazyLock<CapabilityRegistry> = LazyLock::new(|| 
             description: "Detect PipeWire vs PulseAudio and audio configuration.".to_string(),
             mode: CapabilityMode::ReadOnly,
             relevant_warnings: vec![WarningCategory::StatusIdentity],
+            low_risk: false,
         },
     );
 
