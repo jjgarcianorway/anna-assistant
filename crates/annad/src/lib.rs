@@ -49,6 +49,7 @@ pub fn record_llm_call() {}
 pub mod assisted_ops;  // Phase 39: Supervised assistance layer
 pub mod autofix;  // TODO: Remove after full migration to llm_core
 pub mod binary_watcher;
+pub mod dynamic_plan;  // Phase 37: LLM-generated ActionPlans with risk assessment
 pub mod changes;
 pub mod core_loop;
 pub mod department;

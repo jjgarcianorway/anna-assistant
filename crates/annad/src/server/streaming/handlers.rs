@@ -2,6 +2,7 @@
 //! v0.0.998: Added Hollywood IT teams experience
 //! v0.3.49: Phase 16 - Action plan execution
 //! v0.3.75: Phase 32 - Capability routing for mutating capabilities
+//! v0.3.77: Phase 37 - Dynamic LLM-generated plans with risk assessment
 
 use anna_shared::capability::{
     execute_display_scale_gdm, execute_power_inhibit_sleep, execute_thermal_status,
@@ -12,10 +13,12 @@ use anna_shared::capability::{
 use anna_shared::rpc::{DialogueStep, RpcRequest, StepType, StreamingResponse};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::autofix::{get_fix_history_summary, take_pending_autofix};
-use crate::plan_executor::{has_pending_plan, is_plan_expired, take_pending_plan};
+use crate::dynamic_plan::{is_config_request, assess_plan_risk, parse_llm_plan, RiskLevel, PLAN_GENERATION_PROMPT};
+use crate::ollama::chat_with_timeout;
+use crate::plan_executor::{has_pending_plan, is_plan_expired, take_pending_plan, set_pending_plan};
 use crate::plan_generator;
 use crate::recipes;
 use crate::state::SharedState;
@@ -93,6 +96,11 @@ pub async fn handle_streaming_request(
 
     // Phase 32: Route through capability system for mutating capabilities
     if let Some(result) = try_capability_routing(question, session_id, &mut writer).await? {
+        return result;
+    }
+
+    // Phase 37: Dynamic plan generation for config requests
+    if let Some(result) = try_dynamic_plan(question, session_id, state.clone(), &mut writer).await? {
         return result;
     }
 
@@ -391,6 +399,95 @@ fn dispatch_capability_handler(capability_id: &str) -> anna_shared::capability::
             anna_shared::capability::AbstainReason::NoMatchingCapability,
             &format!("No handler for: {}", capability_id),
         ),
+    }
+}
+
+/// Phase 37: Try dynamic plan generation for config requests.
+/// Returns Some(Ok(())) if a plan was generated and handled, None if should fall through.
+async fn try_dynamic_plan(
+    question: &str,
+    session_id: &str,
+    state: SharedState,
+    writer: &mut tokio::net::unix::OwnedWriteHalf,
+) -> Result<Option<Result<()>>> {
+    // Only handle config requests
+    if !is_config_request(question) {
+        return Ok(None);
+    }
+
+    info!("Phase 37: Detected config request, generating dynamic plan");
+
+    // Get model from state
+    let model = {
+        let state_guard = state.read().await;
+        match &state_guard.model {
+            Some(m) => m.clone(),
+            None => {
+                warn!("Phase 37: No model available for dynamic plan generation");
+                return Ok(None);
+            }
+        }
+    };
+
+    // Build the LLM prompt
+    let full_prompt = format!("{}{}", PLAN_GENERATION_PROMPT, question);
+
+    // Call LLM to generate plan
+    let llm_response = match chat_with_timeout(&model, &full_prompt, 60).await {
+        Ok(response) => response,
+        Err(e) => {
+            warn!("Phase 37: LLM call failed: {}", e);
+            return Ok(None); // Fall through to regular handling
+        }
+    };
+
+    // Parse LLM response into ActionPlan
+    let plan = match parse_llm_plan(&llm_response, question) {
+        Some(p) => p,
+        None => {
+            info!("Phase 37: LLM declined or invalid response");
+            return Ok(None); // Fall through to regular handling
+        }
+    };
+
+    // Assess risk
+    let risk = assess_plan_risk(&plan);
+    info!("Phase 37: Plan risk level: {:?}", risk);
+
+    match risk {
+        RiskLevel::Blocked => {
+            // Never execute blocked commands
+            let msg = "I cannot execute this request - it contains potentially destructive operations.";
+            send_filtered_final_answer(writer, msg).await?;
+            let result = anna_shared::rpc::AskResult {
+                answer: msg.to_string(),
+                success: false,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: true,
+                final_confidence: None,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(Some(Ok(())));
+        }
+        RiskLevel::Low => {
+            // Execute directly without confirmation
+            info!("Phase 37: Low-risk plan, executing directly");
+            return Ok(Some(handle_low_risk_execution(plan, writer).await));
+        }
+        RiskLevel::High => {
+            // Require confirmation
+            info!("Phase 37: High-risk plan, requesting confirmation");
+            set_pending_plan(session_id, plan.clone());
+            return Ok(Some(handle_capability_confirmation(plan, session_id, writer).await));
+        }
     }
 }
 

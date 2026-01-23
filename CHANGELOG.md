@@ -5,6 +5,34 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.77] - 2026-01-23
+
+### Added - Phase 37: Dynamic LLM-Generated Action Plans
+
+Anna can now handle ANY system configuration request without hardcoded handlers.
+
+**Changes:**
+- Added `dynamic_plan.rs` - LLM generates ActionPlans for config requests
+- LLM uses its Linux knowledge to figure out what commands are needed
+- Plans assessed by risk level (Low, High, Blocked)
+- Low-risk commands (dconf, logind.conf, gsettings) execute immediately
+- High-risk commands (packages, services, /etc files) require confirmation
+- Blocked patterns (rm -rf /, dd to disk) are always rejected
+
+**How it works:**
+1. User asks config question (e.g., "prevent GDM from sleeping")
+2. LLM generates JSON with exact commands needed
+3. Risk assessment checks each command
+4. Low-risk: executes directly, returns "Done."
+5. High-risk: shows plan, waits for "yes"
+
+**Example requests now handled:**
+- "prevent GDM screen from blanking"
+- "set keyboard repeat rate"
+- "change mouse acceleration"
+- "configure touchpad settings"
+- Any system config request
+
 ## [0.3.76] - 2026-01-21
 
 ### Added - Phase 36: Low-Risk Capabilities Skip Confirmation
