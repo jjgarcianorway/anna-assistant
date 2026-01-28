@@ -1,119 +1,38 @@
 //! Streaming Ralph loop with real-time progress updates.
-//! v0.3.46: All dialogue filtered through ExposureGate before emission.
-//! v0.3.57: Phase 24 - Policy-driven behavior modulation.
-//! v0.3.59: Phase 26 - Abstention tracking for low-confidence exits.
-//! v0.3.69: Phase 28 - Capability question grounding (bypass LLM for capability Qs).
+//! LLM-first: no bypass paths. Every question goes through the LLM.
 
-use anna_shared::declaration::CapabilityDeclaration;
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
 use anna_shared::policy::get_policy;
 use anna_shared::probe_ledger::ProbeLedger;
-use anna_shared::rpc::{AskResult, DialogueStep, StepType, StreamingResponse};
+use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::teaching;
 use anyhow::Result;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::core_loop::{execute_command, strip_ansi_codes};
 use crate::department;
-use crate::ollama;
 use crate::team_speak;
 
-use super::commands::{generate_answer, get_commands, self_evaluate};
+use super::commands::{generate_answer, get_next_action, NextAction, self_evaluate};
 use super::criteria::{determine_criteria, IterationState};
-use super::diagnostic::try_diagnostic_path;
-use super::fast_path::try_fast_path;
-use super::instant::try_instant_error;
 use super::recipe_learning::{build_teaching_context, learn_recipe_from_answer};
-use super::streaming_helpers::{build_final_answer, push_and_send, send_dialogue_steps, send_done, with_heartbeat};
+use super::streaming_helpers::{build_final_answer, push_and_send, send_done, with_heartbeat};
 use super::verification::{truncate, verify_answer};
 
-/// Phase 28: Detect if question is asking about Anna's capabilities.
-/// Ground capability answers in the declaration, not LLM.
-fn is_capability_question(question: &str) -> bool {
-    let q = question.to_lowercase();
-    let patterns = [
-        "what can you do",
-        "what are your capabilities",
-        "what commands can you run",
-        "what are you capable of",
-        "what can anna do",
-        "what are anna's capabilities",
-        "what is anna capable of",
-        "tell me your capabilities",
-        "list your capabilities",
-        "show your capabilities",
-        "what's your capability",
-        "your capabilities",
-        "what do you know how to do",
-        "what are you able to do",
-        "what are you allowed to do",
-        "what is anna allowed to do",
-        "allowed to do",
-    ];
-    patterns.iter().any(|p| q.contains(p))
-}
-
-/// Phase 28: Answer capability questions directly from the declaration.
-async fn answer_capability_question<W: tokio::io::AsyncWriteExt + Unpin>(
-    writer: &mut W,
-) -> Result<AskResult> {
-    info!("Answering capability question from declaration (not LLM)");
-
-    let decl = CapabilityDeclaration::from_ledger();
-    let answer = decl.render_onboarding();
-    let mut dialogue = Vec::new();
-
-    let step = DialogueStep {
-        step_type: StepType::FinalAnswer,
-        content: answer.clone(),
-    };
-    dialogue.push(step.clone());
-    let response = StreamingResponse::Step { step };
-    let json = serde_json::to_string(&response)?;
-    writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-    let result = AskResult {
-        answer,
-        success: true,
-        iterations: 0,
-        commands_executed: vec![],
-        dialogue,
-        needs_clarification: false,
-        clarification_question: None,
-        cached: false,
-        citations: vec![],
-        abstained: false,
-        final_confidence: Some(1.0),
-    };
-
-    let response = StreamingResponse::Done { result: result.clone() };
-    let json = serde_json::to_string(&response)?;
-    writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-    Ok(result)
-}
-
 /// Streaming version of the Ralph loop with real-time progress updates.
+/// LLM-first: all questions go through the full investigation loop.
 pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     writer: &mut W,
 ) -> Result<AskResult> {
-    // v0.3.69: Phase 28 - Ground capability questions in declaration, not LLM
-    if is_capability_question(question) {
-        return answer_capability_question(writer).await;
-    }
-
-    // v0.3.46: Create ExposureGate for central filtering
     let gate = ExposureGate::from_config();
 
-    // v0.3.57: Phase 24 - Log policy decisions in Debug mode
     if gate.diagnostic_visible() {
         let policy = get_policy();
         let basis = policy.format_debug_basis();
         debug!("{}", basis);
-        // Emit policy basis as diagnostic step
         let step = DialogueStep {
             step_type: StepType::PolicyBasis,
             content: basis,
@@ -121,87 +40,7 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         let _ = super::streaming_helpers::send_step(writer, step, &gate).await;
     }
 
-    // Try instant error response first for known issues
-    if let Some(result) = try_instant_error(question) {
-        info!("Instant error response streaming completed");
-        send_dialogue_steps(writer, &result.dialogue, &gate).await?;
-        send_done(writer, &result).await?;
-        return Ok(result);
-    }
-
-    // Try fast-path first for simple queries
-    if let Some(mut result) = try_fast_path(question).await {
-        info!("Fast-path streaming completed");
-        send_dialogue_steps(writer, &result.dialogue, &gate).await?;
-        push_and_send(writer, &mut result.dialogue, StepType::FinalAnswer, result.answer.clone(), &gate)
-            .await?;
-        send_done(writer, &result).await?;
-        return Ok(result);
-    }
-
-    // Try diagnostic path for ambiguous queries (streaming)
-    if let Some((executed, outputs, intro, mut dialogue)) = try_diagnostic_path(question) {
-        info!("Diagnostic path streaming: analyzing {} outputs", outputs.len());
-        send_dialogue_steps(writer, &dialogue, &gate).await?;
-
-        let data_context = outputs.join("\n---\n");
-        let prompt = format!(
-            r#"You are Anna, an AI assistant for Arch Linux systems.
-
-The user asked: "{}"
-
-I ran diagnostic commands. Here are the results:
-{}
-
-Based on these diagnostics, provide a helpful analysis. Be specific:
-- If there's a problem, explain what it is and how to fix it
-- If everything looks normal, say so with specific evidence
-- Reference actual values from the output
-
-Be concise but complete. Start your response with "{}" (without quotes)."#,
-            question, data_context, intro
-        );
-
-        match ollama::chat_with_timeout(model, &prompt, 60).await {
-            Ok(answer) => {
-                let evidence: Vec<(String, String, i32)> = executed
-                    .iter()
-                    .zip(outputs.iter())
-                    .map(|(cmd, out)| (cmd.clone(), out.clone(), 0))
-                    .collect();
-                let debug_mode = anna_shared::config::AnnaConfig::load()
-                    .map(|c| c.debug_mode)
-                    .unwrap_or(false);
-                let verification = verify_answer(&answer, question, &evidence, debug_mode);
-
-                let final_answer =
-                    build_final_answer(&verification.answer, &verification.evidence_line, None);
-                push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone(), &gate)
-                    .await?;
-
-                let result = AskResult {
-                    answer: final_answer,
-                    success: true,
-                    iterations: 1,
-                    commands_executed: executed,
-                    dialogue,
-                    needs_clarification: false,
-                    clarification_question: None,
-                    cached: false,
-                    citations: vec![],
-                    abstained: false,
-                    final_confidence: None, // Diagnostic path doesn't track confidence
-                };
-                send_done(writer, &result).await?;
-                return Ok(result);
-            }
-            Err(e) => {
-                warn!("Diagnostic path LLM failed: {}, falling back to normal loop", e);
-            }
-        }
-    }
-
-    // Full Ralph loop with streaming
+    // All questions go through the full loop - no bypass paths
     run_full_loop_streaming(model, question, writer, &gate).await
 }
 
@@ -260,7 +99,19 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         iteration += 1;
         debug!("Ralph iteration {}/{}", iteration, criteria.max_iterations);
 
-        let commands = get_commands(model, question, &state).await?;
+        // Ask LLM what to do next
+        let next_action = get_next_action(model, question, &state).await?;
+
+        // Handle CONFIG: LLM recognized this as a system configuration request
+        if matches!(next_action, NextAction::Config) {
+            info!("LLM detected config request, generating ActionPlan");
+            return handle_config_request(model, question, writer, gate, &mut dialogue).await;
+        }
+
+        let commands = match next_action {
+            NextAction::Commands(cmds) => cmds,
+            NextAction::None | NextAction::Config => Vec::new(),
+        };
 
         for cmd in &commands {
             // Phase 22: Deduplicate probes via ProbeLedger
@@ -463,4 +314,112 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     send_done(writer, &result).await?;
 
     Ok(result)
+}
+
+/// Handle a config request by generating an ActionPlan via LLM.
+async fn handle_config_request<W: tokio::io::AsyncWriteExt + Unpin>(
+    model: &str,
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+    dialogue: &mut Vec<DialogueStep>,
+) -> Result<AskResult> {
+    use crate::dynamic_plan::{PLAN_GENERATION_PROMPT, parse_llm_plan, assess_plan_risk, RiskLevel};
+    use crate::ollama;
+
+    push_and_send(writer, dialogue, StepType::InvestigationProbe,
+        "Generating configuration plan...".to_string(), gate).await?;
+
+    let full_prompt = format!("{}{}", PLAN_GENERATION_PROMPT, question);
+    let llm_response = with_heartbeat(writer, gate,
+        ollama::chat_with_timeout(model, &full_prompt, 60)
+    ).await?;
+
+    let plan = match parse_llm_plan(&llm_response, question) {
+        Some(p) => p,
+        None => {
+            let answer = format!(
+                "I understand you want to configure something, but I'm not confident enough \
+                 to generate the right commands for: \"{}\". Could you be more specific?",
+                question
+            );
+            push_and_send(writer, dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+            let result = AskResult {
+                answer,
+                success: false,
+                iterations: 1,
+                commands_executed: vec![],
+                dialogue: dialogue.clone(),
+                needs_clarification: true,
+                clarification_question: Some("Could you be more specific about what to configure?".to_string()),
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(0.3),
+            };
+            send_done(writer, &result).await?;
+            return Ok(result);
+        }
+    };
+
+    let risk = assess_plan_risk(&plan);
+    info!("Config plan risk: {:?}", risk);
+
+    match risk {
+        RiskLevel::Blocked => {
+            let answer = "I cannot execute this request - it contains potentially destructive operations.".to_string();
+            push_and_send(writer, dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+            let result = AskResult {
+                answer,
+                success: false,
+                iterations: 1,
+                commands_executed: vec![],
+                dialogue: dialogue.clone(),
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: true,
+                final_confidence: None,
+            };
+            send_done(writer, &result).await?;
+            Ok(result)
+        }
+        RiskLevel::Low | RiskLevel::High => {
+            // Present plan for confirmation
+            let plan_text = format_plan_for_display(&plan);
+            let answer = format!("{}\n\nProceed? (yes/no)", plan_text);
+            push_and_send(writer, dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+            // Store plan for confirmation flow
+            crate::plan_executor::set_pending_plan("default", plan);
+
+            let result = AskResult {
+                answer,
+                success: true,
+                iterations: 1,
+                commands_executed: vec![],
+                dialogue: dialogue.clone(),
+                needs_clarification: true,
+                clarification_question: Some("pending_plan".to_string()),
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(0.9),
+            };
+            send_done(writer, &result).await?;
+            Ok(result)
+        }
+    }
+}
+
+fn format_plan_for_display(plan: &anna_shared::action_plan::ActionPlan) -> String {
+    let mut lines = Vec::new();
+    lines.push(format!("Plan: {}", plan.summary));
+    lines.push(String::new());
+    for (i, step) in plan.steps.iter().enumerate() {
+        let sudo_marker = if step.needs_sudo { " [sudo]" } else { "" };
+        lines.push(format!("  {}. {}{}", i + 1, step.description, sudo_marker));
+    }
+    lines.join("\n")
 }

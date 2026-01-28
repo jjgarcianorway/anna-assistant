@@ -5,12 +5,25 @@ use anyhow::Result;
 use crate::ollama;
 use super::criteria::{AnswerType, CompletionCriteria, IterationState, SelfEvaluation, quick_quality_check};
 
-/// Get commands to run for answering the question
-pub async fn get_commands(
+/// Result of asking the LLM what to do next.
+pub enum NextAction {
+    /// Run these investigation commands.
+    Commands(Vec<String>),
+    /// No commands needed (already answered or how-to).
+    None,
+    /// This is a config request - generate an ActionPlan via LLM.
+    Config,
+}
+
+/// Get commands to run for answering the question.
+/// May also detect config requests and return NextAction::Config.
+pub async fn get_next_action(
     model: &str,
     question: &str,
     state: &IterationState,
-) -> Result<Vec<String>> {
+) -> Result<NextAction> {
+    use crate::llm_core::prompts::system_context;
+
     let feedback_context = if let Some(ref feedback) = state.feedback {
         format!(
             "\n\nPrevious attempt feedback: {}\nAlready tried: {:?}",
@@ -30,60 +43,103 @@ pub async fn get_commands(
     };
 
     let prompt = format!(
-        r#"System: Arch Linux with pacman
+        r#"{context}
 
-Question: "{}"{}{}
+Question: "{question}"{output_context}{feedback_context}
 
-Return 1-3 bash commands to answer this question. Use these exact commands:
+Determine what to do. Output EXACTLY ONE of these formats:
 
+FORMAT 1 - Run investigation commands (to gather info):
+COMMANDS:
+<command1>
+<command2>
+
+FORMAT 2 - This is a system configuration request (change settings, enable/disable, install, etc.):
+CONFIG
+
+FORMAT 3 - You can answer from knowledge alone (how-to, explanations):
+NONE
+
+FORMAT 4 - Data already collected is sufficient:
+DONE
+
+COMMAND REFERENCE:
 SYSTEM: uname -r, uptime -p, hostnamectl
 HARDWARE: lscpu | head -20, free -h, lsusb, lspci | head -20
 DESKTOP: echo $XDG_CURRENT_DESKTOP, echo $XDG_SESSION_TYPE
-USER: id, groups, echo $SHELL, locale, timedatectl | grep "Time zone"
 STORAGE: df -h, lsblk, findmnt / -o OPTIONS, swapon --show
 NETWORK: ip -4 addr show, cat /etc/resolv.conf, ip route | grep default, ss -tlnp | head -15
 SERVICES: systemctl --failed, systemctl list-units --type=service --state=running | head -20
-PACKAGES: pacman -Q | wc -l, pacman -Qe | head -30, pacman -Qtdq
+PACKAGES: pacman -Q | wc -l, pacman -Qe | head -30
 LOGS: journalctl -p err -b --no-pager | head -30
 
 RULES:
-- Output ONLY valid bash commands, one per line
-- NO explanations, NO English text, NO comments
-- If question already answered by data below, output: DONE
-- If question needs no commands (how-to), output: NONE
+- For info/diagnostic questions: use COMMANDS format
+- For "set", "change", "disable", "enable", "install", "configure", "prevent" requests: use CONFIG
+- For "how do I", "what is", "explain" questions: use NONE
+- Output ONLY the format above, no explanations
 
-Output commands now:"#,
-        question, output_context, feedback_context
+Output now:"#,
+        context = system_context(),
+        question = question,
+        output_context = output_context,
+        feedback_context = feedback_context,
     );
 
     let response = ollama::chat_with_timeout(model, &prompt, 30).await?;
     let response = response.trim();
-
-    // Check for special responses (case-insensitive)
     let response_upper = response.to_uppercase();
-    if response_upper == "NONE" || response_upper == "DONE" || response.is_empty() {
-        return Ok(Vec::new());
+
+    if response_upper.starts_with("CONFIG") || response_upper == "CONFIG" {
+        return Ok(NextAction::Config);
     }
 
-    let commands: Vec<String> = response
+    if response_upper == "NONE" || response_upper == "DONE" || response.is_empty() {
+        return Ok(NextAction::None);
+    }
+
+    // Parse commands (strip "COMMANDS:" prefix if present)
+    let cmd_text = if response_upper.starts_with("COMMANDS:") {
+        &response[9..]
+    } else {
+        response
+    };
+
+    let commands: Vec<String> = cmd_text
         .lines()
         .map(|l| l.trim())
         .filter(|l| {
             if l.is_empty() || l.starts_with('#') {
                 return false;
             }
-            // Filter out DONE/NONE even if mixed with other commands
             let upper = l.to_uppercase();
-            if upper == "DONE" || upper == "NONE" || upper.starts_with("DONE:") {
+            if upper == "DONE" || upper == "NONE" || upper.starts_with("DONE:")
+                || upper == "CONFIG" || upper == "COMMANDS:" {
                 return false;
             }
             true
         })
         .map(|l| l.to_string())
-        .take(5) // Max 5 commands per iteration
+        .take(5)
         .collect();
 
-    Ok(commands)
+    if commands.is_empty() {
+        Ok(NextAction::None)
+    } else {
+        Ok(NextAction::Commands(commands))
+    }
+}
+
+/// Backwards-compatible wrapper for non-streaming path.
+pub async fn get_commands(
+    model: &str,
+    question: &str,
+    state: &IterationState,
+) -> Result<Vec<String>> {
+    match get_next_action(model, question, state).await? {
+        NextAction::Commands(cmds) => Ok(cmds),
+        NextAction::None | NextAction::Config => Ok(Vec::new()),
+    }
 }
 
 /// Generate an answer based on collected data

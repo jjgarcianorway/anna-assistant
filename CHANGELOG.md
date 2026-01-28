@@ -5,6 +5,26 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.78] - 2026-01-28
+
+### Changed - LLM-First Architecture Transformation
+
+Anna is now LLM-first. The LLM reasons about every request instead of 20K+ lines of pattern matching.
+
+**Deleted ~20K lines:**
+- Removed 50+ pattern files (hardcoded responses that bypassed LLM)
+- Removed specialist system (cosmetic role-playing layer)
+- Removed Ralph fast-path, instant, diagnostic bypasses
+- Removed capability handler files (display_scale, power_inhibit, thermal_status, audio_stack, config_review)
+- Removed dead capability executor (llm_core/streaming.rs)
+- Removed capability_formatter from server streaming
+
+**Architecture:**
+- All requests route through Ralph loop (LLM reasoning)
+- Default model upgraded to qwen2.5:14b (falls back to 7b if <12GB VRAM)
+- handlers.rs stripped to: stateful confirmations + LLM routing
+- Safety (CommandPolicy, RiskAssessment) still validates all LLM output
+
 ## [0.3.77] - 2026-01-23
 
 ### Added - Phase 37: Dynamic LLM-Generated Action Plans

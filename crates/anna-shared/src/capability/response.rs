@@ -667,10 +667,6 @@ pub fn build_policy_violation_response(original_request: &str) -> ResponseOutcom
 mod tests {
     use super::*;
     use crate::capability::router::route_request;
-    use crate::capability::{
-        execute_display_scale_gdm, execute_thermal_status, execute_audio_stack_detect,
-        execute_power_inhibit_sleep, InhibitTarget, InhibitAction,
-    };
 
     #[test]
     fn test_unsupported_request_abstains_with_hints() {
@@ -952,57 +948,6 @@ mod tests {
     // PHASE 33.2: Prove capability path bypasses LLM
     // =========================================================================
 
-    /// Phase 33.2: Prove that capability routing produces no LLM calls.
-    /// The contract: capability handlers produce direct output without shell command execution.
-    /// Evidence: handlers return explanation/action_plan, NOT commands to execute.
-    #[test]
-    fn test_phase33_capability_path_bypasses_llm() {
-        use crate::capability::{
-            execute_thermal_status, execute_audio_stack_detect,
-            execute_display_scale_gdm, execute_power_inhibit_sleep,
-            InhibitTarget, InhibitAction,
-        };
-
-        // Test all Phase 33 capabilities
-        let capabilities: Vec<(&str, CapabilityExecutionResult)> = vec![
-            ("system.thermal.status", execute_thermal_status()),
-            ("audio.stack.detect", execute_audio_stack_detect()),
-            ("display.scale.gdm", execute_display_scale_gdm()),
-            ("power.inhibit.sleep", execute_power_inhibit_sleep(InhibitTarget::LidClose, InhibitAction::Ignore)),
-        ];
-
-        for (cap_id, result) in capabilities {
-            // CRITICAL: Capability must produce direct output without LLM.
-            // Evidence: handlers return explanation (ReadOnly) or action_plan (Mutating)
-            // NOT a request to run shell commands.
-            let has_output = !result.explanation.is_empty() || result.action_plan.is_some();
-            assert!(
-                has_output,
-                "Capability {} must produce explanation or action_plan (no LLM)",
-                cap_id
-            );
-
-            // The `steps` field is for ReadOnly display only, not shell commands
-            // Mutating capabilities use action_plan with structured steps
-            if result.action_plan.is_some() {
-                // Mutating: verify action_plan has steps with descriptions (not raw commands exposed)
-                let plan = result.action_plan.as_ref().unwrap();
-                for step in &plan.steps {
-                    // Step descriptions should be human-readable, not raw shell
-                    assert!(
-                        !step.description.contains("mkdir -p") &&
-                        !step.description.contains("cp /") &&
-                        !step.description.contains("chown ") &&
-                        !step.description.contains("sed -i"),
-                        "Capability {} step description must not be raw shell: {}",
-                        cap_id,
-                        step.description
-                    );
-                }
-            }
-        }
-    }
-
     /// Phase 33.2: Prove deterministic routing - same input always routes same way.
     #[test]
     fn test_phase33_routing_is_deterministic_for_all_capabilities() {
@@ -1047,110 +992,4 @@ mod tests {
     // Phase 34A: Specific Regression Tests
     // ==========================================================================
 
-    /// Phase 34A: Test the EXACT user question "can you please scale up GDM login screen?"
-    /// It MUST route to display.scale.gdm and produce either:
-    /// - ConfirmationRequired (if prerequisites met)
-    /// - Abstained (if prerequisites not met)
-    /// It MUST NOT produce "could not format a valid response"
-    #[test]
-    fn test_gdm_scale_question_is_confirmation_or_abstain() {
-        let question = "can you please scale up GDM login screen?";
-        let routing = route_request(question);
-
-        // Must route to capability
-        assert!(
-            routing.is_supported(),
-            "Question '{}' must route to a capability, not fall through to LLM",
-            question
-        );
-        assert_eq!(
-            routing.capability_id().unwrap().as_str(),
-            "display.scale.gdm",
-            "Question must route to display.scale.gdm"
-        );
-
-        // Execute the capability
-        let execution_result = execute_display_scale_gdm();
-        let response = format_response(&routing, Some(execution_result));
-
-        // Must be either ConfirmationRequired or Abstained (not Failed, not Resolved without ActionPlan)
-        match &response {
-            ResponseOutcome::ConfirmationRequired { action_plan, .. } => {
-                // Good: has an action plan
-                assert!(!action_plan.steps.is_empty() || !action_plan.changes_needed);
-            }
-            ResponseOutcome::Abstained { reason, explanation, .. } => {
-                // Good: abstained with a clear reason
-                assert!(!explanation.is_empty(), "Abstain must have explanation");
-                // Must NOT contain the forbidden message
-                assert!(
-                    !explanation.to_lowercase().contains("could not format"),
-                    "Abstain explanation must not contain 'could not format': {}",
-                    explanation
-                );
-            }
-            ResponseOutcome::Resolved { explanation, .. } => {
-                // Also acceptable if changes_needed=false scenario
-                assert!(
-                    !explanation.to_lowercase().contains("could not format"),
-                    "Resolved explanation must not contain 'could not format': {}",
-                    explanation
-                );
-            }
-            ResponseOutcome::Failed { diagnostic, .. } => {
-                panic!(
-                    "Capability must not fail for matched request. Diagnostic: {}",
-                    diagnostic
-                );
-            }
-        }
-    }
-
-    /// Phase 34A: No "could not format a valid response" for ANY capability match
-    #[test]
-    fn test_no_could_not_format_for_capability_match() {
-        let questions = vec![
-            "can you please scale up GDM login screen?",
-            "scale gdm",
-            "what's my cpu temperature",
-            "am I using pipewire",
-            "stop sleep when closing lid",
-        ];
-
-        for question in questions {
-            let routing = route_request(question);
-            if !routing.is_supported() {
-                continue; // Only test capability-routed requests
-            }
-
-            let cap_id = routing.capability_id().unwrap().as_str();
-            let execution_result = match cap_id {
-                "display.scale.gdm" => execute_display_scale_gdm(),
-                "system.thermal.status" => execute_thermal_status(),
-                "audio.stack.detect" => execute_audio_stack_detect(),
-                "power.inhibit.sleep" => {
-                    execute_power_inhibit_sleep(InhibitTarget::LidClose, InhibitAction::Ignore)
-                }
-                _ => continue,
-            };
-
-            let response = format_response(&routing, Some(execution_result));
-            let output = format_outcome_to_string(&response);
-
-            // CRITICAL ASSERTION
-            assert!(
-                !output.to_lowercase().contains("could not format"),
-                "Phase 34A: Capability '{}' for question '{}' must not produce 'could not format'. Got: {}",
-                cap_id,
-                question,
-                output
-            );
-            assert!(
-                !output.to_lowercase().contains("gathered information"),
-                "Phase 34A: Capability '{}' must not produce 'gathered information' fallback. Got: {}",
-                cap_id,
-                output
-            );
-        }
-    }
 }

@@ -46,27 +46,23 @@ pub fn get_llm_call_count() -> u64 {
 #[cfg(not(test))]
 pub fn record_llm_call() {}
 
-pub mod assisted_ops;  // Phase 39: Supervised assistance layer
-pub mod autofix;  // TODO: Remove after full migration to llm_core
+pub mod assisted_ops;
+pub mod autofix;
 pub mod binary_watcher;
-pub mod dynamic_plan;  // Phase 37: LLM-generated ActionPlans with risk assessment
+pub mod dynamic_plan;
 pub mod changes;
 pub mod core_loop;
 pub mod department;
 pub mod intent;
-pub mod llm_core;  // NEW: Pure LLM-driven core loop
+pub mod llm_core;
 pub mod ollama;
-pub mod patterns;  // TODO: Remove after full migration to llm_core
-pub mod plan_executor;  // Phase 16: Action plan execution
-pub mod plan_generator;  // Phase 16: Generate plans from LLM
-pub mod plan_stash;  // Phase 17: State capture for rollback
-pub mod plan_templates;  // Phase 17: Template plans for common operations
-pub mod plan_verify;  // Phase 17: Post-action verification
+pub mod plan_executor;
+pub mod plan_generator;
+pub mod plan_stash;
+pub mod plan_verify;
 pub mod ralph;
-pub mod recipes;
-pub mod recovery;  // v0.3.36: Self-healing recovery
+pub mod recovery;
 pub mod server;
-pub mod specialist;  // v0.3.37: Specialist dispatch system
 pub mod state;
 pub mod team_speak;
 pub mod translator;

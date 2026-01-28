@@ -12,11 +12,7 @@
 mod commands;
 pub mod confidence;
 mod criteria;
-mod diagnostic;
 pub mod evidence;
-mod fast_path;
-mod fast_path_patterns;
-mod instant;
 mod recipe_learning;
 mod streaming;
 pub mod streaming_helpers;
@@ -31,84 +27,15 @@ use anyhow::Result;
 use tracing::{debug, info, warn};
 
 use crate::core_loop::{execute_command, strip_ansi_codes};
-use crate::ollama;
 
 use commands::{generate_answer, get_commands, self_evaluate};
 use criteria::IterationState;
-use diagnostic::try_diagnostic_path;
-use fast_path::try_fast_path;
-use instant::try_instant_error;
 use recipe_learning::learn_recipe_from_answer;
 use verification::truncate;
 
 /// The Ralph loop: iterate until done (non-streaming version)
-///
-/// This is the core of the Ralph approach:
-/// 1. Determine what "done" looks like
-/// 2. Loop: attempt answer, self-evaluate, improve
-/// 3. Stop when criteria met or max iterations reached
+/// LLM-first: no bypass paths. Every question goes through the LLM.
 pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
-    // Try instant error response first for known issues
-    if let Some(result) = try_instant_error(question) {
-        info!("Instant error response completed");
-        return Ok(result);
-    }
-
-    // Try fast-path first for simple queries
-    if let Some(result) = try_fast_path(question).await {
-        info!("Fast-path completed in 0 iterations");
-        return Ok(result);
-    }
-
-    // Try diagnostic path for ambiguous queries
-    if let Some((executed, outputs, intro, mut dialogue)) = try_diagnostic_path(question) {
-        info!("Diagnostic path: analyzing {} outputs", outputs.len());
-
-        let data_context = outputs.join("\n---\n");
-        let prompt = format!(
-            r#"You are Anna, an AI assistant for Arch Linux systems.
-
-The user asked: "{}"
-
-I ran diagnostic commands. Here are the results:
-{}
-
-Based on these diagnostics, provide a helpful analysis. Be specific:
-- If there's a problem, explain what it is and how to fix it
-- If everything looks normal, say so with specific evidence
-- Reference actual values from the output
-
-Be concise but complete. Start your response with "{}" (without quotes)."#,
-            question, data_context, intro
-        );
-
-        match ollama::chat_with_timeout(model, &prompt, 60).await {
-            Ok(answer) => {
-                dialogue.push(DialogueStep {
-                    step_type: StepType::FinalAnswer,
-                    content: answer.clone(),
-                });
-
-                return Ok(AskResult {
-                    answer,
-                    success: true,
-                    iterations: 1,
-                    commands_executed: executed,
-                    dialogue,
-                    needs_clarification: false,
-                    clarification_question: None,
-                    cached: false,
-                    citations: vec![],
-                    abstained: false,
-                    final_confidence: None,
-                });
-            }
-            Err(e) => {
-                warn!("Diagnostic path LLM failed: {}, falling back to normal loop", e);
-            }
-        }
-    }
-
     let criteria = determine_criteria(question);
     info!(
         "Ralph loop: {:?}, confidence >= {:.0}%, max {} iterations",

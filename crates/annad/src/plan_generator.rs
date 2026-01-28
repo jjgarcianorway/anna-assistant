@@ -12,8 +12,7 @@ use tracing::{debug, info, warn};
 
 use crate::ollama;
 
-// Re-export template plan generation from dedicated module
-pub use crate::plan_templates::generate_template_plan;
+// Template plans removed - LLM generates all plans dynamically now.
 
 /// Request structure for plan generation.
 #[derive(Debug, Deserialize)]
@@ -111,28 +110,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_template_plan_gdm() {
-        let plan = generate_template_plan("change GDM resolution to 1920x1080");
-        assert!(plan.is_some());
-        let plan = plan.unwrap();
-        assert!(plan.summary.contains("GDM"));
-        // Plan requires sudo unless already configured (idempotent)
-        assert!(plan.requires_sudo() || !plan.changes_needed);
-    }
-
-    #[test]
-    fn test_generate_template_plan_sleep() {
-        let plan = generate_template_plan("disable sleep when idle");
-        assert!(plan.is_some());
-        let plan = plan.unwrap();
-        assert!(plan.summary.contains("sleep"));
-    }
-
-    #[test]
-    fn test_generate_template_plan_lid() {
-        let plan = generate_template_plan("do nothing when lid closes");
-        assert!(plan.is_some());
-        let plan = plan.unwrap();
-        assert!(plan.summary.contains("lid"));
+    fn test_plan_response_parsing() {
+        let json = r#"{
+            "summary": "Install package",
+            "explanation": "Using pacman to install",
+            "steps": [{"description": "Install", "command": "pacman -S pkg", "needs_sudo": true}],
+            "verification_command": "pacman -Q pkg",
+            "verification_pattern": "pkg"
+        }"#;
+        let resp: PlanResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(resp.steps.len(), 1);
+        assert!(resp.steps[0].needs_sudo);
     }
 }

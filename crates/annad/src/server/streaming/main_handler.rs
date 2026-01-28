@@ -1,34 +1,20 @@
 //! Main question handling logic.
-//! v0.1.1: Ralph loop integration
-//! v0.2.8: RPG stats tracking
-//! v0.3.56: Phase 23 - Outcome ledger integration
-//! v0.3.59: Phase 26 - Abstention outcome recording
-//! v0.3.70: Warning inquiry interception - DATA template routing
-//! v0.3.71: Teaching Mode - intent classification and routing
-//! v0.3.72: Interpretation Mode - resolution acknowledgment
+//! LLM-first: all questions go to the Ralph loop.
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::intent_class::classify_intent;
-use anna_shared::interpretation::{
-    is_resolution_inquiry, detect_resolutions, attribute_resolution,
-    format_resolution_acknowledgment, format_no_resolution,
-};
-use anna_shared::monitor::{find_matching_issue, format_issue_evidence};
 use anna_shared::outcome_ledger::{append_outcome, AbstentionReason, Outcome, OutcomeRecord, RequestMode};
 use anna_shared::rpc::{DialogueStep, StepType, StreamingResponse};
-use anna_shared::teaching::{classify_teaching_intent, TeachingIntent};
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
 
-use crate::core_loop::execute_question_streaming;
-use crate::intent::is_warning_inquiry;
 use crate::ralph;
 use crate::state::SharedState;
 
 use super::helpers::send_filtered_final_answer;
 
-/// Handle main question processing (after all special cases)
+/// Handle main question processing - LLM-first, no bypass paths.
 pub async fn handle_main_question(
     question: &str,
     session_id: &str,
@@ -36,219 +22,8 @@ pub async fn handle_main_question(
     start_time: std::time::Instant,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
-    // v0.3.56: Phase 23 - Generate request ID and classify intent for outcome tracking
     let request_id = uuid::Uuid::new_v4().to_string();
     let intent = classify_intent(question);
-
-    // v0.3.70: Check for warning inquiry FIRST - route to DATA template, not LLM
-    // This is critical for Observation Phase compliance
-    if let Some(subject) = is_warning_inquiry(question) {
-        info!("Warning inquiry detected for subject: {}", subject);
-
-        if let Some(issue) = find_matching_issue(&subject) {
-            info!("Found matching issue, returning evidence-only response");
-
-            // Format as pure evidence - NO LLM, NO explanation
-            let evidence = format_issue_evidence(&issue);
-
-            // Send the evidence as the answer
-            send_filtered_final_answer(writer, &evidence).await?;
-
-            let result = anna_shared::rpc::AskResult {
-                answer: evidence,
-                success: true,
-                iterations: 0,
-                commands_executed: vec![],
-                dialogue: vec![],
-                needs_clarification: false,
-                clarification_question: None,
-                cached: false,
-                citations: vec![],
-                abstained: false,
-                final_confidence: Some(1.0), // Evidence is authoritative
-            };
-            let done = StreamingResponse::Done { result };
-            let json = serde_json::to_string(&done)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            // Record outcome
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let outcome_record = OutcomeRecord::new(
-                &request_id,
-                RequestMode::Dialogue,
-                intent.clone(),
-                Outcome::Resolved,
-                false,
-                duration_ms,
-            );
-            let _ = append_outcome(&outcome_record);
-
-            return Ok(());
-        } else {
-            // Warning inquiry but no matching issue - report that clearly
-            info!("Warning inquiry but no matching issue found");
-            let no_issue_response = format!(
-                "No active issue found matching '{}'.\n\n\
-                 Current active issues can be viewed with: annactl status\n\n\
-                 [No data to report]",
-                subject
-            );
-
-            send_filtered_final_answer(writer, &no_issue_response).await?;
-
-            let result = anna_shared::rpc::AskResult {
-                answer: no_issue_response,
-                success: true,
-                iterations: 0,
-                commands_executed: vec![],
-                dialogue: vec![],
-                needs_clarification: false,
-                clarification_question: None,
-                cached: false,
-                citations: vec![],
-                abstained: false,
-                final_confidence: Some(1.0),
-            };
-            let done = StreamingResponse::Done { result };
-            let json = serde_json::to_string(&done)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let outcome_record = OutcomeRecord::new(
-                &request_id,
-                RequestMode::Dialogue,
-                intent.clone(),
-                Outcome::Resolved,
-                false,
-                duration_ms,
-            );
-            let _ = append_outcome(&outcome_record);
-
-            return Ok(());
-        }
-    }
-
-    // v0.3.72: Interpretation Mode - check for resolution inquiry
-    // Only respond about resolutions when explicitly asked
-    if is_resolution_inquiry(question) {
-        info!("Resolution inquiry detected: {}", question);
-
-        // Detect any recent resolutions
-        let resolutions = detect_resolutions();
-
-        if !resolutions.is_empty() {
-            // Find the most relevant resolution (most recent)
-            let resolution = &resolutions[0];
-            let attribution = attribute_resolution(resolution);
-
-            info!(
-                "Found resolution: {:?} attributed to {:?}",
-                resolution.resolution, attribution.actor
-            );
-
-            // Format acknowledgment (strictly constrained output)
-            let acknowledgment = format_resolution_acknowledgment(resolution, &attribution);
-
-            send_filtered_final_answer(writer, &acknowledgment).await?;
-
-            let result = anna_shared::rpc::AskResult {
-                answer: acknowledgment,
-                success: true,
-                iterations: 0,
-                commands_executed: vec![],
-                dialogue: vec![],
-                needs_clarification: false,
-                clarification_question: None,
-                cached: false,
-                citations: vec![],
-                abstained: false,
-                final_confidence: Some(1.0),
-            };
-            let done = StreamingResponse::Done { result };
-            let json = serde_json::to_string(&done)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let outcome_record = OutcomeRecord::new(
-                &request_id,
-                RequestMode::Dialogue,
-                intent.clone(),
-                Outcome::Resolved,
-                false,
-                duration_ms,
-            );
-            let _ = append_outcome(&outcome_record);
-
-            return Ok(());
-        } else {
-            // No resolutions found - report that
-            info!("Resolution inquiry but no resolutions detected");
-            let no_resolution = format_no_resolution("requested subject");
-
-            send_filtered_final_answer(writer, &no_resolution).await?;
-
-            let result = anna_shared::rpc::AskResult {
-                answer: no_resolution,
-                success: true,
-                iterations: 0,
-                commands_executed: vec![],
-                dialogue: vec![],
-                needs_clarification: false,
-                clarification_question: None,
-                cached: false,
-                citations: vec![],
-                abstained: false,
-                final_confidence: Some(1.0),
-            };
-            let done = StreamingResponse::Done { result };
-            let json = serde_json::to_string(&done)?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let outcome_record = OutcomeRecord::new(
-                &request_id,
-                RequestMode::Dialogue,
-                intent.clone(),
-                Outcome::Resolved,
-                false,
-                duration_ms,
-            );
-            let _ = append_outcome(&outcome_record);
-
-            return Ok(());
-        }
-    }
-
-    // v0.3.71: Teaching Mode - classify intent for routing and logging
-    let teaching_intent = classify_teaching_intent(question);
-    let teaching_mode_enabled = AnnaConfig::load()
-        .map(|c| c.teaching_mode)
-        .unwrap_or(false);
-
-    info!(
-        "Teaching Mode: classified as {:?} (allows_teaching: {}, requires_evidence: {}, enabled: {})",
-        teaching_intent,
-        teaching_intent.allows_teaching(),
-        teaching_intent.requires_evidence(),
-        teaching_mode_enabled
-    );
-
-    // Teaching Mode behavior (only when enabled):
-    // - Status/ChangeAnalysis: fact-based, grounded responses (always)
-    // - Explanation/ServiceDesk: teaching allowed IF config.teaching_mode == true
-    // - ActionRequest: routes to existing mutation flow (always)
-    //
-    // When Teaching Mode is disabled (default), all intents get Observation Phase behavior:
-    // evidence only, no interpretation.
-    //
-    // Hard constraints remain regardless of mode:
-    // - No new execution capabilities
-    // - No unsolicited actions
-    // - No guessing or hallucination
-    // - No shell commands unless explicitly allowed
-
-    // Store teaching context for use in Ralph loop (future: pass to LLM prompts)
-    let _teaching_context = (teaching_intent, teaching_mode_enabled);
 
     // Check cache for identical recent question
     {
@@ -394,23 +169,9 @@ pub async fn handle_main_question(
         }
     }
 
-    // v0.1.1: Check if Ralph loop is enabled (simpler, more robust)
-    let use_ralph = AnnaConfig::load()
-        .map(|c| c.use_ralph_loop)
-        .unwrap_or(true);
-
-    let result = if use_ralph {
-        info!("Using Ralph loop for question: {}", question_to_use);
-        ralph::ralph_loop_streaming(&model, question_to_use, writer).await
-    } else {
-        execute_question_streaming(
-            &model,
-            question_to_use,
-            session_context.as_deref(),
-            writer,
-        )
-        .await
-    };
+    // LLM-first: all questions go through the Ralph loop
+    info!("Ralph loop for question: {}", question_to_use);
+    let result = ralph::ralph_loop_streaming(&model, question_to_use, writer).await;
 
     // v0.0.892: Record full turn to session after execution
     match &result {

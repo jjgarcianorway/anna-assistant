@@ -85,7 +85,7 @@ fn default_ollama_url() -> String {
 }
 
 fn default_ollama_model() -> String {
-    std::env::var("ANNA_OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:7b".to_string())
+    std::env::var("ANNA_OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string())
 }
 
 /// Performance configuration (timeouts, limits, etc.)

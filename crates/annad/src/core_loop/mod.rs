@@ -235,6 +235,8 @@ pub async fn search_wiki_for_commands(question: &str) -> Option<WikiSearchResult
     }
 }
 
-// v0.2.0: Use new LLM-only core loop (no pattern matching)
-// To revert to old system: change to core_loop_old
-pub use crate::llm_core::{execute_question_llm as execute_question, execute_question_streaming_llm as execute_question_streaming};
+// LLM-first: use Ralph loop for all question execution
+pub async fn execute_question(model: &str, question: &str) -> anyhow::Result<anna_shared::rpc::AskResult> {
+    crate::ralph::ralph_loop(model, question).await
+}
+

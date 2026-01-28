@@ -15,9 +15,9 @@ impl StateInner {
         // v0.0.924: Get memory health info
         let (memory_experiences, memory_health_issues) = Self::get_memory_health();
 
-        // v0.1.0: Get pattern and recipe counts
-        let pattern_count = crate::patterns::total_pattern_count();
-        let recipe_count = Self::get_recipe_count();
+        // LLM-first: no pattern matching, no recipes
+        let pattern_count = 0;
+        let recipe_count = 0;
 
         // v0.2.7: Get RPG stats
         let rpg_stats = anna_shared::stats::PersistentStats::load()

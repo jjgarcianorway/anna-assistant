@@ -124,11 +124,10 @@ pub fn select_best_model(hw: &HardwareInfo) -> &'static str {
         GpuType::NvidiaCuda | GpuType::AmdRocm | GpuType::IntelArc => {
             if vram_gb >= 24 {
                 "qwen2.5:32b"
-            } else if vram_gb >= 16 {
+            } else if vram_gb >= 12 {
                 "qwen2.5:14b"
-            // v0.0.999: 8GB VRAM needs model < 8GB to avoid CPU spillover
             } else if vram_gb >= 8 {
-                "qwen2.5:7b"  // 4GB fits comfortably in 8GB VRAM
+                "qwen2.5:7b"
             } else if vram_gb >= 6 && hw.ram_gb >= 16 {
                 "qwen2.5:7b"
             } else if vram_gb >= 4 {

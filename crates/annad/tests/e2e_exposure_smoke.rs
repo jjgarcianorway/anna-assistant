@@ -202,16 +202,6 @@ fn test_final_answer_sanitization() {
 }
 
 #[test]
-fn test_power_intent_routing() {
-    use annad::patterns::power::match_patterns;
-    for query in ["prevent suspend everywhere", "disable sleep on lid close", "never sleep even on GDM"] {
-        let result = match_patterns(query);
-        assert!(result.is_some(), "Should match: {}", query);
-        assert_eq!(result.as_ref().unwrap().topic, Some("power".to_string()));
-    }
-}
-
-#[test]
 fn test_final_answer_has_classification() {
     use anna_shared::rpc::StepType;
     use annad::ralph::streaming_helpers::classify_step;
