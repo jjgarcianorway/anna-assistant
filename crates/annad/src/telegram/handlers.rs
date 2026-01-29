@@ -86,7 +86,9 @@ pub async fn handle_message(
                 bot.send_message(chat_id, confirm_msg).await?;
             } else {
                 // Send answer directly
+                info!("Sending Telegram reply ({} chars)", ask_result.answer.len());
                 send_long_message(&bot, chat_id, &ask_result.answer).await?;
+                info!("Telegram reply sent successfully");
             }
         }
         Err(e) => {
