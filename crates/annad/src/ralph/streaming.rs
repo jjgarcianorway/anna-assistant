@@ -570,9 +570,14 @@ fn format_plan_for_display(plan: &anna_shared::action_plan::ActionPlan) -> Strin
     let mut lines = Vec::new();
     lines.push(format!("Plan: {}", plan.summary));
     lines.push(String::new());
+    lines.push("Commands to execute:".to_string());
     for (i, step) in plan.steps.iter().enumerate() {
-        let sudo_marker = if step.needs_sudo { " [sudo]" } else { "" };
-        lines.push(format!("  {}. {}{}", i + 1, step.description, sudo_marker));
+        let privilege = if step.needs_sudo { " (requires root)" } else { "" };
+        // Show the actual command first, then description
+        lines.push(format!("  {}. {}{}", i + 1, step.command, privilege));
+        if !step.description.is_empty() && step.description != step.command {
+            lines.push(format!("     -> {}", step.description));
+        }
     }
     lines.join("\n")
 }

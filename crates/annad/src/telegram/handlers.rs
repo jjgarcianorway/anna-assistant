@@ -140,47 +140,73 @@ async fn handle_confirmation(
     confirmed: bool,
     state: Arc<TelegramState>,
 ) -> anyhow::Result<()> {
-    let pending = {
+    // Clear the local pending state
+    {
         let mut confirms = state.pending_confirms.write().await;
-        confirms.remove(&chat_id.0)
-    };
+        confirms.remove(&chat_id.0);
+    }
 
-    match pending {
-        Some((plan_description, original_question)) => {
-            if confirmed {
-                bot.send_message(chat_id, "Executing...").await?;
-                bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await?;
+    // Check for pending plan in executor
+    if confirmed {
+        if let Some(plan) = crate::plan_executor::take_pending_plan("default") {
+            bot.send_message(chat_id, "Executing plan...").await?;
+            bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await?;
 
-                // Execute the confirmed action
-                // For now, re-run with confirmation flag
-                // TODO: Store and execute actual ActionPlan
-                let model = {
-                    let anna = state.anna_state.read().await;
-                    anna.model.clone().unwrap_or_else(|| "qwen2.5:14b".to_string())
-                };
+            // Execute the stored plan directly
+            let result = crate::plan_executor::execute_plan(&plan);
 
-                // Re-run with "yes, do it" context
-                let confirmed_question = format!("{} (confirmed, execute it)", original_question);
-                let result = ralph::ralph_loop(&model, &confirmed_question).await;
-
-                match result {
-                    Ok(ask_result) => {
-                        send_long_message(&bot, chat_id, &ask_result.answer).await?;
-                    }
-                    Err(e) => {
-                        bot.send_message(chat_id, format!("Execution failed: {}", e)).await?;
-                    }
-                }
-            } else {
-                bot.send_message(chat_id, "Cancelled.").await?;
-            }
+            // Format result for Telegram
+            let response = format_execution_result(&plan.summary, &result);
+            send_long_message(&bot, chat_id, &response).await?;
+        } else {
+            bot.send_message(chat_id, "Plan expired or not found. Please ask again.").await?;
         }
-        None => {
-            bot.send_message(chat_id, "Nothing pending to confirm.").await?;
-        }
+    } else {
+        // Cancel - remove the pending plan
+        let _ = crate::plan_executor::take_pending_plan("default");
+        bot.send_message(chat_id, "Cancelled.").await?;
     }
 
     Ok(())
+}
+
+/// Format plan execution result for Telegram.
+fn format_execution_result(
+    summary: &str,
+    result: &anna_shared::action_plan::PlanExecutionResult,
+) -> String {
+    let mut lines = Vec::new();
+
+    if result.success {
+        lines.push(format!("Done: {}", summary));
+        lines.push(String::new());
+        for step_result in &result.step_results {
+            let status = if step_result.success { "OK" } else { "FAILED" };
+            lines.push(format!("  Step {}: {}", step_result.step_index + 1, status));
+        }
+        if let Some(ref verification) = result.verification_result {
+            if verification.passed {
+                lines.push(String::new());
+                lines.push("Verified: Changes applied successfully.".to_string());
+            }
+        }
+    } else {
+        lines.push(format!("Failed: {}", summary));
+        // Show failed step errors
+        for step_result in &result.step_results {
+            if !step_result.success {
+                if let Some(ref err) = step_result.error {
+                    lines.push(format!("  Step {} failed: {}", step_result.step_index + 1, err));
+                }
+            }
+        }
+        if result.rollback_performed {
+            lines.push(String::new());
+            lines.push("Changes have been rolled back.".to_string());
+        }
+    }
+
+    lines.join("\n")
 }
 
 /// Send a long message, splitting if needed (Telegram limit: 4096 chars).
