@@ -385,10 +385,46 @@ async fn handle_config_request<W: tokio::io::AsyncWriteExt + Unpin>(
             send_done(writer, &result).await?;
             Ok(result)
         }
-        RiskLevel::Low | RiskLevel::High => {
-            // Present plan for confirmation
+        RiskLevel::Low => {
+            // Low risk: execute immediately without confirmation
+            info!("Low risk plan - executing immediately");
+            push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                "Executing configuration changes...".to_string(), gate).await?;
+
+            let exec_result = crate::plan_executor::execute_plan(&plan);
+            let commands_run: Vec<String> = plan.steps.iter().map(|s| s.command.clone()).collect();
+
+            let answer = if exec_result.success {
+                format!("Done. {}", plan.summary)
+            } else {
+                let errors: Vec<String> = exec_result.step_results.iter()
+                    .filter(|r| !r.success)
+                    .filter_map(|r| r.error.clone())
+                    .collect();
+                format!("Failed: {}", errors.join(", "))
+            };
+
+            push_and_send(writer, dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+            let result = AskResult {
+                answer,
+                success: exec_result.success,
+                iterations: 1,
+                commands_executed: commands_run,
+                dialogue: dialogue.clone(),
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(0.95),
+            };
+            send_done(writer, &result).await?;
+            Ok(result)
+        }
+        RiskLevel::High => {
+            // High risk: ask for confirmation
             let plan_text = format_plan_for_display(&plan);
-            let answer = format!("{}\n\nProceed? (yes/no)", plan_text);
+            let answer = format!("{}\n\nThis requires elevated privileges. Proceed? (yes/no)", plan_text);
             push_and_send(writer, dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
 
             // Store plan for confirmation flow

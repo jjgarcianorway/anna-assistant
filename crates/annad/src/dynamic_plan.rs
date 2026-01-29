@@ -18,15 +18,36 @@ pub enum RiskLevel {
 
 /// Paths/patterns that are LOW risk (config tweaks, reversible).
 const LOW_RISK_PATHS: &[&str] = &[
+    // Config directories
     "/etc/dconf/",
     "/etc/systemd/logind.conf",
     "/etc/systemd/logind.conf.d/",
     "/var/lib/gdm/.config/",
     "/var/lib/gdm3/.config/",
+    // GNOME/dconf commands
     "dconf update",
+    "dconf write",
     "gsettings set",
+    "gsettings reset",
+    // Systemd commands (non-service)
     "systemctl daemon-reload",
     "loginctl",
+    // Directory/file setup for configs
+    "mkdir -p /var/lib/gdm",
+    "mkdir -p /etc/dconf",
+    "mkdir -p /etc/systemd/logind.conf.d",
+    // Display settings
+    "xrandr",
+    "wlr-randr",
+    // Safe file operations on known config paths
+    "cp ~/.config/monitors.xml /var/lib/gdm",
+    "chown gdm:gdm /var/lib/gdm",
+    // NetworkManager (read/status only)
+    "nmcli connection show",
+    "nmcli device status",
+    // Timezone/locale (reversible)
+    "timedatectl set-timezone",
+    "localectl set-locale",
 ];
 
 /// Paths/patterns that are HIGH risk (need confirmation).

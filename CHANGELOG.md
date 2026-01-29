@@ -5,6 +5,29 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.80] - 2026-01-29
+
+### Changed - Autonomous Agent Mode
+
+Anna is now truly autonomous. She does things instead of asking for permission.
+
+**Auto-execute Low Risk:**
+- Low-risk operations (dconf, gsettings, GDM config, display settings) execute immediately
+- No more "Proceed? (yes/no)" for safe operations
+- High-risk operations (packages, services, system files) still require confirmation
+
+**Expanded Low-Risk Patterns:**
+- GDM display scaling (`/var/lib/gdm/.config/`)
+- Display settings (xrandr, wlr-randr)
+- Timezone/locale changes
+- NetworkManager status queries
+- Config directory creation
+
+**Proactive Prompts:**
+- System context now identifies Anna as an autonomous agent
+- Answer prompts emphasize action over reporting
+- "Fix it, don't just report it" mentality
+
 ## [0.3.79] - 2026-01-29
 
 ### Added - Telegram Bot Channel
