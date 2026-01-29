@@ -3,6 +3,7 @@
 
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
+use chrono::Timelike;
 use anna_shared::policy::get_policy;
 use anna_shared::probe_ledger::ProbeLedger;
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
@@ -45,6 +46,11 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
+    // Check for morning briefing setup
+    if let Some(result) = handle_morning_briefing_request(question, writer, &gate).await? {
+        return Ok(result);
+    }
+
     // All other questions go through the full loop
     run_full_loop_streaming(model, question, writer, &gate).await
 }
@@ -79,6 +85,59 @@ async fn handle_reminder_request<W: tokio::io::AsyncWriteExt + Unpin>(
     };
 
     let answer = format!("Got it. I'll remind you to \"{}\" in {}.", message, when_str);
+
+    let mut dialogue = Vec::new();
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0),
+    };
+    send_done(writer, &result).await?;
+
+    Ok(Some(result))
+}
+
+/// Handle morning briefing setup requests.
+async fn handle_morning_briefing_request<W: tokio::io::AsyncWriteExt + Unpin>(
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<Option<AskResult>> {
+    use anna_shared::scheduler::{parse_morning_briefing, ScheduledTask, TaskStore};
+    use super::streaming_helpers::{push_and_send, send_done};
+
+    let Some(time) = parse_morning_briefing(question) else {
+        return Ok(None);
+    };
+
+    // Create and save the morning briefing task
+    let mut store = TaskStore::load();
+
+    // Remove existing morning briefing if any
+    store.remove_morning_briefing();
+
+    let task = ScheduledTask::morning_briefing(time);
+    store.add(task);
+
+    if let Err(e) = store.save() {
+        tracing::warn!("Failed to save morning briefing: {}", e);
+    }
+
+    let answer = format!(
+        "Morning briefing set up. I'll send you a daily health check at {:02}:{:02}.",
+        time.hour(), time.minute()
+    );
 
     let mut dialogue = Vec::new();
     push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;

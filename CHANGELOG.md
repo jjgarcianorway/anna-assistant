@@ -5,6 +5,23 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.83] - 2026-01-29
+
+### Added - Morning Briefing
+
+Anna now supports daily morning briefings via Telegram.
+
+**Setup:**
+```
+annactl "set up morning briefing at 8am"
+annactl "enable daily briefing at 7:30am"
+```
+
+**Features:**
+- Daily health check sent to Telegram at configured time
+- Includes disk space, memory, failed services, load
+- Time parser supports: 8am, 8:30am, 14:00, 2pm
+
 ## [0.3.82] - 2026-01-29
 
 ### Added - Scheduler and Reminders

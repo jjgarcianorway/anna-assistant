@@ -69,6 +69,11 @@ impl ScheduledTask {
         }
     }
 
+    /// Create a morning briefing (daily health check).
+    pub fn morning_briefing(time: NaiveTime) -> Self {
+        Self::daily("Morning Briefing", time, TaskAction::HealthCheck)
+    }
+
     /// Check if this task should run now.
     pub fn should_run(&self) -> bool {
         if !self.enabled {
@@ -181,6 +186,61 @@ impl TaskStore {
     pub fn cleanup(&mut self) {
         self.tasks.retain(|t| t.enabled || !matches!(t.trigger, TaskTrigger::Once(_)));
     }
+
+    /// Check if morning briefing is already set up.
+    pub fn has_morning_briefing(&self) -> bool {
+        self.tasks.iter().any(|t| {
+            t.enabled && t.description == "Morning Briefing" && matches!(t.action, TaskAction::HealthCheck)
+        })
+    }
+
+    /// Remove existing morning briefing.
+    pub fn remove_morning_briefing(&mut self) {
+        self.tasks.retain(|t| !(t.description == "Morning Briefing" && matches!(t.action, TaskAction::HealthCheck)));
+    }
+}
+
+/// Parse a morning briefing request like "set up morning briefing at 8am".
+/// Returns the time if valid.
+pub fn parse_morning_briefing(input: &str) -> Option<NaiveTime> {
+    let lower = input.to_lowercase();
+
+    // Check for morning briefing keywords
+    if !lower.contains("morning briefing") && !lower.contains("morning brief") && !lower.contains("daily briefing") {
+        return None;
+    }
+
+    // Look for time patterns
+    // "at 8am", "at 8:00", "at 8:30am", "at 08:00"
+    if let Some(at_idx) = lower.find(" at ") {
+        let time_part = lower[at_idx + 4..].trim();
+        return parse_time_str(time_part);
+    }
+
+    // Default to 8:00 AM if no time specified
+    Some(NaiveTime::from_hms_opt(8, 0, 0).unwrap())
+}
+
+/// Parse a time string like "8am", "8:30am", "08:00", "14:30".
+fn parse_time_str(s: &str) -> Option<NaiveTime> {
+    let s = s.trim().to_lowercase();
+
+    // Handle "8am", "8pm", "8:30am", "8:30pm"
+    let is_pm = s.contains("pm");
+    let s = s.replace("am", "").replace("pm", "").trim().to_string();
+
+    if let Some(colon_idx) = s.find(':') {
+        // "8:30" format
+        let hours: u32 = s[..colon_idx].trim().parse().ok()?;
+        let minutes: u32 = s[colon_idx + 1..].trim().parse().ok()?;
+        let hours = if is_pm && hours < 12 { hours + 12 } else if !is_pm && hours == 12 { 0 } else { hours };
+        NaiveTime::from_hms_opt(hours, minutes, 0)
+    } else {
+        // "8" format (just hour)
+        let hours: u32 = s.trim().parse().ok()?;
+        let hours = if is_pm && hours < 12 { hours + 12 } else if !is_pm && hours == 12 { 0 } else { hours };
+        NaiveTime::from_hms_opt(hours, 0, 0)
+    }
 }
 
 /// Parse a reminder request like "remind me in 30 minutes to check email".
@@ -248,5 +308,31 @@ mod tests {
     fn test_task_should_not_run_future() {
         let task = ScheduledTask::reminder("test", Utc::now() + Duration::hours(1));
         assert!(!task.should_run());
+    }
+
+    #[test]
+    fn test_parse_morning_briefing_default() {
+        let time = parse_morning_briefing("set up morning briefing").unwrap();
+        assert_eq!(time, NaiveTime::from_hms_opt(8, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_parse_morning_briefing_with_time() {
+        let time = parse_morning_briefing("set up morning briefing at 7am").unwrap();
+        assert_eq!(time, NaiveTime::from_hms_opt(7, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_parse_morning_briefing_pm() {
+        let time = parse_morning_briefing("enable daily briefing at 9pm").unwrap();
+        assert_eq!(time, NaiveTime::from_hms_opt(21, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn test_parse_time_str() {
+        assert_eq!(parse_time_str("8am"), NaiveTime::from_hms_opt(8, 0, 0));
+        assert_eq!(parse_time_str("8:30am"), NaiveTime::from_hms_opt(8, 30, 0));
+        assert_eq!(parse_time_str("14:30"), NaiveTime::from_hms_opt(14, 30, 0));
+        assert_eq!(parse_time_str("2pm"), NaiveTime::from_hms_opt(14, 0, 0));
     }
 }
