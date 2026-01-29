@@ -5,6 +5,29 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.82] - 2026-01-29
+
+### Added - Scheduler and Reminders
+
+Anna can now handle scheduled tasks and reminders.
+
+**Features:**
+- "remind me in X minutes/hours to Y" - sets a reminder via Telegram
+- Background scheduler loop checks every minute
+- Supports one-time reminders, daily tasks, interval tasks
+- Persistent storage at `/var/lib/anna/scheduled_tasks.json`
+
+**Examples:**
+```
+annactl "remind me in 30 minutes to check the build"
+annactl "remind me in 2 hours to call back"
+```
+
+**Actions:**
+- `Reminder`: Send a message via Telegram
+- `HealthCheck`: Run system health check and send summary
+- `Question`: Execute a question through Anna
+
 ## [0.3.81] - 2026-01-29
 
 ### Added - Proactive Push Notifications

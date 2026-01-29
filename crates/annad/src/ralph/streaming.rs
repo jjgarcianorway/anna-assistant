@@ -40,8 +40,66 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         let _ = super::streaming_helpers::send_step(writer, step, &gate).await;
     }
 
-    // All questions go through the full loop - no bypass paths
+    // Check for reminder requests first
+    if let Some(result) = handle_reminder_request(question, writer, &gate).await? {
+        return Ok(result);
+    }
+
+    // All other questions go through the full loop
     run_full_loop_streaming(model, question, writer, &gate).await
+}
+
+/// Handle "remind me in X" requests directly.
+async fn handle_reminder_request<W: tokio::io::AsyncWriteExt + Unpin>(
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<Option<AskResult>> {
+    use anna_shared::scheduler::{parse_reminder, ScheduledTask, TaskStore};
+    use super::streaming_helpers::{push_and_send, send_done};
+
+    let Some((message, when)) = parse_reminder(question) else {
+        return Ok(None);
+    };
+
+    // Create and save the reminder
+    let task = ScheduledTask::reminder(&message, when);
+    let mut store = TaskStore::load();
+    store.add(task);
+    if let Err(e) = store.save() {
+        tracing::warn!("Failed to save reminder: {}", e);
+    }
+
+    // Format when for display
+    let duration = when - chrono::Utc::now();
+    let when_str = if duration.num_hours() >= 1 {
+        format!("{} hour(s)", duration.num_hours())
+    } else {
+        format!("{} minute(s)", duration.num_minutes())
+    };
+
+    let answer = format!("Got it. I'll remind you to \"{}\" in {}.", message, when_str);
+
+    let mut dialogue = Vec::new();
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0),
+    };
+    send_done(writer, &result).await?;
+
+    Ok(Some(result))
 }
 
 /// Run the full Ralph loop with streaming progress.

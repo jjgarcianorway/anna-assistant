@@ -171,6 +171,7 @@ pub mod profile;
 pub mod proposal;
 pub mod recipe;
 pub mod rpc;
+pub mod scheduler;
 pub mod safe_ops;
 pub mod session;
 pub mod status;

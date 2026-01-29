@@ -70,6 +70,11 @@ impl Server {
             }
         });
 
+        // Start scheduler loop for reminders and scheduled tasks
+        tokio::spawn(async move {
+            crate::scheduler_loop::scheduler_loop().await;
+        });
+
         // Run socket server
         self.run_socket_server(&socket_path).await
     }
