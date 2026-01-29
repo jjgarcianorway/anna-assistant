@@ -8,16 +8,24 @@ use crate::telegram::notifier::push_notification;
 
 /// Background loop that checks for and executes scheduled tasks.
 pub async fn scheduler_loop() {
+    info!("Scheduler loop starting (30s delay)...");
+
     // Wait for system to stabilize before starting
     tokio::time::sleep(Duration::from_secs(30)).await;
+
+    info!("Scheduler loop active - checking every 60s");
 
     let mut interval = interval(Duration::from_secs(60)); // Check every minute
 
     loop {
         interval.tick().await;
-        debug!("Checking scheduled tasks...");
 
         let mut store = TaskStore::load();
+        let task_count = store.tasks.len();
+        if task_count > 0 {
+            debug!("Checking {} scheduled tasks...", task_count);
+        }
+
         let due_tasks: Vec<_> = store.get_due().iter().map(|t| (*t).clone()).collect();
 
         if due_tasks.is_empty() {
