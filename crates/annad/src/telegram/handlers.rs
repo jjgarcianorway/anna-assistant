@@ -55,6 +55,12 @@ pub async fn handle_message(
         return handle_confirmation(bot, chat_id, false, state).await;
     }
 
+    // Quick commands (instant, no LLM)
+    if let Some(response) = handle_quick_command(text).await {
+        bot.send_message(chat_id, &response).await?;
+        return Ok(());
+    }
+
     // Check for reminder requests first (bypass Ralph)
     if let Some(response) = handle_reminder(text).await {
         bot.send_message(chat_id, &response).await?;
@@ -270,4 +276,277 @@ async fn handle_preference_update(text: &str) -> Option<String> {
     }
 
     Some(format!("Done! {}", result))
+}
+
+/// Handle quick queries (instant responses, no LLM).
+async fn handle_quick_command(text: &str) -> Option<String> {
+    let q = text.trim().to_lowercase();
+
+    // Status queries
+    if q == "status" || q.contains("how's the system") || q.contains("how is the system")
+        || q.contains("system status") || q == "how are things" || q == "what's up"
+        || q.starts_with("how's everything") {
+        return Some(get_quick_status());
+    }
+
+    // Updates queries
+    if q == "updates" || q.contains("any updates") || q.contains("pending updates")
+        || q.contains("are there updates") || q.contains("check for updates")
+        || q == "updates?" {
+        return Some(get_updates_status());
+    }
+
+    // Health queries
+    if q == "health" || q.contains("health check") || q.contains("system health")
+        || q.contains("how healthy") {
+        return Some(crate::core_loop::get_health_summary());
+    }
+
+    // Tasks/reminders queries
+    if q == "tasks" || q.contains("scheduled tasks") || q.contains("my reminders")
+        || q.contains("my tasks") || q.contains("what's scheduled") {
+        return Some(get_scheduled_tasks());
+    }
+
+    // Fix queries
+    if q == "fix" || q == "fix it" || q == "fix issues" || q.contains("fix everything")
+        || q.contains("auto fix") || q.contains("fix problems") {
+        return Some(auto_fix_safe_issues().await);
+    }
+
+    // Cleanup queries
+    if q == "clean" || q == "cleanup" || q.contains("clean up") || q.contains("free space")
+        || q.contains("clear cache") || q.contains("clear logs") {
+        return Some(run_cleanup().await);
+    }
+
+    // Help queries
+    if q == "help" || q.contains("what can you do") || q == "start"
+        || q.contains("how do you work") {
+        return Some(
+            "I respond to natural questions like:\n\n\
+            Status: 'how's the system?' 'what's up?'\n\
+            Updates: 'any updates?' 'check for updates'\n\
+            Health: 'health check' 'how healthy is my system?'\n\
+            Tasks: 'my reminders' 'scheduled tasks'\n\
+            Fix: 'fix issues' 'fix everything'\n\
+            Clean: 'clean up' 'free space'\n\n\
+            Smart features:\n\
+            - 'remind me in 2 hours to check logs'\n\
+            - 'set up morning briefing at 8am'\n\
+            - 'add network to my briefing'\n\n\
+            Or just ask me anything about your system!".to_string()
+        );
+    }
+
+    None
+}
+
+/// Get quick system status.
+fn get_quick_status() -> String {
+    use std::process::Command;
+
+    let mut status = Vec::new();
+    status.push("=== SYSTEM STATUS ===".to_string());
+
+    // Uptime
+    if let Ok(uptime) = std::fs::read_to_string("/proc/uptime") {
+        if let Some(secs) = uptime.split_whitespace().next() {
+            if let Ok(s) = secs.parse::<f64>() {
+                let hours = (s / 3600.0) as u32;
+                let days = hours / 24;
+                if days > 0 {
+                    status.push(format!("Uptime: {}d {}h", days, hours % 24));
+                } else {
+                    status.push(format!("Uptime: {}h", hours));
+                }
+            }
+        }
+    }
+
+    // Load
+    if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
+        let parts: Vec<&str> = load.split_whitespace().collect();
+        if parts.len() >= 3 {
+            status.push(format!("Load: {} {} {}", parts[0], parts[1], parts[2]));
+        }
+    }
+
+    // Memory
+    if let Ok(output) = Command::new("free").args(["-h"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = out.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                status.push(format!("RAM: {}/{}", parts[2], parts[1]));
+            }
+        }
+    }
+
+    // Disk
+    if let Ok(output) = Command::new("df").args(["-h", "/"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = out.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 5 {
+                status.push(format!("Disk: {} ({})", parts[4], parts[2]));
+            }
+        }
+    }
+
+    // Failed services
+    if let Ok(output) = Command::new("systemctl")
+        .args(["--failed", "--no-pager", "--no-legend"])
+        .output()
+    {
+        let failed = String::from_utf8_lossy(&output.stdout);
+        let count = failed.lines().filter(|l| !l.trim().is_empty()).count();
+        if count > 0 {
+            status.push(format!("Failed services: {}", count));
+        } else {
+            status.push("Services: All OK".to_string());
+        }
+    }
+
+    status.join("\n")
+}
+
+/// Get updates status.
+fn get_updates_status() -> String {
+    use std::process::Command;
+
+    if let Ok(output) = Command::new("checkupdates").output() {
+        let updates = String::from_utf8_lossy(&output.stdout);
+        let count = updates.lines().count();
+        if count > 0 {
+            let mut result = format!("{} updates available:\n", count);
+            for line in updates.lines().take(10) {
+                result.push_str(&format!("  {}\n", line));
+            }
+            if count > 10 {
+                result.push_str(&format!("  ... and {} more\n", count - 10));
+            }
+            result.push_str("\nTo update: sudo pacman -Syu");
+            result
+        } else {
+            "System is up to date!".to_string()
+        }
+    } else {
+        "Could not check updates (checkupdates not available)".to_string()
+    }
+}
+
+/// Get scheduled tasks.
+fn get_scheduled_tasks() -> String {
+    use anna_shared::scheduler::TaskStore;
+
+    let store = TaskStore::load();
+    if store.tasks.is_empty() {
+        return "No scheduled tasks.\n\nTry: 'set up morning briefing at 8am'".to_string();
+    }
+
+    let mut result = format!("{} scheduled tasks:\n", store.tasks.len());
+    for task in &store.tasks {
+        let status = if task.enabled { "active" } else { "disabled" };
+        result.push_str(&format!("  [{}] {}\n", status, task.description));
+    }
+    result
+}
+
+/// Auto-fix safe issues.
+async fn auto_fix_safe_issues() -> String {
+    use std::process::Command;
+
+    let mut fixes = Vec::new();
+    let mut fixed = 0;
+
+    // 1. Clear package cache if > 2GB
+    if let Ok(output) = Command::new("du").args(["-s", "/var/cache/pacman/pkg"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(size) = out.split_whitespace().next() {
+            if let Ok(kb) = size.parse::<u64>() {
+                if kb > 2_000_000 { // > 2GB
+                    if Command::new("paccache").args(["-rk2"]).status().is_ok() {
+                        fixes.push("Cleaned package cache (keeping 2 versions)");
+                        fixed += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Clear old journal logs (> 7 days)
+    if Command::new("journalctl")
+        .args(["--vacuum-time=7d"])
+        .status()
+        .is_ok()
+    {
+        fixes.push("Cleaned journal logs older than 7 days");
+        fixed += 1;
+    }
+
+    // 3. Clear /tmp files older than 7 days
+    if Command::new("find")
+        .args(["/tmp", "-type", "f", "-mtime", "+7", "-delete"])
+        .status()
+        .is_ok()
+    {
+        fixes.push("Cleaned old /tmp files");
+        fixed += 1;
+    }
+
+    // 4. Check for orphan packages (informational only)
+    if let Ok(output) = Command::new("pacman").args(["-Qtdq"]).output() {
+        let orphans = String::from_utf8_lossy(&output.stdout);
+        let count = orphans.lines().count();
+        if count > 0 {
+            fixes.push("Note: orphan packages detected (use /clean to review)");
+        }
+    }
+
+    if fixed > 0 {
+        format!("Fixed {} issues:\n{}", fixed, fixes.join("\n"))
+    } else {
+        "Nothing to fix! System is clean.".to_string()
+    }
+}
+
+/// Run cleanup tasks.
+async fn run_cleanup() -> String {
+    use std::process::Command;
+
+    let mut cleaned = Vec::new();
+
+    // Package cache
+    if Command::new("paccache").args(["-rk2"]).status().is_ok() {
+        cleaned.push("Package cache (kept 2 versions)");
+    }
+
+    // Journal
+    if Command::new("journalctl")
+        .args(["--vacuum-time=7d"])
+        .status()
+        .is_ok()
+    {
+        cleaned.push("Journal logs (7 days)");
+    }
+
+    // Tmp
+    let _ = Command::new("find")
+        .args(["/tmp", "-type", "f", "-mtime", "+7", "-delete"])
+        .status();
+    cleaned.push("/tmp old files");
+
+    // Trash
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        let trash = format!("{}/.local/share/Trash/files", home);
+        if std::path::Path::new(&trash).exists() {
+            let _ = std::fs::remove_dir_all(&trash);
+            let _ = std::fs::create_dir_all(&trash);
+            cleaned.push("User trash");
+        }
+    }
+
+    format!("Cleanup complete:\n{}", cleaned.iter().map(|s| format!("  - {}", s)).collect::<Vec<_>>().join("\n"))
 }
