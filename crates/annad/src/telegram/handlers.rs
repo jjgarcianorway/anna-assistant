@@ -4,7 +4,6 @@
 
 use std::sync::Arc;
 use teloxide::prelude::*;
-use teloxide::types::ParseMode;
 use tracing::{info, warn};
 
 use super::TelegramState;
@@ -79,14 +78,12 @@ pub async fn handle_message(
                     (ask_result.answer.clone(), text.to_string()),
                 );
 
-                // Ask for confirmation
+                // Ask for confirmation (plain text, no markdown)
                 let confirm_msg = format!(
-                    "{}\n\n*Reply 'yes' to confirm or 'no' to cancel.*",
-                    escape_markdown(&ask_result.answer)
+                    "{}\n\nReply 'yes' to confirm or 'no' to cancel.",
+                    &ask_result.answer
                 );
-                bot.send_message(chat_id, confirm_msg)
-                    .parse_mode(ParseMode::MarkdownV2)
-                    .await?;
+                bot.send_message(chat_id, confirm_msg).await?;
             } else {
                 // Send answer directly
                 send_long_message(&bot, chat_id, &ask_result.answer).await?;
@@ -180,17 +177,4 @@ async fn send_long_message(bot: &Bot, chat_id: ChatId, text: &str) -> anyhow::Re
     }
 
     Ok(())
-}
-
-/// Escape special characters for Telegram MarkdownV2.
-fn escape_markdown(text: &str) -> String {
-    let special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!'];
-    let mut result = String::with_capacity(text.len() * 2);
-    for c in text.chars() {
-        if special_chars.contains(&c) {
-            result.push('\\');
-        }
-        result.push(c);
-    }
-    result
 }
