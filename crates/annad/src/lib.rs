@@ -46,6 +46,7 @@ pub fn get_llm_call_count() -> u64 {
 #[cfg(not(test))]
 pub fn record_llm_call() {}
 
+pub mod anomaly;
 pub mod assisted_ops;
 pub mod autofix;
 pub mod binary_watcher;

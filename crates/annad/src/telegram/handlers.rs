@@ -67,6 +67,12 @@ pub async fn handle_message(
         return Ok(());
     }
 
+    // Check for preference updates (bypass Ralph)
+    if let Some(response) = handle_preference_update(text).await {
+        bot.send_message(chat_id, &response).await?;
+        return Ok(());
+    }
+
     // Send acknowledgment for long-running requests
     bot.send_message(chat_id, "Working on it...").await?;
 
@@ -248,4 +254,20 @@ async fn handle_briefing_setup(text: &str) -> Option<String> {
         "Morning briefing set! I'll send you a daily health check at {:02}:{:02}.",
         time.hour(), time.minute()
     ))
+}
+
+/// Handle preference update requests (bypass Ralph).
+async fn handle_preference_update(text: &str) -> Option<String> {
+    use anna_shared::preferences::{parse_preference_update, UserPreferences};
+
+    let update = parse_preference_update(text)?;
+
+    let mut prefs = UserPreferences::load();
+    let result = update.apply(&mut prefs);
+
+    if let Err(e) = prefs.save() {
+        tracing::warn!("Failed to save preferences: {}", e);
+    }
+
+    Some(format!("Done! {}", result))
 }

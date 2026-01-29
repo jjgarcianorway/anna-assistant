@@ -167,6 +167,7 @@ pub mod paths;
 pub mod policy;
 pub mod probe_ledger;
 pub mod probe_stats;
+pub mod preferences;
 pub mod profile;
 pub mod proposal;
 pub mod recipe;

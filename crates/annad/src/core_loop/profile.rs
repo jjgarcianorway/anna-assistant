@@ -127,6 +127,9 @@ pub async fn monitoring_loop() {
         if let Err(e) = store.save() {
             warn!("Failed to save issue store: {}", e);
         }
+
+        // Run anomaly detection
+        crate::anomaly::run_anomaly_check();
     }
 }
 
