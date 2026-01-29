@@ -55,8 +55,20 @@ pub async fn handle_message(
         return handle_confirmation(bot, chat_id, false, state).await;
     }
 
-    // Send typing indicator
-    bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await?;
+    // Check for reminder requests first (bypass Ralph)
+    if let Some(response) = handle_reminder(text).await {
+        bot.send_message(chat_id, &response).await?;
+        return Ok(());
+    }
+
+    // Check for morning briefing setup (bypass Ralph)
+    if let Some(response) = handle_briefing_setup(text).await {
+        bot.send_message(chat_id, &response).await?;
+        return Ok(());
+    }
+
+    // Send acknowledgment for long-running requests
+    bot.send_message(chat_id, "Working on it...").await?;
 
     // Get model from Anna state
     let model = {
@@ -64,8 +76,17 @@ pub async fn handle_message(
         anna.model.clone().unwrap_or_else(|| "qwen2.5:14b".to_string())
     };
 
-    // Route to Ralph loop (same as CLI)
+    // Run Ralph loop with periodic typing indicator
+    let bot_clone = bot.clone();
+    let typing_task = tokio::spawn(async move {
+        loop {
+            let _ = bot_clone.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await;
+            tokio::time::sleep(tokio::time::Duration::from_secs(4)).await;
+        }
+    });
+
     let result = ralph::ralph_loop(&model, text).await;
+    typing_task.abort(); // Stop typing indicator
 
     match result {
         Ok(ask_result) => {
@@ -179,4 +200,52 @@ async fn send_long_message(bot: &Bot, chat_id: ChatId, text: &str) -> anyhow::Re
     }
 
     Ok(())
+}
+
+/// Handle reminder requests directly (bypass Ralph).
+async fn handle_reminder(text: &str) -> Option<String> {
+    use anna_shared::scheduler::{parse_reminder, ScheduledTask, TaskStore};
+
+    let (message, when) = parse_reminder(text)?;
+
+    // Create and save the reminder
+    let task = ScheduledTask::reminder(&message, when);
+    let mut store = TaskStore::load();
+    store.add(task);
+    if let Err(e) = store.save() {
+        tracing::warn!("Failed to save reminder: {}", e);
+    }
+
+    // Format response
+    let duration = when - chrono::Utc::now();
+    let when_str = if duration.num_hours() >= 1 {
+        format!("{} hour(s)", duration.num_hours())
+    } else {
+        format!("{} minute(s)", duration.num_minutes())
+    };
+
+    Some(format!("Got it! I'll remind you to \"{}\" in {}.", message, when_str))
+}
+
+/// Handle morning briefing setup directly (bypass Ralph).
+async fn handle_briefing_setup(text: &str) -> Option<String> {
+    use anna_shared::scheduler::{parse_morning_briefing, ScheduledTask, TaskStore};
+    use chrono::Timelike;
+
+    let time = parse_morning_briefing(text)?;
+
+    // Create and save the briefing task
+    let mut store = TaskStore::load();
+    store.remove_morning_briefing(); // Remove existing if any
+    let task = ScheduledTask::morning_briefing(time);
+    store.add(task);
+
+    if let Err(e) = store.save() {
+        tracing::warn!("Failed to save morning briefing: {}", e);
+    }
+
+    Some(format!(
+        "Morning briefing set! I'll send you a daily health check at {:02}:{:02}.",
+        time.hour(), time.minute()
+    ))
 }
