@@ -65,6 +65,7 @@ pub mod recovery;
 pub mod server;
 pub mod state;
 pub mod team_speak;
+pub mod telegram;
 pub mod translator;
 pub mod update;
 pub mod update_loop;

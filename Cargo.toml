@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.3.78"
+version = "0.3.79"
 edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/jjgarcianorway/anna-assistant"
@@ -30,3 +30,4 @@ regex = "1.10"
 futures-util = "0.3"
 dirs = "5.0"
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
+teloxide = { version = "0.12", features = ["macros"] }

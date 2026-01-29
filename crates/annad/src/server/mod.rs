@@ -15,6 +15,7 @@ use anna_shared::socket_path;
 
 use crate::core_loop::{monitoring_loop, profile_refresh_loop};
 use crate::state::SharedState;
+use crate::telegram;
 use crate::update_loop::update_check_loop;
 
 use handlers::handle_connection;
@@ -59,6 +60,14 @@ impl Server {
         // Start proactive monitoring loop (checks every 5 minutes)
         tokio::spawn(async move {
             monitoring_loop().await;
+        });
+
+        // Start Telegram bot if configured
+        let telegram_state = self.state.clone();
+        tokio::spawn(async move {
+            if let Err(e) = telegram::start_telegram_bot(telegram_state).await {
+                error!("Telegram bot failed: {}", e);
+            }
         });
 
         // Run socket server

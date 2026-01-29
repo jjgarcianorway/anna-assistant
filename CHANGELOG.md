@@ -5,6 +5,30 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.79] - 2026-01-29
+
+### Added - Telegram Bot Channel
+
+Anna now supports Telegram as a communication channel. Mobile access to your autonomous Linux agent.
+
+**Setup:**
+```bash
+export ANNA_TELEGRAM_TOKEN="your-bot-token-from-botfather"
+export ANNA_TELEGRAM_USERS="your_telegram_user_id"  # Security: restrict access
+systemctl restart annad
+```
+
+**Features:**
+- Same LLM-first architecture as CLI
+- Confirmation flow for dangerous actions
+- Long message splitting (Telegram 4096 char limit)
+- Security: whitelist allowed user IDs
+
+**Architecture:**
+- Telegram bot runs alongside Unix socket server
+- Routes to same Ralph loop (LLM reasoning)
+- Optional: only starts if ANNA_TELEGRAM_TOKEN is set
+
 ## [0.3.78] - 2026-01-28
 
 ### Changed - LLM-First Architecture Transformation

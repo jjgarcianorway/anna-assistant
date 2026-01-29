@@ -23,3 +23,4 @@ regex.workspace = true
 dirs.workspace = true
 uuid.workspace = true
 sd-notify = "0.4"
+teloxide.workspace = true
