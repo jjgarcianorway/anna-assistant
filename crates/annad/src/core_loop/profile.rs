@@ -100,8 +100,24 @@ pub async fn monitoring_loop() {
             info!("Detected {} new issues:", unnotified.len());
             for issue in &unnotified {
                 match issue.severity {
-                    Severity::Critical => warn!("  [CRIT] {}", issue.summary),
-                    Severity::Warning => info!("  [WARN] {}", issue.summary),
+                    Severity::Critical => {
+                        warn!("  [CRIT] {}", issue.summary);
+                        // Push to Telegram
+                        crate::telegram::notifier::push_alert(
+                            "[CRITICAL]",
+                            &issue.summary,
+                            issue.suggested_fix.as_deref(),
+                        );
+                    }
+                    Severity::Warning => {
+                        info!("  [WARN] {}", issue.summary);
+                        // Push warnings to Telegram too
+                        crate::telegram::notifier::push_alert(
+                            "[Warning]",
+                            &issue.summary,
+                            issue.suggested_fix.as_deref(),
+                        );
+                    }
                     Severity::Info => debug!("  [INFO] {}", issue.summary),
                 }
             }

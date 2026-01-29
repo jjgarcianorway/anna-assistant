@@ -5,6 +5,29 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.81] - 2026-01-29
+
+### Added - Proactive Push Notifications
+
+Anna now pushes alerts to Telegram when she detects issues.
+
+**Features:**
+- Critical and warning alerts pushed to Telegram automatically
+- Monitoring loop runs every 5 minutes
+- No need to ask "what's wrong?" - Anna tells you
+
+**Setup:**
+```bash
+# Uses first allowed user by default, or set explicitly:
+export ANNA_TELEGRAM_NOTIFY_CHAT="your_chat_id"
+```
+
+**Monitored:**
+- Disk space (warning at 80%, critical at 90%)
+- Memory usage (warning at 85%)
+- Failed systemd services
+- High CPU load
+
 ## [0.3.80] - 2026-01-29
 
 ### Changed - Autonomous Agent Mode

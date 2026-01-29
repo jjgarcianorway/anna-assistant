@@ -4,6 +4,7 @@
 //! Uses the same LLM-first architecture as the CLI.
 
 mod handlers;
+pub mod notifier;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -85,6 +86,23 @@ pub async fn start_telegram_bot(anna_state: SharedState) -> Result<()> {
             error!("Failed to connect Telegram bot: {}", e);
             return Err(anyhow::anyhow!("Telegram bot connection failed: {}", e));
         }
+    }
+
+    // Initialize push notification channel
+    let notify_chat_id = std::env::var("ANNA_TELEGRAM_NOTIFY_CHAT")
+        .ok()
+        .and_then(|s| s.parse::<i64>().ok())
+        .or_else(|| config.allowed_users.first().map(|&id| id as i64));
+
+    if let Some(chat_id) = notify_chat_id {
+        let (tx, rx) = tokio::sync::mpsc::channel::<String>(100);
+        notifier::init_notifier(tx, Some(chat_id));
+
+        let token_clone = config.token.clone();
+        tokio::spawn(async move {
+            notifier::notification_sender(rx, token_clone, chat_id).await;
+        });
+        info!("Push notifications enabled for chat {}", chat_id);
     }
 
     // Start message handler
