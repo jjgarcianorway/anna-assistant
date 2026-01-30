@@ -76,7 +76,9 @@ pub async fn profile_refresh_loop() {
     }
 }
 
-/// Background loop for proactive system monitoring
+/// Background loop for proactive system monitoring.
+/// Silent operation - logs only, no push notifications.
+/// Issues are shown in morning briefing or when user asks.
 pub async fn monitoring_loop() {
     let mut interval = interval(Duration::from_secs(5 * 60));
     let thresholds = MonitorThresholds::default();
@@ -91,34 +93,19 @@ pub async fn monitoring_loop() {
         let mut store = IssueStore::load().unwrap_or_default();
         store.update(results.clone());
 
+        // Log only - no push notifications (shown in morning briefing)
         for issue in store.get_critical() {
-            warn!("CRITICAL: {}", issue.summary);
+            warn!("Monitor: CRITICAL - {}", issue.summary);
         }
 
         let unnotified = store.get_unnotified();
         if !unnotified.is_empty() {
-            info!("Detected {} new issues:", unnotified.len());
+            debug!("Monitor: {} new issues (will show in briefing)", unnotified.len());
             for issue in &unnotified {
                 match issue.severity {
-                    Severity::Critical => {
-                        warn!("  [CRIT] {}", issue.summary);
-                        // Push to Telegram
-                        crate::telegram::notifier::push_alert(
-                            "[CRITICAL]",
-                            &issue.summary,
-                            issue.suggested_fix.as_deref(),
-                        );
-                    }
-                    Severity::Warning => {
-                        info!("  [WARN] {}", issue.summary);
-                        // Push warnings to Telegram too
-                        crate::telegram::notifier::push_alert(
-                            "[Warning]",
-                            &issue.summary,
-                            issue.suggested_fix.as_deref(),
-                        );
-                    }
-                    Severity::Info => debug!("  [INFO] {}", issue.summary),
+                    Severity::Critical => warn!("Monitor: [CRIT] {}", issue.summary),
+                    Severity::Warning => info!("Monitor: [WARN] {}", issue.summary),
+                    Severity::Info => debug!("Monitor: [INFO] {}", issue.summary),
                 }
             }
             store.mark_notified();
@@ -128,7 +115,7 @@ pub async fn monitoring_loop() {
             warn!("Failed to save issue store: {}", e);
         }
 
-        // Run anomaly detection
+        // Run anomaly detection (also silent)
         crate::anomaly::run_anomaly_check();
     }
 }

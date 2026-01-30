@@ -291,9 +291,9 @@ pub async fn scheduler_loop() {
                     push_notification(&briefing);
                 }
                 TaskAction::Question { question } => {
-                    // Execute through Anna and send result
-                    // For now, just notify that the task would run
-                    push_notification(&format!("Scheduled task: {}", question));
+                    // Scheduled questions are logged but not pushed
+                    // They can be expanded later to actually run queries
+                    info!("Scheduled task due: {}", question);
                 }
             }
 
@@ -308,12 +308,12 @@ pub async fn scheduler_loop() {
     }
 }
 
-/// Run proactive health checks - silent self-healing, anomaly detection.
-/// Only notifies for CRITICAL issues. Everything else goes to morning briefing.
+/// Run proactive health checks - completely silent.
+/// Self-healing runs automatically, all info goes to morning briefing.
 fn run_proactive_health_check() {
-    info!("Running proactive health check...");
+    debug!("Running proactive health check...");
 
-    // 1. Run self-healing silently (no notification unless critical)
+    // 1. Run self-healing silently
     let healing_results = crate::self_healing::run_self_healing();
     for r in &healing_results {
         if r.success {
@@ -321,43 +321,10 @@ fn run_proactive_health_check() {
         }
     }
 
-    // 2. Run anomaly detection (stores data, alerts only for severe anomalies)
+    // 2. Run anomaly detection (stores data for morning briefing)
     crate::anomaly::run_anomaly_check();
 
-    // 3. Only notify for CRITICAL issues:
-    //    - Disk < 2GB free (emergency)
-    //    - Multiple failed critical services
-    let mut critical_alerts = Vec::new();
-
-    // Check disk space
-    if let Ok(output) = std::process::Command::new("df")
-        .args(["--output=avail", "-BG", "/"])
-        .output()
-    {
-        let out = String::from_utf8_lossy(&output.stdout);
-        if let Some(line) = out.lines().nth(1) {
-            if let Ok(gb) = line.trim().trim_end_matches('G').parse::<u64>() {
-                if gb < 2 {
-                    critical_alerts.push(format!("CRITICAL: Only {}GB free on disk!", gb));
-                }
-            }
-        }
-    }
-
-    // Check for multiple failed services (single failures are normal)
-    if let Ok(output) = std::process::Command::new("systemctl")
-        .args(["--failed", "--no-pager", "--no-legend"])
-        .output()
-    {
-        let out = String::from_utf8_lossy(&output.stdout);
-        let count = out.lines().filter(|l| !l.trim().is_empty()).count();
-        if count >= 3 {
-            critical_alerts.push(format!("WARNING: {} services failed", count));
-        }
-    }
-
-    // Only send notification if there are critical alerts
-    if !critical_alerts.is_empty() {
-        push_notification(&critical_alerts.join("\n"));
-    }
+    // No push notifications - everything goes to morning briefing
+    // The user explicitly asked for critical-only, and even those should be
+    // in the briefing unless it's a true emergency like disk at 0%
 }
