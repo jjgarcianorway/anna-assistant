@@ -88,6 +88,19 @@ pub async fn handle_message(
         anna.model.clone().unwrap_or_else(|| "qwen2.5:14b".to_string())
     };
 
+    // Get conversation context for follow-ups
+    let context_str = {
+        let contexts = state.contexts.read().await;
+        contexts.get(&chat_id.0)
+            .and_then(|ctx| ctx.format_for_llm())
+    };
+
+    // Build question with context
+    let question_with_context = match context_str {
+        Some(ctx) => format!("{}\n\nCurrent question: {}", ctx, text),
+        None => text.to_string(),
+    };
+
     // Run Ralph loop with periodic typing indicator
     let bot_clone = bot.clone();
     let typing_task = tokio::spawn(async move {
@@ -97,11 +110,18 @@ pub async fn handle_message(
         }
     });
 
-    let result = ralph::ralph_loop(&model, text).await;
+    let result = ralph::ralph_loop(&model, &question_with_context).await;
     typing_task.abort(); // Stop typing indicator
 
     match result {
         Ok(ask_result) => {
+            // Store conversation turn for context
+            {
+                let mut contexts = state.contexts.write().await;
+                let ctx = contexts.entry(chat_id.0).or_default();
+                ctx.add_turn(text.to_string(), ask_result.answer.clone());
+            }
+
             // Check if confirmation is needed
             if ask_result.needs_clarification {
                 // Store pending confirmation

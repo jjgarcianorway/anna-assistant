@@ -42,12 +42,66 @@ impl TelegramConfig {
     }
 }
 
+/// A conversation turn (question + answer).
+#[derive(Clone)]
+pub struct ConversationTurn {
+    pub question: String,
+    pub answer: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+/// Conversation context for a chat.
+#[derive(Clone, Default)]
+pub struct ConversationContext {
+    /// Recent turns (max 5).
+    pub turns: Vec<ConversationTurn>,
+}
+
+impl ConversationContext {
+    /// Add a new turn, keeping only the last 5.
+    pub fn add_turn(&mut self, question: String, answer: String) {
+        self.turns.push(ConversationTurn {
+            question,
+            answer,
+            timestamp: chrono::Utc::now(),
+        });
+        // Keep only last 5 turns
+        if self.turns.len() > 5 {
+            self.turns.remove(0);
+        }
+        // Remove turns older than 30 minutes
+        let cutoff = chrono::Utc::now() - chrono::Duration::minutes(30);
+        self.turns.retain(|t| t.timestamp > cutoff);
+    }
+
+    /// Format context for LLM prompt.
+    pub fn format_for_llm(&self) -> Option<String> {
+        if self.turns.is_empty() {
+            return None;
+        }
+        let mut lines = vec!["Recent conversation:".to_string()];
+        for turn in &self.turns {
+            lines.push(format!("User: {}", turn.question));
+            // Truncate long answers
+            let answer = if turn.answer.len() > 200 {
+                format!("{}...", &turn.answer[..200])
+            } else {
+                turn.answer.clone()
+            };
+            lines.push(format!("Anna: {}", answer));
+        }
+        Some(lines.join("\n"))
+    }
+}
+
 /// Shared state for the Telegram bot.
 pub struct TelegramState {
     pub anna_state: SharedState,
     pub config: TelegramConfig,
     /// Pending confirmations: chat_id -> (plan_id, question)
     pub pending_confirms: Arc<RwLock<std::collections::HashMap<i64, (String, String)>>>,
+    /// Conversation context per chat.
+    pub contexts: Arc<RwLock<std::collections::HashMap<i64, ConversationContext>>>,
 }
 
 /// Start the Telegram bot if configured.
@@ -71,6 +125,7 @@ pub async fn start_telegram_bot(anna_state: SharedState) -> Result<()> {
         anna_state,
         config: config.clone(),
         pending_confirms: Arc::new(RwLock::new(std::collections::HashMap::new())),
+        contexts: Arc::new(RwLock::new(std::collections::HashMap::new())),
     });
 
     info!("Starting Telegram bot...");
