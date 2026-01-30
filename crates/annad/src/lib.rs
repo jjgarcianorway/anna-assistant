@@ -49,6 +49,7 @@ pub fn record_llm_call() {}
 pub mod anomaly;
 pub mod assisted_ops;
 pub mod autofix;
+pub mod briefing;
 pub mod binary_watcher;
 pub mod dynamic_plan;
 pub mod changes;

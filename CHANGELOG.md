@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.102] - 2026-01-30
+
+### Added - Personalized Reports with Charts
+
+- **Charts in PDF reports**: Real metric visualizations using plotters (RAM, Disk, Load)
+- **Username detection fix**: Reports now show actual username (not "root")
+- **User profile aggregation**: Reports personalized based on your questions, topics, interests
+- **Smart recommendations**: Suggestions based on your usage patterns and Arch Wiki best practices
+- **Historical trends storage**: 30-day rolling history for boot time, memory, load, disk
+- **Daily snapshots**: System collects metrics before morning briefing for trend analysis
+
 ## [0.3.101] - 2026-01-30
 
 ### Added - Auto Morning Briefing + PDF Reports

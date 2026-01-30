@@ -1,131 +1,14 @@
-//! PDF Report Generation - Professional system health reports.
-//!
-//! Generates personalized PDF reports with:
-//! - Charts showing trends (disk, memory, CPU over time)
-//! - Natural language summaries
-//! - Actionable recommendations
+//! Report section generators.
 
 use chrono::{DateTime, Local};
-use genpdf::{elements, fonts, style, Document, Element, SimplePageDecorator};
-use std::path::PathBuf;
-use tracing::info;
 
 use crate::anomaly::AnomalyStore;
 use crate::update_system::check_updates;
 
-/// User preferences for reports
-#[derive(Clone, Default)]
-pub struct ReportPreferences {
-    pub user_name: Option<String>,
-}
+use super::user::ReportPreferences;
 
-impl ReportPreferences {
-    pub fn load() -> Self {
-        Self {
-            user_name: std::env::var("USER").ok(),
-        }
-    }
-}
-
-/// Generate the daily PDF report
-pub fn generate_pdf_report() -> Result<PathBuf, String> {
-    let prefs = ReportPreferences::load();
-    let now = Local::now();
-
-    // Try to load fonts, fall back to built-in
-    let font_family = fonts::from_files("/usr/share/fonts/noto", "NotoSans", None)
-        .or_else(|_| fonts::from_files("/usr/share/fonts/TTF", "DejaVuSans", None))
-        .or_else(|_| fonts::from_files("/usr/share/fonts/truetype/dejavu", "DejaVuSans", None))
-        .map_err(|e| format!("Font error: {}", e))?;
-
-    let mut doc = Document::new(font_family);
-    doc.set_title("Anna System Report");
-
-    let mut decorator = SimplePageDecorator::new();
-    decorator.set_margins(10);
-    doc.set_page_decorator(decorator);
-
-    // Title and greeting
-    let greeting = generate_greeting(&prefs, &now);
-    doc.push(elements::Paragraph::new(&greeting)
-        .styled(style::Style::new().bold().with_font_size(18)));
-    doc.push(elements::Paragraph::new(now.format("%A, %B %d, %Y at %H:%M").to_string())
-        .styled(style::Style::new().with_font_size(10)));
-    doc.push(elements::Break::new(1.5));
-
-    // Executive Summary
-    let summary = generate_executive_summary();
-    doc.push(elements::Paragraph::new("Overview")
-        .styled(style::Style::new().bold().with_font_size(14)));
-    doc.push(elements::Break::new(0.3));
-    doc.push(elements::Paragraph::new(&summary));
-    doc.push(elements::Break::new(1.0));
-
-    // Current Status
-    doc.push(elements::Paragraph::new("System Status")
-        .styled(style::Style::new().bold().with_font_size(14)));
-    doc.push(elements::Break::new(0.3));
-    for line in generate_status_section().lines() {
-        if !line.is_empty() {
-            doc.push(elements::Paragraph::new(line));
-        }
-    }
-    doc.push(elements::Break::new(1.0));
-
-    // Metrics Trends (text summary since charts are complex)
-    let metrics_summary = generate_metrics_summary();
-    if !metrics_summary.is_empty() {
-        doc.push(elements::Paragraph::new("24-Hour Trends")
-            .styled(style::Style::new().bold().with_font_size(14)));
-        doc.push(elements::Break::new(0.3));
-        doc.push(elements::Paragraph::new(&metrics_summary));
-        doc.push(elements::Break::new(1.0));
-    }
-
-    // Updates
-    let updates_section = generate_updates_section();
-    doc.push(elements::Paragraph::new("Software Updates")
-        .styled(style::Style::new().bold().with_font_size(14)));
-    doc.push(elements::Break::new(0.3));
-    doc.push(elements::Paragraph::new(&updates_section));
-    doc.push(elements::Break::new(1.0));
-
-    // Recommendations
-    let recommendations = generate_recommendations();
-    if !recommendations.is_empty() {
-        doc.push(elements::Paragraph::new("Recommendations")
-            .styled(style::Style::new().bold().with_font_size(14)));
-        doc.push(elements::Break::new(0.3));
-        for rec in &recommendations {
-            doc.push(elements::Paragraph::new(format!("• {}", rec)));
-        }
-        doc.push(elements::Break::new(1.0));
-    }
-
-    // Automated Maintenance
-    doc.push(elements::Paragraph::new("Automated Maintenance")
-        .styled(style::Style::new().bold().with_font_size(14)));
-    doc.push(elements::Break::new(0.3));
-    doc.push(elements::Paragraph::new(generate_healing_section()));
-    doc.push(elements::Break::new(1.0));
-
-    // Closing
-    let closing = generate_closing();
-    doc.push(elements::Paragraph::new(&closing)
-        .styled(style::Style::new().italic()));
-
-    // Save to file
-    let filename = format!("anna_report_{}.pdf", now.format("%Y%m%d_%H%M"));
-    let path = PathBuf::from("/tmp").join(&filename);
-
-    doc.render_to_file(&path)
-        .map_err(|e| format!("Failed to generate PDF: {}", e))?;
-
-    info!("Generated PDF report: {}", path.display());
-    Ok(path)
-}
-
-fn generate_greeting(prefs: &ReportPreferences, now: &DateTime<Local>) -> String {
+/// Generate personalized greeting
+pub fn generate_greeting(prefs: &ReportPreferences, now: &DateTime<Local>) -> String {
     let greetings = [
         "Good morning! Here's your system health report.",
         "Morning! I've prepared your daily system overview.",
@@ -144,7 +27,8 @@ fn generate_greeting(prefs: &ReportPreferences, now: &DateTime<Local>) -> String
     }
 }
 
-fn generate_executive_summary() -> String {
+/// Generate executive summary of system health
+pub fn generate_executive_summary() -> String {
     let mut issues = Vec::new();
     let mut positives = Vec::new();
 
@@ -205,7 +89,8 @@ fn generate_executive_summary() -> String {
     }
 }
 
-fn generate_metrics_summary() -> String {
+/// Generate metrics trends summary
+pub fn generate_metrics_summary() -> String {
     let store = AnomalyStore::load();
     let mut summary = Vec::new();
 
@@ -250,13 +135,14 @@ fn generate_metrics_summary() -> String {
     }
 
     if summary.is_empty() {
-        "Metrics collection in progress. Full trends will be available after 24 hours of data.".to_string()
+        "Metrics collection in progress. Full trends available after 24 hours.".to_string()
     } else {
         summary.join("\n")
     }
 }
 
-fn generate_status_section() -> String {
+/// Generate current system status section
+pub fn generate_status_section() -> String {
     let mut lines = Vec::new();
 
     // Uptime
@@ -276,7 +162,7 @@ fn generate_status_section() -> String {
         if parts.len() >= 3 {
             let load1: f32 = parts[0].parse().unwrap_or(0.0);
             if load1 > 4.0 {
-                lines.push(format!("Load average: {} (1m), {} (5m), {} (15m) - elevated",
+                lines.push(format!("Load average: {} / {} / {} - elevated",
                     parts[0], parts[1], parts[2]));
             } else {
                 lines.push(format!("Load average: {} / {} / {} - normal",
@@ -310,7 +196,8 @@ fn generate_status_section() -> String {
     lines.join("\n")
 }
 
-fn generate_updates_section() -> String {
+/// Generate software updates section
+pub fn generate_updates_section() -> String {
     let updates = check_updates();
 
     if updates.is_empty() {
@@ -340,7 +227,8 @@ fn generate_updates_section() -> String {
     format!("{} total updates available. {}", updates.len(), parts.join(". "))
 }
 
-fn generate_recommendations() -> Vec<String> {
+/// Generate recommendations based on system analysis
+pub fn generate_recommendations() -> Vec<String> {
     let mut recs = Vec::new();
     let suggestions = crate::anomaly::check_optimizations();
 
@@ -361,13 +249,15 @@ fn generate_recommendations() -> Vec<String> {
     recs
 }
 
-fn generate_healing_section() -> String {
+/// Generate automated maintenance description
+pub fn generate_healing_section() -> String {
     "Anna automatically maintains your system by restarting failed services, \
      clearing disk space when low, and removing stale locks. All maintenance \
      actions are logged and require no manual intervention.".to_string()
 }
 
-fn generate_closing() -> String {
+/// Generate closing message
+pub fn generate_closing() -> String {
     let closings = [
         "That's all for today. Have a productive day!",
         "Report complete. I'm here if you need anything.",

@@ -26,6 +26,7 @@ sd-notify = "0.4"
 teloxide.workspace = true
 
 # PDF report generation
-genpdf = "0.2"
+genpdf = { version = "0.2", features = ["images"] }
 plotters = { version = "0.3", default-features = false, features = ["bitmap_encoder", "line_series"] }
+plotters-bitmap = "0.3"
 image = "0.24"

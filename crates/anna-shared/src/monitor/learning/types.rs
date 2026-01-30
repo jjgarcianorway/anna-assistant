@@ -142,3 +142,73 @@ pub struct DetectedChanges {
     pub unusual_commands: Vec<String>,
     pub performance_anomalies: Vec<String>,
 }
+
+/// Daily snapshot for long-term trend analysis.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailySnapshot {
+    pub date: String,             // YYYY-MM-DD
+    pub avg_boot_time: f32,
+    pub avg_memory_pct: f32,
+    pub avg_load: f32,
+    pub disk_used_gb: f32,
+    pub packages_installed: u32,
+    pub questions_asked: u32,
+}
+
+/// Long-term history storage (30 days of daily snapshots).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LongTermHistory {
+    pub daily_snapshots: VecDeque<DailySnapshot>,
+}
+
+impl LongTermHistory {
+    const MAX_DAYS: usize = 30;
+
+    fn path() -> std::path::PathBuf {
+        std::path::PathBuf::from("/var/lib/anna/history.json")
+    }
+
+    /// Load from disk.
+    pub fn load() -> Self {
+        std::fs::read_to_string(Self::path())
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default()
+    }
+
+    /// Save to disk.
+    pub fn save(&self) -> std::io::Result<()> {
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(Self::path(), json)
+    }
+
+    /// Add a daily snapshot, keeping only the last 30 days.
+    pub fn add_snapshot(&mut self, snapshot: DailySnapshot) {
+        // Don't add duplicate dates
+        if self.daily_snapshots.iter().any(|s| s.date == snapshot.date) {
+            return;
+        }
+        self.daily_snapshots.push_back(snapshot);
+        while self.daily_snapshots.len() > Self::MAX_DAYS {
+            self.daily_snapshots.pop_front();
+        }
+    }
+
+    /// Get disk usage trend (last N days).
+    pub fn disk_trend(&self, days: usize) -> Vec<(String, f32)> {
+        self.daily_snapshots
+            .iter()
+            .rev()
+            .take(days)
+            .map(|s| (s.date.clone(), s.disk_used_gb))
+            .collect()
+    }
+
+    /// Get boot time trend.
+    pub fn boot_time_trend(&self) -> Vec<(String, f32)> {
+        self.daily_snapshots
+            .iter()
+            .map(|s| (s.date.clone(), s.avg_boot_time))
+            .collect()
+    }
+}

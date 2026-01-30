@@ -11,7 +11,8 @@ pub use analysis::{
     parse_meminfo_value, MAX_HISTORY,
 };
 pub use types::{
-    DetectedChanges, IoBaseline, PackageAction, PackageTransaction, PerfSample, SystemLearning,
+    DailySnapshot, DetectedChanges, IoBaseline, LongTermHistory, PackageAction, PackageTransaction,
+    PerfSample, SystemLearning,
 };
 
 use std::path::PathBuf;
