@@ -373,6 +373,12 @@ async fn handle_quick_command(text: &str) -> Option<String> {
         return Some(get_optimization_suggestions());
     }
 
+    // Daily summary queries
+    if q == "summary" || q.contains("daily summary") || q.contains("daily report")
+        || q.contains("system summary") || q.contains("give me a summary") {
+        return Some(get_daily_summary());
+    }
+
     // Help queries
     if q == "help" || q.contains("what can you do") || q == "start"
         || q.contains("how do you work") {
@@ -380,16 +386,16 @@ async fn handle_quick_command(text: &str) -> Option<String> {
             "I respond to natural questions like:\n\n\
             Status: 'how's the system?' 'what's up?'\n\
             Updates: 'any updates?' 'check for updates'\n\
-            Health: 'health check' 'how healthy is my system?'\n\
+            Health: 'health check' 'how healthy?'\n\
+            Summary: 'daily summary' 'system summary'\n\
             Tasks: 'my reminders' 'scheduled tasks'\n\
             Fix: 'fix issues' 'fix everything'\n\
             Clean: 'clean up' 'free space'\n\
-            Optimize: 'any suggestions?' 'what can i improve?'\n\n\
+            Optimize: 'any suggestions?'\n\n\
             Smart features:\n\
             - 'remind me in 2 hours to check logs'\n\
-            - 'set up morning briefing at 8am'\n\
-            - 'add network to my briefing'\n\n\
-            Or just ask me anything about your system!".to_string()
+            - 'set up morning briefing at 8am'\n\n\
+            Or just ask me anything!".to_string()
         );
     }
 
@@ -506,6 +512,99 @@ fn get_optimization_suggestions() -> String {
 
     result.push_str("Say 'fix it' or 'clean up' to address disk issues.");
     result
+}
+
+/// Get comprehensive daily summary.
+fn get_daily_summary() -> String {
+    use std::process::Command;
+
+    let mut sections = Vec::new();
+    sections.push("=== DAILY SUMMARY ===".to_string());
+
+    // Uptime
+    if let Ok(uptime) = std::fs::read_to_string("/proc/uptime") {
+        if let Some(secs) = uptime.split_whitespace().next() {
+            if let Ok(s) = secs.parse::<f64>() {
+                let days = (s / 86400.0) as u32;
+                let hours = ((s % 86400.0) / 3600.0) as u32;
+                sections.push(format!("\nUptime: {}d {}h", days, hours));
+            }
+        }
+    }
+
+    // System load
+    if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
+        let parts: Vec<&str> = load.split_whitespace().collect();
+        if parts.len() >= 3 {
+            sections.push(format!("Load: {} {} {}", parts[0], parts[1], parts[2]));
+        }
+    }
+
+    // Memory
+    if let Ok(output) = Command::new("free").args(["-h"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = out.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                sections.push(format!("Memory: {}/{}", parts[2], parts[1]));
+            }
+        }
+    }
+
+    // Disk
+    if let Ok(output) = Command::new("df").args(["-h", "/"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = out.lines().nth(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 5 {
+                sections.push(format!("Disk: {} used ({})", parts[4], parts[2]));
+            }
+        }
+    }
+
+    // Updates
+    let updates = crate::update_system::check_updates();
+    if updates.is_empty() {
+        sections.push("\nUpdates: System up to date".to_string());
+    } else {
+        let security: Vec<_> = updates.iter().filter(|u| u.is_security).collect();
+        let kernel: Vec<_> = updates.iter().filter(|u| u.is_kernel).collect();
+        let mut update_line = format!("\nUpdates: {} available", updates.len());
+        if !security.is_empty() {
+            update_line.push_str(&format!(" ({} security)", security.len()));
+        }
+        if !kernel.is_empty() {
+            update_line.push_str(" [kernel]");
+        }
+        sections.push(update_line);
+    }
+
+    // Failed services
+    if let Ok(output) = Command::new("systemctl")
+        .args(["--failed", "--no-pager", "--no-legend"])
+        .output()
+    {
+        let out = String::from_utf8_lossy(&output.stdout);
+        let count = out.lines().filter(|l| !l.trim().is_empty()).count();
+        if count > 0 {
+            sections.push(format!("Services: {} failed", count));
+        } else {
+            sections.push("Services: All OK".to_string());
+        }
+    }
+
+    // Optimization suggestions count
+    let suggestions = crate::anomaly::check_optimizations();
+    if !suggestions.is_empty() {
+        sections.push(format!("Suggestions: {} available", suggestions.len()));
+    }
+
+    // Reboot status
+    if crate::update_system::needs_reboot() {
+        sections.push("\n[!] Reboot recommended".to_string());
+    }
+
+    sections.join("\n")
 }
 
 /// Auto-fix safe issues.
