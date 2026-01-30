@@ -129,9 +129,20 @@ pub async fn scheduler_loop() {
     info!("Scheduler loop active - checking every 60s");
 
     let mut interval = interval(Duration::from_secs(60)); // Check every minute
+    let mut health_check_counter = 0u32;
+
+    // Run proactive checks every 6 hours (360 minutes)
+    const HEALTH_CHECK_INTERVAL: u32 = 360;
 
     loop {
         interval.tick().await;
+        health_check_counter += 1;
+
+        // Proactive health check (every 6 hours)
+        if health_check_counter >= HEALTH_CHECK_INTERVAL {
+            health_check_counter = 0;
+            run_proactive_health_check();
+        }
 
         let mut store = TaskStore::load();
         let task_count = store.tasks.len();
@@ -174,5 +185,31 @@ pub async fn scheduler_loop() {
         if let Err(e) = store.save() {
             debug!("Failed to save task store: {}", e);
         }
+    }
+}
+
+/// Run proactive health checks - anomaly detection and optimization suggestions.
+fn run_proactive_health_check() {
+    info!("Running proactive health check...");
+
+    // Run anomaly detection
+    crate::anomaly::run_anomaly_check();
+
+    // Check for optimization opportunities (only notify if significant)
+    let suggestions = crate::anomaly::check_optimizations();
+    let significant: Vec<_> = suggestions.iter()
+        .filter(|s| {
+            // Only notify for disk issues or failed services
+            s.category == "Disk" || s.category == "Services"
+        })
+        .collect();
+
+    if !significant.is_empty() {
+        let mut msg = format!("Proactive check: {} items need attention\n", significant.len());
+        for s in &significant {
+            msg.push_str(&format!("- {}: {}\n", s.category, s.description));
+        }
+        msg.push_str("\nSay 'suggestions' for details.");
+        push_notification(&msg);
     }
 }
