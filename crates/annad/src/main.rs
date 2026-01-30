@@ -81,6 +81,14 @@ async fn main() -> Result<()> {
         annad::core_loop::warm_up_cache();
         // v0.0.953: Run proactive health checks after cache warm-up
         annad::core_loop::run_health_checks();
+        // v0.3.95: Run self-healing on startup
+        let healed = annad::self_healing::run_self_healing();
+        if !healed.is_empty() {
+            let successful: Vec<_> = healed.iter().filter(|r| r.success).collect();
+            if !successful.is_empty() {
+                info!("Startup self-healing: fixed {} issues", successful.len());
+            }
+        }
     });
 
     // v0.0.954: Periodic health checks (every 5 minutes)

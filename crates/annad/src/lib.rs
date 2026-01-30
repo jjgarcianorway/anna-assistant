@@ -64,6 +64,7 @@ pub mod plan_verify;
 pub mod ralph;
 pub mod recovery;
 pub mod scheduler_loop;
+pub mod self_healing;
 pub mod server;
 pub mod state;
 pub mod team_speak;
