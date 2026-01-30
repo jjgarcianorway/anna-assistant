@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use tracing::{debug, info, warn};
 
-use crate::telegram::notifier::push_notification;
+// Note: push_notification not used - all alerts go to morning briefing
 
 /// A metric sample with timestamp.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -419,25 +419,16 @@ pub fn check_optimizations() -> Vec<OptimizationSuggestion> {
     suggestions
 }
 
-/// Run optimization check and push a summary if suggestions exist.
+/// Run optimization check - logs only, no notifications.
+/// Optimization suggestions are shown in morning briefing or on-demand via Telegram.
 pub fn run_optimization_check() {
     let suggestions = check_optimizations();
 
     if !suggestions.is_empty() {
-        info!("Optimization check: {} suggestions", suggestions.len());
-
-        let mut lines = vec!["Optimization suggestions:".to_string()];
+        info!("Optimization check: {} suggestions (will show in briefing)", suggestions.len());
         for s in &suggestions {
-            let savings = s.potential_savings.as_deref().unwrap_or("");
-            if savings.is_empty() {
-                lines.push(format!("- {}: {} ({})", s.category, s.description, s.action));
-            } else {
-                lines.push(format!("- {}: {} - save {} ({})", s.category, s.description, savings, s.action));
-            }
+            debug!("Optimization: {} - {}", s.category, s.description);
         }
-
-        let msg = lines.join("\n");
-        push_notification(&msg);
     } else {
         debug!("Optimization check: no suggestions");
     }

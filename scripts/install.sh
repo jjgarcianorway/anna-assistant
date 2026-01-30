@@ -28,7 +28,16 @@ print_section() { echo "${C_DIM}[${C_RESET}$1${C_DIM}]${C_RESET} $2"; }
 print_ok() { echo "  ${C_OK}${SYM_OK}${C_RESET} $1"; }
 print_item_ok() { printf "  %-20s ${C_OK}${SYM_OK}${C_RESET}\n" "$1"; }
 print_err() { echo "  ${C_ERR}${SYM_ERR}${C_RESET} $1"; }
-print_footer() { echo ""; echo "$HR"; echo "Run: ${C_BOLD}annactl status${C_RESET}"; echo "$HR"; echo ""; }
+print_footer() {
+    echo ""; echo "$HR"
+    echo "Run: ${C_BOLD}annactl status${C_RESET} to verify"
+    if [[ -f "${CONFIG_DIR}/telegram.env" ]]; then
+        echo "Telegram: Message your bot to test"
+    else
+        echo "Telegram: See /etc/anna/telegram.env to enable later"
+    fi
+    echo "$HR"; echo ""
+}
 fail() { print_err "$1"; exit 1; }
 
 detect_arch() {
@@ -159,8 +168,62 @@ EOF
     print_item_ok "/etc/anna/config.toml"; echo ""
 }
 
+setup_telegram() {
+    print_section "telegram" "optional mobile access"
+    echo ""
+    echo "  Anna can be controlled via Telegram for mobile access."
+    echo "  This requires a Telegram bot token and your user ID."
+    echo ""
+    read -p "  Set up Telegram access? [y/N] " -n 1 -r; echo ""
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_ok "Skipped (can configure later in /etc/anna/telegram.env)"
+        echo ""; return
+    fi
+
+    echo ""
+    echo "  ${C_CYAN}Step 1: Create a bot${C_RESET}"
+    echo "    1. Open Telegram and message @BotFather"
+    echo "    2. Send: /newbot"
+    echo "    3. Choose a name (e.g., 'My Anna')"
+    echo "    4. Choose a username (e.g., 'my_anna_bot')"
+    echo "    5. Copy the token BotFather gives you"
+    echo ""
+    read -p "  Paste your bot token: " BOT_TOKEN
+
+    if [[ -z "$BOT_TOKEN" ]]; then
+        print_err "No token provided, skipping Telegram setup"
+        echo ""; return
+    fi
+
+    echo ""
+    echo "  ${C_CYAN}Step 2: Get your Telegram user ID${C_RESET}"
+    echo "    1. Message @userinfobot on Telegram"
+    echo "    2. It will reply with your user ID (a number)"
+    echo ""
+    read -p "  Paste your Telegram user ID: " USER_ID
+
+    if [[ -z "$USER_ID" ]]; then
+        print_err "No user ID provided, skipping Telegram setup"
+        echo ""; return
+    fi
+
+    # Save to telegram.env
+    $SUDO tee "${CONFIG_DIR}/telegram.env" >/dev/null <<EOF
+ANNA_TELEGRAM_TOKEN=${BOT_TOKEN}
+ANNA_TELEGRAM_USERS=${USER_ID}
+EOF
+    $SUDO chmod 640 "${CONFIG_DIR}/telegram.env"
+    $SUDO chown root:$ANNA_GROUP "${CONFIG_DIR}/telegram.env"
+
+    print_ok "Telegram configured! Message your bot after install completes."
+    echo ""
+}
+
 install_service() {
     print_section "service" "systemd"
+
+    # Always include telegram.env with - prefix (optional, won't fail if missing)
     $SUDO tee "${SYSTEMD_DIR}/annad.service" >/dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
@@ -177,6 +240,7 @@ MemoryMax=2G
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
 Environment=RUST_BACKTRACE=1
+EnvironmentFile=-/etc/anna/telegram.env
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -206,7 +270,9 @@ main() {
     print_header; print_greeting; preflight; fetch_artifacts; verify_checksums
     cleanup_stale_binaries; request_sudo; stop_existing_service
     install_binaries; verify_binaries; setup_group
-    install_directories; install_tmpfiles; install_config; install_service
+    install_directories; install_tmpfiles; install_config
+    setup_telegram  # Interactive Telegram setup
+    install_service
     print_handoff; print_footer
 }
 

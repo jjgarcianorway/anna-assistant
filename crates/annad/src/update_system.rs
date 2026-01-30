@@ -9,7 +9,7 @@
 use std::process::Command;
 use tracing::{info, warn};
 
-use crate::telegram::notifier::push_notification;
+// Note: push_notification not used - updates shown in morning briefing
 
 /// Update information.
 #[derive(Debug, Clone)]

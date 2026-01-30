@@ -7,464 +7,192 @@
  / ___ \| | | | | | | (_| |
 /_/   \_\_| |_|_| |_|\__,_|
 
-Your Local IT Department (that actually works)
+Your AI System Administrator
 ```
 
-> *"Have you tried turning it off and on again?"* - Not Anna. She runs actual diagnostics.
-
-Anna is a **local AI assistant** that knows your Linux system inside out. She answers questions using real data from your machine - never making things up, never hallucinating. Think of her as having a tiny, competent IT department living inside your terminal.
-
-## What Makes Anna Different?
-
-Most AI assistants will confidently tell you that your disk is 47% full when they have no idea. Anna actually checks.
-
-```bash
-$ annactl "how much disk space do I have?"
-
-Checking your storage situation...
-
-Your root partition (/) has 234GB free out of 500GB (47% used).
-That swap partition? 16GB, barely touched.
-That random USB drive you forgot about? Still mounted at /mnt/backup with 89GB available.
-
-Evidence: df -h, lsblk
-```
-
-Every answer is **grounded in evidence**. Anna shows her work.
+Anna is a **local AI assistant** that manages your Linux system. She runs diagnostics, installs packages, configures services, and keeps your system healthy - all through natural conversation via terminal or Telegram.
 
 ## Quick Start
 
 ```bash
-# One-liner install (Arch, Ubuntu, Fedora, Debian supported)
+# Install (Arch, Ubuntu, Fedora, Debian)
 curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
 
-# Ask anything about your system
+# Ask anything
+annactl "how much disk space do I have?"
+annactl "install htop"
 annactl "is my system healthy?"
-annactl "what's eating my RAM?"
-annactl "show me failed services"
-
-# Or just start chatting
-annactl
 ```
 
-## The Hollywood IT Experience
+## Telegram Access (Recommended)
 
-When you enable internal communications (`show internal comms`), you get to be a fly on the wall in Anna's virtual IT department:
+Control your system from anywhere via Telegram.
 
-```
-> why is my system slow?
+### Setup
 
---- internal comms ---
-  [0.2s] Marcus (Jr, Performance): I'll check the usual suspects.
-  [0.3s] Anna: Running performance diagnostics...
-  [0.5s] [probe] ps aux --sort=-%mem | head -10
-  [0.8s] [probe] free -h
-  [1.2s] Anna: Found the culprit.
-
-Chrome has 47 tabs open (yes, I counted). That's eating 68% of your RAM.
-Firefox in the background adds another 1.1GB.
-
-Consider: closing some tabs, or accepting your fate as a Chrome farmer.
-```
-
-*It's like watching a TV show about a competent IT department. Except it's real and it's your computer.*
-
-### Dialogue Timeline (v0.3.43)
-
-Every ticket creates a structured timeline that can be replayed:
-
-```
-> check my disk space
-
---- internal comms ---
-[0.0s] Anna -> Storage: New request: "check my disk space"
-[0.1s] Kevin (Jr, Storage) -> Anna: I'll take this one.
-[0.2s] [stor-jr] Running df -h
-[0.4s] Kevin (Jr, Storage) -> Anna: Resolved with 95% confidence.
-[0.4s] Anna -> Kevin (Jr, Storage): Noted. I'll remember this for next time.
-
-Your root partition (/) has 234GB free out of 500GB.
-```
-
-Features:
-- Chronological timeline of all ticket activity
-- Human-readable dialogue between Anna and specialists
-- Redaction of sensitive data by default (debug mode shows raw events)
-- Deterministic replay of completed tickets
-
-## Features That Actually Work
-
-### Natural Language Everything
-
-Just talk to Anna. No flags, no syntax, no man pages.
+1. Create a bot with [@BotFather](https://t.me/botfather) on Telegram
+2. Get your Telegram user ID from [@userinfobot](https://t.me/userinfobot)
+3. Add to `/etc/anna/telegram.env`:
 
 ```bash
-# System questions
-"how much RAM do I have?"
-"is docker running?"
-"show me failed services"
-"what's using port 3000?"
-
-# Configuration (yes, really)
-"enable syntax highlighting in vim"
-"set my git email to me@example.com"
-"add an alias ll='ls -la' to my bashrc"
-
-# Package management
-"install htop"
-"remove that flatpak I never use"
-"update all packages"
-
-# Service management
-"restart nginx"
-"show docker logs"
-"enable ssh at startup"
+ANNA_TELEGRAM_TOKEN=your_bot_token_here
+ANNA_TELEGRAM_USERS=your_telegram_id
 ```
 
-### Settings Through Conversation
+4. Restart Anna: `sudo systemctl restart annad`
 
-Forget config files. Just tell Anna what you want:
+### What You Can Do
 
-```
-> make Anna more casual
-[config] Made my style more casual.
-  Hey! I'll be more chill now.
+Just message your bot naturally:
 
-> enable learning mode
-[config] Enabled learning mode - I'll explain why commands work.
-  I'll explain why commands work and what they do.
+- "how's the system?" - Quick status
+- "any updates?" - Check for updates
+- "health check" - Full health report
+- "fix issues" - Auto-fix safe problems
+- "clean up" - Clear caches and logs
+- "remind me in 2 hours to check backups" - Set reminders
+- "set up morning briefing at 8am" - Daily health reports
 
-> my email is lhoqvso@company.com
-[config] Got it! I'll notify you at lhoqvso@company.com for long-running tickets.
-  When a request takes a long time, I'll email you the answer.
+Or ask any question - Anna will figure it out.
 
-> be more playful
-[config] Enabled playful humor mode.
-  This is going to be fun! :)
-```
+## Features
 
-Available settings:
-- **Learning mode**: Get explanations for commands
-- **Verbosity**: Minimal, normal, or detailed responses
-- **Formality**: Casual, balanced, or formal tone
-- **Humor**: None, subtle, or playful
-- **Auto-confirm**: Skip confirmations for safe changes
-- **Internal comms**: See the IT team discuss your request
-- **Email notifications**: Get notified when long tasks complete
+### Proactive Monitoring
 
-### Honest Progress
+- **Morning briefing**: Daily natural-language health report at your chosen time
+- **Critical alerts only**: Notifications only for emergencies (disk full, multiple service failures)
+- **Self-healing**: Automatically restarts failed services, clears stale locks, frees disk space
 
-Watch Anna work in real-time with honest progress updates:
+### Smart Updates
 
-```
-lhoqvso: explain my network configuration
+- Categorizes updates (security, kernel, regular)
+- Warns when reboot is needed
+- Shows updates in morning briefing (no spam)
 
-[thinking...] Analyzing request
-[running] ip addr
-[running] ip route
-Anna: Your network has three interfaces: enp0s31f6 (main ethernet,
-192.168.1.42), wlp82s0 (wifi, currently down), and docker0
-(bridge network for containers at 172.17.0.1).
+### Anomaly Detection
 
-Evidence: ip addr, ip route
-```
+- Learns normal patterns for RAM, CPU, disk, network
+- Detects deviations from baseline
+- Reports anomalies in morning briefing
 
-No fake animations. Real token streaming from Ollama when available, honest batch rendering otherwise.
+### Safe Changes
 
-### Idle-Time Tips
+All system changes:
+- Require confirmation
+- Create backups first
+- Can be rolled back
+- Are logged for history
 
-Left the terminal open? Anna notices and shares helpful tips:
+## Multi-User Scenarios
 
-```
-lhoqvso: <sits idle for 30 seconds>
+### Sharing Your Anna (Same Computer)
 
-[tip] By the way, if you want me to explain why commands work,
-      just say "enable learning mode".
+To let another person control your computer via their Telegram:
 
-lhoqvso: _
+```bash
+# Add their Telegram ID to allowed users
+ANNA_TELEGRAM_USERS=your_id,their_id
 ```
 
-*Max 3 tips per session because Anna knows when to stop.*
+They'll be able to run commands on your system. Only do this with people you trust.
 
-### Session Memory
+### Multiple Computers
 
-Anna remembers what you talked about:
+Each computer needs its own Anna installation:
 
-```
-Good evening, lhoqvso!
+1. Run the installer on each machine
+2. Create a separate Telegram bot for each (or use the same bot with different notification channels)
+3. Configure each machine's `/etc/anna/telegram.env`
 
-Last time (2 hours ago): handled 5 queries, discussed vim (3 times),
-learned about your nvim setup.
+### New User Setup
 
-What can I help with?
-```
+For someone setting up Anna on their own computer:
 
-### Recipe Learning
+1. Run the installer:
+   ```bash
+   curl -sSL https://raw.githubusercontent.com/jjgarcianorway/anna-assistant/main/scripts/install.sh | bash
+   ```
 
-Ask the same question twice? Anna learns and responds instantly:
+2. Create a Telegram bot (optional but recommended):
+   - Message @BotFather: `/newbot`
+   - Choose a name and username
+   - Copy the token
 
-```
-# First time: Anna runs probes, calls LLM, takes 3 seconds
-$ annactl "how do I enable syntax highlighting in vim?"
+3. Get your Telegram ID:
+   - Message @userinfobot
+   - Copy your ID
 
-# Second time: Instant response from learned recipe
-$ annactl "enable vim syntax highlighting"
-# Response in 50ms
-```
+4. Configure Telegram:
+   ```bash
+   sudo tee /etc/anna/telegram.env << EOF
+   ANNA_TELEGRAM_TOKEN=your_token
+   ANNA_TELEGRAM_USERS=your_id
+   EOF
+   sudo systemctl restart annad
+   ```
 
-Anna learns from successful interactions and builds a recipe book of your patterns.
-
-### Service Desk Stats
-
-Track your IT department's performance:
-
-```
-$ annactl stats
-
-──────────────────────────────────────────────────────────────────────────────
-Anna Service Desk | Staff Performance Report
-──────────────────────────────────────────────────────────────────────────────
-
-[service desk]
-  total_tickets         47
-  resolved              42
-  escalated             5
-  avg_response          2.3s
-
-[departments]
-  Desktop       tickets:  18   resolved:  17   avg: 1.8s
-  Storage       tickets:  12   resolved:  11   avg: 2.1s
-  Network       tickets:   9   resolved:   8   avg: 3.2s
-
-[staff roster]
-  DESKTOP
-    Marcus (Jr)    tickets:  12   xp:  340   rate: 92%   Specialist
-    Sarah (Sr)     tickets:   6   xp:  180   rate: 83%   Senior Tech
-
-[learning]
-  queries_processed     47
-  keywords_learned      23
-  patterns              8 success / 2 negative
-  health                Good (78% confidence)
-```
-
-### Safe Change Engine
-
-When Anna makes changes, she's careful:
-
-```
-> enable dark mode in vim
-
-I can add these settings to your .vimrc:
-  set background=dark
-  colorscheme slate
-
-Apply this change? [y/N] y
-
-Creating backup... /home/lhoqvso/.vimrc.anna.1702147523
-Applying changes... done!
-
-Done! Applied 1 change.
-(You can undo with: annactl undo vim-dark-1702147523)
-```
-
-Every change:
-- Creates a backup first
-- Can be undone
-- Requires confirmation (unless you enable auto-confirm)
-- Is logged for history
-
-## IT Department Teams
-
-Anna's virtual department has specialized teams:
-
-| Team | Handles | Example Queries |
-|------|---------|-----------------|
-| **Desktop** | Editors, terminals, preferences | "configure vim", "customize my prompt" |
-| **Network** | Connectivity, DNS, routing | "why can't I reach google?", "show open ports" |
-| **Storage** | Disks, mounts, filesystems | "disk usage", "mount this drive" |
-| **Security** | Permissions, access, vulnerabilities | "who can read this file?", "check for updates" |
-| **Services** | Systemd, packages, daemons | "restart nginx", "install docker" |
-| **Performance** | CPU, memory, processes | "what's slow?", "top processes" |
-| **Hardware** | Devices, drivers, peripherals | "is my audio working?", "show GPU info" |
-
-Each team has named staff members who handle your requests. Enable internal comms to meet them!
-
-## Supported Recipes
-
-Anna comes with built-in recipes for common tasks:
-
-### Shell Configuration
-- bash/zsh/fish aliases and functions
-- Environment variables
-- Prompt customization
-- PATH management
-
-### Git Configuration
-- User name and email setup
-- Default branch settings
-- Credential helpers
-- Aliases (co, br, ci, st)
-
-### SSH Key Management
-- Key generation (ed25519, RSA)
-- SSH agent setup
-- Config file management
-- GitHub/GitLab integration
-
-### Systemd Services
-- Create custom service units
-- Timer configurations
-- Service enable/disable/restart
-- Log viewing with journalctl
-
-### Cron Jobs
-- Add/remove scheduled tasks
-- Common presets (hourly, daily, weekly)
-- Crontab syntax help
-- Job listing and editing
-
-### Docker Compose
-- Project scaffolding
-- Service management
-- Log viewing
-- Network inspection
-
-### Package Management
-- Cross-distro support (apt, pacman, dnf, flatpak, snap)
-- Automatic package name mapping
-- Safe removal with dependency checking
+5. Message your bot "hello" to test
 
 ## Commands
 
-Anna keeps it simple:
-
 ```bash
-annactl "question"     # Ask anything about your system
-annactl                # Interactive mode (REPL)
-annactl status         # Daemon health, versions, LLM status
-annactl stats          # Service desk performance report
-annactl learning       # What Anna has learned (probe effectiveness)
-annactl reset          # Clear learned data and start fresh
-annactl uninstall      # Remove Anna completely
+annactl "question"     # Ask anything
+annactl                # Interactive mode
+annactl status         # Daemon health
 ```
 
-Everything else? Just ask in natural language.
+Everything else? Just ask naturally.
 
 ## Requirements
 
-- **Linux** with systemd
-- **8GB+ RAM** recommended (Anna runs Qwen2.5 locally)
-- **Ollama** (installed automatically if missing)
-
-Works on: Arch, Ubuntu, Debian, Fedora, and most systemd-based distros.
+- Linux with systemd
+- 8GB+ RAM (runs Qwen2.5 locally via Ollama)
+- Ollama (installed automatically)
 
 ## Architecture
 
 ```
-┌─────────────────┐     ┌─────────────────┐
-│    annactl      │────▶│     annad       │
-│  (CLI client)   │◀────│   (daemon)      │
-└─────────────────┘     └────────┬────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    │            │            │
-              ┌─────▼─────┐ ┌────▼────┐ ┌─────▼─────┐
-              │  Probes   │ │ Ollama  │ │  Recipes  │
-              │ (shell)   │ │ (LLM)   │ │ (learned) │
-              └───────────┘ └─────────┘ └───────────┘
+annactl ──> annad ──> Ollama (local LLM)
+              │
+              ├── Telegram bot (optional)
+              ├── Scheduler (reminders, briefings)
+              ├── Self-healing (auto-recovery)
+              └── Anomaly detection (baselines)
 ```
 
-- **annad**: Background daemon that manages AI models and runs system probes
-- **annactl**: Your CLI interface, talks to annad via Unix socket
-- **Probes**: Shell commands that gather real system data
-- **Recipes**: Learned patterns for instant responses
-
-Data storage (system-wide, no home directory writes):
+All data stays local:
 - `/etc/anna/` - Configuration
-- `/var/lib/anna/` - State data (tickets, recipes, memory, stats)
-- `/run/anna/` - Runtime (socket)
+- `/var/lib/anna/` - State data
+- `/run/anna/` - Runtime socket
 
 ## Privacy
 
-Anna runs **100% locally**. Your data never leaves your machine:
-
-- No cloud APIs
-- No telemetry phoning home
-- No "anonymous" usage tracking
-- The LLM runs on your hardware
-
-The only network requests are for auto-updates (which you can disable).
+Anna runs **100% locally**. No cloud APIs, no telemetry, no data leaving your machine. The only network requests are for auto-updates (from GitHub releases).
 
 ## FAQ
 
-**Q: Why is the first query slow?**
-A: Anna needs to warm up the LLM (Qwen2.5). After that, responses are fast. Learned recipes respond in <100ms.
+**Why is the first query slow?**
+LLM needs to warm up. After that, responses are fast.
 
-**Q: Can Anna break my system?**
-A: Anna creates backups before any changes and requires confirmation. You can always `undo`. She also refuses to touch critical system files.
+**Can Anna break my system?**
+All changes require confirmation and can be undone. Critical system files are protected.
 
-**Q: Does Anna work offline?**
-A: Yes! The LLM runs locally. You only need internet for the initial install and auto-updates.
+**Does it work offline?**
+Yes, after initial install. LLM runs locally.
 
-**Q: Why "Anna"?**
-A: She's named after... actually, we're not sure. She just showed up one day and started being helpful.
-
-**Q: Can I customize the AI model?**
-A: Yes! Set `ANNA_OLLAMA_MODEL` environment variable or edit `/etc/anna/config.toml`. Default is Qwen2.5:7b.
-
-**Q: How do I report bugs?**
-A: Open an issue at https://github.com/jjgarcianorway/anna-assistant/issues
-
-## UX Contract
-
-Anna's output format is frozen and regression-tested. See `docs/UX_SPEC.md` for the canonical formatting rules.
-
-Run golden tests locally:
-```bash
-./tests/ux_golden.sh
-```
-
-## Truth Guarantees
-
-Anna is designed with truth-first principles:
-
-1. **Evidence Required**: Every factual claim is backed by probe results. Unverified claims are marked `[unverified]`.
-
-2. **No Hallucinations**: ClaimGate blocks answers that lack evidence. If Anna doesn't know, she says so.
-
-3. **Honest Progress**: No fake word-by-word streaming. Real Ollama streaming when available, honest batch rendering otherwise.
-
-4. **Verifiable Stats**: All statistics backed by audit trail. XP formula is documented and reproducible.
-
-5. **Safe Operations**: Every reset creates a backup first. Every change can be undone.
-
-These guarantees are enforced in code, not just prompts.
+**Can I use a different model?**
+Yes. Edit `/etc/anna/config.toml` or set `ANNA_OLLAMA_MODEL`.
 
 ## Version
 
-Current: **v0.3.52**
+Current: **v0.3.99**
 
-Recent highlights:
-- **UX regression lock** - Frozen UX contract with snapshot tests (Phase 19)
-- **UX polish** - Calmer, more consistent output format (Phase 18)
-- **Action execution** - Anna executes system changes, not just describes them (Phase 16)
-- **Verification & rollback** - All changes verified, rolled back on failure (Phase 17)
-- **Specialist system** - Deterministic dispatch to domain specialists
-
-See [CHANGELOG.md](CHANGELOG.md) for the full story.
+Recent changes:
+- Natural morning briefings (sounds human, varies daily)
+- Critical-only notifications (no spam)
+- Self-healing (auto-restart services, clear locks, free disk)
+- Telegram conversation context (remembers recent questions)
 
 ## License
 
 GPL-3.0
-
----
-
-*"The AI that reads your system, not your mind."*
-
-```
-$ annactl "thanks anna"
-
-You're welcome! That's what I'm here for.
-(And unlike cloud AI, I'm not judging your 47 Chrome tabs.)
-```

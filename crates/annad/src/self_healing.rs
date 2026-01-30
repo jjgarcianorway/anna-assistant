@@ -4,11 +4,12 @@
 //! - Restart failed user services
 //! - Clean disk when critically low
 //! - Clear stale locks
+//!
+//! Note: Self-healing is silent. Results are logged and shown in morning briefing.
+//! No push notifications - those are reserved for critical alerts only.
 
 use std::process::Command;
 use tracing::{info, warn};
-
-use crate::telegram::notifier::push_notification;
 
 /// Services that are safe to auto-restart (user-level, non-critical).
 const SAFE_TO_RESTART: &[&str] = &[
@@ -176,7 +177,8 @@ pub fn auto_clean_if_critical() -> Option<HealingResult> {
         freed_mb
     );
 
-    push_notification(&message);
+    // Log only - no push notification (will be in morning briefing)
+    info!("Self-healing: {}", message);
 
     Some(HealingResult {
         action: "Auto-clean disk".to_string(),
@@ -218,10 +220,10 @@ pub fn clear_stale_pacman_lock() -> Option<HealingResult> {
     }
 
     // Lock is stale, remove it
-    info!("Removing stale pacman lock");
+    info!("Self-healing: Removing stale pacman lock");
 
     if std::fs::remove_file(lock_path).is_ok() {
-        push_notification("Cleared stale pacman database lock.");
+        // Log only - no push notification (will be in morning briefing)
         Some(HealingResult {
             action: "Clear pacman lock".to_string(),
             success: true,
