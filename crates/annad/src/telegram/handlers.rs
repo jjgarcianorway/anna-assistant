@@ -366,6 +366,13 @@ async fn handle_quick_command(text: &str) -> Option<String> {
         return Some(run_cleanup().await);
     }
 
+    // Optimization queries
+    if q == "optimize" || q.contains("suggestions") || q.contains("what can i improve")
+        || q.contains("optimization") || q.contains("any improvements")
+        || q.contains("how can i optimize") {
+        return Some(get_optimization_suggestions());
+    }
+
     // Help queries
     if q == "help" || q.contains("what can you do") || q == "start"
         || q.contains("how do you work") {
@@ -376,7 +383,8 @@ async fn handle_quick_command(text: &str) -> Option<String> {
             Health: 'health check' 'how healthy is my system?'\n\
             Tasks: 'my reminders' 'scheduled tasks'\n\
             Fix: 'fix issues' 'fix everything'\n\
-            Clean: 'clean up' 'free space'\n\n\
+            Clean: 'clean up' 'free space'\n\
+            Optimize: 'any suggestions?' 'what can i improve?'\n\n\
             Smart features:\n\
             - 'remind me in 2 hours to check logs'\n\
             - 'set up morning briefing at 8am'\n\
@@ -496,6 +504,27 @@ fn get_scheduled_tasks() -> String {
         let status = if task.enabled { "active" } else { "disabled" };
         result.push_str(&format!("  [{}] {}\n", status, task.description));
     }
+    result
+}
+
+/// Get optimization suggestions.
+fn get_optimization_suggestions() -> String {
+    let suggestions = crate::anomaly::check_optimizations();
+
+    if suggestions.is_empty() {
+        return "No optimization suggestions. Your system looks well-maintained!".to_string();
+    }
+
+    let mut result = format!("=== {} OPTIMIZATION SUGGESTIONS ===\n\n", suggestions.len());
+    for s in &suggestions {
+        result.push_str(&format!("[{}] {}\n", s.category, s.description));
+        if let Some(ref savings) = s.potential_savings {
+            result.push_str(&format!("  Potential savings: {}\n", savings));
+        }
+        result.push_str(&format!("  Action: {}\n\n", s.action));
+    }
+
+    result.push_str("Say 'fix it' or 'clean up' to address disk issues.");
     result
 }
 

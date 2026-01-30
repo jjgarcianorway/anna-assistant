@@ -285,3 +285,159 @@ pub fn run_anomaly_check() {
         warn!("Failed to save anomaly store: {}", e);
     }
 }
+
+/// An optimization suggestion.
+#[derive(Debug, Clone)]
+pub struct OptimizationSuggestion {
+    pub category: String,
+    pub description: String,
+    pub potential_savings: Option<String>,
+    pub action: String,
+}
+
+/// Check for system optimization opportunities.
+pub fn check_optimizations() -> Vec<OptimizationSuggestion> {
+    let mut suggestions = Vec::new();
+
+    // 1. Package cache size
+    if let Ok(output) = Command::new("du").args(["-sm", "/var/cache/pacman/pkg"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(size) = out.split_whitespace().next() {
+            if let Ok(mb) = size.parse::<u64>() {
+                if mb > 1000 {
+                    suggestions.push(OptimizationSuggestion {
+                        category: "Disk".to_string(),
+                        description: format!("Package cache is {}MB", mb),
+                        potential_savings: Some(format!("~{}MB", mb / 2)),
+                        action: "clean up".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // 2. Journal size
+    if let Ok(output) = Command::new("journalctl").args(["--disk-usage"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        // Parse "Archived and active journals take up 512.0M"
+        if let Some(pos) = out.find("take up") {
+            let rest = &out[pos + 8..];
+            if let Some(end) = rest.find(|c: char| !c.is_alphanumeric() && c != '.') {
+                let size_str = &rest[..end];
+                if size_str.ends_with('M') || size_str.ends_with('G') {
+                    let is_gb = size_str.ends_with('G');
+                    if let Ok(size) = size_str[..size_str.len()-1].parse::<f64>() {
+                        let mb = if is_gb { size * 1024.0 } else { size };
+                        if mb > 500.0 {
+                            suggestions.push(OptimizationSuggestion {
+                                category: "Disk".to_string(),
+                                description: format!("Journal logs are {}MB", mb as u64),
+                                potential_savings: Some(format!("~{}MB", (mb * 0.7) as u64)),
+                                action: "clean up".to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Orphan packages
+    if let Ok(output) = Command::new("pacman").args(["-Qtdq"]).output() {
+        let orphans = String::from_utf8_lossy(&output.stdout);
+        let count = orphans.lines().filter(|l| !l.is_empty()).count();
+        if count > 0 {
+            suggestions.push(OptimizationSuggestion {
+                category: "Packages".to_string(),
+                description: format!("{} orphan packages found", count),
+                potential_savings: None,
+                action: "review and remove".to_string(),
+            });
+        }
+    }
+
+    // 4. Failed systemd services
+    if let Ok(output) = Command::new("systemctl")
+        .args(["--failed", "--no-legend", "--no-pager"])
+        .output()
+    {
+        let out = String::from_utf8_lossy(&output.stdout);
+        let count = out.lines().filter(|l| !l.is_empty()).count();
+        if count > 0 {
+            suggestions.push(OptimizationSuggestion {
+                category: "Services".to_string(),
+                description: format!("{} failed services", count),
+                potential_savings: None,
+                action: "investigate".to_string(),
+            });
+        }
+    }
+
+    // 5. Disk space low
+    if let Ok(output) = Command::new("df").args(["--output=avail", "-BG", "/"]).output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        if let Some(line) = out.lines().nth(1) {
+            if let Ok(gb) = line.trim().trim_end_matches('G').parse::<u64>() {
+                if gb < 10 {
+                    suggestions.push(OptimizationSuggestion {
+                        category: "Disk".to_string(),
+                        description: format!("Only {}GB free on root", gb),
+                        potential_savings: None,
+                        action: "free up space".to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // 6. High swap usage (might indicate memory pressure)
+    if let Ok(output) = Command::new("free").arg("-m").output() {
+        let out = String::from_utf8_lossy(&output.stdout);
+        for line in out.lines() {
+            if line.starts_with("Swap:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    if let (Ok(total), Ok(used)) = (
+                        parts[1].parse::<u64>(),
+                        parts[2].parse::<u64>(),
+                    ) {
+                        if total > 0 && used > total / 2 {
+                            suggestions.push(OptimizationSuggestion {
+                                category: "Memory".to_string(),
+                                description: format!("Swap usage: {}MB / {}MB", used, total),
+                                potential_savings: None,
+                                action: "check memory-hungry processes".to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    suggestions
+}
+
+/// Run optimization check and push a summary if suggestions exist.
+pub fn run_optimization_check() {
+    let suggestions = check_optimizations();
+
+    if !suggestions.is_empty() {
+        info!("Optimization check: {} suggestions", suggestions.len());
+
+        let mut lines = vec!["Optimization suggestions:".to_string()];
+        for s in &suggestions {
+            let savings = s.potential_savings.as_deref().unwrap_or("");
+            if savings.is_empty() {
+                lines.push(format!("- {}: {} ({})", s.category, s.description, s.action));
+            } else {
+                lines.push(format!("- {}: {} - save {} ({})", s.category, s.description, savings, s.action));
+            }
+        }
+
+        let msg = lines.join("\n");
+        push_notification(&msg);
+    } else {
+        debug!("Optimization check: no suggestions");
+    }
+}
