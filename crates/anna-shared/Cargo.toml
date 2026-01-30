@@ -8,6 +8,7 @@ license.workspace = true
 chrono = "0.4"
 
 [dependencies]
+async-trait = "0.1"
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

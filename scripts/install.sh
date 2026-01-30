@@ -44,8 +44,10 @@ detect_arch() {
     local arch=$(uname -m)
     case "$arch" in
         x86_64) echo "x86_64" ;;
-        aarch64|arm64) echo "aarch64" ;;
-        *) fail "Unsupported architecture: $arch" ;;
+        aarch64|arm64)
+            fail "ARM (aarch64) not yet supported. Please use x86_64 or build from source: git clone https://github.com/${REPO} && cd anna-assistant && cargo build --release"
+            ;;
+        *) fail "Unsupported architecture: $arch. Supported: x86_64" ;;
     esac
 }
 

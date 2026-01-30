@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.103] - 2026-01-30
+
+### Added - Multi-Agent Architecture
+
+- **Agent abstraction layer**: Core Agent trait with domain, model tier, task handling
+- **Agent registry**: Central registry for agent discovery and capability-based routing
+- **Model router**: Task complexity classification (Simple/Standard/Complex/VeryComplex) with tier-based model selection (Fast/Standard/Deep)
+- **Agent orchestrator**: Parallel investigation for multi-domain questions, system profile detection
+- **Specialist agents**: Wraps existing department specialists as full agents with learning
+- **Predictive ML**: Linear regression trend analysis for resource forecasting (disk, memory, boot time), memory leak detection, boot degradation alerts
+- **Knowledge aggregator**: Unified retrieval from wiki, man pages, command help, recipes
+
+This lays the foundation for true AI system administration with specialized agents working together.
+
 ## [0.3.102] - 2026-01-30
 
 ### Added - Personalized Reports with Charts

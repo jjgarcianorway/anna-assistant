@@ -46,6 +46,8 @@ pub fn get_llm_call_count() -> u64 {
 #[cfg(not(test))]
 pub fn record_llm_call() {}
 
+pub mod agent_registry;
+pub mod agents;
 pub mod anomaly;
 pub mod assisted_ops;
 pub mod autofix;
@@ -57,7 +59,9 @@ pub mod core_loop;
 pub mod department;
 pub mod intent;
 pub mod llm_core;
+pub mod model_router;
 pub mod ollama;
+pub mod orchestrator;
 pub mod plan_executor;
 pub mod plan_generator;
 pub mod plan_stash;

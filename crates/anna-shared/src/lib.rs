@@ -131,6 +131,7 @@
 //! This interface reserves a future execution boundary without enabling execution.
 
 pub mod action_plan;
+pub mod agent;
 pub mod capabilities;
 #[cfg(test)]
 mod capabilities_guardrails;
@@ -159,12 +160,14 @@ pub mod helpers;
 pub mod intent_class;
 pub mod intention;
 pub mod interpretation;
+pub mod knowledge;
 pub mod memory;
 pub mod migration;
 pub mod monitor;
 pub mod outcome_ledger;
 pub mod paths;
 pub mod policy;
+pub mod prediction;
 pub mod probe_ledger;
 pub mod probe_stats;
 pub mod preferences;
