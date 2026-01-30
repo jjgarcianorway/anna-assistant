@@ -465,29 +465,9 @@ fn get_quick_status() -> String {
     status.join("\n")
 }
 
-/// Get updates status.
+/// Get update status with smart categorization.
 fn get_updates_status() -> String {
-    use std::process::Command;
-
-    if let Ok(output) = Command::new("checkupdates").output() {
-        let updates = String::from_utf8_lossy(&output.stdout);
-        let count = updates.lines().count();
-        if count > 0 {
-            let mut result = format!("{} updates available:\n", count);
-            for line in updates.lines().take(10) {
-                result.push_str(&format!("  {}\n", line));
-            }
-            if count > 10 {
-                result.push_str(&format!("  ... and {} more\n", count - 10));
-            }
-            result.push_str("\nTo update: sudo pacman -Syu");
-            result
-        } else {
-            "System is up to date!".to_string()
-        }
-    } else {
-        "Could not check updates (checkupdates not available)".to_string()
-    }
+    crate::update_system::get_updates_quick()
 }
 
 /// Get scheduled tasks.

@@ -188,7 +188,7 @@ pub async fn scheduler_loop() {
     }
 }
 
-/// Run proactive health checks - anomaly detection, self-healing, and optimization.
+/// Run proactive health checks - anomaly detection, self-healing, updates, and optimization.
 fn run_proactive_health_check() {
     info!("Running proactive health check...");
 
@@ -210,7 +210,10 @@ fn run_proactive_health_check() {
     // 2. Run anomaly detection
     crate::anomaly::run_anomaly_check();
 
-    // 3. Check for optimization opportunities (only notify if significant)
+    // 3. Check for important updates (security/kernel only)
+    crate::update_system::run_update_check();
+
+    // 4. Check for optimization opportunities (only notify if significant)
     let suggestions = crate::anomaly::check_optimizations();
     let significant: Vec<_> = suggestions.iter()
         .filter(|s| {
