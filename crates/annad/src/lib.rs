@@ -63,6 +63,7 @@ pub mod plan_stash;
 pub mod plan_verify;
 pub mod ralph;
 pub mod recovery;
+pub mod report;
 pub mod scheduler_loop;
 pub mod self_healing;
 pub mod server;

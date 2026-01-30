@@ -24,3 +24,8 @@ dirs.workspace = true
 uuid.workspace = true
 sd-notify = "0.4"
 teloxide.workspace = true
+
+# PDF report generation
+genpdf = "0.2"
+plotters = { version = "0.3", default-features = false, features = ["bitmap_encoder", "line_series"] }
+image = "0.24"

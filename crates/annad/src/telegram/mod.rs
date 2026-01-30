@@ -150,8 +150,8 @@ pub async fn start_telegram_bot(anna_state: SharedState) -> Result<()> {
         .or_else(|| config.allowed_users.first().map(|&id| id as i64));
 
     if let Some(chat_id) = notify_chat_id {
-        let (tx, rx) = tokio::sync::mpsc::channel::<String>(100);
-        notifier::init_notifier(tx, Some(chat_id));
+        let (tx, rx) = tokio::sync::mpsc::channel::<notifier::NotifyMessage>(100);
+        notifier::init_notifier(tx, Some(chat_id), Some(config.token.clone()));
 
         let token_clone = config.token.clone();
         tokio::spawn(async move {

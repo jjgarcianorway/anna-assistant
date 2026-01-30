@@ -1,11 +1,12 @@
 //! Scheduler loop for running scheduled tasks.
 
-use anna_shared::scheduler::{TaskAction, TaskStore};
+use anna_shared::scheduler::{ScheduledTask, TaskAction, TaskStore};
+use chrono::NaiveTime;
 use std::process::Command;
 use tokio::time::{interval, Duration};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
-use crate::telegram::notifier::push_notification;
+use crate::telegram::notifier::{push_notification, send_pdf_report};
 
 /// Pick a random greeting based on current time.
 fn random_greeting() -> &'static str {
@@ -239,12 +240,35 @@ fn generate_morning_briefing() -> String {
     parts.join("")
 }
 
+/// Ensure morning briefing task exists (creates one at 8am if missing).
+fn ensure_morning_briefing() {
+    let mut store = TaskStore::load();
+
+    if !store.has_morning_briefing() {
+        // Create default morning briefing at 8:00 AM local time
+        let time = NaiveTime::from_hms_opt(8, 0, 0).unwrap();
+        let task = ScheduledTask::morning_briefing(time);
+        store.add(task);
+
+        if let Err(e) = store.save() {
+            warn!("Failed to save morning briefing task: {}", e);
+        } else {
+            info!("Created default morning briefing at 8:00 AM");
+        }
+    } else {
+        info!("Morning briefing already configured");
+    }
+}
+
 /// Background loop that checks for and executes scheduled tasks.
 pub async fn scheduler_loop() {
     info!("Scheduler loop starting (30s delay)...");
 
     // Wait for system to stabilize before starting
     tokio::time::sleep(Duration::from_secs(30)).await;
+
+    // Ensure morning briefing exists (creates default at 8am if missing)
+    ensure_morning_briefing();
 
     info!("Scheduler loop active - checking every 60s");
 
@@ -286,9 +310,22 @@ pub async fn scheduler_loop() {
                     push_notification(&format!("Reminder: {}", message));
                 }
                 TaskAction::HealthCheck => {
-                    // Run comprehensive morning briefing
-                    let briefing = generate_morning_briefing();
-                    push_notification(&briefing);
+                    // Generate PDF report and send via Telegram
+                    match crate::report::generate_pdf_report() {
+                        Ok(pdf_path) => {
+                            info!("Generated morning report: {}", pdf_path.display());
+                            send_pdf_report(&pdf_path);
+                            // Also send a brief text summary
+                            let summary = generate_morning_briefing();
+                            push_notification(&summary);
+                        }
+                        Err(e) => {
+                            warn!("Failed to generate PDF report: {}", e);
+                            // Fall back to text briefing
+                            let briefing = generate_morning_briefing();
+                            push_notification(&briefing);
+                        }
+                    }
                 }
                 TaskAction::Question { question } => {
                     // Scheduled questions are logged but not pushed

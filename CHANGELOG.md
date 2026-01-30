@@ -5,6 +5,24 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.101] - 2026-01-30
+
+### Added - Auto Morning Briefing + PDF Reports
+
+- Morning briefing now auto-creates on daemon startup (8am default)
+- PDF report generation with professional formatting:
+  - Personalized greetings based on username and time of day
+  - Executive summary of system health
+  - Current status (uptime, load, memory, disk)
+  - 24-hour metric trends
+  - Software update summary
+  - Actionable recommendations
+  - Rotating natural language closings
+- PDF sent via Telegram before text summary
+
+**No setup required** - briefing starts automatically after daemon restart.
+To change time: `annactl "set up morning briefing at 7am"`
+
 ## [0.3.83] - 2026-01-29
 
 ### Added - Morning Briefing
