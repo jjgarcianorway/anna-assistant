@@ -138,29 +138,17 @@ pub fn needs_reboot() -> bool {
 }
 
 /// Run proactive update check (called periodically).
+/// No longer sends notifications - updates are shown in morning briefing.
 pub fn run_update_check() {
+    // Just log, don't notify. Updates will be in morning briefing.
     let updates = check_updates();
-
-    if updates.is_empty() {
-        return;
-    }
-
-    let security: Vec<_> = updates.iter().filter(|u| u.is_security).collect();
-    let kernel: Vec<_> = updates.iter().filter(|u| u.is_kernel).collect();
-
-    // Only notify for important updates
-    if !security.is_empty() || !kernel.is_empty() {
-        let mut msg = format!("Updates available: {} total\n", updates.len());
-
-        if !security.is_empty() {
-            msg.push_str(&format!("- {} security updates (recommended)\n", security.len()));
-        }
-        if !kernel.is_empty() {
-            msg.push_str(&format!("- {} kernel updates\n", kernel.len()));
-        }
-
-        msg.push_str("\nSay 'any updates?' for details.");
-        push_notification(&msg);
+    if !updates.is_empty() {
+        let security: Vec<_> = updates.iter().filter(|u| u.is_security).collect();
+        tracing::info!(
+            "Updates available: {} total ({} security)",
+            updates.len(),
+            security.len()
+        );
     }
 }
 

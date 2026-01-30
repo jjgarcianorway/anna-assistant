@@ -266,16 +266,17 @@ fn collect_metrics() -> Vec<(String, f64, String)> {
     metrics
 }
 
-/// Run anomaly detection and send alerts.
+/// Run anomaly detection - logs only, no notifications.
+/// Anomalies are shown in morning briefing instead of immediate alerts.
 pub fn run_anomaly_check() {
     let mut store = AnomalyStore::load();
     let alerts = store.check_all();
 
     if !alerts.is_empty() {
-        info!("Anomaly detection: {} alerts", alerts.len());
+        info!("Anomaly detection: {} alerts (will show in briefing)", alerts.len());
         for alert in &alerts {
             warn!("{}", alert);
-            push_notification(alert);
+            // No push_notification - anomalies go to morning briefing
         }
     } else {
         debug!("Anomaly detection: no anomalies");
