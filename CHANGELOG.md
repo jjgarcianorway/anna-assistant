@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.106] - 2026-01-31
+
+### Added - Memory Learning Integration
+
+- **Dual learning system**: Successful answers now learn to both RecipeBook (pattern matching) AND Memory (semantic retrieval)
+- Confidence threshold: 0.7+ with actual commands executed
+- Memory learns full Q&A experiences with semantic clustering for future similarity matching
+- Improves answer speed for similar future questions
+
 ## [0.3.105] - 2026-01-31
 
 ### Added - Orchestrator Integration

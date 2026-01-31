@@ -410,6 +410,24 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 
     // Learn recipe and update ticket
     learn_recipe_from_answer(question, &state.commands, confidence);
+
+    // v0.3.105: Also learn to Memory for semantic retrieval
+    if confidence >= 0.7 && !state.commands.is_empty() {
+        if let Ok(mut memory) = anna_shared::memory::Memory::load() {
+            memory.learn(
+                question,
+                state.commands.clone(),
+                &final_answer,
+                anna_shared::memory::ExperienceContext::default(),
+            );
+            if let Err(e) = memory.save() {
+                debug!("Failed to save memory: {}", e);
+            } else {
+                debug!("Learned experience to memory (confidence={:.2})", confidence);
+            }
+        }
+    }
+
     let mut updated_ticket = ticket.clone();
     updated_ticket.resolve(&final_answer, 10);
     department::update_ticket(&updated_ticket);
