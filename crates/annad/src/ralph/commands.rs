@@ -161,10 +161,19 @@ pub async fn generate_answer(
         "You may provide general guidance based on your knowledge."
     };
 
+    // v0.3.110: Include live system state for context
+    let live_state = anna_shared::live_state::LiveState::capture();
+    let system_context = if live_state.is_stressed() {
+        format!("\nCurrent system state (STRESSED): {}", live_state.summary())
+    } else {
+        format!("\nCurrent system state: {}", live_state.summary())
+    };
+
     let prompt = format!(
         r#"You are Anna, an AI assistant for Arch Linux systems.
 This is an Arch Linux system using pacman for packages.
 Do NOT suggest apt, brew, or other package managers.
+{system_context}
 
 Question: {}
 
@@ -174,7 +183,8 @@ Data collected:
 {}
 
 Provide a clear, helpful answer. Be concise but complete."#,
-        question, data_context, grounding_instruction
+        question, data_context, grounding_instruction,
+        system_context = system_context
     );
 
     let answer = ollama::chat_with_timeout(model, &prompt, 60).await?;

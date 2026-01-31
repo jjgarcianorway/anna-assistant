@@ -5,6 +5,21 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.110] - 2026-01-31
+
+### Added - Live System State Awareness
+
+- **Live state capture**: Anna now captures real-time system metrics before generating answers
+  - CPU load averages (1/5/15 min)
+  - Memory usage (RAM + swap)
+  - Disk usage for root partition
+  - Failed systemd services
+  - Network connectivity status
+  - High CPU processes
+- **Contextual answers**: LLM sees current system state when formulating responses
+- **Stress detection**: Answers are flagged when system is under stress (high load, memory, disk)
+- This makes Anna more like Claude Code - contextually aware of the environment
+
 ## [0.3.109] - 2026-01-31
 
 ### Added - Parallel Investigation
