@@ -5,6 +5,26 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.114] - 2026-01-31
+
+### Added - Visual Health Reports with ASCII Charts
+
+- **New `annactl health` command**: Comprehensive system health visualization
+  - Beautiful ASCII box-drawing status displays
+  - Resource gauges (CPU, Memory, Swap, Disk)
+  - Bar charts for disk partition usage
+  - Top processes by CPU/memory
+  - Service health status
+  - Load trend analysis with sparklines
+  - Actionable recommendations
+- **New `annactl health -s` command**: One-line health summary
+- **Charts library**: Reusable ASCII visualization components
+  - BarChart: Compare values with colored bars
+  - Gauge: Show percentages with fill indicators
+  - Sparkline: Mini trend graphs
+  - StatusBox: Status displays with indicators
+  - TrendChart: Multi-series trend visualization
+
 ## [0.3.113] - 2026-01-31
 
 ### Added - Confidence Indicators

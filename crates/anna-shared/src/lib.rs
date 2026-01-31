@@ -133,6 +133,8 @@
 pub mod action_plan;
 pub mod agent;
 pub mod capabilities;
+pub mod charts;
+
 #[cfg(test)]
 mod capabilities_guardrails;
 pub mod capability;
@@ -156,6 +158,7 @@ pub mod human_execution;
 pub mod experiment;
 pub mod exposure;
 pub mod fingerprint;
+pub mod health_report;
 pub mod helpers;
 pub mod intent_class;
 pub mod intention;

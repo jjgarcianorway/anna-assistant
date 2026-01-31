@@ -333,6 +333,16 @@ async fn main() -> Result<()> {
             "repair" | "repair --help" | "repair -h" => {
                 repair::show_repair_help();
             }
+            "health" | "health report" => {
+                // v0.3.114: Visual health report with charts
+                let report = anna_shared::health_report::generate_health_report();
+                println!("{}", report);
+            }
+            "health summary" | "health -s" => {
+                // v0.3.114: One-line health summary
+                let summary = anna_shared::health_report::health_summary();
+                println!("{}", summary);
+            }
             "capabilities" | "caps" => {
                 show_capabilities(CapabilitiesFormat::Plain);
             }
@@ -354,6 +364,8 @@ async fn main() -> Result<()> {
                 println!("  annactl stats            Show activity statistics");
                 println!("  annactl stats -d         Show detailed statistics");
                 println!("  annactl capabilities     Show what Anna can and cannot do");
+                println!("  annactl health           Show visual system health report");
+                println!("  annactl health -s        Show one-line health summary");
                 println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
                 println!("  annactl repair wifi      Diagnose and repair WiFi issues");
                 println!("  annactl <question>       Ask a question");
