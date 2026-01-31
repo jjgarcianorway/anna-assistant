@@ -1,13 +1,49 @@
 #!/bin/bash
 # Anna Installer - curl -sSL <url>/install.sh | bash
-# v0.0.70: Version fetched from GitHub releases API
+# v0.3.106: Improved version fetching with better error handling
 set -e
 
 REPO="jjgarcianorway/anna-assistant"
+
+# Fetch latest version from GitHub releases
 fetch_version() {
-    local version
-    version=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed -E 's/.*"v([^"]+)".*/\1/')
-    [[ -z "$version" ]] && { echo "Failed to fetch latest version from GitHub" >&2; exit 1; }
+    local response version
+
+    # Check if curl is available
+    if ! command -v curl &>/dev/null; then
+        echo "Error: curl is required but not installed" >&2
+        echo "Install with: sudo pacman -S curl (Arch) or sudo apt install curl (Debian/Ubuntu)" >&2
+        exit 1
+    fi
+
+    # Fetch from GitHub API
+    response=$(curl -sSL --connect-timeout 10 "https://api.github.com/repos/${REPO}/releases/latest" 2>&1)
+
+    # Check for rate limiting
+    if echo "$response" | grep -q "API rate limit"; then
+        echo "Error: GitHub API rate limit exceeded" >&2
+        echo "Try again in a few minutes, or install manually from:" >&2
+        echo "  https://github.com/${REPO}/releases/latest" >&2
+        exit 1
+    fi
+
+    # Check for network errors
+    if echo "$response" | grep -qi "could not resolve\|connection refused\|timed out"; then
+        echo "Error: Cannot connect to GitHub" >&2
+        echo "Check your internet connection and try again" >&2
+        exit 1
+    fi
+
+    # Extract version from response
+    version=$(echo "$response" | grep '"tag_name"' | head -1 | sed -E 's/.*"v([^"]+)".*/\1/')
+
+    # Validate version format (should be like 0.3.106)
+    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "Error: Could not fetch version from GitHub" >&2
+        echo "Response was: ${response:0:200}" >&2
+        exit 1
+    fi
+
     echo "$version"
 }
 
