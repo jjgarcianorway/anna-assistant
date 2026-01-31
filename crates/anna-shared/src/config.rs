@@ -58,6 +58,101 @@ pub struct AnnaConfig {
     /// v0.1.1: Use Ralph-style iteration loop (simpler, more robust)
     #[serde(default = "default_true")]
     pub use_ralph_loop: bool,
+
+    /// v0.3.103: Multi-agent settings
+    #[serde(default)]
+    pub agents: AgentConfig,
+
+    /// v0.3.103: Prediction settings
+    #[serde(default)]
+    pub prediction: PredictionConfig,
+}
+
+/// v0.3.103: Multi-agent configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentConfig {
+    /// Enable multi-agent mode (parallel investigation)
+    #[serde(default)]
+    pub multi_agent_mode: bool,
+
+    /// Enable parallel investigation for multi-domain questions
+    #[serde(default)]
+    pub parallel_investigation: bool,
+
+    /// Maximum parallel agents
+    #[serde(default = "default_max_parallel_agents")]
+    pub max_parallel_agents: usize,
+
+    /// Model for fast tier (simple queries)
+    #[serde(default = "default_fast_model")]
+    pub fast_model: String,
+
+    /// Model for standard tier (balanced tasks)
+    #[serde(default = "default_standard_model")]
+    pub standard_model: String,
+
+    /// Model for deep tier (complex debugging)
+    #[serde(default = "default_deep_model")]
+    pub deep_model: String,
+}
+
+fn default_max_parallel_agents() -> usize { 3 }
+fn default_fast_model() -> String { "qwen2.5:7b".to_string() }
+fn default_standard_model() -> String { "qwen2.5:14b".to_string() }
+fn default_deep_model() -> String { "qwen2.5:32b".to_string() }
+
+impl Default for AgentConfig {
+    fn default() -> Self {
+        Self {
+            multi_agent_mode: false,
+            parallel_investigation: false,
+            max_parallel_agents: default_max_parallel_agents(),
+            fast_model: default_fast_model(),
+            standard_model: default_standard_model(),
+            deep_model: default_deep_model(),
+        }
+    }
+}
+
+/// v0.3.103: Prediction and alerting configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PredictionConfig {
+    /// Enable predictive alerts
+    #[serde(default)]
+    pub enabled: bool,
+
+    /// Days ahead to alert for disk space
+    #[serde(default = "default_disk_alert_days")]
+    pub disk_alert_days: u32,
+
+    /// Days ahead to alert for critical disk
+    #[serde(default = "default_disk_critical_days")]
+    pub disk_critical_days: u32,
+
+    /// Disk warning threshold (percentage)
+    #[serde(default = "default_disk_warning_threshold")]
+    pub disk_warning_threshold: f64,
+
+    /// Disk critical threshold (percentage)
+    #[serde(default = "default_disk_critical_threshold")]
+    pub disk_critical_threshold: f64,
+}
+
+fn default_disk_alert_days() -> u32 { 14 }
+fn default_disk_critical_days() -> u32 { 7 }
+fn default_disk_warning_threshold() -> f64 { 85.0 }
+fn default_disk_critical_threshold() -> f64 { 95.0 }
+
+impl Default for PredictionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            disk_alert_days: default_disk_alert_days(),
+            disk_critical_days: default_disk_critical_days(),
+            disk_warning_threshold: default_disk_warning_threshold(),
+            disk_critical_threshold: default_disk_critical_threshold(),
+        }
+    }
 }
 
 /// v0.0.895: Ollama configuration - centralized, no more hardcoding
@@ -221,6 +316,8 @@ impl Default for AnnaConfig {
             performance: PerformanceConfig::default(),
             ollama: OllamaConfig::default(),
             use_ralph_loop: true,
+            agents: AgentConfig::default(),
+            prediction: PredictionConfig::default(),
         }
     }
 }

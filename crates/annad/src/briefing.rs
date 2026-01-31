@@ -1,5 +1,8 @@
 //! Morning briefing generation in natural language.
 
+use anna_shared::config::AnnaConfig;
+use anna_shared::monitor::LongTermHistory;
+use anna_shared::prediction::{generate_predictive_alerts, AlertInput, AlertSeverity};
 use std::process::Command;
 
 /// Pick a random greeting based on current time.
@@ -226,6 +229,55 @@ pub fn generate_morning_briefing() -> String {
             anomalies.join(", ")
         ));
         issues_found = true;
+    }
+
+    // 8. Predictive alerts (v0.3.103)
+    if let Ok(config) = AnnaConfig::load() {
+        if config.prediction.enabled {
+            let history = LongTermHistory::load();
+
+            // Build input from historical data
+            let disk_usage: Vec<f64> = history.daily_snapshots
+                .iter()
+                .map(|s| {
+                    // Convert disk GB to percentage (estimate 500GB total)
+                    let total_gb = 500.0;
+                    (s.disk_used_gb as f64 / total_gb * 100.0).min(100.0)
+                })
+                .collect();
+
+            let memory_usage: Vec<f64> = history.daily_snapshots
+                .iter()
+                .map(|s| s.avg_memory_pct as f64)
+                .collect();
+
+            let boot_times: Vec<f64> = history.daily_snapshots
+                .iter()
+                .map(|s| s.avg_boot_time as f64)
+                .collect();
+
+            let input = AlertInput {
+                disk_usage,
+                memory_usage,
+                boot_times,
+            };
+
+            let alerts = generate_predictive_alerts(&input);
+            for alert in &alerts {
+                let severity_prefix = match alert.severity {
+                    AlertSeverity::Critical => "ALERT: ",
+                    AlertSeverity::Warning => "Heads up: ",
+                    AlertSeverity::Info => "",
+                };
+                parts.push(format!("\n{}{}", severity_prefix, alert.description));
+                if !alert.recommendation.is_empty() {
+                    parts.push(format!(" {}", alert.recommendation));
+                }
+                if matches!(alert.severity, AlertSeverity::Critical | AlertSeverity::Warning) {
+                    issues_found = true;
+                }
+            }
+        }
     }
 
     // Closing

@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.104] - 2026-01-31
+
+### Added - Configuration & Prediction Integration
+
+- **Agent config**: New `[agents]` section in config.toml for multi-agent mode, parallel investigation, and model tier mappings
+- **Prediction config**: New `[prediction]` section with disk alert thresholds and forecast horizons
+- **Morning briefing predictions**: When predictions enabled, briefing includes disk space forecasts, memory leak warnings, and boot time degradation alerts
+- Re-exported prediction types (AlertInput, detect_memory_leak, detect_boot_degradation) for external use
+
 ## [0.3.103] - 2026-01-30
 
 ### Added - Multi-Agent Architecture

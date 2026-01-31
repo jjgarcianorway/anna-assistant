@@ -10,6 +10,6 @@ mod trends;
 mod forecaster;
 mod alerts;
 
-pub use trends::{TrendAnalysis, TrendDirection, analyze_trend};
+pub use trends::{TrendAnalysis, TrendDirection, analyze_trend, detect_memory_leak, detect_boot_degradation};
 pub use forecaster::{ResourceForecast, Forecaster};
-pub use alerts::{PredictiveAlert, AlertSeverity, generate_predictive_alerts};
+pub use alerts::{PredictiveAlert, AlertSeverity, AlertInput, generate_predictive_alerts};
