@@ -13,6 +13,7 @@ mod commands;
 pub mod confidence;
 mod criteria;
 pub mod evidence;
+mod parallel;
 mod recipe_learning;
 mod streaming;
 pub mod streaming_helpers;
@@ -20,6 +21,7 @@ mod suggestions;
 mod verification;
 
 pub use suggestions::{generate_suggestions, format_suggestions};
+pub use parallel::{should_parallelize, run_parallel_investigation, synthesize_parallel_results};
 
 // Re-export public API
 pub use criteria::{determine_criteria, AnswerType, CompletionCriteria};

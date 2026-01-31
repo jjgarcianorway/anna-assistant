@@ -172,8 +172,9 @@ pub async fn handle_main_question(
     }
 
     // v0.3.108: Analyze task and optionally switch models based on complexity
-    let effective_model = if let Ok(config) = AnnaConfig::load() {
-        let analysis = TaskAnalysis::analyze(question_to_use, &config);
+    let config_result = AnnaConfig::load();
+    let effective_model = if let Ok(ref config) = config_result {
+        let analysis = TaskAnalysis::analyze(question_to_use, config);
         info!(
             "Task analysis: complexity={}, domains={:?}, multi_domain={}, recommended={}",
             analysis.complexity, analysis.domains, analysis.is_multi_domain, analysis.recommended_model
@@ -205,9 +206,52 @@ pub async fn handle_main_question(
         model.clone()
     };
 
-    // LLM-first: all questions go through the Ralph loop
-    info!("Ralph loop for question: {} (model: {})", question_to_use, effective_model);
-    let result = ralph::ralph_loop_streaming(&effective_model, question_to_use, writer).await;
+    // v0.3.109: Check for parallel investigation opportunity
+    let result = if let Ok(ref config) = config_result {
+        if let Some(domains) = ralph::should_parallelize(question_to_use, config) {
+            info!("Running parallel investigation for {} domains", domains.len());
+
+            // Send parallel investigation indicator
+            let step = DialogueStep {
+                step_type: StepType::InvestigationStart,
+                content: format!("Parallel investigation: {:?}", domains.iter().map(|d| d.as_str()).collect::<Vec<_>>()),
+            };
+            let json = serde_json::to_string(&StreamingResponse::Step { step })?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Run parallel investigation
+            let max_parallel = config.agents.max_parallel_agents;
+            let domain_results = ralph::run_parallel_investigation(
+                &effective_model, question_to_use, domains, max_parallel
+            ).await?;
+
+            // Synthesize results
+            let combined = ralph::synthesize_parallel_results(question_to_use, domain_results);
+
+            // Send combined answer
+            let final_step = DialogueStep {
+                step_type: StepType::FinalAnswer,
+                content: combined.answer.clone(),
+            };
+            let json = serde_json::to_string(&StreamingResponse::Step { step: final_step })?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            // Send done
+            let done = StreamingResponse::Done { result: combined.clone() };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+
+            Ok(combined)
+        } else {
+            // Single domain - use normal Ralph loop
+            info!("Ralph loop for question: {} (model: {})", question_to_use, effective_model);
+            ralph::ralph_loop_streaming(&effective_model, question_to_use, writer).await
+        }
+    } else {
+        // No config - use normal Ralph loop
+        info!("Ralph loop for question: {} (model: {})", question_to_use, effective_model);
+        ralph::ralph_loop_streaming(&effective_model, question_to_use, writer).await
+    };
 
     // v0.0.892: Record full turn to session after execution
     match &result {
