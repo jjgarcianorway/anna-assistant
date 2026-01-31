@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.112] - 2026-01-31
+
+### Added - Web Search for Problem Solutions
+
+- **Automatic web search**: When question is about errors/problems, Anna searches for solutions
+- **Error detection**: Triggers on keywords like "error", "not working", "broken", "failed"
+- **Output analysis**: Also triggers when command output contains error indicators
+- **DuckDuckGo integration**: Uses DDG Instant Answer API (no API key needed)
+- **Context enhancement**: Search results are included in LLM prompt for better answers
+
 ## [0.3.111] - 2026-01-31
 
 ### Added - Smart Command Selection from Recipes

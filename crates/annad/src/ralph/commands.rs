@@ -215,6 +215,19 @@ pub async fn generate_answer(
         format!("\nCurrent system state: {}", live_state.summary())
     };
 
+    // v0.3.112: Search web for error/problem solutions when needed
+    let web_context = if is_error_or_problem(question) || contains_error_output(&state.outputs) {
+        match anna_shared::web_search::search_for_solution(question, 3).await {
+            Ok(results) if !results.is_empty() => {
+                tracing::debug!("Web search found {} results", results.len());
+                format!("\n\n{}", anna_shared::web_search::format_results_for_context(&results))
+            }
+            _ => String::new()
+        }
+    } else {
+        String::new()
+    };
+
     let prompt = format!(
         r#"You are Anna, an AI assistant for Arch Linux systems.
 This is an Arch Linux system using pacman for packages.
@@ -225,16 +238,45 @@ Question: {}
 
 Data collected:
 {}
+{web_context}
 
 {}
 
 Provide a clear, helpful answer. Be concise but complete."#,
         question, data_context, grounding_instruction,
-        system_context = system_context
+        system_context = system_context,
+        web_context = web_context
     );
 
     let answer = ollama::chat_with_timeout(model, &prompt, 60).await?;
     Ok(answer.trim().to_string())
+}
+
+/// Check if question is about an error or problem.
+fn is_error_or_problem(question: &str) -> bool {
+    let q_lower = question.to_lowercase();
+    q_lower.contains("error") ||
+    q_lower.contains("fail") ||
+    q_lower.contains("not working") ||
+    q_lower.contains("broken") ||
+    q_lower.contains("can't") ||
+    q_lower.contains("cannot") ||
+    q_lower.contains("won't") ||
+    q_lower.contains("doesn't work") ||
+    q_lower.contains("problem") ||
+    q_lower.contains("issue")
+}
+
+/// Check if command outputs contain error indicators.
+fn contains_error_output(outputs: &[String]) -> bool {
+    outputs.iter().any(|o| {
+        let o_lower = o.to_lowercase();
+        o_lower.contains("error:") ||
+        o_lower.contains("failed") ||
+        o_lower.contains("permission denied") ||
+        o_lower.contains("no such file") ||
+        o_lower.contains("command not found")
+    })
 }
 
 /// Self-evaluate the answer - is it good enough?

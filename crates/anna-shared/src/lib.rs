@@ -187,6 +187,7 @@ pub mod timeline;
 pub mod update_ledger;
 pub mod user_context;
 pub mod version;
+pub mod web_search;
 pub mod wiki;
 
 // Re-export paths for convenience
