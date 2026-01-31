@@ -5,6 +5,43 @@ use anyhow::Result;
 use crate::ollama;
 use super::criteria::{AnswerType, CompletionCriteria, IterationState, SelfEvaluation, quick_quality_check};
 
+/// v0.3.111: Check learned recipes for command patterns.
+/// Returns commands if a high-confidence recipe match is found.
+fn check_recipes_for_commands(question: &str) -> Option<Vec<String>> {
+    // Load recipe book
+    let book = anna_shared::recipe::RecipeBook::load().ok()?;
+
+    // Get system context for matching
+    let system_info = anna_shared::profile::SystemInfo::default();
+
+    // Find matching recipes
+    let matches = book.find_matches(question, &system_info);
+
+    // Only use recipes with good success history
+    if let Some(recipe) = matches.first() {
+        // Skip recipes with no success history (unproven)
+        if recipe.success_count == 0 && !matches!(recipe.source, anna_shared::recipe::RecipeSource::BuiltIn) {
+            return None;
+        }
+
+        // Extract non-modifying commands for investigation
+        let commands: Vec<String> = recipe.commands.iter()
+            .filter(|c| !c.modifies_system)
+            .map(|c| c.command.clone())
+            .collect();
+
+        if !commands.is_empty() {
+            tracing::debug!(
+                "Recipe '{}' matched with {} commands (success_count={})",
+                recipe.name, commands.len(), recipe.success_count
+            );
+            return Some(commands);
+        }
+    }
+
+    None
+}
+
 /// Result of asking the LLM what to do next.
 pub enum NextAction {
     /// Run these investigation commands.
@@ -17,12 +54,21 @@ pub enum NextAction {
 
 /// Get commands to run for answering the question.
 /// May also detect config requests and return NextAction::Config.
+/// v0.3.111: Checks learned recipes first for faster response.
 pub async fn get_next_action(
     model: &str,
     question: &str,
     state: &IterationState,
 ) -> Result<NextAction> {
     use crate::llm_core::prompts::system_context;
+
+    // v0.3.111: Check recipes first for learned patterns
+    if state.commands.is_empty() {
+        if let Some(commands) = check_recipes_for_commands(question) {
+            tracing::info!("Using {} commands from learned recipe", commands.len());
+            return Ok(NextAction::Commands(commands));
+        }
+    }
 
     let feedback_context = if let Some(ref feedback) = state.feedback {
         format!(

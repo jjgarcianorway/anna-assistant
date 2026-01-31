@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.111] - 2026-01-31
+
+### Added - Smart Command Selection from Recipes
+
+- **Recipe-first command lookup**: Before asking the LLM for commands, Anna checks learned recipes
+- **Pattern matching**: Uses fuzzy matching on question keywords and patterns
+- **Success-based filtering**: Only uses recipes with proven success history
+- **Non-modifying only**: Recipe commands used for investigation only (read-only)
+- **Faster responses**: Skips LLM round-trip for known question patterns
+
 ## [0.3.110] - 2026-01-31
 
 ### Added - Live System State Awareness
