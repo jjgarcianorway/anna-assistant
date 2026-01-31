@@ -46,6 +46,31 @@ fn show_capabilities(format: CapabilitiesFormat) {
     println!("{}", output);
 }
 
+/// Run real-time watch mode.
+/// v0.3.117: Continuous monitoring display.
+async fn run_watch_mode(compact: bool) {
+    use tokio::time::{interval, Duration};
+
+    // Set up Ctrl+C handler
+    let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let r = running.clone();
+
+    ctrlc::set_handler(move || {
+        r.store(false, std::sync::atomic::Ordering::SeqCst);
+    }).ok();
+
+    let mut tick = interval(Duration::from_secs(2));
+
+    while running.load(std::sync::atomic::Ordering::SeqCst) {
+        anna_shared::watch::print_watch_frame(compact);
+        tick.tick().await;
+    }
+
+    // Clear screen on exit
+    print!("\x1B[2J\x1B[H");
+    println!("Watch mode ended.");
+}
+
 /// Show capabilities help
 fn show_capabilities_help() {
     println!();
@@ -364,6 +389,14 @@ async fn main() -> Result<()> {
                 let summary = anna_shared::dashboard::dashboard_summary();
                 println!("{}", summary);
             }
+            "watch" | "w" => {
+                // v0.3.117: Real-time watch mode
+                run_watch_mode(false).await;
+            }
+            "watch -c" | "watch --compact" | "w -c" => {
+                // v0.3.117: Compact watch mode
+                run_watch_mode(true).await;
+            }
             "capabilities" | "caps" => {
                 show_capabilities(CapabilitiesFormat::Plain);
             }
@@ -391,6 +424,8 @@ async fn main() -> Result<()> {
                 println!("  annactl issues -s        Show one-line issues summary");
                 println!("  annactl dashboard        Show unified system dashboard");
                 println!("  annactl dash -s          Show one-line dashboard summary");
+                println!("  annactl watch            Real-time monitoring (like htop)");
+                println!("  annactl watch -c         Compact watch mode (single line)");
                 println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
                 println!("  annactl repair wifi      Diagnose and repair WiFi issues");
                 println!("  annactl <question>       Ask a question");
