@@ -7,8 +7,10 @@
 //! - Manages agent learning
 
 mod synthesis;
+mod integration;
 
 pub use synthesis::synthesize_results;
+pub use integration::{should_use_multi_agent, get_recommended_model, TaskAnalysis};
 
 use crate::agent_registry::{AgentRegistry, is_multi_domain, get_parallel_domains};
 use crate::model_router::ModelRouter;

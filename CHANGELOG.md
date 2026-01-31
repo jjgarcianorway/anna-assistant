@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.105] - 2026-01-31
+
+### Added - Orchestrator Integration
+
+- **Task analysis in main handler**: Every question now gets complexity classification and domain detection
+- **Orchestrator integration module**: Bridge between multi-agent system and streaming handler
+- **Logging for multi-domain questions**: Logs complexity, domains, and recommended model tier
+- Foundation for future multi-agent routing (currently logging only, Ralph loop still primary)
+
 ## [0.3.104] - 2026-01-31
 
 ### Added - Configuration & Prediction Integration

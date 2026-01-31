@@ -1,5 +1,6 @@
 //! Main question handling logic.
 //! LLM-first: all questions go to the Ralph loop.
+//! v0.3.104: Multi-agent analysis for complexity-based routing.
 
 use anna_shared::config::AnnaConfig;
 use anna_shared::intent_class::classify_intent;
@@ -9,6 +10,7 @@ use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, info, warn};
 
+use crate::orchestrator::TaskAnalysis;
 use crate::ralph;
 use crate::state::SharedState;
 
@@ -167,6 +169,19 @@ pub async fn handle_main_question(
 
             return Ok(());
         }
+    }
+
+    // v0.3.104: Analyze task for multi-agent routing (currently logging only)
+    if let Ok(config) = AnnaConfig::load() {
+        let analysis = TaskAnalysis::analyze(question_to_use, &config);
+        info!(
+            "Task analysis: complexity={}, domains={:?}, multi_domain={}, model={}",
+            analysis.complexity, analysis.domains, analysis.is_multi_domain, analysis.recommended_model
+        );
+        // Future: use orchestrator for multi-domain questions
+        // if analysis.is_multi_domain && config.agents.multi_agent_mode {
+        //     return orchestrator.solve(question_to_use).await;
+        // }
     }
 
     // LLM-first: all questions go through the Ralph loop
