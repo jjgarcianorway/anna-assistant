@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.108] - 2026-01-31
+
+### Added - Model Switching & Proactive Suggestions
+
+- **Dynamic model switching**: When `multi_agent_mode = true`, Anna automatically selects the appropriate model based on task complexity:
+  - Simple questions → fast_model (qwen2.5:7b)
+  - Complex debugging → deep_model (qwen2.5:32b)
+  - Checks if model is available before switching
+- **Proactive suggestions**: After answering, Anna suggests relevant follow-up actions:
+  - Disk questions → "clean up disk space", "find large files"
+  - Memory issues → "find memory hogs"
+  - Failed services → "show logs"
+  - Performance → "check boot time", "optimize system"
+
 ## [0.3.107] - 2026-01-31
 
 ### Fixed - Installer Robustness

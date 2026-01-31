@@ -432,9 +432,17 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     updated_ticket.resolve(&final_answer, 10);
     department::update_ticket(&updated_ticket);
 
+    // v0.3.108: Generate proactive suggestions
+    let suggestions = super::suggestions::generate_suggestions(question, &final_answer, &state.commands);
+    let answer_with_suggestions = if let Some(suggestion_text) = super::suggestions::format_suggestions(&suggestions) {
+        format!("{}{}", final_answer, suggestion_text)
+    } else {
+        final_answer.clone()
+    };
+
     // Send done
     let result = AskResult {
-        answer: final_answer,
+        answer: answer_with_suggestions,
         success: true,
         iterations: iteration,
         commands_executed: state.commands.clone(),

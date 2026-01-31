@@ -16,7 +16,10 @@ pub mod evidence;
 mod recipe_learning;
 mod streaming;
 pub mod streaming_helpers;
+mod suggestions;
 mod verification;
+
+pub use suggestions::{generate_suggestions, format_suggestions};
 
 // Re-export public API
 pub use criteria::{determine_criteria, AnswerType, CompletionCriteria};

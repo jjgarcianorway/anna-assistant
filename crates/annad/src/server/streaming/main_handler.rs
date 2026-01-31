@@ -171,22 +171,43 @@ pub async fn handle_main_question(
         }
     }
 
-    // v0.3.104: Analyze task for multi-agent routing (currently logging only)
-    if let Ok(config) = AnnaConfig::load() {
+    // v0.3.108: Analyze task and optionally switch models based on complexity
+    let effective_model = if let Ok(config) = AnnaConfig::load() {
         let analysis = TaskAnalysis::analyze(question_to_use, &config);
         info!(
-            "Task analysis: complexity={}, domains={:?}, multi_domain={}, model={}",
+            "Task analysis: complexity={}, domains={:?}, multi_domain={}, recommended={}",
             analysis.complexity, analysis.domains, analysis.is_multi_domain, analysis.recommended_model
         );
-        // Future: use orchestrator for multi-domain questions
-        // if analysis.is_multi_domain && config.agents.multi_agent_mode {
-        //     return orchestrator.solve(question_to_use).await;
-        // }
-    }
+
+        // Use recommended model if multi-agent mode is enabled
+        if config.agents.multi_agent_mode && analysis.recommended_model != model {
+            // Check if recommended model is available
+            match crate::ollama::list_models().await {
+                Ok(available) => {
+                    let recommended = &analysis.recommended_model;
+                    if available.iter().any(|m| m.starts_with(recommended.split(':').next().unwrap_or(""))) {
+                        info!("Switching to {} model for {} task", recommended, analysis.complexity);
+                        analysis.recommended_model.clone()
+                    } else {
+                        debug!("Recommended model {} not available, using default", recommended);
+                        model.clone()
+                    }
+                }
+                Err(e) => {
+                    debug!("Could not list models: {}, using default", e);
+                    model.clone()
+                }
+            }
+        } else {
+            model.clone()
+        }
+    } else {
+        model.clone()
+    };
 
     // LLM-first: all questions go through the Ralph loop
-    info!("Ralph loop for question: {}", question_to_use);
-    let result = ralph::ralph_loop_streaming(&model, question_to_use, writer).await;
+    info!("Ralph loop for question: {} (model: {})", question_to_use, effective_model);
+    let result = ralph::ralph_loop_streaming(&effective_model, question_to_use, writer).await;
 
     // v0.0.892: Record full turn to session after execution
     match &result {
