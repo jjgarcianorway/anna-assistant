@@ -134,6 +134,7 @@ pub mod action_plan;
 pub mod agent;
 pub mod capabilities;
 pub mod charts;
+pub mod dashboard;
 
 #[cfg(test)]
 mod capabilities_guardrails;

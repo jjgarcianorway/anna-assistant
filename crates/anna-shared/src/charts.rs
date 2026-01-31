@@ -320,7 +320,7 @@ mod tests {
     fn test_sparkline() {
         let spark = Sparkline::new(&[1.0, 2.0, 3.0, 4.0, 5.0]);
         let rendered = spark.render();
-        assert_eq!(rendered.len(), 5);
+        assert_eq!(rendered.chars().count(), 5);  // Use char count, not byte length
     }
 
     #[test]

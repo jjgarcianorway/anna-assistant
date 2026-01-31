@@ -354,6 +354,16 @@ async fn main() -> Result<()> {
                 let summary = anna_shared::proactive::issues_summary();
                 println!("{}", summary);
             }
+            "dashboard" | "dash" | "d" => {
+                // v0.3.116: Unified system dashboard
+                let dashboard = anna_shared::dashboard::generate_dashboard();
+                println!("{}", dashboard);
+            }
+            "dashboard summary" | "dashboard -s" | "dash -s" | "d -s" => {
+                // v0.3.116: One-line dashboard summary
+                let summary = anna_shared::dashboard::dashboard_summary();
+                println!("{}", summary);
+            }
             "capabilities" | "caps" => {
                 show_capabilities(CapabilitiesFormat::Plain);
             }
@@ -379,6 +389,8 @@ async fn main() -> Result<()> {
                 println!("  annactl health -s        Show one-line health summary");
                 println!("  annactl issues           Scan for system issues proactively");
                 println!("  annactl issues -s        Show one-line issues summary");
+                println!("  annactl dashboard        Show unified system dashboard");
+                println!("  annactl dash -s          Show one-line dashboard summary");
                 println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
                 println!("  annactl repair wifi      Diagnose and repair WiFi issues");
                 println!("  annactl <question>       Ask a question");
