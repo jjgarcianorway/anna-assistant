@@ -5,6 +5,22 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.115] - 2026-01-31
+
+### Added - Proactive Issue Detection
+
+- **New `annactl issues` command**: Scans system for problems before you ask
+- **New `annactl scan` / `annactl check`**: Aliases for issues command
+- **Multi-category detection**:
+  - **Resources**: Disk space, memory pressure, CPU load, swap usage
+  - **Services**: Failed systemd units with auto-restart suggestions
+  - **Security**: SSH config, world-writable directories
+  - **Maintenance**: Stale pacman lock, journal size, orphan packages
+  - **Packages**: Pending updates, potential partial upgrade warnings
+- **Severity levels**: Critical (!!) / Warning (!) / Info (i)
+- **Auto-fix hints**: Issues marked as [auto-fixable] can be resolved automatically
+- **Actionable suggestions**: Each issue includes specific fix recommendations
+
 ## [0.3.114] - 2026-01-31
 
 ### Added - Visual Health Reports with ASCII Charts

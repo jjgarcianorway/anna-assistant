@@ -172,6 +172,7 @@ pub mod outcome_ledger;
 pub mod paths;
 pub mod policy;
 pub mod prediction;
+pub mod proactive;
 pub mod probe_ledger;
 pub mod probe_stats;
 pub mod preferences;

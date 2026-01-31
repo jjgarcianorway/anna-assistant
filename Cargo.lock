@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "anna-shared"
-version = "0.3.114"
+version = "0.3.115"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -63,7 +63,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.3.114"
+version = "0.3.115"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.3.114"
+version = "0.3.115"
 dependencies = [
  "anna-shared",
  "anyhow",

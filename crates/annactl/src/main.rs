@@ -343,6 +343,17 @@ async fn main() -> Result<()> {
                 let summary = anna_shared::health_report::health_summary();
                 println!("{}", summary);
             }
+            "issues" | "scan" | "check" => {
+                // v0.3.115: Proactive issue detection
+                let issues = anna_shared::proactive::scan_for_issues();
+                let formatted = anna_shared::proactive::format_issues(&issues);
+                println!("{}", formatted);
+            }
+            "issues summary" | "issues -s" => {
+                // v0.3.115: One-line issues summary
+                let summary = anna_shared::proactive::issues_summary();
+                println!("{}", summary);
+            }
             "capabilities" | "caps" => {
                 show_capabilities(CapabilitiesFormat::Plain);
             }
@@ -366,6 +377,8 @@ async fn main() -> Result<()> {
                 println!("  annactl capabilities     Show what Anna can and cannot do");
                 println!("  annactl health           Show visual system health report");
                 println!("  annactl health -s        Show one-line health summary");
+                println!("  annactl issues           Scan for system issues proactively");
+                println!("  annactl issues -s        Show one-line issues summary");
                 println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
                 println!("  annactl repair wifi      Diagnose and repair WiFi issues");
                 println!("  annactl <question>       Ask a question");
