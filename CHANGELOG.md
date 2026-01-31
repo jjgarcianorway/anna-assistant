@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.113] - 2026-01-31
+
+### Added - Confidence Indicators
+
+- **Visible confidence**: Answers now show confidence level when not high
+  - HIGH (90%+): Not shown (default, confident)
+  - GOOD (70-89%): Not shown
+  - MODERATE (50-69%): Shows `[Confidence: MODERATE]`
+  - LOW (<50%): Shows `[Confidence: LOW - verify before acting]`
+- **Transparency**: Users know when to double-check answers
+- **Debug logging**: Confidence percentages logged for diagnostics
+
 ## [0.3.112] - 2026-01-31
 
 ### Added - Web Search for Problem Solutions

@@ -211,13 +211,53 @@ pub async fn send_dialogue_steps<W: tokio::io::AsyncWriteExt + Unpin>(
     Ok(())
 }
 
-/// Build the final answer with evidence and teaching block.
+/// Build the final answer with evidence, teaching block, and optional confidence.
 pub fn build_final_answer(
     answer: &str,
     evidence_line: &str,
     teaching_block: Option<String>,
 ) -> String {
     let mut final_answer = answer.to_string();
+    if !evidence_line.is_empty() {
+        final_answer = format!("{}\n\n{}", final_answer, evidence_line);
+    }
+    if let Some(teaching) = teaching_block {
+        final_answer = format!("{}{}", final_answer, teaching);
+    }
+    final_answer
+}
+
+/// v0.3.113: Format confidence indicator for user display.
+pub fn format_confidence_indicator(confidence: f32) -> String {
+    let (level, indicator) = match confidence {
+        c if c >= 0.9 => ("high", "[Confidence: HIGH]"),
+        c if c >= 0.7 => ("good", "[Confidence: GOOD]"),
+        c if c >= 0.5 => ("moderate", "[Confidence: MODERATE]"),
+        _ => ("low", "[Confidence: LOW - verify before acting]"),
+    };
+
+    tracing::debug!("Answer confidence: {:.0}% ({})", confidence * 100.0, level);
+    indicator.to_string()
+}
+
+/// Build the final answer with confidence indicator (v0.3.113).
+pub fn build_final_answer_with_confidence(
+    answer: &str,
+    evidence_line: &str,
+    teaching_block: Option<String>,
+    confidence: Option<f32>,
+) -> String {
+    let mut final_answer = answer.to_string();
+
+    // Add confidence indicator for non-trivial answers
+    if let Some(conf) = confidence {
+        // Only show for moderate or low confidence, or in debug mode
+        if conf < 0.7 {
+            let indicator = format_confidence_indicator(conf);
+            final_answer = format!("{}\n\n{}", final_answer, indicator);
+        }
+    }
+
     if !evidence_line.is_empty() {
         final_answer = format!("{}\n\n{}", final_answer, evidence_line);
     }

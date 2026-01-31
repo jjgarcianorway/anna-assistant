@@ -18,7 +18,7 @@ use crate::team_speak;
 use super::commands::{generate_answer, get_next_action, NextAction, self_evaluate};
 use super::criteria::{determine_criteria, IterationState};
 use super::recipe_learning::{build_teaching_context, learn_recipe_from_answer};
-use super::streaming_helpers::{build_final_answer, push_and_send, send_done, with_heartbeat};
+use super::streaming_helpers::{build_final_answer, build_final_answer_with_confidence, push_and_send, send_done, with_heartbeat};
 use super::verification::{truncate, verify_answer};
 
 /// Streaming version of the Ralph loop with real-time progress updates.
@@ -403,9 +403,13 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         None
     };
 
-    // Build and send final answer
-    let final_answer =
-        build_final_answer(&verification.answer, &verification.evidence_line, teaching_block);
+    // Build and send final answer (v0.3.113: with confidence indicator)
+    let final_answer = build_final_answer_with_confidence(
+        &verification.answer,
+        &verification.evidence_line,
+        teaching_block,
+        Some(confidence),
+    );
     push_and_send(writer, dialogue, StepType::FinalAnswer, final_answer.clone(), gate).await?;
 
     // Learn recipe and update ticket
