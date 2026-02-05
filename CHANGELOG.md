@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.123] - 2026-02-05
+
+### Added - Instant Answers for Common Problems
+
+- Pattern recognition for well-known errors (pacman lock, disk full, wifi, audio, etc.)
+- Instant high-confidence answers without LLM round-trips
+- 12 common error patterns with step-by-step solutions
+- Auto-fixable indicators for problems Anna can resolve automatically
+
 ## [0.3.122] - 2026-02-05
 
 ### Added - Parallel Investigation Integration

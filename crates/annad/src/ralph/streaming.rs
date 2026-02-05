@@ -56,6 +56,11 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
+    // v0.3.123: Handle well-known error patterns with instant answers
+    if let Some(result) = handle_pattern_match(question, writer, &gate).await? {
+        return Ok(result);
+    }
+
     // v0.3.121: Check for multi-domain questions that benefit from parallel investigation
     if let Some(result) = handle_multi_agent_query(question, writer, &gate).await? {
         return Ok(result);
@@ -200,6 +205,49 @@ async fn handle_natural_system_query<W: tokio::io::AsyncWriteExt + Unpin>(
         citations: vec![],
         abstained: false,
         final_confidence: Some(1.0),
+    };
+    send_done(writer, &result).await?;
+
+    Ok(Some(result))
+}
+
+/// v0.3.123: Handle well-known error patterns with instant, high-confidence answers.
+async fn handle_pattern_match<W: tokio::io::AsyncWriteExt + Unpin>(
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<Option<AskResult>> {
+    use anna_shared::patterns::{match_error_pattern, format_pattern_answer};
+    use super::streaming_helpers::{push_and_send, send_done};
+
+    let Some(pattern) = match_error_pattern(question) else {
+        return Ok(None);
+    };
+
+    info!("Pattern match: {} (confidence={:.2})", pattern.pattern_id, pattern.confidence);
+
+    let mut dialogue = Vec::new();
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+
+    // Show that we recognized the pattern
+    push_and_send(writer, &mut dialogue, StepType::InvestigationStart,
+        format!("Recognized common issue: {}", pattern.pattern_id), gate).await?;
+
+    let answer = format_pattern_answer(&pattern);
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(pattern.confidence),
     };
     send_done(writer, &result).await?;
 
