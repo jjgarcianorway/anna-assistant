@@ -56,6 +56,11 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
+    // v0.3.121: Check for multi-domain questions that benefit from parallel investigation
+    if let Some(result) = handle_multi_agent_query(question, writer, &gate).await? {
+        return Ok(result);
+    }
+
     // All other questions go through the full loop
     run_full_loop_streaming(model, question, writer, &gate).await
 }
@@ -199,6 +204,70 @@ async fn handle_natural_system_query<W: tokio::io::AsyncWriteExt + Unpin>(
     send_done(writer, &result).await?;
 
     Ok(Some(result))
+}
+
+/// v0.3.121: Handle multi-domain questions with parallel agent investigation.
+async fn handle_multi_agent_query<W: tokio::io::AsyncWriteExt + Unpin>(
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<Option<AskResult>> {
+    use anna_shared::config::AnnaConfig;
+    use crate::orchestrator::{should_use_multi_agent, TaskAnalysis};
+    use super::streaming_helpers::{push_and_send, send_done};
+
+    let config = AnnaConfig::load().unwrap_or_default();
+
+    // Only proceed if multi-agent mode is enabled and this is a multi-domain question
+    if !should_use_multi_agent(question, &config) {
+        return Ok(None);
+    }
+
+    let analysis = TaskAnalysis::analyze(question, &config);
+    info!("Multi-agent mode: {} domains detected, using parallel investigation",
+          analysis.domains.len());
+
+    // Build orchestrator and solve
+    use crate::agents::build_default_registry;
+    use crate::orchestrator::AgentOrchestrator;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+
+    let registry = Arc::new(RwLock::new(build_default_registry()));
+    let orchestrator = AgentOrchestrator::with_defaults(registry);
+    let result = orchestrator.solve(question).await;
+
+    let mut dialogue = Vec::new();
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+
+    // Report parallel investigation
+    let domain_list = analysis.domains.join(", ");
+    push_and_send(writer, &mut dialogue, StepType::InvestigationStart,
+        format!("Parallel investigation across: {}", domain_list), gate).await?;
+
+    let answer = result.answer.unwrap_or_else(|| "Could not complete investigation.".to_string());
+    let confidence = result.confidence;
+
+    push_and_send(writer, &mut dialogue, StepType::InvestigationComplete,
+        format!("{} agents contributed", analysis.domains.len()), gate).await?;
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+    let ask_result = AskResult {
+        answer,
+        success: result.success,
+        iterations: 1,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: confidence < 0.3,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(confidence),
+    };
+    send_done(writer, &ask_result).await?;
+
+    Ok(Some(ask_result))
 }
 
 /// Run the full Ralph loop with streaming progress.
