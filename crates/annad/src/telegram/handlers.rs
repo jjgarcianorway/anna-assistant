@@ -122,21 +122,26 @@ pub async fn handle_message(
                 ctx.add_turn(text.to_string(), ask_result.answer.clone());
             }
 
-            // Check if confirmation is needed
-            if ask_result.needs_clarification {
-                // Store pending confirmation
-                let mut confirms = state.pending_confirms.write().await;
-                confirms.insert(
-                    chat_id.0,
-                    (ask_result.answer.clone(), text.to_string()),
-                );
+            // v0.3.119: Fixed - only ask for confirmation if there's an actual plan
+            // needs_clarification means low confidence, NOT action plan confirmation
+            // Check if there's a pending action plan that needs confirmation
+            let has_pending_plan = crate::plan_executor::has_pending_plan("default");
 
-                // Ask for confirmation (plain text, no markdown)
+            if has_pending_plan {
+                // Real action plan needs confirmation
                 let confirm_msg = format!(
                     "{}\n\nReply 'yes' to confirm or 'no' to cancel.",
                     &ask_result.answer
                 );
                 bot.send_message(chat_id, confirm_msg).await?;
+            } else if ask_result.needs_clarification {
+                // Low confidence - just show the answer with a note
+                let clarify_msg = if let Some(ref q) = ask_result.clarification_question {
+                    format!("{}\n\n(Low confidence. {})", &ask_result.answer, q)
+                } else {
+                    format!("{}\n\n(Low confidence. Try rephrasing if this doesn't help.)", &ask_result.answer)
+                };
+                send_long_message(&bot, chat_id, &clarify_msg).await?;
             } else {
                 // Send answer directly
                 info!("Sending Telegram reply ({} chars)", ask_result.answer.len());
@@ -154,6 +159,7 @@ pub async fn handle_message(
 }
 
 /// Handle confirmation response (yes/no).
+/// v0.3.119: Improved to give clearer feedback.
 async fn handle_confirmation(
     bot: Bot,
     chat_id: ChatId,
@@ -179,12 +185,20 @@ async fn handle_confirmation(
             let response = format_execution_result(&plan.summary, &result);
             send_long_message(&bot, chat_id, &response).await?;
         } else {
-            bot.send_message(chat_id, "Plan expired or not found. Please ask again.").await?;
+            // v0.3.119: Better message - no plan was pending
+            bot.send_message(
+                chat_id,
+                "No action pending. Just ask me what you need!"
+            ).await?;
         }
     } else {
-        // Cancel - remove the pending plan
-        let _ = crate::plan_executor::take_pending_plan("default");
-        bot.send_message(chat_id, "Cancelled.").await?;
+        // Cancel - remove the pending plan if any
+        let had_plan = crate::plan_executor::take_pending_plan("default").is_some();
+        if had_plan {
+            bot.send_message(chat_id, "Cancelled.").await?;
+        } else {
+            bot.send_message(chat_id, "OK. What would you like to know?").await?;
+        }
     }
 
     Ok(())
