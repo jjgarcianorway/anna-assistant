@@ -47,6 +47,23 @@ pub async fn handle_message(
 
     info!("Telegram message from @{}: {}", username, text);
 
+    // Check for visualization requests (v0.3.125)
+    if let Some(viz_type) = super::chart_sender::wants_visualization(text) {
+        use super::chart_sender::*;
+        match viz_type {
+            VisualizationType::PackageHistory => {
+                let _ = send_package_history(&bot, chat_id, 180).await;
+            }
+            VisualizationType::Dashboard => {
+                let _ = send_dashboard(&bot, chat_id).await;
+            }
+            VisualizationType::Health => {
+                let _ = send_health_report(&bot, chat_id).await;
+            }
+        }
+        return Ok(());
+    }
+
     // Check for confirmation responses
     if text.eq_ignore_ascii_case("yes") || text.eq_ignore_ascii_case("confirm") {
         return handle_confirmation(bot, chat_id, true, state).await;

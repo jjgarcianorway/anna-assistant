@@ -5,6 +5,7 @@
 
 mod handlers;
 pub mod notifier;
+mod chart_sender;
 
 use anyhow::Result;
 use std::sync::Arc;

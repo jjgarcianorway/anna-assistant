@@ -5,6 +5,37 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.125] - 2026-02-05
+
+### Added - Rich Telegram Output & Package History Commands
+
+**Telegram Chart Support:**
+- Send charts and visualizations as images via Telegram
+- Automatic detection of visualization requests
+- "show me dashboard" → image of dashboard
+- "show package history" → chart image
+- "show health" → health report as image
+- Falls back to text if ImageMagick unavailable
+
+**Natural Language Package Queries:**
+- "show me packages installed in last 6 months" → full analysis with charts
+- "recent installations" → list with visualization
+- "package history" → comprehensive summary
+- Automatic time range detection (week/month/6 months/year)
+- Shows total installations, top packages, recent installs
+
+**Package History Integration:**
+- Built-in chart generation for package data
+- Breakdown by day/week/month
+- Most installed packages
+- Recent installation tracking
+
+### Enhanced
+
+- Telegram now sends rich visual content
+- Package queries get instant, high-quality responses
+- Charts automatically rendered as images when appropriate
+
 ## [0.3.124] - 2026-02-05
 
 ### Added - Enhanced Telemetry and Self-Installing Tools

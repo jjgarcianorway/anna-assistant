@@ -61,6 +61,11 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
+    // v0.3.125: Handle package history queries
+    if let Some(result) = handle_package_history_query(question, writer, &gate).await? {
+        return Ok(result);
+    }
+
     // v0.3.121: Check for multi-domain questions that benefit from parallel investigation
     if let Some(result) = handle_multi_agent_query(question, writer, &gate).await? {
         return Ok(result);
@@ -191,6 +196,105 @@ async fn handle_natural_system_query<W: tokio::io::AsyncWriteExt + Unpin>(
 
     let mut dialogue = Vec::new();
     push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0),
+    };
+    send_done(writer, &result).await?;
+
+    Ok(Some(result))
+}
+
+/// v0.3.125: Handle package history queries.
+async fn handle_package_history_query<W: tokio::io::AsyncWriteExt + Unpin>(
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<Option<AskResult>> {
+    use anna_shared::package_history::PackageHistory;
+    use super::streaming_helpers::{push_and_send, send_done};
+
+    let q = question.to_lowercase();
+
+    // Check if this is a package history query
+    let is_package_query = (q.contains("package") || q.contains("installed") || q.contains("install"))
+        && (q.contains("last") || q.contains("recent") || q.contains("history") || q.contains("show"));
+
+    if !is_package_query {
+        return Ok(None);
+    }
+
+    info!("Package history query detected");
+
+    let history = PackageHistory::load();
+
+    // Determine time range
+    let days = if q.contains("week") {
+        7
+    } else if q.contains("month") || q.contains("30 days") {
+        30
+    } else if q.contains("6 month") || q.contains("180 days") {
+        180
+    } else if q.contains("year") {
+        365
+    } else {
+        90 // Default to 3 months
+    };
+
+    let mut dialogue = Vec::new();
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+    push_and_send(writer, &mut dialogue, StepType::InvestigationStart,
+        format!("Analyzing package history (last {} days)", days), gate).await?;
+
+    // Generate response
+    let installations = history.installations_by_period(days);
+    let total = installations.iter().map(|(_, count)| count).sum::<usize>();
+
+    let mut answer = format!("Package installation summary (last {} days):\n\n", days);
+    answer.push_str(&format!("Total installations: {}\n\n", total));
+
+    if total > 0 {
+        // Show chart
+        let chart = history.chart_installations(days);
+        answer.push_str(&chart);
+        answer.push_str("\n\n");
+
+        // Show most installed
+        let top_packages = history.most_installed(5);
+        if !top_packages.is_empty() {
+            answer.push_str("Most installed packages:\n");
+            for (pkg, count) in top_packages {
+                answer.push_str(&format!("  {} ({} times)\n", pkg, count));
+            }
+            answer.push('\n');
+        }
+
+        // Show recent
+        let recent = history.recent_installations(7, 10);
+        if !recent.is_empty() {
+            answer.push_str("Recent installations (last 7 days):\n");
+            for event in recent {
+                let date = chrono::DateTime::parse_from_rfc3339(&event.timestamp)
+                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|_| "unknown".to_string());
+                answer.push_str(&format!("  {} - {} ({})\n", date, event.package, event.version));
+            }
+        }
+    } else {
+        answer.push_str("No package installations found in this period.\n");
+    }
+
     push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
 
     let result = AskResult {
