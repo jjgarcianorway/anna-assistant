@@ -104,8 +104,8 @@ fn default_deep_model() -> String { "qwen2.5:32b".to_string() }
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            multi_agent_mode: false,
-            parallel_investigation: false,
+            multi_agent_mode: true,  // v0.3.121: Enabled by default
+            parallel_investigation: true,  // v0.3.121: Enabled by default
             max_parallel_agents: default_max_parallel_agents(),
             fast_model: default_fast_model(),
             standard_model: default_standard_model(),
@@ -146,7 +146,7 @@ fn default_disk_critical_threshold() -> f64 { 95.0 }
 impl Default for PredictionConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,  // v0.3.121: Enabled by default
             disk_alert_days: default_disk_alert_days(),
             disk_critical_days: default_disk_critical_days(),
             disk_warning_threshold: default_disk_warning_threshold(),

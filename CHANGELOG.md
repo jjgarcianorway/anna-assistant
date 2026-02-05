@@ -5,6 +5,30 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.121] - 2026-02-05
+
+### Added - Multi-Agent Intelligence
+
+- **Multi-agent orchestration enabled by default**: Parallel investigation for multi-domain questions
+- **Model routing**: Automatic selection of fast/standard/deep models based on task complexity
+- **Predictive ML enabled by default**: Disk space forecasting, trend analysis, capacity planning
+- **Agent learning and memory**: Agents remember successful patterns and avoid failed approaches
+- **Full architecture**: Agent Registry, Model Router, Orchestrator, Specialist Agent Wrapper
+
+### Changed
+
+- `multi_agent_mode` now defaults to `true`
+- `parallel_investigation` now defaults to `true`
+- `prediction.enabled` now defaults to `true`
+
+## [0.3.120] - 2026-02-04
+
+### Added - Natural Language Everything
+
+- Natural language query detection for system health, problems, resources
+- One-shot mode now loops for clarification instead of exiting
+- Users can ask "how is my system?" instead of `annactl health`
+
 ## [0.3.115] - 2026-01-31
 
 ### Added - Proactive Issue Detection
