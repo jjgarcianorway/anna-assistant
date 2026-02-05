@@ -397,6 +397,17 @@ async fn main() -> Result<()> {
                 // v0.3.117: Compact watch mode
                 run_watch_mode(true).await;
             }
+            "fixes" | "quickfix" | "qf" => {
+                // v0.3.118: Quick fixes available
+                let fixes = anna_shared::quickfix::get_available_fixes();
+                let formatted = anna_shared::quickfix::format_quick_fixes(&fixes);
+                println!("{}", formatted);
+            }
+            "fixes -s" | "quickfix -s" => {
+                // v0.3.118: Quick fixes summary
+                let summary = anna_shared::quickfix::fixes_summary();
+                println!("{}", summary);
+            }
             "capabilities" | "caps" => {
                 show_capabilities(CapabilitiesFormat::Plain);
             }
@@ -426,6 +437,8 @@ async fn main() -> Result<()> {
                 println!("  annactl dash -s          Show one-line dashboard summary");
                 println!("  annactl watch            Real-time monitoring (like htop)");
                 println!("  annactl watch -c         Compact watch mode (single line)");
+                println!("  annactl fixes            Show available quick fixes");
+                println!("  annactl fixes -s         One-line fixes summary");
                 println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
                 println!("  annactl repair wifi      Diagnose and repair WiFi issues");
                 println!("  annactl <question>       Ask a question");
