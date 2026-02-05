@@ -5,6 +5,43 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.124] - 2026-02-05
+
+### Added - Enhanced Telemetry and Self-Installing Tools
+
+**Package History Tracking:**
+- Comprehensive package event logging (install/remove/upgrade)
+- Visualize installations by day/week/month with ASCII charts
+- Track Anna-installed packages separately for clean uninstall
+- Sync from pacman log for historical data
+- Query most installed packages, recent installations
+
+**Self-Installing Tools:**
+- Anna can install diagnostic tools she needs (bc, jq, htop, lsof, nethogs, iotop, strace, etc.)
+- Automatic tracking of Anna-installed tools
+- Clean removal during uninstall
+- 11 recommended diagnostic tools
+
+**Config File Editing:**
+- Safe configuration file editing with approval flow
+- Automatic backups before changes
+- Diff generation for user review
+- Service restart coordination
+- Rollback support
+- Common config file detection (sshd, logind, grub, fstab, etc.)
+
+**Chart Rendering:**
+- Convert ASCII charts to PNG images
+- ImageMagick integration
+- Configurable fonts, colors, sizing
+- Preparation for rich Telegram output
+
+### Enhanced
+
+- Tool manager tracks all Anna-installed packages
+- Package history provides data for "show me packages installed in last 6 months"
+- Config editor suggests fixes for common problems
+
 ## [0.3.123] - 2026-02-05
 
 ### Added - Instant Answers for Common Problems
