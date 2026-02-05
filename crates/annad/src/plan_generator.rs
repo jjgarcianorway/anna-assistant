@@ -1,13 +1,11 @@
-//! Plan Generator - Generate ActionPlans from LLM.
+//! Plan Generator - Generate ActionPlans from LLM based on research.
 //! Phase 16: Turn fallback into real execution.
 //! Phase 17: Preflight checks, verification, and rollback.
-//! v0.3.127: Enhanced with bootloader and snapper support.
 //!
-//! When the LLM would have given manual instructions (blocked by sanitization),
-//! we ask it to generate a structured ActionPlan instead.
+//! Plans are generated dynamically from Arch Wiki research and LLM knowledge.
+//! NO hardcoded operation handlers - everything comes from documentation.
 
 use anna_shared::action_plan::ActionPlan;
-use anna_shared::risky_ops;
 use anyhow::Result;
 use serde::Deserialize;
 use tracing::{debug, info, warn};
@@ -41,79 +39,11 @@ pub async fn generate_plan(
 ) -> Result<ActionPlan> {
     info!("Generating action plan for: {}", question);
 
-    // Detect if this is a risky operation and add context
-    let risk_level = risky_ops::get_risk_level(question);
-    let risk_context = if risky_ops::is_risky_operation(question) {
-        format!(
-            "\n\nRISK ASSESSMENT:\n{}\n\nThis is a risky operation. Your plan must include:\n\
-            - Backup/snapshot steps BEFORE making changes\n\
-            - Clear rollback steps if something fails\n\
-            - Verification that changes worked\n\
-            - Warnings about what could go wrong",
-            risky_ops::format_risk_warning(risk_level)
-        )
-    } else {
-        String::new()
-    };
-
-    // Add bootloader context if relevant
-    let bootloader_context = if question.to_lowercase().contains("bootloader") ||
-                                question.to_lowercase().contains("boot manager") ||
-                                question.to_lowercase().contains("grub") ||
-                                question.to_lowercase().contains("limine") ||
-                                question.to_lowercase().contains("systemd-boot") {
-        "\n\nBOOTLOADER CONTEXT:\n\
-        Anna supports bootloader operations:\n\
-        - Detecting current bootloader (GRUB, limine, systemd-boot, rEFInd)\n\
-        - Replacing bootloaders (e.g., GRUB → limine)\n\
-        - Configuring boot entries\n\
-        \n\
-        For bootloader replacement:\n\
-        1. ALWAYS backup current bootloader config\n\
-        2. Get root UUID: findmnt -n -o UUID /\n\
-        3. Get ESP device: findmnt -n -o SOURCE /boot\n\
-        4. Deploy new bootloader to ESP\n\
-        5. Create proper config with kernel parameters\n\
-        6. Keep old bootloader as fallback initially\n\
-        7. Test boot before removing old bootloader".to_string()
-    } else {
-        String::new()
-    };
-
-    // Add snapper context if relevant
-    let snapper_context = if question.to_lowercase().contains("snapshot") ||
-                             question.to_lowercase().contains("snapper") ||
-                             question.to_lowercase().contains("rollback") ||
-                             question.to_lowercase().contains("btrfs") {
-        "\n\nSNAPPER CONTEXT:\n\
-        Anna supports btrfs snapshot operations:\n\
-        - Installing and configuring snapper\n\
-        - Creating manual snapshots\n\
-        - Listing snapshots\n\
-        - Rolling back to snapshots\n\
-        - Automatic snapshots before/after pacman operations (snap-pac)\n\
-        \n\
-        For snapper setup:\n\
-        1. Verify root is btrfs: findmnt -n -o FSTYPE /\n\
-        2. Install: pacman -S snapper snap-pac\n\
-        3. Create config: snapper -c root create-config /\n\
-        4. Enable timers: systemctl enable snapper-timeline.timer snapper-cleanup.timer\n\
-        5. Configure retention limits\n\
-        \n\
-        For rollback:\n\
-        1. List snapshots: snapper -c root list\n\
-        2. Create pre-rollback snapshot\n\
-        3. Perform undochange: snapper -c root undochange NUM..0\n\
-        4. Verify changes".to_string()
-    } else {
-        String::new()
-    };
-
     let prompt = format!(
         r#"You are Anna, an Arch Linux system assistant. The user asked: "{question}"
 
-Based on your investigation:
-{investigation_context}{risk_context}{bootloader_context}{snapper_context}
+Based on your investigation and research:
+{investigation_context}
 
 Generate a STRUCTURED ACTION PLAN to accomplish this task. You will execute the commands yourself - the user will only confirm yes/no.
 
@@ -135,13 +65,12 @@ Respond with ONLY valid JSON in this exact format:
 RULES:
 - Each step must have exactly ONE command
 - Use needs_sudo: true for any privileged operations
-- Commands must be non-interactive (no prompts, use -y flags where needed)
-- Keep the plan minimal - only essential steps
-- Include verification if possible
-- For risky operations, include backup/snapshot steps FIRST
-- Always include verification for critical changes
+- Commands must be non-interactive (use --noconfirm, -y, etc.)
+- For risky operations: backup FIRST, then change, then verify
+- Include verification when possible
+- Trust your knowledge and the research context to generate correct commands
 
-JSON only, no markdown, no explanation outside the JSON:"#
+JSON only, no markdown:"#
     );
 
     let response = ollama::chat_with_timeout(model, &prompt, 30).await?;

@@ -176,8 +176,6 @@ pub mod tool_manager;
 pub mod chart_renderer;
 pub mod config_editor;
 pub mod risky_ops;
-pub mod bootloader_ops;
-pub mod snapper_ops;
 pub mod outcome_ledger;
 pub mod paths;
 pub mod policy;

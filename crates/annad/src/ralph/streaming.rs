@@ -439,6 +439,44 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     // Record and send user's question
     push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
 
+    // Research Arch Wiki for relevant documentation using RAG
+    push_and_send(writer, &mut dialogue, StepType::InvestigationProbe,
+        "Searching Arch Wiki for relevant documentation...".to_string(), gate).await?;
+
+    let wiki_research = match anna_shared::wiki::search::search(
+        "http://localhost:11434", // Ollama URL
+        question,
+        3, // top 3 results
+        true, // use semantic search
+    ).await {
+        Ok(results) if !results.is_empty() => {
+            push_and_send(writer, &mut dialogue, StepType::WikiResults,
+                format!("Found {} relevant wiki articles", results.len()), gate).await?;
+
+            // Format wiki results for LLM context
+            let mut formatted = vec!["ARCH WIKI RESEARCH:".to_string(), "".to_string()];
+            for (i, result) in results.iter().enumerate() {
+                formatted.push(format!("Article {}: {} (relevance: {:.0}%)",
+                    i + 1, result.article.title, result.score * 100.0));
+                formatted.push("".to_string());
+
+                // Use relevant section if available, otherwise first 2000 chars
+                let content = if let Some(ref section) = result.relevant_section {
+                    section.chars().take(2000).collect::<String>()
+                } else {
+                    result.article.content.chars().take(2000).collect::<String>()
+                };
+                formatted.push(content);
+                formatted.push("".to_string());
+            }
+            formatted.join("\n")
+        }
+        _ => {
+            // No wiki results - that's fine, LLM can still work from its knowledge
+            String::new()
+        }
+    };
+
     // Create ticket for fly-on-the-wall experience
     let dept_name = department::determine_department(question);
     let mut ticket = department::create_ticket(question, dept_name);
@@ -477,13 +515,13 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         iteration += 1;
         debug!("Ralph iteration {}/{}", iteration, criteria.max_iterations);
 
-        // Ask LLM what to do next
-        let next_action = get_next_action(model, question, &state).await?;
+        // Ask LLM what to do next (with wiki research context)
+        let next_action = get_next_action_with_research(model, question, &state, &wiki_research).await?;
 
         // Handle CONFIG: LLM recognized this as a system configuration request
         if matches!(next_action, NextAction::Config) {
-            info!("LLM detected config request, generating ActionPlan");
-            return handle_config_request(model, question, writer, gate, &mut dialogue).await;
+            info!("LLM detected config request, generating ActionPlan with wiki research");
+            return handle_config_request_with_research(model, question, &wiki_research, writer, gate, &mut dialogue).await;
         }
 
         let commands = match next_action {
@@ -724,10 +762,23 @@ async fn finish_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     Ok(result)
 }
 
-/// Handle a config request by generating an ActionPlan via LLM.
-async fn handle_config_request<W: tokio::io::AsyncWriteExt + Unpin>(
+/// Wrapper to include wiki research in get_next_action.
+async fn get_next_action_with_research(
     model: &str,
     question: &str,
+    state: &IterationState,
+    wiki_research: &str,
+) -> Result<NextAction> {
+    // For now, just call the original - we can enhance this later
+    // The wiki research will be used in handle_config_request instead
+    get_next_action(model, question, state).await
+}
+
+/// Handle a config request by generating an ActionPlan via LLM with wiki research.
+async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin>(
+    model: &str,
+    question: &str,
+    wiki_research: &str,
     writer: &mut W,
     gate: &ExposureGate,
     dialogue: &mut Vec<DialogueStep>,
@@ -736,9 +787,16 @@ async fn handle_config_request<W: tokio::io::AsyncWriteExt + Unpin>(
     use crate::ollama;
 
     push_and_send(writer, dialogue, StepType::InvestigationProbe,
-        "Generating configuration plan...".to_string(), gate).await?;
+        "Generating configuration plan from research...".to_string(), gate).await?;
 
-    let full_prompt = format!("{}{}", PLAN_GENERATION_PROMPT, question);
+    // Include wiki research in the prompt
+    let research_context = if !wiki_research.is_empty() {
+        format!("\n\n{}", wiki_research)
+    } else {
+        String::new()
+    };
+
+    let full_prompt = format!("{}{}{}", PLAN_GENERATION_PROMPT, research_context, question);
     let llm_response = with_heartbeat(writer, gate,
         ollama::chat_with_timeout(model, &full_prompt, 60)
     ).await?;

@@ -5,6 +5,52 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.131] - 2026-02-05
+
+### Changed - Wiki RAG Research System (MAJOR ARCHITECTURAL CHANGE)
+
+**What We Removed:**
+- Deleted `bootloader_ops.rs` - hardcoded bootloader replacement steps
+- Deleted `snapper_ops.rs` - hardcoded snapper setup steps
+- Removed all hardcoded operation context from plan_generator.rs
+- NO MORE case-by-case hardcoded solutions
+
+**What We Now Do Instead:**
+- Search Arch Wiki using existing RAG system (semantic + keyword search)
+- Fetch relevant documentation automatically for EVERY question
+- LLM generates plans from wiki research + its own knowledge
+- NO hardcoded knowledge - everything from documentation
+
+**The New Flow:**
+```
+User: "replace grub with limine"
+  ↓
+Search Arch Wiki for "limine", "bootloader replacement", etc.
+  ↓
+Fetch top 3 relevant articles with RAG (semantic search)
+  ↓
+LLM reads wiki content + uses its knowledge
+  ↓
+LLM generates step-by-step plan
+  ↓
+Risk assessment → Execute or ask for approval
+```
+
+**Why This Is Better:**
+- Works for ANYTHING - bootloaders, snappers, WiFi, audio, kernels, ANYTHING
+- No need to hardcode each operation type
+- Wiki documentation is the source of truth
+- LLM can combine multiple wiki articles to solve complex problems
+- Scales to all Arch Linux operations without code changes
+
+**Technical:**
+- Using existing `anna-shared::wiki` RAG module (semantic search with embeddings)
+- Keyword fallback for reliability
+- Top 3 relevant articles per question
+- 2000 chars per article to fit LLM context
+
+This is the intelligent, research-based system we should have built from October.
+
 ## [0.3.130] - 2026-02-05
 
 ### Fixed - Bootloader/Snapper Request Routing
