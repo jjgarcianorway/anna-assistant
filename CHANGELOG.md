@@ -5,6 +5,52 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.127] - 2026-02-05
+
+### Added - Bootloader & Snapshot Operations
+
+**Bootloader Management:**
+- Full bootloader detection (GRUB, limine, systemd-boot, rEFInd)
+- Bootloader replacement support (GRUB → limine, GRUB → systemd-boot)
+- Automatic root UUID and ESP device detection
+- Safe bootloader replacement with backup
+- Keep old bootloader as fallback until verified
+- Proper boot entry configuration
+- Custom kernel parameter support
+
+**Snapper/Btrfs Snapshot Support:**
+- Snapper installation and configuration
+- Automatic snapshot setup (timeline + cleanup timers)
+- Manual snapshot creation
+- Snapshot listing and browsing
+- System rollback to previous snapshots
+- snap-pac integration (auto-snapshot before/after pacman)
+- Btrfs filesystem verification
+- Snapshot retention configuration
+
+**Enhanced Plan Generation:**
+- LLM now aware of bootloader and snapshot capabilities
+- Contextual guidance for risky bootloader operations
+- Automatic backup step injection for critical changes
+- Risk-aware plan generation with safety steps
+- Verification steps for bootloader and snapshot operations
+
+**Safety Features:**
+- Bootloader replacement marked as HIGH risk
+- Mandatory backups before bootloader changes
+- Pre-rollback snapshots for safety
+- Clear rollback procedures for failed operations
+- Warnings about system unbootability risks
+
+**Usage:**
+- "replace grub with limine" → generates full migration plan
+- "setup snapper" → installs and configures automatic snapshots
+- "rollback to snapshot 42" → safe rollback with pre-snapshot
+- "list snapshots" → shows all available snapshots
+- Anna can now handle ANY boot-related operation with proper approval
+
+Anna can now perform complete bootloader migrations and manage btrfs snapshots - the most critical system operations possible.
+
 ## [0.3.126] - 2026-02-05
 
 ### Added - Risky Operations Support
