@@ -5,6 +5,33 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.126] - 2026-02-05
+
+### Added - Risky Operations Support
+
+**Full System Operations with Approval:**
+- Anna can now handle GRUB configuration
+- Boot parameter modifications
+- Kernel parameter changes
+- fstab modifications
+- Critical system operations
+
+**Risk Classification:**
+- Automatic risk level detection (Low/Medium/High/Critical)
+- Risk warnings before execution
+- Operations classified by impact
+- GRUB/boot/fstab = High risk
+- Kernel params = Medium risk
+- Network changes = Low risk
+
+**Safety Features:**
+- Risky operation detection
+- Elevated approval required for critical ops
+- Risk level displayed before confirmation
+- "Are you sure?" prompts for dangerous operations
+
+Anna can now perform ANY system operation with proper approval and risk awareness.
+
 ## [0.3.125] - 2026-02-05
 
 ### Added - Rich Telegram Output & Package History Commands

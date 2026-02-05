@@ -175,6 +175,7 @@ pub mod package_history;
 pub mod tool_manager;
 pub mod chart_renderer;
 pub mod config_editor;
+pub mod risky_ops;
 pub mod outcome_ledger;
 pub mod paths;
 pub mod policy;
