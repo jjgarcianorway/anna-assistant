@@ -5,6 +5,25 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.130] - 2026-02-05
+
+### Fixed - Bootloader/Snapper Request Routing
+
+**Critical Fix:**
+- Enhanced `get_next_action()` prompt to recognize "replace", "setup", "migrate" keywords
+- Added explicit bootloader detection (grub, limine, systemd-boot)
+- Added explicit snapper/snapshot detection
+- LLM now routes bootloader and snapper requests to CONFIG handler
+- Fixes "Could you be more specific?" error for bootloader/snapper operations
+
+**Root Cause:**
+The routing logic only recognized "set, change, disable, enable, install, configure, prevent" but not "replace" or "setup". Bootloader replacement requests were never getting to the plan generator.
+
+**Before:** "replace my boot manager with limine" → "Could you be more specific?"
+**After:** "replace my boot manager with limine" → Generates plan with backup, install, deploy steps
+
+This completes the bootloader/snapper support chain from v0.3.127-128.
+
 ## [0.3.129] - 2026-02-05
 
 ### Changed - Natural Language Only

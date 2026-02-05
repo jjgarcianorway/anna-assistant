@@ -121,7 +121,9 @@ LOGS: journalctl -p err -b --no-pager | head -30
 
 RULES:
 - For info/diagnostic questions: use COMMANDS format
-- For "set", "change", "disable", "enable", "install", "configure", "prevent" requests: use CONFIG
+- For "set", "change", "disable", "enable", "install", "configure", "prevent", "replace", "setup", "migrate" requests: use CONFIG
+- For bootloader changes (grub, limine, systemd-boot): use CONFIG
+- For snapshot/snapper setup: use CONFIG
 - For "how do I", "what is", "explain" questions: use NONE
 - Output ONLY the format above, no explanations
 
