@@ -5,6 +5,40 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.129] - 2026-02-05
+
+### Changed - Natural Language Only
+
+**Removed ALL Special Commands:**
+- Removed: `health`, `issues`, `dashboard`, `watch`, `fixes`, `reset`, `repair`
+- Removed: `stats`, `capabilities`
+- Kept ONLY: `status`, `--help`, `--version`
+- Everything else is natural language
+
+**New Help Output:**
+```
+Usage:
+  annactl                  Start interactive session
+  annactl status           Show daemon status
+  annactl <question>       Ask anything in plain English
+
+Examples:
+  annactl "what's my disk usage?"
+  annactl "show me system health"
+  annactl "scan for issues"
+  annactl "replace grub with limine"
+```
+
+**What This Means:**
+- NO more commands to remember
+- Ask for ANYTHING in plain English
+- "show health" instead of `annactl health`
+- "scan for issues" instead of `annactl issues`
+- "watch system" instead of `annactl watch`
+- Works in one-shot, TUI, and Telegram
+
+This is what we always wanted - pure natural language interface.
+
 ## [0.3.128] - 2026-02-05
 
 ### Fixed - Bootloader & Snapper Recognition

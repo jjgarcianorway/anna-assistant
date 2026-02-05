@@ -315,145 +315,34 @@ async fn main() -> Result<()> {
     if args.len() > 1 {
         let cmd = args[1..].join(" ");
 
-        // Handle built-in commands
+        // Handle only essential commands - everything else is natural language
         match cmd.to_lowercase().as_str() {
             "status" => {
                 print_status().await;
-            }
-            "stats" => {
-                print_stats(false);
-            }
-            "stats --detailed" | "stats -d" => {
-                print_stats(true);
-            }
-            "reset" => {
-                handle_reset(anna_shared::rpc::ResetMode::Everything, false).await;
-            }
-            "reset --help" | "reset -h" => {
-                show_reset_help();
-            }
-            cmd if cmd.starts_with("reset ") => {
-                let rest = cmd.strip_prefix("reset ").unwrap().trim();
-                let (mode_str, force) = if rest.contains("--force") || rest.contains("-f") {
-                    (rest.replace("--force", "").replace("-f", "").trim().to_string(), true)
-                } else {
-                    (rest.to_string(), false)
-                };
-
-                if mode_str.is_empty() {
-                    handle_reset(anna_shared::rpc::ResetMode::Everything, force).await;
-                } else if let Some(mode) = anna_shared::rpc::ResetMode::from_str(&mode_str) {
-                    handle_reset(mode, force).await;
-                } else {
-                    print_colored("Error: ", RED);
-                    println!("Unknown reset mode '{}'. Use 'reset --help' for available modes.", mode_str);
-                }
-            }
-            "repair wifi" => {
-                repair::handle_repair_wifi().await;
-            }
-            "repair" | "repair --help" | "repair -h" => {
-                repair::show_repair_help();
-            }
-            "health" | "health report" => {
-                // v0.3.114: Visual health report with charts
-                let report = anna_shared::health_report::generate_health_report();
-                println!("{}", report);
-            }
-            "health summary" | "health -s" => {
-                // v0.3.114: One-line health summary
-                let summary = anna_shared::health_report::health_summary();
-                println!("{}", summary);
-            }
-            "issues" | "scan" | "check" => {
-                // v0.3.115: Proactive issue detection
-                let issues = anna_shared::proactive::scan_for_issues();
-                let formatted = anna_shared::proactive::format_issues(&issues);
-                println!("{}", formatted);
-            }
-            "issues summary" | "issues -s" => {
-                // v0.3.115: One-line issues summary
-                let summary = anna_shared::proactive::issues_summary();
-                println!("{}", summary);
-            }
-            "dashboard" | "dash" | "d" => {
-                // v0.3.116: Unified system dashboard
-                let dashboard = anna_shared::dashboard::generate_dashboard();
-                println!("{}", dashboard);
-            }
-            "dashboard summary" | "dashboard -s" | "dash -s" | "d -s" => {
-                // v0.3.116: One-line dashboard summary
-                let summary = anna_shared::dashboard::dashboard_summary();
-                println!("{}", summary);
-            }
-            "watch" | "w" => {
-                // v0.3.117: Real-time watch mode
-                run_watch_mode(false).await;
-            }
-            "watch -c" | "watch --compact" | "w -c" => {
-                // v0.3.117: Compact watch mode
-                run_watch_mode(true).await;
-            }
-            "fixes" | "quickfix" | "qf" => {
-                // v0.3.118: Quick fixes available
-                let fixes = anna_shared::quickfix::get_available_fixes();
-                let formatted = anna_shared::quickfix::format_quick_fixes(&fixes);
-                println!("{}", formatted);
-            }
-            "fixes -s" | "quickfix -s" => {
-                // v0.3.118: Quick fixes summary
-                let summary = anna_shared::quickfix::fixes_summary();
-                println!("{}", summary);
-            }
-            "capabilities" | "caps" => {
-                show_capabilities(CapabilitiesFormat::Plain);
-            }
-            "capabilities --onboarding" | "caps --onboarding" => {
-                show_capabilities(CapabilitiesFormat::Onboarding);
-            }
-            "capabilities --deterministic" | "caps --deterministic" => {
-                show_capabilities(CapabilitiesFormat::Deterministic);
-            }
-            "capabilities --help" | "caps --help" | "capabilities -h" | "caps -h" => {
-                show_capabilities_help();
             }
             "help" | "--help" | "-h" => {
                 println!("Anna - Arch Linux Assistant");
                 println!();
                 println!("Usage:");
-                println!("  annactl                  Start interactive REPL");
+                println!("  annactl                  Start interactive session");
                 println!("  annactl status           Show daemon status");
-                println!("  annactl stats            Show activity statistics");
-                println!("  annactl stats -d         Show detailed statistics");
-                println!("  annactl capabilities     Show what Anna can and cannot do");
-                println!("  annactl health           Show visual system health report");
-                println!("  annactl health -s        Show one-line health summary");
-                println!("  annactl issues           Scan for system issues proactively");
-                println!("  annactl issues -s        Show one-line issues summary");
-                println!("  annactl dashboard        Show unified system dashboard");
-                println!("  annactl dash -s          Show one-line dashboard summary");
-                println!("  annactl watch            Real-time monitoring (like htop)");
-                println!("  annactl watch -c         Compact watch mode (single line)");
-                println!("  annactl fixes            Show available quick fixes");
-                println!("  annactl fixes -s         One-line fixes summary");
-                println!("  annactl reset [mode]     Reset data (use 'reset --help' for modes)");
-                println!("  annactl repair wifi      Diagnose and repair WiFi issues");
-                println!("  annactl <question>       Ask a question");
-                println!();
-                println!("Reset modes: memory, config, models, helpers, everything");
+                println!("  annactl <question>       Ask anything in plain English");
                 println!();
                 println!("Examples:");
                 println!("  annactl \"what's my disk usage?\"");
-                println!("  annactl how do I install neovim");
-                println!("  annactl capabilities");
-                println!("  annactl reset memory");
-                println!("  annactl repair wifi");
+                println!("  annactl \"show me system health\"");
+                println!("  annactl \"scan for issues\"");
+                println!("  annactl \"install neovim\"");
+                println!("  annactl \"replace grub with limine\"");
+                println!("  annactl \"setup snapper\"");
+                println!();
+                println!("Everything is natural language - no special commands needed.");
             }
             "--version" | "-v" => {
                 println!("annactl {}", anna_shared::VERSION);
             }
             _ => {
-                // It's a question
+                // Everything else is a question - handle it naturally
                 handle_question(&cmd).await;
             }
         }
