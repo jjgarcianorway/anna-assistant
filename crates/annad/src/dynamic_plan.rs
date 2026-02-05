@@ -66,6 +66,19 @@ const HIGH_RISK_PATHS: &[&str] = &[
     "rm -rf",
     "dd if=",
     "mkfs",
+    // Bootloader operations (HIGH risk - boot failure possible)
+    "grub-install",
+    "grub-mkconfig",
+    "limine-deploy",
+    "/boot/grub/grub.cfg",
+    "/boot/limine.cfg",
+    "/boot/loader/loader.conf",
+    "bootctl install",
+    "efibootmgr",
+    // Snapshot operations (HIGH risk - system state changes)
+    "snapper -c root create-config",
+    "snapper undochange",
+    "btrfs subvolume",
 ];
 
 /// Paths/patterns that are BLOCKED (never execute).
@@ -147,6 +160,31 @@ The user wants to make a system configuration change. Your job is to:
 2. If yes, provide the exact commands needed
 3. Each command should be safe and reversible where possible
 
+ANNA CAPABILITIES:
+- Bootloader operations: detect, replace (GRUB→limine, GRUB→systemd-boot), configure
+- Snapper/btrfs: install, configure, snapshot management, rollback
+- System configuration: services, packages, configs
+- Network configuration
+- Display/desktop settings
+
+BOOTLOADER OPERATIONS:
+When replacing bootloaders (e.g., "replace grub with limine"):
+1. Backup current bootloader config
+2. Get root UUID: findmnt -n -o UUID /
+3. Get ESP device: findmnt -n -o SOURCE /boot (strip partition number)
+4. Install new bootloader package: pacman -S --noconfirm <bootloader>
+5. Deploy bootloader: limine-deploy /dev/sdX (for limine)
+6. Create bootloader config with proper kernel parameters
+7. Keep old bootloader as fallback initially
+
+SNAPPER OPERATIONS:
+When setting up snapper (e.g., "setup snapper", "snapper support"):
+1. Check if root is btrfs: findmnt -n -o FSTYPE /
+2. Install: pacman -S --noconfirm snapper snap-pac
+3. Create config: snapper -c root create-config /
+4. Enable timers: systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
+5. Configure retention if needed
+
 Respond in JSON format:
 {
   "can_help": true/false,
@@ -162,11 +200,13 @@ Respond in JSON format:
 }
 
 Rules:
-- Only provide commands you're confident are correct
+- You CAN help with bootloader replacement and snapper setup - these are supported operations
 - Prefer dconf/gsettings for GNOME settings
 - Prefer systemd drop-in files over editing main configs
 - Never provide destructive commands (rm -rf /, dd to disk, etc.)
-- If unsure, set can_help to false with explanation
+- For bootloader operations, include backup steps FIRST
+- For snapper, verify btrfs before installing
+- Set can_help=true if request is clear, even with minor typos
 
 User request: "#;
 

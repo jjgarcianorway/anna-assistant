@@ -5,6 +5,25 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.128] - 2026-02-05
+
+### Fixed - Bootloader & Snapper Recognition
+
+**Critical Fix:**
+- Enhanced plan generation to recognize bootloader and snapper requests
+- Added bootloader operation guidance to LLM prompt (GRUB→limine, systemd-boot)
+- Added snapper operation guidance (install, configure, rollback)
+- LLM now understands it CAN handle bootloader replacement and snapper setup
+- Fixed over-clarification issue ("Could you be more specific?")
+- Added bootloader commands to HIGH risk category for proper confirmation
+- Added snapshot commands to HIGH risk category
+- Works even with minor typos in requests
+
+**Before:** "replace my boot manager with limine" → "Could you be more specific?"
+**After:** "replace my boot manager with limine" → Generates full migration plan
+
+This was preventing all bootloader and snapper operations from working in v0.3.127.
+
 ## [0.3.127] - 2026-02-05
 
 ### Added - Bootloader & Snapshot Operations
