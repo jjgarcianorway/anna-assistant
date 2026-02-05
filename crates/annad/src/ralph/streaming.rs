@@ -51,6 +51,11 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
+    // v0.3.120: Handle natural language system queries
+    if let Some(result) = handle_natural_system_query(question, writer, &gate).await? {
+        return Ok(result);
+    }
+
     // All other questions go through the full loop
     run_full_loop_streaming(model, question, writer, &gate).await
 }
@@ -138,6 +143,41 @@ async fn handle_morning_briefing_request<W: tokio::io::AsyncWriteExt + Unpin>(
         "Morning briefing set up. I'll send you a daily health check at {:02}:{:02}.",
         time.hour(), time.minute()
     );
+
+    let mut dialogue = Vec::new();
+    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
+    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
+
+    let result = AskResult {
+        answer,
+        success: true,
+        iterations: 0,
+        commands_executed: vec![],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(1.0),
+    };
+    send_done(writer, &result).await?;
+
+    Ok(Some(result))
+}
+
+/// v0.3.120: Handle natural language system queries (health, problems, status).
+async fn handle_natural_system_query<W: tokio::io::AsyncWriteExt + Unpin>(
+    question: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<Option<AskResult>> {
+    use anna_shared::natural_query::handle_natural_query;
+    use super::streaming_helpers::{push_and_send, send_done};
+
+    let Some(answer) = handle_natural_query(question) else {
+        return Ok(None);
+    };
 
     let mut dialogue = Vec::new();
     push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;

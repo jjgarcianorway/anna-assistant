@@ -171,9 +171,9 @@ async fn handle_question(question: &str) {
     handle_question_with_clarification(question, false, &session_id).await;
 }
 
-/// Handle a question, with optional clarification support
-/// When in_repl is true, can prompt user for clarification
-async fn handle_question_with_clarification(question: &str, in_repl: bool, session_id: &str) {
+/// Handle a question with clarification support.
+/// v0.3.120: One-shot mode now loops for clarification just like REPL.
+async fn handle_question_with_clarification(question: &str, _in_repl: bool, session_id: &str) {
     // Clear line and start streaming
     println!();
 
@@ -184,14 +184,16 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool, sessi
     loop {
         match ask_streaming(&current_question, session_id).await {
             Ok(result) => {
-                if result.needs_clarification && in_repl && clarification_count < max_clarifications
-                {
+                // v0.3.120: Always handle clarification, even in one-shot mode
+                if result.needs_clarification && clarification_count < max_clarifications {
                     // Display clarification question and prompt user
                     println!();
                     if let Some(ref clarification_q) = result.clarification_question {
-                        // Phase 22: Consistent "Anna:" prefix, no "ANNA needs clarification"
                         print_colored("Anna: ", YELLOW);
                         println!("{}", clarification_q);
+                    } else {
+                        print_colored("Anna: ", YELLOW);
+                        println!("Could you provide more details?");
                     }
                     print_colored("> ", CYAN);
                     io::stdout().flush().ok();
@@ -200,7 +202,11 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool, sessi
                     let mut response = String::new();
                     if io::stdin().read_line(&mut response).is_ok() {
                         let response = response.trim();
-                        if !response.is_empty() && response.to_lowercase() != "cancel" {
+                        if !response.is_empty()
+                            && response.to_lowercase() != "cancel"
+                            && response.to_lowercase() != "quit"
+                            && response.to_lowercase() != "exit"
+                        {
                             // Append clarification to original question
                             current_question = format!("{} (Context: {})", question, response);
                             clarification_count += 1;
@@ -208,18 +214,9 @@ async fn handle_question_with_clarification(question: &str, in_repl: bool, sessi
                             continue; // Re-submit with clarification
                         }
                     }
-                    // User cancelled or empty response
-                    println_colored("Clarification cancelled.", DIM);
-                } else if result.needs_clarification && !in_repl {
-                    // Non-REPL mode: just show the clarification question
-                    // v0.1.2: Don't show Note for confirmation requests (autofix yes/no prompts)
-                    let is_confirmation = result.clarification_question.as_ref()
-                        .map(|q| q.contains("yes") || q.contains("no") || q.contains("confirm"))
-                        .unwrap_or(false);
-                    if !is_confirmation {
+                    // User cancelled or empty response - show what we have
+                    if !result.answer.is_empty() {
                         println!();
-                        print_colored("Note: ", YELLOW);
-                        println!("This question may need more context. Try running in interactive mode (annactl without arguments).");
                     }
                 }
                 // Done
