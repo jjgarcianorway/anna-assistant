@@ -580,7 +580,9 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         }
 
         // Phase 22: Wrap LLM calls with heartbeat emission
-        let answer = with_heartbeat(writer, gate, generate_answer(model, question, &state, &criteria)).await?;
+        // v0.3.131: Pass wiki research to answer generation
+        let wiki_ref = if wiki_research.is_empty() { None } else { Some(wiki_research.as_str()) };
+        let answer = with_heartbeat(writer, gate, generate_answer(model, question, &state, &criteria, wiki_ref)).await?;
         state.answer = Some(answer.clone());
 
         let eval = with_heartbeat(writer, gate, self_evaluate(model, question, &answer, &state, &criteria)).await?;

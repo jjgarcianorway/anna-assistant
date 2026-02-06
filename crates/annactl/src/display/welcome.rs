@@ -49,29 +49,8 @@ fn generate_time_greeting(hours: Option<u64>) -> &'static str {
 
 /// Print REPL greeting with personalized context
 pub fn print_greeting() {
-    let username = std::env::var("USER").unwrap_or_else(|_| "there".to_string());
-    let hours = hours_since_last_interaction();
-    let time_greeting = generate_time_greeting(hours);
-
     println!();
-    print_colored("Hello ", DIM);
-    print_colored(&username, CYAN);
-    print!(", ");
-    println_colored(time_greeting, DIM);
-    println!();
-
-    // Show time since last interaction if relevant
-    if let Some(h) = hours {
-        if h >= 24 {
-            let duration = format_duration(h * 3600);
-            print_colored("  last session: ", DIM);
-            println_colored(&format!("{} ago", duration), DIM);
-            println!();
-        }
-    }
-
-    println_colored("Ask questions about your system in plain English.", DIM);
-    println_colored("Type 'quit' or Ctrl-D to exit, 'help' for commands.", DIM);
+    println_colored("Ask questions in plain English. Type 'quit' or Ctrl-D to exit.", DIM);
 }
 
 #[cfg(test)]

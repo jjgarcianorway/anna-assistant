@@ -5,6 +5,38 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.132] - 2026-02-05
+
+### Changed - Clean UI + Wiki Integration in Answers
+
+**UI Improvements:**
+- Simplified REPL greeting (removed verbose personalization)
+- Only show CRITICAL alerts (removed noisy warnings like "Config changed: group")
+- Cleaner, more professional interface
+
+**Wiki Research Integration:**
+- Wiki research now passed to answer generation
+- LLM can see Arch Wiki content when generating answers
+- Better grounding instructions reference wiki documentation
+- Answers based on: command output + wiki research + LLM knowledge
+
+**Before:**
+```
+Hello lhoqvso, Nice to meet you!
+Ask questions about your system in plain English.
+Type 'quit' or Ctrl-D to exit, 'help' for commands.
+
+Heads up:
+  [!] Config changed: group
+```
+
+**After:**
+```
+Ask questions in plain English. Type 'quit' or Ctrl-D to exit.
+```
+
+Much cleaner. Wiki research is now actually used in answers, not just fetched and ignored.
+
 ## [0.3.131] - 2026-02-05
 
 ### Changed - Wiki RAG Research System (MAJOR ARCHITECTURAL CHANGE)

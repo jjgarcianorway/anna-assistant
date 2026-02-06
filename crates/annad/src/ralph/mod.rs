@@ -95,7 +95,8 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         }
 
         // Step 2: Generate answer
-        let answer = generate_answer(model, question, &state, &criteria).await?;
+        // v0.3.131: Non-streaming doesn't have wiki research yet - pass None for now
+        let answer = generate_answer(model, question, &state, &criteria, None).await?;
         state.answer = Some(answer.clone());
 
         // Step 3: Self-evaluate

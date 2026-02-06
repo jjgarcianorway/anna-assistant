@@ -196,6 +196,7 @@ pub async fn generate_answer(
     question: &str,
     state: &IterationState,
     criteria: &CompletionCriteria,
+    wiki_research: Option<&str>,
 ) -> Result<String> {
     let data_context = if state.outputs.is_empty() {
         "No command output available.".to_string()
@@ -204,9 +205,9 @@ pub async fn generate_answer(
     };
 
     let grounding_instruction = if criteria.requires_grounding {
-        "Base your answer ONLY on the data above. Do not make up information."
+        "Base your answer ONLY on the data above and wiki documentation. Do not make up information."
     } else {
-        "You may provide general guidance based on your knowledge."
+        "You may provide general guidance based on your knowledge and documentation."
     };
 
     // v0.3.110: Include live system state for context
@@ -215,6 +216,17 @@ pub async fn generate_answer(
         format!("\nCurrent system state (STRESSED): {}", live_state.summary())
     } else {
         format!("\nCurrent system state: {}", live_state.summary())
+    };
+
+    // v0.3.131: Include wiki research if available
+    let wiki_context = if let Some(research) = wiki_research {
+        if !research.is_empty() {
+            format!("\n\n{}", research)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
     };
 
     // v0.3.112: Search web for error/problem solutions when needed
@@ -237,6 +249,7 @@ Do NOT suggest apt, brew, or other package managers.
 {system_context}
 
 Question: {}
+{wiki_context}
 
 Data collected:
 {}
@@ -247,6 +260,7 @@ Data collected:
 Provide a clear, helpful answer. Be concise but complete."#,
         question, data_context, grounding_instruction,
         system_context = system_context,
+        wiki_context = wiki_context,
         web_context = web_context
     );
 
