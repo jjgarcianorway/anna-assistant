@@ -5,6 +5,56 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.139] - 2026-02-06
+
+### Added - System Investigation Before Plan Generation (Reliability & Super Powers)
+
+**The Sysadmin Approach:**
+Anna now works like a real system administrator:
+1. Listen to request
+2. **Investigate current state thoroughly** (NEW!)
+3. Research documentation (Arch Wiki, man pages)
+4. Generate plan based on REAL system state + docs
+5. Verify plan completeness
+6. Present to user
+7. Execute with verification
+
+**What Was Missing:**
+Before this update, config requests jumped straight from wiki research to plan generation without investigating the system. Plans used generic variables like `$ROOT_UUID` instead of real values, and missed critical system details (UEFI vs BIOS, actual kernel parameters with splash/quiet, current boot entries).
+
+**What's New:**
+When Anna detects a config request (like "replace my boot manager with limine"), she now:
+
+1. **Investigates system state first:**
+   - Runs: `cat /proc/cmdline` → Gets actual kernel parameters (with splash, quiet, nvidia, etc.)
+   - Runs: `[ -d /sys/firmware/efi ]` → Detects UEFI vs BIOS
+   - Runs: `efibootmgr` → Sees current boot entries
+   - Runs: `findmnt -n -o UUID /` → Gets real root UUID
+   - Runs: `findmnt -n -o SOURCE,FSTYPE /` → Gets filesystem type
+   - Runs: `lsblk -ndo pkname` → Finds boot device
+   - Runs: `uname -r` → Gets kernel version
+   - Runs: OS version check
+
+2. **Generates plan with REAL values:**
+   - Includes actual kernel parameters from /proc/cmdline
+   - Includes UEFI-specific commands (efibootmgr) if needed
+   - Uses real UUIDs and device names, not variables
+   - Adapts commands to actual system configuration
+
+3. **Shows investigation process:**
+   - User sees "Investigating current system state..."
+   - Each check shows what it found
+   - Then "Generating plan with real values..."
+
+**Example Impact:**
+Before: Plan with generic `echo "default boot/vmlinuz-linux root=UUID=$ROOT_UUID rw"`
+After: Plan with real `echo "default boot/vmlinuz-linux root=UUID=a1b2c3d4... rw quiet splash nvidia-drm.modeset=1"` + efibootmgr commands for UEFI
+
+**Philosophy:**
+This aligns with the core vision: Anna should be **reliable and have super powers** - not just generate generic plans, but investigate thoroughly and adapt to your actual system. Good interface + reliability + super powers to do anything.
+
+This is THE fundamental approach for everything Anna does, not just a special case.
+
 ## [0.3.138] - 2026-02-06
 
 ### Fixed - Remove Hardcoded Session Context Expansion (LLM-First Approach)

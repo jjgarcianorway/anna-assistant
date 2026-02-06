@@ -520,8 +520,19 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 
         // Handle CONFIG: LLM recognized this as a system configuration request
         if matches!(next_action, NextAction::Config) {
-            info!("LLM detected config request, generating ActionPlan with wiki research");
-            return handle_config_request_with_research(model, question, &wiki_research, writer, gate, &mut dialogue).await;
+            info!("LLM detected config request, investigating system state first");
+
+            // v0.3.139: Investigate system BEFORE generating plan
+            // Gather critical system info that plan generation needs
+            push_and_send(writer, &mut dialogue, StepType::InvestigationProbe,
+                "Investigating current system state...".to_string(), gate).await?;
+
+            let system_state = investigate_system_state(&mut state, &mut dialogue, writer, gate).await?;
+
+            push_and_send(writer, &mut dialogue, StepType::InvestigationProbe,
+                format!("System investigation complete. Generating plan with real values..."), gate).await?;
+
+            return handle_config_request_with_research(model, question, &wiki_research, &system_state, writer, gate, &mut dialogue).await;
         }
 
         let commands = match next_action {
@@ -776,11 +787,66 @@ async fn get_next_action_with_research(
     get_next_action(model, question, state).await
 }
 
+/// Investigate system state for config plan generation.
+/// Gathers critical system information that plans need (kernel params, UEFI/BIOS, devices, etc.)
+async fn investigate_system_state<W: tokio::io::AsyncWriteExt + Unpin>(
+    state: &mut IterationState,
+    dialogue: &mut Vec<DialogueStep>,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<String> {
+    use std::process::Command;
+
+    let mut system_info = String::new();
+
+    // Critical commands for plan generation
+    let investigation_commands: Vec<(&str, &str)> = vec![
+        ("cat /proc/cmdline", "Current kernel parameters"),
+        ("[ -d /sys/firmware/efi ] && echo 'UEFI' || echo 'BIOS'", "Boot mode"),
+        ("efibootmgr 2>/dev/null || echo 'N/A'", "Current boot entries"),
+        ("findmnt -n -o UUID /", "Root filesystem UUID"),
+        ("findmnt -n -o SOURCE,FSTYPE /", "Root filesystem type"),
+        ("lsblk -ndo pkname $(findmnt -n -o SOURCE /boot 2>/dev/null) 2>/dev/null || echo 'N/A'", "Boot device"),
+        ("uname -r", "Kernel version"),
+        ("cat /etc/os-release | grep PRETTY_NAME", "OS version"),
+    ];
+
+    for (cmd, description) in investigation_commands {
+        push_and_send(writer, dialogue, StepType::InvestigationProbe,
+            format!("Checking: {}", description), gate).await?;
+
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg(cmd)
+            .output();
+
+        match output {
+            Ok(result) if result.status.success() => {
+                let output_clean = String::from_utf8_lossy(&result.stdout).trim().to_string();
+                system_info.push_str(&format!("{}: {}\n", description, output_clean));
+                state.commands.push(cmd.to_string());
+                state.outputs.push(format!("[{}] {}", description, output_clean));
+                push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                    format!("✓ {}", output_clean), gate).await?;
+            }
+            _ => {
+                warn!("Investigation command failed: {}", cmd);
+                system_info.push_str(&format!("{}: (failed to retrieve)\n", description));
+            }
+        }
+    }
+
+    info!("System investigation complete:\n{}", system_info);
+    Ok(system_info)
+}
+
 /// Handle a config request by generating an ActionPlan via LLM with wiki research.
+/// v0.3.139: Now includes system state investigation for reliability.
 async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
     wiki_research: &str,
+    system_state: &str,
     writer: &mut W,
     gate: &ExposureGate,
     dialogue: &mut Vec<DialogueStep>,
@@ -789,16 +855,24 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
     use crate::ollama;
 
     push_and_send(writer, dialogue, StepType::InvestigationProbe,
-        "Generating configuration plan from research...".to_string(), gate).await?;
+        "Generating configuration plan from research and system state...".to_string(), gate).await?;
 
     // Include wiki research in the prompt
     let research_context = if !wiki_research.is_empty() {
-        format!("\n\n{}", wiki_research)
+        format!("\n\nArch Wiki Documentation:\n{}", wiki_research)
     } else {
         String::new()
     };
 
-    let full_prompt = format!("{}{}{}", PLAN_GENERATION_PROMPT, research_context, question);
+    // v0.3.139: Include actual system state for plan generation
+    let system_context = if !system_state.is_empty() {
+        format!("\n\nCurrent System State:\n{}", system_state)
+    } else {
+        String::new()
+    };
+
+    let full_prompt = format!("{}{}{}\n\nIMPORTANT: Use the REAL values from 'Current System State' above, not generic variables. Generate commands with actual kernel parameters, UUIDs, and device names.\n\n{}",
+        PLAN_GENERATION_PROMPT, research_context, system_context, question);
 
     push_and_send(writer, dialogue, StepType::InvestigationProbe,
         "LLM analyzing wiki documentation and generating commands...".to_string(), gate).await?;
