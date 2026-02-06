@@ -284,6 +284,20 @@ CHECKLIST:
 - Config file syntax must match wiki examples
 - All wiki steps should be present
 
+BOOTLOADER REPLACEMENT SPECIFIC (v0.3.141 - SAFETY FIRST):
+- Investigation must show which bootloader is CURRENTLY installed (GRUB/systemd-boot/rEFInd)
+- Backup step must match the ACTUAL current bootloader (not assumed)
+- Plan must include creating the new bootloader's config file (e.g., /boot/limine.cfg)
+- Config file must contain ALL kernel parameters from investigation
+- For UEFI: Must include efibootmgr command to create boot entry
+- Verification step must confirm new bootloader is bootable
+- Plan should explain what's being replaced (e.g., "Replacing systemd-boot with limine")
+
+NEVER ASSUME - VERIFY:
+- Don't assume GRUB - check investigation for "GRUB detected"
+- Don't assume systemd-boot - check investigation for "systemd-boot detected"
+- Safety first, even if verification takes longer
+
 REMEMBER: Output ONLY JSON. No markdown, no explanations."#;
 
 /// Parse LLM response into ActionPlan.

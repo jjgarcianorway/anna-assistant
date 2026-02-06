@@ -5,6 +5,69 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.141] - 2026-02-06
+
+### Fixed - CRITICAL: Enhanced Bootloader Detection (Safety First)
+
+**The Problem:**
+Anna was ASSUMING which bootloader was installed instead of DETECTING it:
+- Assumed GRUB (backup step: `cp -r /boot/grub`)
+- Never checked what was ACTUALLY installed (could be systemd-boot, rEFInd, etc.)
+- Generated replacement plans based on assumptions
+- **HIGH RISK:** Wrong backup = unrecoverable system
+
+**User Feedback:**
+"I'm not sure if I was using GRUB or systemd-boot... Anna must check the environment before doing anything. Anna needs to ensure that every step is right... even if the answer takes longer but safety first."
+
+**The Fix:**
+
+Investigation now includes bootloader detection:
+```
+✓ Check /boot/grub → "GRUB detected" or "No GRUB"
+✓ Check /boot/loader → "systemd-boot detected" or "No systemd-boot"
+✓ Check /boot/refind_linux.conf → "rEFInd detected" or "No rEFInd"
+✓ List /boot/ contents → See actual files
+✓ Check bootloader configs exist
+```
+
+Verification now enforces:
+```
+- Investigation must show which bootloader is CURRENTLY installed
+- Backup step must match the ACTUAL current bootloader (not assumed)
+- Plan must include creating the new bootloader's config file
+- Never assume GRUB - verify from investigation
+- Never assume systemd-boot - verify from investigation
+- Safety first, even if verification takes longer
+```
+
+**Example Impact:**
+
+Before v0.3.141:
+```
+Plan: Replace GRUB with limine
+Step 1: cp -r /boot/grub /boot/grub.backup
+❌ But user has systemd-boot, not GRUB!
+```
+
+After v0.3.141:
+```
+Investigation: "systemd-boot detected"
+Plan: Replace systemd-boot with limine
+Step 1: cp -r /boot/loader /boot/loader.backup
+✓ Backs up the ACTUAL bootloader
+```
+
+**Philosophy:**
+"Safety first, even if the answer takes longer."
+
+Anna now:
+- Detects ACTUAL state before planning
+- Never assumes based on common patterns
+- Verifies every critical detail
+- Takes longer but ensures correctness
+
+This is reliability through thoroughness, not speed.
+
 ## [0.3.140] - 2026-02-06
 
 ### Added - Self-Verification Loop (The Sysadmin Method)
