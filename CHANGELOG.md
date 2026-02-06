@@ -5,6 +5,58 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.135] - 2026-02-06
+
+### Improved - Plan Generation Reliability & Debugging
+
+**The Vision:**
+User question → LLM finds wiki article → LLM extracts commands → LLM adapts to user's system → Present to user → Approve → Execute
+
+**What Was Broken:**
+LLM was generating plans from Arch Wiki successfully, but the JSON parser couldn't extract them. The response would fail silently and fall back to "Could you be more specific?"
+
+**The Fixes:**
+
+1. **Robust JSON Extraction:**
+   - Added brace-counting parser that handles mixed text
+   - Handles markdown code blocks (```json, ```, ``` {)
+   - Searches for JSON anywhere in response, not just at start
+   - Much more forgiving of LLM output variations
+
+2. **Strengthened Prompt:**
+   - Ultra-clear: "CRITICAL: You MUST respond with ONLY valid JSON"
+   - Removed ambiguity about format
+   - Added concrete examples from Arch Wiki
+   - Emphasized "Output ONLY JSON. No markdown, no explanations"
+
+3. **Debug Visibility:**
+   - Shows progress: "LLM analyzing wiki documentation..."
+   - Shows progress: "Parsing LLM response into executable plan..."
+   - Logs what LLM actually returns (first 500 chars)
+   - Shows parse failures with response length
+   - All visible in `journalctl -u annad -f` for debugging
+
+4. **Increased Timeout:**
+   - LLM plan generation timeout: 60s → 90s
+   - Gives more time for complex wiki research + plan generation
+
+**Test Case:**
+```bash
+annactl "replace my boot manager with limine and support snapper"
+
+# You should see:
+# - "Searching Arch Wiki..."
+# - "LLM analyzing wiki documentation..."
+# - "Parsing LLM response..."
+# - Plan with exact commands
+# - "Proceed? (yes/no)"
+
+# Check logs to see what LLM returns:
+journalctl -u annad -f | grep "LLM plan generation response"
+```
+
+**Next:** If it still fails, logs will show exactly what the LLM returned so we can fix the parser or prompt.
+
 ## [0.3.134] - 2026-02-06
 
 ### Fixed - CRITICAL: Daemon Startup Crash

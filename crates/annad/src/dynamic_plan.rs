@@ -153,60 +153,52 @@ pub struct LlmPlanStep {
 }
 
 /// System prompt for plan generation.
-pub const PLAN_GENERATION_PROMPT: &str = r#"You are Anna, a Linux system administrator assistant for Arch Linux.
+/// v0.3.135: Strengthened JSON format requirement.
+pub const PLAN_GENERATION_PROMPT: &str = r#"You are Anna, an Arch Linux system administrator. Extract commands from documentation to fulfill user requests.
 
-The user wants to make a system configuration change. Your job is to:
-1. Determine if you can help with this request
-2. If yes, provide the exact commands needed
-3. Each command should be safe and reversible where possible
+CRITICAL: You MUST respond with ONLY valid JSON. No explanations before or after. Just JSON.
 
-ANNA CAPABILITIES:
-- Bootloader operations: detect, replace (GRUB→limine, GRUB→systemd-boot), configure
-- Snapper/btrfs: install, configure, snapshot management, rollback
-- System configuration: services, packages, configs
-- Network configuration
-- Display/desktop settings
+Your capabilities:
+- Bootloader: install, replace (GRUB→limine, GRUB→systemd-boot), configure
+- Snapper: install, configure, snapshot management
+- System config: packages, services, settings
+- Network, display, desktop configuration
 
-BOOTLOADER OPERATIONS:
-When replacing bootloaders (e.g., "replace grub with limine"):
-1. Backup current bootloader config
-2. Get root UUID: findmnt -n -o UUID /
-3. Get ESP device: findmnt -n -o SOURCE /boot (strip partition number)
-4. Install new bootloader package: pacman -S --noconfirm <bootloader>
-5. Deploy bootloader: limine-deploy /dev/sdX (for limine)
-6. Create bootloader config with proper kernel parameters
-7. Keep old bootloader as fallback initially
+BOOTLOADER REPLACEMENT (example: "replace grub with limine"):
+Based on Arch Wiki and official docs:
+1. Backup: cp -r /boot/grub /boot/grub.backup
+2. Get root UUID: ROOT_UUID=$(findmnt -n -o UUID /)
+3. Get boot device: BOOT_DEV=$(lsblk -ndo pkname $(findmnt -n -o SOURCE /boot))
+4. Install: pacman -S --noconfirm limine
+5. Deploy: limine-deploy /dev/$BOOT_DEV
+6. Create /boot/limine.cfg with kernel parameters from /proc/cmdline
+7. Verify boot entries: efibootmgr
 
-SNAPPER OPERATIONS:
-When setting up snapper (e.g., "setup snapper", "snapper support"):
-1. Check if root is btrfs: findmnt -n -o FSTYPE /
-2. Install: pacman -S --noconfirm snapper snap-pac
+SNAPPER SETUP (example: "setup snapper", "enable snapshots"):
+Based on Arch Wiki:
+1. Check filesystem: findmnt -n -o FSTYPE / (must be btrfs)
+2. Install: pacman -S --noconfirm snapper snap-pac grub-btrfs
 3. Create config: snapper -c root create-config /
 4. Enable timers: systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
-5. Configure retention if needed
+5. Verify: snapper list-configs
 
-Respond in JSON format:
+JSON RESPONSE FORMAT (respond with ONLY this, nothing else):
 {
-  "can_help": true/false,
-  "reason": "why you can or cannot help (if cannot)",
+  "can_help": true,
+  "reason": null,
   "steps": [
     {
-      "description": "Human-readable description of this step",
-      "command": "exact shell command to run",
-      "needs_sudo": true/false
+      "description": "Backup current bootloader",
+      "command": "cp -r /boot/grub /boot/grub.backup",
+      "needs_sudo": true
     }
   ],
-  "verification": "optional command to verify success"
+  "verification": "efibootmgr | grep -i limine"
 }
 
-Rules:
-- You CAN help with bootloader replacement and snapper setup - these are supported operations
-- Prefer dconf/gsettings for GNOME settings
-- Prefer systemd drop-in files over editing main configs
-- Never provide destructive commands (rm -rf /, dd to disk, etc.)
-- For bootloader operations, include backup steps FIRST
-- For snapper, verify btrfs before installing
-- Set can_help=true if request is clear, even with minor typos
+If you cannot help, set can_help=false and provide reason. Otherwise, extract exact commands from the documentation above.
+
+REMEMBER: Output ONLY JSON. No markdown, no explanations, just the JSON object.
 
 User request: "#;
 
@@ -253,38 +245,87 @@ pub fn parse_llm_plan(response: &str, original_request: &str) -> Option<ActionPl
     Some(plan)
 }
 
-/// Extract JSON from LLM response (handles markdown code blocks).
+/// Find the end of a JSON object by counting braces.
+fn find_json_end(s: &str) -> Option<usize> {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escape_next = false;
+
+    for (i, ch) in s.char_indices() {
+        if escape_next {
+            escape_next = false;
+            continue;
+        }
+
+        match ch {
+            '\\' if in_string => escape_next = true,
+            '"' => in_string = !in_string,
+            '{' if !in_string => depth += 1,
+            '}' if !in_string => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Extract JSON from LLM response (handles markdown code blocks, mixed text).
+/// v0.3.135: Much more robust - handles common LLM output formats.
 fn extract_json(response: &str) -> Option<String> {
-    // Try direct parse first
-    if response.trim().starts_with('{') {
-        return Some(response.trim().to_string());
+    use tracing::debug;
+
+    let trimmed = response.trim();
+
+    // 1. Try direct parse first (clean JSON at start)
+    if trimmed.starts_with('{') {
+        debug!("Trying direct JSON parse (starts with brace)");
+        if let Some(end) = find_json_end(trimmed) {
+            let json = &trimmed[..=end];
+            debug!("Extracted JSON by brace counting: {} chars", json.len());
+            return Some(json.to_string());
+        }
     }
 
-    // Look for JSON in code blocks
+    // 2. Look for ```json code blocks
     if let Some(start) = response.find("```json") {
+        debug!("Found ```json code block");
         let rest = &response[start + 7..];
         if let Some(end) = rest.find("```") {
-            return Some(rest[..end].trim().to_string());
+            let json = rest[..end].trim();
+            debug!("Extracted from ```json block: {} chars", json.len());
+            return Some(json.to_string());
         }
     }
 
-    // Look for JSON in generic code blocks
-    if let Some(start) = response.find("```\n{") {
-        let rest = &response[start + 4..];
-        if let Some(end) = rest.find("```") {
-            return Some(rest[..end].trim().to_string());
-        }
-    }
-
-    // Look for { ... } pattern
-    if let Some(start) = response.find('{') {
-        if let Some(end) = response.rfind('}') {
-            if end > start {
-                return Some(response[start..=end].to_string());
+    // 3. Look for ``` code blocks starting with {
+    for pattern in &["```\n{", "```{", "``` {"] {
+        if let Some(start) = response.find(pattern) {
+            debug!("Found generic code block: {}", pattern);
+            let rest = &response[start + pattern.len() - 1..]; // Keep the {
+            if let Some(end) = rest.find("```") {
+                let json = rest[..end].trim();
+                debug!("Extracted from ``` block: {} chars", json.len());
+                return Some(json.to_string());
             }
         }
     }
 
+    // 4. Search for first { and match to last }
+    if let Some(start) = response.find('{') {
+        debug!("Searching for JSON starting at position {}", start);
+        let rest = &response[start..];
+        if let Some(end) = find_json_end(rest) {
+            let json = &rest[..=end];
+            debug!("Extracted JSON from mixed text: {} chars", json.len());
+            return Some(json.to_string());
+        }
+    }
+
+    debug!("No JSON found in response");
     None
 }
 

@@ -9,7 +9,7 @@ use anna_shared::probe_ledger::ProbeLedger;
 use anna_shared::rpc::{AskResult, DialogueStep, StepType};
 use anna_shared::teaching;
 use anyhow::Result;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::core_loop::{execute_command, strip_ansi_codes};
 use crate::department;
@@ -799,13 +799,28 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
     };
 
     let full_prompt = format!("{}{}{}", PLAN_GENERATION_PROMPT, research_context, question);
+
+    push_and_send(writer, dialogue, StepType::InvestigationProbe,
+        "LLM analyzing wiki documentation and generating commands...".to_string(), gate).await?;
+
     let llm_response = with_heartbeat(writer, gate,
-        ollama::chat_with_timeout(model, &full_prompt, 60)
+        ollama::chat_with_timeout(model, &full_prompt, 90)
     ).await?;
+
+    // v0.3.135: Debug - log what LLM actually returned
+    info!("LLM plan generation response ({} chars): {}", llm_response.len(),
+        if llm_response.len() > 500 { &llm_response[..500] } else { &llm_response });
+
+    push_and_send(writer, dialogue, StepType::InvestigationProbe,
+        "Parsing LLM response into executable plan...".to_string(), gate).await?;
 
     let plan = match parse_llm_plan(&llm_response, question) {
         Some(p) => p,
         None => {
+            // v0.3.135: Show user what went wrong
+            warn!("Failed to parse LLM plan. Response was: {}", llm_response);
+            push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                format!("Failed to extract commands from LLM response (response length: {} chars)", llm_response.len()), gate).await?;
             let answer = format!(
                 "I understand you want to configure something, but I'm not confident enough \
                  to generate the right commands for: \"{}\". Could you be more specific?",
