@@ -1022,7 +1022,8 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
     };
 
     // v0.3.140: Self-verification loop - iterate until plan is complete
-    const MAX_VERIFICATION_ITERATIONS: usize = 3;
+    // v0.3.142: Increased from 3 to 5 - "complexity is not high, risk is"
+    const MAX_VERIFICATION_ITERATIONS: usize = 5;
     let mut verification_iteration = 0;
 
     loop {

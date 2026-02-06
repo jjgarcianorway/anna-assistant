@@ -203,15 +203,42 @@ Your capabilities:
 - System config: packages, services, settings
 - Network, display, desktop configuration
 
-BOOTLOADER REPLACEMENT (example: "replace grub with limine"):
-Based on Arch Wiki and official docs:
-1. Backup: cp -r /boot/grub /boot/grub.backup
-2. Get root UUID: ROOT_UUID=$(findmnt -n -o UUID /)
-3. Get boot device: BOOT_DEV=$(lsblk -ndo pkname $(findmnt -n -o SOURCE /boot))
-4. Install: pacman -S --noconfirm limine
-5. Deploy: limine-deploy /dev/$BOOT_DEV
-6. Create /boot/limine.cfg with kernel parameters from /proc/cmdline
-7. Verify boot entries: efibootmgr
+BOOTLOADER REPLACEMENT - LIMINE INSTALLATION (Based on Arch Wiki):
+CRITICAL: Adapt to ACTUAL current bootloader detected in investigation (GRUB/systemd-boot/rEFInd).
+
+COMPLETE PROCEDURE (all steps required):
+1. Backup current bootloader:
+   - If "GRUB detected": cp -r /boot/grub /boot/grub.backup
+   - If "systemd-boot detected": cp -r /boot/loader /boot/loader.backup
+   - If "rEFInd detected": cp -r /boot/EFI/refind /boot/EFI/refind.backup
+
+2. Get system values (use REAL values from investigation):
+   ROOT_UUID=$(findmnt -n -o UUID /)
+   BOOT_DEV=$(lsblk -ndo pkname $(findmnt -n -o SOURCE /boot))
+
+3. Install limine:
+   pacman -S --noconfirm limine
+
+4. Deploy limine bootloader:
+   limine-deploy /dev/$BOOT_DEV
+
+5. Create /boot/limine.cfg (MUST include ALL kernel parameters from investigation):
+   Example format:
+   TIMEOUT=5
+
+   :Arch Linux
+       PROTOCOL=linux
+       KERNEL_PATH=boot:///vmlinuz-linux
+       CMDLINE=root=UUID=[real-uuid] rw [ALL kernel params from /proc/cmdline]
+       MODULE_PATH=boot:///initramfs-linux.img
+
+6. For UEFI systems (if "Boot mode: UEFI"):
+   Create boot entry: efibootmgr --create --disk /dev/$BOOT_DEV --part [boot-partition-number] --loader '\EFI\BOOT\BOOTX64.EFI' --label 'Limine'
+
+7. Verify:
+   efibootmgr (check entry exists)
+
+NEVER skip steps. ALL steps required for safe installation.
 
 SNAPPER SETUP (example: "setup snapper", "enable snapshots"):
 Based on Arch Wiki:
