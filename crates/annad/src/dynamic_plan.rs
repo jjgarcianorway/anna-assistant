@@ -204,12 +204,31 @@ User request: "#;
 
 /// Parse LLM response into ActionPlan.
 pub fn parse_llm_plan(response: &str, original_request: &str) -> Option<ActionPlan> {
-    // Try to extract JSON from response
-    let json_str = extract_json(response)?;
+    use tracing::{debug, warn};
 
-    let llm_plan: LlmPlanResponse = serde_json::from_str(&json_str).ok()?;
+    // Try to extract JSON from response
+    let json_str = match extract_json(response) {
+        Some(j) => {
+            debug!("Extracted JSON ({} chars)", j.len());
+            j
+        }
+        None => {
+            warn!("Could not extract JSON from LLM response");
+            return None;
+        }
+    };
+
+    let llm_plan: LlmPlanResponse = match serde_json::from_str(&json_str) {
+        Ok(p) => p,
+        Err(e) => {
+            warn!("JSON parse error: {}", e);
+            warn!("Attempted to parse: {}", if json_str.len() > 500 { &json_str[..500] } else { &json_str });
+            return None;
+        }
+    };
 
     if !llm_plan.can_help {
+        use tracing::info;
         info!("LLM declined to help: {:?}", llm_plan.reason);
         return None;
     }

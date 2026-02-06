@@ -807,9 +807,14 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
         ollama::chat_with_timeout(model, &full_prompt, 90)
     ).await?;
 
-    // v0.3.135: Debug - log what LLM actually returned
-    info!("LLM plan generation response ({} chars): {}", llm_response.len(),
-        if llm_response.len() > 500 { &llm_response[..500] } else { &llm_response });
+    // v0.3.135: Debug - log what LLM actually returned (full response for debugging)
+    info!("LLM plan generation response ({} chars)", llm_response.len());
+    // Log first 1000 chars to see structure
+    if llm_response.len() > 1000 {
+        info!("Response preview: {}", &llm_response[..1000]);
+    } else {
+        info!("Full response: {}", llm_response);
+    }
 
     push_and_send(writer, dialogue, StepType::InvestigationProbe,
         "Parsing LLM response into executable plan...".to_string(), gate).await?;
