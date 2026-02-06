@@ -142,7 +142,33 @@ pub struct LlmPlanResponse {
     pub can_help: bool,
     pub reason: Option<String>,
     pub steps: Vec<LlmPlanStep>,
+    #[serde(default, deserialize_with = "deserialize_verification")]
     pub verification: Option<String>,
+}
+
+/// Deserialize verification - handle both string and array.
+fn deserialize_verification<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum VerificationValue {
+        Single(String),
+        Multiple(Vec<String>),
+        Null,
+    }
+
+    match Option::<VerificationValue>::deserialize(deserializer)? {
+        Some(VerificationValue::Single(s)) => Ok(Some(s)),
+        Some(VerificationValue::Multiple(cmds)) => {
+            // Join multiple verification commands with &&
+            Ok(Some(cmds.join(" && ")))
+        }
+        Some(VerificationValue::Null) | None => Ok(None),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

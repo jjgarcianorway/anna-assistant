@@ -5,6 +5,33 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.137] - 2026-02-06
+
+### Fixed - JSON Type Mismatch in Plan Verification
+
+**The Problem:**
+LLM was generating perfect JSON with all the right commands from Arch Wiki, but `parse_llm_plan()` returned None due to a type mismatch in the `verification` field.
+
+**Root Cause:**
+The code expected `verification: Option<String>` but the LLM was correctly returning an array of verification commands:
+```json
+"verification": [
+    "efibootmgr | grep -i limine",
+    "snapper list-configs"
+]
+```
+
+**The Fix:**
+Added custom `deserialize_verification()` function that handles both formats:
+- Single string: returns as-is
+- Array of strings: joins with " && "
+- Null/missing: returns None
+
+This allows the LLM to return multiple verification commands while maintaining backward compatibility with single-string format.
+
+**Impact:**
+Plan generation from Arch Wiki should now work reliably. Commands for bootloader replacement, snapper setup, and other system configuration tasks will be properly parsed and presented to the user for confirmation.
+
 ## [0.3.135] - 2026-02-06
 
 ### Improved - Plan Generation Reliability & Debugging
