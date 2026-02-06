@@ -229,11 +229,12 @@ mod tests {
 
     #[test]
     fn test_mutating_intent_allows_more_iterations() {
-        // MUTATING questions can have up to 5 iterations
+        // MUTATING questions can have 3-6 iterations depending on success rate
         let criteria = determine_criteria("fix this bluetooth problem");
         // "fix" triggers MUTATING
         assert!(matches!(criteria.intent_class, IntentClass::Mutating));
-        assert_eq!(criteria.max_iterations, 5);
+        // Policy-driven: 3 (poor), 5 (standard), 6 (excellent)
+        assert!(criteria.max_iterations >= 3 && criteria.max_iterations <= 6);
     }
 
     #[test]

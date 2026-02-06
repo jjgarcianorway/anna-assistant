@@ -5,6 +5,56 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.143] - 2026-02-06
+
+### Fixed - Multi-Line Config File Creation
+
+**The Problem:**
+Plan verification was passing, but generated commands used `echo -e` with `\n` for multi-line config files:
+```bash
+echo -e 'TIMEOUT=5\n:\nPROTOCOL=linux\n...' > /boot/limine.cfg
+```
+This creates a SINGLE LINE file with literal `\n` characters, not actual newlines. The config file is broken and won't work.
+
+**User Feedback:**
+"review because it does not work and anna is not even able to restart my computer on demand... no hardcoding. anna is super powerful, reliable and has all the answers... through telemetry, arch wiki, llm iterations"
+
+**The Fix:**
+
+1. **Updated limine installation procedure** in plan generation prompt:
+   ```
+   5. Create /boot/limine.cfg:
+      Use cat with heredoc for multi-line file (CORRECT way):
+
+      cat > /boot/limine.cfg << 'EOF'
+      TIMEOUT=5
+
+      :Arch Linux
+          PROTOCOL=linux
+          KERNEL_PATH=boot:///vmlinuz-linux
+          CMDLINE=root=UUID=[uuid] rw [kernel params]
+          MODULE_PATH=boot:///initramfs-linux.img
+      EOF
+
+      NEVER use echo -e with \n - that creates broken config files.
+   ```
+
+2. **Added explicit verification check** in PLAN_VERIFICATION_PROMPT:
+   ```
+   MULTI-LINE CONFIG FILES (v0.3.143 - CRITICAL):
+   - NEVER use "echo -e" with \n for multi-line files
+   - ALWAYS use "cat > file << 'EOF'" (heredoc)
+   - Check: If creating .cfg file and command contains "echo -e" → ISSUE FOUND
+   ```
+
+**Files Changed:**
+- `crates/annad/src/dynamic_plan.rs` - Plan generation and verification prompts
+
+**Result:**
+Config files will now be created properly as multi-line files, not single-line with literal escape sequences.
+
+---
+
 ## [0.3.142] - 2026-02-06
 
 ### Improved - Detailed Limine Installation Procedure (Risk vs Complexity)

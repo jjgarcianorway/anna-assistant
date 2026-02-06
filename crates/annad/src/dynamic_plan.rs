@@ -223,7 +223,9 @@ COMPLETE PROCEDURE (all steps required):
    limine-deploy /dev/$BOOT_DEV
 
 5. Create /boot/limine.cfg (MUST include ALL kernel parameters from investigation):
-   Example format:
+   Use cat with heredoc for multi-line file (CORRECT way):
+
+   cat > /boot/limine.cfg << 'EOF'
    TIMEOUT=5
 
    :Arch Linux
@@ -231,6 +233,10 @@ COMPLETE PROCEDURE (all steps required):
        KERNEL_PATH=boot:///vmlinuz-linux
        CMDLINE=root=UUID=[real-uuid] rw [ALL kernel params from /proc/cmdline]
        MODULE_PATH=boot:///initramfs-linux.img
+   EOF
+
+   NEVER use echo -e with \n - that creates broken config files.
+   ALWAYS use cat with heredoc for multi-line configuration files.
 
 6. For UEFI systems (if "Boot mode: UEFI"):
    Create boot entry: efibootmgr --create --disk /dev/$BOOT_DEV --part [boot-partition-number] --loader '\EFI\BOOT\BOOTX64.EFI' --label 'Limine'
@@ -319,6 +325,12 @@ BOOTLOADER REPLACEMENT SPECIFIC (v0.3.141 - SAFETY FIRST):
 - For UEFI: Must include efibootmgr command to create boot entry
 - Verification step must confirm new bootloader is bootable
 - Plan should explain what's being replaced (e.g., "Replacing systemd-boot with limine")
+
+MULTI-LINE CONFIG FILES (v0.3.143 - CRITICAL):
+- NEVER use "echo -e" with \n for multi-line files - this creates BROKEN configs
+- ALWAYS use "cat > file << 'EOF'" (heredoc) for multi-line configuration files
+- Check: If creating .cfg file and command contains "echo -e" → ISSUE FOUND
+- Correct syntax: cat > /boot/limine.cfg << 'EOF' ... EOF
 
 NEVER ASSUME - VERIFY:
 - Don't assume GRUB - check investigation for "GRUB detected"
