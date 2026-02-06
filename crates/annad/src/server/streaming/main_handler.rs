@@ -69,17 +69,16 @@ pub async fn handle_main_question(
         }
     }
 
-    // Get session context and expand question with references
-    let (expanded_question, session_context) = {
+    // Get session context (LLM will understand references naturally)
+    // v0.3.138: Removed hardcoded expand_question() - let LLM handle it
+    let session_context = {
         let mut state_guard = state.write().await;
         let session = state_guard.get_or_create_session(session_id);
-        let expanded = session.expand_question(question);
-        let context = if session.history.is_empty() {
+        if session.history.is_empty() {
             None
         } else {
             Some(session.get_context_for_llm())
-        };
-        (expanded, context)
+        }
     };
 
     // Get model from state
@@ -111,27 +110,16 @@ pub async fn handle_main_question(
         }
     };
 
-    // Execute with streaming (use expanded question if different)
-    let question_to_use = if expanded_question != question {
-        info!(
-            "Expanded question with session context: {} -> {}",
-            question, expanded_question
-        );
-        &expanded_question
-    } else {
-        question
-    };
-
     // v0.0.905: Check answer cache before running LLM
     {
         let state_guard = state.read().await;
-        if let Some(cached_answer) = state_guard.get_cached_answer(question_to_use) {
-            info!("Returning cached answer for: {}", question_to_use);
+        if let Some(cached_answer) = state_guard.get_cached_answer(question) {
+            info!("Returning cached answer for: {}", question);
 
             // Send cached response with dialogue showing it's cached
             let step = DialogueStep {
                 step_type: StepType::UserQuestion,
-                content: question_to_use.to_string(),
+                content: question.to_string(),
             };
             let json = serde_json::to_string(&StreamingResponse::Step { step: step.clone() })?;
             writer.write_all(format!("{}\n", json).as_bytes()).await?;
@@ -174,7 +162,7 @@ pub async fn handle_main_question(
     // v0.3.108: Analyze task and optionally switch models based on complexity
     let config_result = AnnaConfig::load();
     let effective_model = if let Ok(ref config) = config_result {
-        let analysis = TaskAnalysis::analyze(question_to_use, config);
+        let analysis = TaskAnalysis::analyze(question, config);
         info!(
             "Task analysis: complexity={}, domains={:?}, multi_domain={}, recommended={}",
             analysis.complexity, analysis.domains, analysis.is_multi_domain, analysis.recommended_model
@@ -208,7 +196,7 @@ pub async fn handle_main_question(
 
     // v0.3.109: Check for parallel investigation opportunity
     let result = if let Ok(ref config) = config_result {
-        if let Some(domains) = ralph::should_parallelize(question_to_use, config) {
+        if let Some(domains) = ralph::should_parallelize(question, config) {
             info!("Running parallel investigation for {} domains", domains.len());
 
             // Send parallel investigation indicator
@@ -222,11 +210,11 @@ pub async fn handle_main_question(
             // Run parallel investigation
             let max_parallel = config.agents.max_parallel_agents;
             let domain_results = ralph::run_parallel_investigation(
-                &effective_model, question_to_use, domains, max_parallel
+                &effective_model, question, domains, max_parallel
             ).await?;
 
             // Synthesize results
-            let combined = ralph::synthesize_parallel_results(question_to_use, domain_results);
+            let combined = ralph::synthesize_parallel_results(question, domain_results);
 
             // Send combined answer
             let final_step = DialogueStep {
@@ -244,13 +232,13 @@ pub async fn handle_main_question(
             Ok(combined)
         } else {
             // Single domain - use normal Ralph loop
-            info!("Ralph loop for question: {} (model: {})", question_to_use, effective_model);
-            ralph::ralph_loop_streaming(&effective_model, question_to_use, writer).await
+            info!("Ralph loop for question: {} (model: {})", question, effective_model);
+            ralph::ralph_loop_streaming(&effective_model, question, writer).await
         }
     } else {
         // No config - use normal Ralph loop
-        info!("Ralph loop for question: {} (model: {})", question_to_use, effective_model);
-        ralph::ralph_loop_streaming(&effective_model, question_to_use, writer).await
+        info!("Ralph loop for question: {} (model: {})", question, effective_model);
+        ralph::ralph_loop_streaming(&effective_model, question, writer).await
     };
 
     // v0.0.892: Record full turn to session after execution
@@ -268,8 +256,8 @@ pub async fn handle_main_question(
             // v0.0.905: Cache successful answers (only if not a clarification)
             if ask_result.success && !ask_result.needs_clarification && !ask_result.answer.is_empty()
             {
-                state_guard.cache_answer(question_to_use, &ask_result.answer);
-                debug!("Cached answer for: {}", question_to_use);
+                state_guard.cache_answer(question, &ask_result.answer);
+                debug!("Cached answer for: {}", question);
             }
             // Cleanup old sessions periodically (also triggers periodic save to disk)
             state_guard.cleanup_sessions();

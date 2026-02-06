@@ -5,6 +5,41 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.138] - 2026-02-06
+
+### Fixed - Remove Hardcoded Session Context Expansion (LLM-First Approach)
+
+**The Problem:**
+Hardcoded pattern matching was corrupting user questions before they reached the LLM:
+```
+Input:  "replace my boot manager with limine"
+Output: "replace my boot manager w/etc/hostnameh limine" ❌
+```
+
+The code was doing substring matching on "it", "that", "this" and replacing them with entities from session history. This caused "with" to become "w/etc/hostnameh" because it contained "it" as a substring.
+
+**The Philosophy Issue:**
+This violates the core vision: **LLM intelligence, not hardcoded parsing.**
+
+The right approach:
+- Pass raw question to LLM (untouched)
+- Pass conversation history as context
+- Let LLM naturally understand references ("it", "that", etc.) from context
+
+The wrong approach (removed):
+- Pre-process question with pattern matching
+- Try to be clever with string replacements
+- Corrupt input before LLM sees it
+
+**The Fix:**
+Removed `expand_question()` call entirely. Now:
+1. Raw question goes directly to LLM
+2. Conversation history provided as context
+3. LLM understands references naturally through its intelligence
+
+**Impact:**
+Questions are no longer corrupted. The LLM receives exactly what the user typed and has full conversation context to understand any references.
+
 ## [0.3.137] - 2026-02-06
 
 ### Fixed - JSON Type Mismatch in Plan Verification
