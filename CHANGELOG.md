@@ -5,6 +5,68 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.140] - 2026-02-06
+
+### Added - Self-Verification Loop (The Sysadmin Method)
+
+**The Problem:**
+Anna was doing ONE PASS - investigation → wiki research → generate plan → show user. If the LLM missed something (like UEFI boot entries), the plan was incomplete but Anna didn't know.
+
+Example from v0.3.139:
+- Investigation found: "Boot mode: UEFI"
+- Plan generated: 6 steps for limine
+- **Missing:** efibootmgr command to create UEFI boot entry
+- Anna didn't cross-check her own plan against the facts
+
+**The Solution: Back-and-Forth Until Perfect**
+
+Anna now uses a self-verification loop:
+```
+1. Investigation (gather facts)
+2. Wiki research (find documentation)
+3. Generate initial plan
+4. NEW: Verify plan against facts
+   - Does plan address UEFI? (check investigation)
+   - Does plan follow all wiki steps? (check wiki)
+   - Is syntax correct? (verify against docs)
+5. NEW: If incomplete → Show issues to LLM → Regenerate → Verify again
+6. Iterate up to 3 times until complete
+7. Present verified plan to user
+```
+
+**What Anna Now Does:**
+
+After generating a plan, she asks herself:
+- "Investigation shows UEFI - did I include efibootmgr?"
+- "Wiki has 7 steps - I only have 6. What's missing?"
+- "Are my commands using real values or variables?"
+
+If verification fails, Anna:
+1. Sees the specific issues (e.g., "Missing: Create UEFI boot entry")
+2. Gets suggestions (e.g., "Add: efibootmgr --create...")
+3. Regenerates plan with this feedback
+4. Verifies again
+
+Repeats until the LLM says: "This plan is complete" ✓
+
+**What You'll See:**
+```
+Anna: Investigating current system state...
+Anna: ✓ Boot mode: UEFI
+Anna: ✓ Kernel parameters: quiet splash nvidia...
+Anna: Generating plan...
+Anna: Verifying plan completeness (iteration 1)...
+Anna: ⚠ Investigation shows UEFI but plan lacks efibootmgr
+Anna: Refining plan based on verification feedback...
+Anna: Verifying plan completeness (iteration 2)...
+Anna: ✓ Plan verified complete
+```
+
+**Philosophy:**
+"Deterministic answers based on Arch Wiki but using user telemetry. Detect exactly what the user needs in their specific scenario. No hardcoding but proper back and forth to check the possibilities and gather the facts."
+
+This is **reliability through self-critique** - Anna doesn't trust her first answer, she verifies it against the facts before presenting it to you.
+
 ## [0.3.139] - 2026-02-06
 
 ### Added - System Investigation Before Plan Generation (Reliability & Super Powers)

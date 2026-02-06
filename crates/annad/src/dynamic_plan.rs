@@ -178,6 +178,19 @@ pub struct LlmPlanStep {
     pub needs_sudo: bool,
 }
 
+/// LLM verification response format.
+/// v0.3.140: Self-verification loop for plan completeness.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmVerificationResponse {
+    pub is_complete: bool,
+    #[serde(default)]
+    pub issues: Vec<String>,
+    #[serde(default)]
+    pub missing_steps: Vec<String>,
+    #[serde(default)]
+    pub suggestions: Vec<String>,
+}
+
 /// System prompt for plan generation.
 /// v0.3.135: Strengthened JSON format requirement.
 pub const PLAN_GENERATION_PROMPT: &str = r#"You are Anna, an Arch Linux system administrator. Extract commands from documentation to fulfill user requests.
@@ -227,6 +240,51 @@ If you cannot help, set can_help=false and provide reason. Otherwise, extract ex
 REMEMBER: Output ONLY JSON. No markdown, no explanations, just the JSON object.
 
 User request: "#;
+
+/// Plan verification prompt - LLM cross-checks plan against facts.
+/// v0.3.140: Self-verification loop for reliability.
+pub const PLAN_VERIFICATION_PROMPT: &str = r#"You are reviewing a system configuration plan. Check if it's complete and correct.
+
+CRITICAL: You MUST respond with ONLY valid JSON. No explanations before or after.
+
+Your task:
+1. Compare the plan against the investigation findings
+2. Compare the plan against the wiki documentation
+3. Identify any missing steps or incorrect syntax
+4. Determine if the plan is complete
+
+JSON RESPONSE FORMAT:
+{
+  "is_complete": true,
+  "issues": [],
+  "missing_steps": [],
+  "suggestions": []
+}
+
+OR if incomplete:
+{
+  "is_complete": false,
+  "issues": [
+    "Investigation shows UEFI but plan lacks efibootmgr command",
+    "Limine config syntax doesn't match wiki example"
+  ],
+  "missing_steps": [
+    "Create UEFI boot entry with efibootmgr"
+  ],
+  "suggestions": [
+    "Add: efibootmgr --create --disk /dev/X --part Y --loader '\\EFI\\BOOT\\BOOTX64.EFI' --label 'Limine'"
+  ]
+}
+
+CHECKLIST:
+- If "Boot mode: UEFI" in investigation → Plan must include efibootmgr
+- If "Boot mode: BIOS" in investigation → Plan should use legacy boot steps
+- All kernel parameters from investigation must be in the config file
+- All UUIDs/device names must be real values from investigation (no variables)
+- Config file syntax must match wiki examples
+- All wiki steps should be present
+
+REMEMBER: Output ONLY JSON. No markdown, no explanations."#;
 
 /// Parse LLM response into ActionPlan.
 pub fn parse_llm_plan(response: &str, original_request: &str) -> Option<ActionPlan> {
@@ -402,6 +460,32 @@ pub fn is_config_request(question: &str) -> bool {
                           q.starts_with("explain ");
 
     has_config_keyword && !is_pure_question
+}
+
+/// Parse LLM verification response.
+/// v0.3.140: Self-verification loop for plan completeness.
+pub fn parse_verification_response(response: &str) -> Option<LlmVerificationResponse> {
+    use tracing::{debug, warn};
+
+    // Try to extract JSON from response
+    let json_str = match extract_json(response) {
+        Some(j) => {
+            debug!("Extracted verification JSON ({} chars)", j.len());
+            j
+        }
+        None => {
+            warn!("Could not extract JSON from verification response");
+            return None;
+        }
+    };
+
+    match serde_json::from_str(&json_str) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            warn!("Verification JSON parse error: {}", e);
+            None
+        }
+    }
 }
 
 #[cfg(test)]

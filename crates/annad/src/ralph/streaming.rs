@@ -14,6 +14,8 @@ use tracing::{debug, info, warn};
 use crate::core_loop::{execute_command, strip_ansi_codes};
 use crate::department;
 use crate::team_speak;
+use crate::dynamic_plan::LlmVerificationResponse;
+use anna_shared::action_plan::ActionPlan;
 
 use super::commands::{generate_answer, get_next_action, NextAction, self_evaluate};
 use super::criteria::{determine_criteria, IterationState};
@@ -840,8 +842,95 @@ async fn investigate_system_state<W: tokio::io::AsyncWriteExt + Unpin>(
     Ok(system_info)
 }
 
+/// Verify plan against investigation and wiki documentation.
+/// v0.3.140: Self-verification loop for reliability.
+async fn verify_plan_against_facts<W: tokio::io::AsyncWriteExt + Unpin>(
+    model: &str,
+    plan: &ActionPlan,
+    wiki_research: &str,
+    system_state: &str,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<LlmVerificationResponse> {
+    use crate::dynamic_plan::{PLAN_VERIFICATION_PROMPT, parse_verification_response};
+    use crate::ollama;
+
+    // Format plan as text for verification
+    let plan_text = format!(
+        "Plan Summary: {}\nSteps:\n{}",
+        plan.summary,
+        plan.steps.iter().enumerate()
+            .map(|(i, s)| format!("{}. {} ({})", i + 1, s.description, s.command))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+
+    let verification_prompt = format!(
+        "{}\n\nINVESTIGATION FINDINGS:\n{}\n\nWIKI DOCUMENTATION:\n{}\n\nGENERATED PLAN:\n{}\n\nVerify this plan:",
+        PLAN_VERIFICATION_PROMPT, system_state, wiki_research, plan_text
+    );
+
+    let llm_response = with_heartbeat(writer, gate,
+        ollama::chat_with_timeout(model, &verification_prompt, 60)
+    ).await?;
+
+    match parse_verification_response(&llm_response) {
+        Some(v) => Ok(v),
+        None => {
+            warn!("Failed to parse verification response, assuming incomplete");
+            Ok(LlmVerificationResponse {
+                is_complete: false,
+                issues: vec!["Could not parse verification response".to_string()],
+                missing_steps: vec![],
+                suggestions: vec![],
+            })
+        }
+    }
+}
+
+/// Regenerate plan with feedback from verification.
+/// v0.3.140: Self-verification loop for reliability.
+async fn regenerate_plan_with_feedback<W: tokio::io::AsyncWriteExt + Unpin>(
+    model: &str,
+    question: &str,
+    wiki_research: &str,
+    system_state: &str,
+    verification: &LlmVerificationResponse,
+    writer: &mut W,
+    gate: &ExposureGate,
+) -> Result<ActionPlan> {
+    use crate::dynamic_plan::{PLAN_GENERATION_PROMPT, parse_llm_plan};
+    use crate::ollama;
+
+    // Build feedback context
+    let feedback = format!(
+        "\n\nPREVIOUS ATTEMPT HAD ISSUES:\n{}\n\nMISSING STEPS:\n{}\n\nSUGGESTIONS:\n{}\n\nPlease generate a COMPLETE plan that addresses all these issues.",
+        verification.issues.join("\n- "),
+        verification.missing_steps.join("\n- "),
+        verification.suggestions.join("\n- ")
+    );
+
+    let full_prompt = format!(
+        "{}\n\nArch Wiki Documentation:\n{}\n\nCurrent System State:\n{}{}\n\nIMPORTANT: Use REAL values from system state. Address ALL issues mentioned above.\n\n{}",
+        PLAN_GENERATION_PROMPT, wiki_research, system_state, feedback, question
+    );
+
+    let llm_response = with_heartbeat(writer, gate,
+        ollama::chat_with_timeout(model, &full_prompt, 90)
+    ).await?;
+
+    match parse_llm_plan(&llm_response, question) {
+        Some(p) => Ok(p),
+        None => {
+            warn!("Failed to parse regenerated plan, returning error");
+            anyhow::bail!("Could not regenerate plan with feedback")
+        }
+    }
+}
+
 /// Handle a config request by generating an ActionPlan via LLM with wiki research.
 /// v0.3.139: Now includes system state investigation for reliability.
+/// v0.3.140: Added self-verification loop.
 async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
@@ -893,7 +982,7 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
     push_and_send(writer, dialogue, StepType::InvestigationProbe,
         "Parsing LLM response into executable plan...".to_string(), gate).await?;
 
-    let plan = match parse_llm_plan(&llm_response, question) {
+    let mut plan = match parse_llm_plan(&llm_response, question) {
         Some(p) => p,
         None => {
             // v0.3.135: Show user what went wrong
@@ -923,6 +1012,51 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
             return Ok(result);
         }
     };
+
+    // v0.3.140: Self-verification loop - iterate until plan is complete
+    const MAX_VERIFICATION_ITERATIONS: usize = 3;
+    let mut verification_iteration = 0;
+
+    loop {
+        verification_iteration += 1;
+
+        push_and_send(writer, dialogue, StepType::InvestigationProbe,
+            format!("Verifying plan completeness (iteration {})...", verification_iteration), gate).await?;
+
+        let verification_result = verify_plan_against_facts(
+            model, &plan, wiki_research, system_state, writer, gate
+        ).await?;
+
+        if verification_result.is_complete {
+            info!("Plan verified as complete after {} iterations", verification_iteration);
+            push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                "✓ Plan verified complete".to_string(), gate).await?;
+            break;
+        }
+
+        if verification_iteration >= MAX_VERIFICATION_ITERATIONS {
+            warn!("Max verification iterations reached. Proceeding with current plan.");
+            push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                "⚠ Max verification attempts reached. Using best plan available.".to_string(), gate).await?;
+            break;
+        }
+
+        // Log issues found
+        info!("Plan incomplete. Issues: {:?}", verification_result.issues);
+        for issue in &verification_result.issues {
+            push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                format!("⚠ {}", issue), gate).await?;
+        }
+
+        // Regenerate plan with feedback
+        push_and_send(writer, dialogue, StepType::InvestigationProbe,
+            "Refining plan based on verification feedback...".to_string(), gate).await?;
+
+        plan = regenerate_plan_with_feedback(
+            model, question, wiki_research, system_state,
+            &verification_result, writer, gate
+        ).await?;
+    }
 
     let risk = assess_plan_risk(&plan);
     info!("Config plan risk: {:?}", risk);
