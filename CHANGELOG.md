@@ -5,6 +5,29 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.134] - 2026-02-06
+
+### Fixed - CRITICAL: Daemon Startup Crash
+
+**The Problem:**
+The daemon was crashing during initialization with a panic in the chart rendering code:
+```
+thread panicked at plotters-0.3.7/src/style/font/mod.rs:75:
+The font implementation is unable to draw text
+```
+
+This caused the daemon to fail startup, making Anna completely non-functional. All requests would fail with capability routing errors.
+
+**Root Cause:**
+The scheduler loop tries to run any "due" morning briefing tasks during startup. The morning briefing generates a PDF report with charts. The plotters library couldn't find/load fonts for chart text rendering, causing a panic that crashed the entire daemon.
+
+**The Fix:**
+- Temporarily disabled chart generation in PDF reports (uses text-only metrics summary instead)
+- PDF reports still work, just without the pretty charts
+- Daemon now starts successfully
+
+**TODO:** Fix the plotters font configuration and re-enable charts in a future release.
+
 ## [0.3.133] - 2026-02-06
 
 ### Fixed - CLI Plan Confirmation Flow

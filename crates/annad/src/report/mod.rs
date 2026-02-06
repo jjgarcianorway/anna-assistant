@@ -71,34 +71,21 @@ pub fn generate_pdf_report() -> Result<PathBuf, String> {
     doc.push(elements::Break::new(1.0));
 
     // 24-Hour Metrics Chart
-    let chart_path = PathBuf::from("/tmp/anna_metrics_chart.png");
-    if charts::render_metrics_chart(&chart_path).is_ok() {
+    // v0.3.134: Temporarily disabled due to font rendering crash
+    // TODO: Fix plotters font issue before re-enabling charts
+    // let chart_path = PathBuf::from("/tmp/anna_metrics_chart.png");
+    // if charts::render_metrics_chart(&chart_path).is_ok() {
+    //     ...
+    // }
+
+    // Fallback to text summary (always use this for now)
+    let metrics_summary = sections::generate_metrics_summary();
+    if !metrics_summary.is_empty() {
         doc.push(elements::Paragraph::new("24-Hour Trends")
             .styled(style::Style::new().bold().with_font_size(14)));
         doc.push(elements::Break::new(0.3));
-
-        // Try to embed the chart image
-        match elements::Image::from_path(&chart_path) {
-            Ok(img) => {
-                doc.push(img);
-            }
-            Err(e) => {
-                warn!("Failed to load chart image: {}", e);
-            }
-        }
-        // Clean up temp file
-        let _ = std::fs::remove_file(&chart_path);
-        doc.push(elements::Break::new(0.5));
-    } else {
-        // Fallback to text summary
-        let metrics_summary = sections::generate_metrics_summary();
-        if !metrics_summary.is_empty() {
-            doc.push(elements::Paragraph::new("24-Hour Trends")
-                .styled(style::Style::new().bold().with_font_size(14)));
-            doc.push(elements::Break::new(0.3));
-            doc.push(elements::Paragraph::new(&metrics_summary));
-            doc.push(elements::Break::new(1.0));
-        }
+        doc.push(elements::Paragraph::new(&metrics_summary));
+        doc.push(elements::Break::new(1.0));
     }
 
     // Software Updates
