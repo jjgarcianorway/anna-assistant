@@ -207,8 +207,25 @@ async fn handle_question_with_clarification(question: &str, _in_repl: bool, sess
                             && response.to_lowercase() != "quit"
                             && response.to_lowercase() != "exit"
                         {
-                            // Append clarification to original question
-                            current_question = format!("{} (Context: {})", question, response);
+                            // v0.3.133: Detect if this is a confirmation prompt (yes/no, proceed, etc.)
+                            // If so, send just the response - daemon is waiting for simple yes/no
+                            let is_confirmation = result.clarification_question
+                                .as_ref()
+                                .map(|q| {
+                                    let q_lower = q.to_lowercase();
+                                    q_lower.contains("yes") && q_lower.contains("no")
+                                        || q_lower.contains("proceed")
+                                        || q_lower.contains("confirm")
+                                })
+                                .unwrap_or(false);
+
+                            if is_confirmation {
+                                // Send just the user's response for confirmations
+                                current_question = response.to_string();
+                            } else {
+                                // For clarifications, append context to original question
+                                current_question = format!("{} (Context: {})", question, response);
+                            }
                             clarification_count += 1;
                             println!();
                             continue; // Re-submit with clarification

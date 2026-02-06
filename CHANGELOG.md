@@ -5,6 +5,40 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.133] - 2026-02-06
+
+### Fixed - CLI Plan Confirmation Flow
+
+**The Problem:**
+When Anna generated an action plan and asked for confirmation (e.g., "replace my boot manager with limine"), typing "yes" in the CLI would fail. Instead of executing the plan, it would re-process the input as a new question.
+
+**Root Cause:**
+The CLI's clarification handler was appending user responses to the original question:
+```
+User: "replace bootloader"
+Anna: "Proceed? (yes/no)"
+User: "yes"
+Sent to daemon: "replace bootloader (Context: yes)"  ← WRONG
+```
+
+The daemon's confirmation handler expects simple inputs like "yes", "no", "yeah", etc. It didn't recognize the reformatted string.
+
+**The Fix:**
+- CLI now detects confirmation prompts (containing "yes/no", "proceed", or "confirm")
+- For confirmations, sends just the user's response: `"yes"` not `"original question (Context: yes)"`
+- For actual clarifications, still appends context as before
+
+**Test Case:**
+```
+annactl "replace my boot manager with limine and support snapper"
+Anna: [Shows 8-step plan]
+      This requires elevated privileges. Proceed? (yes/no)
+User: yes
+Anna: Done.  ← NOW WORKS!
+```
+
+Telegram confirmation already worked - this fix brings CLI to parity.
+
 ## [0.3.132] - 2026-02-05
 
 ### Changed - Clean UI + Wiki Integration in Answers
