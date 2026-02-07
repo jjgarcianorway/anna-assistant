@@ -5,6 +5,60 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.147] - 2026-02-07
+
+### Fixed - CONFIG Detection in Criteria (CRITICAL)
+
+**The Bug:**
+v0.3.146 fixed CONFIG detection in `commands.rs`, but `criteria.rs` still classified short config requests like "update my system" as **Simple**, preventing the Ralph loop from running properly.
+
+**What Happened:**
+```
+User: "update my system"
+criteria.rs: len=16, no "?" → classify as Simple
+Ralph loop: Runs with Simple criteria (max 2 iterations, no grounding)
+Result: "doesn't match any known capability"
+CONFIG detection in commands.rs: Never reached
+```
+
+**Root Cause:**
+```rust
+// criteria.rs line 131 (OLD):
+if q.len() < 30 && !q.contains("?") {
+    return CompletionCriteria {
+        answer_type: AnswerType::Simple,  // ← Bypasses CONFIG!
+        max_iterations: 2,
+        requires_grounding: false,
+    };
+}
+```
+
+**The Fix:**
+Check CONFIG keywords in `criteria.rs` BEFORE Simple classification:
+```rust
+// v0.3.147: Check CONFIG keywords FIRST
+if config_keywords.iter().any(|kw| q.contains(kw)) {
+    return CompletionCriteria {
+        answer_type: AnswerType::Factual,  // Full Ralph loop
+        max_iterations: max_iter,          // Full iterations
+        requires_grounding: true,          // Investigation enabled
+    };
+}
+```
+
+**Impact:**
+- Short config requests no longer misclassified as Simple
+- "update my system" now runs full Ralph loop
+- CONFIG detection in commands.rs can now run
+- Both layers now check CONFIG keywords
+
+**Architecture:**
+CONFIG keywords must be checked in TWO places:
+1. `criteria.rs` - Before Ralph loop (prevents Simple misclassification)
+2. `commands.rs` - During Ralph loop (prioritizes over recipes)
+
+---
+
 ## [0.3.146] - 2026-02-07
 
 ### Fixed - Recipe Priority Bug (CRITICAL)

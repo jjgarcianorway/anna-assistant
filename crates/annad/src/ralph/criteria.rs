@@ -87,6 +87,31 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
     let readonly_max_iter = policy.readonly_max_iterations;
     let mutating_max_iter = policy.mutating_max_iterations;
 
+    // v0.3.147: Check for CONFIG keywords FIRST before any other classification
+    // This prevents short config requests like "update my system" from being classified as Simple
+    let config_keywords = [
+        "update", "upgrade", "reboot", "restart", "shutdown",
+        "install", "uninstall", "remove", "add",
+        "enable", "disable", "activate", "deactivate",
+        "configure", "setup", "migrate", "replace",
+        "set", "change", "apply", "modify",
+    ];
+
+    if config_keywords.iter().any(|kw| q.contains(kw)) {
+        // This is a configuration request - needs full Ralph loop with CONFIG detection
+        let max_iter = match intent_class {
+            IntentClass::ReadOnly => readonly_max_iter,
+            IntentClass::Mutating => mutating_max_iter,
+        };
+        return CompletionCriteria {
+            answer_type: AnswerType::Factual,  // Will be promoted to CONFIG in Ralph loop
+            min_confidence: 0.7,
+            max_iterations: max_iter,
+            requires_grounding: true,  // Needs investigation before plan
+            intent_class,
+        };
+    }
+
     // HowTo questions - instructions, don't need live output
     if q.contains("how do i")
         || q.contains("how to")
