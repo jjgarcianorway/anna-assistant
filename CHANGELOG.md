@@ -5,6 +5,27 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.152] - 2026-02-07
+
+### Fixed - Ollama Stability Under Load
+
+**Problem:** Tests 6 and 8 failed with Ollama 404 and timeout errors during heavy load
+- Test 6: "operation timed out"
+- Test 8: "404 Not Found"
+
+**Root Cause:** 404 errors were not treated as transient/retryable, causing immediate failure instead of retry
+
+**Fix:** Added 404 and 429 to transient error list
+- 404 = Model not loaded yet / endpoint temporarily unavailable
+- 429 = Rate limit (good to retry with backoff)
+
+**Impact:**
+- Ollama failures now retry automatically with exponential backoff
+- More resilient under heavy concurrent load
+- Addresses Test 6 and Test 8 failures from comparison testing
+
+**Existing retry logic:** Already had circuit breaker, memoization, and configurable retry with backoff. Just needed to recognize 404 as retryable.
+
 ## [0.3.151] - 2026-02-07
 
 ### Fixed - Three Critical Bugs from Comparison Testing

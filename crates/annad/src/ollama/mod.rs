@@ -88,6 +88,7 @@ fn record_failure() {
 }
 
 /// v0.0.923: Check if an error is transient and retryable
+/// v0.3.152: Added 404 (model not loaded yet) and 429 (rate limit)
 fn is_transient_error(error: &anyhow::Error) -> bool {
     let err_str = error.to_string().to_lowercase();
     // Network/timeout errors are transient
@@ -95,6 +96,8 @@ fn is_transient_error(error: &anyhow::Error) -> bool {
         || err_str.contains("connection")
         || err_str.contains("network")
         || err_str.contains("temporarily")
+        || err_str.contains("404")  // Model not loaded/endpoint unavailable
+        || err_str.contains("429")  // Rate limit
         || err_str.contains("503")  // Service unavailable
         || err_str.contains("502")  // Bad gateway
         || err_str.contains("504")  // Gateway timeout
