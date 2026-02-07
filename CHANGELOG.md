@@ -5,6 +5,56 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.145] - 2026-02-07
+
+### Fixed - CONFIG Trigger Keywords (CRITICAL)
+
+**The Bug:**
+Anna couldn't handle basic system commands like "update my system", "reboot", or "restart". She would say "doesn't match any known capability" instead of using the wiki-based protocol.
+
+**Root Cause:**
+The CONFIG trigger keywords in `ralph/commands.rs:124` were incomplete. Missing:
+- "update" ← System updates broken
+- "upgrade"
+- "reboot" ← Reboots broken
+- "restart"
+- "shutdown"
+- "apply"
+- "modify"
+- "add"
+- "remove"
+- "uninstall"
+- "activate"
+- "deactivate"
+
+**What Happened:**
+```
+User: "update my system"
+LLM: Checks keywords → No match → Returns "NONE"
+Anna: "This request does not match any known capability"
+Wiki protocol: Never runs
+```
+
+**The Fix:**
+Added all missing keywords to CONFIG triggers. Now:
+```
+User: "update my system"
+LLM: "update" matches → Returns "CONFIG"
+Anna: Searches Arch Wiki → Generates pacman plan → Presents → Executes
+```
+
+**Impact:**
+These now work through wiki-based protocol:
+- "update my system" → pacman -Syu plan
+- "reboot" → systemctl reboot plan
+- "restart bluetooth" → systemctl restart plan
+- "upgrade packages" → pacman plan
+- "add user to group" → usermod plan
+
+No hardcoding. Everything through Arch Wiki, telemetry, LLM intelligence.
+
+---
+
 ## [0.3.144] - 2026-02-06
 
 ### Fixed - Telegram System Commands (Critical)
