@@ -292,6 +292,136 @@ pub fn match_error_pattern(question: &str) -> Option<PatternMatch> {
         });
     }
 
+    // v0.3.154: Git initialization
+    if q.contains("git") && (q.contains("init") || q.contains("initialize") || q.contains("start") || q.contains("setup"))
+        && !q.contains("config") {
+        return Some(PatternMatch {
+            pattern_id: "git-init".to_string(),
+            confidence: 0.9,
+            answer: "To initialize a new Git repository:\n\n\
+                     `git init`\n\n\
+                     This creates a .git directory in the current folder.\n\
+                     After init, you typically:\n\
+                     1. `git add .` - Stage files\n\
+                     2. `git commit -m \"Initial commit\"` - Create first commit\n\
+                     3. `git remote add origin <url>` - Add remote (if needed)\n\
+                     4. `git push -u origin main` - Push to remote".to_string(),
+            commands: vec![
+                "git init".to_string(),
+            ],
+            auto_fixable: true,
+        });
+    }
+
+    // v0.3.154: SSH key generation
+    if q.contains("ssh") && (q.contains("key") || q.contains("keygen")) && (q.contains("generate") || q.contains("create") || q.contains("setup")) {
+        return Some(PatternMatch {
+            pattern_id: "ssh-keygen".to_string(),
+            confidence: 0.95,
+            answer: "To generate an SSH key pair:\n\n\
+                     `ssh-keygen -t ed25519 -C \"your_email@example.com\"`\n\n\
+                     Press Enter to accept default location (~/.ssh/id_ed25519)\n\
+                     Optionally set a passphrase for extra security.\n\n\
+                     To copy public key to clipboard:\n\
+                     `cat ~/.ssh/id_ed25519.pub`\n\n\
+                     Add this to GitHub/GitLab under Settings > SSH Keys.".to_string(),
+            commands: vec![
+                "ssh-keygen -t ed25519".to_string(),
+            ],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.154: File permissions - chmod
+    if q.contains("chmod") || (q.contains("permission") && (q.contains("755") || q.contains("644") || q.contains("executable"))) {
+        return Some(PatternMatch {
+            pattern_id: "chmod-permissions".to_string(),
+            confidence: 0.85,
+            answer: "Common file permission patterns:\n\n\
+                     **Executable script**: `chmod +x script.sh` or `chmod 755 script.sh`\n\
+                     **Regular file**: `chmod 644 file.txt` (owner read/write, others read)\n\
+                     **Private file**: `chmod 600 file.txt` (owner only)\n\
+                     **Directory**: `chmod 755 directory/` (owner all, others read/execute)\n\n\
+                     Format: chmod [user][group][others] where:\n\
+                     - 4 = read, 2 = write, 1 = execute\n\
+                     - Example: 755 = owner(7=4+2+1), group(5=4+1), others(5=4+1)".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.154: Systemd service control
+    if q.contains("systemctl") || (q.contains("service") && (q.contains("start") || q.contains("stop") || q.contains("enable") || q.contains("restart"))) {
+        return Some(PatternMatch {
+            pattern_id: "systemctl-service".to_string(),
+            confidence: 0.9,
+            answer: "Common systemd service commands:\n\n\
+                     **Start service**: `sudo systemctl start <service>`\n\
+                     **Stop service**: `sudo systemctl stop <service>`\n\
+                     **Restart service**: `sudo systemctl restart <service>`\n\
+                     **Enable on boot**: `sudo systemctl enable <service>`\n\
+                     **Disable on boot**: `sudo systemctl disable <service>`\n\
+                     **Check status**: `systemctl status <service>`\n\
+                     **View logs**: `journalctl -xeu <service>`\n\n\
+                     What service are you working with?".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.154: Finding files
+    if (q.contains("find") && q.contains("file")) || q.contains("locate") {
+        return Some(PatternMatch {
+            pattern_id: "find-files".to_string(),
+            confidence: 0.85,
+            answer: "To find files:\n\n\
+                     **By name**: `find /path -name \"filename\"`\n\
+                     **By pattern**: `find /path -name \"*.txt\"`\n\
+                     **By type**: `find /path -type f` (files) or `-type d` (directories)\n\
+                     **Modified recently**: `find /path -mtime -7` (last 7 days)\n\
+                     **By size**: `find /path -size +100M` (larger than 100MB)\n\n\
+                     **Fast alternative** (if locate DB exists):\n\
+                     `locate filename`\n\
+                     Update DB with: `sudo updatedb`".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.154: Grep/search in files
+    if (q.contains("grep") || q.contains("search")) && (q.contains("file") || q.contains("text") || q.contains("content")) {
+        return Some(PatternMatch {
+            pattern_id: "grep-search".to_string(),
+            confidence: 0.85,
+            answer: "To search text in files:\n\n\
+                     **Basic search**: `grep \"pattern\" file.txt`\n\
+                     **Recursive search**: `grep -r \"pattern\" /path`\n\
+                     **Case insensitive**: `grep -i \"pattern\" file.txt`\n\
+                     **Show line numbers**: `grep -n \"pattern\" file.txt`\n\
+                     **Show context**: `grep -C 3 \"pattern\" file.txt` (3 lines before/after)\n\n\
+                     **Fast alternative** (ripgrep):\n\
+                     `rg \"pattern\"` - searches current directory recursively".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.154: Tar archive operations
+    if q.contains("tar") && (q.contains("extract") || q.contains("compress") || q.contains("archive")) {
+        return Some(PatternMatch {
+            pattern_id: "tar-operations".to_string(),
+            confidence: 0.9,
+            answer: "Common tar operations:\n\n\
+                     **Extract .tar.gz**: `tar -xzf file.tar.gz`\n\
+                     **Extract .tar.xz**: `tar -xJf file.tar.xz`\n\
+                     **Create .tar.gz**: `tar -czf archive.tar.gz /path/to/files`\n\
+                     **List contents**: `tar -tzf file.tar.gz`\n\n\
+                     Flags: -x (extract), -c (create), -z (gzip), -J (xz), -f (file), -v (verbose)".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
     None
 }
 
@@ -359,5 +489,57 @@ mod tests {
         let result = match_error_pattern("how to create a bash alias");
         assert!(result.is_some());
         assert_eq!(result.unwrap().pattern_id, "bash-alias");
+    }
+
+    #[test]
+    fn test_git_init() {
+        let result = match_error_pattern("how do I initialize a git repository");
+        assert!(result.is_some());
+        let pm = result.unwrap();
+        assert_eq!(pm.pattern_id, "git-init");
+        assert!(pm.confidence >= 0.9);
+        assert!(pm.auto_fixable);
+    }
+
+    #[test]
+    fn test_ssh_keygen() {
+        let result = match_error_pattern("how to generate SSH keys");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "ssh-keygen");
+    }
+
+    #[test]
+    fn test_chmod_permissions() {
+        let result = match_error_pattern("chmod 755 permissions");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "chmod-permissions");
+    }
+
+    #[test]
+    fn test_systemctl_service() {
+        let result = match_error_pattern("how to start a service with systemctl");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "systemctl-service");
+    }
+
+    #[test]
+    fn test_find_files() {
+        let result = match_error_pattern("how to find files in Linux");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "find-files");
+    }
+
+    #[test]
+    fn test_grep_search() {
+        let result = match_error_pattern("how to search text in files using grep");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "grep-search");
+    }
+
+    #[test]
+    fn test_tar_operations() {
+        let result = match_error_pattern("how to extract tar.gz archive");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "tar-operations");
     }
 }

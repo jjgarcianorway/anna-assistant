@@ -5,6 +5,57 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.154] - 2026-02-07
+
+### Added - Expanded Pattern Library for Common Linux Tasks
+
+**Expansion:** Added 7 new patterns for frequently asked Linux administration questions
+
+**New Patterns:**
+1. **git-init** - Git repository initialization (confidence: 0.9)
+   - Detects: "git" + "init"/"initialize"/"start"/"setup"
+   - Provides: Complete git init workflow with first commit steps
+
+2. **ssh-keygen** - SSH key pair generation (confidence: 0.95)
+   - Detects: "ssh" + "key"/"keygen" + "generate"/"create"/"setup"
+   - Provides: Modern ed25519 key generation with GitHub/GitLab instructions
+
+3. **chmod-permissions** - File permissions guide (confidence: 0.85)
+   - Detects: "chmod" or "permission" + "755"/"644"/"executable"
+   - Provides: Common permission patterns with explanations
+
+4. **systemctl-service** - Systemd service control (confidence: 0.9)
+   - Detects: "systemctl" or "service" + "start"/"stop"/"enable"/"restart"
+   - Provides: Complete systemctl command reference
+
+5. **find-files** - File search operations (confidence: 0.85)
+   - Detects: "find" + "file" or "locate"
+   - Provides: find command patterns and locate alternative
+
+6. **grep-search** - Text search in files (confidence: 0.85)
+   - Detects: "grep"/"search" + "file"/"text"/"content"
+   - Provides: grep command patterns and ripgrep alternative
+
+7. **tar-operations** - Archive extraction/compression (confidence: 0.9)
+   - Detects: "tar" + "extract"/"compress"/"archive"
+   - Provides: Common tar operations for .tar.gz and .tar.xz files
+
+**Benefits:**
+- Instant answers for the most common Linux admin tasks
+- No LLM overhead for well-known operations
+- Comprehensive reference material in answers
+- Complements existing error patterns (WiFi, disk full, permissions, etc.)
+
+**Implementation:**
+- Total patterns now: 22 (12 error patterns + 3 config patterns + 7 new task patterns)
+- All patterns tested with unit tests (14 tests total)
+- Pattern library covers: errors, configuration, git, ssh, permissions, services, search, archives
+
+**Pattern Library Coverage:**
+- System errors: pacman-lock, disk-full, permission-denied, service-failed, wifi, audio, freeze, grub, nvidia, ssh-refused, docker, dns
+- Configuration: vim-syntax, vim-line-numbers, bash-alias
+- Common tasks: git-init, ssh-keygen, chmod-permissions, systemctl-service, find-files, grep-search, tar-operations
+
 ## [0.3.153] - 2026-02-07
 
 ### Added - Pattern Library for Common Configuration Tasks
