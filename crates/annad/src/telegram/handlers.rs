@@ -127,7 +127,10 @@ pub async fn handle_message(
         }
     });
 
-    let result = ralph::ralph_loop(&model, &question_with_context).await;
+    // v0.3.143: Use streaming version for wiki-based plan generation
+    // The streaming version has: wiki research, system investigation, verification loop
+    let mut buffer = Vec::new();
+    let result = ralph::ralph_loop_streaming(&model, &question_with_context, &mut buffer).await;
     typing_task.abort(); // Stop typing indicator
 
     match result {

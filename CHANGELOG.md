@@ -5,6 +5,45 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.144] - 2026-02-06
+
+### Fixed - Telegram System Commands (Critical)
+
+**The Problem:**
+Telegram couldn't execute system updates, reboots, or any configuration changes. It was using the old `ralph::ralph_loop` which only does diagnostic commands and text answers, not the wiki-based protocol with plan generation.
+
+**User Feedback:**
+"from telegram is not able to update my system or reboot it... again... cannot be as difficult... no hardcoding... follow the protocol we designed"
+
+**Root Cause:**
+- annactl uses `ralph_loop_streaming` → wiki research, system investigation, plan generation, verification
+- Telegram was using `ralph::ralph_loop` → old iteration loop, NO wiki, NO plans, NO execution
+
+This violated the core protocol:
+1. User question → Wiki lookup → Command extraction → System adaptation → Present → Approve → Execute
+
+**The Fix:**
+Changed Telegram handler to use `ralph_loop_streaming` (line 133 in `telegram/handlers.rs`):
+
+```rust
+// OLD (broken):
+let result = ralph::ralph_loop(&model, &question_with_context).await;
+
+// NEW (follows protocol):
+let mut buffer = Vec::new();
+let result = ralph::ralph_loop_streaming(&model, &question_with_context, &mut buffer).await;
+```
+
+**Impact:**
+Now Telegram follows the EXACT SAME protocol as annactl:
+- System updates: finds wiki article, adapts to your system, generates plan, asks for approval, executes
+- Reboot commands: generates proper action plan with verification
+- Any config change: wiki-based, system-adapted, verified
+
+No hardcoding. Everything through Arch Wiki, telemetry, and LLM intelligence.
+
+---
+
 ## [0.3.143] - 2026-02-06
 
 ### Fixed - Multi-Line Config File Creation
