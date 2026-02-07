@@ -244,6 +244,54 @@ pub fn match_error_pattern(question: &str) -> Option<PatternMatch> {
         });
     }
 
+    // v0.3.153: Common configuration patterns - vim syntax highlighting
+    if (q.contains("vim") || q.contains("vi")) && (q.contains("syntax") || q.contains("highlight")) {
+        return Some(PatternMatch {
+            pattern_id: "vim-syntax-highlighting".to_string(),
+            confidence: 0.95,
+            answer: "To enable syntax highlighting in Vim, add this to your ~/.vimrc:\n\n\
+                     `echo 'syntax on' >> ~/.vimrc`\n\n\
+                     This will be enabled for all future Vim sessions.\n\
+                     For the current session only, type `:syntax on` in Vim.".to_string(),
+            commands: vec![
+                "echo 'syntax on' >> ~/.vimrc".to_string(),
+            ],
+            auto_fixable: true,
+        });
+    }
+
+    // v0.3.153: Common configuration - vim line numbers
+    if (q.contains("vim") || q.contains("vi")) && q.contains("line number") {
+        return Some(PatternMatch {
+            pattern_id: "vim-line-numbers".to_string(),
+            confidence: 0.95,
+            answer: "To enable line numbers in Vim, add this to your ~/.vimrc:\n\n\
+                     `echo 'set number' >> ~/.vimrc`\n\n\
+                     For relative line numbers (useful for motions), use:\n\
+                     `echo 'set relativenumber' >> ~/.vimrc`".to_string(),
+            commands: vec![
+                "echo 'set number' >> ~/.vimrc".to_string(),
+            ],
+            auto_fixable: true,
+        });
+    }
+
+    // v0.3.153: Common configuration - bashrc aliases
+    if q.contains("bash") && (q.contains("alias") || q.contains("shortcut")) {
+        return Some(PatternMatch {
+            pattern_id: "bash-alias".to_string(),
+            confidence: 0.85,
+            answer: "To add a bash alias, add it to your ~/.bashrc:\n\n\
+                     Example: `echo \"alias ll='ls -lah'\" >> ~/.bashrc`\n\n\
+                     Then reload: `source ~/.bashrc`\n\n\
+                     What command do you want to create an alias for?".to_string(),
+            commands: vec![
+                "source ~/.bashrc".to_string(),
+            ],
+            auto_fixable: false,
+        });
+    }
+
     None
 }
 
@@ -287,5 +335,29 @@ mod tests {
     fn test_no_match() {
         let result = match_error_pattern("what is the capital of France");
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_vim_syntax_detection() {
+        let result = match_error_pattern("enable syntax highlighting on vim");
+        assert!(result.is_some());
+        let pm = result.unwrap();
+        assert_eq!(pm.pattern_id, "vim-syntax-highlighting");
+        assert!(pm.confidence > 0.9);
+        assert!(pm.auto_fixable);
+    }
+
+    #[test]
+    fn test_vim_line_numbers() {
+        let result = match_error_pattern("how do I show line numbers in vim");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "vim-line-numbers");
+    }
+
+    #[test]
+    fn test_bash_alias() {
+        let result = match_error_pattern("how to create a bash alias");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "bash-alias");
     }
 }

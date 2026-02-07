@@ -5,6 +5,31 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.153] - 2026-02-07
+
+### Added - Pattern Library for Common Configuration Tasks
+
+**Problem:** Test 3 - "enable syntax highlighting on vim" asked for clarification instead of providing instant answer
+
+**Fix:** Added pattern matching library for well-known configuration tasks
+- **vim-syntax-highlighting** - Detects "vim" + "syntax"/"highlight", provides ~/.vimrc configuration
+- **vim-line-numbers** - Detects "vim" + "line number", provides set number/relativenumber options
+- **bash-alias** - Detects "bash" + "alias"/"shortcut", provides ~/.bashrc alias creation example
+
+**Benefits:**
+- Instant answers without LLM overhead for common requests
+- High confidence (0.85-0.95) pattern matching
+- Auto-fixable with safe commands
+- Addresses Test 3's over-clarification behavior
+
+**Implementation:**
+- Added to `crates/anna-shared/src/patterns.rs`
+- Unit tests for all patterns
+- Follows existing pattern structure (pacman-lock, disk-full, wifi, etc.)
+
+**Test Results:**
+Vim syntax, vim line numbers, and bash alias patterns all pass unit tests with proper detection and answer formatting.
+
 ## [0.3.152] - 2026-02-07
 
 ### Fixed - Ollama Stability Under Load
