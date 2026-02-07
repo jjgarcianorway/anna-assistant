@@ -5,6 +5,85 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.146] - 2026-02-07
+
+### Fixed - Recipe Priority Bug (CRITICAL)
+
+**The Bug:**
+v0.3.145 added CONFIG keywords, but learned recipes bypassed them entirely. Anna used old diagnostic recipes instead of generating action plans.
+
+**What Happened:**
+```
+User: "update my system"
+Anna: Checks recipes FIRST → Found bad recipe → Returns diagnostic commands
+CONFIG detection: Never runs (bypassed)
+Result: Diagnostic answer about log errors instead of pacman plan
+```
+
+**Root Cause:**
+In `ralph/commands.rs:67`, recipes were checked before CONFIG keywords:
+```rust
+// OLD (broken):
+if let Some(commands) = check_recipes_for_commands(question) {
+    return Ok(NextAction::Commands(commands));  // Skips CONFIG!
+}
+```
+
+**The Fix:**
+Check CONFIG keywords BEFORE recipes:
+```rust
+// NEW (fixed):
+let has_config_keyword = config_keywords.iter().any(|kw| q_lower.contains(kw));
+
+if !has_config_keyword {  // Only check recipes if no CONFIG keyword
+    if let Some(commands) = check_recipes_for_commands(question) {
+        return Ok(NextAction::Commands(commands));
+    }
+}
+```
+
+**Impact:**
+- System commands now work even with learned recipes present
+- CONFIG keywords take priority over recipe lookups
+- "update my system" now generates action plan, not diagnostic
+
+---
+
+### Fixed - --session Flag Parsing
+
+**The Bug:**
+Test script used `annactl --session test1 "question"` but annactl joined ALL arguments, polluting the question.
+
+**What Happened:**
+```
+Command: annactl --session test1 "enable vim syntax"
+annactl: Joins all args → "--session test1 enable vim syntax"
+LLM: Receives polluted question → Confused → Asks for clarification
+```
+
+**The Fix:**
+Properly parse `--session` as a flag in `annactl/main.rs:331`:
+```rust
+// Parse --session flag separately
+let mut i = 1;
+while i < args.len() {
+    if args[i] == "--session" && i + 1 < args.len() {
+        session_id = args[i + 1].clone();
+        i += 2;
+    } else {
+        question_parts.push(args[i].clone());
+        i += 1;
+    }
+}
+```
+
+**Impact:**
+- `annactl --session ID "question"` now works correctly
+- Question text no longer polluted with flag syntax
+- Test scripts can use unique sessions without breaking
+
+---
+
 ## [0.3.145] - 2026-02-07
 
 ### Fixed - CONFIG Trigger Keywords (CRITICAL)

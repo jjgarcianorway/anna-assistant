@@ -55,6 +55,7 @@ pub enum NextAction {
 /// Get commands to run for answering the question.
 /// May also detect config requests and return NextAction::Config.
 /// v0.3.111: Checks learned recipes first for faster response.
+/// v0.3.146: Check CONFIG keywords BEFORE recipes to prevent bypass.
 pub async fn get_next_action(
     model: &str,
     question: &str,
@@ -62,8 +63,21 @@ pub async fn get_next_action(
 ) -> Result<NextAction> {
     use crate::llm_core::prompts::system_context;
 
-    // v0.3.111: Check recipes first for learned patterns
-    if state.commands.is_empty() {
+    // v0.3.146: Quick keyword check for CONFIG requests BEFORE recipes
+    // This prevents learned recipes from bypassing system configuration detection
+    let q_lower = question.to_lowercase();
+    let config_keywords = [
+        "update", "upgrade", "reboot", "restart", "shutdown",
+        "install", "uninstall", "remove", "add",
+        "enable", "disable", "activate", "deactivate",
+        "configure", "setup", "migrate", "replace",
+        "set", "change", "apply", "modify",
+    ];
+
+    let has_config_keyword = config_keywords.iter().any(|kw| q_lower.contains(kw));
+
+    // v0.3.111: Check recipes only if no CONFIG keyword present
+    if state.commands.is_empty() && !has_config_keyword {
         if let Some(commands) = check_recipes_for_commands(question) {
             tracing::info!("Using {} commands from learned recipe", commands.len());
             return Ok(NextAction::Commands(commands));

@@ -164,11 +164,9 @@ fn show_reset_help() {
 }
 
 /// Handle a question with clarification loop
-async fn handle_question(question: &str) {
-    // v0.0.994: Use stable session ID for non-interactive mode
-    // This allows pending autofixes to persist between CLI calls
-    let session_id = "cli".to_string();
-    handle_question_with_clarification(question, false, &session_id).await;
+/// v0.3.146: Accept session_id parameter for proper --session flag support
+async fn handle_question(question: &str, session_id: &str) {
+    handle_question_with_clarification(question, false, session_id).await;
 }
 
 /// Handle a question with clarification support.
@@ -330,7 +328,22 @@ async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() > 1 {
-        let cmd = args[1..].join(" ");
+        // v0.3.146: Parse --session flag properly instead of joining everything
+        let mut session_id = "cli".to_string();
+        let mut question_parts = Vec::new();
+
+        let mut i = 1;
+        while i < args.len() {
+            if args[i] == "--session" && i + 1 < args.len() {
+                session_id = args[i + 1].clone();
+                i += 2;
+            } else {
+                question_parts.push(args[i].clone());
+                i += 1;
+            }
+        }
+
+        let cmd = question_parts.join(" ");
 
         // Handle only essential commands - everything else is natural language
         match cmd.to_lowercase().as_str() {
@@ -360,7 +373,7 @@ async fn main() -> Result<()> {
             }
             _ => {
                 // Everything else is a question - handle it naturally
-                handle_question(&cmd).await;
+                handle_question(&cmd, &session_id).await;
             }
         }
     } else {
