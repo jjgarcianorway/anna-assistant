@@ -76,6 +76,12 @@ pub async fn get_next_action(
 
     let has_config_keyword = config_keywords.iter().any(|kw| q_lower.contains(kw));
 
+    // v0.3.148: If CONFIG keyword detected, return CONFIG immediately (no LLM needed!)
+    if has_config_keyword && state.commands.is_empty() {
+        tracing::info!("CONFIG keyword detected in '{}', skipping LLM classification", question);
+        return Ok(NextAction::Config);
+    }
+
     // v0.3.111: Check recipes only if no CONFIG keyword present
     if state.commands.is_empty() && !has_config_keyword {
         if let Some(commands) = check_recipes_for_commands(question) {

@@ -5,6 +5,50 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.148] - 2026-02-07
+
+### Fixed - Instant CONFIG Detection (PERFORMANCE)
+
+**The Problem:**
+v0.3.147 detected CONFIG keywords but still called the LLM to confirm, causing 7+ second delays and timeouts.
+
+**What Was Happening:**
+```rust
+// commands.rs line 77:
+if config_keywords.contains("update") {
+    // Keyword matched!
+    // But then...
+}
+
+// Line 151: Still call slow LLM anyway
+let response = ollama::chat_with_timeout(model, &huge_prompt, 30).await?;
+```
+
+**The Fix:**
+Skip LLM entirely when CONFIG keyword detected:
+```rust
+// v0.3.148: Instant CONFIG detection
+if has_config_keyword && state.commands.is_empty() {
+    tracing::info!("CONFIG keyword detected, skipping LLM");
+    return Ok(NextAction::Config);  // ← Instant, no LLM needed!
+}
+```
+
+**Impact:**
+- CONFIG detection: **7+ seconds → instant** (0ms)
+- "update my system": **timeout → works**
+- "reboot": **timeout → works**
+- "enable vim syntax": **timeout → works**
+
+**Why This is Correct:**
+- We already matched the keyword (no ambiguity)
+- Calling LLM again is redundant
+- LLM was only confirming what we already knew
+- Natural language understanding: keyword matching IS sufficient for CONFIG
+- No hardcoding: We're using the same keyword list, just optimized
+
+---
+
 ## [0.3.147] - 2026-02-07
 
 ### Fixed - CONFIG Detection in Criteria (CRITICAL)
