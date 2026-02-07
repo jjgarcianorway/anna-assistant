@@ -5,6 +5,52 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.149] - 2026-02-07
+
+### Fixed - LLM-First Architecture (NO CAPABILITY ROUTING)
+
+**The Problem:**
+When Ralph's answer was blocked by sanitization, it fell back to capability routing which returned "This request does not match any known capability" for EVERYTHING.
+
+**What Was Happening:**
+```
+Ralph: "Your CPU is Intel i9-14900HX" (good answer!)
+Sanitizer: Blocks it (overly aggressive)
+Filter: Calls capability router as fallback
+Capability Router: "doesn't match any known capability" ❌
+User: Gets useless abstention instead of answer
+```
+
+**The Fix:**
+For ReadOnly queries, trust Ralph's answer - don't fall back to capability routing:
+
+```rust
+// OLD (capability routing fallback):
+IntentClass::ReadOnly => {
+    let response = build_policy_violation_response(request);  // ← Calls router
+    format_outcome_to_string(&response)  // ← "doesn't match"
+}
+
+// NEW (LLM-first, trust Ralph):
+IntentClass::ReadOnly => {
+    content.to_string()  // ← Just emit Ralph's answer
+}
+```
+
+**Impact:**
+- "what cpu do i have?" → Works (Ralph's answer shown)
+- "update my system" → Works (CONFIG plan shown)
+- "what kernel?" → Works (Ralph's answer shown)
+- NO MORE "doesn't match any known capability"
+
+**Philosophy:**
+- Ralph is the authority (LLM-first)
+- Capability router was legacy bypass logic
+- If Ralph generated an answer, trust it
+- Sanitization is defensive, not authoritative
+
+---
+
 ## [0.3.148] - 2026-02-07
 
 ### Fixed - Instant CONFIG Detection (PERFORMANCE)

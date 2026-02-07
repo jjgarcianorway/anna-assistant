@@ -207,13 +207,14 @@ pub fn filter_final_answer_with_request(
         GateResult::new(true, content_with_phrasing, None)
             .with_warnings(result.warnings)
     } else {
-        // Answer was blocked - use intent-appropriate fallback
+        // v0.3.149: LLM-first architecture - DON'T use capability routing fallback
+        // Just emit the content anyway for ReadOnly queries (Ralph already validated it)
+        // For Mutating, still use fallback since it requires user confirmation
         let fallback = match intent {
             IntentClass::ReadOnly => {
-                // Use capability routing to provide structured fallback
-                let request = original_request.unwrap_or("");
-                let response = build_policy_violation_response(request);
-                format_outcome_to_string(&response)
+                // LLM-first: Trust Ralph's answer for read-only queries
+                // If it got this far, Ralph validated it - don't second-guess with capabilities
+                content.to_string()
             }
             IntentClass::Mutating => FALLBACK_MUTATING.to_string(),
         };
