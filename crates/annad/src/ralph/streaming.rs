@@ -1064,10 +1064,21 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
         push_and_send(writer, dialogue, StepType::InvestigationProbe,
             "Refining plan based on verification feedback...".to_string(), gate).await?;
 
-        plan = regenerate_plan_with_feedback(
+        // v0.3.151: Graceful fallback if regeneration fails
+        match regenerate_plan_with_feedback(
             model, question, wiki_research, system_state,
             &verification_result, writer, gate
-        ).await?;
+        ).await {
+            Ok(new_plan) => {
+                plan = new_plan;
+            }
+            Err(e) => {
+                warn!("Plan regeneration failed: {}. Using previous plan.", e);
+                push_and_send(writer, dialogue, StepType::InvestigationProbe,
+                    "⚠ Could not refine plan further. Using current version.".to_string(), gate).await?;
+                break;  // Exit loop, use current plan
+            }
+        }
     }
 
     let risk = assess_plan_risk(&plan);

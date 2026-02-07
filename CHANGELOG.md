@@ -5,6 +5,28 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.151] - 2026-02-07
+
+### Fixed - Three Critical Bugs from Comparison Testing
+
+**1. Plan Generation Crash (P0)**
+- **Problem:** When plan verification found issues, regeneration could fail with "Could not regenerate plan with feedback", crashing the entire request
+- **Fix:** Graceful fallback - if regeneration fails, use the previous plan instead of crashing
+- **Impact:** Anna now resilient to LLM parsing failures during verification loop
+
+**2. Schedule Keyword Missing (P1)**
+- **Problem:** "schedule daily system health reports at 8am" gave current status instead of creating a timer
+- **Fix:** Added "schedule", "cron", "timer", "automate" to CONFIG keywords in both criteria.rs and commands.rs
+- **Impact:** Scheduling requests now properly trigger action plan generation
+
+**3. Analytical Questions Misclassified as CONFIG (P1)**
+- **Problem:** "has my hardware changed since last month?" treated as configuration request, asked for clarification
+- **Fix:** Added analytical pattern detection - questions with "has/did/when/why + changed" are informational, not config
+- **Impact:** Historical and analytical queries now work correctly, no unnecessary clarification
+
+**Test Results:**
+These fixes address 3 of 7 failures found in Claude vs Anna comparison testing (Test 4, 7, 9).
+
 ## [0.3.150] - 2026-02-07
 
 ### Fixed - Critical Session Isolation Bug

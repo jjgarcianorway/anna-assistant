@@ -66,15 +66,29 @@ pub async fn get_next_action(
     // v0.3.146: Quick keyword check for CONFIG requests BEFORE recipes
     // This prevents learned recipes from bypassing system configuration detection
     let q_lower = question.to_lowercase();
+
+    // v0.3.151: Check if this is an analytical question (NOT a config request)
+    let analytical_patterns = [
+        ("has", "changed"), ("has", "been"), ("did", "change"),
+        ("when", "changed"), ("why", "changed"), ("what", "changed"),
+        ("how has", "changed"), ("how did", "change"),
+    ];
+
+    let is_analytical = analytical_patterns.iter().any(|(prefix, suffix)| {
+        q_lower.contains(prefix) && q_lower.contains(suffix)
+    }) || (q_lower.starts_with("has ") || q_lower.starts_with("did ") || q_lower.starts_with("when ") || q_lower.starts_with("why "));
+
+    // v0.3.151: Added "schedule", "cron", "timer", "automate" for scheduling tasks
     let config_keywords = [
         "update", "upgrade", "reboot", "restart", "shutdown",
         "install", "uninstall", "remove", "add",
         "enable", "disable", "activate", "deactivate",
         "configure", "setup", "migrate", "replace",
         "set", "change", "apply", "modify",
+        "schedule", "cron", "timer", "automate",
     ];
 
-    let has_config_keyword = config_keywords.iter().any(|kw| q_lower.contains(kw));
+    let has_config_keyword = !is_analytical && config_keywords.iter().any(|kw| q_lower.contains(kw));
 
     // v0.3.148: If CONFIG keyword detected, return CONFIG immediately (no LLM needed!)
     if has_config_keyword && state.commands.is_empty() {

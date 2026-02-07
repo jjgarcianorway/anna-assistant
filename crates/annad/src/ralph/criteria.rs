@@ -87,17 +87,32 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
     let readonly_max_iter = policy.readonly_max_iterations;
     let mutating_max_iter = policy.mutating_max_iterations;
 
+    // v0.3.151: FIRST check if this is an analytical question (NOT a config request)
+    // These patterns indicate information queries, not configuration actions
+    let analytical_patterns = [
+        ("has", "changed"), ("has", "been"), ("did", "change"),
+        ("when", "changed"), ("why", "changed"), ("what", "changed"),
+        ("how has", "changed"), ("how did", "change"),
+    ];
+
+    let is_analytical = analytical_patterns.iter().any(|(prefix, suffix)| {
+        q.contains(prefix) && q.contains(suffix)
+    }) || (q.starts_with("has ") || q.starts_with("did ") || q.starts_with("when ") || q.starts_with("why "));
+
     // v0.3.147: Check for CONFIG keywords FIRST before any other classification
     // This prevents short config requests like "update my system" from being classified as Simple
+    // v0.3.151: Added "schedule", "cron", "timer", "automate" for scheduling tasks
+    // v0.3.151: Skip CONFIG if analytical question (e.g., "has X changed?")
     let config_keywords = [
         "update", "upgrade", "reboot", "restart", "shutdown",
         "install", "uninstall", "remove", "add",
         "enable", "disable", "activate", "deactivate",
         "configure", "setup", "migrate", "replace",
         "set", "change", "apply", "modify",
+        "schedule", "cron", "timer", "automate",
     ];
 
-    if config_keywords.iter().any(|kw| q.contains(kw)) {
+    if !is_analytical && config_keywords.iter().any(|kw| q.contains(kw)) {
         // This is a configuration request - needs full Ralph loop with CONFIG detection
         let max_iter = match intent_class {
             IntentClass::ReadOnly => readonly_max_iter,
