@@ -28,6 +28,7 @@ use super::verification::{truncate, verify_answer};
 pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
+    session_id: &str,
     writer: &mut W,
 ) -> Result<AskResult> {
     let gate = ExposureGate::from_config();
@@ -74,7 +75,7 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     }
 
     // All other questions go through the full loop
-    run_full_loop_streaming(model, question, writer, &gate).await
+    run_full_loop_streaming(model, question, session_id, writer, &gate).await
 }
 
 /// Handle "remind me in X" requests directly.
@@ -428,6 +429,7 @@ async fn handle_multi_agent_query<W: tokio::io::AsyncWriteExt + Unpin>(
 async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
+    session_id: &str,
     writer: &mut W,
     gate: &ExposureGate,
 ) -> Result<AskResult> {
@@ -534,7 +536,7 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             push_and_send(writer, &mut dialogue, StepType::InvestigationProbe,
                 format!("System investigation complete. Generating plan with real values..."), gate).await?;
 
-            return handle_config_request_with_research(model, question, &wiki_research, &system_state, writer, gate, &mut dialogue).await;
+            return handle_config_request_with_research(model, question, session_id, &wiki_research, &system_state, writer, gate, &mut dialogue).await;
         }
 
         let commands = match next_action {
@@ -942,6 +944,7 @@ async fn regenerate_plan_with_feedback<W: tokio::io::AsyncWriteExt + Unpin>(
 async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin>(
     model: &str,
     question: &str,
+    session_id: &str,
     wiki_research: &str,
     system_state: &str,
     writer: &mut W,
@@ -1133,7 +1136,7 @@ async fn handle_config_request_with_research<W: tokio::io::AsyncWriteExt + Unpin
             push_and_send(writer, dialogue, StepType::FinalAnswer, answer.clone(), gate).await?;
 
             // Store plan for confirmation flow
-            crate::plan_executor::set_pending_plan("default", plan);
+            crate::plan_executor::set_pending_plan(session_id, plan);
 
             let result = AskResult {
                 answer,

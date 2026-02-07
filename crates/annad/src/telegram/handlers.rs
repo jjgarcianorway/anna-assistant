@@ -129,8 +129,10 @@ pub async fn handle_message(
 
     // v0.3.143: Use streaming version for wiki-based plan generation
     // The streaming version has: wiki research, system investigation, verification loop
+    // v0.3.150: Pass chat_id as session_id for proper session isolation
     let mut buffer = Vec::new();
-    let result = ralph::ralph_loop_streaming(&model, &question_with_context, &mut buffer).await;
+    let session_id = format!("telegram_{}", chat_id.0);
+    let result = ralph::ralph_loop_streaming(&model, &question_with_context, &session_id, &mut buffer).await;
     typing_task.abort(); // Stop typing indicator
 
     match result {
@@ -145,7 +147,9 @@ pub async fn handle_message(
             // v0.3.119: Fixed - only ask for confirmation if there's an actual plan
             // needs_clarification means low confidence, NOT action plan confirmation
             // Check if there's a pending action plan that needs confirmation
-            let has_pending_plan = crate::plan_executor::has_pending_plan("default");
+            // v0.3.150: Use chat_id as session_id
+            let session_id = format!("telegram_{}", chat_id.0);
+            let has_pending_plan = crate::plan_executor::has_pending_plan(&session_id);
 
             if has_pending_plan {
                 // Real action plan needs confirmation
@@ -192,9 +196,12 @@ async fn handle_confirmation(
         confirms.remove(&chat_id.0);
     }
 
+    // v0.3.150: Use chat_id as session_id
+    let session_id = format!("telegram_{}", chat_id.0);
+
     // Check for pending plan in executor
     if confirmed {
-        if let Some(plan) = crate::plan_executor::take_pending_plan("default") {
+        if let Some(plan) = crate::plan_executor::take_pending_plan(&session_id) {
             bot.send_message(chat_id, "Executing plan...").await?;
             bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await?;
 
@@ -213,7 +220,7 @@ async fn handle_confirmation(
         }
     } else {
         // Cancel - remove the pending plan if any
-        let had_plan = crate::plan_executor::take_pending_plan("default").is_some();
+        let had_plan = crate::plan_executor::take_pending_plan(&session_id).is_some();
         if had_plan {
             bot.send_message(chat_id, "Cancelled.").await?;
         } else {

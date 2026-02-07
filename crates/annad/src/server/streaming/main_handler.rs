@@ -233,12 +233,12 @@ pub async fn handle_main_question(
         } else {
             // Single domain - use normal Ralph loop
             info!("Ralph loop for question: {} (model: {})", question, effective_model);
-            ralph::ralph_loop_streaming(&effective_model, question, writer).await
+            ralph::ralph_loop_streaming(&effective_model, question, session_id, writer).await
         }
     } else {
         // No config - use normal Ralph loop
         info!("Ralph loop for question: {} (model: {})", question, effective_model);
-        ralph::ralph_loop_streaming(&effective_model, question, writer).await
+        ralph::ralph_loop_streaming(&effective_model, question, session_id, writer).await
     };
 
     // v0.0.892: Record full turn to session after execution

@@ -5,6 +5,31 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.150] - 2026-02-07
+
+### Fixed - Critical Session Isolation Bug
+
+**The Problem:**
+ALL pending plans were stored with session ID "default", causing cross-session contamination. Test 10 asked to customize a report but received Test 5's bootloader replacement plan!
+
+**Root Cause:**
+```rust
+// BUG: Hardcoded "default" session_id
+crate::plan_executor::set_pending_plan("default", plan);
+```
+
+**The Fix:**
+- Added `session_id` parameter to `ralph_loop_streaming`
+- Added `session_id` parameter to `run_full_loop_streaming`
+- Added `session_id` parameter to `handle_config_request_with_research`
+- Telegram now uses `format!("telegram_{}", chat_id.0)` as session_id
+- All plans now correctly stored per actual session
+
+**Impact:**
+- Each session (CLI, TUI, Telegram chat) now has isolated pending plans
+- No more dangerous plan leakage between sessions
+- Fixes P0 blocker found in comparison testing
+
 ## [0.3.149] - 2026-02-07
 
 ### Fixed - LLM-First Architecture (NO CAPABILITY ROUTING)
