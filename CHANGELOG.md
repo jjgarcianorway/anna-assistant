@@ -5,6 +5,48 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.155] - 2026-02-07
+
+### Added - System Administration Pattern Library
+
+**Expansion:** Added 6 critical system administration patterns, bringing total to 28 patterns
+
+**New Patterns:**
+1. **network-troubleshooting** - Network connectivity debugging (confidence: 0.85)
+   - Detects: "network"/"internet"/"connection" + "troubleshoot"/"debug"/"test"
+   - Provides: Comprehensive network troubleshooting (ping, traceroute, ip, ss, dns)
+
+2. **disk-usage** - Disk space analysis and cleanup (confidence: 0.9)
+   - Detects: "disk" + "usage"/"space"/"full" or "du"/"df"
+   - Provides: Disk usage tools (df, du, ncdu) + cleanup strategies
+
+3. **process-management** - Process control and monitoring (confidence: 0.85)
+   - Detects: "process"/"kill"/"htop"/"ps"
+   - Provides: Process management (ps, htop, kill, pgrep, resource monitoring)
+
+4. **log-viewing** - System log access (confidence: 0.9)
+   - Detects: "log" + "view"/"read"/"check"/"journalctl"
+   - Provides: journalctl commands and /var/log access
+
+5. **user-management** - User and group administration (confidence: 0.85)
+   - Detects: "user"/"group" + "add"/"create"/"delete"/"modify"
+   - Provides: useradd, userdel, usermod, groupadd commands
+
+6. **pacman-usage** - Arch package management (confidence: 0.9)
+   - Detects: "package"/"pacman"/"yay" + "install"/"remove"/"search"/"update"
+   - Provides: Complete pacman and yay command reference
+
+**Pattern Library Coverage (28 total):**
+- **Error patterns (12)**: pacman-lock, disk-full, permission-denied, service-failed, wifi, audio, freeze, grub, nvidia, ssh-refused, docker, dns
+- **Config patterns (3)**: vim-syntax, vim-line-numbers, bash-alias
+- **Task patterns (13)**: git-init, ssh-keygen, chmod-permissions, systemctl-service, find-files, grep-search, tar-operations, network-troubleshooting, disk-usage, process-management, log-viewing, user-management, pacman-usage
+
+**Benefits:**
+- Comprehensive coverage of common Linux admin tasks
+- Instant, accurate answers without LLM overhead
+- Reduces clarification requests for well-known operations
+- Complements LLM-based reasoning for complex scenarios
+
 ## [0.3.154] - 2026-02-07
 
 ### Added - Expanded Pattern Library for Common Linux Tasks

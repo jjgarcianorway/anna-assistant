@@ -422,6 +422,146 @@ pub fn match_error_pattern(question: &str) -> Option<PatternMatch> {
         });
     }
 
+    // v0.3.155: Network troubleshooting
+    if (q.contains("network") || q.contains("internet") || q.contains("connection"))
+        && (q.contains("troubleshoot") || q.contains("debug") || q.contains("test") || q.contains("check")) {
+        return Some(PatternMatch {
+            pattern_id: "network-troubleshooting".to_string(),
+            confidence: 0.85,
+            answer: "Network troubleshooting steps:\n\n\
+                     **Test connectivity**: `ping 8.8.8.8` (Google DNS)\n\
+                     **Test DNS**: `ping google.com`\n\
+                     **Trace route**: `traceroute google.com`\n\
+                     **Check interfaces**: `ip addr show` or `ip link show`\n\
+                     **Check routes**: `ip route show`\n\
+                     **Test ports**: `nc -zv hostname port` or `telnet hostname port`\n\
+                     **Check listening ports**: `ss -tulpn` or `netstat -tulpn`\n\n\
+                     **DNS troubleshooting**: `nslookup google.com` or `dig google.com`".to_string(),
+            commands: vec![
+                "ping -c 4 8.8.8.8".to_string(),
+                "ip addr show".to_string(),
+            ],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.155: Disk usage analysis
+    if (q.contains("disk") && (q.contains("usage") || q.contains("space") || q.contains("full")))
+        || q.contains("du ") || q.contains("df ") {
+        return Some(PatternMatch {
+            pattern_id: "disk-usage".to_string(),
+            confidence: 0.9,
+            answer: "Disk usage analysis:\n\n\
+                     **Overall disk usage**: `df -h` (human-readable)\n\
+                     **Directory sizes**: `du -sh *` (current directory)\n\
+                     **Largest directories**: `du -h --max-depth=1 / 2>/dev/null | sort -hr | head -10`\n\
+                     **Largest files**: `find / -type f -size +100M 2>/dev/null`\n\
+                     **Disk usage by directory**: `ncdu /` (interactive, install if needed)\n\n\
+                     **Free up space**:\n\
+                     - Clean package cache: `sudo paccache -rk1`\n\
+                     - Clean journal logs: `sudo journalctl --vacuum-time=7d`\n\
+                     - Remove orphan packages: `sudo pacman -Rns $(pacman -Qdtq)`".to_string(),
+            commands: vec![
+                "df -h".to_string(),
+                "du -sh /* 2>/dev/null | sort -hr | head -10".to_string(),
+            ],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.155: Process management
+    if (q.contains("process") || q.contains("kill") || q.contains("htop") || q.contains("ps "))
+        && !q.contains("processor") {
+        return Some(PatternMatch {
+            pattern_id: "process-management".to_string(),
+            confidence: 0.85,
+            answer: "Process management commands:\n\n\
+                     **List processes**: `ps aux` or `ps -ef`\n\
+                     **Interactive monitor**: `htop` or `top`\n\
+                     **Find process**: `pgrep -a firefox` or `ps aux | grep firefox`\n\
+                     **Kill process**: `kill <PID>` or `killall firefox`\n\
+                     **Force kill**: `kill -9 <PID>` or `killall -9 firefox`\n\
+                     **Process tree**: `pstree -p`\n\n\
+                     **Resource usage**:\n\
+                     - CPU usage: `top -o %CPU`\n\
+                     - Memory usage: `top -o %MEM`\n\
+                     - By user: `ps -u username`".to_string(),
+            commands: vec![
+                "ps aux".to_string(),
+            ],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.155: Log viewing
+    if q.contains("log") && (q.contains("view") || q.contains("read") || q.contains("check") || q.contains("journalctl")) {
+        return Some(PatternMatch {
+            pattern_id: "log-viewing".to_string(),
+            confidence: 0.9,
+            answer: "Viewing system logs:\n\n\
+                     **System logs** (systemd/journalctl):\n\
+                     - Recent logs: `journalctl -xe`\n\
+                     - Follow logs: `journalctl -f`\n\
+                     - Service logs: `journalctl -xeu <service>`\n\
+                     - Boot logs: `journalctl -b` (current boot) or `journalctl -b -1` (previous)\n\
+                     - Time range: `journalctl --since \"1 hour ago\"`\n\
+                     - Priority: `journalctl -p err` (errors only)\n\n\
+                     **Traditional logs** (/var/log):\n\
+                     - View file: `less /var/log/syslog`\n\
+                     - Follow file: `tail -f /var/log/syslog`\n\
+                     - Last N lines: `tail -n 50 /var/log/syslog`".to_string(),
+            commands: vec![
+                "journalctl -xe".to_string(),
+            ],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.155: User/group management
+    if (q.contains("user") || q.contains("group"))
+        && (q.contains("add") || q.contains("create") || q.contains("delete") || q.contains("modify")) {
+        return Some(PatternMatch {
+            pattern_id: "user-management".to_string(),
+            confidence: 0.85,
+            answer: "User and group management:\n\n\
+                     **User operations**:\n\
+                     - Add user: `sudo useradd -m username`\n\
+                     - Set password: `sudo passwd username`\n\
+                     - Delete user: `sudo userdel username` or `sudo userdel -r username` (with home)\n\
+                     - Modify user: `sudo usermod -aG groupname username` (add to group)\n\
+                     - List users: `cat /etc/passwd` or `getent passwd`\n\n\
+                     **Group operations**:\n\
+                     - Add group: `sudo groupadd groupname`\n\
+                     - Delete group: `sudo groupdel groupname`\n\
+                     - List groups: `cat /etc/group` or `getent group`\n\
+                     - User groups: `groups username`".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
+    // v0.3.155: Package management (Arch/pacman)
+    if (q.contains("package") || q.contains("pacman") || q.contains("yay"))
+        && (q.contains("install") || q.contains("remove") || q.contains("search") || q.contains("update")) {
+        return Some(PatternMatch {
+            pattern_id: "pacman-usage".to_string(),
+            confidence: 0.9,
+            answer: "Pacman package management:\n\n\
+                     **Install packages**: `sudo pacman -S package`\n\
+                     **Remove package**: `sudo pacman -R package` or `sudo pacman -Rns package` (with deps)\n\
+                     **Update system**: `sudo pacman -Syu`\n\
+                     **Search packages**: `pacman -Ss keyword` or `yay -Ss keyword` (AUR)\n\
+                     **Query installed**: `pacman -Q` or `pacman -Qi package` (info)\n\
+                     **Clean cache**: `sudo paccache -rk1` (keep 1 version)\n\
+                     **List files**: `pacman -Ql package`\n\n\
+                     **AUR helper** (yay):\n\
+                     - Install AUR: `yay -S package`\n\
+                     - Update all: `yay -Syu`".to_string(),
+            commands: vec![],
+            auto_fixable: false,
+        });
+    }
+
     None
 }
 
@@ -541,5 +681,47 @@ mod tests {
         let result = match_error_pattern("how to extract tar.gz archive");
         assert!(result.is_some());
         assert_eq!(result.unwrap().pattern_id, "tar-operations");
+    }
+
+    #[test]
+    fn test_network_troubleshooting() {
+        let result = match_error_pattern("how to troubleshoot network connection");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "network-troubleshooting");
+    }
+
+    #[test]
+    fn test_disk_usage() {
+        let result = match_error_pattern("check disk usage and space");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "disk-usage");
+    }
+
+    #[test]
+    fn test_process_management() {
+        let result = match_error_pattern("how to kill a process");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "process-management");
+    }
+
+    #[test]
+    fn test_log_viewing() {
+        let result = match_error_pattern("how to view system logs with journalctl");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "log-viewing");
+    }
+
+    #[test]
+    fn test_user_management() {
+        let result = match_error_pattern("how to add a user");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "user-management");
+    }
+
+    #[test]
+    fn test_pacman_usage() {
+        let result = match_error_pattern("how to install package with pacman");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().pattern_id, "pacman-usage");
     }
 }
