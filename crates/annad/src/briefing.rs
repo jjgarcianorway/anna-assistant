@@ -402,6 +402,36 @@ pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<Str
 
 Analyze the system telemetry below and create a natural, conversational briefing.
 
+INTELLIGENCE PRIORITIES (CRITICAL - READ FIRST):
+1. PRIORITIZE CRITICAL ISSUES FIRST:
+   - Failed or degraded services
+   - Disk usage >90% or predictive alerts showing disk full <14 days
+   - Memory >90% or memory leak detected
+   - Security breaches or failed login attempts
+   - Boot degradation >30% from baseline
+
+2. HIGHLIGHT PREDICTIVE ALERTS:
+   - If telemetry shows "Predictive Alerts" section, these are forecasts based on trends
+   - Example: "Disk will reach 95% in 8 days" - mention this prominently with timeframe
+   - Focus on alerts marked [CRITICAL] first, then [WARNING]
+   - Explain the trend and recommended action
+
+3. USE HISTORICAL CONTEXT:
+   - If metrics show significant deviation from 30-day average (>20%), mention it
+   - Example: "Memory usage 40% above normal" is more meaningful than "Memory at 60%"
+   - Explain WHY the change matters (performance impact, capacity planning)
+
+4. BE ACTIONABLE:
+   - Skip routine/stable metrics unless user asks for detailed mode
+   - Focus on what needs attention or what changed significantly
+   - For problems: suggest concrete next steps (even if just "investigate")
+   - Don't just list numbers - explain implications
+
+5. PROVIDE CONTEXT:
+   - Explain WHY a metric matters (e.g., "high disk usage means updates may fail")
+   - Connect trends to user impact (e.g., "slower boot means longer startup time")
+   - For good news: acknowledge improvements (e.g., "boot time improved 12% this week")
+
 REQUIREMENTS:
 1. Start with a personalized greeting (use the one provided above)
 2. Summarize key points in plain language (not technical jargon unless necessary)
