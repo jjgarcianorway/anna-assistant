@@ -64,10 +64,11 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         return Ok(result);
     }
 
-    // v0.3.125: Handle package history queries
-    if let Some(result) = handle_package_history_query(question, writer, &gate).await? {
-        return Ok(result);
-    }
+    // v0.3.156: DISABLED - hardcoded parsing against LLM-first philosophy
+    // Package queries now go through Ralph loop for LLM investigation of pacman.log
+    // if let Some(result) = handle_package_history_query(question, writer, &gate).await? {
+    //     return Ok(result);
+    // }
 
     // v0.3.121: Check for multi-domain questions that benefit from parallel investigation
     if let Some(result) = handle_multi_agent_query(question, writer, &gate).await? {
