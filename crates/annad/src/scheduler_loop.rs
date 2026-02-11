@@ -9,7 +9,7 @@ use tracing::{debug, info, warn};
 
 use crate::anomaly::AnomalyStore;
 use crate::briefing::generate_morning_briefing;
-use crate::telegram::notifier::{push_notification, send_pdf_report};
+use crate::telegram::notifier::{push_notification, send_pdf_report, send_chart_photo};
 
 /// Ensure morning briefing task exists (creates one at 8am if missing).
 fn ensure_morning_briefing() {
@@ -83,6 +83,22 @@ pub async fn scheduler_loop() {
                 TaskAction::HealthCheck { username } => {
                     // Collect daily snapshot before generating report
                     collect_daily_snapshot();
+
+                    // v0.3.156: Generate visual chart with trends
+                    let history = anna_shared::monitor::LongTermHistory::load();
+                    if !history.daily_snapshots.is_empty() && history.daily_snapshots.len() >= 3 {
+                        match crate::chart_generator::ChartGenerator::new("/tmp/anna_charts")
+                            .generate_trends_chart(&history)
+                        {
+                            Ok(chart_path) => {
+                                info!("Generated trends chart: {}", chart_path.display());
+                                send_chart_photo(&chart_path, "7-Day System Trends");
+                            }
+                            Err(e) => {
+                                warn!("Failed to generate trends chart: {}", e);
+                            }
+                        }
+                    }
 
                     // v0.3.156: Generate LLM-based briefing with username
                     let briefing = tokio::task::block_in_place(|| {

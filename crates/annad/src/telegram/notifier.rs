@@ -9,6 +9,7 @@ use tracing::{error, info, warn};
 pub enum NotifyMessage {
     Text(String),
     Document { path: String, caption: String },
+    Photo { path: String, caption: String },
 }
 
 /// Channel for sending notifications to Telegram.
@@ -61,6 +62,22 @@ pub fn send_pdf_report(path: &Path) {
     }
 }
 
+/// Send a chart image (PNG) to Telegram.
+pub fn send_chart_photo(path: &Path, caption: &str) {
+    let Some(tx) = NOTIFY_TX.get() else {
+        return;
+    };
+
+    let msg = NotifyMessage::Photo {
+        path: path.to_string_lossy().to_string(),
+        caption: caption.to_string(),
+    };
+
+    if let Err(e) = tx.try_send(msg) {
+        warn!("Failed to queue chart photo: {}", e);
+    }
+}
+
 /// Send an alert to Telegram (for critical/warning issues).
 pub fn push_alert(severity: &str, summary: &str, suggested_fix: Option<&str>) {
     let message = if let Some(fix) = suggested_fix {
@@ -103,6 +120,25 @@ pub async fn notification_sender(mut rx: mpsc::Receiver<NotifyMessage>, bot_toke
                     }
                 } else {
                     error!("PDF file not found: {}", path);
+                }
+            }
+            NotifyMessage::Photo { path, caption } => {
+                let file_path = std::path::Path::new(&path);
+                if file_path.exists() {
+                    let input_file = InputFile::file(file_path);
+                    match bot.send_photo(ChatId(chat_id), input_file)
+                        .caption(&caption)
+                        .await
+                    {
+                        Ok(_) => {
+                            info!("Sent chart photo via Telegram");
+                            // Clean up the temp file
+                            let _ = std::fs::remove_file(file_path);
+                        }
+                        Err(e) => error!("Failed to send chart photo: {}", e),
+                    }
+                } else {
+                    error!("Chart photo not found: {}", path);
                 }
             }
         }
