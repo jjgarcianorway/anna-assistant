@@ -370,8 +370,57 @@ fn collect_system_telemetry() -> String {
     telemetry
 }
 
+/// Quick disk usage check for mood determination
+fn get_disk_usage_percentage() -> f32 {
+    std::process::Command::new("df")
+        .args(["--output=pcent", "/"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            let out = String::from_utf8_lossy(&o.stdout);
+            out.lines()
+                .nth(1)
+                .and_then(|l| l.trim().trim_end_matches('%').parse::<f32>().ok())
+        })
+        .unwrap_or(0.0)
+}
+
+/// Quick memory usage check for mood determination
+fn get_memory_usage_percentage() -> f32 {
+    std::process::Command::new("free")
+        .output()
+        .ok()
+        .and_then(|o| {
+            let out = String::from_utf8_lossy(&o.stdout);
+            // Parse "Mem:" line: total, used, free
+            for line in out.lines() {
+                if line.starts_with("Mem:") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 3 {
+                        let total: f32 = parts[1].parse().ok()?;
+                        let used: f32 = parts[2].parse().ok()?;
+                        return Some((used / total) * 100.0);
+                    }
+                }
+            }
+            None
+        })
+        .unwrap_or(0.0)
+}
+
+/// Quick failed services count for mood determination
+fn count_failed_services() -> usize {
+    std::process::Command::new("systemctl")
+        .args(["list-units", "--state=failed", "--no-legend"])
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines().count())
+        .unwrap_or(0)
+}
+
 /// Generate morning briefing using LLM analysis.
 /// v0.3.156: No hardcoding - LLM analyzes raw telemetry.
+/// v0.3.157: Added personality - dynamic greetings based on mood and time.
 pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<String> {
     use anna_shared::preferences::{UserPreferences, BriefingVerbosity};
 
@@ -383,12 +432,20 @@ pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<Str
     // Collect all raw telemetry
     let telemetry = collect_system_telemetry();
 
-    // Build prompt for LLM
-    let user_greeting = if let Some(name) = username {
-        format!("Good morning, {}!", name)
-    } else {
-        "Good morning!".to_string()
-    };
+    // v0.3.157: Load personality and determine mood from system state
+    let mut personality = crate::personality::PersonalityState::load();
+
+    // Quick health check for mood
+    let disk_pct = get_disk_usage_percentage();
+    let mem_pct = get_memory_usage_percentage();
+    let failed_services = count_failed_services();
+
+    personality.update_mood(disk_pct, mem_pct, failed_services, 0);
+    personality.record_interaction();
+    let _ = personality.save();
+
+    // Build prompt for LLM with personality-driven greeting
+    let user_greeting = personality.personalized_greeting(username);
 
     let (sentence_count, detail_level) = match prefs.briefing.verbosity {
         BriefingVerbosity::Brief => ("5-8", "brief"),
@@ -442,6 +499,7 @@ REQUIREMENTS:
 7. Be honest: If something needs attention, say so clearly
 8. Length: {} sentences
 9. End with a closing that reflects system health
+10. PERSONALITY TONE: {}
 
 STYLE:
 - Conversational and friendly
@@ -449,6 +507,7 @@ STYLE:
 - Natural paragraphs
 - Use "your system" not "the system"
 - Sparklines are visual: ▁▂▃▄▅▆▇█ (don't reproduce them, just describe trend if notable)
+- Match the personality tone specified above
 
 SYSTEM TELEMETRY:
 {}
@@ -457,6 +516,7 @@ Generate the briefing now:"#,
         detail_level,
         user_greeting,
         sentence_count,
+        personality.tone_instruction(),
         telemetry
     );
 
@@ -465,14 +525,17 @@ Generate the briefing now:"#,
     match crate::ollama::chat_with_timeout(&model, &prompt, 60).await {
         Ok(response) => {
             info!("Morning briefing generated successfully");
-            Ok(response.trim().to_string())
+            // Add personality-driven closing
+            let closing = personality.closing_message();
+            Ok(format!("{}\n\n{}", response.trim(), closing))
         }
         Err(e) => {
             warn!("LLM failed to generate briefing: {}", e);
             // Fallback to simple summary
+            let closing = personality.closing_message();
             Ok(format!(
-                "{}  Your system is running. Check `annactl status` for details.",
-                user_greeting
+                "{}  Your system is running. Check `annactl status` for details.\n\n{}",
+                user_greeting, closing
             ))
         }
     }

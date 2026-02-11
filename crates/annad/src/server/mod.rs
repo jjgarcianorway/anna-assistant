@@ -75,6 +75,11 @@ impl Server {
             crate::scheduler_loop::scheduler_loop().await;
         });
 
+        // Start autonomous learning loop (Anna's idle-time behavior)
+        tokio::spawn(async move {
+            crate::autonomous_loop::autonomous_learning_loop().await;
+        });
+
         // Run socket server
         self.run_socket_server(&socket_path).await
     }
