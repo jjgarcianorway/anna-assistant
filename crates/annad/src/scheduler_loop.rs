@@ -16,9 +16,9 @@ fn ensure_morning_briefing() {
     let mut store = TaskStore::load();
 
     if !store.has_morning_briefing() {
-        // Create default morning briefing at 8:00 AM local time
+        // Create default morning briefing at 8:00 AM local time (no username for default)
         let time = NaiveTime::from_hms_opt(8, 0, 0).unwrap();
-        let task = ScheduledTask::morning_briefing(time);
+        let task = ScheduledTask::morning_briefing(time, None);
         store.add(task);
 
         if let Err(e) = store.save() {
@@ -80,23 +80,30 @@ pub async fn scheduler_loop() {
                 TaskAction::Reminder { message } => {
                     push_notification(&format!("Reminder: {}", message));
                 }
-                TaskAction::HealthCheck => {
+                TaskAction::HealthCheck { username } => {
                     // Collect daily snapshot before generating report
                     collect_daily_snapshot();
+
+                    // v0.3.156: Generate LLM-based briefing with username
+                    let briefing = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(async {
+                            crate::briefing::generate_morning_briefing_llm(username.as_deref())
+                                .await
+                                .unwrap_or_else(|_| "Good morning! System status check failed.".to_string())
+                        })
+                    });
 
                     // Generate PDF report and send via Telegram
                     match crate::report::generate_pdf_report() {
                         Ok(pdf_path) => {
                             info!("Generated morning report: {}", pdf_path.display());
                             send_pdf_report(&pdf_path);
-                            // Also send a brief text summary
-                            let summary = generate_morning_briefing();
-                            push_notification(&summary);
+                            // Send LLM-generated briefing
+                            push_notification(&briefing);
                         }
                         Err(e) => {
                             warn!("Failed to generate PDF report: {}", e);
                             // Fall back to text briefing
-                            let briefing = generate_morning_briefing();
                             push_notification(&briefing);
                         }
                     }

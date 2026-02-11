@@ -85,7 +85,8 @@ pub async fn handle_message(
     }
 
     // Check for morning briefing setup (bypass Ralph)
-    if let Some(response) = handle_briefing_setup(text).await {
+    // v0.3.156: Pass username for personalized briefings
+    if let Some(response) = handle_briefing_setup(text, &username).await {
         bot.send_message(chat_id, &response).await?;
         return Ok(());
     }
@@ -327,7 +328,8 @@ async fn handle_reminder(text: &str) -> Option<String> {
 }
 
 /// Handle morning briefing setup directly (bypass Ralph).
-async fn handle_briefing_setup(text: &str) -> Option<String> {
+/// v0.3.156: Added username parameter for personalized briefings.
+async fn handle_briefing_setup(text: &str, username: &str) -> Option<String> {
     use anna_shared::scheduler::{parse_morning_briefing, ScheduledTask, TaskStore};
     use chrono::Timelike;
 
@@ -336,7 +338,7 @@ async fn handle_briefing_setup(text: &str) -> Option<String> {
     // Create and save the briefing task
     let mut store = TaskStore::load();
     store.remove_morning_briefing(); // Remove existing if any
-    let task = ScheduledTask::morning_briefing(time);
+    let task = ScheduledTask::morning_briefing(time, Some(username.to_string()));
     store.add(task);
 
     if let Err(e) = store.save() {

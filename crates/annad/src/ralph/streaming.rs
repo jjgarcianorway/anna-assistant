@@ -150,7 +150,8 @@ async fn handle_morning_briefing_request<W: tokio::io::AsyncWriteExt + Unpin>(
     // Remove existing morning briefing if any
     store.remove_morning_briefing();
 
-    let task = ScheduledTask::morning_briefing(time);
+    // v0.3.156: No username in Ralph (CLI context)
+    let task = ScheduledTask::morning_briefing(time, None);
     store.add(task);
 
     if let Err(e) = store.save() {

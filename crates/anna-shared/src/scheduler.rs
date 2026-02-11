@@ -37,7 +37,11 @@ pub enum TaskAction {
     /// Send a reminder message.
     Reminder { message: String },
     /// Run a system health check and report.
-    HealthCheck,
+    /// v0.3.156: Added username for personalized briefings.
+    HealthCheck {
+        #[serde(default)]
+        username: Option<String>
+    },
     /// Execute a question through Anna.
     Question { question: String },
 }
@@ -70,8 +74,9 @@ impl ScheduledTask {
     }
 
     /// Create a morning briefing (daily health check).
-    pub fn morning_briefing(time: NaiveTime) -> Self {
-        Self::daily("Morning Briefing", time, TaskAction::HealthCheck)
+    /// v0.3.156: Added username parameter for personalized greetings.
+    pub fn morning_briefing(time: NaiveTime, username: Option<String>) -> Self {
+        Self::daily("Morning Briefing", time, TaskAction::HealthCheck { username })
     }
 
     /// Check if this task should run now.
@@ -190,13 +195,13 @@ impl TaskStore {
     /// Check if morning briefing is already set up.
     pub fn has_morning_briefing(&self) -> bool {
         self.tasks.iter().any(|t| {
-            t.enabled && t.description == "Morning Briefing" && matches!(t.action, TaskAction::HealthCheck)
+            t.enabled && t.description == "Morning Briefing" && matches!(t.action, TaskAction::HealthCheck { .. })
         })
     }
 
     /// Remove existing morning briefing.
     pub fn remove_morning_briefing(&mut self) {
-        self.tasks.retain(|t| !(t.description == "Morning Briefing" && matches!(t.action, TaskAction::HealthCheck)));
+        self.tasks.retain(|t| !(t.description == "Morning Briefing" && matches!(t.action, TaskAction::HealthCheck { .. })));
     }
 }
 

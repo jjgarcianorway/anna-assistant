@@ -1,221 +1,156 @@
-//! Morning briefing generation in natural language.
+//! Morning briefing generation - LLM analyzes telemetry data.
+//! v0.3.156: Replaced hardcoded parsing with LLM analysis.
 
-use anna_shared::config::AnnaConfig;
-use anna_shared::monitor::LongTermHistory;
-use anna_shared::prediction::{generate_predictive_alerts, AlertInput, AlertSeverity};
+use anyhow::Result;
 use std::process::Command;
+use tracing::{info, warn};
 
-/// Pick a random greeting based on current time.
-pub fn random_greeting() -> &'static str {
-    let greetings = [
-        "Good morning! Here's what's happening with your system.",
-        "Morning! Quick update on how things are running.",
-        "Hey, your daily system check is ready.",
-        "Rise and shine! Here's your system status.",
-        "Good morning! Everything you need to know today.",
-    ];
-    let idx = (chrono::Utc::now().timestamp() as usize) % greetings.len();
-    greetings[idx]
-}
+/// Collect all system telemetry for LLM analysis.
+/// Returns raw command outputs - NO parsing, NO hardcoding.
+fn collect_system_telemetry() -> String {
+    let mut telemetry = String::new();
 
-/// Pick a random closing based on overall health.
-pub fn random_closing(all_good: bool) -> &'static str {
-    if all_good {
-        let closings = [
-            "Everything looks healthy. Have a great day!",
-            "All systems running smoothly. Nothing to worry about.",
-            "Your system is in good shape. Enjoy your day!",
-            "Looking good! No action needed from you.",
-            "All clear on my end. Let me know if you need anything.",
-        ];
-        let idx = (chrono::Utc::now().timestamp() as usize / 60) % closings.len();
-        closings[idx]
-    } else {
-        let closings = [
-            "A few things might need attention when you have time.",
-            "Some items to review, but nothing urgent.",
-            "Flagged a few things for you to look at.",
-            "Let me know if you want me to handle any of these.",
-        ];
-        let idx = (chrono::Utc::now().timestamp() as usize / 60) % closings.len();
-        closings[idx]
-    }
-}
+    telemetry.push_str("=== SYSTEM TELEMETRY (24h) ===\n\n");
 
-/// Generate comprehensive morning briefing in natural language.
-pub fn generate_morning_briefing() -> String {
-    let mut parts = Vec::new();
-    let mut issues_found = false;
-
-    parts.push(random_greeting().to_string());
-
-    // 1. Updates
+    // 1. Package updates available
+    telemetry.push_str("## Updates Available:\n");
     if let Ok(output) = Command::new("checkupdates").output() {
         let updates = String::from_utf8_lossy(&output.stdout);
-        let count = updates.lines().count();
-        if count > 0 {
-            let security_count = updates.lines()
-                .filter(|l| l.contains("openssl") || l.contains("sudo") || l.contains("systemd") || l.contains("polkit"))
-                .count();
-
-            if security_count > 0 {
-                parts.push(format!(
-                    "\nThere are {} updates available, {} of which are security-related. You might want to update soon.",
-                    count, security_count
-                ));
-                issues_found = true;
-            } else if count > 20 {
-                parts.push(format!(
-                    "\n{} updates are waiting. Might be a good time for a system update.",
-                    count
-                ));
-            } else {
-                parts.push(format!(
-                    "\n{} updates available when you're ready.",
-                    count
-                ));
-            }
+        if updates.is_empty() {
+            telemetry.push_str("No updates available.\n");
         } else {
-            parts.push("\nYour system is fully up to date.".to_string());
+            telemetry.push_str(&updates);
         }
+    } else {
+        telemetry.push_str("Could not check for updates.\n");
     }
+    telemetry.push_str("\n");
 
-    // 2. Security events
+    // 2. System errors (last 24h)
+    telemetry.push_str("## System Errors (priority: err):\n");
     if let Ok(output) = Command::new("journalctl")
-        .args(["--since", "24 hours ago", "-p", "warning", "-u", "sshd", "-u", "sudo", "--no-pager", "-q"])
-        .output()
-    {
-        let logs = String::from_utf8_lossy(&output.stdout);
-        let failed: Vec<&str> = logs.lines()
-            .filter(|l| l.contains("Failed") || l.contains("authentication failure") || l.contains("FAILED"))
-            .collect();
-        if !failed.is_empty() {
-            parts.push(format!(
-                "\nI noticed {} failed authentication attempts in the last 24 hours. Worth keeping an eye on.",
-                failed.len()
-            ));
-            issues_found = true;
-        }
-    }
-
-    // 3. System errors
-    if let Ok(output) = Command::new("journalctl")
-        .args(["--since", "24 hours ago", "-p", "err", "--no-pager", "-q", "-n", "50"])
+        .args(["--since", "24 hours ago", "-p", "err", "--no-pager", "-q", "-n", "30"])
         .output()
     {
         let errors = String::from_utf8_lossy(&output.stdout);
-        let count = errors.lines().count();
-        if count > 10 {
-            parts.push(format!(
-                "\nThere were {} errors logged in the past day. Most are probably harmless, but you might want to check the journal.",
-                count
-            ));
-            issues_found = true;
-        } else if count > 0 {
-            parts.push(format!(
-                "\nJust {} minor errors in the logs. Nothing unusual.",
-                count
-            ));
-        }
-    }
-
-    // 4. Disk and memory status
-    let mut disk_pct: Option<u32> = None;
-    let mut disk_free: Option<String> = None;
-    if let Ok(output) = Command::new("df").args(["-h", "/"]).output() {
-        let df = String::from_utf8_lossy(&output.stdout);
-        if let Some(line) = df.lines().nth(1) {
-            let parts_df: Vec<&str> = line.split_whitespace().collect();
-            if parts_df.len() >= 5 {
-                disk_pct = parts_df[4].trim_end_matches('%').parse().ok();
-                disk_free = Some(parts_df[3].to_string());
-            }
-        }
-    }
-
-    let mut mem_used: Option<String> = None;
-    let mut mem_total: Option<String> = None;
-    if let Ok(output) = Command::new("free").args(["-h"]).output() {
-        let free = String::from_utf8_lossy(&output.stdout);
-        if let Some(line) = free.lines().nth(1) {
-            let parts_mem: Vec<&str> = line.split_whitespace().collect();
-            if parts_mem.len() >= 3 {
-                mem_used = Some(parts_mem[2].to_string());
-                mem_total = Some(parts_mem[1].to_string());
-            }
-        }
-    }
-
-    if let (Some(pct), Some(free)) = (disk_pct, &disk_free) {
-        if pct > 85 {
-            parts.push(format!(
-                "\nDisk is getting full at {}% used, only {} free. Consider cleaning up.",
-                pct, free
-            ));
-            issues_found = true;
+        if errors.trim().is_empty() {
+            telemetry.push_str("No errors logged.\n");
         } else {
-            parts.push(format!(
-                "\nDisk usage is at {}% with {} free.",
-                pct, free
-            ));
+            telemetry.push_str(&errors);
         }
+    } else {
+        telemetry.push_str("Could not read error logs.\n");
     }
+    telemetry.push_str("\n");
 
-    if let (Some(used), Some(total)) = (mem_used, mem_total) {
-        parts.push(format!("Memory: {} used out of {}.", used, total));
-    }
-
-    // 5. Services
+    // 3. Failed services
+    telemetry.push_str("## Failed Services:\n");
     if let Ok(output) = Command::new("systemctl")
         .args(["--failed", "--no-pager", "--no-legend"])
         .output()
     {
         let failed = String::from_utf8_lossy(&output.stdout);
-        let failed_services: Vec<&str> = failed.lines()
-            .filter(|l| !l.trim().is_empty())
-            .filter_map(|l| l.split_whitespace().next())
+        if failed.trim().is_empty() {
+            telemetry.push_str("No failed services.\n");
+        } else {
+            telemetry.push_str(&failed);
+        }
+    } else {
+        telemetry.push_str("Could not check services.\n");
+    }
+    telemetry.push_str("\n");
+
+    // 4. Disk usage
+    telemetry.push_str("## Disk Usage:\n");
+    if let Ok(output) = Command::new("df").args(["-h", "/"]).output() {
+        telemetry.push_str(&String::from_utf8_lossy(&output.stdout));
+    } else {
+        telemetry.push_str("Could not check disk.\n");
+    }
+    telemetry.push_str("\n");
+
+    // 5. Memory usage
+    telemetry.push_str("## Memory Usage:\n");
+    if let Ok(output) = Command::new("free").args(["-h"]).output() {
+        telemetry.push_str(&String::from_utf8_lossy(&output.stdout));
+    } else {
+        telemetry.push_str("Could not check memory.\n");
+    }
+    telemetry.push_str("\n");
+
+    // 6. System load
+    telemetry.push_str("## Load Average:\n");
+    if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
+        telemetry.push_str(&load);
+    } else {
+        telemetry.push_str("Could not read load.\n");
+    }
+    telemetry.push_str("\n");
+
+    // 7. Security events (failed auth)
+    telemetry.push_str("## Security Events (failed auth):\n");
+    if let Ok(output) = Command::new("journalctl")
+        .args(["--since", "24 hours ago", "-p", "warning", "-u", "sshd", "-u", "sudo", "--no-pager", "-q", "-n", "20"])
+        .output()
+    {
+        let logs = String::from_utf8_lossy(&output.stdout);
+        if logs.trim().is_empty() {
+            telemetry.push_str("No failed authentication attempts.\n");
+        } else {
+            telemetry.push_str(&logs);
+        }
+    } else {
+        telemetry.push_str("Could not check security logs.\n");
+    }
+    telemetry.push_str("\n");
+
+    // 8. Recent package installations (last 7 days)
+    telemetry.push_str("## Recent Package Changes (7 days):\n");
+    if let Ok(output) = Command::new("grep")
+        .args(["-E", "installed|upgraded|removed", "/var/log/pacman.log"])
+        .output()
+    {
+        let log = String::from_utf8_lossy(&output.stdout);
+        let recent: Vec<&str> = log.lines()
+            .filter(|l| {
+                // Filter to last 7 days
+                if let Some(date_str) = l.split('[').nth(1) {
+                    if let Some(date) = date_str.split(']').next() {
+                        if let Ok(timestamp) = chrono::NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%z") {
+                            let now = chrono::Utc::now().naive_utc();
+                            let diff = now.signed_duration_since(timestamp);
+                            return diff.num_days() <= 7;
+                        }
+                    }
+                }
+                false
+            })
+            .take(15)
             .collect();
 
-        if !failed_services.is_empty() {
-            if failed_services.len() == 1 {
-                parts.push(format!(
-                    "\nOne service is having trouble: {}. I can try to restart it if you'd like.",
-                    failed_services[0]
-                ));
-            } else {
-                parts.push(format!(
-                    "\n{} services are in a failed state: {}. Let me know if you want me to look into it.",
-                    failed_services.len(),
-                    failed_services.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
-                ));
-            }
-            issues_found = true;
-        }
-    }
-
-    // 6. Load average context
-    if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
-        if let Some(load1) = load.split_whitespace().next() {
-            if let Ok(load_val) = load1.parse::<f32>() {
-                if load_val > 4.0 {
-                    parts.push(format!(
-                        "\nSystem load is elevated at {}. Something might be working hard.",
-                        load1
-                    ));
-                    issues_found = true;
-                }
+        if recent.is_empty() {
+            telemetry.push_str("No package changes in the last 7 days.\n");
+        } else {
+            for line in recent {
+                telemetry.push_str(line);
+                telemetry.push('\n');
             }
         }
+    } else {
+        telemetry.push_str("Could not read pacman log.\n");
     }
+    telemetry.push_str("\n");
 
-    // 7. Include anomaly data if available
+    // 9. Anomaly data (if available)
+    telemetry.push_str("## Anomaly Detection:\n");
     let store = crate::anomaly::AnomalyStore::load();
     let anomalies: Vec<_> = store.metrics.values()
         .filter_map(|h| {
             if let Some(ref baseline) = h.baseline {
                 if let Some(sample) = h.samples.last() {
                     if baseline.is_anomaly(sample.value) {
-                        return Some(format!("{} ({:.1}{})", h.name, sample.value, h.unit));
+                        return Some(format!("{}: {:.1}{} (normal: {:.1} ± {:.1})",
+                            h.name, sample.value, h.unit, baseline.mean, baseline.std_dev));
                     }
                 }
             }
@@ -223,65 +158,86 @@ pub fn generate_morning_briefing() -> String {
         })
         .collect();
 
-    if !anomalies.is_empty() {
-        parts.push(format!(
-            "\nSome metrics are outside normal ranges: {}. Probably fine, but worth noting.",
-            anomalies.join(", ")
-        ));
-        issues_found = true;
-    }
-
-    // 8. Predictive alerts (v0.3.103)
-    if let Ok(config) = AnnaConfig::load() {
-        if config.prediction.enabled {
-            let history = LongTermHistory::load();
-
-            // Build input from historical data
-            let disk_usage: Vec<f64> = history.daily_snapshots
-                .iter()
-                .map(|s| {
-                    // Convert disk GB to percentage (estimate 500GB total)
-                    let total_gb = 500.0;
-                    (s.disk_used_gb as f64 / total_gb * 100.0).min(100.0)
-                })
-                .collect();
-
-            let memory_usage: Vec<f64> = history.daily_snapshots
-                .iter()
-                .map(|s| s.avg_memory_pct as f64)
-                .collect();
-
-            let boot_times: Vec<f64> = history.daily_snapshots
-                .iter()
-                .map(|s| s.avg_boot_time as f64)
-                .collect();
-
-            let input = AlertInput {
-                disk_usage,
-                memory_usage,
-                boot_times,
-            };
-
-            let alerts = generate_predictive_alerts(&input);
-            for alert in &alerts {
-                let severity_prefix = match alert.severity {
-                    AlertSeverity::Critical => "ALERT: ",
-                    AlertSeverity::Warning => "Heads up: ",
-                    AlertSeverity::Info => "",
-                };
-                parts.push(format!("\n{}{}", severity_prefix, alert.description));
-                if !alert.recommendation.is_empty() {
-                    parts.push(format!(" {}", alert.recommendation));
-                }
-                if matches!(alert.severity, AlertSeverity::Critical | AlertSeverity::Warning) {
-                    issues_found = true;
-                }
-            }
+    if anomalies.is_empty() {
+        telemetry.push_str("All metrics within normal ranges.\n");
+    } else {
+        for anomaly in anomalies {
+            telemetry.push_str(&anomaly);
+            telemetry.push('\n');
         }
     }
 
-    // Closing
-    parts.push(format!("\n{}", random_closing(!issues_found)));
+    telemetry
+}
 
-    parts.join("")
+/// Generate morning briefing using LLM analysis.
+/// v0.3.156: No hardcoding - LLM analyzes raw telemetry.
+pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<String> {
+    info!("Generating morning briefing with LLM analysis...");
+
+    // Collect all raw telemetry
+    let telemetry = collect_system_telemetry();
+
+    // Build prompt for LLM
+    let user_greeting = if let Some(name) = username {
+        format!("Good morning, {}!", name)
+    } else {
+        "Good morning!".to_string()
+    };
+
+    let prompt = format!(
+        r#"You are Anna, an AI system administrator. Generate a concise morning briefing for the user.
+
+{}
+
+Analyze the system telemetry below and create a natural, conversational briefing.
+
+REQUIREMENTS:
+1. Start with a personalized greeting (use the one provided above)
+2. Summarize key points in plain language (not technical jargon unless necessary)
+3. For errors: Show WHAT is failing (service names, error types), not just counts
+4. For updates: Mention if there are security updates
+5. For resources: Only mention if concerning (>85% disk, >90% memory, high load)
+6. Be honest: If something needs attention, say so clearly
+7. Be brief: 5-8 sentences max
+8. End with a closing that reflects system health
+
+STYLE:
+- Conversational and friendly
+- No bullet points or markdown formatting
+- Natural paragraphs
+- Use "your system" not "the system"
+
+SYSTEM TELEMETRY:
+{}
+
+Generate the briefing now:"#,
+        user_greeting,
+        telemetry
+    );
+
+    // Call LLM
+    let model = std::env::var("ANNA_OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    match crate::ollama::chat_with_timeout(&model, &prompt, 60).await {
+        Ok(response) => {
+            info!("Morning briefing generated successfully");
+            Ok(response.trim().to_string())
+        }
+        Err(e) => {
+            warn!("LLM failed to generate briefing: {}", e);
+            // Fallback to simple summary
+            Ok(format!(
+                "{}  Your system is running. Check `annactl status` for details.",
+                user_greeting
+            ))
+        }
+    }
+}
+
+/// Legacy synchronous version (fallback).
+pub fn generate_morning_briefing() -> String {
+    // Run async version in blocking context
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(generate_morning_briefing_llm(None))
+        .unwrap_or_else(|_| "Good morning! System status check failed.".to_string())
 }
