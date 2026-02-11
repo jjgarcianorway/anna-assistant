@@ -21,8 +21,15 @@ pub struct PatternMatch {
 }
 
 /// Check if a question matches a well-known error pattern.
+/// Two types of patterns:
+/// 1. ERROR patterns (wifi broken, disk full) - always match
+/// 2. TASK patterns (how to install, configure) - only if educational phrasing
 pub fn match_error_pattern(question: &str) -> Option<PatternMatch> {
     let q = question.to_lowercase();
+
+    // Check if this is an educational query (for task patterns)
+    let is_educational = q.contains("how") || q.contains("what is") || q.contains("show me")
+        || q.contains("tell me") || q.contains("explain") || q.contains("guide") || q.contains("?");
 
     // Pacman database locked
     if (q.contains("pacman") || q.contains("yay")) && q.contains("database") && q.contains("lock") {
@@ -242,6 +249,11 @@ pub fn match_error_pattern(question: &str) -> Option<PatternMatch> {
             ],
             auto_fixable: true,
         });
+    }
+
+    // === TASK PATTERNS BELOW - only match if educational ===
+    if !is_educational {
+        return None; // Task patterns require educational phrasing
     }
 
     // v0.3.153: Common configuration patterns - vim syntax highlighting
@@ -609,7 +621,8 @@ mod tests {
 
     #[test]
     fn test_vim_syntax_detection() {
-        let result = match_error_pattern("enable syntax highlighting on vim");
+        // Educational query should match
+        let result = match_error_pattern("how to enable syntax highlighting on vim?");
         assert!(result.is_some());
         let pm = result.unwrap();
         assert_eq!(pm.pattern_id, "vim-syntax-highlighting");
@@ -650,7 +663,8 @@ mod tests {
 
     #[test]
     fn test_chmod_permissions() {
-        let result = match_error_pattern("chmod 755 permissions");
+        // Educational query should match
+        let result = match_error_pattern("how do I set chmod 755 permissions?");
         assert!(result.is_some());
         assert_eq!(result.unwrap().pattern_id, "chmod-permissions");
     }
@@ -692,7 +706,8 @@ mod tests {
 
     #[test]
     fn test_disk_usage() {
-        let result = match_error_pattern("check disk usage and space");
+        // Educational query should match
+        let result = match_error_pattern("how to check disk usage and space?");
         assert!(result.is_some());
         assert_eq!(result.unwrap().pattern_id, "disk-usage");
     }
@@ -723,5 +738,24 @@ mod tests {
         let result = match_error_pattern("how to install package with pacman");
         assert!(result.is_some());
         assert_eq!(result.unwrap().pattern_id, "pacman-usage");
+    }
+
+    // v0.3.156: Test that action requests DON'T trigger pattern matching
+    #[test]
+    fn test_action_request_no_pattern_match() {
+        // These should return None (go to Ralph loop for LLM investigation)
+        assert!(match_error_pattern("update my system").is_none());
+        assert!(match_error_pattern("install neovim").is_none());
+        assert!(match_error_pattern("reboot the computer").is_none());
+        assert!(match_error_pattern("fix my wifi").is_none());
+        assert!(match_error_pattern("enable syntax highlighting on vim").is_none());
+    }
+
+    #[test]
+    fn test_educational_queries_still_match() {
+        // These should still match patterns (educational intent with "how" or "?")
+        assert!(match_error_pattern("how to update packages with pacman?").is_some());
+        assert!(match_error_pattern("what is the command to install packages with pacman?").is_some());
+        assert!(match_error_pattern("show me how to enable vim syntax").is_some());
     }
 }
