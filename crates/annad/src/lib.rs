@@ -52,6 +52,7 @@ pub mod anomaly;
 pub mod assisted_ops;
 pub mod autofix;
 pub mod briefing;
+pub mod chart_generator;
 pub mod binary_watcher;
 pub mod dynamic_plan;
 pub mod changes;

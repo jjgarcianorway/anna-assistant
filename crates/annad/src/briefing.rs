@@ -190,12 +190,65 @@ fn collect_system_telemetry() -> String {
         telemetry.push_str("\n");
     }
 
-    // 10. Visual trends (ASCII charts for last 7 days)
+    // 10. Predictive Alerts (disk full prediction, memory leaks, boot degradation)
+    telemetry.push_str("## Predictive Alerts:\n");
+    let history = anna_shared::monitor::LongTermHistory::load();
+    if !history.daily_snapshots.is_empty() {
+        use anna_shared::prediction::{generate_predictive_alerts, AlertInput, AlertSeverity};
+
+        // Build historical data for prediction
+        let alerts_input = AlertInput {
+            disk_usage: history.daily_snapshots.iter()
+                .rev()
+                .take(30)
+                .rev()
+                .map(|s| {
+                    // Convert GB used to percentage if we have total disk size
+                    // For now, use a rough estimate - actual percentage would need total disk size
+                    let total_gb = 200.0f64; // Rough estimate, could be improved
+                    (s.disk_used_gb as f64 / total_gb) * 100.0
+                })
+                .collect(),
+            memory_usage: history.daily_snapshots.iter()
+                .rev()
+                .take(30)
+                .rev()
+                .map(|s| s.avg_memory_pct as f64)
+                .collect(),
+            boot_times: history.daily_snapshots.iter()
+                .rev()
+                .take(30)
+                .rev()
+                .map(|s| s.avg_boot_time as f64)
+                .collect(),
+        };
+
+        let predictive_alerts = generate_predictive_alerts(&alerts_input);
+
+        if predictive_alerts.is_empty() {
+            telemetry.push_str("No predictive alerts - all metrics stable.\n");
+        } else {
+            for alert in predictive_alerts {
+                let severity_tag = match alert.severity {
+                    AlertSeverity::Critical => "[CRITICAL]",
+                    AlertSeverity::Warning => "[WARNING]",
+                    AlertSeverity::Info => "[INFO]",
+                };
+                telemetry.push_str(&format!("{} {}: {}\n",
+                    severity_tag, alert.title, alert.description));
+                telemetry.push_str(&format!("   → Recommendation: {}\n", alert.recommendation));
+            }
+        }
+    } else {
+        telemetry.push_str("Not enough historical data for predictions (need 7+ days).\n");
+    }
+    telemetry.push_str("\n");
+
+    // 11. Visual trends (ASCII charts for last 7 days)
     if prefs.briefing.charts {
         telemetry.push_str("## Trend Charts (7 days):\n");
 
-    // Disk usage trend (from daily snapshots)
-    let history = anna_shared::monitor::LongTermHistory::load();
+    // Already loaded history above
     if !history.daily_snapshots.is_empty() {
         use anna_shared::charts::Sparkline;
 

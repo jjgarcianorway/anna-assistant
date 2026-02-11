@@ -32,3 +32,4 @@ dirs = "5.0"
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
 teloxide = { version = "0.12", features = ["macros"] }
 similar = "2.4"
+plotters = "0.3"
