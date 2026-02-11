@@ -33,7 +33,8 @@ pub const QUICK_CONFIDENCE_THRESHOLD: f32 = 0.8;
 
 /// Confidence threshold below which we ask for clarification
 /// v0.0.990: Lowered from 0.7 to 0.5 to reduce over-clarification
-pub const CLARIFICATION_THRESHOLD: f32 = 0.5;
+/// v0.3.156: Lowered from 0.5 to 0.35 - Anna should answer, not ask for clarification
+pub const CLARIFICATION_THRESHOLD: f32 = 0.35;
 
 /// v0.0.939: Convert category string back to IntentCategory enum
 fn parse_category(s: &str) -> IntentCategory {
@@ -76,11 +77,17 @@ pub async fn understand_request(
         });
     }
 
+    // v0.3.156: Pattern-based confidence boost - if question matches known patterns,
+    // trust it's clear even if LLM gives low confidence
+    let has_clear_pattern = detect::is_clear_error_report(question)
+        || detect::has_specific_symptom(question)
+        || detect::is_investigation_question(question);
+
     // Then try quick classification (3-5 seconds)
     let quick_result = quick_classify(model, question).await;
 
     match quick_result {
-        Ok(understanding) if understanding.confidence >= QUICK_CONFIDENCE_THRESHOLD => {
+        Ok(mut understanding) if understanding.confidence >= QUICK_CONFIDENCE_THRESHOLD => {
             info!(
                 "Quick classification sufficient (confidence: {:.0}%)",
                 understanding.confidence * 100.0
@@ -96,7 +103,7 @@ pub async fn understand_request(
             );
             return Ok(understanding);
         }
-        Ok(understanding)
+        Ok(mut understanding)
             if matches!(
                 understanding.category,
                 IntentCategory::Factual | IntentCategory::HowTo
@@ -108,6 +115,23 @@ pub async fn understand_request(
                 understanding.confidence * 100.0
             );
             // v0.0.939: Cache successful classification
+            cache_intent(
+                question,
+                &understanding.interpreted_as,
+                &format!("{:?}", understanding.category),
+                understanding.confidence,
+                understanding.topic.as_deref(),
+                &understanding.suggested_commands,
+            );
+            return Ok(understanding);
+        }
+        // v0.3.156: If pattern matches, boost confidence and accept it
+        Ok(mut understanding) if has_clear_pattern && understanding.confidence >= 0.4 => {
+            info!(
+                "Pattern-based confidence boost: {:.0}% -> 75% (matched known pattern)",
+                understanding.confidence * 100.0
+            );
+            understanding.confidence = 0.75; // Boost to clear threshold
             cache_intent(
                 question,
                 &understanding.interpreted_as,
@@ -130,7 +154,16 @@ pub async fn understand_request(
     }
 
     // Fall back to deep understanding for complex cases
-    let deep_result = deep_understand(model, question, session_context).await?;
+    let mut deep_result = deep_understand(model, question, session_context).await?;
+
+    // v0.3.156: Apply pattern boost to deep understanding too
+    if has_clear_pattern && deep_result.confidence < 0.75 {
+        info!(
+            "Pattern-based confidence boost (deep): {:.0}% -> 75% (matched known pattern)",
+            deep_result.confidence * 100.0
+        );
+        deep_result.confidence = 0.75;
+    }
 
     // v0.0.939: Cache deep understanding result too
     cache_intent(

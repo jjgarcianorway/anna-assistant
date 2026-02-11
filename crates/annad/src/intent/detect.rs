@@ -5,7 +5,10 @@
 /// v0.0.990: Detect if question contains a clear error report
 /// This is GENERIC detection - matches error TYPES, not specific errors
 /// E.g., "database locked" matches ANY app with lock issues, not just pacman
+/// v0.3.156: Enhanced with Arch-specific patterns
 pub fn is_clear_error_report(question: &str) -> bool {
+    let q = question.to_lowercase();
+
     // Error type patterns - these match categories of errors, not specific ones
     let error_types = [
         // Lock/busy errors (applies to any app: pacman, apt, dpkg, sqlite, etc.)
@@ -28,14 +31,45 @@ pub fn is_clear_error_report(question: &str) -> bool {
         // Crash/failure errors (generic)
         "segfault", "segmentation fault", "core dumped", "crashed",
         "failed to start", "exited with", "killed",
+        // Arch/system-specific errors (v0.3.156)
+        "conflicting files", "exists in filesystem",
+        "failed to commit transaction",
+        "target not found", "error: target",
+        "squashfs error", "unable to read",
+        "recovering journal", "sata link down",
+        "microcode sw error", "watchdog hardware",
+        "no codecs found", "server not responding",
+        "xdg_runtime_dir not set", "unknown pcm",
+        "x error", "badvalue", "badwindow", "badmatch",
+        "dbus-daemon", "message bus disconnected",
+        "systemd-coredump", "process crashed",
+        "cannot open shared object", ".so:",
+        "acpi bios error", "bus: mmio read",
+        "kvm: disabled", "unable to locate package",
+        // Service/systemd errors
+        "failed to start", "unit failed", "service failed",
+        "job failed", "dependency failed",
     ];
 
-    error_types.iter().any(|e| question.contains(e))
+    if error_types.iter().any(|e| q.contains(e)) {
+        return true;
+    }
+
+    // Detect "error:" followed by something (journalctl, pacman, dmesg output)
+    if (q.contains("error:") || q.contains("err:") || q.contains("failed:"))
+        && q.len() > 20 {
+        return true;
+    }
+
+    false
 }
 
 /// v0.0.990: Detect if a troubleshooting question has a specific symptom
 /// This catches questions like "fan spins when idle", "screen flickers", etc.
+/// v0.3.156: Enhanced with hardware-specific symptoms
 pub fn has_specific_symptom(question: &str) -> bool {
+    let q = question.to_lowercase();
+
     // Symptom verbs - indicates something observable happening
     let symptom_verbs = [
         "spins", "spinning", "runs", "running",
@@ -49,6 +83,10 @@ pub fn has_specific_symptom(question: &str) -> bool {
         "doesn't work", "not working", "stopped working",
         "takes longer", "slower", "too slow",
         "too hot", "too loud", "too quiet",
+        // Hardware-specific (v0.3.156)
+        "not detected", "disappeared", "cant scan",
+        "stuck at", "shows up but", "works but",
+        "worked once", "only gives", "at idle",
     ];
 
     // Symptom patterns - more complex descriptions
@@ -56,8 +94,10 @@ pub fn has_specific_symptom(question: &str) -> bool {
         ("after", "reboot"),
         ("after", "update"),
         ("after", "install"),
+        ("after", "kernel"),
         ("when", "idle"),
         ("when", "running"),
+        ("when", "plugging"),
         ("every", "hour"),
         ("every", "minute"),
         ("every", "day"),
@@ -65,18 +105,34 @@ pub fn has_specific_symptom(question: &str) -> bool {
         ("sometimes", ""),
         ("occasionally", ""),
         ("intermittent", ""),
+        // Hardware locations (v0.3.156)
+        ("at", "90c"),
+        ("at", "70c"),
+        ("at", "400mhz"),
+        ("showing", "but"),
+        ("gives", "but"),
     ];
 
     // Check for symptom verbs
-    if symptom_verbs.iter().any(|v| question.contains(v)) {
+    if symptom_verbs.iter().any(|v| q.contains(v)) {
         return true;
     }
 
     // Check for symptom patterns
     for (p1, p2) in &symptom_patterns {
-        if question.contains(p1) && (p2.is_empty() || question.contains(p2)) {
+        if q.contains(p1) && (p2.is_empty() || q.contains(p2)) {
             return true;
         }
+    }
+
+    // Specific hardware issues (v0.3.156)
+    let hardware_terms = [
+        "ryzen", "rtx", "ax210", "nvme", "m.2", "usb", "bluetooth",
+        "monitor", "speakers", "headphone jack", "fingerprint",
+        "thunderbolt", "trackpad", "external gpu", "egpu",
+    ];
+    if hardware_terms.iter().any(|hw| q.contains(hw)) && q.len() > 20 {
+        return true;
     }
 
     false
