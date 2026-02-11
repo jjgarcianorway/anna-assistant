@@ -211,4 +211,35 @@ impl LongTermHistory {
             .map(|s| (s.date.clone(), s.avg_boot_time))
             .collect()
     }
+
+    /// Calculate 30-day averages for comparison.
+    pub fn calculate_averages(&self) -> HistoricalAverages {
+        if self.daily_snapshots.is_empty() {
+            return HistoricalAverages::default();
+        }
+
+        let count = self.daily_snapshots.len() as f32;
+        let sum_boot: f32 = self.daily_snapshots.iter().map(|s| s.avg_boot_time).sum();
+        let sum_mem: f32 = self.daily_snapshots.iter().map(|s| s.avg_memory_pct).sum();
+        let sum_load: f32 = self.daily_snapshots.iter().map(|s| s.avg_load).sum();
+        let sum_disk: f32 = self.daily_snapshots.iter().map(|s| s.disk_used_gb).sum();
+
+        HistoricalAverages {
+            boot_time_sec: sum_boot / count,
+            memory_pct: sum_mem / count,
+            load_avg: sum_load / count,
+            disk_gb: sum_disk / count,
+            sample_count: count as u32,
+        }
+    }
+}
+
+/// Historical averages for comparison.
+#[derive(Debug, Clone, Default)]
+pub struct HistoricalAverages {
+    pub boot_time_sec: f32,
+    pub memory_pct: f32,
+    pub load_avg: f32,
+    pub disk_gb: f32,
+    pub sample_count: u32,
 }

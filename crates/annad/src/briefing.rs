@@ -244,7 +244,70 @@ fn collect_system_telemetry() -> String {
     }
     telemetry.push_str("\n");
 
-    // 11. Visual trends (ASCII charts for last 7 days)
+    // 11. Historical Comparison (vs 30-day average)
+    if !history.daily_snapshots.is_empty() && history.daily_snapshots.len() >= 7 {
+        telemetry.push_str("## Historical Comparison (vs 30-day average):\n");
+
+        let averages = history.calculate_averages();
+        if let Some(current) = history.daily_snapshots.back() {
+            let mut comparisons = Vec::new();
+
+            // Disk comparison
+            let disk_diff_pct = ((current.disk_used_gb - averages.disk_gb) / averages.disk_gb) * 100.0;
+            if disk_diff_pct.abs() > 10.0 {
+                let direction = if disk_diff_pct > 0.0 { "above" } else { "below" };
+                comparisons.push(format!(
+                    "Disk: {:.1}GB ({:.0}% {} average {:.1}GB)",
+                    current.disk_used_gb, disk_diff_pct.abs(), direction, averages.disk_gb
+                ));
+            }
+
+            // Memory comparison
+            let mem_diff_pct = ((current.avg_memory_pct - averages.memory_pct) / averages.memory_pct) * 100.0;
+            if mem_diff_pct.abs() > 15.0 {
+                let direction = if mem_diff_pct > 0.0 { "above" } else { "below" };
+                comparisons.push(format!(
+                    "Memory: {:.1}% ({:.0}% {} average {:.1}%)",
+                    current.avg_memory_pct, mem_diff_pct.abs(), direction, averages.memory_pct
+                ));
+            }
+
+            // Boot time comparison
+            let boot_diff_pct = ((current.avg_boot_time - averages.boot_time_sec) / averages.boot_time_sec) * 100.0;
+            if boot_diff_pct.abs() > 20.0 {
+                let direction = if boot_diff_pct > 0.0 { "slower than" } else { "faster than" };
+                comparisons.push(format!(
+                    "Boot: {:.1}s ({:.0}% {} average {:.1}s)",
+                    current.avg_boot_time, boot_diff_pct.abs(), direction, averages.boot_time_sec
+                ));
+            }
+
+            // Load comparison
+            let load_diff_pct = if averages.load_avg > 0.0 {
+                ((current.avg_load - averages.load_avg) / averages.load_avg) * 100.0
+            } else {
+                0.0
+            };
+            if load_diff_pct.abs() > 30.0 {
+                let direction = if load_diff_pct > 0.0 { "above" } else { "below" };
+                comparisons.push(format!(
+                    "Load: {:.2} ({:.0}% {} average {:.2})",
+                    current.avg_load, load_diff_pct.abs(), direction, averages.load_avg
+                ));
+            }
+
+            if comparisons.is_empty() {
+                telemetry.push_str("All metrics within normal range (±10-30% of average).\n");
+            } else {
+                for comparison in comparisons {
+                    telemetry.push_str(&format!("• {}\n", comparison));
+                }
+            }
+        }
+        telemetry.push_str("\n");
+    }
+
+    // 12. Visual trends (ASCII charts for last 7 days)
     if prefs.briefing.charts {
         telemetry.push_str("## Trend Charts (7 days):\n");
 

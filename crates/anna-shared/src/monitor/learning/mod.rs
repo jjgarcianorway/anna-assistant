@@ -11,7 +11,7 @@ pub use analysis::{
     parse_meminfo_value, MAX_HISTORY,
 };
 pub use types::{
-    DailySnapshot, DetectedChanges, IoBaseline, LongTermHistory, PackageAction, PackageTransaction,
+    DailySnapshot, DetectedChanges, HistoricalAverages, IoBaseline, LongTermHistory, PackageAction, PackageTransaction,
     PerfSample, SystemLearning,
 };
 
