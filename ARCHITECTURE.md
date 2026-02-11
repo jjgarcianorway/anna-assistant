@@ -1,242 +1,217 @@
 # Anna Architecture
 
-Anna is an AI assistant for Arch Linux that can diagnose and help fix system issues.
+v0.3.155 - Production Ready
 
-## Trust Is a Shape, Not a Promise
+Anna is an AI assistant for Arch Linux that combines instant pattern matching with intelligent reasoning for system administration tasks.
 
-Anna's safety is not based on promises or policies. It is based on structural constraints that make unsafe behavior physically impossible.
-
-### The Execution Chain
-
-Every action Anna takes flows through a defined chain of transformations. Each link in the chain adds constraints, never removes them.
+## Query Pipeline
 
 ```
-Intent → Proposal → AssistedOperation → ExecutionRequest → HumanExecutionAdapter
+User Question
+    ↓
+Pattern Library (28 patterns) → Instant answer (<1ms) if match
+    ↓ no match
+Ralph Loop (Multi-Agent Orchestration)
+    ↓
+├─ Domain Routing → 8 domains, 16 specialists
+├─ Wiki RAG → Arch Wiki embeddings (768-dim)
+├─ System Investigation → Real command execution
+├─ Telemetry Analysis → 30-day historical data
+└─ Action Plans → Confirmation + rollback
+    ↓
+LLM (Ollama - qwen2.5)
+    ↓
+Answer (grounded, evidence-based)
 ```
 
-1. **Intent**: Human expresses what they want ("fix my WiFi")
-2. **Proposal**: Anna creates data structures describing possible fixes
-3. **AssistedOperation**: Commands classified as Safe or Manual
-4. **ExecutionRequest**: Human confirms specific commands
-5. **HumanExecutionAdapter**: Executes through strict allowlist
+## Pattern Library
 
-### Concrete Example: WiFi Repair
+**Instant Answers:**
+- 28 predefined patterns for common scenarios
+- Keyword-based matching (0.85-0.95 confidence)
+- Response time: <1ms (no LLM overhead)
+- Covers: errors, configuration, common Linux tasks
 
+**Categories:**
+- Error patterns (12): pacman-lock, disk-full, wifi, audio, etc.
+- Config patterns (3): vim-syntax, vim-line-numbers, bash-alias
+- Task patterns (13): git-init, ssh-keygen, systemctl, pacman, etc.
+
+**Fallback:**
+- Non-matching queries → Ralph loop with LLM
+
+## Ralph Loop (Intelligent Reasoning)
+
+**Iterative Investigation:**
 ```
-User: "My WiFi keeps dropping"
-
-1. Intent: User wants stable WiFi
-   - No execution capability at this stage
-   - Anna reads system state (lspci, iw, lsmod)
-
-2. Proposal: Anna identifies iwlwifi driver issue
-   - Creates AssistedOperation with:
-     - Safe commands: iw wlan0 link, lsmod, cat /etc/modprobe.d/iwlwifi.conf
-     - Manual commands: sudo modprobe -r iwlwifi && sudo modprobe iwlwifi
-
-3. ExecutionRequest: User confirms safe commands
-   - Must type exactly: "I understand this will execute automatically."
-   - Request persisted to /var/lib/anna/execution_requests/
-
-4. HumanExecutionAdapter: Executes safe commands
-   - Binary must be in allowlist: [iw, lsmod, lspci, cat, echo]
-   - No sudo, no pipes, no redirects
-   - Full audit trail recorded
-
-5. Manual commands: Shown to user for copy/paste
-   - Anna cannot execute sudo commands
-   - User runs them in their own terminal
+1. LLM: "What commands should I run?"
+2. Execute commands, capture output
+3. LLM: "Is output sufficient?" (YES/NO)
+4. If NO: Loop back (up to N iterations)
+5. If YES: Generate final answer
 ```
 
-### Why This Architecture?
+**Evidence Tracking:**
+- Probe results (command + exit code + output)
+- Wiki citations (Arch Wiki RAG)
+- Man page references
+- All answers grounded in actual data
 
-1. **No implicit execution**: Commands cannot be executed without explicit human action
-2. **Structural boundaries**: The code physically cannot bypass constraints
-3. **Audit trail**: Every execution attempt is recorded
-4. **Versioned contract**: Capability changes require version bumps
+## Multi-Agent System
 
-### Capability Ledger
+**8 Domains:**
+- Desktop, Network, Storage, Security
+- Services, Performance, Hardware, Packages
 
-Anna's capabilities are defined in `crates/anna-shared/src/capabilities.rs`. This is the single source of truth for what Anna can and cannot do.
+**16 Specialists (Junior/Senior per domain):**
+- Junior: Basic queries, quick diagnostics
+- Senior: Complex debugging, multi-step fixes
 
-**Execution Capabilities** (require human confirmation):
-- `human_mediated_execution`: Human provides command at runtime
-- `automatic_safe_execution`: Safe commands after explicit confirmation
+**Routing:**
+- Keyword-based domain detection
+- Escalation to seniors for complex issues
+- Parallel investigation for multi-domain queries
 
-**Diagnosis Capabilities** (read-only, no confirmation):
-- `system_state_diagnosis`: lspci, lsmod, free, df, etc.
-- `wifi_diagnosis`: iw, lsmod, lspci for WiFi state
-- `config_file_read`: cat for specific config paths
+## Wiki RAG
 
-**Forbidden Capabilities** (structurally impossible):
-- `NO_network_requests`: wget, curl, etc. not in allowlist
-- `NO_package_installation`: pacman, apt, etc. not in allowlist
-- `NO_sudo_execution`: sudo rejected by adapter
-- `NO_destructive_commands`: rm, dd, etc. rejected by adapter
+**Arch Wiki Knowledge Base:**
+- Embeddings: nomic-embed-text (768-dim)
+- Semantic search + keyword fallback
+- Citations in responses
+- Local vector database
 
-### Binary Allowlist
+## Telemetry
 
-The HumanExecutionAdapter has an explicit allowlist:
-```
-iw, lsmod, lspci, cat, echo
-```
+**30-Day Historical Data:**
+- Hardware snapshots (CPU, RAM, disks, network)
+- Package history (installs, updates, removals)
+- Performance samples (boot time, resource usage, 100 samples)
+- Anomaly baselines (CPU, RAM, disk, network)
 
-Everything else is rejected. The allowlist is enforced at runtime and verified by tests.
+**Predictive ML:**
+- Disk full prediction (linear regression)
+- Boot time degradation alerts
+- Memory leak detection
+- Capacity planning forecasts
 
-### Guardrails
+## Action Execution
 
-Changes to the capability system trigger CI checks:
-1. Capability ledger changes require VERSION bump
-2. Binary allowlist changes require ledger update
-3. Confirmation string changes require test updates
-4. Forbidden binaries are checked on every build
+**Template Plans:**
+- GDM auto-login
+- Disable lid close suspend
+- Display resolution settings
 
-### Trust Surface Report
+**Lifecycle:**
+1. Template match
+2. Preflight check (idempotency)
+3. State capture (backup to `/var/lib/anna/rollback/`)
+4. User confirmation
+5. Execute steps (with pkexec)
+6. Per-step verification
+7. Final verification
+8. Rollback on failure
+9. Cleanup on success
 
-A complete trust surface report is maintained at `docs/trust_surface.md`. This document is:
-- Generated from the capability ledger
-- Deterministic and diffable
-- Updated with each capability change
+## Self-Healing
 
-### Runtime Trust Disclosure (Phase 46)
+**Auto-Recovery Subsystems:**
+- Daemon: Socket connection, auto-restart
+- Ollama: Service start with pkexec
+- Permissions: Auto-add user to anna group
+- Models: Retry with exponential backoff
+- Wiki: Retry initialization
 
-Anna declares her capabilities before acting. This is not politeness - it prevents silent power growth.
+**Recovery Hierarchy:**
+1. Retry silently
+2. Use pkexec for privilege escalation
+3. Report failure (no manual commands)
 
-**Why Anna Declares Herself**
+## Multi-Interface
 
-Every request is answered against a published truth, not improvisation. The declaration:
-- Is derived from `capabilities.rs` - cannot diverge from actual behavior
-- Is deterministic - same ledger produces same declaration
-- Is human-readable - no jargon, plain language
+**CLI (annactl):**
+- Natural language queries
+- Interactive session mode
+- Real-time streaming responses
+- Status monitoring
 
-**How to View the Declaration**
-
-```bash
-annactl capabilities             # Full declaration
-annactl capabilities --onboarding   # Compact summary
-annactl capabilities --deterministic   # Diffable format
-```
-
-**Isolation Guarantee**
-
-The declaration module (`declaration.rs`) is architecturally isolated:
-- Imports only from `capabilities.rs`
-- Contains no execution code (no `Command::new`, no process spawning)
-- Cannot request, trigger, or enable execution
-- Tests verify this isolation on every build
-
-This means the declaration layer physically cannot expand Anna's power - it can only describe existing power.
-
-### Single Authorization Path (Phase 47)
-
-All command execution flows through ONE authorization path. There are no case-by-case exceptions.
-
-**The Command Policy Engine**
-
-`command_policy.rs` is the ONLY way execution-capable code can approve an OS command:
-
-```
-CommandSpec (argv tokens) → authorize_command() → PolicyDecision
-                                                      ↓
-                                          Allowed { capability_id, safety }
-                                          Denied { reason }
-```
-
-HumanExecutionAdapter MUST call `authorize_command()` before executing anything.
-
-**Why Single Path Matters**
-
-- Eliminates "WiFi special logic" and "YouTube special logic"
-- Adding a new command requires updating the ledger + tests
-- No backdoors - policy engine checks every execution
-- Auditable at a single location
-
-**Hard Bans (Always Denied)**
-
-These patterns are rejected regardless of ledger content:
-- Privilege escalation: sudo, su, pkexec, doas
-- Shells: sh, bash, zsh, fish, dash, csh
-- Destructive: rm, dd, mkfs, fdisk, shred
-- Network: wget, curl, nc, ssh, scp
-- Package managers: pacman, apt, dnf, yum
-- Dangerous patterns: pipes (|), redirects (>, <), command substitution ($())
-
-**Guardrail Tests**
-
-37 tests enforce the single path:
-- `guardrail_policy_authorizes_exactly_ledger_binaries`
-- `guardrail_no_second_authorization_outside_policy`
-- `guardrail_human_execution_uses_policy`
-- `guardrail_hard_bans_comprehensive`
-
-### Capability Change Checklist
-
-To add a new allowed command:
-
-1. **Update capability ledger** (`capabilities.rs`)
-   - Add binary to appropriate capability's `allowed_binaries`
-
-2. **Update VERSION** (Cargo.toml and VERSION file)
-   - Bump version number
-
-3. **Update CHANGELOG.md**
-   - Document the new capability
-
-4. **Run tests**
-   - `cargo test --workspace`
-   - All guardrail tests must pass
-
-5. **Verify disclosure**
-   - Run `annactl capabilities`
-   - Confirm new capability appears
-
-6. **Update trust surface** if needed
-   - Regenerate `docs/trust_surface.md`
-
-If any step fails, the new command cannot be authorized.
+**Telegram Bot (Optional):**
+- Same backend as CLI
+- Remote system administration
+- Natural language queries
+- Session isolation per user
 
 ## Module Structure
 
 ```
 crates/
 ├── anna-shared/           # Shared types and utilities
-│   ├── capabilities.rs    # Capability ledger (Phase 45)
-│   ├── command_policy.rs  # Single authorization path (Phase 47)
-│   ├── declaration.rs     # Runtime trust disclosure (Phase 46)
-│   ├── execution_request.rs # Human-issued requests (Phase 40)
-│   ├── human_execution.rs # Execution adapter using policy (Phase 42, 47)
-│   ├── action_plan.rs     # Plan types (no execution)
+│   ├── patterns/          # Pattern library (28 patterns)
+│   ├── agent/             # Multi-agent system
+│   ├── prediction/        # Predictive ML
+│   ├── knowledge/         # Wiki RAG, man pages
 │   └── ...
 ├── annad/                 # Daemon
-│   ├── assisted_ops/      # Diagnosis and proposals (Phase 39, 43)
-│   │   ├── types.rs       # AssistedOperation types
-│   │   ├── wifi_diagnosis.rs # WiFi diagnosis
-│   │   ├── execution_bridge.rs # Proposal → Request
-│   │   └── detection.rs   # System state reading
-│   └── ...
-└── annactl/               # CLI
-    ├── main.rs            # CLI including capabilities command (Phase 46)
-    ├── repair.rs          # Repair commands (Phase 43)
+│   ├── orchestrator/      # Ralph loop
+│   ├── specialists/       # 16 domain specialists
+│   ├── model_router/      # LLM model selection
+│   └── server/            # HTTP server, streaming
+└── annactl/               # CLI client
+    ├── main.rs            # CLI interface
     └── ...
 ```
 
 ## System Paths
 
-All state is stored in system directories, never in user home:
-
 | Purpose | Path |
 |---------|------|
-| Config  | /etc/anna/ |
-| State   | /var/lib/anna/ |
-| Runtime | /run/anna/ |
-| Socket  | /run/anna/anna.sock |
+| Config  | `/etc/anna/` |
+| State   | `/var/lib/anna/` |
+| Runtime | `/run/anna/` |
+| Socket  | `/run/anna/anna.sock` |
+
+**Permissions:**
+- Directories: 750
+- Files: 640
+- Socket: 660
+- Group: anna
+
+## Data Storage
+
+**State Files:**
+- `/var/lib/anna/telemetry/` - Historical snapshots
+- `/var/lib/anna/rollback/` - Backup states
+- `/var/lib/anna/memory/` - Agent learning
+- `/var/lib/anna/wiki/` - RAG embeddings
+
+**Configuration:**
+- `/etc/anna/config.toml` - Main config
+- `/etc/anna/telegram.env` - Telegram bot credentials (optional)
+
+## Privacy
+
+**100% Local:**
+- No cloud APIs
+- No external telemetry
+- All processing on-device
+- Ollama for LLM inference
+
+**Data Retention:**
+- Telemetry: 30-day rolling window
+- Rollback states: 7 days
+- Logs: systemd journald (configurable)
 
 ## Version History
 
-- **Phase 47**: Capability-Gated Command Policy Engine (Single Path)
-- **Phase 46**: Capability Declaration & Runtime Trust Disclosure
-- **Phase 45**: Trust Surface Review + Capability Ledger
-- **Phase 43**: End-to-End Assisted Ops → Human Execution
-- **Phase 42**: Human-Mediated Execution Adapter
-- **Phase 40**: Execution Request (human-issued)
-- **Phase 39**: Assisted Operations Layer
+**v0.3.155** (2026-02-07):
+- Pattern library: 28 patterns
+- Multi-agent system: 8 domains, 16 specialists
+- Telemetry: 30-day historical analysis
+- Predictive ML: trend analysis, forecasting
+- Production ready: 100% test success rate
+
+**Earlier phases:**
+- v0.3.50: Action execution, template plans
+- v0.3.36: Self-healing, auto-recovery
+- Phase 47: Capability-gated command policy
+- Phase 46: Runtime trust disclosure
+- Phase 45: Trust surface review
