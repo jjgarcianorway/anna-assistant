@@ -151,7 +151,7 @@ cleanup_stale_binaries() {
         [[ "$stale_found" = false ]] && print_section "cleanup" "removing stale binaries"
         rm -f "${user_local_bin}/annad"; print_ok "removed ${user_local_bin}/annad"; stale_found=true
     fi
-    [[ "$stale_found" = true ]] && echo ""
+    [[ "$stale_found" = true ]] && echo "" || true
 }
 
 install_binaries() {
