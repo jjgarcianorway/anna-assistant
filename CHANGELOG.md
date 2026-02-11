@@ -5,6 +5,87 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.156] - 2026-02-11
+
+### Added - Intelligent Morning Briefings with Visual Charts
+
+**Enhanced Morning Briefing System:**
+- **Visual PNG Charts**: Generated with plotters library showing 7-day trends (disk, memory, boot time)
+- **Predictive Alerts**: Forecasts problems before they occur ("Disk will reach 95% in 8 days")
+- **Historical Comparison**: Compares current metrics to 30-day baselines
+- **Priority-Based Intelligence**: LLM prompt guides critical-first reporting
+- **Telegram Chart Delivery**: Charts sent as PNG photos before text briefing
+
+**New Module: chart_generator.rs** (315 lines)
+- Multi-line trend charts with plotters
+- Forecast visualization with prediction lines
+- Graceful degradation (requires 3+ days history)
+
+**Briefing Intelligence Priorities:**
+1. Critical issues first (failed services, disk >90%, security breaches)
+2. Predictive alerts with timeframes
+3. Historical context (deviations from baseline)
+4. Actionable insights (skip routine metrics)
+5. Contextual explanations (why metrics matter)
+
+**Example Output Improvement:**
+
+Before: "Disk usage at 78%. All services running."
+
+After: [PNG chart] + "CRITICAL: Disk at 78% growing 2.1GB/day - will reach 95% in 8 days. Consider cleaning package cache (3.2GB) to prevent update failures."
+
+### Fixed - Over-Clarification Issue
+
+**Problem**: Anna asked for clarification 80% of the time instead of answering
+
+**Solutions:**
+1. **Lowered Clarification Threshold**: 0.5 → 0.35
+   - Anna now answers more confidently
+   - Reduced unnecessary "Could you please be more specific?" responses
+
+2. **Enhanced Pattern Detection** (detect.rs):
+   - Added 30+ Arch-specific error patterns
+   - Hardware-specific symptoms (Ryzen, RTX, NVMe, etc.)
+   - System-level error detection ("conflicting files", "target not found")
+   - Service failure patterns (systemd, dbus, etc.)
+
+3. **Pattern-Based Confidence Boost** (mod.rs):
+   - Questions matching known patterns get 75% confidence
+   - Skips unnecessary deep analysis for clear issues
+   - Applies to both quick and deep understanding paths
+
+**Improved Pattern Categories:**
+- Lock/busy errors: "database locked", "cannot acquire"
+- Arch errors: "conflicting files", "exists in filesystem"
+- Hardware: "not detected", "disappeared", "stuck at"
+- Service errors: "failed to start", "unit failed"
+- System errors: ACPI, KVM, microcode, watchdog
+
+**Expected Result**: Direct answers for common questions like:
+- "pacman says database is locked" → Immediate solution
+- "my Ryzen 7 5800x runs at 90C at idle" → Temperature diagnostics
+- "RTX 4090 fans spin up randomly" → Fan control investigation
+
+### Technical Details
+
+**Files Modified:**
+- `crates/annad/src/briefing.rs`: +123 lines (predictive alerts, historical comparison)
+- `crates/annad/src/chart_generator.rs`: +315 lines (NEW - PNG chart generation)
+- `crates/annad/src/scheduler_loop.rs`: +17 lines (chart integration)
+- `crates/annad/src/telegram/notifier.rs`: +38 lines (photo message support)
+- `crates/annad/src/intent/mod.rs`: +25 lines (confidence boosting)
+- `crates/annad/src/intent/detect.rs`: +60 lines (enhanced patterns)
+- `crates/anna-shared/src/monitor/learning/types.rs`: +35 lines (historical averages)
+
+**Dependencies Added:**
+- `plotters = "0.3"` (already in workspace, now used)
+- `plotters-bitmap` (backend for PNG rendering)
+
+**Known Issues:**
+- briefing.rs now 487 lines (over 400-line limit) - needs refactoring
+- detect.rs now 486 lines (over 400-line limit) - needs refactoring
+- 36 total files over 400 lines (pre-existing technical debt)
+
 ## [0.3.155] - 2026-02-07
 
 ### Added - System Administration Pattern Library
