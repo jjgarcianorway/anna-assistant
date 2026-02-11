@@ -7,13 +7,18 @@ use tracing::{info, warn};
 
 /// Collect all system telemetry for LLM analysis.
 /// Returns raw command outputs - NO parsing, NO hardcoding.
+/// v0.3.156: Respects user preferences for which sections to include.
 fn collect_system_telemetry() -> String {
+    use anna_shared::preferences::UserPreferences;
+
+    let prefs = UserPreferences::load();
     let mut telemetry = String::new();
 
     telemetry.push_str("=== SYSTEM TELEMETRY (24h) ===\n\n");
 
     // 1. Package updates available
-    telemetry.push_str("## Updates Available:\n");
+    if prefs.briefing.updates {
+        telemetry.push_str("## Updates Available:\n");
     if let Ok(output) = Command::new("checkupdates").output() {
         let updates = String::from_utf8_lossy(&output.stdout);
         if updates.is_empty() {
@@ -24,10 +29,12 @@ fn collect_system_telemetry() -> String {
     } else {
         telemetry.push_str("Could not check for updates.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 2. System errors (last 24h)
-    telemetry.push_str("## System Errors (priority: err):\n");
+    if prefs.briefing.errors {
+        telemetry.push_str("## System Errors (priority: err):\n");
     if let Ok(output) = Command::new("journalctl")
         .args(["--since", "24 hours ago", "-p", "err", "--no-pager", "-q", "-n", "30"])
         .output()
@@ -41,10 +48,12 @@ fn collect_system_telemetry() -> String {
     } else {
         telemetry.push_str("Could not read error logs.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 3. Failed services
-    telemetry.push_str("## Failed Services:\n");
+    if prefs.briefing.services {
+        telemetry.push_str("## Failed Services:\n");
     if let Ok(output) = Command::new("systemctl")
         .args(["--failed", "--no-pager", "--no-legend"])
         .output()
@@ -58,37 +67,45 @@ fn collect_system_telemetry() -> String {
     } else {
         telemetry.push_str("Could not check services.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 4. Disk usage
-    telemetry.push_str("## Disk Usage:\n");
+    if prefs.briefing.disk {
+        telemetry.push_str("## Disk Usage:\n");
     if let Ok(output) = Command::new("df").args(["-h", "/"]).output() {
         telemetry.push_str(&String::from_utf8_lossy(&output.stdout));
     } else {
         telemetry.push_str("Could not check disk.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 5. Memory usage
-    telemetry.push_str("## Memory Usage:\n");
+    if prefs.briefing.memory {
+        telemetry.push_str("## Memory Usage:\n");
     if let Ok(output) = Command::new("free").args(["-h"]).output() {
         telemetry.push_str(&String::from_utf8_lossy(&output.stdout));
     } else {
         telemetry.push_str("Could not check memory.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 6. System load
-    telemetry.push_str("## Load Average:\n");
+    if prefs.briefing.load {
+        telemetry.push_str("## Load Average:\n");
     if let Ok(load) = std::fs::read_to_string("/proc/loadavg") {
         telemetry.push_str(&load);
     } else {
         telemetry.push_str("Could not read load.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 7. Security events (failed auth)
-    telemetry.push_str("## Security Events (failed auth):\n");
+    if prefs.briefing.security {
+        telemetry.push_str("## Security Events (failed auth):\n");
     if let Ok(output) = Command::new("journalctl")
         .args(["--since", "24 hours ago", "-p", "warning", "-u", "sshd", "-u", "sudo", "--no-pager", "-q", "-n", "20"])
         .output()
@@ -102,10 +119,12 @@ fn collect_system_telemetry() -> String {
     } else {
         telemetry.push_str("Could not check security logs.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 8. Recent package installations (last 7 days)
-    telemetry.push_str("## Recent Package Changes (7 days):\n");
+    if prefs.briefing.package_changes {
+        telemetry.push_str("## Recent Package Changes (7 days):\n");
     if let Ok(output) = Command::new("grep")
         .args(["-E", "installed|upgraded|removed", "/var/log/pacman.log"])
         .output()
@@ -139,10 +158,12 @@ fn collect_system_telemetry() -> String {
     } else {
         telemetry.push_str("Could not read pacman log.\n");
     }
-    telemetry.push_str("\n");
+        telemetry.push_str("\n");
+    }
 
     // 9. Anomaly data (if available)
-    telemetry.push_str("## Anomaly Detection:\n");
+    if prefs.briefing.anomalies {
+        telemetry.push_str("## Anomaly Detection:\n");
     let store = crate::anomaly::AnomalyStore::load();
     let anomalies: Vec<_> = store.metrics.values()
         .filter_map(|h| {
@@ -166,6 +187,69 @@ fn collect_system_telemetry() -> String {
             telemetry.push('\n');
         }
     }
+        telemetry.push_str("\n");
+    }
+
+    // 10. Visual trends (ASCII charts for last 7 days)
+    if prefs.briefing.charts {
+        telemetry.push_str("## Trend Charts (7 days):\n");
+
+    // Disk usage trend (from daily snapshots)
+    let history = anna_shared::monitor::LongTermHistory::load();
+    if !history.daily_snapshots.is_empty() {
+        use anna_shared::charts::Sparkline;
+
+        // Last 7 days of disk usage
+        let disk_trend: Vec<f64> = history.daily_snapshots.iter()
+            .rev()
+            .take(7)
+            .rev()
+            .map(|s| s.disk_used_gb as f64)
+            .collect();
+
+        if !disk_trend.is_empty() {
+            let sparkline = Sparkline::new(&disk_trend);
+            telemetry.push_str(&format!("Disk (GB):    {} ({:.1} → {:.1} GB)\n",
+                sparkline.render(),
+                disk_trend.first().unwrap_or(&0.0),
+                disk_trend.last().unwrap_or(&0.0)));
+        }
+
+        // Memory usage trend
+        let mem_trend: Vec<f64> = history.daily_snapshots.iter()
+            .rev()
+            .take(7)
+            .rev()
+            .map(|s| s.avg_memory_pct as f64)
+            .collect();
+
+        if !mem_trend.is_empty() {
+            let sparkline = Sparkline::new(&mem_trend);
+            telemetry.push_str(&format!("Memory (%):   {} ({:.1}% → {:.1}%)\n",
+                sparkline.render(),
+                mem_trend.first().unwrap_or(&0.0),
+                mem_trend.last().unwrap_or(&0.0)));
+        }
+
+        // Boot time trend
+        let boot_trend: Vec<f64> = history.daily_snapshots.iter()
+            .rev()
+            .take(7)
+            .rev()
+            .map(|s| s.avg_boot_time as f64)
+            .collect();
+
+        if !boot_trend.is_empty() {
+            let sparkline = Sparkline::new(&boot_trend);
+            telemetry.push_str(&format!("Boot (sec):   {} ({:.1}s → {:.1}s)\n",
+                sparkline.render(),
+                boot_trend.first().unwrap_or(&0.0),
+                boot_trend.last().unwrap_or(&0.0)));
+        }
+        } else {
+            telemetry.push_str("Not enough historical data yet (need 7 days).\n");
+        }
+    }
 
     telemetry
 }
@@ -173,7 +257,12 @@ fn collect_system_telemetry() -> String {
 /// Generate morning briefing using LLM analysis.
 /// v0.3.156: No hardcoding - LLM analyzes raw telemetry.
 pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<String> {
+    use anna_shared::preferences::{UserPreferences, BriefingVerbosity};
+
     info!("Generating morning briefing with LLM analysis...");
+
+    // Load preferences for verbosity
+    let prefs = UserPreferences::load();
 
     // Collect all raw telemetry
     let telemetry = collect_system_telemetry();
@@ -185,8 +274,13 @@ pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<Str
         "Good morning!".to_string()
     };
 
+    let (sentence_count, detail_level) = match prefs.briefing.verbosity {
+        BriefingVerbosity::Brief => ("5-8", "brief"),
+        BriefingVerbosity::Detailed => ("10-15", "detailed with technical specifics"),
+    };
+
     let prompt = format!(
-        r#"You are Anna, an AI system administrator. Generate a concise morning briefing for the user.
+        r#"You are Anna, an AI system administrator. Generate a {} morning briefing for the user.
 
 {}
 
@@ -198,21 +292,25 @@ REQUIREMENTS:
 3. For errors: Show WHAT is failing (service names, error types), not just counts
 4. For updates: Mention if there are security updates
 5. For resources: Only mention if concerning (>85% disk, >90% memory, high load)
-6. Be honest: If something needs attention, say so clearly
-7. Be brief: 5-8 sentences max
-8. End with a closing that reflects system health
+6. For trends: If sparkline charts show worrying patterns (▇▇▇ = rising), mention them
+7. Be honest: If something needs attention, say so clearly
+8. Length: {} sentences
+9. End with a closing that reflects system health
 
 STYLE:
 - Conversational and friendly
 - No bullet points or markdown formatting
 - Natural paragraphs
 - Use "your system" not "the system"
+- Sparklines are visual: ▁▂▃▄▅▆▇█ (don't reproduce them, just describe trend if notable)
 
 SYSTEM TELEMETRY:
 {}
 
 Generate the briefing now:"#,
+        detail_level,
         user_greeting,
+        sentence_count,
         telemetry
     );
 

@@ -33,6 +33,23 @@ pub struct BriefingPreferences {
     pub load: bool,
     pub network: bool,
     pub hardware: bool,
+    pub package_changes: bool,
+    pub anomalies: bool,
+    pub charts: bool,
+    /// Verbosity: "brief" (5-8 sentences), "detailed" (more analysis)
+    pub verbosity: BriefingVerbosity,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BriefingVerbosity {
+    Brief,
+    Detailed,
+}
+
+impl Default for BriefingVerbosity {
+    fn default() -> Self {
+        Self::Brief
+    }
 }
 
 impl Default for BriefingPreferences {
@@ -47,6 +64,10 @@ impl Default for BriefingPreferences {
             load: true,
             network: false, // Off by default, can be noisy
             hardware: false, // Off by default, needs smartctl
+            package_changes: true,
+            anomalies: true,
+            charts: true,
+            verbosity: BriefingVerbosity::default(),
         }
     }
 }
@@ -109,15 +130,36 @@ pub fn parse_preference_update(input: &str) -> Option<PreferenceUpdate> {
 
     // Briefing modifications
     if lower.contains("briefing") || lower.contains("morning") || lower.contains("report") {
-        if lower.contains("add") || lower.contains("include") || lower.contains("enable") {
+        // Verbosity changes
+        if lower.contains("detailed") || lower.contains("verbose") {
+            return Some(PreferenceUpdate::Verbosity(BriefingVerbosity::Detailed));
+        }
+        if lower.contains("brief") || lower.contains("concise") || lower.contains("short") {
+            return Some(PreferenceUpdate::Verbosity(BriefingVerbosity::Brief));
+        }
+
+        // Section enable/disable
+        let is_disable = lower.contains("disable") || lower.contains("hide") || lower.contains("remove");
+        let is_enable = lower.contains("add") || lower.contains("include") || lower.contains("enable");
+
+        if is_enable {
             if lower.contains("network") {
                 return Some(PreferenceUpdate::Briefing("network".into(), true));
             }
             if lower.contains("hardware") || lower.contains("smart") {
                 return Some(PreferenceUpdate::Briefing("hardware".into(), true));
             }
+            if lower.contains("chart") || lower.contains("graph") || lower.contains("trend") {
+                return Some(PreferenceUpdate::Briefing("charts".into(), true));
+            }
+            if lower.contains("package") || lower.contains("pkg") {
+                return Some(PreferenceUpdate::Briefing("package_changes".into(), true));
+            }
+            if lower.contains("anomal") {
+                return Some(PreferenceUpdate::Briefing("anomalies".into(), true));
+            }
         }
-        if lower.contains("remove") || lower.contains("disable") || lower.contains("hide") {
+        if is_disable {
             if lower.contains("update") {
                 return Some(PreferenceUpdate::Briefing("updates".into(), false));
             }
@@ -126,6 +168,27 @@ pub fn parse_preference_update(input: &str) -> Option<PreferenceUpdate> {
             }
             if lower.contains("error") {
                 return Some(PreferenceUpdate::Briefing("errors".into(), false));
+            }
+            if lower.contains("disk") || lower.contains("storage") {
+                return Some(PreferenceUpdate::Briefing("disk".into(), false));
+            }
+            if lower.contains("memory") || lower.contains("ram") {
+                return Some(PreferenceUpdate::Briefing("memory".into(), false));
+            }
+            if lower.contains("service") {
+                return Some(PreferenceUpdate::Briefing("services".into(), false));
+            }
+            if lower.contains("load") || lower.contains("cpu") {
+                return Some(PreferenceUpdate::Briefing("load".into(), false));
+            }
+            if lower.contains("chart") || lower.contains("graph") || lower.contains("trend") {
+                return Some(PreferenceUpdate::Briefing("charts".into(), false));
+            }
+            if lower.contains("package") || lower.contains("pkg") {
+                return Some(PreferenceUpdate::Briefing("package_changes".into(), false));
+            }
+            if lower.contains("anomal") {
+                return Some(PreferenceUpdate::Briefing("anomalies".into(), false));
             }
         }
     }
@@ -152,6 +215,7 @@ pub fn parse_preference_update(input: &str) -> Option<PreferenceUpdate> {
 pub enum PreferenceUpdate {
     Briefing(String, bool),
     Alert(String, bool),
+    Verbosity(BriefingVerbosity),
 }
 
 impl PreferenceUpdate {
@@ -170,6 +234,9 @@ impl PreferenceUpdate {
                     "load" => prefs.briefing.load = *enabled,
                     "network" => prefs.briefing.network = *enabled,
                     "hardware" => prefs.briefing.hardware = *enabled,
+                    "package_changes" => prefs.briefing.package_changes = *enabled,
+                    "anomalies" => prefs.briefing.anomalies = *enabled,
+                    "charts" => prefs.briefing.charts = *enabled,
                     _ => return format!("Unknown briefing option: {}", key),
                 }
                 format!("{} {} in morning briefing", status, key)
@@ -186,6 +253,14 @@ impl PreferenceUpdate {
                     _ => return format!("Unknown alert option: {}", key),
                 }
                 format!("{} {} alerts", status, key.replace("_", " "))
+            }
+            PreferenceUpdate::Verbosity(verbosity) => {
+                prefs.briefing.verbosity = verbosity.clone();
+                let level = match verbosity {
+                    BriefingVerbosity::Brief => "brief",
+                    BriefingVerbosity::Detailed => "detailed",
+                };
+                format!("Morning briefing verbosity set to {}", level)
             }
         }
     }
