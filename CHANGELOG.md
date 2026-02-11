@@ -5,6 +5,108 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.157] - 2026-02-11
+
+### Added - Personality System & Autonomous Learning
+
+**Anna is now alive!** This release transforms Anna from a reactive assistant into a living system administrator with personality, moods, and autonomous learning behavior.
+
+**Personality System (personality.rs - 340 lines):**
+- **5 Dynamic Moods** based on system health:
+  - Cheerful (disk <50%, no issues)
+  - Calm (normal operations)
+  - Concerned (disk >75%, minor issues)
+  - Urgent (disk >85%, serious issues)
+  - Critical (failed services, disk >95%)
+- **Time-Aware Greetings**: Morning (5am-12pm), Afternoon (12pm-6pm), Evening (6pm-11pm), Night (11pm-5am)
+- **Context-Driven Responses**: Tone matches system state and urgency
+- **Experience Tracking**: Persistent memory of learned lessons with level progression
+- **State Persistence**: Saved to `/var/lib/anna/personality.json`
+
+**Autonomous Learning Loop (autonomous_loop.rs - 250 lines):**
+- **Idle-Time Learning**: Every 5 minutes, Anna performs learning activities
+- **5 Learning Activities**:
+  1. Log Analysis - Scans journalctl for error patterns
+  2. Package Research - Learns about installed software
+  3. Optimization Scanning - Finds orphaned packages, cache bloat
+  4. Wiki Sync - (planned) Caches Arch Wiki solutions
+  5. Command Pattern Analysis - (planned) Learns user workflows
+- **Experience Growth**: Increases level with each lesson learned
+- **Always Working**: Anna continuously improves during downtime
+
+**Tool Management System (tool_manager.rs - 240 lines):**
+- **Auto-Install Diagnostic Tools**: bc, jq, htop, lsof, nethogs, iotop, ncdu, tree, strace, tcpdump, bandwhich, duf, btop
+- **Dependency Tracking**: Records all Anna-installed tools in `/var/lib/anna/installed_deps.txt`
+- **Clean Uninstall**: Removes only Anna-installed tools, keeps user-installed packages
+- **Permission Handling**: Uses pkexec for system package installation
+
+**Briefing Integration:**
+- Morning briefings now use personality-driven greetings and closings
+- LLM tone instructions match current mood
+- Health checks determine mood before generating briefing
+
+**Example Personality-Driven Responses:**
+
+Cheerful Morning:
+```
+Good morning! Your system looks fantastic today.
+Disk at 45% with stable usage. Boot time improved 8% this week.
+Have a wonderful day ahead!
+```
+
+Critical Night:
+```
+Hello at this late hour! Immediate attention needed on critical issues.
+CRITICAL: Disk at 94% - will reach 100% in 3 days.
+Failed service: bluetooth.service.
+I'm here if you need assistance.
+```
+
+### Added - CUDA Optimization Guide
+
+**New Documentation: docs/CUDA_OPTIMIZATION.md (205 lines)**
+- Comprehensive guide for GPU acceleration
+- Model recommendations by VRAM capacity (7B to 72B)
+- Performance tuning (Flash Attention, parallel requests)
+- Benchmarking and monitoring instructions
+- Troubleshooting common CUDA issues
+- Performance comparison table (5-10x speedup with CUDA)
+
+### Changed - README Complete Rewrite
+
+**Updated README.md (558 lines):**
+- New tagline: "Your Living AI System Administrator"
+- Comprehensive personality system documentation
+- Autonomous learning explanation with examples
+- Time-aware greeting examples across all moods
+- Tool management capabilities
+- Updated architecture diagram with personality filter
+- Philosophy section: "Anna is not a chatbot. She's a colleague."
+- Expanded roadmap and examples
+
+### Technical Details
+
+**New Files:**
+- `crates/annad/src/personality.rs` (340 lines) - Mood system, time awareness, dynamic greetings
+- `crates/annad/src/autonomous_loop.rs` (250 lines) - Idle-time learning activities
+- `crates/annad/src/tool_manager.rs` (240 lines) - Auto-install diagnostic tools
+- `docs/CUDA_OPTIMIZATION.md` (205 lines) - GPU acceleration guide
+
+**Modified Files:**
+- `crates/annad/src/briefing.rs` - Personality integration, health checks, tone instructions
+- `crates/annad/src/server/mod.rs` - Spawn autonomous learning loop
+- `crates/annad/src/lib.rs` - Register new modules
+- `README.md` - Complete rewrite highlighting living sysadmin capabilities
+
+**Background Loops Running:**
+1. Scheduler Loop (60s) - Scheduled tasks, health checks, briefings
+2. Autonomous Learning Loop (300s) - Log analysis, package research, optimizations
+3. Socket Server - User queries, personality updates
+
+**Total New Code**: ~1,350 lines
+
+**Philosophy**: Anna is no longer just answering questions - she's living in your system, continuously learning, monitoring, and growing wiser over time.
+
 ## [0.3.156] - 2026-02-11
 
 ### Added - Intelligent Morning Briefings with Visual Charts
