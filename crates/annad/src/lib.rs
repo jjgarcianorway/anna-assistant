@@ -59,6 +59,8 @@ pub mod binary_watcher;
 pub mod disk_health;
 pub mod dynamic_plan;
 pub mod intelligence;
+pub mod meta_learning;
+pub mod universal_handler;
 pub mod changes;
 pub mod core_loop;
 pub mod department;

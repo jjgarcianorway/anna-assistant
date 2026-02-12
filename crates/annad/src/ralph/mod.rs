@@ -38,6 +38,31 @@ use criteria::IterationState;
 use recipe_learning::learn_recipe_from_answer;
 use verification::truncate;
 
+/// Extract task type from question for strategy learning
+fn extract_task_type(question: &str) -> String {
+    let q = question.to_lowercase();
+
+    if q.contains("install") || q.contains("package") || q.contains("pacman") || q.contains("yay") {
+        "package_management".to_string()
+    } else if q.contains("network") || q.contains("wifi") || q.contains("ethernet") || q.contains("ip") {
+        "network_configuration".to_string()
+    } else if q.contains("service") || q.contains("systemctl") || q.contains("daemon") {
+        "service_management".to_string()
+    } else if q.contains("disk") || q.contains("partition") || q.contains("mount") || q.contains("filesystem") {
+        "disk_management".to_string()
+    } else if q.contains("user") || q.contains("permission") || q.contains("sudo") || q.contains("group") {
+        "user_management".to_string()
+    } else if q.contains("config") || q.contains("configure") || q.contains("setting") {
+        "system_configuration".to_string()
+    } else if q.contains("error") || q.contains("fix") || q.contains("broken") || q.contains("fail") {
+        "troubleshooting".to_string()
+    } else if q.contains("monitor") || q.contains("status") || q.contains("check") {
+        "monitoring".to_string()
+    } else {
+        "general_task".to_string()
+    }
+}
+
 /// The Ralph loop: iterate until done (non-streaming version)
 /// LLM-first: no bypass paths. Every question goes through the LLM.
 pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
@@ -65,6 +90,19 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         if !memory_context.is_empty() {
             debug!("Memory context available for this question");
             state.feedback = Some(memory_context);
+        }
+
+        // v0.3.160: Add strategic guidance from meta-learning
+        let strategic_guidance = crate::meta_learning::get_strategic_guidance(question);
+        if !strategic_guidance.is_empty() {
+            info!("Strategic guidance available from past experience");
+            state.feedback = Some(
+                state
+                    .feedback
+                    .as_ref()
+                    .map(|f| format!("{}\n{}", f, strategic_guidance))
+                    .unwrap_or(strategic_guidance),
+            );
         }
     }
 
@@ -163,6 +201,22 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
                 &state.commands,
                 eval.confidence,
             );
+
+            // v0.3.160: Self-reflect and learn strategy
+            let execution_log = format!("Commands: {}\nAnswer: {}", state.commands.join("; "), answer);
+            if let Ok(reflection) = crate::meta_learning::reflect_on_task(
+                model, question, &execution_log, true
+            ).await {
+                // Learn strategy from this successful task
+                let task_type = extract_task_type(question);
+                crate::meta_learning::learn_strategy(
+                    task_type,
+                    question.chars().take(100).collect(),
+                    state.commands.clone(),
+                    true,
+                    reflection.insights,
+                );
+            }
 
             return Ok(AskResult {
                 answer,
