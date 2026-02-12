@@ -76,6 +76,7 @@ pub mod scheduler_loop;
 pub mod self_healing;
 pub mod server;
 pub mod state;
+pub mod suggestions;
 pub mod team_speak;
 pub mod telegram;
 pub mod tool_manager;

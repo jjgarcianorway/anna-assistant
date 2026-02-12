@@ -29,6 +29,8 @@ pub enum LearningActivity {
     PackageResearch,
     /// Check for system optimizations
     OptimizationScan,
+    /// Scan for proactive suggestions
+    ProactiveSuggestions,
     /// Update knowledge base from Arch Wiki
     WikiSync,
     /// Analyze command history patterns
@@ -42,6 +44,7 @@ impl LearningActivity {
             LearningActivity::LogAnalysis,
             LearningActivity::PackageResearch,
             LearningActivity::OptimizationScan,
+            LearningActivity::ProactiveSuggestions,
             LearningActivity::WikiSync,
             LearningActivity::CommandPatternAnalysis,
         ]
@@ -53,6 +56,7 @@ impl LearningActivity {
             LearningActivity::LogAnalysis => "Analyzing system logs for patterns",
             LearningActivity::PackageResearch => "Researching installed packages",
             LearningActivity::OptimizationScan => "Scanning for optimization opportunities",
+            LearningActivity::ProactiveSuggestions => "Generating proactive suggestions",
             LearningActivity::WikiSync => "Syncing knowledge from Arch Wiki",
             LearningActivity::CommandPatternAnalysis => "Learning command usage patterns",
         }
@@ -64,6 +68,7 @@ impl LearningActivity {
             LearningActivity::LogAnalysis => analyze_logs(personality).await,
             LearningActivity::PackageResearch => research_packages(personality).await,
             LearningActivity::OptimizationScan => scan_optimizations(personality).await,
+            LearningActivity::ProactiveSuggestions => generate_suggestions(personality).await,
             LearningActivity::WikiSync => sync_wiki(personality).await,
             LearningActivity::CommandPatternAnalysis => analyze_commands(personality).await,
         }
@@ -232,6 +237,40 @@ async fn sync_wiki(_personality: &mut PersonalityState) -> Result<Option<String>
     Ok(None)
 }
 
+/// Generate proactive suggestions
+async fn generate_suggestions(personality: &mut PersonalityState) -> Result<Option<String>> {
+    debug!("Scanning for proactive suggestions");
+
+    // Scan system for suggestions
+    let suggestions = crate::suggestions::scan_for_suggestions().await?;
+
+    if suggestions.is_empty() {
+        debug!("No new suggestions found");
+        return Ok(None);
+    }
+
+    // Load existing suggestions state
+    let mut state = crate::suggestions::SuggestionsState::load();
+    state.last_scan = chrono::Utc::now().to_rfc3339();
+
+    // Add new suggestions
+    let mut added_count = 0;
+    for suggestion in suggestions {
+        state.add(suggestion);
+        added_count += 1;
+    }
+
+    // Save state
+    state.save()?;
+
+    if added_count > 0 {
+        let lesson = format!("Generated {} proactive suggestions for user", added_count);
+        Ok(Some(lesson))
+    } else {
+        Ok(None)
+    }
+}
+
 /// Analyze command patterns (stub - can be expanded)
 async fn analyze_commands(_personality: &mut PersonalityState) -> Result<Option<String>> {
     // In future: analyze bash history to learn user's workflow
@@ -247,7 +286,7 @@ mod tests {
     #[test]
     fn test_learning_activities() {
         let activities = LearningActivity::all();
-        assert_eq!(activities.len(), 5);
+        assert_eq!(activities.len(), 6); // Updated from 5 to 6
 
         for activity in activities {
             assert!(!activity.description().is_empty());

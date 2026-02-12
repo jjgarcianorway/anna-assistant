@@ -371,7 +371,7 @@ fn collect_system_telemetry() -> String {
 }
 
 /// Quick disk usage check for mood determination
-fn get_disk_usage_percentage() -> f32 {
+pub fn get_disk_usage_percentage() -> f32 {
     std::process::Command::new("df")
         .args(["--output=pcent", "/"])
         .output()
