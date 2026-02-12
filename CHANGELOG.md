@@ -5,6 +5,29 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.161] - 2026-02-12
+
+### Fixed - Configuration Request Handling in Non-Streaming Mode
+
+**Critical Fix:**
+- Configuration requests (install, configure, setup) now work in non-streaming mode (annactl)
+- Added config_handler module with synchronous config handling
+- System state investigation before plan generation
+- ActionPlan generation and execution for config requests
+- Previously: config requests returned empty commands and failed instantly (<300ms)
+- Now: proper system investigation, plan generation, and execution
+
+**Impact:**
+- Fixes 18+ failures from battle test (ADVANCED section)
+- Enables package installation, service setup, firewall configuration, etc.
+- Non-streaming mode now has parity with streaming mode for config operations
+
+**Technical Details:**
+- New module: `ralph/config_handler.rs`
+- Modified `ralph_loop()` to detect NextAction::Config and route to config handler
+- Synchronous versions of investigate_system_state and execute_plan
+- Risk assessment and execution with proper error handling
+
 ## [0.3.158] - 2026-02-11
 
 ### Added - Interactive Telegram Bot Setup Wizard

@@ -11,6 +11,7 @@
 
 mod commands;
 pub mod confidence;
+mod config_handler;
 mod criteria;
 pub mod evidence;
 mod parallel;
@@ -33,7 +34,7 @@ use tracing::{debug, info, warn};
 
 use crate::core_loop::{execute_command, strip_ansi_codes};
 
-use commands::{generate_answer, get_commands, self_evaluate};
+use commands::{generate_answer, get_commands, get_next_action, self_evaluate, NextAction};
 use criteria::IterationState;
 use recipe_learning::learn_recipe_from_answer;
 use verification::truncate;
@@ -124,8 +125,20 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         iteration += 1;
         info!("Ralph iteration {}/{}", iteration, criteria.max_iterations);
 
-        // Step 1: Get commands to run
-        let commands = get_commands(model, question, &state).await?;
+        // Step 1: Determine next action (config vs commands)
+        let next_action = get_next_action(model, question, &state).await?;
+
+        // v0.3.161: Handle configuration requests with dedicated config handler
+        if matches!(next_action, NextAction::Config) {
+            info!("Config request detected, using config handler");
+            return config_handler::handle_config_request_sync(model, question, &criteria).await;
+        }
+
+        // Extract commands from next action
+        let commands = match next_action {
+            NextAction::Commands(cmds) => cmds,
+            NextAction::None | NextAction::Config => Vec::new(),
+        };
 
         if commands.is_empty() && state.outputs.is_empty() {
             debug!("No commands needed, generating direct answer");
