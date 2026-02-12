@@ -1,0 +1,121 @@
+# 100 Never-Asked Challenging Questions for Anna
+# Categories: System Forensics, Performance, Security, Prediction, Pattern Recognition, Edge Cases
+
+## System Forensics & Deep Analysis (20)
+1. What processes have consumed the most CPU time over the last 7 days?
+2. Which services have restarted unexpectedly in the past week?
+3. Are there any memory leaks in currently running processes?
+4. What files were modified in /etc in the last 24 hours?
+5. Which user accounts have failed login attempts?
+6. What kernel parameters differ from Arch Linux defaults?
+7. Are there any orphaned packages that should be removed?
+8. What systemd units have had timeout issues?
+9. Which programs are listening on network ports?
+10. Are there any file descriptor leaks?
+11. What temperature patterns do CPU cores show during load?
+12. Which processes are causing the most disk I/O?
+13. Are there any SMART warnings on my drives?
+14. What's the fragmentation level of my filesystems?
+15. Which programs have core dumps?
+16. Are there any zombie processes?
+17. What's the oldest running process and why hasn't it been restarted?
+18. Which configuration files have syntax errors?
+19. Are there any resource limits being hit?
+20. What security updates are available but not installed?
+
+## Performance Optimization (20)
+21. Why does my boot time vary by 3 seconds day to day?
+22. What's causing occasional UI stuttering in Firefox?
+23. Which systemd services could be safely disabled?
+24. Are any programs using deprecated system calls?
+25. What's the ideal swappiness value for my workload?
+26. Which processes should have their nice values adjusted?
+27. Is my I/O scheduler optimal for my SSD?
+28. Are there any inefficient cronjobs running?
+29. What's causing periodic CPU spikes every 5 minutes?
+30. Which programs are not using hardware acceleration?
+31. Are my power management settings optimal?
+32. What's the memory access pattern of my top processes?
+33. Which libraries are loaded multiple times unnecessarily?
+34. Are there any DNS resolution slowdowns?
+35. What's causing network latency spikes?
+36. Which processes are waking up the CPU unnecessarily?
+37. Are my filesystems using optimal mount options?
+38. What's the cache hit rate for frequently accessed files?
+39. Which programs should be compiled with different optimization flags?
+40. Are there any database query performance issues?
+
+## Predictive & Proactive (20)
+41. When will my SSD reach 80% wear level?
+42. At current rate, when will my root filesystem be full?
+43. Which packages will likely be updated in the next Arch sync?
+44. What system failures are likely in the next month?
+45. Which services will probably fail based on current error rates?
+46. When should I schedule my next full system backup?
+47. What hardware component is most likely to fail next?
+48. When will I run out of RAM based on current usage trends?
+49. Which programs will likely crash based on recent segfaults?
+50. What configuration changes will I probably need soon?
+51. When should I upgrade my kernel based on upstream activity?
+52. Which dependencies will break on the next major update?
+53. What security vulnerabilities am I at risk for?
+54. When will my battery capacity degrade below 80%?
+55. Which fonts will I need based on document patterns?
+56. What programs will I likely install based on my workflow?
+57. When should I defragment or trim my SSDs?
+58. Which services will need port changes due to conflicts?
+59. What locale or timezone issues might arise?
+60. When should I review and update firewall rules?
+
+## Pattern Recognition & User Behavior (20)
+61. What are my peak computing hours?
+62. Which programs do I always use together?
+63. What's my most common command sequence?
+64. Which files do I edit most frequently?
+65. What's my project switching pattern?
+66. Which websites do I visit during specific times?
+67. What's my typical compile-test-debug cycle time?
+68. Which packages do I install then immediately remove?
+69. What's my pattern of opening/closing applications?
+70. Which git repositories do I commit to most?
+71. What's my average time to fix a broken system?
+72. Which documentation do I read repeatedly?
+73. What errors do I encounter most often?
+74. Which keyboard shortcuts do I use most?
+75. What's my preferred window layout pattern?
+76. Which files do I backup but never restore?
+77. What's my pattern of asking Anna questions?
+78. Which system settings do I frequently toggle?
+79. What's my procrastination pattern (non-work processes)?
+80. Which email patterns indicate work stress?
+
+## Security & Privacy (10)
+81. Are there any unusual outbound connections?
+82. Which programs are requesting more permissions than needed?
+83. Are my SSH keys using weak algorithms?
+84. What browser tracking can be detected in traffic?
+85. Are there any unsigned binaries in my PATH?
+86. Which programs have world-writable files?
+87. Are any services running as root unnecessarily?
+88. What passwords are stored insecurely?
+89. Are there any suspicious cron jobs?
+90. Which programs phone home without permission?
+
+## Edge Cases & Tricky Scenarios (10)
+91. What happens if I have a leap second during a cron job?
+92. Which programs will break if I change my hostname?
+93. What's the correct way to handle a filesystem that's 100% full?
+94. How do I recover if /tmp fills up during boot?
+95. What happens if systemd-logind crashes?
+96. How do I fix a broken initramfs from a chroot?
+97. What if my GPU driver and kernel version are incompatible?
+98. How do I resolve circular systemd dependencies?
+99. What if my locale settings cause database corruption?
+100. How do I recover from a failed GRUB update?
+
+## Meta Questions (Bonus)
+101. What questions should I be asking that I'm not?
+102. What problems exist that I haven't noticed yet?
+103. What optimizations would have the biggest impact?
+104. What am I doing that's making things worse?
+105. What's the one thing I should fix right now?
