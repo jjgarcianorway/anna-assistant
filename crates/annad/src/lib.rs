@@ -52,6 +52,7 @@ pub mod anomaly;
 pub mod assisted_ops;
 pub mod autonomous_loop;
 pub mod autofix;
+pub mod autohealing;
 pub mod briefing;
 pub mod chart_generator;
 pub mod binary_watcher;

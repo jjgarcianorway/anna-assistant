@@ -31,6 +31,8 @@ pub enum LearningActivity {
     OptimizationScan,
     /// Scan for proactive suggestions
     ProactiveSuggestions,
+    /// Automatically heal common issues
+    AutoHealing,
     /// Update knowledge base from Arch Wiki
     WikiSync,
     /// Analyze command history patterns
@@ -45,6 +47,7 @@ impl LearningActivity {
             LearningActivity::PackageResearch,
             LearningActivity::OptimizationScan,
             LearningActivity::ProactiveSuggestions,
+            LearningActivity::AutoHealing,
             LearningActivity::WikiSync,
             LearningActivity::CommandPatternAnalysis,
         ]
@@ -57,6 +60,7 @@ impl LearningActivity {
             LearningActivity::PackageResearch => "Researching installed packages",
             LearningActivity::OptimizationScan => "Scanning for optimization opportunities",
             LearningActivity::ProactiveSuggestions => "Generating proactive suggestions",
+            LearningActivity::AutoHealing => "Auto-healing common issues",
             LearningActivity::WikiSync => "Syncing knowledge from Arch Wiki",
             LearningActivity::CommandPatternAnalysis => "Learning command usage patterns",
         }
@@ -69,6 +73,7 @@ impl LearningActivity {
             LearningActivity::PackageResearch => research_packages(personality).await,
             LearningActivity::OptimizationScan => scan_optimizations(personality).await,
             LearningActivity::ProactiveSuggestions => generate_suggestions(personality).await,
+            LearningActivity::AutoHealing => run_auto_healing(personality).await,
             LearningActivity::WikiSync => sync_wiki(personality).await,
             LearningActivity::CommandPatternAnalysis => analyze_commands(personality).await,
         }
@@ -398,6 +403,27 @@ fn find_most_common_service<'a>(restart_commands: &'a [&&str]) -> Option<&'a str
         .map(|(service, _)| service)
 }
 
+/// Run automatic healing for common issues
+async fn run_auto_healing(_personality: &mut PersonalityState) -> Result<Option<String>> {
+    debug!("Running auto-healing checks");
+
+    match crate::autohealing::run_safe_healing().await {
+        Ok(healed) if !healed.is_empty() => {
+            let lesson = format!("Auto-healed {} issues: {}", healed.len(), healed.join("; "));
+            info!("{}", lesson);
+            Ok(Some(lesson))
+        }
+        Ok(_) => {
+            debug!("No issues requiring auto-healing");
+            Ok(None)
+        }
+        Err(e) => {
+            warn!("Auto-healing failed: {}", e);
+            Ok(None) // Don't fail the learning loop
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,7 +431,7 @@ mod tests {
     #[test]
     fn test_learning_activities() {
         let activities = LearningActivity::all();
-        assert_eq!(activities.len(), 6); // Updated from 5 to 6
+        assert_eq!(activities.len(), 7); // Updated to 7 (added AutoHealing)
 
         for activity in activities {
             assert!(!activity.description().is_empty());

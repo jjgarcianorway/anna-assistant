@@ -367,6 +367,27 @@ fn collect_system_telemetry() -> String {
         }
     }
 
+    // Anna's autonomous activities in past 24h
+    let personality = crate::personality::PersonalityState::load();
+    if !personality.learned_lessons.is_empty() {
+        telemetry.push_str("\n## Anna's Recent Activities:\n");
+
+        // Show most recent lessons (last 5)
+        let recent_lessons = personality.learned_lessons.iter().rev().take(5);
+        for (i, lesson) in recent_lessons.enumerate() {
+            if i < 3 { // Only show last 3 in briefing to keep it concise
+                telemetry.push_str(&format!("• {}\n", lesson));
+            }
+        }
+
+        // Add auto-healing summary
+        let healing_summary = crate::autohealing::get_healing_summary();
+        if !healing_summary.is_empty() && !healing_summary.contains("No auto-healing") {
+            telemetry.push_str("\nAuto-healing actions:\n");
+            telemetry.push_str(&healing_summary);
+        }
+    }
+
     telemetry
 }
 
