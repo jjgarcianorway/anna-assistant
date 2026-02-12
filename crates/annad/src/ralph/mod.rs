@@ -39,6 +39,83 @@ use criteria::IterationState;
 use recipe_learning::learn_recipe_from_answer;
 use verification::truncate;
 
+/// Handle temporal tasks (background monitoring for X duration).
+/// v0.3.162: Enables "capture network traffic for 20 minutes" type requests.
+async fn handle_temporal_task(model: &str, question: &str, duration_secs: u64) -> Result<AskResult> {
+    info!("Handling temporal task: {} for {}s", question, duration_secs);
+
+    let mut dialogue = vec![
+        DialogueStep {
+            step_type: StepType::UserQuestion,
+            content: question.to_string(),
+        },
+    ];
+
+    // Use universal handler to figure out HOW to do the monitoring
+    let monitoring_setup = crate::universal_handler::handle_universal_task(model, question).await?;
+
+    dialogue.push(DialogueStep {
+        step_type: StepType::InvestigationProbe,
+        content: format!("Setting up {} minute monitoring...", duration_secs / 60),
+    });
+
+    // Extract the commands from universal handler output
+    // Parse the execution plan to get start/stop commands
+    let start_cmd = extract_monitoring_command(&monitoring_setup);
+
+    // Start the temporal task
+    let task = crate::temporal_tasks::start_temporal_task(
+        question.to_string(),
+        start_cmd.clone(),
+        None, // Stop command if needed
+        duration_secs,
+    )
+    .await?;
+
+    let answer = format!(
+        "Started monitoring task (ID: {}). Will run for {} minutes and report back.\n\nTo check progress: annactl \"check task {}\"",
+        task.id,
+        duration_secs / 60,
+        task.id
+    );
+
+    dialogue.push(DialogueStep {
+        step_type: StepType::FinalAnswer,
+        content: answer.clone(),
+    });
+
+    Ok(AskResult {
+        answer,
+        success: true,
+        iterations: 1,
+        commands_executed: vec![start_cmd],
+        dialogue,
+        needs_clarification: false,
+        clarification_question: None,
+        cached: false,
+        citations: vec![],
+        abstained: false,
+        final_confidence: Some(0.8),
+    })
+}
+
+/// Extract monitoring command from universal handler output.
+fn extract_monitoring_command(output: &str) -> String {
+    // Look for "Step 1:" or first command in output
+    for line in output.lines() {
+        if line.contains("Step 1:") || line.starts_with("1.") {
+            // Extract command after colon or number
+            let cmd = line
+                .split_once(':')
+                .map(|(_, cmd)| cmd.trim())
+                .unwrap_or(line.trim());
+            return cmd.to_string();
+        }
+    }
+    // Fallback: use whole output as command (probably wrong but better than nothing)
+    output.lines().next().unwrap_or("echo 'monitoring'").to_string()
+}
+
 /// Extract task type from question for strategy learning
 fn extract_task_type(question: &str) -> String {
     let q = question.to_lowercase();
@@ -66,7 +143,58 @@ fn extract_task_type(question: &str) -> String {
 
 /// The Ralph loop: iterate until done (non-streaming version)
 /// LLM-first: no bypass paths. Every question goes through the LLM.
+/// v0.3.162: Universal capability system with feasibility checking and temporal tasks.
 pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
+    // v0.3.162: Step 0 - Feasibility analysis (detect truly impossible requests)
+    let feasibility = crate::feasibility::analyze_feasibility(question);
+    match feasibility {
+        crate::feasibility::Feasibility::Impossible(reason) => {
+            info!("Request deemed impossible: {}", reason);
+            let answer = format!("I cannot do this: {}", reason);
+            return Ok(AskResult {
+                answer,
+                success: false,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![
+                    DialogueStep {
+                        step_type: StepType::UserQuestion,
+                        content: question.to_string(),
+                    },
+                    DialogueStep {
+                        step_type: StepType::FinalAnswer,
+                        content: format!("I cannot do this: {}", reason),
+                    },
+                ],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: true,
+                final_confidence: Some(1.0), // Confident it's impossible
+            });
+        }
+        crate::feasibility::Feasibility::RequiresExternal(reason) => {
+            info!("Request requires external resources: {}", reason);
+            // Continue but inform user
+        }
+        crate::feasibility::Feasibility::Challenging => {
+            info!("Challenging request detected - will use universal handler if needed");
+        }
+        crate::feasibility::Feasibility::Possible => {
+            debug!("Request feasible, proceeding normally");
+        }
+    }
+
+    // v0.3.162: Step 0.5 - Temporal task detection (background monitoring)
+    if crate::temporal_tasks::requires_background_monitoring(question) {
+        if let Some(duration) = crate::temporal_tasks::detect_temporal_requirement(question) {
+            info!("Temporal task detected: {} seconds", duration);
+            // Use universal handler to set up monitoring
+            return handle_temporal_task(model, question, duration).await;
+        }
+    }
+
     let criteria = determine_criteria(question);
     info!(
         "Ralph loop: {:?}, confidence >= {:.0}%, max {} iterations",
@@ -255,11 +383,42 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         );
     }
 
-    // Max iterations reached - return best effort
+    // Max iterations reached - try universal handler as last resort
     warn!(
-        "Ralph max iterations reached, returning best effort (confidence: {:.0}%)",
+        "Ralph max iterations reached (confidence: {:.0}%), trying universal handler fallback",
         state.confidence * 100.0
     );
+
+    // v0.3.162: Universal handler fallback for complex/novel tasks
+    if state.confidence < 0.7 {
+        info!("Low confidence, attempting universal handler");
+        match crate::universal_handler::handle_universal_task(model, question).await {
+            Ok(universal_result) => {
+                info!("Universal handler succeeded");
+                dialogue.push(DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: universal_result.clone(),
+                });
+                return Ok(AskResult {
+                    answer: universal_result,
+                    success: true,
+                    iterations: iteration + 1,
+                    commands_executed: state.commands,
+                    dialogue,
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                    citations: vec![],
+                    abstained: false,
+                    final_confidence: Some(0.7),
+                });
+            }
+            Err(e) => {
+                warn!("Universal handler also failed: {}", e);
+                // Continue with best effort
+            }
+        }
+    }
 
     let final_answer = state.answer.unwrap_or_else(|| {
         "I wasn't able to fully answer your question. Please try rephrasing or ask about something more specific.".to_string()

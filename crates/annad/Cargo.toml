@@ -27,6 +27,7 @@ sd-notify = "0.4"
 teloxide.workspace = true
 hostname = "0.3"
 num_cpus = "1.16"
+lazy_static = "1.4"
 
 # PDF report generation
 genpdf = { version = "0.2", features = ["images"] }
