@@ -94,24 +94,33 @@ pub async fn acquire_tool(tool: &str) -> Result<String> {
         }
     }
 
-    // Try to install with pacman (Arch)
-    let install_cmd = format!("sudo pacman -S --noconfirm {}", tool);
+    // v0.3.163: Use actual distro's package manager, not assume Arch
+    let identity = crate::system_identity::get_system_identity();
+    let install_cmd = identity.install_command(tool);
+
+    info!("Installing {} on {} using {}", tool, identity.distro_name, identity.package_manager());
+
     match crate::core_loop::execute_command(&install_cmd) {
-        Ok(output) => {
-            info!("Successfully installed {}", tool);
-            Ok(format!("Installed {} via pacman", tool))
+        Ok(_) => {
+            info!("Successfully installed {} via {}", tool, identity.package_manager());
+            Ok(format!("Installed {} via {}", tool, identity.package_manager()))
         }
         Err(e) => {
-            debug!("Pacman install failed: {}, trying yay", e);
-            // Try AUR with yay
-            let yay_cmd = format!("yay -S --noconfirm {}", tool);
-            match crate::core_loop::execute_command(&yay_cmd) {
-                Ok(_) => {
-                    info!("Successfully installed {} from AUR", tool);
-                    Ok(format!("Installed {} from AUR", tool))
+            debug!("Package manager install failed: {}", e);
+            // Try AUR helper for Arch-based systems
+            if identity.distro_family == "arch" {
+                let yay_cmd = format!("yay -S --noconfirm {}", tool);
+                match crate::core_loop::execute_command(&yay_cmd) {
+                    Ok(_) => {
+                        info!("Successfully installed {} from AUR", tool);
+                        return Ok(format!("Installed {} from AUR", tool));
+                    }
+                    Err(e2) => {
+                        return Err(anyhow!("Could not install {}: {} (AUR: {})", tool, e, e2));
+                    }
                 }
-                Err(e) => Err(anyhow!("Could not install {}: {}", tool, e)),
             }
+            Err(anyhow!("Could not install {}: {}", tool, e))
         }
     }
 }

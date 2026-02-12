@@ -5,6 +5,81 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.163] - 2026-02-12
+
+### Added - System Personalization (Real Names, Not Generic)
+
+**Anna now knows YOUR system's real identity** - no more generic "your system" or wrong Arch assumptions.
+
+**New Module: system_identity.rs** (420 lines)
+
+Discovers and uses real system information:
+1. **Real Names**
+   - Hostname: "razorback" (not "your system")
+   - Username: "lhoqvso" (not "you")
+   - Distro: "CachyOS" (not generic "Arch Linux")
+
+2. **Network Reality**
+   - Device names: "wlan0", "enp3s0" (not "network interface")
+   - Current SSID: "MyHomeNetwork" (not "WiFi")
+   - Device types: wireless/ethernet with MAC addresses
+
+3. **Correct Package Managers**
+   - Auto-detects: pacman (Arch), apt (Debian), dnf (Fedora), zypper (SUSE)
+   - No more "sudo pacman" on Ubuntu systems!
+
+**Integration:**
+- Every LLM call receives system identity context
+- Universal handler uses correct package manager
+- Personalized greetings: "Hello lhoqvso! I'm Anna, running on razorback (CachyOS)"
+
+**Examples:**
+
+Before (Generic & Wrong):
+```
+Anna: "I'll install htop on your system using pacman"
+# On Ubuntu: "sudo pacman -S htop"  ❌ WRONG
+Anna: "Your wireless interface is up"
+```
+
+After (Personal & Correct):
+```
+Anna: "I'll install htop on razorback (CachyOS) using pacman"
+# On Ubuntu: "sudo apt install -y htop"  ✓ CORRECT
+Anna: "wlan0 is up and connected to MyHomeNetwork"
+```
+
+**System Identity Context:**
+```
+SYSTEM IDENTITY:
+Hostname: razorback
+User: lhoqvso
+Distro: CachyOS
+Package Manager: pacman
+Shell: zsh
+Network Devices: wlan0 (wireless), enp3s0 (ethernet)
+Current WiFi: MyHomeNetwork
+Desktop: GNOME
+```
+
+**Supported Distros:**
+- **Arch family**: Arch, CachyOS, Manjaro (pacman + yay)
+- **Debian family**: Ubuntu, Debian, Mint (apt)
+- **Fedora family**: Fedora, RHEL, CentOS (dnf)
+- **SUSE family**: openSUSE (zypper)
+- **Gentoo**: (emerge)
+- **Alpine**: (apk)
+
+**Technical Details:**
+- New module: system_identity.rs
+- Global caching with lazy_static
+- Discovery: hostname, /etc/os-release, ip link show, iw/nmcli
+- Integration: ralph/mod.rs, universal_handler.rs
+- Documentation: docs/PERSONALIZATION.md
+
+**Philosophy:**
+Anna is no longer a generic assistant. She's the god living in YOUR computer, knowing YOUR system's real identity.
+
 ## [0.3.162] - 2026-02-12
 
 ### Added - Omniscient/Omnipotent Universal Capability System

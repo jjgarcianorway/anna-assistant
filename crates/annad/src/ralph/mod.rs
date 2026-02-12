@@ -215,10 +215,26 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
 
     // v0.3.159: Add memory context on first iteration
     if iteration == 0 {
+        // v0.3.163: Add system identity context (real names, not generic)
+        let identity = crate::system_identity::get_system_identity();
+        let identity_context = format!(
+            "SYSTEM IDENTITY:\nHostname: {}\nUser: {}\nDistro: {}\nPackage Manager: {}\nShell: {}\nNetwork Devices: {}\nCurrent WiFi: {}\nDesktop: {}",
+            identity.hostname,
+            identity.username,
+            identity.distro_name,
+            identity.package_manager(),
+            identity.shell,
+            identity.network_devices.iter().map(|d| format!("{} ({})", d.name, d.device_type)).collect::<Vec<_>>().join(", "),
+            identity.current_ssid.as_deref().unwrap_or("not connected"),
+            identity.desktop_environment.as_deref().unwrap_or("none")
+        );
+
+        state.feedback = Some(identity_context);
+
         let memory_context = crate::intelligence::get_memory_context(question);
         if !memory_context.is_empty() {
             debug!("Memory context available for this question");
-            state.feedback = Some(memory_context);
+            state.feedback = Some(format!("{}\n\n{}", state.feedback.unwrap(), memory_context));
         }
 
         // v0.3.160: Add strategic guidance from meta-learning

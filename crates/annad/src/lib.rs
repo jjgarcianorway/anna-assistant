@@ -63,6 +63,7 @@ pub mod meta_learning;
 pub mod universal_handler;
 pub mod temporal_tasks;
 pub mod feasibility;
+pub mod system_identity;
 pub mod changes;
 pub mod core_loop;
 pub mod department;
