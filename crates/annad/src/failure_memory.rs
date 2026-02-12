@@ -363,3 +363,35 @@ pub fn format_auto_fix_suggestion(action: &AutoFixAction) -> String {
         action.solution.success_rate * 100.0
     )
 }
+
+/// Check if question describes a known failure and handle it appropriately.
+/// v0.3.167: Used by ralph_loop to auto-fix recurring issues.
+pub async fn check_and_handle_known_failure(question: &str) -> Option<String> {
+    // Check if the question matches a known failure pattern
+    let action = check_for_known_failure(question)?;
+
+    match action.action_type {
+        AutoFixActionType::Silent | AutoFixActionType::Notify => {
+            // Auto-fix is enabled, apply it
+            match apply_auto_fix(&action).await {
+                Ok(result) => {
+                    let response = format!(
+                        "Auto-Fixed (recognized issue from {} previous occurrences)\n\n{}\n\n{}",
+                        action.occurrence_count,
+                        action.solution.description,
+                        result
+                    );
+                    Some(response)
+                }
+                Err(e) => {
+                    warn!("Auto-fix failed: {}", e);
+                    None
+                }
+            }
+        }
+        AutoFixActionType::Ask => {
+            // User wants to be asked first
+            Some(format_auto_fix_suggestion(&action))
+        }
+    }
+}

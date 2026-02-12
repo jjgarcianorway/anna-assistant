@@ -178,6 +178,62 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         });
     }
 
+    // v0.3.167: Teaching Mode - Detect and handle teaching requests
+    if crate::teaching_mode::is_teaching_request(question) {
+        info!("Teaching request detected");
+        if let Ok(teaching_response) = crate::teaching_mode::handle_teaching_question(question).await {
+            return Ok(AskResult {
+                answer: teaching_response.clone(),
+                success: true,
+                iterations: 1,
+                commands_executed: vec![],
+                dialogue: vec![
+                    DialogueStep {
+                        step_type: StepType::UserQuestion,
+                        content: question.to_string(),
+                    },
+                    DialogueStep {
+                        step_type: StepType::FinalAnswer,
+                        content: teaching_response,
+                    },
+                ],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: Some(0.85),
+            });
+        }
+    }
+
+    // v0.3.167: Failure Memory - Check for known failures that can be auto-fixed
+    if let Some(auto_fix_result) = crate::failure_memory::check_and_handle_known_failure(question).await {
+        info!("Known failure detected, attempting auto-fix");
+        return Ok(AskResult {
+            answer: auto_fix_result.clone(),
+            success: true,
+            iterations: 1,
+            commands_executed: vec![], // Commands are in the response text
+            dialogue: vec![
+                DialogueStep {
+                    step_type: StepType::UserQuestion,
+                    content: question.to_string(),
+                },
+                DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: auto_fix_result,
+                },
+            ],
+            needs_clarification: false,
+            clarification_question: None,
+            cached: false,
+            citations: vec![],
+            abstained: false,
+            final_confidence: Some(0.90),
+        });
+    }
+
     // v0.3.162: Step 0 - Feasibility analysis (detect truly impossible requests)
     let feasibility = crate::feasibility::analyze_feasibility(question);
     match feasibility {

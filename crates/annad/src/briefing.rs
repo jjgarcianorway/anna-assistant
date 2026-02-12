@@ -367,6 +367,73 @@ fn collect_system_telemetry() -> String {
         }
     }
 
+    // v0.3.167: Regression Detection (performance degradations)
+    telemetry.push_str("## Regression Detection:\n");
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let regressions = rt.block_on(async {
+        crate::regression_detector::detect_regressions().await.unwrap_or_default()
+    });
+
+    if regressions.is_empty() {
+        telemetry.push_str("No performance regressions detected.\n");
+    } else {
+        for regression in &regressions {
+            telemetry.push_str(&crate::regression_detector::format_regression(regression));
+            telemetry.push('\n');
+        }
+    }
+    telemetry.push_str("\n");
+
+    // v0.3.167: Enhanced Predictive Maintenance (health forecast)
+    telemetry.push_str("## Health Forecast:\n");
+    let health_forecast = rt.block_on(async {
+        crate::predictive_maintenance::generate_health_forecast().await.unwrap_or_else(|_| {
+            crate::predictive_maintenance::HealthForecast {
+                predictions: vec![],
+                overall_health_score: 95.0,
+                trends_summary: "Unable to generate forecast.".to_string(),
+            }
+        })
+    });
+
+    telemetry.push_str(&crate::predictive_maintenance::format_health_forecast(&health_forecast));
+    telemetry.push_str("\n");
+
+    // v0.3.167: Cleanup Opportunities (when disk >75%)
+    let disk_pct = get_disk_usage_percentage();
+    if disk_pct > 75.0 {
+        telemetry.push_str("## Cleanup Opportunities:\n");
+        let cleanup_analysis = rt.block_on(async {
+            crate::cleanup_detector::scan_for_cleanable_space().await.unwrap_or_else(|_| {
+                crate::cleanup_detector::CleanupAnalysis {
+                    total_cleanable_mb: 0.0,
+                    items: vec![],
+                    recommendations: vec![],
+                }
+            })
+        });
+
+        if cleanup_analysis.total_cleanable_mb > 100.0 {
+            telemetry.push_str(&crate::cleanup_detector::format_cleanup_analysis(&cleanup_analysis));
+        } else {
+            telemetry.push_str("No significant cleanup opportunities found.\n");
+        }
+        telemetry.push_str("\n");
+    }
+
+    // v0.3.168: Cross-Module Intelligence (connecting the dots)
+    telemetry.push_str("## Cross-Module Intelligence:\n");
+    let insights = rt.block_on(async {
+        crate::cross_module_intelligence::synthesize_insights(None).await.unwrap_or_default()
+    });
+
+    if insights.is_empty() {
+        telemetry.push_str("No cross-module insights at this time.\n");
+    } else {
+        telemetry.push_str(&crate::cross_module_intelligence::format_insights(&insights));
+    }
+    telemetry.push_str("\n");
+
     // Anna's autonomous activities in past 24h
     let personality = crate::personality::PersonalityState::load();
     if !personality.learned_lessons.is_empty() {

@@ -75,6 +75,8 @@ pub mod cleanup_detector;
 pub mod regression_detector;
 pub mod predictive_maintenance;
 pub mod teaching_mode;
+pub mod cross_module_intelligence;
+pub mod llm_orchestration;
 pub mod changes;
 pub mod core_loop;
 pub mod department;

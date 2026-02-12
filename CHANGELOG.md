@@ -5,6 +5,135 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.168] - 2026-02-12
+
+### Added - Integration & Orchestration (Modules Now Active!)
+
+**v0.3.167 modules are now INTEGRATED and ACTIVE!**
+
+**Morning Briefing Enhancements:**
+
+1. **Regression Detection in Briefing**
+   - Boot time and memory regressions now show in morning briefing
+   - Explains what changed and provides fix suggestions
+   - Severity-based alerts (Minor, Moderate, Significant, Severe)
+
+2. **Predictive Maintenance in Briefing**
+   - Health forecast with 0-100 score
+   - Predictions: disk exhaustion, memory leaks, boot degradation, SSD wear
+   - Days-until-critical for urgent issues
+   - Trend analysis with linear regression
+
+3. **Cleanup Proposals in Briefing**
+   - Automatically activates when disk >75%
+   - Safety-categorized cleanup opportunities
+   - Shows cleanable space by type (Safe, MostlySafe, Careful)
+   - User chooses cleanup approach
+
+**Ralph Loop Enhancements:**
+
+4. **Teaching Mode Activation**
+   - Detects "what is/how does/explain" questions
+   - Tracks user's knowledge base and mastery levels
+   - Adapts explanations based on expertise (Beginner/Intermediate/Advanced/Expert)
+   - Records topics taught and reinforcement count
+
+5. **Failure Memory Auto-Fix**
+   - Checks for known failures before normal flow
+   - Auto-fixes if user preference allows (Silent, Notify, Ask)
+   - Shows "I've seen this 3 times before and fixed it successfully"
+   - Respects per-failure user preferences
+
+**New Module: cross_module_intelligence.rs** (395 lines)
+
+Connects insights across modules:
+
+1. **Pattern + Prediction + Cleanup Correlation**
+   - "You've asked about disk 4 times (usually Mondays). Predictions show full in 8 days. Found 3GB cleanable."
+   - Actionable: Add to briefing, schedule cleanup, or clean now
+
+2. **Regression + Failure Memory Correlation**
+   - "Boot regressed 18%. Similar to 3 previous occurrences where disabling plymouth worked."
+   - Links current problems to known solutions
+
+3. **Prediction + Cleanup Correlation**
+   - "Memory leak predicted. Found 1.2GB of old logs contributing to pressure."
+   - Suggests cleaning logs may help memory situation
+
+4. **Pattern + Teaching Correlation**
+   - "You've mastered systemd (80%) but keep asking. Need a cheatsheet?"
+   - Detects when user knows but forgets details
+
+5. **Regression + Cleanup Correlation**
+   - "Boot regressed. Found 3 old kernels (150GB). Old kernels slow boot."
+   - Connects performance issues to removable items
+
+**New Module: llm_orchestration.rs** (317 lines)
+
+Intelligent module selection instead of hardcoding:
+
+1. **Rule-Based Orchestration** (v0.3.168)
+   - "slow" → RegressionDetector + AnomalyAnalysis
+   - "disk/space" → CleanupDetector + PredictiveMaintenance
+   - "memory" → AnomalyAnalysis + PredictiveMaintenance
+   - "error/fail" → FailureMemory
+   - "why is/does" → AnomalyAnalysis + CrossModuleIntelligence
+   - "what is/how does" → TeachingMode
+
+2. **Module Execution Pipeline**
+   - Determines relevant modules
+   - Executes selected modules
+   - Synthesizes results into coherent answer
+
+3. **Future: LLM-Powered** (placeholder for later)
+   - Can be upgraded to let LLM choose modules
+   - JSON-based orchestration plan
+   - Estimated completion time
+
+**Integration Points:**
+
+- Briefing now runs: Regressions, Predictions, Cleanup (>75%), Cross-Module
+- Ralph loop now activates: Teaching, Failure Memory before normal flow
+- All modules work together through cross-module intelligence
+
+**Philosophy:**
+
+Still NO hardcoding - modules propose, user chooses. But now modules are ACTIVE and CONNECTED.
+
+**Examples:**
+
+Before v0.3.168:
+```
+Morning Briefing: "System healthy. Disk at 78%. No errors."
+```
+
+After v0.3.168:
+```
+Morning Briefing:
+
+Regression Detection:
+Boot time regressed 15% (14.2s → 16.4s)
+- NetworkManager-wait-online taking 1.8s (80% likely)
+  Fix: Disable wait-online (safe): systemctl disable NetworkManager-wait-online.service
+
+Health Forecast (Score: 72/100):
+- Disk will reach 95% full in 8 days (currently 78%)
+  Trend: Growing 2.1GB/day
+  Action: Free up space soon
+
+Cleanup Opportunities:
+Found 3.2GB cleanable:
+- Package cache (1.8GB) - SAFE
+- Journal logs (1.1GB) - Mostly Safe
+
+Cross-Module Intelligence:
+[HIGH] You've asked about disk 4 times (usually Mondays). Predictions show full in 8 days. Found 3GB cleanable.
+Recommendations:
+• Clean safe items to free space
+• Add disk status to morning briefing
+• Schedule weekly auto-cleanup
+```
+
 ## [0.3.167] - 2026-02-12
 
 ### Added - Advanced Intelligence Systems (Cleanup Detection, Regression Analysis, Predictive Maintenance, Teaching Mode)
