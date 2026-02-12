@@ -195,6 +195,42 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         }
     }
 
+    // v0.3.164: Step 0.6 - Smart file operations (handle complex file tasks efficiently)
+    if crate::smart_file_ops::is_file_operation(question) {
+        info!("File operation detected, using smart handler");
+        match crate::smart_file_ops::execute_smart_file_operation(model, question).await {
+            Ok(result) => {
+                info!("Smart file operation succeeded");
+                return Ok(AskResult {
+                    answer: result.clone(),
+                    success: true,
+                    iterations: 1,
+                    commands_executed: vec![],
+                    dialogue: vec![
+                        DialogueStep {
+                            step_type: StepType::UserQuestion,
+                            content: question.to_string(),
+                        },
+                        DialogueStep {
+                            step_type: StepType::FinalAnswer,
+                            content: result,
+                        },
+                    ],
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                    citations: vec![],
+                    abstained: false,
+                    final_confidence: Some(0.85),
+                });
+            }
+            Err(e) => {
+                debug!("Smart file ops failed ({}), falling back to normal flow", e);
+                // Continue with normal flow
+            }
+        }
+    }
+
     let criteria = determine_criteria(question);
     info!(
         "Ralph loop: {:?}, confidence >= {:.0}%, max {} iterations",
@@ -430,8 +466,36 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
                 });
             }
             Err(e) => {
-                warn!("Universal handler also failed: {}", e);
-                // Continue with best effort
+                warn!("Universal handler failed: {}", e);
+
+                // v0.3.164: ADAPTIVE INTELLIGENCE - Final fallback, Anna NEVER gives up
+                info!("🧠 ACTIVATING ADAPTIVE INTELLIGENCE (multi-strategy approach)");
+                match crate::adaptive_intelligence::solve_adaptively(model, question).await {
+                    Ok(adaptive_result) => {
+                        info!("✓ ADAPTIVE INTELLIGENCE SUCCEEDED");
+                        dialogue.push(DialogueStep {
+                            step_type: StepType::FinalAnswer,
+                            content: adaptive_result.clone(),
+                        });
+                        return Ok(AskResult {
+                            answer: adaptive_result,
+                            success: true,
+                            iterations: iteration + 2,
+                            commands_executed: state.commands,
+                            dialogue,
+                            needs_clarification: false,
+                            clarification_question: None,
+                            cached: false,
+                            citations: vec![],
+                            abstained: false,
+                            final_confidence: Some(0.8),
+                        });
+                    }
+                    Err(adaptive_error) => {
+                        warn!("Adaptive intelligence exhausted all strategies: {}", adaptive_error);
+                        // NOW we truly give up
+                    }
+                }
             }
         }
     }
