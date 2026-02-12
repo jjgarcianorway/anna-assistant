@@ -81,6 +81,7 @@ pub mod team_speak;
 pub mod telegram;
 pub mod tool_manager;
 pub mod translator;
+pub mod wiki_sync;
 pub mod update;
 pub mod update_loop;
 pub mod update_ops;

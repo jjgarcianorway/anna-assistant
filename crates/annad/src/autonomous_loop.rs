@@ -229,12 +229,26 @@ async fn scan_optimizations(_personality: &mut PersonalityState) -> Result<Optio
     Ok(None)
 }
 
-/// Sync knowledge from Arch Wiki (stub - can be expanded)
+/// Sync knowledge from Arch Wiki
 async fn sync_wiki(_personality: &mut PersonalityState) -> Result<Option<String>> {
-    // In future: fetch and cache Arch Wiki pages for common topics
-    // For now: just acknowledge we're staying current
-    debug!("Wiki sync scheduled for future implementation");
-    Ok(None)
+    debug!("Syncing knowledge from Arch Wiki");
+
+    // Fetch relevant wiki pages based on recent errors
+    match crate::wiki_sync::sync_wiki_pages().await {
+        Ok(synced) if !synced.is_empty() => {
+            let lesson = format!("Cached {} Arch Wiki pages: {}", synced.len(), synced.join(", "));
+            info!("{}", lesson);
+            Ok(Some(lesson))
+        }
+        Ok(_) => {
+            debug!("No new wiki pages to sync");
+            Ok(None)
+        }
+        Err(e) => {
+            warn!("Wiki sync failed: {}", e);
+            Ok(None) // Don't fail the learning loop
+        }
+    }
 }
 
 /// Generate proactive suggestions
@@ -271,12 +285,117 @@ async fn generate_suggestions(personality: &mut PersonalityState) -> Result<Opti
     }
 }
 
-/// Analyze command patterns (stub - can be expanded)
+/// Analyze command patterns from bash history
 async fn analyze_commands(_personality: &mut PersonalityState) -> Result<Option<String>> {
-    // In future: analyze bash history to learn user's workflow
-    // For now: basic acknowledgment
-    debug!("Command pattern analysis scheduled for future implementation");
-    Ok(None)
+    debug!("Analyzing command patterns from bash history");
+
+    // Find bash history files
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let history_path = format!("{}/.bash_history", home);
+
+    if !std::path::Path::new(&history_path).exists() {
+        debug!("No bash history found at {}", history_path);
+        return Ok(None);
+    }
+
+    // Read recent commands (last 100)
+    let content = match std::fs::read_to_string(&history_path) {
+        Ok(c) => c,
+        Err(_) => return Ok(None),
+    };
+
+    let commands: Vec<&str> = content.lines().rev().take(100).collect();
+
+    // Detect common patterns
+    let mut patterns = Vec::new();
+
+    // Pattern: docker ps followed by docker logs
+    let docker_pattern = detect_sequence(&commands, &["docker ps", "docker logs"], 5);
+    if docker_pattern > 2 {
+        patterns.push("docker ps → docker logs (container debugging)".to_string());
+    }
+
+    // Pattern: git status followed by git add/commit
+    let git_pattern = detect_sequence(&commands, &["git status", "git add"], 10);
+    if git_pattern > 3 {
+        patterns.push("git status → git add (version control workflow)".to_string());
+    }
+
+    // Pattern: systemctl status followed by journalctl
+    let systemd_pattern = detect_sequence(&commands, &["systemctl", "journalctl"], 5);
+    if systemd_pattern > 2 {
+        patterns.push("systemctl → journalctl (service debugging)".to_string());
+    }
+
+    // Pattern: frequent pacman -Syu
+    let pacman_updates = commands.iter().filter(|c| c.contains("pacman") && c.contains("Syu")).count();
+    if pacman_updates > 5 {
+        patterns.push(format!("Frequent system updates ({} times)", pacman_updates));
+    }
+
+    // Pattern: frequent restarts of specific service
+    let restart_commands: Vec<&&str> = commands.iter()
+        .filter(|c| c.contains("systemctl restart"))
+        .collect();
+
+    if let Some(most_restarted) = find_most_common_service(&restart_commands) {
+        if restart_commands.iter().filter(|c| c.contains(most_restarted)).count() > 3 {
+            patterns.push(format!("Frequent restarts of {} service", most_restarted));
+        }
+    }
+
+    if !patterns.is_empty() {
+        let lesson = format!("Learned {} command patterns: {}", patterns.len(), patterns.join("; "));
+        info!("{}", lesson);
+        Ok(Some(lesson))
+    } else {
+        debug!("No significant command patterns detected");
+        Ok(None)
+    }
+}
+
+/// Detect command sequences in history
+fn detect_sequence(commands: &[&str], pattern: &[&str], window: usize) -> usize {
+    let mut count = 0;
+
+    for i in 0..commands.len().saturating_sub(1) {
+        let window_end = (i + window).min(commands.len());
+        let window_commands = &commands[i..window_end];
+
+        // Check if pattern appears in this window
+        let mut pattern_idx = 0;
+        for cmd in window_commands {
+            if cmd.contains(pattern[pattern_idx]) {
+                pattern_idx += 1;
+                if pattern_idx >= pattern.len() {
+                    count += 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    count
+}
+
+/// Find most commonly restarted service
+fn find_most_common_service<'a>(restart_commands: &'a [&&str]) -> Option<&'a str> {
+    use std::collections::HashMap;
+
+    let mut service_counts: HashMap<&str, usize> = HashMap::new();
+
+    for cmd in restart_commands {
+        // Extract service name from "systemctl restart SERVICE"
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        if let Some(service) = parts.get(2) {
+            *service_counts.entry(service).or_insert(0) += 1;
+        }
+    }
+
+    service_counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(service, _)| service)
 }
 
 #[cfg(test)]
