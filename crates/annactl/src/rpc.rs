@@ -275,3 +275,29 @@ pub async fn diagnose_wifi() -> Result<anna_shared::rpc::AssistedOperationResult
     let result = response.result.ok_or_else(|| anyhow!("No result"))?;
     serde_json::from_value(result).map_err(|e| anyhow!("Parse error: {}", e))
 }
+
+/// Generate PDF system health report.
+/// v0.3.159: Direct PDF generation instead of LLM text explanation
+pub async fn generate_report() -> Result<std::path::PathBuf> {
+    let response = call(RpcMethod::GenerateReport, None).await?;
+    if let Some(error) = response.error {
+        return Err(anyhow!("{}", error.message));
+    }
+    let result = response.result.ok_or_else(|| anyhow!("No result"))?;
+    let path_str: String = serde_json::from_value(result)
+        .map_err(|e| anyhow!("Parse error: {}", e))?;
+    Ok(std::path::PathBuf::from(path_str))
+}
+
+/// Send report to Telegram (if configured).
+/// v0.3.159: Automatic Telegram delivery for reports
+pub async fn send_report_to_telegram(path: &std::path::Path) -> Result<()> {
+    let params = serde_json::json!({
+        "path": path.to_string_lossy()
+    });
+    let response = call(RpcMethod::SendReportToTelegram, Some(params)).await?;
+    if let Some(error) = response.error {
+        return Err(anyhow!("{}", error.message));
+    }
+    Ok(())
+}

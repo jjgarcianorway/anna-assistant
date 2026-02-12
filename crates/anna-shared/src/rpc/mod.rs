@@ -19,6 +19,10 @@ pub enum RpcMethod {
     Reset,
     /// Diagnose WiFi issues (Phase 43)
     DiagnoseWifi,
+    /// Generate PDF system health report (v0.3.159)
+    GenerateReport,
+    /// Send report to Telegram if configured (v0.3.159)
+    SendReportToTelegram,
 }
 
 /// Streaming response types (JSON lines format)

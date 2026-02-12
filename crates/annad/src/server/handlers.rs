@@ -305,6 +305,60 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 }
             }
         }
+        RpcMethod::GenerateReport => {
+            // v0.3.159: Direct PDF generation handler
+            info!("Processing PDF report generation request");
+
+            match crate::report::generate_pdf_report() {
+                Ok(path) => {
+                    info!("PDF report generated at: {}", path.display());
+                    let path_str = path.to_string_lossy().to_string();
+                    match serde_json::to_value(&path_str) {
+                        Ok(v) => RpcResponse::success(&request.id, v),
+                        Err(e) => {
+                            RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e))
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("PDF report generation failed: {}", e);
+                    RpcResponse::error(&request.id, -32603, &format!("Report generation failed: {}", e))
+                }
+            }
+        }
+        RpcMethod::SendReportToTelegram => {
+            // v0.3.159: Send PDF report to Telegram
+            info!("Processing send report to Telegram request");
+
+            let path_str = request
+                .params
+                .as_ref()
+                .and_then(|p| p.get("path"))
+                .and_then(|p| p.as_str())
+                .ok_or_else(|| "Missing 'path' parameter");
+
+            match path_str {
+                Ok(path) => {
+                    let path_buf = std::path::PathBuf::from(path);
+                    if !path_buf.exists() {
+                        return RpcResponse::error(&request.id, -32602, "Report file not found");
+                    }
+
+                    crate::telegram::notifier::send_pdf_report(&path_buf);
+                    info!("PDF report queued for Telegram delivery");
+
+                    match serde_json::to_value(&true) {
+                        Ok(v) => RpcResponse::success(&request.id, v),
+                        Err(e) => {
+                            RpcResponse::error(&request.id, -32603, &format!("Serialize error: {}", e))
+                        }
+                    }
+                }
+                Err(e) => {
+                    RpcResponse::error(&request.id, -32602, e)
+                }
+            }
+        }
     }
 }
 

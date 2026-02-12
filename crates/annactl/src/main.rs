@@ -166,8 +166,62 @@ fn show_reset_help() {
 
 /// Handle a question with clarification loop
 /// v0.3.146: Accept session_id parameter for proper --session flag support
+/// v0.3.159: Added direct PDF generation for report requests
 async fn handle_question(question: &str, session_id: &str) {
+    // Check for direct report/PDF request
+    let question_lower = question.to_lowercase();
+    let is_report_request = (question_lower.contains("report") || question_lower.contains("pdf"))
+        && (question_lower.contains("generate") || question_lower.contains("create")
+            || question_lower.contains("extended") || question_lower.contains("system"));
+
+    if is_report_request {
+        handle_pdf_report_request().await;
+        return;
+    }
+
     handle_question_with_clarification(question, false, session_id).await;
+}
+
+/// Handle a PDF report request directly
+async fn handle_pdf_report_request() {
+    println!();
+    print_colored("Generating system health report...", CYAN);
+    println!();
+
+    // Call daemon to generate PDF
+    match rpc::generate_report().await {
+        Ok(path) => {
+            println!();
+            print_colored("✓ Report generated:", GREEN);
+            println!(" {}", path.display());
+            println!();
+            println_colored("The PDF contains:", DIM);
+            println!("  • System health overview");
+            println!("  • 7-day performance trends");
+            println!("  • Predictive alerts and forecasts");
+            println!("  • Personalized recommendations");
+            println!("  • Automated maintenance summary");
+            println!();
+
+            // Check if Telegram is configured
+            if std::path::Path::new("/etc/anna/telegram.env").exists() {
+                print_colored("📤 Sending to Telegram...", CYAN);
+                println!();
+                if let Err(e) = rpc::send_report_to_telegram(&path).await {
+                    print_colored("Note: ", YELLOW);
+                    println!("Could not send to Telegram: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            print_colored("Error generating report: ", RED);
+            println!("{}", e);
+            println!();
+            print_colored("Tip: ", YELLOW);
+            println!("Make sure the daemon is running and fonts are installed");
+        }
+    }
+    println!();
 }
 
 /// Handle a question with clarification support.
