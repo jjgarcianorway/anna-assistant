@@ -59,6 +59,28 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         content: question.to_string(),
     });
 
+    // v0.3.159: Add memory context on first iteration
+    if iteration == 0 {
+        let memory_context = crate::intelligence::get_memory_context(question);
+        if !memory_context.is_empty() {
+            debug!("Memory context available for this question");
+            state.feedback = Some(memory_context);
+        }
+    }
+
+    // v0.3.159: Add disk health predictions
+    let disk_predictions = crate::intelligence::get_disk_predictions();
+    if !disk_predictions.is_empty() && iteration == 0 {
+        info!("Adding disk health predictions to context");
+        state.feedback = Some(
+            state
+                .feedback
+                .as_ref()
+                .map(|f| format!("{}\n{}", f, disk_predictions))
+                .unwrap_or(disk_predictions),
+        );
+    }
+
     // THE RALPH LOOP
     while iteration < criteria.max_iterations {
         iteration += 1;
@@ -88,7 +110,16 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
                     }
                     Err(e) => {
                         debug!("Command failed: {}: {}", cmd, e);
-                        state.feedback = Some(format!("Command '{}' failed: {}", cmd, e));
+                        let failure_msg = format!("Command '{}' failed: {}", cmd, e);
+
+                        // v0.3.159: Try root cause analysis for failures
+                        let rca_result = crate::intelligence::analyze_failure(&failure_msg, &[]);
+                        if let Some(root_cause) = rca_result {
+                            debug!("Root cause analysis: {}", root_cause);
+                            state.feedback = Some(format!("{}\n\nRoot Cause Analysis:\n{}", failure_msg, root_cause));
+                        } else {
+                            state.feedback = Some(failure_msg);
+                        }
                     }
                 }
             }
@@ -125,6 +156,14 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
             // Learn recipe from successful answer
             learn_recipe_from_answer(question, &state.commands, eval.confidence);
 
+            // v0.3.159: Record successful interaction in memory
+            crate::intelligence::record_success(
+                question,
+                &answer,
+                &state.commands,
+                eval.confidence,
+            );
+
             return Ok(AskResult {
                 answer,
                 success: true,
@@ -158,6 +197,15 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
     let final_answer = state.answer.unwrap_or_else(|| {
         "I wasn't able to fully answer your question. Please try rephrasing or ask about something more specific.".to_string()
     });
+
+    // v0.3.159: Record failure if confidence is very low
+    if state.confidence < 0.5 {
+        let reason = state
+            .not_done_reason
+            .as_deref()
+            .unwrap_or("Max iterations reached with low confidence");
+        crate::intelligence::record_failure(question, reason, &state.commands);
+    }
 
     dialogue.push(DialogueStep {
         step_type: StepType::FinalAnswer,
