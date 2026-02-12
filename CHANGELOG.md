@@ -5,6 +5,91 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.165] - 2026-02-12
+
+### Added - Proactive Data Collection & Future Planning
+
+**Anna NEVER just says "I don't have that"** - she proposes what to do next.
+
+**New Module: opportunity_detector.rs** (365 lines)
+
+Detects opportunities when data is missing:
+
+1. **Historical Data Requests**
+   - "Show boot performance last 30 days" → Have 7 days
+   - Anna: "I have 7 days. I can: (1) Show 7-day chart now, (2) Continue collecting for 23 more days and send report on March 7, (3) Set up automatic weekly reports"
+
+2. **Optimization Opportunities**
+   - "Optimize boot time" → Anna proposes full experiment
+   - "Before/after benchmarks, apply optimizations, measure improvement or rollback"
+
+3. **Prediction Requests**
+   - Need 7+ days for predictions, have 3 days
+   - Anna: "Collect 4 more days for accurate predictions OR rough estimate now with low confidence"
+
+4. **Comparison/Baseline Missing**
+   - "Is my boot faster than others?" → No baseline
+   - Anna: "Establish 7-day baseline OR compare to theoretical optimal now"
+
+**New Module: future_planner.rs** (378 lines)
+
+Schedules data collection and delivers results:
+
+1. **Deliverable Tracking**
+   - Stores promises Anna makes
+   - Auto-generates reports when ready
+   - Sends Telegram notifications on delivery
+
+2. **Report Generation**
+   - Boot performance reports (avg, best, worst, trend)
+   - Memory usage reports (avg, min, max, range)
+   - Disk growth reports (total growth, GB/day, 30-day forecast)
+   - CPU load reports
+
+3. **Automatic Delivery**
+   - Runs every scheduler cycle
+   - Generates reports when data collection complete
+   - "Here's the 30-day boot analysis I started collecting on Feb 12"
+
+**Integration:**
+
+5-layer fallback system in ralph_loop:
+1. Smart file ops (fast tools)
+2. Normal Ralph loop
+3. Universal handler (novel tasks)
+4. Adaptive intelligence (multi-strategy)
+5. **Opportunity detection (propose future solutions)** - NEW
+
+**Examples:**
+
+User: "Chart boot performance last 30 days"
+Anna: "I have 7 days of data. I can:
+1. Show 7-day boot chart now
+2. Continue monitoring and send 30-day report on March 14
+3. Set up automatic weekly boot reports
+
+Which would you like?"
+
+User: "Optimize my memory usage"
+Anna: "I can:
+1. Run memory profiling now (~3 minutes) and suggest optimizations
+2. Run full memory optimization experiment with before/after benchmarks (~9 minutes, requires confirmation)
+
+Which approach?"
+
+User: "Will my disk fill up?"
+Anna: "I need 7+ days of data for accurate predictions (currently have 3 days). I can:
+1. Collect 4 more days and deliver prediction on Feb 16
+2. Give rough estimate now (low confidence with 3 days)
+
+Which do you prefer?"
+
+**Impact:**
+- Transforms "I can't" into "I can, but it will take X days"
+- Proactive proposals instead of rejections
+- Scheduled deliverables with automatic delivery
+- Anna remembers promises and keeps them
+
 ## [Unreleased]
 
 ### Fixed

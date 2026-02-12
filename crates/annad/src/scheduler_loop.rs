@@ -59,6 +59,15 @@ pub async fn scheduler_loop() {
             run_proactive_health_check();
         }
 
+        // v0.3.165: Process ready deliverables (every cycle)
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                if let Err(e) = crate::future_planner::process_ready_deliverables().await {
+                    debug!("Error processing deliverables: {}", e);
+                }
+            })
+        });
+
         let mut store = TaskStore::load();
         let task_count = store.tasks.len();
         if task_count > 0 {

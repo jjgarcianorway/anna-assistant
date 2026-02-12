@@ -66,6 +66,8 @@ pub mod feasibility;
 pub mod system_identity;
 pub mod adaptive_intelligence;
 pub mod smart_file_ops;
+pub mod opportunity_detector;
+pub mod future_planner;
 pub mod changes;
 pub mod core_loop;
 pub mod department;
