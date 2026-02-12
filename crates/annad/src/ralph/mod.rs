@@ -320,6 +320,73 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
         }
     }
 
+    // v0.3.169: Orchestration - Determine if deep analysis modules should run
+    let system_context = crate::llm_core::system_context();
+    let orchestration_plan = crate::llm_orchestration::determine_relevant_modules(
+        model,
+        question,
+        &system_context,
+    )
+    .await?;
+
+    // Run orchestrated analysis if modules were selected
+    if !orchestration_plan.modules.is_empty() {
+        info!(
+            "Orchestration: Running {} modules - {}",
+            orchestration_plan.modules.len(),
+            orchestration_plan.rationale
+        );
+
+        match crate::llm_orchestration::execute_modules(&orchestration_plan.modules, Some(question)).await {
+            Ok(results) if !results.is_empty() => {
+                // Deep analysis found interesting results - return enriched answer
+                info!("Orchestration: Found {} analysis results", results.len());
+
+                let base_answer = format!(
+                    "I've analyzed your question through multiple perspectives:\n\n{}",
+                    orchestration_plan.rationale
+                );
+
+                let enriched_answer = crate::llm_orchestration::synthesize_results(
+                    model,
+                    question,
+                    &results,
+                    &base_answer,
+                )
+                .await?;
+
+                return Ok(AskResult {
+                    answer: enriched_answer.clone(),
+                    success: true,
+                    iterations: 1,
+                    commands_executed: vec![],
+                    dialogue: vec![
+                        DialogueStep {
+                            step_type: StepType::UserQuestion,
+                            content: question.to_string(),
+                        },
+                        DialogueStep {
+                            step_type: StepType::FinalAnswer,
+                            content: enriched_answer,
+                        },
+                    ],
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                    citations: vec![],
+                    abstained: false,
+                    final_confidence: Some(0.85),
+                });
+            }
+            Ok(_) => {
+                debug!("Orchestration: Modules ran but found nothing interesting, continuing normal flow");
+            }
+            Err(e) => {
+                warn!("Orchestration: Module execution failed: {}, continuing normal flow", e);
+            }
+        }
+    }
+
     let criteria = determine_criteria(question);
     info!(
         "Ralph loop: {:?}, confidence >= {:.0}%, max {} iterations",

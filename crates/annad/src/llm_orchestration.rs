@@ -276,30 +276,154 @@ pub async fn execute_modules(modules: &[AnalysisModule], question: Option<&str>)
     Ok(results)
 }
 
-/// Synthesize analysis results into final answer.
-/// v0.3.168: Simple append for now, can be LLM-synthesized later.
+/// Synthesize analysis results into cohesive answer.
+/// v0.3.169: Intelligent synthesis - prioritize critical, connect insights, actionable recommendations.
 pub async fn synthesize_results(
     _model: &str,
-    _question: &str,
+    question: &str,
     results: &[AnalysisResult],
-    base_answer: &str,
+    _base_answer: &str,
 ) -> Result<String> {
     if results.is_empty() {
-        return Ok(base_answer.to_string());
+        return Ok(_base_answer.to_string());
     }
 
-    info!("Synthesizing {} analysis results with base answer", results.len());
+    info!("Synthesizing {} analysis results into cohesive answer", results.len());
 
-    let mut synthesized = base_answer.to_string();
+    let mut synthesized = String::new();
 
-    // Add analysis results
-    synthesized.push_str("\n\n--- Additional Analysis ---\n\n");
+    // 1. Start with direct answer to question
+    synthesized.push_str(&format!("Regarding your question: \"{}\"\n\n", question));
+
+    // 2. Prioritize critical findings first
+    let critical_findings: Vec<_> = results
+        .iter()
+        .filter(|r| {
+            r.findings.to_lowercase().contains("critical")
+                || r.findings.to_lowercase().contains("severe")
+                || r.findings.to_lowercase().contains("urgent")
+        })
+        .collect();
+
+    if !critical_findings.is_empty() {
+        synthesized.push_str("CRITICAL FINDINGS:\n\n");
+        for result in critical_findings {
+            synthesized.push_str(&format!("{}\n\n", extract_key_points(&result.findings, 3)));
+        }
+    }
+
+    // 3. Group related insights
+    let mut has_disk_insights = false;
+    let mut has_memory_insights = false;
+    let mut has_performance_insights = false;
+    let mut other_insights = Vec::new();
 
     for result in results {
-        synthesized.push_str(&format!("**{:?} Analysis:**\n{}\n\n", result.module, result.findings));
+        let findings_lower = result.findings.to_lowercase();
+
+        if findings_lower.contains("disk") || findings_lower.contains("storage") || findings_lower.contains("space") {
+            if !has_disk_insights {
+                synthesized.push_str("Storage Analysis:\n");
+                has_disk_insights = true;
+            }
+            synthesized.push_str(&format!("• {}\n", extract_key_points(&result.findings, 2)));
+        } else if findings_lower.contains("memory") || findings_lower.contains("ram") {
+            if !has_memory_insights {
+                if has_disk_insights {
+                    synthesized.push('\n');
+                }
+                synthesized.push_str("Memory Analysis:\n");
+                has_memory_insights = true;
+            }
+            synthesized.push_str(&format!("• {}\n", extract_key_points(&result.findings, 2)));
+        } else if findings_lower.contains("boot") || findings_lower.contains("performance") || findings_lower.contains("regression") {
+            if !has_performance_insights {
+                if has_disk_insights || has_memory_insights {
+                    synthesized.push('\n');
+                }
+                synthesized.push_str("Performance Analysis:\n");
+                has_performance_insights = true;
+            }
+            synthesized.push_str(&format!("• {}\n", extract_key_points(&result.findings, 2)));
+        } else {
+            other_insights.push(result);
+        }
+    }
+
+    // 4. Add other insights
+    if !other_insights.is_empty() {
+        if has_disk_insights || has_memory_insights || has_performance_insights {
+            synthesized.push('\n');
+        }
+        synthesized.push_str("Additional Insights:\n");
+        for result in other_insights {
+            synthesized.push_str(&format!("• {}\n", extract_key_points(&result.findings, 2)));
+        }
+    }
+
+    // 5. Extract actionable recommendations
+    let recommendations = extract_recommendations(results);
+    if !recommendations.is_empty() {
+        synthesized.push_str("\nRecommended Actions:\n");
+        for (i, rec) in recommendations.iter().take(5).enumerate() {
+            synthesized.push_str(&format!("{}. {}\n", i + 1, rec));
+        }
     }
 
     Ok(synthesized)
+}
+
+/// Extract key points from findings (first N sentences or key lines).
+fn extract_key_points(findings: &str, max_points: usize) -> String {
+    let lines: Vec<&str> = findings.lines().filter(|l| !l.trim().is_empty()).collect();
+
+    lines
+        .iter()
+        .take(max_points)
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Extract recommendations from all results.
+fn extract_recommendations(results: &[AnalysisResult]) -> Vec<String> {
+    let mut recommendations = Vec::new();
+
+    for result in results {
+        // Look for lines containing "recommend", "should", "action", "fix"
+        for line in result.findings.lines() {
+            let line_lower = line.to_lowercase();
+            if line_lower.contains("recommend")
+                || line_lower.contains("should")
+                || line_lower.contains("action:")
+                || line_lower.contains("fix:")
+            {
+                let cleaned = line.trim().trim_start_matches("•").trim().to_string();
+                if !recommendations.contains(&cleaned) && cleaned.len() > 10 {
+                    recommendations.push(cleaned);
+                }
+            }
+        }
+
+        // Look for "Would you like" sections
+        if result.findings.contains("Would you like me to") {
+            // Extract options
+            for line in result.findings.lines() {
+                if line.trim().starts_with("1.") || line.trim().starts_with("2.") || line.trim().starts_with("3.") {
+                    let cleaned = line
+                        .trim()
+                        .trim_start_matches(|c: char| c.is_numeric() || c == '.')
+                        .trim()
+                        .to_string();
+                    if !recommendations.contains(&cleaned) {
+                        recommendations.push(cleaned);
+                    }
+                }
+            }
+        }
+    }
+
+    recommendations
 }
 
 /// Main orchestration flow: Determine modules → Execute → Synthesize.
