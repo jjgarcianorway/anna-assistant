@@ -23,6 +23,7 @@ futures-util.workspace = true
 regex.workspace = true
 dirs.workspace = true
 uuid.workspace = true
+md5.workspace = true
 sd-notify = "0.4"
 teloxide.workspace = true
 hostname = "0.3"

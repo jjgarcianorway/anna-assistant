@@ -144,7 +144,40 @@ fn extract_task_type(question: &str) -> String {
 /// The Ralph loop: iterate until done (non-streaming version)
 /// LLM-first: no bypass paths. Every question goes through the LLM.
 /// v0.3.162: Universal capability system with feasibility checking and temporal tasks.
+/// v0.3.166: Pattern learning, failure memory, and automation suggestions.
 pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
+    // v0.3.166: Record question for pattern learning
+    crate::pattern_learning::record_question(question);
+
+    // v0.3.166: Check for automation opportunities (recurring questions)
+    if let Some(automation) = crate::pattern_learning::check_for_automation_opportunity(question) {
+        info!("Automation opportunity detected for recurring question");
+        let suggestion = crate::pattern_learning::format_automation_suggestion(&automation);
+
+        return Ok(AskResult {
+            answer: suggestion,
+            success: true,
+            iterations: 0,
+            commands_executed: vec![],
+            dialogue: vec![
+                DialogueStep {
+                    step_type: StepType::UserQuestion,
+                    content: question.to_string(),
+                },
+                DialogueStep {
+                    step_type: StepType::FinalAnswer,
+                    content: automation.message.clone(),
+                },
+            ],
+            needs_clarification: false,
+            clarification_question: None,
+            cached: false,
+            citations: vec![],
+            abstained: false,
+            final_confidence: Some(0.9),
+        });
+    }
+
     // v0.3.162: Step 0 - Feasibility analysis (detect truly impossible requests)
     let feasibility = crate::feasibility::analyze_feasibility(question);
     match feasibility {

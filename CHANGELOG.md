@@ -5,6 +5,107 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.166] - 2026-02-12
+
+### Added - Learning Systems (Pattern Learning, Failure Memory, Smart Anomaly Analysis)
+
+**Anna now LEARNS from experience** - remembers patterns, auto-fixes recurring problems, and explains WHY things happen.
+
+**New Module: pattern_learning.rs** (376 lines)
+
+Learns user habits and proposes automation:
+
+1. **Pattern Detection**
+   - Records every question asked
+   - Detects recurring patterns (3+ occurrences)
+   - Identifies day-of-week patterns ("usually on Mondays")
+   - Identifies time-of-day patterns ("around 9:00 AM")
+
+2. **Automation Suggestions**
+   - "You've asked about disk usage 4 times (usually on Mondays around 9:00). Would you like me to:"
+   - Option 1: Add to morning briefing automatically
+   - Option 2: Send automatic report every Monday at 9:00
+   - Option 3: Alert only if usage >80%
+   - Option 4: Keep asking manually
+
+3. **User Preference Learning**
+   - Remembers user's automation choices
+   - Never suggests again if declined
+   - Respects per-pattern preferences
+
+**New Module: failure_memory.rs** (365 lines)
+
+Remembers how Anna fixed problems and auto-applies next time:
+
+1. **Failure Signature Tracking**
+   - Normalizes error messages into signatures
+   - Tracks every occurrence with timestamp
+   - Records which solutions worked
+
+2. **Auto-Fix Decision Making**
+   - After 2nd occurrence of same failure, offers auto-fix
+   - Tracks success rate per solution (70%+ to auto-fix)
+   - Only auto-fixes if solution worked in last 30 days
+
+3. **User Preferences**
+   - AutoFixSilent: Fix without telling user
+   - AutoFixNotify: Fix and send notification
+   - AlwaysAsk: Ask permission every time
+   - NeverAutoFix: Always manual for specific issue
+
+4. **Smart Suggestions**
+   - "I've seen 'Docker failed to start' 3 times before and fixed it successfully."
+   - "Solution: systemctl restart docker (100% success rate)"
+   - "Should I: (1) Fix now, (2) Auto-fix silently next time, (3) Auto-fix but notify, (4) Always ask"
+
+**New Module: anomaly_analysis.rs** (242 lines)
+
+Root cause analysis for anomalies instead of just reporting numbers:
+
+1. **Memory Anomaly Analysis**
+   - Finds top memory consumers
+   - Identifies likely causes (Chrome with 47 tabs, memory leak in postgres-dev)
+   - Context-aware recommendations ("Close unused tabs" vs "Restart leaking process")
+
+2. **Disk I/O Anomaly Analysis**
+   - Detects heavy I/O processes (baloo indexing, updatedb, rsync)
+   - Provides specific actions ("balooctl suspend" vs "wait for completion")
+
+3. **CPU Anomaly Analysis**
+   - Identifies high CPU processes
+   - Distinguishes normal (compilation) from abnormal (runaway process)
+   - Context-specific recommendations
+
+**Examples:**
+
+Before: "Memory usage at 87% (usually 42%)"
+
+After: "Memory at 87% (45% above baseline)
+
+Root Causes Found:
+1. Chrome using 38.2% memory (90% likely)
+   Evidence: Process consuming most of total memory
+2. postgres-dev grew 2GB in 6 hours (70% likely)
+   Evidence: Memory leak detected
+
+Recommended Actions:
+1. Close unused browser tabs or restart browser
+2. Restart postgres-dev container to clear leak
+3. Check 'htop' for detailed memory breakdown
+
+Confidence: 80%"
+
+**Integration:**
+- Pattern learning runs on every question (records + checks for automation)
+- Failure memory checks for known failures (can auto-fix silently)
+- Anomaly analysis provides context in briefings
+
+**Impact:**
+- Anna learns from repetition → proactive automation
+- Anna learns from failures → auto-healing
+- Anna explains root causes → actionable insights
+- Transforms reactive assistant into learning system
+
 ## [0.3.165] - 2026-02-12
 
 ### Added - Proactive Data Collection & Future Planning
