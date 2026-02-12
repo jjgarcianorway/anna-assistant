@@ -5,6 +5,179 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.167] - 2026-02-12
+
+### Added - Advanced Intelligence Systems (Cleanup Detection, Regression Analysis, Predictive Maintenance, Teaching Mode)
+
+**Anna now anticipates problems, explains regressions, and teaches proactively.**
+
+**New Module: cleanup_detector.rs** (335 lines)
+
+Proactively finds cleanable space and categorizes by safety:
+
+1. **Smart Space Scanning**
+   - Package cache (/var/cache/pacman/pkg)
+   - Journal logs (/var/log/journal)
+   - Temporary files (/tmp)
+   - Docker images and build cache
+   - Core dumps (/var/lib/systemd/coredump)
+   - Old kernels (/boot)
+   - Orphaned packages
+
+2. **Safety Categorization**
+   - Safe (100% safe: cache, tmp files)
+   - MostlySafe (95% safe: old logs, unused packages)
+   - Careful (80% safe: old Docker images)
+   - Risky (<80%: user data, configs)
+
+3. **Natural Language Proposals**
+   - "Cleanable Space Found: 3.2GB - Package cache (1.8GB), Journal logs (1.1GB)"
+   - Proposes cleanup commands, user chooses
+   - NO hardcoding - LLM decides which cleanup makes sense
+
+**New Module: regression_detector.rs** (321 lines)
+
+Detects performance degradations and explains what changed:
+
+1. **Baseline Comparison**
+   - Compares recent 7 days vs 7-14 days ago
+   - Boot time regression detection
+   - Memory usage regression detection
+
+2. **Root Cause Analysis**
+   - Executes systemd-analyze blame for boot regressions
+   - Identifies slow services with likelihood scores
+   - Provides service-specific fix suggestions:
+     - NetworkManager-wait-online: "Disable wait-online (safe)"
+     - Plymouth: "Disable boot splash if not needed"
+     - Snapd: "Consider disabling if not using snaps"
+
+3. **Severity Classification**
+   - Minor (<10% regression)
+   - Moderate (10-25% regression)
+   - Significant (25-50% regression)
+   - Severe (>50% regression)
+
+**New Module: predictive_maintenance.rs** (464 lines)
+
+Forecasts future system health issues:
+
+1. **Disk Exhaustion Prediction**
+   - Analyzes 14-day trend with linear regression
+   - "Disk will reach 95% full in 8 days (currently 78%, growing 2.1GB/day)"
+   - Only alerts if <60 days away
+
+2. **Memory Leak Detection**
+   - Detects steady memory growth >0.5%/day
+   - Predicts when memory will reach 90%
+   - Recommends identifying leaking process
+
+3. **Boot Time Degradation**
+   - Tracks boot time trends
+   - Alerts if increasing >0.1s per day
+   - Suggests investigating systemd services
+
+4. **SSD Wear Prediction**
+   - Parses NVMe smart-log percentage_used
+   - Estimates time until warranty limit
+   - Low confidence (wear is non-linear) but informative
+
+5. **Health Score**
+   - 0-100 score based on all predictions
+   - Penalties based on severity (Critical: -30, Urgent: -20, Warning: -10, Info: -5)
+   - Weighted by confidence
+
+**New Module: teaching_mode.rs** (387 lines)
+
+Anna remembers what user knows and adapts explanations:
+
+1. **Knowledge Base Tracking**
+   - Records every topic taught
+   - Tracks mastery level (0.0-1.0)
+   - Remembers last reference time
+
+2. **Expertise Level Detection**
+   - Beginner: Detailed explanations, analogies
+   - Intermediate: Assumes basic Linux knowledge
+   - Advanced: Skip basics, focus on details
+   - Expert: Concise, technical explanations
+
+3. **Teaching Context**
+   - First time: "Clear foundational explanation"
+   - Already taught (low mastery): "Reinforce with new angle"
+   - Already taught (high mastery): "Brief reminder or advanced details"
+
+4. **Preference Learning**
+   - Include examples (yes/no)
+   - Use analogies (yes/no)
+   - Show commands for learning (yes/no)
+   - Depth level (1-5)
+
+5. **Review Recommendations**
+   - Identifies struggling topics (<40% mastery, 3+ asks)
+   - Identifies forgotten topics (>70% mastery, >30 days since reference)
+
+**Integration:**
+- All modules declared in lib.rs
+- Pattern learning continues from v0.3.166
+- Failure memory continues from v0.3.166
+- Anomaly analysis continues from v0.3.166
+
+**Examples:**
+
+Cleanup Detection:
+```
+Cleanable Space Found: 3.2GB
+
+SAFE to Clean:
+  - Package cache (1.8GB): Old package versions no longer needed
+  - Docker build cache (0.9GB): Build cache can be safely removed
+
+Mostly Safe (Review First):
+  - Journal logs (1.1GB): Logs using 1.1GB (can reduce to 100MB safely)
+  - Orphaned packages (15): Packages no longer needed by any installed software
+
+Would you like me to:
+1. Clean all safe items automatically
+2. Show commands for you to review first
+3. Clean specific items only
+```
+
+Regression Detection:
+```
+Boot Time Regression Detected (Moderate severity)
+
+Changed: 14.2s -> 16.8s (+18% slower)
+
+Likely Causes:
+1. NetworkManager-wait-online.service taking 1.8s (80% likely)
+   Fix: Disable wait-online (safe): systemctl disable NetworkManager-wait-online.service
+
+2. 47 services enabled (60% likely)
+   Fix: Review enabled services and disable unnecessary ones
+```
+
+Predictive Maintenance:
+```
+System Health Forecast (Score: 72/100)
+
+2 warning(s) - monitor and plan accordingly
+
+Warnings (Monitor Closely):
+  - Disk will reach 95% full (currently 78.3%) (85% confident)
+    Time: 8 days
+    Trend: Growing 2.14GB/day
+    Action: Free up space soon. Growing at 2.14GB/day, need to free ~12.8GB or reduce growth rate.
+
+  - Possible memory leak detected (75% confident)
+    Time: 23 days
+    Trend: Memory usage increasing 0.82%/day
+    Action: Identify which process is leaking memory. Check for long-running processes with growing RSS.
+```
+
+**Philosophy:**
+NO hardcoding - LLM analyzes data and decides what matters. Anna proposes, user chooses.
+
 ## [0.3.166] - 2026-02-12
 
 ### Added - Learning Systems (Pattern Learning, Failure Memory, Smart Anomaly Analysis)
