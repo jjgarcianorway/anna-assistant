@@ -16,6 +16,7 @@ mod report; // Internal aggregation logic, not operator-facing
 mod rpc;
 mod spinner;
 mod streaming;
+mod telegram;
 mod ui;
 
 use anna_shared::declaration::CapabilityDeclaration;
@@ -298,6 +299,12 @@ async fn run_repl() -> Result<()> {
                     "stats --detailed" | "stats -d" => {
                         print_stats(true);
                     }
+                    "telegram setup" => {
+                        telegram::run_telegram_setup();
+                    }
+                    "telegram status" => {
+                        telegram::show_telegram_status();
+                    }
                     "help" => {
                         println!("Just ask questions about your Arch Linux system!");
                         println!("Examples:");
@@ -305,7 +312,7 @@ async fn run_repl() -> Result<()> {
                         println!("  How do I install neovim?");
                         println!("  Show failed services");
                         println!();
-                        println!("Commands: status, stats, help, quit");
+                        println!("Commands: status, stats, telegram setup, telegram status, help, quit");
                     }
                     _ => {
                         handle_question_with_clarification(input, true, &session_id).await;
@@ -350,12 +357,20 @@ async fn main() -> Result<()> {
             "status" => {
                 print_status().await;
             }
+            "telegram setup" => {
+                telegram::run_telegram_setup();
+            }
+            "telegram status" => {
+                telegram::show_telegram_status();
+            }
             "help" | "--help" | "-h" => {
                 println!("Anna - Arch Linux Assistant");
                 println!();
                 println!("Usage:");
                 println!("  annactl                  Start interactive session");
                 println!("  annactl status           Show daemon status");
+                println!("  annactl telegram setup   Configure Telegram bot");
+                println!("  annactl telegram status  Check Telegram configuration");
                 println!("  annactl <question>       Ask anything in plain English");
                 println!();
                 println!("Examples:");

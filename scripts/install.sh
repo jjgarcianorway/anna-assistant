@@ -68,9 +68,9 @@ print_footer() {
     echo ""; echo "$HR"
     echo "Run: ${C_BOLD}annactl status${C_RESET} to verify"
     if [[ -f "${CONFIG_DIR}/telegram.env" ]]; then
-        echo "Telegram: Message your bot to test"
+        echo "Telegram: ${C_OK}Configured${C_RESET} - message your bot to test!"
     else
-        echo "Telegram: See /etc/anna/telegram.env to enable later"
+        echo "Telegram: Run ${C_BOLD}annactl telegram setup${C_RESET} to enable mobile access"
     fi
     echo "$HR"; echo ""
 }
@@ -209,40 +209,55 @@ EOF
 setup_telegram() {
     print_section "telegram" "optional mobile access"
     echo ""
-    echo "  Anna can be controlled via Telegram for mobile access."
-    echo "  This requires a Telegram bot token and your user ID."
+    echo "  ${C_BOLD}Control Anna from your phone!${C_RESET}"
     echo ""
-    read -p "  Set up Telegram access? [y/N] " -n 1 -r; echo ""
+    echo "  Anna can send you:"
+    echo "    ${SYM_ARROW} Morning briefings with system health charts"
+    echo "    ${SYM_ARROW} Critical alerts when attention is needed"
+    echo "    ${SYM_ARROW} Instant answers to your questions"
+    echo ""
+    echo "  This requires creating a free Telegram bot (takes 2 minutes)."
+    echo ""
+    read -p "  Set up Telegram now? [y/N] " -n 1 -r; echo ""
 
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_ok "Skipped (can configure later in /etc/anna/telegram.env)"
+        echo ""
+        print_ok "Skipped - you can set it up anytime with:"
+        echo "    ${C_BOLD}annactl telegram setup${C_RESET}"
         echo ""; return
     fi
 
     echo ""
     echo "  ${C_CYAN}Step 1: Create a bot${C_RESET}"
-    echo "    1. Open Telegram and message @BotFather"
-    echo "    2. Send: /newbot"
-    echo "    3. Choose a name (e.g., 'My Anna')"
-    echo "    4. Choose a username (e.g., 'my_anna_bot')"
+    echo "    1. Open Telegram and search for ${C_BOLD}@BotFather${C_RESET}"
+    echo "    2. Send: ${C_BOLD}/newbot${C_RESET}"
+    echo "    3. Choose a name (e.g., 'My Anna Bot')"
+    echo "    4. Choose a username (must end in 'bot', e.g., 'my_anna_bot')"
     echo "    5. Copy the token BotFather gives you"
+    echo ""
+    echo "  ${C_DIM}Example token: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz${C_RESET}"
     echo ""
     read -p "  Paste your bot token: " BOT_TOKEN
 
     if [[ -z "$BOT_TOKEN" ]]; then
-        print_err "No token provided, skipping Telegram setup"
+        echo ""
+        print_err "No token provided. Run ${C_BOLD}annactl telegram setup${C_RESET} later."
         echo ""; return
     fi
 
     echo ""
     echo "  ${C_CYAN}Step 2: Get your Telegram user ID${C_RESET}"
-    echo "    1. Message @userinfobot on Telegram"
-    echo "    2. It will reply with your user ID (a number)"
+    echo "    1. Search for ${C_BOLD}@userinfobot${C_RESET} on Telegram"
+    echo "    2. Send any message (e.g., /start)"
+    echo "    3. The bot will reply with your user ID (a number)"
+    echo ""
+    echo "  ${C_DIM}Example ID: 123456789${C_RESET}"
     echo ""
     read -p "  Paste your Telegram user ID: " USER_ID
 
     if [[ -z "$USER_ID" ]]; then
-        print_err "No user ID provided, skipping Telegram setup"
+        echo ""
+        print_err "No user ID provided. Run ${C_BOLD}annactl telegram setup${C_RESET} later."
         echo ""; return
     fi
 
@@ -254,7 +269,9 @@ EOF
     $SUDO chmod 640 "${CONFIG_DIR}/telegram.env"
     $SUDO chown root:$ANNA_GROUP "${CONFIG_DIR}/telegram.env"
 
-    print_ok "Telegram configured! Message your bot after install completes."
+    echo ""
+    print_ok "Telegram configured!"
+    echo "    After install, open Telegram and message your bot to test it."
     echo ""
 }
 
