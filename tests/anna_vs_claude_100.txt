@@ -1,0 +1,118 @@
+# Anna vs Claude: 100 Question Battle Test
+# From trivial to impossible - let's see who handles it better!
+# Categories: Basic, Intermediate, Advanced, Expert, Chaos
+
+## BASIC (Questions 1-20) - Warmup Round
+
+1. What's my disk usage?
+2. Show me running services
+3. What kernel am I running?
+4. How much RAM do I have?
+5. What's my CPU usage right now?
+6. Show me my network interfaces
+7. What's my hostname?
+8. List all users on this system
+9. Show me system uptime
+10. What's my current timezone?
+11. Show failed systemd services
+12. What packages did I install today?
+13. How many packages are installed?
+14. What's my GPU?
+15. Show me disk partitions
+16. What's my default shell?
+17. Show me environment variables
+18. What's my home directory size?
+19. Show me listening ports
+20. What's my public IP address?
+
+## INTERMEDIATE (Questions 21-40) - Getting Serious
+
+21. Install htop if not installed
+22. Find all log files larger than 100MB
+23. Show me processes using more than 1GB RAM
+24. What's causing high CPU usage?
+25. Clean pacman cache safely
+26. Show me my boot time breakdown
+27. Find duplicate files in my home directory
+28. What services start at boot?
+29. Show me recent kernel messages
+30. Find all SUID binaries
+31. Check if my system needs a reboot
+32. Show me disk I/O statistics
+33. What's my swap usage?
+34. Find the largest 10 files on my system
+35. Show me failed login attempts
+36. What's in my crontab?
+37. Check if any packages are broken
+38. Show me my graphics driver
+39. Find all processes owned by my user
+40. What's my system's hardware info?
+
+## ADVANCED (Questions 41-60) - Now We're Talking
+
+41. Set up automatic system backups
+42. Configure firewall to block port 22 except from 192.168.1.0/24
+43. Set up SSH key authentication
+44. Create a systemd service for a Python script at /opt/myapp.py
+45. Set up log rotation for /var/log/myapp
+46. Configure nginx as a reverse proxy on port 8080
+47. Set up automatic security updates
+48. Create a RAID 1 array (simulation)
+49. Set up fail2ban for SSH protection
+50. Configure swap with optimal settings
+51. Set up Docker with proper permissions
+52. Configure UFW to allow HTTP/HTTPS only
+53. Set up a local DNS server with dnsmasq
+54. Create automated disk space alerts
+55. Set up rsync backups to remote server
+56. Configure kernel parameters for performance
+57. Set up automatic package updates on Sunday 3am
+58. Create a monitoring dashboard with prometheus
+59. Set up encrypted home directory for new user
+60. Configure system to auto-hibernate at 10% battery
+
+## EXPERT (Questions 61-80) - Serious Business
+
+61. Optimize my system for maximum boot speed
+62. Debug why my Bluetooth isn't working
+63. Set up a local Arch repository mirror
+64. Configure kernel parameters for gaming performance
+65. Set up automatic BTRFS snapshots before updates
+66. Diagnose and fix high iowait
+67. Set up a VPN server with WireGuard
+68. Configure dynamic fan curves based on temperature
+69. Set up ZFS with optimal parameters
+70. Create a custom kernel with only needed modules
+71. Set up GPU passthrough for virtual machines
+72. Configure systemd-boot with multiple kernels
+73. Set up Samba share with proper permissions
+74. Debug why my system randomly freezes
+75. Set up PostgreSQL with automatic backups
+76. Configure SELinux/AppArmor policies
+77. Set up network bridge for VMs
+78. Optimize SSD with trim and proper mount options
+79. Set up automated testing environment with CI/CD
+80. Configure advanced power management for laptops
+
+## CHAOS (Questions 81-100) - Pure Madness
+
+81. Make my terminal speak every command output
+82. Create a script that automatically organizes my downloads folder by file type and date
+83. Set up a system that reminds me to stand up every hour
+84. Make my keyboard LED change color based on CPU temperature
+85. Create a "panic button" that locks screen and mutes everything instantly
+86. Set up automatic cat picture downloads
+87. Make my system play a sound when any package is updated
+88. Create a command that tells me jokes when I'm frustrated
+89. Set up a system that automatically comments my bash history
+90. Make my desktop background change based on weather
+91. Create a script that tracks how much time I spend in each application
+92. Set up automatic screenshot every 5 minutes (for time tracking)
+93. Make my numlock turn on automatically only on Tuesdays
+94. Create a system that dims screen when I look away
+95. Set up automatic music that plays when I log in based on time of day
+96. Make a script that insults me if I type 'sudo rm -rf'
+97. Create a system that automatically closes Chrome tabs older than 1 hour
+98. Set up notifications when specific websites are mentioned on Reddit
+99. Make my system boot faster by sacrificing a random non-essential package each time
+100. Create a self-aware script that explains what it's doing while it's doing it
