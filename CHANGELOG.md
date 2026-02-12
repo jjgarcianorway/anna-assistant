@@ -5,6 +5,45 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.158] - 2026-02-11
+
+### Added - Interactive Telegram Bot Setup Wizard
+
+**New Commands:**
+- `annactl telegram setup` - Interactive wizard to configure Telegram bot
+- `annactl telegram status` - Check current Telegram configuration
+
+**Features:**
+- Step-by-step guidance for creating bot with @BotFather
+- Instructions for getting user ID from @userinfobot
+- Token and user ID validation with helpful error messages
+- Automatic config save to `/etc/anna/telegram.env` with correct permissions
+- Daemon restart to apply changes
+- Available in both CLI mode and REPL mode
+- Beautiful CLI interface with colors and formatting
+- Clear step numbering and validation with retry
+
+**Install Script Improvements:**
+- More compelling Telegram setup prompt (morning briefings, charts, alerts)
+- Clear instructions with example tokens/IDs
+- Points users to `annactl telegram setup` if skipped during install
+- Updated footer to mention setup command
+
+**User Experience:**
+Users can now set up Telegram:
+1. During installation (interactive prompt)
+2. Anytime after with: `annactl telegram setup`
+3. Check status with: `annactl telegram status`
+
+### Fixed - Critical Install Script Bug
+
+Line 154 in install.sh would return non-zero exit code when no stale binaries were found, causing script to exit after checksum verification due to `set -e`.
+
+**Bug:** `[[ "$stale_found" = true ]] && echo ""`
+**Fix:** `[[ "$stale_found" = true ]] && echo "" || true`
+
+This affected fresh installs only (not upgrades), causing script to exit before reaching request_sudo.
+
 ## [0.3.157] - 2026-02-11
 
 ### Added - Personality System & Autonomous Learning
