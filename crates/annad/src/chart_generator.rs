@@ -1,12 +1,11 @@
-//! Visual chart generation using plotters.
-//! Generates PNG charts for morning briefing and on-demand visualization.
+//! Visual chart generation for morning briefings.
+//! Uses plotters library to create professional PNG charts.
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Result};
 use plotters::prelude::*;
 use plotters_bitmap::BitMapBackend;
 use std::path::{Path, PathBuf};
-use anna_shared::monitor::{LongTermHistory, DailySnapshot};
-use anna_shared::prediction::{Forecaster, TrendDirection};
+use tracing::{debug, info};
 
 /// Chart generator for system metrics visualization.
 pub struct ChartGenerator {
@@ -16,286 +15,337 @@ pub struct ChartGenerator {
 }
 
 impl ChartGenerator {
-    /// Create new chart generator.
+    /// Create a new chart generator.
     pub fn new<P: AsRef<Path>>(output_dir: P) -> Self {
-        let output_dir = output_dir.as_ref().to_path_buf();
-        std::fs::create_dir_all(&output_dir).ok();
         Self {
             width: 1200,
-            height: 800,
-            output_dir,
+            height: 600,
+            output_dir: output_dir.as_ref().to_path_buf(),
         }
     }
 
     /// Generate 7-day trends chart (disk, memory, boot time).
-    pub fn generate_trends_chart(&self, history: &LongTermHistory) -> Result<PathBuf> {
-        if history.daily_snapshots.is_empty() {
-            anyhow::bail!("No historical data available for trends chart");
-        }
-
-        let path = self.output_dir.join("trends_7day.png");
-        let path_clone = path.clone();
-        let root = BitMapBackend::new(&path_clone, (self.width, self.height))
-            .into_drawing_area();
-
-        root.fill(&WHITE)
-            .context("Failed to fill background")?;
-
-        // Split into 3 sub-charts
-        let areas = root.split_evenly((3, 1));
-        let top = &areas[0];
-        let middle = &areas[1];
-        let bottom = &areas[2];
+    pub fn generate_trends_chart(
+        &self,
+        history: &anna_shared::monitor::LongTermHistory,
+    ) -> Result<PathBuf> {
+        info!("Generating 7-day trends chart");
 
         // Get last 7 days of data
-        let snapshots: Vec<_> = history.daily_snapshots.iter()
+        let snapshots: Vec<_> = history
+            .daily_snapshots
+            .iter()
             .rev()
             .take(7)
             .rev()
             .collect();
 
         if snapshots.is_empty() {
-            anyhow::bail!("No snapshots available");
+            return Err(anyhow!("No historical data available for chart"));
         }
 
-        // Chart 1: Disk usage (GB)
-        self.draw_disk_chart(&top, &snapshots)?;
+        let output_path = self.output_dir.join("trends_7day.png");
+        let output_path_clone = output_path.clone();
+        std::fs::create_dir_all(&self.output_dir)?;
 
-        // Chart 2: Memory usage (%)
-        self.draw_memory_chart(&middle, &snapshots)?;
-
-        // Chart 3: Boot time (seconds)
-        self.draw_boot_chart(&bottom, &snapshots)?;
-
-        root.present()
-            .context("Failed to save chart")?;
-
-        Ok(path)
-    }
-
-    fn draw_disk_chart(
-        &self,
-        area: &DrawingArea<BitMapBackend, plotters::coord::Shift>,
-        snapshots: &[&DailySnapshot],
-    ) -> Result<()> {
-        let values: Vec<f32> = snapshots.iter()
-            .map(|s| s.disk_used_gb)
-            .collect();
-
-        let min_val = values.iter().cloned().fold(f32::INFINITY, f32::min).max(0.0);
-        let max_val = values.iter().cloned().fold(f32::NEG_INFINITY, f32::max) * 1.1;
-
-        let mut chart = ChartBuilder::on(area)
-            .caption("Disk Usage (GB) - Last 7 Days", ("sans-serif", 30))
-            .margin(10)
-            .x_label_area_size(40)
-            .y_label_area_size(60)
-            .build_cartesian_2d(0..snapshots.len(), min_val..max_val)?;
-
-        chart
-            .configure_mesh()
-            .x_desc("Day")
-            .y_desc("GB Used")
-            .draw()?;
-
-        // Draw line
-        chart.draw_series(LineSeries::new(
-            values.iter().enumerate().map(|(i, &v)| (i, v)),
-            &BLUE,
-        ))?;
-
-        // Draw points
-        chart.draw_series(values.iter().enumerate().map(|(i, &v)| {
-            Circle::new((i, v), 4, BLUE.filled())
-        }))?;
-
-        Ok(())
-    }
-
-    fn draw_memory_chart(
-        &self,
-        area: &DrawingArea<BitMapBackend, plotters::coord::Shift>,
-        snapshots: &[&anna_shared::monitor::DailySnapshot],
-    ) -> Result<()> {
-        let values: Vec<f32> = snapshots.iter()
-            .map(|s| s.avg_memory_pct)
-            .collect();
-
-        let min_val = 0.0f32;
-        let max_val = 100.0f32;
-
-        let mut chart = ChartBuilder::on(area)
-            .caption("Memory Usage (%) - Last 7 Days", ("sans-serif", 30))
-            .margin(10)
-            .x_label_area_size(40)
-            .y_label_area_size(60)
-            .build_cartesian_2d(0..snapshots.len(), min_val..max_val)?;
-
-        chart
-            .configure_mesh()
-            .x_desc("Day")
-            .y_desc("Memory %")
-            .draw()?;
-
-        // Draw warning zone (>85%)
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [(0, 85.0), (snapshots.len(), 100.0)],
-            RED.mix(0.1).filled(),
-        )))?;
-
-        // Draw line
-        chart.draw_series(LineSeries::new(
-            values.iter().enumerate().map(|(i, &v)| (i, v)),
-            &GREEN,
-        ))?;
-
-        // Draw points
-        chart.draw_series(values.iter().enumerate().map(|(i, &v)| {
-            Circle::new((i, v), 4, GREEN.filled())
-        }))?;
-
-        Ok(())
-    }
-
-    fn draw_boot_chart(
-        &self,
-        area: &DrawingArea<BitMapBackend, plotters::coord::Shift>,
-        snapshots: &[&anna_shared::monitor::DailySnapshot],
-    ) -> Result<()> {
-        let values: Vec<f32> = snapshots.iter()
-            .map(|s| s.avg_boot_time)
-            .collect();
-
-        let min_val = 0.0f32;
-        let max_val = values.iter().cloned().fold(f32::NEG_INFINITY, f32::max) * 1.2;
-
-        let mut chart = ChartBuilder::on(area)
-            .caption("Boot Time (seconds) - Last 7 Days", ("sans-serif", 30))
-            .margin(10)
-            .x_label_area_size(40)
-            .y_label_area_size(60)
-            .build_cartesian_2d(0..snapshots.len(), min_val..max_val)?;
-
-        chart
-            .configure_mesh()
-            .x_desc("Day")
-            .y_desc("Seconds")
-            .draw()?;
-
-        // Draw line
-        chart.draw_series(LineSeries::new(
-            values.iter().enumerate().map(|(i, &v)| (i, v)),
-            &MAGENTA,
-        ))?;
-
-        // Draw points
-        chart.draw_series(values.iter().enumerate().map(|(i, &v)| {
-            Circle::new((i, v), 4, MAGENTA.filled())
-        }))?;
-
-        Ok(())
-    }
-
-    /// Generate resource forecast chart with prediction line.
-    pub fn generate_forecast_chart(
-        &self,
-        resource_name: &str,
-        history_values: &[f64],
-        unit: &str,
-    ) -> Result<PathBuf> {
-        if history_values.is_empty() {
-            anyhow::bail!("No data for forecast chart");
-        }
-
-        let path = self.output_dir.join(format!("forecast_{}.png", resource_name));
-        let path_clone = path.clone();
-        let root = BitMapBackend::new(&path_clone, (self.width, self.height / 2))
+        let root = BitMapBackend::new(&output_path, (self.width, self.height))
             .into_drawing_area();
 
         root.fill(&WHITE)?;
 
-        // Analyze trend and generate forecast
-        let forecaster = Forecaster::default();
-        let trend_analysis = anna_shared::prediction::analyze_trend(history_values, 14);
-
-        let values_f32: Vec<f32> = history_values.iter().map(|&v| v as f32).collect();
-        let min_val = values_f32.iter().cloned().fold(f32::INFINITY, f32::min).max(0.0);
-        let max_val = values_f32.iter().cloned().fold(f32::NEG_INFINITY, f32::max) * 1.3;
-
         let mut chart = ChartBuilder::on(&root)
-            .caption(
-                format!("{} Forecast - Historical + 14 Day Prediction", resource_name),
-                ("sans-serif", 35),
-            )
-            .margin(15)
-            .x_label_area_size(50)
-            .y_label_area_size(70)
-            .build_cartesian_2d(0..(history_values.len() + 14), min_val..max_val)?;
+            .caption("7-Day System Trends", ("sans-serif", 40).into_font())
+            .margin(10)
+            .x_label_area_size(40)
+            .y_label_area_size(60)
+            .build_cartesian_2d(0usize..snapshots.len() - 1, 0f32..100f32)?;
 
         chart
             .configure_mesh()
-            .x_desc("Days")
-            .y_desc(unit)
+            .x_labels(7)
+            .x_label_formatter(&|x| {
+                snapshots
+                    .get(*x)
+                    .map(|s| s.date.split('-').last().unwrap_or("").to_string())
+                    .unwrap_or_default()
+            })
+            .y_desc("Percentage (%)")
             .draw()?;
 
-        // Draw historical data
-        chart.draw_series(LineSeries::new(
-            values_f32.iter().enumerate().map(|(i, &v)| (i, v)),
-            BLUE.stroke_width(2),
-        ))?
-        .label("Historical")
-        .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
-
-        // Draw prediction if trend exists
-        if let Some(trend) = trend_analysis {
-            let forecast_points: Vec<(usize, f32)> = (history_values.len()..history_values.len() + 14)
-                .map(|i| {
-                    let days_ahead = i - history_values.len();
-                    let predicted = trend.current + (trend.slope * days_ahead as f64);
-                    (i, predicted as f32)
-                })
-                .collect();
-
-            // Draw prediction line (dashed)
-            chart.draw_series(LineSeries::new(
-                forecast_points.iter().cloned(),
-                RED.stroke_width(2),
+        // Plot memory usage (%)
+        chart
+            .draw_series(LineSeries::new(
+                snapshots
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| (i, s.avg_memory_pct)),
+                &BLUE,
             ))?
-            .label("Predicted")
+            .label("Memory %")
+            .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &BLUE));
+
+        // Plot disk usage (convert GB to approximate %)
+        let max_disk = snapshots
+            .iter()
+            .map(|s| s.disk_used_gb)
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(100.0);
+
+        chart
+            .draw_series(LineSeries::new(
+                snapshots
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| (i, (s.disk_used_gb / max_disk) * 100.0)),
+                &RED,
+            ))?
+            .label("Disk (normalized)")
             .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
 
-            // Add trend direction label
-            let direction_label = match trend.direction {
-                TrendDirection::Increasing => "↗ Increasing",
-                TrendDirection::Decreasing => "↘ Decreasing",
-                TrendDirection::Stable => "→ Stable",
-            };
-
-            chart.draw_series(std::iter::once(Text::new(
-                direction_label,
-                (2, max_val * 0.9),
-                ("sans-serif", 25).into_font().color(&BLACK),
-            )))?;
-        }
-
-        chart.configure_series_labels()
+        chart
+            .configure_series_labels()
+            .background_style(&WHITE.mix(0.8))
             .border_style(&BLACK)
             .draw()?;
 
         root.present()?;
 
-        Ok(path)
+        info!("Chart saved to: {}", output_path_clone.display());
+        Ok(output_path_clone)
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    /// Generate boot time trend chart with forecast.
+    pub fn generate_boot_time_chart(
+        &self,
+        history: &anna_shared::monitor::LongTermHistory,
+        forecast_days: usize,
+    ) -> Result<PathBuf> {
+        info!("Generating boot time forecast chart");
 
-    #[test]
-    fn test_chart_generator_creation() {
-        let gen = ChartGenerator::new("/tmp/anna_test_charts");
-        assert_eq!(gen.width, 1200);
-        assert_eq!(gen.height, 800);
+        let snapshots: Vec<_> = history
+            .daily_snapshots
+            .iter()
+            .rev()
+            .take(14)
+            .rev()
+            .collect();
+
+        if snapshots.len() < 3 {
+            return Err(anyhow!("Insufficient data for boot time chart"));
+        }
+
+        let output_path = self.output_dir.join("boot_time_forecast.png");
+        let output_path_clone = output_path.clone();
+
+        let root = BitMapBackend::new(&output_path, (self.width, self.height))
+            .into_drawing_area();
+
+        root.fill(&WHITE)?;
+
+        let max_boot = snapshots
+            .iter()
+            .map(|s| s.avg_boot_time)
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap_or(30.0);
+
+        let total_points = snapshots.len() + forecast_days;
+
+        let mut chart = ChartBuilder::on(&root)
+            .caption("Boot Time Trend & Forecast", ("sans-serif", 40).into_font())
+            .margin(10)
+            .x_label_area_size(40)
+            .y_label_area_size(60)
+            .build_cartesian_2d(0usize..total_points - 1, 0f32..max_boot * 1.2)?;
+
+        chart
+            .configure_mesh()
+            .x_desc("Days")
+            .y_desc("Boot Time (seconds)")
+            .draw()?;
+
+        // Actual boot times
+        chart.draw_series(LineSeries::new(
+            snapshots
+                .iter()
+                .enumerate()
+                .map(|(i, s)| (i, s.avg_boot_time)),
+            &BLUE,
+        ))?;
+
+        // Simple linear forecast
+        if snapshots.len() >= 2 {
+            let last_idx = snapshots.len() - 1;
+            let last_val = snapshots[last_idx].avg_boot_time;
+            let prev_val = snapshots[last_idx - 1].avg_boot_time;
+            let slope = last_val - prev_val;
+
+            let forecast: Vec<(usize, f32)> = (0..forecast_days)
+                .map(|i| {
+                    let idx = snapshots.len() + i;
+                    let val = last_val + (slope * (i as f32 + 1.0));
+                    (idx, val.max(0.0))
+                })
+                .collect();
+
+            if !forecast.is_empty() {
+                let mut forecast_with_last = vec![(last_idx, last_val)];
+                forecast_with_last.extend(forecast);
+
+                chart.draw_series(LineSeries::new(forecast_with_last, &RED.mix(0.5)))?;
+            }
+        }
+
+        root.present()?;
+
+        debug!("Boot time chart saved to: {}", output_path.display());
+        Ok(output_path_clone)
+    }
+
+    /// Generate resource usage gauge chart.
+    pub fn generate_resource_gauge(
+        &self,
+        disk_pct: f32,
+        memory_pct: f32,
+        load_avg: f32,
+    ) -> Result<PathBuf> {
+        info!("Generating resource gauge chart");
+
+        let output_path = self.output_dir.join("resource_gauge.png");
+        let output_path_clone = output_path.clone();
+
+        let root = BitMapBackend::new(&output_path, (self.width, 400))
+            .into_drawing_area();
+
+        root.fill(&WHITE)?;
+
+        let areas = root.split_evenly((1, 3));
+
+        // Disk gauge
+        self.draw_gauge(&areas[0], "Disk", disk_pct, 80.0, 90.0)?;
+
+        // Memory gauge
+        self.draw_gauge(&areas[1], "Memory", memory_pct, 85.0, 95.0)?;
+
+        // Load gauge (normalize to 0-100, assuming 4 cores max)
+        let load_pct = (load_avg / 4.0 * 100.0).min(100.0);
+        self.draw_gauge(&areas[2], "Load", load_pct, 75.0, 90.0)?;
+
+        root.present()?;
+
+        debug!("Resource gauge saved to: {}", output_path.display());
+        Ok(output_path_clone)
+    }
+
+    /// Draw a single gauge.
+    fn draw_gauge<DB: DrawingBackend>(
+        &self,
+        area: &DrawingArea<DB, plotters::coord::Shift>,
+        label: &str,
+        value: f32,
+        warning_threshold: f32,
+        critical_threshold: f32,
+    ) -> Result<()>
+    where
+        DB::ErrorType: 'static,
+    {
+        let color = if value >= critical_threshold {
+            &RED
+        } else if value >= warning_threshold {
+            &YELLOW
+        } else {
+            &GREEN
+        };
+
+        let mut chart = ChartBuilder::on(area)
+            .caption(label, ("sans-serif", 30).into_font())
+            .build_cartesian_2d(0f32..100f32, 0f32..1f32)?;
+
+        // Draw gauge background
+        chart.draw_series(std::iter::once(Rectangle::new(
+            [(0.0, 0.3), (100.0, 0.7)],
+            BLUE.mix(0.1).filled(),
+        )))?;
+
+        // Draw value bar
+        chart.draw_series(std::iter::once(Rectangle::new(
+            [(0.0, 0.3), (value, 0.7)],
+            color.filled(),
+        )))?;
+
+        // Draw value text
+        let text_style = ("sans-serif", 25).into_font().color(color);
+        chart.draw_series(std::iter::once(Text::new(
+            format!("{:.1}%", value),
+            (50.0, 0.9),
+            text_style,
+        )))?;
+
+        Ok(())
+    }
+
+    /// Generate anomaly scatter chart (memory/disk over time with outliers).
+    pub fn generate_anomaly_chart(
+        &self,
+        history: &anna_shared::monitor::LongTermHistory,
+        baseline_memory: f32,
+        baseline_disk: f32,
+    ) -> Result<PathBuf> {
+        info!("Generating anomaly detection chart");
+
+        let snapshots: Vec<_> = history
+            .daily_snapshots
+            .iter()
+            .rev()
+            .take(30)
+            .rev()
+            .collect();
+
+        if snapshots.is_empty() {
+            return Err(anyhow!("No data for anomaly chart"));
+        }
+
+        let output_path = self.output_dir.join("anomalies.png");
+        let output_path_clone = output_path.clone();
+
+        let root = BitMapBackend::new(&output_path, (self.width, self.height))
+            .into_drawing_area();
+
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .caption("Anomaly Detection (30 days)", ("sans-serif", 40).into_font())
+            .margin(10)
+            .x_label_area_size(40)
+            .y_label_area_size(60)
+            .build_cartesian_2d(0usize..snapshots.len(), 0f32..100f32)?;
+
+        chart
+            .configure_mesh()
+            .x_desc("Days ago")
+            .y_desc("Percentage")
+            .draw()?;
+
+        // Draw baseline zones
+        chart.draw_series(std::iter::once(Rectangle::new(
+            [(0, baseline_memory - 10.0), (snapshots.len(), baseline_memory + 10.0)],
+            BLUE.mix(0.1).filled(),
+        )))?;
+
+        // Plot memory with anomaly highlighting
+        for (i, snapshot) in snapshots.iter().enumerate() {
+            let is_anomaly = (snapshot.avg_memory_pct - baseline_memory).abs() > 15.0;
+            let color = if is_anomaly { &RED } else { &BLUE };
+
+            chart.draw_series(std::iter::once(Circle::new(
+                (i, snapshot.avg_memory_pct),
+                3,
+                color.filled(),
+            )))?;
+        }
+
+        root.present()?;
+
+        debug!("Anomaly chart saved to: {}", output_path.display());
+        Ok(output_path_clone)
     }
 }
