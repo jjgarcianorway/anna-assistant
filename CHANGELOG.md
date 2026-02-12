@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- chart_generator.rs now compiles correctly with plotters_bitmap::BitMapBackend
+- Fixed borrow checker issues in chart generation methods
+- Morning briefing visual charts now fully functional
+
 ## [0.3.164] - 2026-02-12
 
 ### Added - Adaptive Intelligence Layer (Multi-Strategy Problem Solving)
