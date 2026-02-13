@@ -80,7 +80,9 @@ pub fn generate_full_report() -> Result<String> {
     report.push_str(&section("NETWORK", &net));
 
     // --- Temperature ---
-    let temps = run("sensors 2>/dev/null | grep -E '°C|Temp' | head -10");
+    // Only current-reading lines (start with non-space, contain °C). Strip parenthetical
+    // threshold annotations and the ALARM label — those are sensor chip flags, not a crisis.
+    let temps = run(r#"sensors 2>/dev/null | grep '°C' | grep -v '^ ' | sed 's/  *(.*)//' | head -15"#);
     if !temps.is_empty() {
         report.push_str(&section("TEMPERATURE", &temps));
     }
@@ -91,14 +93,16 @@ pub fn generate_full_report() -> Result<String> {
         report.push_str(&section("BATTERY", &battery));
     }
 
-    // --- Recent Errors ---
-    let errors = run("journalctl -p err -b --no-pager -n 10 --output=short 2>/dev/null");
+    // --- Recent Errors (deduplicated) ---
+    // Fetch 100, deduplicate by message text (fields 5+), keep first occurrence of each.
+    // This collapses repeated entries like 10x identical flatpak timeout lines into one.
+    let errors = run(r#"journalctl -p err -b --no-pager -n 100 --output=short 2>/dev/null | awk 'NR==1{next}{msg=""; for(i=5;i<=NF;i++) msg=msg" "$i; if(!seen[msg]++){print}}' | head -10"#);
     let error_section = if errors.trim().is_empty() || errors.contains("-- No entries --") {
         "No errors in current boot.".to_string()
     } else {
         errors
     };
-    report.push_str(&section("RECENT ERRORS (this boot)", &error_section));
+    report.push_str(&section("RECENT ERRORS (this boot, deduplicated)", &error_section));
 
     // --- Packages ---
     let pkg_count = run("pacman -Q 2>/dev/null | wc -l");

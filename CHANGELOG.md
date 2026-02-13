@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.191] - 2026-02-13
+
+### Fixed
+
+**Full report: temperature and error noise**
+- Temperature section now strips parenthetical threshold annotations (`(low=..., high=..., crit=...)`) and the misleading `ALARM (CRIT)` label — sensors chip flags are not a user-visible emergency; only current reading values are shown
+- Recent errors section now deduplicates by message text: 10 identical flatpak timeout lines collapse to one entry. Fetches last 100 errors, deduplicates, shows top 10 unique
+
 ## [0.3.190] - 2026-02-13
 
 ### Added
