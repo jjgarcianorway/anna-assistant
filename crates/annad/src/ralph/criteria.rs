@@ -87,32 +87,52 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
     let readonly_max_iter = policy.readonly_max_iterations;
     let mutating_max_iter = policy.mutating_max_iterations;
 
-    // v0.3.151: FIRST check if this is an analytical question (NOT a config request)
-    // These patterns indicate information queries, not configuration actions
+    // Questions that start with diagnostic words are never config requests.
+    // This is the primary guard — a question like "what services are running?"
+    // should never route to CONFIG even if it contains a config keyword substring.
+    let diagnostic_starts = [
+        "what ", "which ", "show ", "list ", "check ", "display ",
+        "how much", "how many", "how is", "how are",
+        "how do ", "how to ", "how can ",
+        "is my", "is the", "are my", "are the",
+        "give me", "tell me", "report",
+    ];
+    // Questions with problem indicators are always diagnostic, never config.
+    let has_problem_indicator = q.contains("not working") || q.contains("error")
+        || q.contains("failed") || q.contains("broken") || q.contains("problem");
+    let is_diagnostic = has_problem_indicator
+        || diagnostic_starts.iter().any(|s| q.starts_with(s));
+
+    // Questions that explicitly reference past/state changes are analytical, not config.
     let analytical_patterns = [
         ("has", "changed"), ("has", "been"), ("did", "change"),
         ("when", "changed"), ("why", "changed"), ("what", "changed"),
         ("how has", "changed"), ("how did", "change"),
     ];
-
-    let is_analytical = analytical_patterns.iter().any(|(prefix, suffix)| {
+    let is_analytical = is_diagnostic || analytical_patterns.iter().any(|(prefix, suffix)| {
         q.contains(prefix) && q.contains(suffix)
-    }) || (q.starts_with("has ") || q.starts_with("did ") || q.starts_with("when ") || q.starts_with("why "));
+    }) || (q.starts_with("has ") || q.starts_with("did ") || q.starts_with("when ")
+           || q.starts_with("why "));
 
-    // v0.3.147: Check for CONFIG keywords FIRST before any other classification
-    // This prevents short config requests like "update my system" from being classified as Simple
-    // v0.3.151: Added "schedule", "cron", "timer", "automate" for scheduling tasks
-    // v0.3.151: Skip CONFIG if analytical question (e.g., "has X changed?")
+    // CONFIG keywords — only matched at word boundaries to prevent substring false positives.
+    // "services" contains "set", "address" contains "add", "removed" contains "remove".
     let config_keywords = [
         "update", "upgrade", "reboot", "restart", "shutdown",
         "install", "uninstall", "remove", "add",
         "enable", "disable", "activate", "deactivate",
         "configure", "setup", "migrate", "replace",
-        "set", "change", "apply", "modify",
-        "schedule", "cron", "timer", "automate",
+        "change", "apply", "modify",
+        "schedule", "cron", "automate",
     ];
+    // Word-boundary match: keyword must appear as a whole word (surrounded by spaces or at edges).
+    let has_config_keyword = !is_analytical && config_keywords.iter().any(|kw| {
+        let padded = format!(" {} ", q);
+        padded.contains(&format!(" {} ", kw))
+            || q.starts_with(&format!("{} ", kw))
+            || q == *kw
+    });
 
-    if !is_analytical && config_keywords.iter().any(|kw| q.contains(kw)) {
+    if has_config_keyword {
         // This is a configuration request - needs full Ralph loop with CONFIG detection
         let max_iter = match intent_class {
             IntentClass::ReadOnly => readonly_max_iter,
@@ -144,14 +164,20 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
         };
     }
 
-    // Troubleshooting - needs diagnosis
+    // Troubleshooting - needs diagnosis.
+    // "why" alone is too broad — require it with a problem indicator.
+    let why_with_problem = q.starts_with("why ") && (
+        q.contains("not") || q.contains("slow") || q.contains("fail")
+        || q.contains("error") || q.contains("crash") || q.contains("hang")
+        || q.contains("broken") || q.contains("stop") || q.contains("can't")
+    );
     if q.contains("not working")
         || q.contains("error")
         || q.contains("failed")
         || q.contains("problem")
         || q.contains("broken")
         || q.contains("fix")
-        || q.contains("why")
+        || why_with_problem
     {
         // Phase 24: Use policy-driven limits
         let max_iter = match intent_class {
@@ -167,12 +193,17 @@ pub fn determine_criteria(question: &str) -> CompletionCriteria {
         };
     }
 
-    // Simple questions
-    if q.len() < 30 && !q.contains("?") {
+    // Simple conversational inputs (greetings, acknowledgments) — not factual questions.
+    // Only classify as Simple if the question contains no system-related keywords.
+    let system_words = ["ram", "disk", "cpu", "memory", "kernel", "service",
+        "network", "gpu", "swap", "load", "process", "port", "log", "package",
+        "battery", "temperature", "uptime", "storage", "mount", "partition"];
+    let has_system_word = system_words.iter().any(|w| q.contains(w));
+    if q.len() < 20 && !has_system_word {
         return CompletionCriteria {
             answer_type: AnswerType::Simple,
             min_confidence: 0.5,
-            max_iterations: 2.min(readonly_max_iter), // Never exceed policy limit
+            max_iterations: 2.min(readonly_max_iter),
             requires_grounding: false,
             intent_class,
         };

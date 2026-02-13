@@ -41,9 +41,20 @@ pub async fn get_next_action(
 ) -> Result<NextAction> {
     use crate::llm_core::prompts::system_context;
 
-    // v0.3.187: Quick keyword check for CONFIG requests BEFORE recipes
-    // This prevents learned recipes from bypassing system configuration detection
     let q_lower = question.to_lowercase();
+
+    // Diagnostic question guard: these starts never route to CONFIG regardless of body.
+    let diagnostic_starts = [
+        "what ", "which ", "show ", "list ", "check ", "display ",
+        "how much", "how many", "how is", "how are",
+        "how do ", "how to ", "how can ",
+        "is my", "is the", "are my", "are the",
+        "give me", "tell me", "report",
+    ];
+    let has_problem_indicator = q_lower.contains("not working") || q_lower.contains("error")
+        || q_lower.contains("failed") || q_lower.contains("broken") || q_lower.contains("problem");
+    let is_diagnostic = has_problem_indicator
+        || diagnostic_starts.iter().any(|s| q_lower.starts_with(s));
 
     // v0.3.187: Agentic capability detection (before CONFIG check)
     let list_patterns = ["what did you create", "what have you created", "what automations", "list automations", "what scripts", "what services did you", "what did anna create", "show me what you created"];
@@ -82,30 +93,32 @@ pub async fn get_next_action(
         return Ok(NextAction::CreateAutomation);
     }
 
-    // v0.3.151: Check if this is an analytical question (NOT a config request)
     let analytical_patterns = [
         ("has", "changed"), ("has", "been"), ("did", "change"),
         ("when", "changed"), ("why", "changed"), ("what", "changed"),
         ("how has", "changed"), ("how did", "change"),
     ];
-
-    let is_analytical = analytical_patterns.iter().any(|(prefix, suffix)| {
+    let is_analytical = is_diagnostic || analytical_patterns.iter().any(|(prefix, suffix)| {
         q_lower.contains(prefix) && q_lower.contains(suffix)
-    }) || (q_lower.starts_with("has ") || q_lower.starts_with("did ") || q_lower.starts_with("when ") || q_lower.starts_with("why "));
+    }) || (q_lower.starts_with("has ") || q_lower.starts_with("did ")
+           || q_lower.starts_with("when ") || q_lower.starts_with("why "));
 
-    // v0.3.151: Added "schedule", "cron", "timer", "automate" for scheduling tasks
+    // Word-boundary CONFIG keyword check — prevents "services"→"set", "address"→"add", etc.
     let config_keywords = [
         "update", "upgrade", "reboot", "restart", "shutdown",
         "install", "uninstall", "remove", "add",
         "enable", "disable", "activate", "deactivate",
         "configure", "setup", "migrate", "replace",
-        "set", "change", "apply", "modify",
-        "schedule", "cron", "timer", "automate",
+        "change", "apply", "modify",
+        "schedule", "cron", "automate",
     ];
+    let has_config_keyword = !is_analytical && config_keywords.iter().any(|kw| {
+        let padded = format!(" {} ", q_lower);
+        padded.contains(&format!(" {} ", kw))
+            || q_lower.starts_with(&format!("{} ", kw))
+            || q_lower == *kw
+    });
 
-    let has_config_keyword = !is_analytical && config_keywords.iter().any(|kw| q_lower.contains(kw));
-
-    // v0.3.148: If CONFIG keyword detected, return CONFIG immediately (no LLM needed!)
     if has_config_keyword && state.commands.is_empty() {
         tracing::info!("CONFIG keyword detected in '{}', skipping LLM classification", question);
         return Ok(NextAction::Config);
@@ -195,7 +208,7 @@ Output now:"#,
     let response = response.trim();
     let response_upper = response.to_uppercase();
 
-    if response_upper.starts_with("CONFIG") || response_upper == "CONFIG" {
+    if response_upper.trim() == "CONFIG" {
         return Ok(NextAction::Config);
     }
 

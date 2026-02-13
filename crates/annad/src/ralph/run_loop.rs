@@ -265,13 +265,11 @@ pub async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             }
         }
 
-        // v0.3.186: Track question topic for package suggestions (fire-and-forget)
-        {
-            let model_clone = model.to_string();
-            let q_clone = question.to_string();
-            tokio::spawn(async move {
-                crate::pkg_suggestions::check_for_suggestions(&model_clone, &q_clone).await;
-            });
+        // If grounding is required but no output was collected, force another iteration.
+        // This prevents generate_answer from hallucinating facts it doesn't have.
+        if criteria.requires_grounding && state.outputs.is_empty() && commands.is_empty() {
+            state.feedback = Some("No system data collected yet. Must run investigation commands first.".to_string());
+            continue;
         }
 
         // Phase 22: Wrap LLM calls with heartbeat emission
@@ -305,6 +303,15 @@ pub async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         state.not_done_reason = eval.missing;
     }
 
+    // Fire package suggestion check once after the loop (not on every iteration).
+    {
+        let model_clone = model.to_string();
+        let q_clone = question.to_string();
+        tokio::spawn(async move {
+            crate::pkg_suggestions::check_for_suggestions(&model_clone, &q_clone).await;
+        });
+    }
+
     // Max iterations - return best effort
     push_and_send(writer, &mut dialogue, StepType::InvestigationComplete,
         format!("{} probes, {} experiments run (max iterations reached)", probe_count, experiment_count),
@@ -334,14 +341,20 @@ pub async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
         .unwrap_or(false);
     let is_abstained = state.confidence < 0.5 && !has_execution_error;
 
+    // needs_clarification = question was genuinely ambiguous, not just "investigation failed".
+    // Low confidence at max-iterations means the data collection failed, not that the user
+    // needs to rephrase. Only set if the LLM evaluator explicitly flagged missing info as
+    // something the user needs to provide (vs something Anna failed to collect).
+    let needs_clarification = false; // Investigation failures are not user's fault.
+
     let result = AskResult {
         answer: final_answer,
         success: state.confidence >= 0.5,
         iterations: iteration,
         commands_executed: state.commands,
         dialogue,
-        needs_clarification: state.confidence < 0.3,
-        clarification_question: state.not_done_reason,
+        needs_clarification,
+        clarification_question: None,
         cached: false,
         citations: vec![],
         abstained: is_abstained,

@@ -5,6 +5,40 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.189] - 2026-02-13
+
+### Fixed - Core Query Pipeline: 7 Systematic Bugs
+
+All fixes target the root causes of Anna giving confused, wrong, or hallucinatedanswers to basic questions.
+
+**CONFIG keyword false positives (critical)**
+- Substring matching caused "services" → "set", "address" → "add", "removed" → "remove" to incorrectly route diagnostic questions to the config plan generator. Changed to word-boundary matching across both `commands.rs` and `criteria.rs`.
+- Added `diagnostic_starts` guard: questions starting with "what", "which", "show", "list", "check", "how do", "how to", "give me", "report", etc. are *never* routed to CONFIG regardless of body content.
+- Questions with problem indicators ("not working", "error", "failed", "broken") are also exempt from CONFIG routing.
+- Removed "set" from the CONFIG keyword list entirely (too many false positives: "services", "socket", "dataset").
+
+**Simple question heuristic bypassing grounding (critical)**
+- Questions under 30 chars with no "?" were classified as `Simple` with `requires_grounding=false`. "how much RAM do I have" (22 chars) would be answered from LLM knowledge with a made-up RAM value. Now Simple only applies to questions under 20 chars with no system-related keywords.
+
+**Hallucination when no output collected (critical)**
+- `generate_answer` was called even when `state.outputs` is empty and `requires_grounding=true`, producing invented facts. Now forces another iteration with feedback if grounding is required but no data was collected.
+
+**Self-evaluate confidence parsing (critical)**
+- Confidence was parsed by scanning all whitespace tokens for the first `f32`. "MISSING: only 1 of 3 partitions" → grabs "1" → confidence = 0.01 → loop runs to max iterations. Now parses from the second comma-separated field only.
+
+**COMPLETE/INCOMPLETE echo detection (warning)**
+- `response.contains("COMPLETE") && !response.contains("INCOMPLETE")` was always `false` when the LLM echoed the format string "COMPLETE/INCOMPLETE". Now checks only the first non-empty line.
+
+**needs_clarification tied to confidence (warning)**
+- Low confidence at max iterations set `needs_clarification=true` and exposed the LLM evaluator's "data missing" message as a user-facing clarification request. Investigation failures are not the user's fault. `needs_clarification` is now only set by the CONFIG approval flow.
+
+**pkg_suggestions spawned per iteration (warning)**
+- Background suggestion check was spawned inside the iteration loop, firing up to 5 times per question. Moved to after the loop exits.
+
+**Prompt improvements**
+- `get_next_action`: Removed "FORMAT N - ..." labels from prompt options to reduce LLM format echo.
+- `generate_answer`: Explicitly states Anna ran the commands herself, preventing LLM confusion about data ownership.
+
 ## [0.3.188] - 2026-02-13
 
 ### Fixed - Report/Answer Generation

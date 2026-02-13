@@ -228,24 +228,28 @@ Format: COMPLETE/INCOMPLETE, CONFIDENCE (0-100), MISSING: <text>"#,
     );
 
     let response = ollama::chat_with_timeout(model, &prompt, 20).await?;
-    let response = response.to_uppercase();
+    let response_upper = response.to_uppercase();
 
-    // Parse response
-    let is_complete = response.contains("COMPLETE") && !response.contains("INCOMPLETE");
+    // Parse COMPLETE/INCOMPLETE from the first non-empty line only
+    // (avoids false match on format echo "COMPLETE/INCOMPLETE" which contains both words).
+    let first_line = response_upper.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
+    let is_complete = first_line.contains("COMPLETE") && !first_line.contains("INCOMPLETE");
 
-    let confidence = if let Some(conf_match) = response
-        .split_whitespace()
-        .find(|w| w.parse::<f32>().is_ok())
-    {
-        conf_match.parse::<f32>().unwrap_or(50.0) / 100.0
-    } else if is_complete {
-        0.8
-    } else {
-        0.4
-    };
+    // Parse confidence from the second comma-separated field, not the first number anywhere.
+    // Avoids grabbing counts/years from the MISSING text (e.g., "MISSING: only 1 of 3 partitions").
+    let confidence = response_upper
+        .split(',')
+        .nth(1) // second field: "CONFIDENCE 85" or " CONFIDENCE 85"
+        .and_then(|field| {
+            field.split_whitespace()
+                .find_map(|w| w.parse::<f32>().ok())
+        })
+        .map(|v| v / 100.0)
+        .unwrap_or(if is_complete { 0.8 } else { 0.4 });
+    let response_upper = response_upper; // rebind for use below
 
-    let missing = if response.contains("MISSING:") {
-        response
+    let missing = if response_upper.contains("MISSING:") {
+        response_upper
             .split("MISSING:")
             .nth(1)
             .map(|s| s.trim().to_string())
