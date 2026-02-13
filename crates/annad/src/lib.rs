@@ -47,6 +47,12 @@ pub fn get_llm_call_count() -> u64 {
 pub fn record_llm_call() {}
 
 pub mod agent_registry;
+pub mod battery;
+pub mod gpu_monitor;
+pub mod pkg_suggestions;
+pub mod power_profile;
+pub mod system_learner;
+pub mod xwayland;
 pub mod agents;
 pub mod anomaly;
 pub mod assisted_ops;

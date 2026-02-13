@@ -606,6 +606,15 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             }
         }
 
+        // v0.3.186: Track question topic for package suggestions (fire-and-forget)
+        {
+            let model_clone = model.to_string();
+            let q_clone = question.to_string();
+            tokio::spawn(async move {
+                crate::pkg_suggestions::check_for_suggestions(&model_clone, &q_clone).await;
+            });
+        }
+
         // Phase 22: Wrap LLM calls with heartbeat emission
         // v0.3.131: Pass wiki research to answer generation
         let wiki_ref = if wiki_research.is_empty() { None } else { Some(wiki_research.as_str()) };

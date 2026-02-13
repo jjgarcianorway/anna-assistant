@@ -434,6 +434,43 @@ fn collect_system_telemetry() -> String {
     }
     telemetry.push_str("\n");
 
+    // v0.3.186: Power, Battery, GPU, XWayland, and Learned Insights
+    let power_section = crate::power_profile::power_telemetry();
+    if !power_section.is_empty() {
+        telemetry.push_str(&power_section);
+        telemetry.push_str("\n");
+    }
+
+    let battery_section = crate::battery::battery_telemetry();
+    if !battery_section.is_empty() {
+        telemetry.push_str(&battery_section);
+        telemetry.push_str("\n");
+    }
+
+    let gpu_section = crate::gpu_monitor::gpu_telemetry();
+    if !gpu_section.is_empty() {
+        telemetry.push_str(&gpu_section);
+        telemetry.push_str("\n");
+    }
+
+    let xwayland_section = crate::xwayland::xwayland_telemetry();
+    if !xwayland_section.is_empty() {
+        telemetry.push_str(&xwayland_section);
+        telemetry.push_str("\n");
+    }
+
+    let insights_section = crate::system_learner::insights_for_briefing();
+    if !insights_section.is_empty() {
+        telemetry.push_str(&insights_section);
+        telemetry.push_str("\n");
+    }
+
+    let pkg_section = crate::pkg_suggestions::pending_suggestions_briefing();
+    if !pkg_section.is_empty() {
+        telemetry.push_str(&pkg_section);
+        telemetry.push_str("\n");
+    }
+
     // Anna's autonomous activities in past 24h
     let personality = crate::personality::PersonalityState::load();
     if !personality.learned_lessons.is_empty() {

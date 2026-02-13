@@ -201,6 +201,16 @@ pub fn find_relevant_section(article: &WikiArticle, query: &str) -> Option<Strin
     best_section
 }
 
+/// Convenience: search wiki by keyword and return plain text content, no index needed.
+/// Returns up to `max_chars` of relevant content. Used by system_learner.
+pub fn keyword_search_text(topic: &str, max_chars: usize) -> Option<String> {
+    let index = WikiIndex::load().ok()?;
+    let article = quick_lookup(&index, topic)?;
+    let section = find_relevant_section(&article, topic);
+    let content = section.as_deref().unwrap_or(&article.content);
+    Some(content.chars().take(max_chars).collect())
+}
+
 /// Quick search for specific topics (exact title match)
 pub fn quick_lookup(index: &WikiIndex, topic: &str) -> Option<WikiArticle> {
     // Try exact match first

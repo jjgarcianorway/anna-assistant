@@ -271,6 +271,20 @@ pub async fn generate_answer(
         String::new()
     };
 
+    // v0.3.186: Include man pages and --help output for command-related questions
+    let docs_context = {
+        let citations = anna_shared::docs::search_docs(question);
+        if citations.is_empty() {
+            String::new()
+        } else {
+            let mut ctx = "\n\nLocal Documentation:".to_string();
+            for citation in citations.iter().take(2) {
+                ctx.push_str(&format!("\n[{}]\n{}", citation.format_short(), citation.excerpt));
+            }
+            ctx
+        }
+    };
+
     // v0.3.112: Search web for error/problem solutions when needed
     let web_context = if is_error_or_problem(question) || contains_error_output(&state.outputs) {
         match anna_shared::web_search::search_for_solution(question, 3).await {
@@ -295,7 +309,7 @@ Question: {}
 
 Data collected:
 {}
-{web_context}
+{docs_context}{web_context}
 
 {}
 
@@ -303,6 +317,7 @@ Provide a clear, helpful answer. Be concise but complete."#,
         question, data_context, grounding_instruction,
         system_context = system_context,
         wiki_context = wiki_context,
+        docs_context = docs_context,
         web_context = web_context
     );
 

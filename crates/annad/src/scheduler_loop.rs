@@ -48,15 +48,32 @@ pub async fn scheduler_loop() {
 
     // Run proactive checks every 6 hours (360 minutes)
     const HEALTH_CHECK_INTERVAL: u32 = 360;
+    // Learn from system facts once per day (1440 minutes)
+    const LEARN_INTERVAL: u32 = 1440;
+    let mut learn_counter = 0u32;
+    // Get LLM model name from anna config
+    let learn_model = anna_shared::config::AnnaConfig::load()
+        .map(|c| c.ollama.model.clone())
+        .unwrap_or_else(|_| "llama3.2".to_string());
 
     loop {
         interval.tick().await;
         health_check_counter += 1;
+        learn_counter += 1;
 
         // Proactive health check (every 6 hours)
         if health_check_counter >= HEALTH_CHECK_INTERVAL {
             health_check_counter = 0;
             run_proactive_health_check();
+        }
+
+        // v0.3.186: System knowledge learning (once per day)
+        if learn_counter >= LEARN_INTERVAL {
+            learn_counter = 0;
+            let model_clone = learn_model.clone();
+            tokio::spawn(async move {
+                crate::system_learner::learn_from_system_facts(&model_clone).await;
+            });
         }
 
         // v0.3.165: Process ready deliverables (every cycle)

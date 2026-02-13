@@ -5,6 +5,30 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.186] - 2026-02-13
+
+### Added - System Intelligence & Hardware Awareness
+
+**Anna now learns from your hardware, monitors power/thermals/GPU, and accumulates wiki-grounded knowledge.**
+
+- **power_profile.rs** - CPU governor, power-profiles-daemon, thermal zone monitoring from /sys
+- **battery.rs** - Battery health, drain rate, charge cycles from /sys/class/power_supply/
+- **gpu_monitor.rs** - GPU temp, utilization, VRAM via nvidia-smi and /sys/class/drm/
+- **xwayland.rs** - Per-app XWayland detection via /proc inspection and X11 socket scanning
+- **pkg_suggestions.rs** - Tool suggestions based on usage patterns, grounded in wiki + LLM (no hardcoded mappings)
+- **system_learner.rs** - Wiki-grounded knowledge accumulation: detects system facts → queries Arch Wiki → extracts LLM insights → stores in /var/lib/anna/learned/
+- Man pages + `--help` output wired into `generate_answer` via existing docs search
+- Daily scheduler loop runs `learn_from_system_facts` (once per 24h) to refresh stale knowledge
+- All new telemetry sections wired into morning briefing
+- Per-query package suggestion tracking (fire-and-forget)
+- Test suite: 25-question comparative evaluation (Anna vs direct system commands) across 10 categories
+
+### Design
+
+- All data collectors are pure readers — no hardcoded advice
+- Advice comes from wiki research + LLM extraction, stored per hardware fact
+- Knowledge refreshes weekly per fact, LLM re-learns from fresh wiki content
+
 ## [0.3.185] - 2026-02-13
 
 ### Added - DE/WM-Aware Configuration Intelligence
