@@ -62,10 +62,14 @@ git push origin v0.0.XX
 # 6. Create GitHub release
 gh release create v0.0.XX --title "v0.0.XX" --notes "Release notes"
 
-# 7. BUILD RELEASE BINARIES
+# 7. BUILD RELEASE BINARIES (MUST be AFTER version bump is committed)
 cargo build --release --workspace
 
-# 8. PREPARE AND UPLOAD BINARIES (THIS IS WHAT AUTO-UPDATE NEEDS!!!)
+# 8. VERIFY binaries embed the correct version BEFORE uploading
+./target/release/annactl --version   # must print 0.0.XX
+./target/release/annad --version     # must print 0.0.XX
+
+# 9. PREPARE AND UPLOAD BINARIES (THIS IS WHAT AUTO-UPDATE NEEDS!!!)
 cp target/release/annactl annactl-linux-x86_64
 cp target/release/annad annad-linux-x86_64
 sha256sum annactl-linux-x86_64 annad-linux-x86_64 > SHA256SUMS
@@ -73,8 +77,10 @@ gh release upload v0.0.XX annactl-linux-x86_64 annad-linux-x86_64 SHA256SUMS --c
 rm annactl-linux-x86_64 annad-linux-x86_64 SHA256SUMS
 ```
 
-⚠️ **STEPS 7-8 ARE MANDATORY** - Anna auto-update downloads binaries from GitHub releases!
+⚠️ **STEPS 7-9 ARE MANDATORY** - Anna auto-update downloads binaries from GitHub releases!
 Without uploading `annactl-linux-x86_64`, `annad-linux-x86_64`, and `SHA256SUMS`, users will NOT receive the update!
+⚠️ **BUILD MUST HAPPEN AFTER VERSION BUMP** - `env!("CARGO_PKG_VERSION")` is baked at compile time.
+Uploading binaries built before bumping the version will break auto-update (version mismatch verification fails).
 
 ### Post-Release Documentation Updates
 Every new version must also:
