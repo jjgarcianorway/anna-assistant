@@ -5,6 +5,22 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.195] - 2026-02-13
+
+### Changed — LLM-first intent classification (no keyword parsing)
+
+All intent routing is now done by the LLM. Keyword matching was the root cause of "pdf of my login attempts" returning a system health report, and every other routing confusion.
+
+**Removed:**
+- Client-side PDF detection (`is_report_request` keyword check in annactl) — the client never parses intent again
+- Daemon-side keyword detection for all agentic actions: `ListCreated`, `AuditSsh`, `SetWallpaper`, `BuildKernel`, `ManageUser`, `CreateAutomation` — all those pre-LLM `q_lower.contains(...)` blocks are gone
+- `handle_full_report_request` early handler (keyword-based shortcut) — full report now goes through LLM classification
+
+**Added:**
+- `GeneratePdf` and `FullReport` variants to `NextAction` enum
+- All action types in the LLM classification prompt: `FULL_REPORT`, `PDF_REPORT`, `LIST_CREATED`, `AUDIT_SSH`, `SET_WALLPAPER`, `BUILD_KERNEL`, `MANAGE_USER`, `CREATE_AUTOMATION` — LLM decides by meaning, not keywords
+- `SECURITY` command reference in the LLM prompt (last, journalctl sshd, sshd_config)
+
 ## [0.3.194] - 2026-02-13
 
 ### Fixed

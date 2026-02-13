@@ -115,7 +115,8 @@ pub async fn ralph_loop_impl(model: &str, question: &str) -> Result<AskResult> {
             NextAction::Commands(cmds) => cmds,
             NextAction::None | NextAction::Config | NextAction::ListCreated
             | NextAction::CreateAutomation | NextAction::SetWallpaper | NextAction::AuditSsh
-            | NextAction::ManageUser | NextAction::BuildKernel => Vec::new(),
+            | NextAction::ManageUser | NextAction::BuildKernel
+            | NextAction::GeneratePdf | NextAction::FullReport => Vec::new(),
         };
 
         if commands.is_empty() && state.outputs.is_empty() {

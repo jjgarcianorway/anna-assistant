@@ -8,46 +8,6 @@ use tracing::info;
 
 use super::streaming_helpers::{push_and_send, send_done};
 
-/// Handle full/complete/detailed system report requests.
-/// These bypass the natural_query shortcut (which returns a minimal cached summary)
-/// and run a comprehensive set of investigation commands instead.
-pub async fn handle_full_report_request<W: tokio::io::AsyncWriteExt + Unpin>(
-    question: &str,
-    writer: &mut W,
-    gate: &ExposureGate,
-) -> Result<Option<AskResult>> {
-    if !crate::full_report::is_full_report_request(question) {
-        return Ok(None);
-    }
-
-    info!("Full report request detected");
-    let mut dialogue = Vec::new();
-    push_and_send(writer, &mut dialogue, StepType::UserQuestion, question.to_string(), gate).await?;
-    push_and_send(writer, &mut dialogue, StepType::InvestigationStart,
-        "Collecting live system data for full report...".to_string(), gate).await?;
-
-    let report = crate::full_report::generate_full_report()
-        .unwrap_or_else(|e| format!("Report generation failed: {}", e));
-
-    push_and_send(writer, &mut dialogue, StepType::FinalAnswer, report.clone(), gate).await?;
-
-    let result = AskResult {
-        answer: report,
-        success: true,
-        iterations: 1,
-        commands_executed: vec![],
-        dialogue,
-        needs_clarification: false,
-        clarification_question: None,
-        cached: false,
-        citations: vec![],
-        abstained: false,
-        final_confidence: Some(1.0),
-    };
-    send_done(writer, &result).await?;
-    Ok(Some(result))
-}
-
 /// Handle "remind me in X" requests directly.
 pub async fn handle_reminder_request<W: tokio::io::AsyncWriteExt + Unpin>(
     question: &str,

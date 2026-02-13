@@ -208,11 +208,30 @@ pub async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
             agentic_result!(result);
         }
 
+        if matches!(next_action, NextAction::FullReport) {
+            push_and_send(writer, &mut dialogue, StepType::InvestigationStart,
+                "Collecting live system data for full report...".to_string(), gate).await?;
+            let result = crate::full_report::generate_full_report()
+                .unwrap_or_else(|e| format!("Report generation failed: {}", e));
+            agentic_result!(result);
+        }
+
+        if matches!(next_action, NextAction::GeneratePdf) {
+            push_and_send(writer, &mut dialogue, StepType::InvestigationStart,
+                "Generating system health PDF report...".to_string(), gate).await?;
+            let result = match crate::report::generate_pdf_report() {
+                Ok(path) => format!("PDF report generated: {}", path.display()),
+                Err(e) => format!("PDF generation failed: {}", e),
+            };
+            agentic_result!(result);
+        }
+
         let commands = match next_action {
             NextAction::Commands(cmds) => cmds,
             NextAction::None | NextAction::Config | NextAction::ListCreated
             | NextAction::CreateAutomation | NextAction::SetWallpaper | NextAction::AuditSsh
-            | NextAction::ManageUser | NextAction::BuildKernel => Vec::new(),
+            | NextAction::ManageUser | NextAction::BuildKernel
+            | NextAction::FullReport | NextAction::GeneratePdf => Vec::new(),
         };
 
         for cmd in &commands {

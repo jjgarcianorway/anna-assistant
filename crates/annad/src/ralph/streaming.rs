@@ -8,7 +8,7 @@ use anyhow::Result;
 use tracing::debug;
 
 use super::early_handlers::{
-    handle_full_report_request, handle_morning_briefing_request, handle_multi_agent_query,
+    handle_morning_briefing_request, handle_multi_agent_query,
     handle_natural_system_query, handle_pattern_match, handle_reminder_request,
 };
 use super::run_loop::run_full_loop_streaming;
@@ -41,11 +41,6 @@ pub async fn ralph_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 
     // Check for morning briefing setup
     if let Some(result) = handle_morning_briefing_request(question, writer, &gate).await? {
-        return Ok(result);
-    }
-
-    // Full report BEFORE natural_system_query: "full report" must not get the cached 6-line summary.
-    if let Some(result) = handle_full_report_request(question, writer, &gate).await? {
         return Ok(result);
     }
 

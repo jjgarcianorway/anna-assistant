@@ -166,27 +166,8 @@ fn show_reset_help() {
 
 /// Handle a question with clarification loop
 /// v0.3.146: Accept session_id parameter for proper --session flag support
-/// v0.3.159: Added direct PDF generation for report requests
+/// Route a question through the daemon. No client-side intent parsing — the LLM classifies.
 async fn handle_question(question: &str, session_id: &str) {
-    // Check for direct report/PDF request
-    let question_lower = question.to_lowercase();
-    // The PDF handler produces ONE fixed thing: system health report.
-    // Only trigger it for requests explicitly about system/health reports in PDF format.
-    // "pdf of my login attempts", "login attempts pdf", "boot times pdf" etc. must NOT
-    // trigger it — those are specific queries that need investigation.
-    let has_pdf = question_lower.contains("pdf");
-    let has_action = question_lower.contains("generate") || question_lower.contains("create");
-    let has_report_word = question_lower.contains("report");
-    let has_system_context = question_lower.contains("system") || question_lower.contains("health");
-    // Require pdf + (report OR system/health context), or action + report word.
-    let is_report_request = (has_action && has_report_word)
-        || (has_pdf && (has_report_word || has_system_context));
-
-    if is_report_request {
-        handle_pdf_report_request().await;
-        return;
-    }
-
     handle_question_with_clarification(question, false, session_id).await;
 }
 
