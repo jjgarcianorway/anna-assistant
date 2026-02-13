@@ -41,6 +41,7 @@ impl StateInner {
             session_save_counter: 0,
             answer_cache: HashMap::new(),
             recovery_status: anna_shared::status::RecoveryStatus::default(),
+            cache: crate::cache::SystemCache::new(),
         }
     }
 

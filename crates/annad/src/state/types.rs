@@ -112,4 +112,6 @@ pub struct StateInner {
     pub(crate) answer_cache: HashMap<String, CachedAnswer>,
     /// v0.3.36: Self-healing recovery metrics
     pub recovery_status: RecoveryStatus,
+    /// Event-driven system command cache
+    pub cache: crate::cache::SystemCache,
 }

@@ -254,6 +254,29 @@ Based on Arch Wiki:
 4. Enable timers: systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
 5. Verify: snapper list-configs
 
+DESKTOP ENVIRONMENT / WINDOW MANAGER CONFIGURATION:
+When the system state includes a "DE/WM Investigation" section, use it exclusively to determine:
+1. CHANGE METHOD: Use the detected method (gsettings/dconf/config file/KConfig/setxkbmap)
+   - GSettings (GNOME): gsettings set <schema> <key> <value>
+   - DConf (GNOME/Xfce): dconf write <path> <value>
+   - Config file (Hyprland/Sway/i3/Openbox): Edit the EXACT file path listed under "Config files:"
+   - KConfig (KDE): kwriteconfig5 or edit ~/.config/kxkbrc
+   - setxkbmap (X11 fallback): setxkbmap -layout <layout>
+
+2. MODULAR CONFIGS: If "Config files:" lists multiple files, the setting may be in any of them.
+   Use the "Setting found in:" line to target the EXACT file and line number.
+   If the setting is not yet present, add it to the MAIN config file listed first.
+
+3. NEVER guess config file paths. Use only paths provided in the DE/WM Investigation section.
+4. For keyboard layout: follow the "Keyboard layout method:" line exactly.
+5. For GNOME/Xfce settings: always use gsettings/dconf, never edit config files directly.
+6. For Wayland compositors (Hyprland, Sway): edit config files, NOT xorg/setxkbmap.
+7. After editing a config file, add a reload/restart step if appropriate:
+   - Hyprland: hyprctl reload
+   - Sway: swaymsg reload
+   - i3: i3-msg reload
+   - GNOME/KDE: no restart needed (gsettings/dconf apply immediately)
+
 JSON RESPONSE FORMAT (respond with ONLY this, nothing else):
 {
   "can_help": true,

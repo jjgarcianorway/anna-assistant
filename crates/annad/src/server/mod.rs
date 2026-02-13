@@ -38,6 +38,15 @@ impl Server {
         self.setup_socket(&socket_path).await?;
         info!("Socket setup complete");
 
+        // Start cache background tasks (watcher + warmer)
+        {
+            let cache = {
+                let state_guard = self.state.read().await;
+                state_guard.cache.clone()
+            };
+            crate::cache::start_cache_tasks(cache);
+        }
+
         // Start initialization in background
         let init_state = self.state.clone();
         tokio::spawn(async move {

@@ -1,13 +1,22 @@
 //! Instant answers: system identity, hardware, storage, users.
 
 use anyhow::Result;
-use super::super::instant_answers::{run_cmd, run_shell, send_answer};
+use super::super::instant_answers::{run_cmd, run_cmd_cached, run_shell, send_answer};
+use crate::cache::InvalidationTag;
+use crate::state::SharedState;
 
 pub async fn try_system_answer(
     question: &str,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
+    state: &SharedState,
 ) -> Result<bool> {
     let q = question.to_lowercase();
+
+    // Get cache reference
+    let cache = {
+        let state_guard = state.read().await;
+        state_guard.cache.clone()
+    };
 
     // --- USER IDENTITY ---
     if (q.contains("what user") || q.contains("which user") || q.contains("who am i"))
@@ -36,7 +45,7 @@ pub async fn try_system_answer(
 
     // --- KERNEL VERSION ---
     if q.contains("kernel") && q.contains("version") {
-        let kernel = run_cmd("uname", &["-r"])?;
+        let kernel = run_cmd_cached(&cache, "uname_kernel", "uname", &["-r"], 3600, &[InvalidationTag::Bootloader])?;
         send_answer(writer, format!("Kernel version: {}", kernel.trim())).await?;
         return Ok(true);
     }
@@ -53,7 +62,7 @@ pub async fn try_system_answer(
         && (q.contains("current") || q.contains("my") || q.contains("what"))
         && !q.contains("static")
     {
-        let output = run_cmd("ip", &["addr", "show"])?;
+        let output = run_cmd_cached(&cache, "ip_addr", "ip", &["addr", "show"], 30, &[InvalidationTag::Network])?;
         let ip = output
             .lines()
             .find(|l| l.contains("inet ") && !l.contains("127.0.0.1"))
@@ -68,7 +77,7 @@ pub async fn try_system_answer(
         && (q.contains("how much") || q.contains("total") || q.contains("have"))
         && !q.contains("using") && !q.contains("consuming") && !q.contains("most")
     {
-        let output = run_cmd("free", &["-h"])?;
+        let output = run_cmd_cached(&cache, "free_memory", "free", &["-h"], 15, &[InvalidationTag::Memory])?;
         let mem = output.lines().find(|l| l.starts_with("Mem:")).unwrap_or("");
         let f: Vec<&str> = mem.split_whitespace().collect();
         let total = f.get(1).unwrap_or(&"?");
@@ -90,7 +99,7 @@ pub async fn try_system_answer(
     if q.contains("disk space") || (q.contains("disk") && q.contains("free"))
         || (q.contains("how much") && q.contains("disk"))
     {
-        let output = run_cmd("df", &["-h", "--output=source,size,used,avail,pcent,target"])?;
+        let output = run_cmd_cached(&cache, "df_usage", "df", &["-h", "--output=source,size,used,avail,pcent,target"], 60, &[InvalidationTag::Fstab])?;
         send_answer(writer, format!("Disk space:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }
@@ -100,7 +109,7 @@ pub async fn try_system_answer(
         && (q.contains("connected") || q.contains("what") || q.contains("list"))
         && !q.contains("space") && !q.contains("free") && !q.contains("ssd") && !q.contains("hdd")
     {
-        let output = run_cmd("lsblk", &["-d", "-o", "NAME,SIZE,TYPE"])?;
+        let output = run_cmd_cached(&cache, "lsblk_devices", "lsblk", &["-d", "-o", "NAME,SIZE,TYPE"], 300, &[InvalidationTag::BlockDevice])?;
         send_answer(writer, format!("Your disks:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }
@@ -183,7 +192,7 @@ pub async fn try_system_answer(
 
     // --- GPU ---
     if q.contains("gpu") || (q.contains("graphics") && q.contains("card")) {
-        let output = run_cmd("lspci", &[])?;
+        let output = run_cmd_cached(&cache, "lspci", "lspci", &[], 300, &[InvalidationTag::Hardware])?;
         let gpu = output
             .lines()
             .find(|l| l.to_lowercase().contains("vga") || l.to_lowercase().contains("3d"))
@@ -267,7 +276,7 @@ pub async fn try_system_answer(
 
     // --- USER GROUPS ---
     if q.contains("group") && (q.contains("belong") || q.contains("my") || q.contains("what")) {
-        let output = run_cmd("groups", &[])?;
+        let output = run_cmd_cached(&cache, "groups", "groups", &[], 300, &[])?;
         send_answer(writer, format!("Your groups: {}", output.trim())).await?;
         return Ok(true);
     }
@@ -293,7 +302,7 @@ pub async fn try_system_answer(
 
     // --- NETWORK INTERFACES ---
     if q.contains("network") && (q.contains("interface") || q.contains("available")) {
-        let output = run_cmd("ip", &["link", "show"])?;
+        let output = run_cmd_cached(&cache, "ip_link", "ip", &["link", "show"], 30, &[InvalidationTag::Network])?;
         send_answer(writer, format!("Network interfaces:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }

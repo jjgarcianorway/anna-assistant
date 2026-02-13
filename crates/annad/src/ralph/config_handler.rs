@@ -11,6 +11,7 @@ use super::criteria::CompletionCriteria;
 
 /// Investigate system state synchronously (no streaming output).
 /// Returns formatted system info string for plan generation.
+/// Includes DE/WM detection and modular config file resolution.
 pub fn investigate_system_state_sync() -> Result<String> {
     let mut system_info = String::new();
 
@@ -44,6 +45,17 @@ pub fn investigate_system_state_sync() -> Result<String> {
 
     info!("System investigation complete ({} bytes)", system_info.len());
     Ok(system_info)
+}
+
+/// Investigate DE/WM context for configuration requests.
+/// Returns a rich report including:
+/// - Detected DE/WM and session type
+/// - The correct change method (gsettings, config file, etc.)
+/// - All config files including those sourced/included from main config
+/// - Current value of the relevant setting if found
+pub fn investigate_de_config(question: &str, username: &str) -> String {
+    let de_ctx = crate::de_config::DesktopContext::detect(username);
+    crate::de_config::build_config_investigation(&de_ctx, question)
 }
 
 /// Generate configuration plan using LLM.

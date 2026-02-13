@@ -535,10 +535,20 @@ async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
 
             let system_state = investigate_system_state(&mut state, &mut dialogue, writer, gate).await?;
 
-            push_and_send(writer, &mut dialogue, StepType::InvestigationProbe,
-                format!("System investigation complete. Generating plan with real values..."), gate).await?;
+            // v0.3.185: Inject DE/WM context for desktop configuration requests
+            let username = crate::user_context::get_real_user()
+                .unwrap_or_else(|_| "root".to_string());
+            let de_context = crate::ralph::config_handler::investigate_de_config(question, &username);
+            let combined_state = if de_context.is_empty() || de_context.contains("Unknown") {
+                system_state
+            } else {
+                format!("{}\n\n{}", system_state, de_context)
+            };
 
-            return handle_config_request_with_research(model, question, session_id, &wiki_research, &system_state, writer, gate, &mut dialogue).await;
+            push_and_send(writer, &mut dialogue, StepType::InvestigationProbe,
+                "System investigation complete. Generating plan with real values...".to_string(), gate).await?;
+
+            return handle_config_request_with_research(model, question, session_id, &wiki_research, &combined_state, writer, gate, &mut dialogue).await;
         }
 
         let commands = match next_action {

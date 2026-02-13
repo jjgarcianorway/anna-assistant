@@ -11,15 +11,18 @@ use anyhow::Result;
 use tokio::io::AsyncWriteExt;
 
 use super::helpers::send_filtered_final_answer;
+use crate::cache::SystemCache;
+use crate::state::SharedState;
 
 pub async fn try_instant_answer(
     question: &str,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
+    state: &SharedState,
 ) -> Result<bool> {
-    if try_system_answer(question, writer).await? {
+    if try_system_answer(question, writer, state).await? {
         return Ok(true);
     }
-    if try_ops_answer(question, writer).await? {
+    if try_ops_answer(question, writer, state).await? {
         return Ok(true);
     }
     Ok(false)
@@ -27,6 +30,13 @@ pub async fn try_instant_answer(
 
 // --- Shared helpers used by sub-modules ---
 
+/// Run command with cache support
+pub(super) fn run_cmd_cached(cache: &SystemCache, key: &str, bin: &str, args: &[&str], ttl_secs: u64, tags: &[crate::cache::InvalidationTag]) -> Result<String> {
+    crate::cache::get_or_run(cache, key, bin, args, ttl_secs, tags)
+        .map_err(|e| anyhow::anyhow!(e))
+}
+
+/// Run command without cache (fallback for dynamic commands)
 pub(super) fn run_cmd(bin: &str, args: &[&str]) -> Result<String> {
     let out = std::process::Command::new(bin).args(args).output()?;
     Ok(String::from_utf8_lossy(&out.stdout).to_string())

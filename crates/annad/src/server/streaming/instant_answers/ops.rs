@@ -1,13 +1,22 @@
 //! Instant answers: processes, services, packages, logs, networking, security.
 
 use anyhow::Result;
-use super::super::instant_answers::{run_cmd, run_shell, send_answer};
+use super::super::instant_answers::{run_cmd, run_cmd_cached, run_shell, send_answer};
+use crate::cache::InvalidationTag;
+use crate::state::SharedState;
 
 pub async fn try_ops_answer(
     question: &str,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
+    state: &SharedState,
 ) -> Result<bool> {
     let q = question.to_lowercase();
+
+    // Get cache reference
+    let cache = {
+        let state_guard = state.read().await;
+        state_guard.cache.clone()
+    };
 
     // --- PROCESS: STARTER / PARENT ---
     if (q.contains("started") && q.contains("process")) || (q.contains("parent") && q.contains("process")) {
@@ -50,7 +59,7 @@ pub async fn try_ops_answer(
 
     // --- SERVICE FAILURE ---
     if q.contains("service") && (q.contains("fail") || q.contains("why")) && !q.contains("boot") {
-        let output = run_cmd("systemctl", &["--failed", "--no-pager"])?;
+        let output = run_cmd_cached(&cache, "systemctl_failed", "systemctl", &["--failed", "--no-pager"], 30, &[InvalidationTag::Services])?;
         send_answer(writer, format!("Failed services:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }
@@ -202,14 +211,14 @@ pub async fn try_ops_answer(
 
     // --- OPEN PORTS ---
     if q.contains("port") && (q.contains("open") || q.contains("listening")) {
-        let output = run_cmd("ss", &["-tulpn"])?;
+        let output = run_cmd_cached(&cache, "ss_ports", "ss", &["-tulpn"], 30, &[InvalidationTag::Network])?;
         send_answer(writer, format!("Open ports:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }
 
     // --- ROUTING TABLE ---
     if q.contains("routing") || (q.contains("route") && q.contains("table")) {
-        let output = run_cmd("ip", &["route", "show"])?;
+        let output = run_cmd_cached(&cache, "ip_route", "ip", &["route", "show"], 30, &[InvalidationTag::Network])?;
         send_answer(writer, format!("Routing table:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }

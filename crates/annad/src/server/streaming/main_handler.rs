@@ -18,19 +18,58 @@ use super::helpers::send_filtered_final_answer;
 
 /// Handle main question processing - LLM-first, no bypass paths.
 pub async fn handle_main_question(
-    question: &str,
+    original_question: &str,
     session_id: &str,
     state: SharedState,
     start_time: std::time::Instant,
     writer: &mut tokio::net::unix::OwnedWriteHalf,
 ) -> Result<()> {
     let request_id = uuid::Uuid::new_v4().to_string();
-    let intent = classify_intent(question);
+    let intent = classify_intent(original_question);
 
     // v0.3.179: Instant answers via dedicated module (bypasses LLM entirely)
-    if super::instant_answers::try_instant_answer(question, writer).await? {
+    if super::instant_answers::try_instant_answer(original_question, writer, &state).await? {
         return Ok(());
     }
+
+    // v0.3.180: Context resolution - detect missing references and resolve config files
+    let username = crate::user_context::get_real_user().unwrap_or_else(|_| "root".to_string());
+    let question = match crate::context_resolver::resolve_context(original_question, &username)? {
+        crate::context_resolver::ContextResolution::NeedsClarification(clarification) => {
+            info!("Missing context detected, sending clarification request");
+            send_filtered_final_answer(writer, &clarification).await?;
+
+            let result = anna_shared::rpc::AskResult {
+                answer: clarification,
+                success: true,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: true,
+                clarification_question: Some("Please provide more specific information.".to_string()),
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: None,
+            };
+            let done = StreamingResponse::Done { result };
+            let json = serde_json::to_string(&done)?;
+            writer.write_all(format!("{}\n", json).as_bytes()).await?;
+            return Ok(());
+        }
+        crate::context_resolver::ContextResolution::Resolved { resolved_question, found_path, .. } => {
+            info!("Config file auto-resolved: {} → {}", original_question, found_path.display());
+            // Continue with resolved question that includes file path
+            resolved_question
+        }
+        crate::context_resolver::ContextResolution::Clear => {
+            // No issues, proceed with original question
+            original_question.to_string()
+        }
+    };
+
+    // From here on, use the resolved question
+    let question = question.as_str();
 
     // Check cache for identical recent question
     {

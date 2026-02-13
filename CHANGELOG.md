@@ -5,6 +5,37 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.185] - 2026-02-13
+
+### Added - DE/WM-Aware Configuration Intelligence
+
+**Anna now understands your desktop environment and edits the right config files.**
+
+- **de_config.rs** - DE/WM detection and modular config resolution
+  - Detects Hyprland, Sway, i3, GNOME, KDE, Xfce, Bspwm, Awesome, Openbox dynamically
+  - Follows `source =`, `include`, `Import=` directives recursively to resolve all config files
+  - Locates the exact file and line number where a setting lives
+  - Routes to correct change method: gsettings (GNOME), dconf, config file (Hyprland/Sway/i3), KConfig (KDE), setxkbmap (X11)
+
+- **Event-driven cache** integrated into SharedState and server startup
+  - `run_cmd_cached()` for instant_answers with TTL and tag-based invalidation
+  - Background watcher + warmer tasks
+
+- **Missing context detection** (context_resolver.rs)
+  - Extracts filename patterns from questions dynamically (no hardcoded maps)
+  - Package manager query chain: `pacman -Ql` → `dpkg -L` → `rpm -ql`
+  - `find` across ~/.config, ~/, /etc as fallback
+
+- **Semantic depth** injected into ralph investigation prompt
+  - Never stops at container directories (Steam folder → show game names)
+  - Always drills deeper until results are actionable
+
+### Changed
+
+- CONFIG investigation path now calls `investigate_de_config` and injects DE context into plan generation
+- `PLAN_GENERATION_PROMPT` updated with DE-aware guidance (correct method, exact file paths, reload steps)
+- `ralph/commands.rs` prompt includes `pacman -Ql` and semantic depth rules
+
 ## [0.3.169] - 2026-02-12
 
 ### Added - Self-Aware Intelligence & Autonomous Action

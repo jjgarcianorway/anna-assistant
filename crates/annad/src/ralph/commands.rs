@@ -152,6 +152,14 @@ NETWORK: ip -4 addr show, cat /etc/resolv.conf, ip route | grep default, ss -tln
 SERVICES: systemctl --failed, systemctl list-units --type=service --state=running | head -20
 PACKAGES: pacman -Q | wc -l, pacman -Qe | head -30
 LOGS: journalctl -p err -b --no-pager | head -30
+CONFIG FILES: pacman -Ql <pkg> | grep -E '\.(conf|cfg|ini|toml|yaml|yml)$', find ~/.config/<app> -type f
+
+SEMANTIC DEPTH RULES (critical for useful answers):
+- Disk/size questions: NEVER stop at a container directory. If du shows ~/.steam, ~/Games, ~/.local/share, ~/Downloads as big, drill one level deeper: du -sh ~/.steam/steam/steamapps/common/* | sort -rh | head -20 to show actual game names.
+- Top folders: show the CONTENTS of large generic dirs, not just the dir itself. The user wants to know WHAT is big, not WHERE the container is.
+- Config file location: prefer pacman -Ql <appname> over guessing — the package manager knows exactly which files belong to the package and where they are.
+- Log files: if /var/log is big, show du -sh /var/log/* sorted to name the actual logs.
+- Always ask: "Is this result actionable?" — if the answer points at a container, go one level deeper.
 
 RULES:
 - For info/diagnostic questions: use COMMANDS format
