@@ -1,0 +1,122 @@
+# ChatGPT's 100 Linux Sysadmin Questions
+# Ordered from basic to highly advanced
+
+# Level 1 – Very Basic (User & System Info)
+What Linux distribution and version am I running?
+What kernel version is installed?
+What is my hostname?
+What is my current IP address?
+How much RAM does my system have?
+How much RAM is currently being used?
+How much free disk space do I have?
+What CPU do I have?
+How many CPU cores are available?
+What architecture is my system using (x86_64, ARM, etc.)?
+
+# Level 2 – Basic Hardware & Storage
+What disks are connected to my system?
+Which disk is my root filesystem on?
+Is my disk SSD or HDD?
+What is the SMART health status of my disk?
+What partitions do I have?
+What filesystems are mounted?
+Is TRIM enabled on my SSD?
+What GPU is installed?
+What audio device is being used?
+What network interfaces are available?
+
+# Level 3 – Users & Permissions
+What groups do I belong to?
+Do I have sudo privileges?
+Why can't I access this folder?
+Can you change ownership of this directory to me?
+Can you fix permissions recursively in this folder?
+How do I create a new user?
+How do I lock or disable a user account?
+Why is this file not executable?
+Can you explain the permissions of this file?
+How can I give another user access to this directory safely?
+
+# Level 4 – Processes & Performance
+What processes are consuming the most CPU?
+What is using most of my RAM?
+Why is my system slow?
+What started this process?
+Can you kill this stuck process?
+What services start at boot?
+Why is my fan running loudly?
+Is my CPU throttling?
+What is my current system load average?
+Can you monitor system performance in real time?
+
+# Level 5 – Packages & Software
+What packages were installed recently?
+Can you update my system safely?
+Why did this package fail to install?
+What dependencies does this package have?
+Can you remove unused packages?
+Which packages are orphaned?
+How do I downgrade a package?
+Can you compile and install software from source?
+How can I verify package integrity?
+Which files belong to this package?
+
+# Level 6 – Services & Systemd
+Why is this service failing to start?
+Can you enable this service at boot?
+What is the status of this systemd unit?
+What dependencies does this service have?
+How can I create a custom systemd service?
+Why is boot time slow?
+Can you analyze boot logs?
+How do I mask a service?
+What timers are active on my system?
+Can you create a scheduled task using systemd timers?
+
+# Level 7 – Logs & Diagnostics
+Can you check system logs for errors?
+What caused my last crash?
+Why did my system reboot unexpectedly?
+What does this kernel panic log mean?
+Are there hardware errors in dmesg?
+Can you filter logs for a specific service?
+What authentication failures occurred recently?
+Are there disk I/O errors?
+Can you trace what happened at a specific timestamp?
+How do I increase log verbosity for debugging?
+
+# Level 8 – Networking
+Why can't I connect to the internet?
+Is DNS working correctly?
+Which DNS server am I using?
+Why is my WiFi slow?
+What ports are open on my machine?
+Is my firewall configured properly?
+Can you set up a static IP address?
+Why can't I reach this remote server?
+Is there packet loss on my connection?
+Can you diagnose routing table issues?
+
+# Level 9 – Security & Hardening
+Are there unauthorized login attempts?
+Is my SSH configuration secure?
+Can you disable password login for SSH?
+Are there suspicious processes running?
+Is my system vulnerable to known CVEs?
+Can you set up disk encryption?
+Is my firewall blocking anything critical?
+Can you audit my sudo usage?
+Are my file permissions exposing sensitive data?
+Can you configure fail2ban?
+
+# Level 10 – Advanced Configuration & Deep Diagnostics
+Can you tune kernel parameters for better performance?
+Why is my system experiencing high I/O wait?
+Can you analyze memory leaks in this application?
+Can you trace system calls of this process?
+Can you profile CPU usage per thread?
+Why is my filesystem corrupted?
+Can you repair my bootloader?
+Can you recover data from a failing disk?
+Can you analyze long-term usage patterns and suggest optimizations?
+Can you redesign my system setup for better reliability, performance, and security?

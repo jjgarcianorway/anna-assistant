@@ -21,6 +21,9 @@ use super::streaming::handle_streaming_request;
 
 /// Handle a single client connection
 pub async fn handle_connection(stream: UnixStream, state: SharedState) -> Result<()> {
+    // v0.3.171: Refresh system identity to detect current user (daemon may have started before user logged in)
+    crate::system_identity::refresh_system_identity();
+
     // Track active connections for graceful shutdown
     {
         let mut state_guard = state.write().await;

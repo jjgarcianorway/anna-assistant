@@ -85,6 +85,7 @@ pub mod trust_calibration;
 pub mod opportunistic_maintenance;
 pub mod action_execution;
 pub mod multi_perspective_analysis;
+pub mod user_context;
 pub mod changes;
 pub mod core_loop;
 pub mod department;

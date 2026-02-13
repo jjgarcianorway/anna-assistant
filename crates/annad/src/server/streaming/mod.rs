@@ -8,6 +8,7 @@
 mod confirm_handlers;
 mod handlers;
 mod helpers;
+mod instant_answers;
 mod main_handler;
 
 pub use handlers::handle_streaming_request;

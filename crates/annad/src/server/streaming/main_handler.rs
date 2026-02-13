@@ -27,6 +27,11 @@ pub async fn handle_main_question(
     let request_id = uuid::Uuid::new_v4().to_string();
     let intent = classify_intent(question);
 
+    // v0.3.179: Instant answers via dedicated module (bypasses LLM entirely)
+    if super::instant_answers::try_instant_answer(question, writer).await? {
+        return Ok(());
+    }
+
     // Check cache for identical recent question
     {
         let state_guard = state.read().await;

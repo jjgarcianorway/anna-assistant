@@ -76,9 +76,10 @@ impl SystemIdentity {
     }
 
     fn get_username() -> Result<String> {
-        std::env::var("USER")
-            .or_else(|_| std::env::var("USERNAME"))
-            .map_err(|e| anyhow::anyhow!("Could not determine username: {}", e))
+        // v0.3.170: Use real user detection instead of daemon user
+        let user = crate::user_context::get_real_user()?;
+        info!("Detected username: {}", user);
+        Ok(user)
     }
 
     fn get_distro_name() -> Result<String> {
@@ -364,6 +365,8 @@ pub fn get_system_identity() -> SystemIdentity {
 
 /// Force refresh of system identity (call when network changes, etc.).
 pub fn refresh_system_identity() {
+    info!("Refreshing system identity cache...");
     let mut write_lock = SYSTEM_IDENTITY.write().unwrap();
     *write_lock = None;
+    info!("System identity cache cleared, will re-detect on next access");
 }

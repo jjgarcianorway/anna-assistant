@@ -408,11 +408,13 @@ pub async fn ralph_loop(model: &str, question: &str) -> Result<AskResult> {
     // v0.3.159: Add memory context on first iteration
     if iteration == 0 {
         // v0.3.163: Add system identity context (real names, not generic)
+        // v0.3.172: Always get fresh username (daemon may have started before user login)
         let identity = crate::system_identity::get_system_identity();
+        let real_username = crate::user_context::get_real_user().unwrap_or_else(|_| identity.username.clone());
         let identity_context = format!(
-            "SYSTEM IDENTITY:\nHostname: {}\nUser: {}\nDistro: {}\nPackage Manager: {}\nShell: {}\nNetwork Devices: {}\nCurrent WiFi: {}\nDesktop: {}",
+            "SYSTEM IDENTITY:\nHostname: {}\nUser: {} (IMPORTANT: This is the CALLING USER, NOT the daemon user. If asked 'What user am I?', answer with THIS user, not the output of whoami which shows the daemon user 'root')\nDistro: {}\nPackage Manager: {}\nShell: {}\nNetwork Devices: {}\nCurrent WiFi: {}\nDesktop: {}",
             identity.hostname,
-            identity.username,
+            real_username,
             identity.distro_name,
             identity.package_manager(),
             identity.shell,
