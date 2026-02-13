@@ -5,6 +5,23 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.200] - 2026-02-13
+
+### Fixed — Installer exits before install_service on binary verify failure
+
+- `verify_binaries`: changed `fail` (exit 1) to `print_err` + flag. Binary
+  verification is a sanity check — checksums already verified the download.
+  If the binary can't run (missing lib, wrong arch), warn and continue so the
+  service file is still installed.
+- `install_service`: replaced single-line command chain with explicit
+  per-step error handling (service file write, daemon-reload, enable, start).
+  Each step reports its own failure. Uses `systemctl is-active` loop instead
+  of `[[ -S socket ]]` which has directory-permission false negatives.
+- Removed `After=ollama.service` / `Wants=ollama.service` from service unit —
+  causes ordering issues on machines without ollama installed.
+- Added `trap ERR` at top of installer to show exact line number on failure.
+- `print_footer`: distinct messages for binary-verify failure vs daemon failure.
+
 ## [0.3.199] - 2026-02-13
 
 ### Fixed — pkexec prompt fires when service is failed (not just inactive)

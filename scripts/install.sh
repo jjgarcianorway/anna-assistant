@@ -3,6 +3,9 @@
 # v0.3.106: Improved version fetching with better error handling
 set -e
 
+# Show exactly which line failed (visible even in curl | bash)
+trap 'echo ""; echo "  INSTALL FAILED at line $LINENO — command: $BASH_COMMAND" >&2' ERR
+
 REPO="jjgarcianorway/anna-assistant"
 
 # Fetch latest version from GitHub releases
@@ -72,8 +75,14 @@ print_footer() {
         echo "  Group membership activates on next login — annactl will fail until then."
         echo ""
     fi
-    if [[ "${DAEMON_START_FAILED:-false}" == "true" ]]; then
-        echo "  ${C_ERR}WARNING: annad failed to start. Check logs: journalctl -u annad -n 30${C_RESET}"
+    if [[ "${BINARY_VERIFY_FAILED:-false}" == "true" ]]; then
+        echo "  ${C_ERR}WARNING: Binaries could not be verified (may be a library issue on this machine).${C_RESET}"
+        echo "  The service was installed and will attempt to start on boot."
+        echo "  Check: sudo systemctl status annad"
+        echo ""
+    elif [[ "${DAEMON_START_FAILED:-false}" == "true" ]]; then
+        echo "  ${C_ERR}WARNING: annad failed to start.${C_RESET}"
+        echo "  Check: sudo systemctl status annad"
         echo ""
     else
         echo "  annad is running. Try: ${C_BOLD}annactl status${C_RESET}"
@@ -295,12 +304,10 @@ EOF
 install_service() {
     print_section "service" "systemd"
 
-    # Always include telegram.env with - prefix (optional, won't fail if missing)
     $SUDO tee "${SYSTEMD_DIR}/annad.service" >/dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
-After=network.target ollama.service
-Wants=ollama.service
+After=network.target
 [Service]
 Type=notify
 ExecStart=/usr/local/bin/annad
@@ -317,17 +324,29 @@ EnvironmentFile=-/etc/anna/telegram.env
 [Install]
 WantedBy=multi-user.target
 EOF
-    print_item_ok "annad.service installed"
-    $SUDO systemctl daemon-reload; $SUDO systemctl enable annad --quiet; print_item_ok "enable"
+    [[ -f "${SYSTEMD_DIR}/annad.service" ]] && print_item_ok "annad.service" || { print_err "service file not written"; DAEMON_START_FAILED=true; return; }
+
+    $SUDO systemctl daemon-reload && print_item_ok "daemon-reload" || { print_err "daemon-reload failed"; DAEMON_START_FAILED=true; return; }
+    $SUDO systemctl enable annad --quiet && print_item_ok "enable" || { print_err "enable failed"; DAEMON_START_FAILED=true; return; }
+
     if $SUDO systemctl start annad; then
-        # Wait up to 5s for the socket to appear
-        for i in $(seq 1 10); do
-            [[ -S /run/anna/anna.sock ]] && { print_item_ok "start (socket ready)"; break; }
+        # Wait up to 10s for the service to reach active state
+        for i in $(seq 1 20); do
+            state=$($SUDO systemctl is-active annad 2>/dev/null || true)
+            if [[ "$state" == "active" ]]; then
+                print_item_ok "start (active)"; break
+            elif [[ "$state" == "failed" ]]; then
+                print_err "annad started but immediately failed"
+                DAEMON_START_FAILED=true; break
+            fi
             sleep 0.5
         done
-        [[ -S /run/anna/anna.sock ]] || { print_err "annad started but socket not ready — check: journalctl -u annad -n 20"; }
+        if [[ "${DAEMON_START_FAILED:-false}" != "true" ]] && [[ "$state" != "active" ]]; then
+            print_err "annad did not reach active state within 10s (state: ${state})"
+            DAEMON_START_FAILED=true
+        fi
     else
-        print_err "annad failed to start — check: journalctl -u annad -n 20"
+        print_err "systemctl start annad failed"
         DAEMON_START_FAILED=true
     fi
     echo ""
@@ -337,12 +356,26 @@ verify_binaries() {
     print_section "verify" "installed binaries"
     local annactl_ver annad_ver
     annactl_ver=$("${INSTALL_DIR}/annactl" --version 2>/dev/null | head -1)
-    [[ -n "$annactl_ver" ]] && printf "  annactl  ${C_OK}${annactl_ver}${C_RESET}\n" || fail "annactl --version failed"
+    if [[ -n "$annactl_ver" ]]; then
+        printf "  annactl  ${C_OK}${annactl_ver}${C_RESET}\n"
+    else
+        print_err "annactl --version returned nothing (binary may need a dependency)"
+        BINARY_VERIFY_FAILED=true
+    fi
     annad_ver=$("${INSTALL_DIR}/annad" --version 2>/dev/null | head -1)
-    [[ -n "$annad_ver" ]] && printf "  annad    ${C_OK}${annad_ver}${C_RESET}\n" || fail "annad --version failed"
-    local annactl_base=$(echo "$annactl_ver" | sed 's/annactl //' | cut -d' ' -f1)
-    local annad_base=$(echo "$annad_ver" | sed 's/annad //' | cut -d' ' -f1)
-    [[ "$annactl_base" = "$annad_base" ]] && print_ok "versions match: ${annactl_base}" || { print_err "version mismatch: annactl=${annactl_base} annad=${annad_base}"; echo "  ${C_ERR}Warning: Client and daemon versions should match${C_RESET}"; }
+    if [[ -n "$annad_ver" ]]; then
+        printf "  annad    ${C_OK}${annad_ver}${C_RESET}\n"
+    else
+        print_err "annad --version returned nothing (binary may need a dependency)"
+        BINARY_VERIFY_FAILED=true
+    fi
+    if [[ "${BINARY_VERIFY_FAILED:-false}" != "true" ]]; then
+        local annactl_base annad_base
+        annactl_base=$(echo "$annactl_ver" | sed 's/annactl //' | cut -d' ' -f1)
+        annad_base=$(echo "$annad_ver" | sed 's/annad //' | cut -d' ' -f1)
+        [[ "$annactl_base" = "$annad_base" ]] && print_ok "versions match: ${annactl_base}" || \
+            print_err "version mismatch: annactl=${annactl_base} annad=${annad_base}"
+    fi
     echo ""
 }
 
