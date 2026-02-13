@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.193] - 2026-02-13
+
+### Fixed — Bug audit (6 fixes)
+
+- **REPL bypassed PDF check**: REPL loop called `handle_question_with_clarification` directly, skipping the PDF detection entirely. "generate pdf report" in the REPL went to the LLM instead of the PDF handler. Fixed by routing REPL through `handle_question`.
+- **`generate` alone triggered PDF**: `"generate" && "generate"` is just `"generate"`, so "how do I generate SSH keys?" silently produced a system PDF instead of answering. Fixed: requires both an action word ("generate"/"create") AND "report" word, or "pdf" explicitly.
+- **`is_full_report_request` false positives**: "detailed summary of neovim", "comprehensive overview of systemd" incorrectly triggered the full system report. Fixed: "detailed"/"comprehensive"/"everything" now require "system" to also appear; "full"/"complete" remain unrestricted.
+- **PDF written to `/tmp`**: Subject to PrivateTmp and tmpfs clearing. Now writes to `/var/lib/anna/reports/` (persistent state dir per canonical paths).
+- **`upower` empty-arg**: `upower -i $(upower -e | grep battery)` with no battery produces an error call. Fixed with `xargs -r` to skip if no battery found.
+- **Hallucination test vacuous pass**: The test always passed even if output was empty. Fixed: empty output → `fail`; no numeric memory value → `fail`.
+
 ## [0.3.192] - 2026-02-13
 
 ### Fixed

@@ -170,11 +170,11 @@ fn show_reset_help() {
 async fn handle_question(question: &str, session_id: &str) {
     // Check for direct report/PDF request
     let question_lower = question.to_lowercase();
-    // "pdf" anywhere → PDF report. "generate/create report" without "pdf" also triggers it.
-    let is_report_request = question_lower.contains("pdf")
-        || ((question_lower.contains("report") || question_lower.contains("generate"))
-            && (question_lower.contains("generate") || question_lower.contains("create")
-                || question_lower.contains("extended")));
+    // "pdf" anywhere → PDF report.
+    // "generate/create report" (without pdf) also triggers it, but requires both words.
+    let has_action = question_lower.contains("generate") || question_lower.contains("create");
+    let has_report_word = question_lower.contains("report");
+    let is_report_request = question_lower.contains("pdf") || (has_action && has_report_word);
 
     if is_report_request {
         handle_pdf_report_request().await;
@@ -366,7 +366,7 @@ async fn run_repl() -> Result<()> {
                         println!("Commands: status, stats, help, quit");
                     }
                     _ => {
-                        handle_question_with_clarification(input, true, &session_id).await;
+                        handle_question(input, &session_id).await;
                     }
                 }
                 println!();

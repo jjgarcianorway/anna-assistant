@@ -88,7 +88,8 @@ pub fn generate_full_report() -> Result<String> {
     }
 
     // --- Battery (if present) ---
-    let battery = run("upower -i $(upower -e | grep battery) 2>/dev/null | grep -E 'state:|percentage:|time to' | sed 's/^[ \\t]*//'");
+    // xargs -r skips upower -i if no battery device found (avoids empty-arg error)
+    let battery = run("upower -e 2>/dev/null | grep battery | xargs -r upower -i 2>/dev/null | grep -E 'state:|percentage:|time to' | sed 's/^[ \\t]*//'");
     if !battery.is_empty() {
         report.push_str(&section("BATTERY", &battery));
     }
@@ -131,10 +132,21 @@ pub fn generate_full_report() -> Result<String> {
 /// Detect if the question is asking for a full/detailed/complete system report.
 pub fn is_full_report_request(question: &str) -> bool {
     let q = question.to_lowercase();
-    // "full report", "complete report", "detailed report", "full system status", etc.
-    let full_words = ["full", "complete", "detailed", "comprehensive", "everything"];
     let report_words = ["report", "status", "overview", "summary"];
-    let has_full = full_words.iter().any(|w| q.contains(w));
     let has_report = report_words.iter().any(|w| q.contains(w));
-    has_full && has_report
+
+    // "full" and "complete" alone are specific enough — "full report", "complete status"
+    let has_simple_full = ["full", "complete"].iter().any(|w| {
+        let padded = format!(" {} ", q);
+        padded.contains(&format!(" {} ", w)) || q.starts_with(&format!("{} ", w))
+    });
+
+    // "detailed", "comprehensive", "everything" require "system" nearby to avoid false positives
+    // e.g. "detailed summary of neovim" must NOT trigger a system report
+    let has_qualified_full = ["detailed", "comprehensive", "everything"]
+        .iter()
+        .any(|w| q.contains(w))
+        && q.contains("system");
+
+    has_report && (has_simple_full || has_qualified_full)
 }

@@ -135,15 +135,17 @@ echo ""
 echo "── PDF Report ──"
 
 out=$(timeout "$TIMEOUT" "$ANNACTL" "generate pdf report" 2>/dev/null || true)
-if echo "$out" | grep -qiE "\.pdf|report generated|generating"; then
-    pass "PDF report generation triggered"
+# Must see a .pdf path or an explicit error from the PDF handler (font missing etc.)
+# "generating" alone is not enough — that fires before the RPC even completes
+if echo "$out" | grep -qiE "\.pdf|font error|Failed to generate|report generation"; then
+    pass "PDF report generation triggered and responded"
 else
-    fail "PDF report did not trigger. Got: $(echo "$out" | head -3)"
+    fail "PDF report did not trigger or gave no response. Got: $(echo "$out" | head -3)"
 fi
 
 # Also verify natural phrasings route to PDF handler
 out=$(timeout "$TIMEOUT" "$ANNACTL" "send me the report in pdf" 2>/dev/null || true)
-if echo "$out" | grep -qiE "\.pdf|report generated|generating|font error|Failed to generate"; then
+if echo "$out" | grep -qiE "\.pdf|font error|Failed to generate|report generation"; then
     pass "PDF natural phrasing routes to PDF handler"
 else
     fail "PDF natural phrasing not handled. Got: $(echo "$out" | head -3)"
@@ -192,13 +194,19 @@ echo "── No Hallucination ──"
 
 out=$(ask "how much RAM do I have")
 actual_ram=$(free -h | awk 'NR==2{print $2}' | tr -d 'i')
-# Extract numeric part
-actual_num=$(echo "$actual_ram" | grep -oE '[0-9]+' | head -1)
-if [ -n "$actual_num" ] && echo "$out" | grep -q "$actual_num"; then
+# Extract leading digits (e.g. "31" from "31Gi" or "32" from "32G")
+actual_num=$(echo "$actual_ram" | grep -oE '^[0-9]+' | head -1)
+if [ -z "$out" ]; then
+    fail "RAM answer was empty (daemon timeout or crash)"
+elif [ -n "$actual_num" ] && echo "$out" | grep -qE "$actual_num"; then
     pass "RAM answer matches actual system value ($actual_ram)"
 else
-    # Accept approximate values (32G ≈ 31.3Gi etc.)
-    pass "RAM answer present (manual verification needed)"
+    # Could be a rounding difference (31Gi vs 32G) — still count as pass but note it
+    if echo "$out" | grep -qiE "[0-9]+ ?(G|M|GB|MB|GiB|MiB|Gi|Mi)"; then
+        pass "RAM answer present with a numeric value (actual=$actual_ram, manual verify)"
+    else
+        fail "RAM answer contains no memory value. Got: $(echo "$out" | head -3)"
+    fi
 fi
 
 # --- SUMMARY ---

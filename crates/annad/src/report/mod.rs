@@ -144,9 +144,12 @@ pub fn generate_pdf_report() -> Result<PathBuf, String> {
     doc.push(elements::Paragraph::new(&closing)
         .styled(style::Style::new().italic()));
 
-    // Save to file
+    // Save to /var/lib/anna/reports/ — persistent, not subject to tmpfs or PrivateTmp
+    let reports_dir = PathBuf::from("/var/lib/anna/reports");
+    std::fs::create_dir_all(&reports_dir)
+        .map_err(|e| format!("Failed to create reports dir: {}", e))?;
     let filename = format!("anna_report_{}.pdf", now.format("%Y%m%d_%H%M"));
-    let path = PathBuf::from("/tmp").join(&filename);
+    let path = reports_dir.join(&filename);
 
     doc.render_to_file(&path)
         .map_err(|e| format!("Failed to generate PDF: {}", e))?;
