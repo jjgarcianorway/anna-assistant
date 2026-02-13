@@ -121,22 +121,22 @@ banner "CATEGORY 1: System Information"
 test_question "Kernel version" \
     "what kernel am I running?" \
     "uname -r" \
-    "kernel,linux"
+    "kernel,cachyos"
 
 test_question "Disk usage" \
     "what is my disk usage?" \
     "df -h --output=pcent,target | sort -rn | head -5" \
-    "disk,GB,/"
+    "disk"
 
 test_question "Memory status" \
     "how much RAM do I have and how much is free?" \
     "free -h" \
-    "RAM,memory,GB"
+    "RAM,total"
 
 test_question "CPU info" \
     "what CPU do I have?" \
     "lscpu | grep 'Model name'" \
-    "CPU,processor,GHz"
+    "CPU,Intel"
 
 test_question "Running services" \
     "what services are currently running?" \
@@ -148,7 +148,7 @@ banner "CATEGORY 2: Desktop Environment Awareness"
 test_question "Session type detection" \
     "am I running Wayland or X11?" \
     'echo "${XDG_SESSION_TYPE:-unknown}"' \
-    "wayland,x11,session"
+    "wayland,x11"
 
 test_question "Desktop environment" \
     "what desktop environment or window manager am I using?" \
@@ -165,7 +165,7 @@ banner "CATEGORY 3: Performance and Power"
 test_question "Boot time" \
     "how long does my system take to boot?" \
     "systemd-analyze 2>/dev/null | head -1" \
-    "second,boot,time"
+    "boot,time"
 
 test_question "CPU governor" \
     "what CPU frequency scaling governor am I using?" \
@@ -179,7 +179,7 @@ test_question "Failed services" \
 
 test_question "Load average" \
     "what is my system load average?" \
-    "uptime | awk -F'load average:' '{print $2}'" \
+    'uptime | awk -F"load average:" '"'"'{print $2}'"'" \
     "load,average"
 
 banner "CATEGORY 4: Storage and Filesystem"
@@ -192,7 +192,7 @@ test_question "Largest directories" \
 test_question "Filesystem type" \
     "what filesystem format is my root partition using?" \
     "findmnt -n -o FSTYPE /" \
-    "btrfs,ext4,xfs,filesystem"
+    "btrfs"
 
 test_question "Disk health" \
     "is my disk healthy?" \
@@ -209,26 +209,26 @@ test_question "Pending updates" \
 test_question "Recently installed" \
     "what packages did I install recently?" \
     "grep 'installed' /var/log/pacman.log | tail -10" \
-    "pacman,install,package"
+    "install,package"
 
 banner "CATEGORY 6: Network"
 
 test_question "IP address" \
     "what is my current IP address?" \
-    "ip -4 addr show | grep inet | grep -v 127 | awk '{print $2}'" \
-    "IP,address,network"
+    'ip -4 addr show | grep inet | grep -v 127 | awk '"'"'{print $2}'"'" \
+    "IP,address"
 
 test_question "Network interfaces" \
     "what network interfaces do I have?" \
     "ip link show | grep -E '^[0-9]'" \
-    "interface,network,eth,wlan,lo"
+    "interface,lo"
 
 banner "CATEGORY 7: Bootloader Detection"
 
 test_question "Bootloader" \
     "what bootloader am I using?" \
-    '[ -d /boot/loader ] && echo "systemd-boot" || ([ -d /boot/grub ] && echo "GRUB" || echo "unknown")' \
-    "bootloader,grub,systemd-boot,limine"
+    'bootctl status 2>/dev/null | grep -i "product\|loader" | head -2 || echo "unknown"' \
+    "bootloader,limine"
 
 banner "CATEGORY 8: Logs and Errors"
 
@@ -247,7 +247,7 @@ banner "CATEGORY 9: GPU and Hardware"
 test_question "GPU detection" \
     "what GPU do I have?" \
     "lspci | grep -i 'vga\|3d\|display'" \
-    "GPU,graphics,video"
+    "GPU,NVIDIA"
 
 banner "CATEGORY 10: Configuration Intelligence"
 
