@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.202] - 2026-02-13
+
+### Fixed — /run/anna is root:root 750 on older systemd (RuntimeDirectoryGroup not applied)
+
+`RuntimeDirectoryGroup=anna` requires systemd 235+. On older versions it is
+silently ignored, leaving `/run/anna` as `root:root 750`. Users in the `anna`
+group get EACCES on the directory even though the daemon is running.
+
+Fix: daemon now always chowns `/run/anna` to group `anna` on every startup
+inside `setup_socket()`, regardless of how the directory was created. The
+daemon runs as root so this always succeeds.
+
 ## [0.3.201] - 2026-02-13
 
 ### Fixed — Installer exits silently after telegram section (root cause of service not found)

@@ -96,24 +96,34 @@ impl Server {
     async fn setup_socket(&self, socket_path: &str) -> Result<()> {
         let path = Path::new(socket_path);
 
-        // Create parent directory if needed (don't silently fail!)
+        // Create parent directory if needed
         if let Some(parent) = path.parent() {
             if !parent.exists() {
                 info!("Creating socket directory: {:?}", parent);
                 fs::create_dir_all(parent).await.map_err(|e| {
                     anyhow::anyhow!(
-                        "Failed to create socket directory {:?}: {}. \
-                         Check that the daemon has permission to write to /run/",
+                        "Failed to create socket directory {:?}: {}",
                         parent, e
                     )
                 })?;
+            }
 
-                // Set permissions: 750 root:anna
-                #[cfg(unix)]
+            // Always fix directory permissions regardless of how it was created.
+            // RuntimeDirectoryGroup=anna is not supported on older systemd versions,
+            // so the directory may be root:root 750. Chown it here since daemon runs as root.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let perms = std::fs::Permissions::from_mode(0o750);
+                std::fs::set_permissions(parent, perms).ok();
+                let parent_str = parent.to_str().unwrap_or("");
+                match std::process::Command::new("chown")
+                    .args([":anna", parent_str])
+                    .output()
                 {
-                    use std::os::unix::fs::PermissionsExt;
-                    let perms = std::fs::Permissions::from_mode(0o750);
-                    std::fs::set_permissions(parent, perms).ok();
+                    Ok(o) if o.status.success() => info!("Socket dir group set to 'anna'"),
+                    Ok(o) => warn!("chown /run/anna failed: {}", String::from_utf8_lossy(&o.stderr)),
+                    Err(e) => warn!("chown /run/anna error: {}", e),
                 }
             }
         }
