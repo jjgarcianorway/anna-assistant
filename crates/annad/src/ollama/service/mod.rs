@@ -135,6 +135,34 @@ pub async fn install() -> Result<()> {
     Ok(())
 }
 
+/// Verify a model actually responds to a trivial prompt.
+/// Returns Err if the model is not installed or ollama is not responding.
+pub async fn test_model(model: &str) -> Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()?;
+
+    let body = serde_json::json!({
+        "model": model,
+        "prompt": "hi",
+        "stream": false,
+        "options": { "num_predict": 1 }
+    });
+
+    let response = client
+        .post(format!("{}/api/generate", super::OLLAMA_API))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| anyhow!("Ollama unreachable: {}", e))?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(anyhow!("Model {} not available ({})", model, response.status()))
+    }
+}
+
 /// Check if Ollama service is running
 pub async fn is_running() -> bool {
     let client = reqwest::Client::builder()

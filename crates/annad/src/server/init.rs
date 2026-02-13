@@ -1,7 +1,7 @@
 //! Daemon initialization - ollama setup and model management.
 
 use anna_shared::status::DaemonState;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use tracing::{info, warn};
 
 use crate::core_loop::init_system_profile;
@@ -36,7 +36,7 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         info!("Installing Ollama...");
         {
             let mut s = state.write().await;
-            s.init_status = "Installing Ollama (one-time setup, takes a few minutes)...".to_string();
+            s.init_status = "Installing Ollama (one-time setup, takes 2-5 minutes)...".to_string();
             s.last_error = None; // clear any previous error before retrying
         }
         ollama::install().await?;
@@ -92,7 +92,7 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         info!("No models found, pulling {}...", best_model);
         {
             let mut s = state.write().await;
-            s.init_status = format!("Downloading language model {} (first run, this takes a few minutes)...", best_model);
+            s.init_status = format!("Downloading language model {} (first run, 5-15 min depending on connection)...", best_model);
         }
         ollama::pull_model(best_model).await?;
         best_model.to_string()
@@ -120,6 +120,14 @@ pub async fn initialize(state: SharedState) -> Result<()> {
             let model = best_model.to_string();
             info!("Using upgraded model: {}", model);
 
+            // Verify model actually responds before marking Ready
+            {
+                let mut s = state.write().await;
+                s.init_status = format!("Verifying model {}...", model);
+            }
+            ollama::test_model(&model).await
+                .map_err(|e| anyhow!("Model health check failed: {}", e))?;
+
             // Update state with upgraded model
             {
                 let mut state = state.write().await;
@@ -135,6 +143,14 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     }
 
     info!("Using model: {}", model);
+
+    // Verify model actually responds before marking Ready
+    {
+        let mut s = state.write().await;
+        s.init_status = format!("Verifying model {}...", model);
+    }
+    ollama::test_model(&model).await
+        .map_err(|e| anyhow!("Model health check failed: {}", e))?;
 
     // Update state
     {

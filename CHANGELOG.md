@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.214] - 2026-02-14
+
+### Fixed — daemon no longer marks Ready until model is verified working
+
+Added `test_model()` health check before `DaemonState::Ready`. If the model returns
+404 or fails to respond, `initialize()` returns `Err` so the retry loop runs and
+`wait_for_ready()` shows a meaningful error instead of silently succeeding. Also
+improved init_status time estimates ("takes 2-5 minutes", "5-15 min depending on
+connection") so annactl shows realistic progress messages during first-run setup.
+
 ## [0.3.213] - 2026-02-13
 
 ### Fixed — 404 from ollama when installed model differs from best_model

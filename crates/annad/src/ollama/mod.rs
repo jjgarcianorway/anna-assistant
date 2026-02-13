@@ -9,7 +9,7 @@ mod service;
 pub use hardware::{detect_hardware, select_best_model, GpuType, HardwareInfo};
 pub use service::{
     cleanup_anna_resources, delete_model, get_ollama_diagnostics, install, is_installed,
-    is_running, list_models, pull_model, start_service, ensure_gpu_acceleration,
+    is_running, list_models, pull_model, start_service, test_model, ensure_gpu_acceleration,
     needs_gpu_variant_upgrade, upgrade_to_gpu_variant, AnnaRegistry,
 };
 
