@@ -5,6 +5,22 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.198] - 2026-02-13
+
+### Fixed — Fresh install still prompts for sudo (Path::exists() bug)
+
+Root cause: `Path::exists()` calls `stat()`, which returns `false` for **both**
+"file not found" and "permission denied on parent directory". After install, the
+user's session doesn't have the `anna` group yet, so `stat("/run/anna/anna.sock")`
+returns `EACCES`. `exists()` returns `false`, the code thinks the daemon isn't
+running, `systemctl start` fails without privileges, then `pkexec` fires.
+
+Fix: removed all `Path::exists()` checks in `check_daemon_state()` and
+`wait_for_socket()`. Now calls `UnixStream::connect()` directly and interprets
+the exact error: `ENOENT` → NotRunning, `EACCES` → PermissionDenied,
+`ECONNREFUSED` → NotResponding. PermissionDenied immediately redirects to the
+"log out and back in" message instead of trying to start the daemon.
+
 ## [0.3.197] - 2026-02-13
 
 ### Fixed — Fresh install: annactl asks to start annad.service

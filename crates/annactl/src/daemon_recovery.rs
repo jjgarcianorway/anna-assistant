@@ -60,23 +60,21 @@ pub async fn check_daemon_state() -> DaemonState {
     let socket_file = socket_path();
     let socket_path = Path::new(&socket_file);
 
-    if !socket_path.exists() {
-        return DaemonState::NotRunning;
-    }
-
-    // Try to connect
+    // Connect directly — do NOT use Path::exists() first.
+    // Path::exists() calls stat() which returns false for BOTH "not found" AND
+    // "permission denied on parent directory", causing us to misdiagnose
+    // PermissionDenied as NotRunning (triggering pkexec unnecessarily).
+    // UnixStream::connect gives the exact error: ENOENT / EACCES / ECONNREFUSED.
     match UnixStream::connect(socket_path).await {
         Ok(_) => DaemonState::Running,
-        Err(e) => {
-            let err_str = e.to_string().to_lowercase();
-            if err_str.contains("permission denied")
-                || e.kind() == std::io::ErrorKind::PermissionDenied
-            {
-                DaemonState::PermissionDenied
-            } else {
+        Err(e) => match e.kind() {
+            std::io::ErrorKind::NotFound => DaemonState::NotRunning,
+            std::io::ErrorKind::PermissionDenied => DaemonState::PermissionDenied,
+            _ => {
+                // ECONNREFUSED = socket exists, daemon crashed/not ready
                 DaemonState::NotResponding
             }
-        }
+        },
     }
 }
 
@@ -243,11 +241,14 @@ async fn wait_for_socket(timeout_secs: u64) -> bool {
     let max_checks = (timeout_secs * 1000) / SOCKET_CHECK_INTERVAL_MS;
 
     for _ in 0..max_checks {
-        if socket_path.exists() {
-            // Socket exists, try to connect
-            if let Ok(_) = UnixStream::connect(socket_path).await {
-                return true;
+        // Connect directly — Path::exists() misreports PermissionDenied as false
+        match UnixStream::connect(socket_path).await {
+            Ok(_) => return true,
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                // Directory/socket permission issue — stop polling, won't self-resolve
+                return false;
             }
+            _ => {}
         }
         sleep(Duration::from_millis(SOCKET_CHECK_INTERVAL_MS)).await;
     }
