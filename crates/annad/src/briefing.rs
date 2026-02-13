@@ -471,6 +471,13 @@ fn collect_system_telemetry() -> String {
         telemetry.push_str("\n");
     }
 
+    // v0.3.187: Active automations Anna has created
+    let registry_section = crate::artifact_registry::ArtifactRegistry::load().summary_for_briefing();
+    if !registry_section.is_empty() {
+        telemetry.push_str(&registry_section);
+        telemetry.push_str("\n");
+    }
+
     // Anna's autonomous activities in past 24h
     let personality = crate::personality::PersonalityState::load();
     if !personality.learned_lessons.is_empty() {

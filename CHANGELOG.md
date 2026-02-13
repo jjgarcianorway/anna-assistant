@@ -5,6 +5,28 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.187] - 2026-02-13
+
+### Added - Agentic Capabilities: Anna Creates, Installs, and Remembers
+
+**Anna is now a full IT department: creates persistent system artifacts, tracks everything she builds, and manages your system from natural language — all wiki-grounded, no hardcoded templates.**
+
+- **artifact_registry.rs** - Unified registry of everything Anna creates (`/var/lib/anna/registry.json`): systemd units, scripts, users, audits. Includes removal commands for every artifact.
+- **automation_creator.rs** - Creates systemd timer+service pairs from natural language intent. LLM generates unit files from wiki research + system facts. Auto-installs LOW risk; records in registry with removal commands. All units prefixed `anna-`.
+- **wallpaper.rs** - DE/WM-aware wallpaper automation. Detects compositor (Hyprland, Sway, GNOME, etc.) via de_config.rs, queries wiki for correct tool, sets and schedules random wallpaper via anna- timer.
+- **ssh_auditor.rs** - SSH config security audit. Reads sshd_config, queries Arch Wiki "OpenSSH" hardening guide, LLM generates severity-ranked findings (Critical/Warning/Info). No hardcoded rules.
+- **user_management.rs** - Create/delete users, change passwords, add to groups via pkexec. Always HIGH risk — always confirms. Records created users in ArtifactRegistry.
+- **kernel_builder.rs** - Hardware-aware kernel build planning. Detects CPU/GPU/arch, queries Arch Wiki kernel compilation guide, LLM generates a build plan for this specific system.
+- Extended `NextAction` enum with 6 agentic variants: `ListCreated`, `CreateAutomation`, `SetWallpaper`, `AuditSsh`, `ManageUser`, `BuildKernel`
+- Routing in `commands.rs`: LLM classifies intent into agentic actions, no keyword hardcoding
+- Briefing integration: `summary_for_briefing()` adds active artifact count to morning briefing
+
+### Changed - Code Structure
+
+- Split `streaming.rs` (1287 lines) into 8 focused submodules: `early_handlers`, `run_loop`, `finish`, `config_flow`, `system_probe`, `answer_gen`, `temporal`, `loop_impl`, `loop_early`, `loop_fallback`
+- Split `commands.rs` (500 lines) into `commands.rs` + `answer_gen.rs`
+- Split `mod.rs` (728 lines) into `mod.rs` + `temporal.rs` + `loop_impl.rs` + `loop_early.rs` + `loop_fallback.rs`
+
 ## [0.3.186] - 2026-02-13
 
 ### Added - System Intelligence & Hardware Awareness

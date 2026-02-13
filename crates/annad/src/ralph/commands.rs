@@ -3,44 +3,10 @@
 use anyhow::Result;
 
 use crate::ollama;
-use super::criteria::{AnswerType, CompletionCriteria, IterationState, SelfEvaluation, quick_quality_check};
+use super::criteria::IterationState;
+use super::answer_gen::check_recipes_for_commands;
 
-/// v0.3.111: Check learned recipes for command patterns.
-/// Returns commands if a high-confidence recipe match is found.
-fn check_recipes_for_commands(question: &str) -> Option<Vec<String>> {
-    // Load recipe book
-    let book = anna_shared::recipe::RecipeBook::load().ok()?;
-
-    // Get system context for matching
-    let system_info = anna_shared::profile::SystemInfo::default();
-
-    // Find matching recipes
-    let matches = book.find_matches(question, &system_info);
-
-    // Only use recipes with good success history
-    if let Some(recipe) = matches.first() {
-        // Skip recipes with no success history (unproven)
-        if recipe.success_count == 0 && !matches!(recipe.source, anna_shared::recipe::RecipeSource::BuiltIn) {
-            return None;
-        }
-
-        // Extract non-modifying commands for investigation
-        let commands: Vec<String> = recipe.commands.iter()
-            .filter(|c| !c.modifies_system)
-            .map(|c| c.command.clone())
-            .collect();
-
-        if !commands.is_empty() {
-            tracing::debug!(
-                "Recipe '{}' matched with {} commands (success_count={})",
-                recipe.name, commands.len(), recipe.success_count
-            );
-            return Some(commands);
-        }
-    }
-
-    None
-}
+pub use super::answer_gen::{generate_answer, self_evaluate};
 
 /// Result of asking the LLM what to do next.
 pub enum NextAction {
@@ -50,6 +16,18 @@ pub enum NextAction {
     None,
     /// This is a config request - generate an ActionPlan via LLM.
     Config,
+    /// List all artifacts Anna has created.
+    ListCreated,
+    /// Create a systemd timer/service automation from user intent.
+    CreateAutomation,
+    /// Set up wallpaper automation for the current DE/WM.
+    SetWallpaper,
+    /// Audit sshd_config for vulnerabilities.
+    AuditSsh,
+    /// Manage user accounts (create, delete, change password).
+    ManageUser,
+    /// Generate kernel compilation plan for this hardware.
+    BuildKernel,
 }
 
 /// Get commands to run for answering the question.
@@ -63,9 +41,46 @@ pub async fn get_next_action(
 ) -> Result<NextAction> {
     use crate::llm_core::prompts::system_context;
 
-    // v0.3.146: Quick keyword check for CONFIG requests BEFORE recipes
+    // v0.3.187: Quick keyword check for CONFIG requests BEFORE recipes
     // This prevents learned recipes from bypassing system configuration detection
     let q_lower = question.to_lowercase();
+
+    // v0.3.187: Agentic capability detection (before CONFIG check)
+    let list_patterns = ["what did you create", "what have you created", "what automations", "list automations", "what scripts", "what services did you", "what did anna create", "show me what you created"];
+    if list_patterns.iter().any(|p| q_lower.contains(p)) {
+        return Ok(NextAction::ListCreated);
+    }
+
+    if (q_lower.contains("audit") || q_lower.contains("check") || q_lower.contains("scan"))
+        && (q_lower.contains("ssh") || q_lower.contains("sshd"))
+    {
+        return Ok(NextAction::AuditSsh);
+    }
+
+    if q_lower.contains("wallpaper") && (q_lower.contains("random") || q_lower.contains("automatic") || q_lower.contains("daily") || q_lower.contains("every day") || q_lower.contains("set") || q_lower.contains("change")) {
+        return Ok(NextAction::SetWallpaper);
+    }
+
+    if (q_lower.contains("compile") || q_lower.contains("build")) && q_lower.contains("kernel") {
+        return Ok(NextAction::BuildKernel);
+    }
+
+    // User management: "create user", "delete user", "add user", "remove user", "create account"
+    if (q_lower.contains("create") || q_lower.contains("add") || q_lower.contains("delete") || q_lower.contains("remove"))
+        && (q_lower.contains(" user") || q_lower.contains(" account"))
+        && !q_lower.contains("update") // avoid "update system" being misclassified
+    {
+        return Ok(NextAction::ManageUser);
+    }
+
+    // Automation creation: "automatically" + action verb / "every X days" + action
+    let auto_verbs = ["delete", "clean", "remove", "backup", "sync", "archive", "rotate", "prune", "clear"];
+    let auto_triggers = ["automatically", "every day", "daily", "every week", "weekly", "every hour", "every month", "auto-delete", "autoclean", "on schedule"];
+    let has_auto_trigger = auto_triggers.iter().any(|t| q_lower.contains(t));
+    let has_auto_verb = auto_verbs.iter().any(|v| q_lower.contains(v));
+    if has_auto_trigger && has_auto_verb {
+        return Ok(NextAction::CreateAutomation);
+    }
 
     // v0.3.151: Check if this is an analytical question (NOT a config request)
     let analytical_patterns = [
@@ -228,222 +243,8 @@ pub async fn get_commands(
 ) -> Result<Vec<String>> {
     match get_next_action(model, question, state).await? {
         NextAction::Commands(cmds) => Ok(cmds),
-        NextAction::None | NextAction::Config => Ok(Vec::new()),
+        NextAction::None | NextAction::Config | NextAction::ListCreated
+        | NextAction::CreateAutomation | NextAction::SetWallpaper | NextAction::AuditSsh
+        | NextAction::ManageUser | NextAction::BuildKernel => Ok(Vec::new()),
     }
-}
-
-/// Generate an answer based on collected data
-pub async fn generate_answer(
-    model: &str,
-    question: &str,
-    state: &IterationState,
-    criteria: &CompletionCriteria,
-    wiki_research: Option<&str>,
-) -> Result<String> {
-    let data_context = if state.outputs.is_empty() {
-        "No command output available.".to_string()
-    } else {
-        state.outputs.join("\n---\n")
-    };
-
-    let grounding_instruction = if criteria.requires_grounding {
-        "Base your answer ONLY on the data above and wiki documentation. Do not make up information."
-    } else {
-        "You may provide general guidance based on your knowledge and documentation."
-    };
-
-    // v0.3.110: Include live system state for context
-    let live_state = anna_shared::live_state::LiveState::capture();
-    let system_context = if live_state.is_stressed() {
-        format!("\nCurrent system state (STRESSED): {}", live_state.summary())
-    } else {
-        format!("\nCurrent system state: {}", live_state.summary())
-    };
-
-    // v0.3.131: Include wiki research if available
-    let wiki_context = if let Some(research) = wiki_research {
-        if !research.is_empty() {
-            format!("\n\n{}", research)
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
-
-    // v0.3.186: Include man pages and --help output for command-related questions
-    let docs_context = {
-        let citations = anna_shared::docs::search_docs(question);
-        if citations.is_empty() {
-            String::new()
-        } else {
-            let mut ctx = "\n\nLocal Documentation:".to_string();
-            for citation in citations.iter().take(2) {
-                ctx.push_str(&format!("\n[{}]\n{}", citation.format_short(), citation.excerpt));
-            }
-            ctx
-        }
-    };
-
-    // v0.3.112: Search web for error/problem solutions when needed
-    let web_context = if is_error_or_problem(question) || contains_error_output(&state.outputs) {
-        match anna_shared::web_search::search_for_solution(question, 3).await {
-            Ok(results) if !results.is_empty() => {
-                tracing::debug!("Web search found {} results", results.len());
-                format!("\n\n{}", anna_shared::web_search::format_results_for_context(&results))
-            }
-            _ => String::new()
-        }
-    } else {
-        String::new()
-    };
-
-    let prompt = format!(
-        r#"You are Anna, an AI assistant for Arch Linux systems.
-This is an Arch Linux system using pacman for packages.
-Do NOT suggest apt, brew, or other package managers.
-{system_context}
-
-Question: {}
-{wiki_context}
-
-Data collected:
-{}
-{docs_context}{web_context}
-
-{}
-
-Provide a clear, helpful answer. Be concise but complete."#,
-        question, data_context, grounding_instruction,
-        system_context = system_context,
-        wiki_context = wiki_context,
-        docs_context = docs_context,
-        web_context = web_context
-    );
-
-    let answer = ollama::chat_with_timeout(model, &prompt, 60).await?;
-    Ok(answer.trim().to_string())
-}
-
-/// Check if question is about an error or problem.
-fn is_error_or_problem(question: &str) -> bool {
-    let q_lower = question.to_lowercase();
-    q_lower.contains("error") ||
-    q_lower.contains("fail") ||
-    q_lower.contains("not working") ||
-    q_lower.contains("broken") ||
-    q_lower.contains("can't") ||
-    q_lower.contains("cannot") ||
-    q_lower.contains("won't") ||
-    q_lower.contains("doesn't work") ||
-    q_lower.contains("problem") ||
-    q_lower.contains("issue")
-}
-
-/// Check if command outputs contain error indicators.
-fn contains_error_output(outputs: &[String]) -> bool {
-    outputs.iter().any(|o| {
-        let o_lower = o.to_lowercase();
-        o_lower.contains("error:") ||
-        o_lower.contains("failed") ||
-        o_lower.contains("permission denied") ||
-        o_lower.contains("no such file") ||
-        o_lower.contains("command not found")
-    })
-}
-
-/// Self-evaluate the answer - is it good enough?
-pub async fn self_evaluate(
-    model: &str,
-    question: &str,
-    answer: &str,
-    state: &IterationState,
-    criteria: &CompletionCriteria,
-) -> Result<SelfEvaluation> {
-    // Quick heuristic checks first
-    if answer.len() < 20 {
-        return Ok(SelfEvaluation {
-            is_complete: false,
-            confidence: 0.2,
-            missing: Some("Answer too short".to_string()),
-            suggestions: Some("Provide more detail".to_string()),
-        });
-    }
-
-    // Check quality heuristics
-    if !quick_quality_check(answer) {
-        return Ok(SelfEvaluation {
-            is_complete: false,
-            confidence: 0.3,
-            missing: Some("Answer quality check failed".to_string()),
-            suggestions: Some("Regenerate with better grounding".to_string()),
-        });
-    }
-
-    // For simple/HowTo questions, skip LLM evaluation
-    if matches!(criteria.answer_type, AnswerType::Simple | AnswerType::HowTo) {
-        return Ok(SelfEvaluation {
-            is_complete: true,
-            confidence: 0.8,
-            missing: None,
-            suggestions: None,
-        });
-    }
-
-    // LLM self-evaluation for complex questions
-    let data_summary = if state.outputs.is_empty() {
-        "No data collected".to_string()
-    } else {
-        format!("{} command outputs collected", state.outputs.len())
-    };
-
-    let prompt = format!(
-        r#"Evaluate this answer:
-
-Question: {}
-Answer: {}
-Data: {}
-
-Rate on these criteria:
-1. Does it directly answer the question? (YES/NO)
-2. Is it grounded in the data collected? (YES/NO/NA)
-3. Is anything important missing? (describe or NONE)
-
-Format: COMPLETE/INCOMPLETE, CONFIDENCE (0-100), MISSING: <text>"#,
-        question, answer, data_summary
-    );
-
-    let response = ollama::chat_with_timeout(model, &prompt, 20).await?;
-    let response = response.to_uppercase();
-
-    // Parse response
-    let is_complete = response.contains("COMPLETE") && !response.contains("INCOMPLETE");
-
-    let confidence = if let Some(conf_match) = response
-        .split_whitespace()
-        .find(|w| w.parse::<f32>().is_ok())
-    {
-        conf_match.parse::<f32>().unwrap_or(50.0) / 100.0
-    } else if is_complete {
-        0.8
-    } else {
-        0.4
-    };
-
-    let missing = if response.contains("MISSING:") {
-        response
-            .split("MISSING:")
-            .nth(1)
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty() && s != "NONE")
-    } else {
-        None
-    };
-
-    Ok(SelfEvaluation {
-        is_complete,
-        confidence: confidence.clamp(0.0, 1.0),
-        missing: missing.clone(),
-        suggestions: missing,
-    })
 }
