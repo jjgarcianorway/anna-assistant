@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.197] - 2026-02-13
+
+### Fixed — Fresh install: annactl asks to start annad.service
+
+- `install.sh`: Added `RuntimeDirectoryGroup=anna` to the service unit. Without this, systemd
+  creates `/run/anna` as `root:root 750` (not `root:anna 750`), so users in the `anna` group
+  cannot enter the directory and the socket is inaccessible even when the daemon is running.
+- `daemon_recovery.rs`: After `systemctl start` succeeds but the socket can't be connected,
+  detect PermissionDenied immediately instead of polling for 15 seconds then firing pkexec.
+- `daemon_recovery.rs`: Removed `journalctl` manual command from error messages (forbidden
+  by CLAUDE.md policy); added `journalctl` to the forbidden-patterns test.
+
 ## [0.3.196] - 2026-02-13
 
 ### Fixed — Fresh install asks for sudo / pkexec prompt

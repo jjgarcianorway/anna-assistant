@@ -311,6 +311,7 @@ TimeoutStopSec=10
 MemoryMax=2G
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
+RuntimeDirectoryGroup=anna
 Environment=RUST_BACKTRACE=1
 EnvironmentFile=-/etc/anna/telegram.env
 [Install]

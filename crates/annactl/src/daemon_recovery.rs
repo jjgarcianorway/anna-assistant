@@ -173,11 +173,17 @@ async fn attempt_permission_fix() -> Result<RecoveryResult> {
 
 /// Attempt to start the daemon via systemctl
 async fn attempt_daemon_start() -> Result<RecoveryResult> {
-    // First, try without privilege escalation (in case user has passwordless sudo)
+    // First, try without privilege escalation (in case user has permissions)
     if try_systemctl_start().await {
         // Wait for socket to become available
         if wait_for_socket(DAEMON_START_TIMEOUT_SECS).await {
             return Ok(RecoveryResult::Started);
+        }
+        // systemctl succeeded but socket still inaccessible — check if it's permissions
+        // (daemon running but /run/anna directory not accessible to this user)
+        let mid_state = check_daemon_state().await;
+        if mid_state == DaemonState::PermissionDenied {
+            return attempt_permission_fix().await;
         }
     }
 
@@ -192,17 +198,11 @@ async fn attempt_daemon_start() -> Result<RecoveryResult> {
     let final_state = check_daemon_state().await;
     match final_state {
         DaemonState::Running => Ok(RecoveryResult::Started),
-        DaemonState::PermissionDenied => Err(anyhow!(
-            "Anna cannot connect due to permissions.\n\n\
-             Your user account needs to be in the 'anna' group.\n\
-             This was set up during installation - you may need to log out and back in\n\
-             for the group membership to take effect."
-        )),
+        DaemonState::PermissionDenied => attempt_permission_fix().await,
         _ => Err(anyhow!(
             "Anna daemon could not be started.\n\n\
-             The daemon service may not be installed correctly, or there may be a\n\
-             system configuration issue. Check the system logs for details:\n\
-             journalctl -u annad -n 50"
+             The daemon service may not be installed correctly,\n\
+             or there may be a system configuration issue."
         )),
     }
 }
@@ -303,7 +303,7 @@ pub async fn connect_with_recovery() -> Result<UnixStream> {
             anyhow!(
                 "Anna daemon is not responding.\n\n\
                  The daemon may have encountered an error during startup.\n\
-                 Check the system logs for details: journalctl -u annad -n 50"
+                 Check the system service status for details."
             )
         }
     })
@@ -325,6 +325,7 @@ mod tests {
             "systemctl start",
             "systemctl restart",
             "usermod -aG",
+            "journalctl",
             "Run:",
             "Try:",
         ];
