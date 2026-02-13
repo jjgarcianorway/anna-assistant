@@ -110,6 +110,8 @@ pub struct StateInner {
     pub(crate) session_save_counter: u32,
     /// Answer cache for identical questions (normalized question -> (answer, timestamp))
     pub(crate) answer_cache: HashMap<String, CachedAnswer>,
+    /// Human-readable description of current initialization step
+    pub init_status: String,
     /// v0.3.36: Self-healing recovery metrics
     pub recovery_status: RecoveryStatus,
     /// Event-driven system command cache

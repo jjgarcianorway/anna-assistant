@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.204] - 2026-02-13
+
+### Fixed — first-run init message streams naturally instead of returning an error
+
+Anna now streams her initialization status word-by-word (like a normal answer)
+rather than returning an Error response. The message includes the current step
+from `init_status` ("Installing Ollama...", "Downloading model...", etc.) and
+closes with "Come back in a few minutes and I'll be ready to help."
+
+`init.rs` now updates `init_status` at each step so the message is specific to
+what is actually happening, not a generic fallback.
+
 ## [0.3.203] - 2026-02-13
 
 ### Fixed — "daemon not ready - no model available" gives no context on first run

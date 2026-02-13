@@ -40,6 +40,7 @@ impl StateInner {
             restart_pending: false,
             session_save_counter: 0,
             answer_cache: HashMap::new(),
+            init_status: "Starting up...".to_string(),
             recovery_status: anna_shared::status::RecoveryStatus::default(),
             cache: crate::cache::SystemCache::new(),
         }

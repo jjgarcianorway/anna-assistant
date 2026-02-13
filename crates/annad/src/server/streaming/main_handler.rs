@@ -131,31 +131,40 @@ pub async fn handle_main_question(
         match &state_guard.model {
             Some(m) => m.clone(),
             None => {
-                let init_msg = {
-                    let s = state_guard;
-                    if s.ollama_running {
-                        "Anna is downloading the language model (first run). This takes a few minutes — please wait and try again.".to_string()
-                    } else {
-                        "Anna is setting up Ollama and the language model (first run). This takes a few minutes — please wait and try again.".to_string()
-                    }
-                };
-                let response = StreamingResponse::Error {
-                    message: init_msg,
-                };
-                let json = serde_json::to_string(&response)?;
-                writer.write_all(format!("{}\n", json).as_bytes()).await?;
+                // Stream a friendly first-run message instead of an error
+                let init_status = state_guard.init_status.clone();
+                drop(state_guard);
 
-                // v0.3.56: Record failed outcome (daemon not ready)
-                let duration_ms = start_time.elapsed().as_millis() as u64;
-                let outcome_record = OutcomeRecord::new(
-                    &request_id,
-                    RequestMode::Dialogue,
-                    intent,
-                    Outcome::Failed,
-                    false,
-                    duration_ms,
+                let msg = format!(
+                    "I'm still getting set up on your system — {}  \
+                    Come back in a few minutes and I'll be ready to help.",
+                    init_status
                 );
-                let _ = append_outcome(&outcome_record);
+
+                // Stream word by word so the client renders naturally
+                for word in msg.split_whitespace() {
+                    let token = StreamingResponse::Token { token: format!("{} ", word) };
+                    let json = serde_json::to_string(&token)?;
+                    writer.write_all(format!("{}\n", json).as_bytes()).await?;
+                }
+
+                let result = anna_shared::rpc::AskResult {
+                    answer: msg,
+                    success: true,
+                    iterations: 0,
+                    commands_executed: vec![],
+                    dialogue: vec![],
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                    citations: vec![],
+                    abstained: false,
+                    final_confidence: None,
+                };
+                let done = StreamingResponse::Done { result };
+                let json = serde_json::to_string(&done)?;
+                writer.write_all(format!("{}\n", json).as_bytes()).await?;
+                writer.flush().await?;
 
                 return Ok(());
             }

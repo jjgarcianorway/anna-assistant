@@ -34,6 +34,10 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     // Install ollama if needed (will pick cuda/rocm variant based on GPU)
     if !ollama::is_installed() {
         info!("Installing Ollama...");
+        {
+            let mut s = state.write().await;
+            s.init_status = "Installing Ollama (one-time setup, takes a minute)...".to_string();
+        }
         ollama::install().await?;
     }
 
@@ -48,6 +52,10 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     // Start ollama if not running
     if !ollama::is_running().await {
         info!("Starting Ollama...");
+        {
+            let mut s = state.write().await;
+            s.init_status = "Starting Ollama...".to_string();
+        }
         ollama::start_service().await?;
     }
 
@@ -78,6 +86,10 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     } else {
         // No models - pull the best one for this hardware
         info!("No models found, pulling {}...", best_model);
+        {
+            let mut s = state.write().await;
+            s.init_status = format!("Downloading language model {} (first run, this takes a few minutes)...", best_model);
+        }
         ollama::pull_model(best_model).await?;
         best_model.to_string()
     };
@@ -90,6 +102,10 @@ pub async fn initialize(state: SharedState) -> Result<()> {
             "Upgrading from {}B to {}B model for better performance...",
             current_size, best_size
         );
+        {
+            let mut s = state.write().await;
+            s.init_status = format!("Downloading better model {} for your hardware...", best_model);
+        }
         if let Err(e) = ollama::pull_model(best_model).await {
             warn!(
                 "Failed to pull better model, continuing with {}: {}",
@@ -106,6 +122,7 @@ pub async fn initialize(state: SharedState) -> Result<()> {
                 state.ollama_running = true;
                 state.model = Some(model);
                 state.state = DaemonState::Ready;
+                state.init_status = "Ready".to_string();
             }
 
             info!("Initialization complete - daemon ready");
@@ -121,6 +138,7 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         state.ollama_running = true;
         state.model = Some(model);
         state.state = DaemonState::Ready;
+        state.init_status = "Ready".to_string();
     }
 
     // v0.0.999: Ensure GPU acceleration is active (restart Ollama if needed)
