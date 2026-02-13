@@ -125,35 +125,48 @@ async fn attempt_permission_fix() -> Result<RecoveryResult> {
         ));
     };
 
-    // Check if pkexec is available
-    if !is_command_available("pkexec") {
+    // Check if user is already in /etc/group for anna (means install added them,
+    // but the session hasn't picked up the new group yet — re-login fixes this).
+    let already_in_group = Command::new("getent")
+        .args(["group", "anna"])
+        .output()
+        .map(|o| {
+            let out = String::from_utf8_lossy(&o.stdout);
+            out.contains(&username)
+        })
+        .unwrap_or(false);
+
+    if already_in_group {
         return Err(anyhow!(
-            "Anna cannot connect due to permissions.\n\n\
-             Your user account needs to be in the 'anna' group.\n\
-             This was set up during installation - you may need to log out and back in\n\
-             for the group membership to take effect."
+            "Anna cannot connect — permission denied on socket.\n\n\
+             Your user '{}' is in the 'anna' group but the current session\n\
+             was started before the group was added. Log out and back in\n\
+             to activate group membership, then try again.",
+            username
         ));
     }
 
-    // Try to add user to anna group via pkexec
-    eprintln!("Anna needs to add your user to the 'anna' group...");
+    // User is not in the group at all — try to add via pkexec
+    if !is_command_available("pkexec") {
+        return Err(anyhow!(
+            "Anna cannot connect — your user is not in the 'anna' group.\n\
+             Re-run the installer to fix this."
+        ));
+    }
+
     let status = Command::new("pkexec")
         .args(["usermod", "-aG", "anna", &username])
         .status();
 
     if matches!(status, Ok(s) if s.success()) {
-        // Group added, but user needs to log out/in
         Err(anyhow!(
-            "Anna has added your user to the 'anna' group.\n\n\
-             Please log out and back in for the change to take effect,\n\
-             then try again."
+            "Added '{}' to the 'anna' group. Log out and back in, then try again.",
+            username
         ))
     } else {
         Err(anyhow!(
-            "Anna cannot connect due to permissions.\n\n\
-             Your user account needs to be in the 'anna' group.\n\
-             This was set up during installation - you may need to log out and back in\n\
-             for the group membership to take effect."
+            "Anna cannot connect — your user is not in the 'anna' group.\n\
+             Re-run the installer to fix this."
         ))
     }
 }

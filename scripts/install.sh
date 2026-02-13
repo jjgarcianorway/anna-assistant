@@ -66,11 +66,22 @@ print_item_ok() { printf "  %-20s ${C_OK}${SYM_OK}${C_RESET}\n" "$1"; }
 print_err() { echo "  ${C_ERR}${SYM_ERR}${C_RESET} $1"; }
 print_footer() {
     echo ""; echo "$HR"
-    echo "Run: ${C_BOLD}annactl status${C_RESET} to verify"
-    if [[ -f "${CONFIG_DIR}/telegram.env" ]]; then
-        echo "Telegram: ${C_OK}Configured${C_RESET} - message your bot to test!"
+    if [[ "${GROUP_ADDED:-false}" == "true" ]]; then
+        echo "  ${C_ERR}IMPORTANT: Log out and back in before running annactl.${C_RESET}"
+        echo "  Your user was just added to the 'anna' group."
+        echo "  Group membership activates on next login — annactl will fail until then."
+        echo ""
+    fi
+    if [[ "${DAEMON_START_FAILED:-false}" == "true" ]]; then
+        echo "  ${C_ERR}WARNING: annad failed to start. Check logs: journalctl -u annad -n 30${C_RESET}"
+        echo ""
     else
-        echo "Telegram: Run ${C_BOLD}annactl telegram setup${C_RESET} to enable mobile access"
+        echo "  annad is running. Try: ${C_BOLD}annactl status${C_RESET}"
+    fi
+    if [[ -f "${CONFIG_DIR}/telegram.env" ]]; then
+        echo "  Telegram: ${C_OK}Configured${C_RESET} - message your bot to test!"
+    else
+        echo "  Telegram: annactl telegram setup"
     fi
     echo "$HR"; echo ""
 }
@@ -165,7 +176,13 @@ install_binaries() {
 setup_group() {
     print_section "security" "group setup"
     getent group "$ANNA_GROUP" >/dev/null 2>&1 && print_ok "group exists: ${ANNA_GROUP}" || { $SUDO groupadd "$ANNA_GROUP"; print_ok "created group: ${ANNA_GROUP}"; }
-    groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b" && print_ok "${USERNAME} already in ${ANNA_GROUP} group" || { $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"; print_ok "added ${USERNAME} to ${ANNA_GROUP} group"; }
+    if groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b"; then
+        print_ok "${USERNAME} already in ${ANNA_GROUP} group"
+    else
+        $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"; print_ok "added ${USERNAME} to ${ANNA_GROUP} group"
+        # Group membership only activates on next login — flag this for print_footer
+        GROUP_ADDED=true
+    fi
     echo ""
 }
 
@@ -301,7 +318,18 @@ WantedBy=multi-user.target
 EOF
     print_item_ok "annad.service installed"
     $SUDO systemctl daemon-reload; $SUDO systemctl enable annad --quiet; print_item_ok "enable"
-    $SUDO systemctl start annad; print_item_ok "start"; echo ""
+    if $SUDO systemctl start annad; then
+        # Wait up to 5s for the socket to appear
+        for i in $(seq 1 10); do
+            [[ -S /run/anna/anna.sock ]] && { print_item_ok "start (socket ready)"; break; }
+            sleep 0.5
+        done
+        [[ -S /run/anna/anna.sock ]] || { print_err "annad started but socket not ready — check: journalctl -u annad -n 20"; }
+    else
+        print_err "annad failed to start — check: journalctl -u annad -n 20"
+        DAEMON_START_FAILED=true
+    fi
+    echo ""
 }
 
 verify_binaries() {

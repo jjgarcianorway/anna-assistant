@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.196] - 2026-02-13
+
+### Fixed — Fresh install asks for sudo / pkexec prompt
+
+Root cause: after install, group membership (`anna` group) is not active until re-login. The socket is `660 root:anna`, so `annactl` gets permission denied, triggers recovery, which immediately fires `pkexec` — even when the user is already correctly in `/etc/group`.
+
+- **`daemon_recovery.rs`**: Before firing pkexec, check if the user is already in `/etc/group` for the `anna` group. If yes → clear message "log out and back in", no pkexec prompt.
+- **`install.sh` `install_service`**: Verify `systemctl start annad` actually succeeded and socket became available. Print explicit error (not silent "start") if it failed.
+- **`install.sh` `setup_group`**: Track whether user was newly added to group (`GROUP_ADDED=true`).
+- **`install.sh` `print_footer`**: If user was newly added to group, print a prominent "Log out and back in before running annactl" warning. If daemon failed to start, print the failure.
+
 ## [0.3.195] - 2026-02-13
 
 ### Changed — LLM-first intent classification (no keyword parsing)
