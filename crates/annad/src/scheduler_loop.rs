@@ -93,18 +93,23 @@ pub async fn scheduler_loop() {
                     // Collect daily snapshot before generating report
                     collect_daily_snapshot();
 
-                    // v0.3.156: Generate visual chart with trends
+                    // v0.3.180: Generate visual chart with trends (catch_unwind to prevent crash on font errors)
                     let history = anna_shared::monitor::LongTermHistory::load();
                     if !history.daily_snapshots.is_empty() && history.daily_snapshots.len() >= 3 {
-                        match crate::chart_generator::ChartGenerator::new("/tmp/anna_charts")
-                            .generate_trends_chart(&history)
-                        {
-                            Ok(chart_path) => {
+                        let chart_result = std::panic::catch_unwind(|| {
+                            crate::chart_generator::ChartGenerator::new("/tmp/anna_charts")
+                                .generate_trends_chart(&history)
+                        });
+                        match chart_result {
+                            Ok(Ok(chart_path)) => {
                                 info!("Generated trends chart: {}", chart_path.display());
                                 send_chart_photo(&chart_path, "7-Day System Trends");
                             }
-                            Err(e) => {
+                            Ok(Err(e)) => {
                                 warn!("Failed to generate trends chart: {}", e);
+                            }
+                            Err(_) => {
+                                warn!("Chart generation panicked (likely missing font). Continuing without chart.");
                             }
                         }
                     }

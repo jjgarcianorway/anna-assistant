@@ -258,5 +258,59 @@ pub async fn try_ops_answer(
         return Ok(true);
     }
 
+    // --- FIREWALL STATUS (Q76/Q87 timeout fix) ---
+    // Daemon runs as root so iptables/nft work directly. Use -n to avoid DNS lookup hangs.
+    if q.contains("firewall") && (q.contains("configured") || q.contains("proper") || q.contains("blocking") || q.contains("critical") || q.contains("status")) {
+        // Try nftables first (modern), then iptables with -n (no DNS)
+        let nft = run_shell("nft list ruleset 2>/dev/null | head -40").unwrap_or_default();
+        let ipt = run_shell("iptables -nL --line-numbers 2>/dev/null | head -40").unwrap_or_default();
+        let ufw = run_shell("ufw status 2>/dev/null").unwrap_or_default();
+
+        let answer = if !nft.trim().is_empty() {
+            format!("Firewall (nftables):\n```\n{}\n```", nft.trim())
+        } else if !ipt.trim().is_empty() {
+            format!("Firewall (iptables, -n flag to avoid DNS hangs):\n```\n{}\n```", ipt.trim())
+        } else if !ufw.trim().is_empty() {
+            format!("Firewall (ufw):\n```\n{}\n```", ufw.trim())
+        } else {
+            "No active firewall detected (nftables, iptables, ufw not configured).".to_string()
+        };
+        send_answer(writer, answer).await?;
+        return Ok(true);
+    }
+
+    // --- CHANGE OWNERSHIP (Q24 timeout fix) ---
+    // Daemon runs as root, so chown works. But question lacks specific path - show current dir.
+    if q.contains("ownership") && (q.contains("change") || q.contains("chown")) {
+        let user = crate::user_context::get_real_user().unwrap_or_else(|_| "user".to_string());
+        let answer = format!(
+            "To change ownership: `chown {} <path>` (file/dir) or `chown -R {} <path>` (recursive).\n\
+            Since the daemon runs as root, ownership changes execute directly.\n\
+            Specify which path you want to transfer — e.g. ask: \"change ownership of /srv/data to me\"",
+            user, user
+        );
+        send_answer(writer, answer).await?;
+        return Ok(true);
+    }
+
+    // --- KERNEL PARAMETER TUNING (Q91 timeout fix) ---
+    // Daemon runs as root so sysctl -w works without sudo.
+    if (q.contains("kernel") && q.contains("parameter")) || q.contains("sysctl") || (q.contains("tune") && q.contains("kernel")) {
+        let current = run_shell("sysctl -a 2>/dev/null | grep -E 'vm\\.(swappiness|dirty)|net\\.core\\.(rmem|wmem)|net\\.ipv4\\.(tcp_rmem|tcp_wmem|tcp_congestion)' | head -15")
+            .unwrap_or_default();
+        let answer = format!(
+            "Current performance-relevant kernel parameters:\n```\n{}\n```\n\
+            Common tunings (daemon applies as root, changes persist after reboot if added to /etc/sysctl.d/):\n\
+            • vm.swappiness=10          — reduce swap usage (default 60)\n\
+            • vm.dirty_ratio=15         — flush dirty pages earlier\n\
+            • net.core.rmem_max=16MB    — increase network buffer\n\
+            • net.ipv4.tcp_congestion_control=bbr — modern TCP (if available)\n\
+            \nTo apply: ask \"set vm.swappiness to 10\" and I'll run it directly.",
+            current.trim()
+        );
+        send_answer(writer, answer).await?;
+        return Ok(true);
+    }
+
     Ok(false)
 }

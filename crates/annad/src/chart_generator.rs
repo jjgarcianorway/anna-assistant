@@ -7,6 +7,20 @@ use plotters_bitmap::BitMapBackend;
 use std::path::{Path, PathBuf};
 use tracing::{debug, info};
 
+// Use explicit font paths to work in systemd environments without fontconfig
+const FONT_REGULAR: &str = "/usr/share/fonts/TTF/DejaVuSans.ttf";
+
+fn font(size: f64) -> FontDesc<'static> {
+    // Fall back through available fonts
+    for path in &[FONT_REGULAR, "/usr/share/fonts/noto/NotoSans-Regular.ttf",
+                  "/usr/share/fonts/liberation/LiberationSans-Regular.ttf"] {
+        if std::path::Path::new(path).exists() {
+            return ((*path), size).into_font();
+        }
+    }
+    ("sans-serif", size).into_font()
+}
+
 /// Chart generator for system metrics visualization.
 pub struct ChartGenerator {
     width: u32,
@@ -54,7 +68,7 @@ impl ChartGenerator {
         root.fill(&WHITE)?;
 
         let mut chart = ChartBuilder::on(&root)
-            .caption("7-Day System Trends", ("sans-serif", 40).into_font())
+            .caption("7-Day System Trends", font(40.0))
             .margin(10)
             .x_label_area_size(40)
             .y_label_area_size(60)
@@ -151,7 +165,7 @@ impl ChartGenerator {
         let total_points = snapshots.len() + forecast_days;
 
         let mut chart = ChartBuilder::on(&root)
-            .caption("Boot Time Trend & Forecast", ("sans-serif", 40).into_font())
+            .caption("Boot Time Trend & Forecast", font(40.0))
             .margin(10)
             .x_label_area_size(40)
             .y_label_area_size(60)
@@ -257,7 +271,7 @@ impl ChartGenerator {
         };
 
         let mut chart = ChartBuilder::on(area)
-            .caption(label, ("sans-serif", 30).into_font())
+            .caption(label, font(30.0))
             .build_cartesian_2d(0f32..100f32, 0f32..1f32)?;
 
         // Draw gauge background
@@ -273,7 +287,7 @@ impl ChartGenerator {
         )))?;
 
         // Draw value text
-        let text_style = ("sans-serif", 25).into_font().color(color);
+        let text_style = font(25.0).color(color);
         chart.draw_series(std::iter::once(Text::new(
             format!("{:.1}%", value),
             (50.0, 0.9),
@@ -313,7 +327,7 @@ impl ChartGenerator {
         root.fill(&WHITE)?;
 
         let mut chart = ChartBuilder::on(&root)
-            .caption("Anomaly Detection (30 days)", ("sans-serif", 40).into_font())
+            .caption("Anomaly Detection (30 days)", font(40.0))
             .margin(10)
             .x_label_area_size(40)
             .y_label_area_size(60)
