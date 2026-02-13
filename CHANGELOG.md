@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.207] - 2026-02-13
+
+### Fixed — init retries on failure and shows actual error
+
+When init failed (pacman error, network, etc.) the daemon sat stuck forever
+showing "come back in a minute" with no way to recover.
+
+Now:
+- Init retries every 60s on failure (handles transient errors automatically)
+- On failure, `last_error` is stored in state
+- Not-ready message shows the actual error: "Setup ran into a problem and is
+  retrying automatically: <error>"
+- Removed fake time estimates ("a minute or two") — message matches reality
+
 ## [0.3.206] - 2026-02-13
 
 ### Fixed — live system check in both streaming and non-streaming paths

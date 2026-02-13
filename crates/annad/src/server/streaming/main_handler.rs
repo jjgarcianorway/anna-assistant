@@ -131,6 +131,7 @@ pub async fn handle_main_question(
         match &state_guard.model {
             Some(m) => m.clone(),
             None => {
+                let last_error = state_guard.last_error.clone();
                 drop(state_guard);
 
                 // Check real system state so the message is accurate
@@ -146,25 +147,23 @@ pub async fn handle_main_question(
                     vec![]
                 };
 
-                let msg = if !ollama_installed {
-                    "I'm still setting up — Ollama isn't installed yet. \
-                    This is a one-time step and should finish in a minute or two. \
-                    Come back soon and I'll be ready."
-                        .to_string()
+                let msg = if let Some(ref err) = last_error {
+                    // Init failed — show actual error, it's retrying
+                    format!(
+                        "Setup ran into a problem and is retrying automatically: {}",
+                        err
+                    )
+                } else if !ollama_installed {
+                    "Still setting up — Ollama is being installed in the background.".to_string()
                 } else if !ollama_running {
-                    "Ollama is installed but not running yet — starting it up now. \
-                    Come back in a moment."
-                        .to_string()
+                    "Ollama is installed but not running yet — starting it now.".to_string()
                 } else if models.is_empty() {
-                    "Ollama is running but no language model has been downloaded yet. \
-                    The download is in progress — this can take a few minutes on first run. \
-                    Come back soon."
+                    "Ollama is running, downloading the language model now. \
+                    This can take several minutes on first run."
                         .to_string()
                 } else {
-                    // Models exist but none selected yet (selecting/loading)
                     format!(
-                        "Almost ready — selecting the best model from: {}. \
-                        Come back in a moment.",
+                        "Almost ready — loading model from: {}.",
                         models.join(", ")
                     )
                 };

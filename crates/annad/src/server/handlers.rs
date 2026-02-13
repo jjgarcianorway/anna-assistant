@@ -158,6 +158,7 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 match &state.model {
                     Some(m) => m.clone(),
                     None => {
+                        let last_error = state.last_error.clone();
                         drop(state);
                         let ollama_installed = crate::ollama::is_installed();
                         let ollama_running = ollama_installed && crate::ollama::is_running().await;
@@ -166,14 +167,16 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                         } else {
                             vec![]
                         };
-                        let msg = if !ollama_installed {
-                            "I'm still setting up — Ollama isn't installed yet. Come back in a minute or two.".to_string()
+                        let msg = if let Some(ref err) = last_error {
+                            format!("Setup ran into a problem and is retrying automatically: {}", err)
+                        } else if !ollama_installed {
+                            "Still setting up — Ollama is being installed in the background.".to_string()
                         } else if !ollama_running {
-                            "Ollama is installed but not running yet — starting it up now. Come back in a moment.".to_string()
+                            "Ollama is installed but not running yet — starting it now.".to_string()
                         } else if models.is_empty() {
-                            "Ollama is running but the language model hasn't downloaded yet. This takes a few minutes on first run. Come back soon.".to_string()
+                            "Ollama is running, downloading the language model now. This can take several minutes on first run.".to_string()
                         } else {
-                            format!("Almost ready — selecting best model from: {}. Come back in a moment.", models.join(", "))
+                            format!("Almost ready — loading model from: {}.", models.join(", "))
                         };
                         return RpcResponse::error(&request.id, -32603, &msg);
                     }

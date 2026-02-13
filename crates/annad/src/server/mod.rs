@@ -47,11 +47,24 @@ impl Server {
             crate::cache::start_cache_tasks(cache);
         }
 
-        // Start initialization in background
+        // Start initialization in background — retries every 60s on failure
         let init_state = self.state.clone();
         tokio::spawn(async move {
-            if let Err(e) = initialize(init_state).await {
-                error!("Initialization failed: {}", e);
+            loop {
+                match initialize(init_state.clone()).await {
+                    Ok(()) => break,
+                    Err(e) => {
+                        let msg = format!("Setup error: {}", e);
+                        error!("{}", msg);
+                        {
+                            let mut s = init_state.write().await;
+                            s.init_status = msg;
+                            s.last_error = Some(e.to_string());
+                        }
+                        // Retry after 60s — transient failures (network, pacman lock) usually resolve
+                        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+                    }
+                }
             }
         });
 
