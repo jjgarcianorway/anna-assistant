@@ -319,6 +319,7 @@ MemoryMax=2G
 RuntimeDirectory=anna
 RuntimeDirectoryMode=0750
 RuntimeDirectoryGroup=anna
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=RUST_BACKTRACE=1
 EnvironmentFile=-/etc/anna/telegram.env
 [Install]

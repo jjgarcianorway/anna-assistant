@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.209] - 2026-02-13
+
+### Fixed — daemon PATH missing in systemd context (root cause of os error 2)
+
+The annad.service unit never set PATH=, so systemd provided a minimal env
+that may not include /usr/bin on some distros (CachyOS confirmed affected).
+
+Fixes:
+- Service unit now sets PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+- ollama_cmd() resolves binary path from filesystem (/usr/bin/ollama first)
+  instead of relying on PATH at runtime
+
 ## [0.3.208] - 2026-02-13
 
 ### Fixed — "os error 2" replaced with specific error context

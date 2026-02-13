@@ -58,7 +58,15 @@ impl AnnaRegistry {
 
 /// Create an ollama command with required environment variables
 pub(crate) fn ollama_cmd() -> Command {
-    let mut cmd = Command::new("ollama");
+    // Use absolute path — the daemon may run with a minimal PATH in systemd context
+    let ollama_bin = if std::path::Path::new("/usr/bin/ollama").exists() {
+        "/usr/bin/ollama"
+    } else if std::path::Path::new("/usr/local/bin/ollama").exists() {
+        "/usr/local/bin/ollama"
+    } else {
+        "ollama" // last resort
+    };
+    let mut cmd = Command::new(ollama_bin);
     cmd.env("HOME", "/root");
     cmd.env("OLLAMA_MODELS", "/var/lib/anna/models");
     cmd
