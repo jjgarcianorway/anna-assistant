@@ -131,8 +131,16 @@ pub async fn handle_main_question(
         match &state_guard.model {
             Some(m) => m.clone(),
             None => {
+                let init_msg = {
+                    let s = state_guard;
+                    if s.ollama_running {
+                        "Anna is downloading the language model (first run). This takes a few minutes — please wait and try again.".to_string()
+                    } else {
+                        "Anna is setting up Ollama and the language model (first run). This takes a few minutes — please wait and try again.".to_string()
+                    }
+                };
                 let response = StreamingResponse::Error {
-                    message: "Daemon not ready - no model available".to_string(),
+                    message: init_msg,
                 };
                 let json = serde_json::to_string(&response)?;
                 writer.write_all(format!("{}\n", json).as_bytes()).await?;

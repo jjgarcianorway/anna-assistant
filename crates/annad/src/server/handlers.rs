@@ -158,11 +158,12 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 match &state.model {
                     Some(m) => m.clone(),
                     None => {
-                        return RpcResponse::error(
-                            &request.id,
-                            -32603,
-                            "Daemon not ready - no model available",
-                        );
+                        let msg = if state.ollama_running {
+                            "Anna is downloading the language model (first run). This takes a few minutes — please wait and try again."
+                        } else {
+                            "Anna is setting up Ollama and the language model (first run). This takes a few minutes — please wait and try again."
+                        };
+                        return RpcResponse::error(&request.id, -32603, msg);
                     }
                 }
             };

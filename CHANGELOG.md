@@ -5,6 +5,19 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.203] - 2026-02-13
+
+### Fixed — "daemon not ready - no model available" gives no context on first run
+
+On first install, ollama and a model are set up in the background after the
+daemon starts. If the user asks a question before that finishes (which can
+take several minutes), the error "Daemon not ready - no model available" gave
+no indication that this is expected and temporary.
+
+Now shows: "Anna is setting up Ollama and the language model (first run).
+This takes a few minutes — please wait and try again." with a more specific
+message once ollama is running but the model is still downloading.
+
 ## [0.3.202] - 2026-02-13
 
 ### Fixed — /run/anna is root:root 750 on older systemd (RuntimeDirectoryGroup not applied)
