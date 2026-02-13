@@ -170,9 +170,11 @@ fn show_reset_help() {
 async fn handle_question(question: &str, session_id: &str) {
     // Check for direct report/PDF request
     let question_lower = question.to_lowercase();
-    let is_report_request = (question_lower.contains("report") || question_lower.contains("pdf"))
-        && (question_lower.contains("generate") || question_lower.contains("create")
-            || question_lower.contains("extended") || question_lower.contains("system"));
+    // "pdf" anywhere → PDF report. "generate/create report" without "pdf" also triggers it.
+    let is_report_request = question_lower.contains("pdf")
+        || ((question_lower.contains("report") || question_lower.contains("generate"))
+            && (question_lower.contains("generate") || question_lower.contains("create")
+                || question_lower.contains("extended")));
 
     if is_report_request {
         handle_pdf_report_request().await;

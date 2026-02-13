@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.192] - 2026-02-13
+
+### Fixed
+
+**PDF report trigger too narrow**
+- Previously only triggered on "report"/"pdf" + "generate"/"create"/"extended"/"system". Missed "send me the report in pdf", "report in pdf format", "give me a pdf", etc.
+- Now: if "pdf" appears anywhere in the question → PDF handler, unconditionally
+- Added two PDF tests to `tests/features.sh`: explicit "generate pdf report" and natural phrasing "send me the report in pdf"
+
 ## [0.3.191] - 2026-02-13
 
 ### Fixed

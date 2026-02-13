@@ -130,6 +130,25 @@ else
     fail "How-to systemd answer wrong. Got: $(echo "$out" | head -3)"
 fi
 
+# --- PDF REPORT ---
+echo ""
+echo "── PDF Report ──"
+
+out=$(timeout "$TIMEOUT" "$ANNACTL" "generate pdf report" 2>/dev/null || true)
+if echo "$out" | grep -qiE "\.pdf|report generated|generating"; then
+    pass "PDF report generation triggered"
+else
+    fail "PDF report did not trigger. Got: $(echo "$out" | head -3)"
+fi
+
+# Also verify natural phrasings route to PDF handler
+out=$(timeout "$TIMEOUT" "$ANNACTL" "send me the report in pdf" 2>/dev/null || true)
+if echo "$out" | grep -qiE "\.pdf|report generated|generating|font error|Failed to generate"; then
+    pass "PDF natural phrasing routes to PDF handler"
+else
+    fail "PDF natural phrasing not handled. Got: $(echo "$out" | head -3)"
+fi
+
 # --- ARTIFACT REGISTRY ---
 echo ""
 echo "── Artifact Registry ──"
