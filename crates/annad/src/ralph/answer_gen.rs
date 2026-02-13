@@ -114,17 +114,21 @@ This is an Arch Linux system using pacman for packages.
 Do NOT suggest apt, brew, or other package managers.
 {system_context}
 
-Question: {}
-{wiki_context}
+The user asked: "{question}"
 
-Data collected:
-{}
-{docs_context}{web_context}
+You ran investigation commands and collected this output:
+{data_context}
+{wiki_context}{docs_context}{web_context}
 
-{}
+{grounding_instruction}
 
-Provide a clear, helpful answer. Be concise but complete."#,
-        question, data_context, grounding_instruction,
+Your task: Answer the user's question directly using the output above.
+The data was collected by YOU running commands — do not say the user provided it.
+If the question asks for a report or summary, produce one from the data.
+Be concise but complete."#,
+        question = question,
+        data_context = data_context,
+        grounding_instruction = grounding_instruction,
         system_context = system_context,
         wiki_context = wiki_context,
         docs_context = docs_context,

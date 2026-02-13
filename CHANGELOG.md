@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.188] - 2026-02-13
+
+### Fixed - Report/Answer Generation
+
+- **Command parser**: LLM sometimes echoed format headers (`FORMAT 1 - Run investigation commands (to gather info):`) as literal commands. These now get filtered: lines starting with `FORMAT`, lines ending with `:`, and lines containing prose patterns like `(to `, ` - Run ` are excluded from the command list. The trailing `:` in those lines was a bash no-op returning exit 0, causing silent corruption of collected data.
+- **Answer generation prompt**: Reworded to make clear that Anna ran the investigation commands herself. Previous wording ("Data collected:") caused the LLM to treat command output as user-provided data and respond with "it seems you provided system information, what do you want?" — the new prompt explicitly says "You ran investigation commands and collected this output" and "if the question asks for a report, produce one from the data."
+- **`get_next_action` prompt**: Removed "FORMAT N - ..." labels from format options to prevent LLM from echoing them back as commands.
+
 ## [0.3.187] - 2026-02-13
 
 ### Added - Agentic Capabilities: Anna Creates, Installs, and Remembers

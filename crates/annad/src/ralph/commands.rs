@@ -142,20 +142,20 @@ pub async fn get_next_action(
 
 Question: "{question}"{output_context}{feedback_context}
 
-Determine what to do. Output EXACTLY ONE of these formats:
+Determine what to do. Output EXACTLY ONE of:
 
-FORMAT 1 - Run investigation commands (to gather info):
+If you need to run commands first, output:
 COMMANDS:
 <command1>
 <command2>
 
-FORMAT 2 - This is a system configuration request (change settings, enable/disable, install, etc.):
+If this is a system configuration request (change settings, enable/disable, install, etc.), output exactly:
 CONFIG
 
-FORMAT 3 - You can answer from knowledge alone (how-to, explanations):
+If you can answer from knowledge alone (how-to, explanations), output exactly:
 NONE
 
-FORMAT 4 - Data already collected is sufficient:
+If the data already collected is sufficient to answer, output exactly:
 DONE
 
 COMMAND REFERENCE:
@@ -220,6 +220,15 @@ Output now:"#,
             let upper = l.to_uppercase();
             if upper == "DONE" || upper == "NONE" || upper.starts_with("DONE:")
                 || upper == "CONFIG" || upper == "COMMANDS:" {
+                return false;
+            }
+            // Filter LLM format echoes: "FORMAT N - ...", headers ending with ":"
+            if upper.starts_with("FORMAT ") || l.ends_with(':') {
+                return false;
+            }
+            // Must look like an actual shell command, not a prose sentence
+            // Real commands don't have parenthetical explanations in the middle
+            if l.contains("(to ") || l.contains(" - Run ") || l.contains(" commands (") {
                 return false;
             }
             true
