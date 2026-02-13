@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.201] - 2026-02-13
+
+### Fixed — Installer exits silently after telegram section (root cause of service not found)
+
+Root cause: `read -p "Set up Telegram now?"` returns exit code 1 when stdin
+is a pipe (curl|bash or SSH pipe). With `set -e`, this kills the script inside
+the `setup_telegram` function — before `install_service` ever runs. The ERR
+trap didn't fire because `set -e` without `set -E` doesn't inherit the trap
+into functions.
+
+- All `read` calls now use `</dev/tty || true`: reads from the actual terminal
+  (bypassing the pipe), and ignores failure if no terminal is available
+- Changed `set -e` to `set -eE` so the ERR trap fires inside functions too
+
 ## [0.3.200] - 2026-02-13
 
 ### Fixed — Installer exits before install_service on binary verify failure

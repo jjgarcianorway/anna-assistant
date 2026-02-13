@@ -1,9 +1,9 @@
 #!/bin/bash
 # Anna Installer - curl -sSL <url>/install.sh | bash
 # v0.3.106: Improved version fetching with better error handling
-set -e
+set -eE
 
-# Show exactly which line failed (visible even in curl | bash)
+# Show exactly which line failed — set -E makes this fire inside functions too
 trap 'echo ""; echo "  INSTALL FAILED at line $LINENO — command: $BASH_COMMAND" >&2' ERR
 
 REPO="jjgarcianorway/anna-assistant"
@@ -244,7 +244,7 @@ setup_telegram() {
     echo ""
     echo "  This requires creating a free Telegram bot (takes 2 minutes)."
     echo ""
-    read -p "  Set up Telegram now? [y/N] " -n 1 -r; echo ""
+    read -p "  Set up Telegram now? [y/N] " -n 1 -r </dev/tty || true; echo ""
 
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo ""
@@ -263,7 +263,7 @@ setup_telegram() {
     echo ""
     echo "  ${C_DIM}Example token: 123456789:ABCdefGHIjklMNOpqrsTUVwxyz${C_RESET}"
     echo ""
-    read -p "  Paste your bot token: " BOT_TOKEN
+    read -p "  Paste your bot token: " BOT_TOKEN </dev/tty || true
 
     if [[ -z "$BOT_TOKEN" ]]; then
         echo ""
@@ -279,7 +279,7 @@ setup_telegram() {
     echo ""
     echo "  ${C_DIM}Example ID: 123456789${C_RESET}"
     echo ""
-    read -p "  Paste your Telegram user ID: " USER_ID
+    read -p "  Paste your Telegram user ID: " USER_ID </dev/tty || true
 
     if [[ -z "$USER_ID" ]]; then
         echo ""
