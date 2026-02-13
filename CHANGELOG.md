@@ -5,6 +5,23 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.199] - 2026-02-13
+
+### Fixed — pkexec prompt fires when service is failed (not just inactive)
+
+Recovery code was calling pkexec whenever the socket was missing, regardless
+of why. If the daemon crashed on startup (service state = "failed"), pkexec
+would prompt, fail, and give a confusing error.
+
+- Added `get_service_state()` using `systemctl is-active` to check actual
+  service state before attempting recovery
+- `failed` state: report startup failure immediately, no pkexec
+- `not-found` state: report service not installed, no pkexec
+- `active` state but no socket: permissions issue, route to permission fix
+- `inactive` / `unknown`: service is stopped, attempt pkexec start
+- Extracted `ServiceState` + `get_service_state` to `service_state.rs`
+  (daemon_recovery.rs was at 436 lines, now 399)
+
 ## [0.3.198] - 2026-02-13
 
 ### Fixed — Fresh install still prompts for sudo (Path::exists() bug)

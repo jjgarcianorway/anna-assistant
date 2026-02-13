@@ -21,6 +21,8 @@ use std::time::Duration;
 use tokio::net::UnixStream;
 use tokio::time::sleep;
 
+use crate::service_state::{get_service_state, ServiceState};
+
 /// Maximum time to wait for daemon to start and socket to appear
 const DAEMON_START_TIMEOUT_SECS: u64 = 15;
 
@@ -171,24 +173,41 @@ async fn attempt_permission_fix() -> Result<RecoveryResult> {
 
 /// Attempt to start the daemon via systemctl
 async fn attempt_daemon_start() -> Result<RecoveryResult> {
-    // First, try without privilege escalation (in case user has permissions)
-    if try_systemctl_start().await {
-        // Wait for socket to become available
-        if wait_for_socket(DAEMON_START_TIMEOUT_SECS).await {
-            return Ok(RecoveryResult::Started);
+    // Check actual systemd service state before doing anything.
+    // This avoids blindly firing pkexec when the service crashed on startup.
+    match get_service_state() {
+        ServiceState::Failed => {
+            // Service crashed/failed — pkexec won't fix this, don't prompt
+            return Err(anyhow!(
+                "The Anna service failed to start.\n\n\
+                 This usually means a configuration or dependency issue\n\
+                 on this machine. Check the service status for details."
+            ));
         }
-        // systemctl succeeded but socket still inaccessible — check if it's permissions
-        // (daemon running but /run/anna directory not accessible to this user)
-        let mid_state = check_daemon_state().await;
-        if mid_state == DaemonState::PermissionDenied {
+        ServiceState::NotFound => {
+            return Err(anyhow!(
+                "The Anna service is not installed.\n\n\
+                 Re-run the installer to set it up."
+            ));
+        }
+        ServiceState::Active => {
+            // Service claims to be active but we have no socket — permissions
             return attempt_permission_fix().await;
+        }
+        ServiceState::Inactive | ServiceState::Unknown => {
+            // Service is stopped — attempt to start it via pkexec
         }
     }
 
-    // Try with pkexec for GUI privilege escalation
+    // Use pkexec for privilege escalation to start the service
     if try_pkexec_start().await {
         if wait_for_socket(DAEMON_START_TIMEOUT_SECS).await {
             return Ok(RecoveryResult::Started);
+        }
+        // Socket didn't appear after start — check if permissions issue
+        let mid_state = check_daemon_state().await;
+        if mid_state == DaemonState::PermissionDenied {
+            return attempt_permission_fix().await;
         }
     }
 
@@ -203,18 +222,6 @@ async fn attempt_daemon_start() -> Result<RecoveryResult> {
              or there may be a system configuration issue."
         )),
     }
-}
-
-/// Try to start daemon using systemctl (may fail without privileges)
-async fn try_systemctl_start() -> bool {
-    // Try user's systemctl first (may work if user has permissions)
-    let status = Command::new("systemctl")
-        .args(["start", "annad"])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
-
-    matches!(status, Ok(s) if s.success())
 }
 
 /// Try to start daemon using pkexec (polkit GUI prompt)

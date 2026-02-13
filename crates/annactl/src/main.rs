@@ -5,6 +5,7 @@
 //! v0.3.51: Added fake_daemon for golden transcript testing
 
 mod daemon_recovery;
+mod service_state;
 mod dialogue;
 mod display;
 mod event_renderer;
