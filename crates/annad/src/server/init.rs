@@ -36,9 +36,14 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         info!("Installing Ollama...");
         {
             let mut s = state.write().await;
-            s.init_status = "Installing Ollama (one-time setup, takes a minute)...".to_string();
+            s.init_status = "Installing Ollama (one-time setup, takes a few minutes)...".to_string();
+            s.last_error = None; // clear any previous error before retrying
         }
         ollama::install().await?;
+        {
+            let mut s = state.write().await;
+            s.init_status = "Ollama installed, starting service...".to_string();
+        }
     }
 
     // v0.0.999: Upgrade to GPU variant if needed (e.g., ollama -> ollama-cuda)

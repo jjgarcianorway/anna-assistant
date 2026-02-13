@@ -84,50 +84,54 @@ pub fn is_installed() -> bool {
         .unwrap_or(false)
 }
 
-/// Install Ollama using pacman (Arch Linux)
+/// Install Ollama using pacman (Arch Linux).
+/// Uses spawn_blocking so the download doesn't starve the tokio runtime.
 pub async fn install() -> Result<()> {
     info!("Installing Ollama via pacman...");
 
     let hw = detect_hardware();
-    let packages = match hw.gpu_type {
-        GpuType::NvidiaCuda => vec!["ollama-cuda"],
-        GpuType::AmdRocm => vec!["ollama-rocm"],
-        _ => vec!["ollama"],
+    let pkg = match hw.gpu_type {
+        GpuType::NvidiaCuda => "ollama-cuda",
+        GpuType::AmdRocm => "ollama-rocm",
+        _ => "ollama",
     };
 
-    let mut registry = AnnaRegistry::load();
-
-    for pkg in &packages {
+    let pkg_owned = pkg.to_string();
+    let installed_pkg = tokio::task::spawn_blocking(move || -> Result<String> {
         let output = Command::new("/usr/bin/pacman")
-            .args(["-S", "--noconfirm", "--needed", pkg])
+            .args(["-S", "--noconfirm", "--needed", &pkg_owned])
             .output()
-            .with_context(|| format!("Failed to run /usr/bin/pacman to install {}", pkg))?;
+            .with_context(|| format!("Failed to run /usr/bin/pacman to install {}", pkg_owned))?;
 
         if output.status.success() {
-            info!("Installed package: {}", pkg);
-            registry.add_package(pkg);
-        } else {
-            if *pkg != "ollama" {
-                warn!("{} not available, trying base ollama", pkg);
-                let output = Command::new("/usr/bin/pacman")
-                    .args(["-S", "--noconfirm", "--needed", "ollama"])
-                    .output()
-                    .with_context(|| "Failed to run /usr/bin/pacman to install ollama")?;
-                if output.status.success() {
-                    registry.add_package("ollama");
-                } else {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(anyhow!("pacman failed to install ollama: {}", stderr.trim()));
-                }
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(anyhow!("pacman failed to install {}: {}", pkg, stderr.trim()));
-            }
+            return Ok(pkg_owned);
         }
-    }
 
+        // GPU variant not available — fall back to base ollama
+        if pkg_owned != "ollama" {
+            warn!("{} not available, trying base ollama", pkg_owned);
+            let output = Command::new("/usr/bin/pacman")
+                .args(["-S", "--noconfirm", "--needed", "ollama"])
+                .output()
+                .with_context(|| "Failed to run /usr/bin/pacman to install ollama")?;
+            if output.status.success() {
+                return Ok("ollama".to_string());
+            }
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("pacman failed to install ollama: {}", stderr.trim()));
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(anyhow!("pacman failed to install {}: {}", pkg_owned, stderr.trim()))
+    })
+    .await
+    .with_context(|| "spawn_blocking for pacman panicked")??;
+
+    let mut registry = AnnaRegistry::load();
+    registry.add_package(&installed_pkg);
     registry.save()?;
-    info!("Ollama installed successfully");
+
+    info!("Ollama installed successfully: {}", installed_pkg);
     Ok(())
 }
 

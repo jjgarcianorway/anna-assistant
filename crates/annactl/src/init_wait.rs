@@ -3,24 +3,38 @@
 use anna_shared::status::DaemonState;
 use std::io::Write;
 
-/// Poll daemon status until ready, showing live init_status messages.
-/// Returns immediately if already ready or daemon unreachable.
+/// Poll daemon status until ready.
+/// - Never breaks on transient connection failures (retries indefinitely)
+/// - Shows live init_status from daemon when reachable
+/// - Shows "waiting for daemon" when socket temporarily unavailable
+/// - Only exits when daemon is Ready or after 10 minutes with no response
 pub async fn wait_for_ready() {
-    let status = match crate::rpc::get_status().await {
-        Ok(s) => s,
-        Err(_) => return,
-    };
-
-    if status.state == DaemonState::Ready {
-        return;
+    // Fast path: if daemon is already ready, return immediately
+    if let Ok(s) = crate::rpc::get_status().await {
+        if s.state == DaemonState::Ready {
+            return;
+        }
     }
 
+    // Daemon not ready yet — show live progress until it is
     println!();
     let mut last_msg = String::new();
+    let mut consecutive_errors: u32 = 0;
+    let mut total_secs: u32 = 0;
+    const MAX_WAIT_SECS: u32 = 600; // 10 minutes — enough for large model download
 
     loop {
+        if total_secs >= MAX_WAIT_SECS {
+            // Timed out — clear line, proceed (downstream will show error)
+            print!("\r\x1b[K");
+            let _ = std::io::stdout().flush();
+            break;
+        }
+
         match crate::rpc::get_status().await {
             Ok(s) => {
+                consecutive_errors = 0;
+
                 if s.state == DaemonState::Ready {
                     print!("\r\x1b[K");
                     let _ = std::io::stdout().flush();
@@ -41,9 +55,24 @@ pub async fn wait_for_ready() {
                     last_msg = msg;
                 }
             }
-            Err(_) => break,
+            Err(_) => {
+                // Transient failure — daemon may be busy with pacman/ollama
+                // Keep retrying: do NOT break here
+                consecutive_errors += 1;
+                let msg = if consecutive_errors < 5 {
+                    "Waiting for Anna daemon...".to_string()
+                } else {
+                    format!("Waiting for Anna daemon... ({}s)", total_secs)
+                };
+                if msg != last_msg {
+                    print!("\r\x1b[K\x1b[2m{}\x1b[0m", msg);
+                    let _ = std::io::stdout().flush();
+                    last_msg = msg;
+                }
+            }
         }
 
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        total_secs += 2;
     }
 }

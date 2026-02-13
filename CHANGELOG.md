@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.212] - 2026-02-13
+
+### Fixed — annactl no longer exits during ollama install; pacman no longer blocks tokio
+
+- `wait_for_ready()`: never breaks on connection errors — retries every 2s for up to
+  10 minutes. Was breaking on first RPC failure, causing annactl to exit while ollama
+  was still installing in the background.
+- `install()`: pacman runs via `spawn_blocking` so the download doesn't block tokio
+  worker threads. Socket now stays responsive during multi-minute package downloads.
+- `init.rs`: clears `last_error` at start of each retry, adds "Ollama installed,
+  starting service..." status step between install and start.
+
 ## [0.3.211] - 2026-02-13
 
 ### Fixed — ollama install errors now surface; annactl shows live setup progress
