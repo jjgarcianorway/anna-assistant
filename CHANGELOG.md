@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.208] - 2026-02-13
+
+### Fixed — "os error 2" replaced with specific error context
+
+All command spawns in ollama setup now use absolute paths (/usr/bin/pacman,
+/usr/bin/systemctl) and add context so errors say exactly what failed.
+
+is_installed() no longer depends on `which` — checks /usr/bin/ollama,
+/usr/local/bin/ollama directly, which is reliable in restricted systemd PATH.
+
 ## [0.3.207] - 2026-02-13
 
 ### Fixed — init retries on failure and shows actual error

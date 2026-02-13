@@ -7,7 +7,7 @@ pub use health::{
     upgrade_to_gpu_variant,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
@@ -66,8 +66,16 @@ pub(crate) fn ollama_cmd() -> Command {
 
 /// Check if Ollama is installed
 pub fn is_installed() -> bool {
-    Command::new("which")
-        .arg("ollama")
+    // Check known paths directly — avoids depending on `which` being in PATH
+    if std::path::Path::new("/usr/bin/ollama").exists()
+        || std::path::Path::new("/usr/local/bin/ollama").exists()
+        || std::path::Path::new("/bin/ollama").exists()
+    {
+        return true;
+    }
+    // Fallback: try running it
+    Command::new("ollama")
+        .arg("--version")
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -87,9 +95,10 @@ pub async fn install() -> Result<()> {
     let mut registry = AnnaRegistry::load();
 
     for pkg in &packages {
-        let output = Command::new("pacman")
+        let output = Command::new("/usr/bin/pacman")
             .args(["-S", "--noconfirm", "--needed", pkg])
-            .output()?;
+            .output()
+            .with_context(|| format!("Failed to run /usr/bin/pacman to install {}", pkg))?;
 
         if output.status.success() {
             info!("Installed package: {}", pkg);
@@ -97,12 +106,16 @@ pub async fn install() -> Result<()> {
         } else {
             if *pkg != "ollama" {
                 warn!("{} not available, trying base ollama", pkg);
-                let output = Command::new("pacman")
+                let output = Command::new("/usr/bin/pacman")
                     .args(["-S", "--noconfirm", "--needed", "ollama"])
-                    .output()?;
+                    .output()
+                    .with_context(|| "Failed to run /usr/bin/pacman to install ollama")?;
                 if output.status.success() {
                     registry.add_package("ollama");
                 }
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow!("pacman failed to install {}: {}", pkg, stderr.trim()));
             }
         }
     }
@@ -131,9 +144,10 @@ pub async fn is_running() -> bool {
 pub async fn start_service() -> Result<()> {
     info!("Starting Ollama service...");
 
-    let output = Command::new("systemctl")
+    let output = Command::new("/usr/bin/systemctl")
         .args(["start", "ollama"])
-        .output()?;
+        .output()
+        .with_context(|| "Failed to run /usr/bin/systemctl start ollama")?;
 
     if output.status.success() {
         for _ in 0..30 {
@@ -146,7 +160,8 @@ pub async fn start_service() -> Result<()> {
     }
 
     warn!("systemctl failed, trying direct start");
-    let _child = ollama_cmd().arg("serve").spawn()?;
+    let _child = ollama_cmd().arg("serve").spawn()
+        .with_context(|| "Failed to spawn ollama serve — is ollama installed?")?;
 
     for _ in 0..30 {
         if is_running().await {
