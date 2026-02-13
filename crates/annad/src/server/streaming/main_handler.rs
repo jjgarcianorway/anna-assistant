@@ -131,17 +131,44 @@ pub async fn handle_main_question(
         match &state_guard.model {
             Some(m) => m.clone(),
             None => {
-                // Stream a friendly first-run message instead of an error
-                let init_status = state_guard.init_status.clone();
                 drop(state_guard);
 
-                let msg = format!(
-                    "I'm still getting set up on your system — {}  \
-                    Come back in a few minutes and I'll be ready to help.",
-                    init_status
-                );
+                // Check real system state so the message is accurate
+                let ollama_installed = crate::ollama::is_installed();
+                let ollama_running = if ollama_installed {
+                    crate::ollama::is_running().await
+                } else {
+                    false
+                };
+                let models = if ollama_running {
+                    crate::ollama::list_models().await.unwrap_or_default()
+                } else {
+                    vec![]
+                };
 
-                // Stream word by word so the client renders naturally
+                let msg = if !ollama_installed {
+                    "I'm still setting up — Ollama isn't installed yet. \
+                    This is a one-time step and should finish in a minute or two. \
+                    Come back soon and I'll be ready."
+                        .to_string()
+                } else if !ollama_running {
+                    "Ollama is installed but not running yet — starting it up now. \
+                    Come back in a moment."
+                        .to_string()
+                } else if models.is_empty() {
+                    "Ollama is running but no language model has been downloaded yet. \
+                    The download is in progress — this can take a few minutes on first run. \
+                    Come back soon."
+                        .to_string()
+                } else {
+                    // Models exist but none selected yet (selecting/loading)
+                    format!(
+                        "Almost ready — selecting the best model from: {}. \
+                        Come back in a moment.",
+                        models.join(", ")
+                    )
+                };
+
                 for word in msg.split_whitespace() {
                     let token = StreamingResponse::Token { token: format!("{} ", word) };
                     let json = serde_json::to_string(&token)?;

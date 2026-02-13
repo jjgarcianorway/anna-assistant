@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.205] - 2026-02-13
+
+### Fixed — init status message checks real system state instead of stale flag
+
+The "not ready" message now checks live state: `is_installed()`, `is_running()`,
+`list_models()` — and reports exactly what is missing:
+- Ollama not installed → says so
+- Ollama not running → says so
+- No models downloaded → says so
+- Models present but none selected → lists them
+
 ## [0.3.204] - 2026-02-13
 
 ### Fixed — first-run init message streams naturally instead of returning an error
