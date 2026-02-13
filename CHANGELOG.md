@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.190] - 2026-02-13
+
+### Added
+
+**Full system report** (`full_report.rs`)
+- New `is_full_report_request()` detects "full/complete/detailed/comprehensive" + "report/status/overview/summary"
+- `generate_full_report()` runs live commands and returns multi-section output: OVERVIEW, CPU, MEMORY, DISK, SERVICES, TOP PROCESSES (CPU+MEM), NETWORK, TEMPERATURE, BATTERY, RECENT ERRORS, PACKAGES, ANNA MANAGED
+- `handle_full_report_request` early handler intercepts before `handle_natural_system_query` so "full report" never returns the cached 6-line LiveState summary
+
+**Feature smoke test** (`tests/features.sh`)
+- End-to-end test for all key announced capabilities: full report sections, kernel/RAM/disk/services answers, routing sanity (6 diagnostic questions that must not get CONFIG response), how-to questions, artifact registry query, SSH audit, quick system status, and RAM hallucination check
+
 ## [0.3.189] - 2026-02-13
 
 ### Fixed - Core Query Pipeline: 7 Systematic Bugs

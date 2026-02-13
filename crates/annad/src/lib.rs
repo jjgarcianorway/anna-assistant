@@ -48,6 +48,7 @@ pub fn record_llm_call() {}
 
 pub mod agent_registry;
 pub mod artifact_registry;
+pub mod full_report;
 pub mod automation_creator;
 pub mod battery;
 pub mod gpu_monitor;
