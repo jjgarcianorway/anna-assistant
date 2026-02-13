@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.194] - 2026-02-13
+
+### Fixed
+
+**PDF trigger fires on any mention of "pdf" regardless of query subject**
+- "pdf of my login attempts", "login attempts pdf", "boot times pdf" all triggered the generic system health PDF instead of going to the investigation pipeline.
+- The PDF handler produces ONE fixed output (system health report). It must only fire for requests explicitly about that — not for specific queries that happen to say "pdf".
+- New rule: requires `pdf` + (`report` OR `system`/`health`), or `generate`/`create` + `report`. Specific queries ("pdf of my X") now correctly go to investigation.
+
 ## [0.3.193] - 2026-02-13
 
 ### Fixed — Bug audit (6 fixes)
