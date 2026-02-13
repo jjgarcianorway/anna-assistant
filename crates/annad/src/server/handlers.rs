@@ -158,12 +158,24 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 match &state.model {
                     Some(m) => m.clone(),
                     None => {
-                        let msg = if state.ollama_running {
-                            "Anna is downloading the language model (first run). This takes a few minutes — please wait and try again."
+                        drop(state);
+                        let ollama_installed = crate::ollama::is_installed();
+                        let ollama_running = ollama_installed && crate::ollama::is_running().await;
+                        let models = if ollama_running {
+                            crate::ollama::list_models().await.unwrap_or_default()
                         } else {
-                            "Anna is setting up Ollama and the language model (first run). This takes a few minutes — please wait and try again."
+                            vec![]
                         };
-                        return RpcResponse::error(&request.id, -32603, msg);
+                        let msg = if !ollama_installed {
+                            "I'm still setting up — Ollama isn't installed yet. Come back in a minute or two.".to_string()
+                        } else if !ollama_running {
+                            "Ollama is installed but not running yet — starting it up now. Come back in a moment.".to_string()
+                        } else if models.is_empty() {
+                            "Ollama is running but the language model hasn't downloaded yet. This takes a few minutes on first run. Come back soon.".to_string()
+                        } else {
+                            format!("Almost ready — selecting best model from: {}. Come back in a moment.", models.join(", "))
+                        };
+                        return RpcResponse::error(&request.id, -32603, &msg);
                     }
                 }
             };

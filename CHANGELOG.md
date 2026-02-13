@@ -5,6 +5,13 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.206] - 2026-02-13
+
+### Fixed — live system check in both streaming and non-streaming paths
+
+handlers.rs (non-streaming path) still had the stale `ollama_running` flag.
+Now both paths call `is_installed()`, `is_running()`, `list_models()` live.
+
 ## [0.3.205] - 2026-02-13
 
 ### Fixed — init status message checks real system state instead of stale flag
