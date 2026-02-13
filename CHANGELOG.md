@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.213] - 2026-02-13
+
+### Fixed — 404 from ollama when installed model differs from best_model
+
+Model selection was using `best_model` name (e.g., qwen2.5:7b) even when only a
+different version was installed (e.g., qwen2.5:3b). Ollama returns 404 when asked to
+generate with a model that isn't installed. Now uses the actual installed model name
+when an exact match isn't available.
+
 ## [0.3.212] - 2026-02-13
 
 ### Fixed — annactl no longer exits during ollama install; pacman no longer blocks tokio

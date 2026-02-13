@@ -68,17 +68,16 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     let models = ollama::list_models().await.unwrap_or_default();
     info!("Available models: {:?}", models);
 
-    // v0.0.999: Check if we have the exact best model first, then fall back to family
+    // Pick the model to use: exact match > same family > any installed > pull
+    let best_family = best_model.split(':').next().unwrap_or(best_model);
     let model = if models.iter().any(|m| m == best_model) {
-        // We have the exact best model for this hardware
+        // Exact match — use it
         best_model.to_string()
-    } else if models
-        .iter()
-        .any(|m| m.starts_with(best_model.split(':').next().unwrap_or(best_model)))
-    {
-        // We have a different version of the model family - use the best_model anyway
-        // (it will be pulled if needed)
-        best_model.to_string()
+    } else if let Some(installed) = models.iter().find(|m| m.starts_with(best_family)) {
+        // Same family installed (e.g., qwen2.5:3b when we want qwen2.5:7b)
+        // Use the INSTALLED name — calling with a non-installed name causes 404
+        info!("Using installed {} instead of best_model {}", installed, best_model);
+        installed.clone()
     } else if !models.is_empty() {
         // Use best available model (prefer larger ones)
         let mut sorted = models.clone();
