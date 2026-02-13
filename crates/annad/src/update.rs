@@ -5,8 +5,9 @@ use anyhow::{anyhow, Result};
 use tracing::info;
 
 pub use crate::update_ops::{
-    download_file, get_arch_name, install_binary_pair, rollback_binaries, schedule_daemon_restart,
-    verify_assets_exist, verify_binary_version, verify_checksum, verify_pair_consistency,
+    download_file, get_arch_name, install_binary_pair, patch_service_unit_path,
+    rollback_binaries, schedule_daemon_restart, verify_assets_exist, verify_binary_version,
+    verify_checksum, verify_pair_consistency,
 };
 
 /// GitHub API response for releases
@@ -147,6 +148,9 @@ pub async fn perform_update(new_version: &str) -> Result<()> {
         std::fs::remove_dir_all(&tmp_dir).ok();
         return Err(e);
     }
+
+    // Patch service unit PATH if missing (auto-update doesn't reinstall the service file)
+    patch_service_unit_path();
 
     // Schedule daemon restart
     info!("Scheduling daemon restart...");

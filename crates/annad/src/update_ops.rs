@@ -239,6 +239,38 @@ pub fn rollback_binaries(backup_annactl: &Path, backup_annad: &Path) {
     }
 }
 
+/// Ensure the annad.service unit has PATH= set.
+/// Auto-update replaces binaries but not the service file, so older installs
+/// may be missing PATH= and fail to find system commands like pacman/ollama.
+pub fn patch_service_unit_path() {
+    const SERVICE: &str = "/etc/systemd/system/annad.service";
+    const PATH_LINE: &str =
+        "Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+
+    let content = match std::fs::read_to_string(SERVICE) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    if content.contains(PATH_LINE) {
+        return; // already patched
+    }
+
+    // Insert PATH= after [Service] line
+    let patched = content.replace(
+        "[Service]\n",
+        &format!("[Service]\n{}\n", PATH_LINE),
+    );
+
+    if std::fs::write(SERVICE, &patched).is_ok() {
+        // Reload systemd so the change takes effect on next restart
+        let _ = Command::new("/usr/bin/systemctl")
+            .args(["daemon-reload"])
+            .output();
+        info!("Patched annad.service to add PATH=");
+    }
+}
+
 /// Get the architecture-specific binary name suffix
 pub fn get_arch_name() -> Result<&'static str> {
     let arch = std::env::consts::ARCH;

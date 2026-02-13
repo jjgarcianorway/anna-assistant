@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.210] - 2026-02-13
+
+### Fixed — ollama spawn failure after auto-update on CachyOS
+
+Two issues:
+1. ollama_cmd() now sets PATH= in the child process environment, so ollama
+   is found regardless of what PATH the daemon inherited from systemd
+2. Auto-update now patches annad.service to add PATH= if missing, then
+   does daemon-reload — old installs get fixed without needing curl reinstall
+
 ## [0.3.209] - 2026-02-13
 
 ### Fixed — daemon PATH missing in systemd context (root cause of os error 2)
