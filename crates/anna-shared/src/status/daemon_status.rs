@@ -101,4 +101,10 @@ pub struct DaemonStatus {
     /// v0.3.36: Self-healing recovery metrics
     #[serde(default)]
     pub recovery_status: RecoveryStatus,
+    /// v0.3.211: Current init step (empty when ready)
+    #[serde(default)]
+    pub init_status: String,
+    /// v0.3.211: Last init error (None when no error)
+    #[serde(default)]
+    pub last_error: Option<String>,
 }

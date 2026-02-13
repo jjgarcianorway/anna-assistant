@@ -4,12 +4,14 @@
 //! v0.3.35: Added daemon_recovery for self-healing connection
 //! v0.3.51: Added fake_daemon for golden transcript testing
 
+mod commands;
 mod daemon_recovery;
 mod service_state;
 mod dialogue;
 mod display;
 mod event_renderer;
 mod fake_daemon;
+mod init_wait;
 #[allow(dead_code)]
 mod repair;
 #[allow(dead_code)]
@@ -20,198 +22,17 @@ mod streaming;
 mod telegram;
 mod ui;
 
-use anna_shared::declaration::CapabilityDeclaration;
 use anyhow::Result;
 use display::*;
 use std::io::{self, Write};
 use streaming::ask_streaming;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-/// Format for capability output
-enum CapabilitiesFormat {
-    /// Human-readable plain text
-    Plain,
-    /// Compact onboarding summary
-    Onboarding,
-    /// Deterministic format for diffing
-    Deterministic,
-}
-
-/// Show capability declaration
-fn show_capabilities(format: CapabilitiesFormat) {
-    let decl = CapabilityDeclaration::from_ledger();
-    let output = match format {
-        CapabilitiesFormat::Plain => decl.render_plain_text(),
-        CapabilitiesFormat::Onboarding => decl.render_onboarding(),
-        CapabilitiesFormat::Deterministic => decl.render_deterministic(),
-    };
-    println!("{}", output);
-}
-
-/// Run real-time watch mode.
-/// v0.3.117: Continuous monitoring display.
-async fn run_watch_mode(compact: bool) {
-    use tokio::time::{interval, Duration};
-
-    // Set up Ctrl+C handler
-    let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-    let r = running.clone();
-
-    ctrlc::set_handler(move || {
-        r.store(false, std::sync::atomic::Ordering::SeqCst);
-    }).ok();
-
-    let mut tick = interval(Duration::from_secs(2));
-
-    while running.load(std::sync::atomic::Ordering::SeqCst) {
-        anna_shared::watch::print_watch_frame(compact);
-        tick.tick().await;
-    }
-
-    // Clear screen on exit
-    print!("\x1B[2J\x1B[H");
-    println!("Watch mode ended.");
-}
-
-/// Show capabilities help
-fn show_capabilities_help() {
-    println!();
-    println_colored("CAPABILITY DECLARATION", BOLD);
-    println!();
-    println!("Anna declares her capabilities before acting. This command shows");
-    println!("what Anna can do, cannot do automatically, and will never do.");
-    println!();
-    println!("Usage:");
-    println!("  annactl capabilities             Human-readable declaration");
-    println!("  annactl capabilities --onboarding   Compact summary");
-    println!("  annactl capabilities --deterministic   Diffable format");
-    println!();
-    println!("Why this matters:");
-    println!("  Anna's trust is structural, not promised. This declaration is");
-    println!("  derived directly from the capability ledger and cannot diverge");
-    println!("  from actual behavior. What you see is what Anna can do.");
-    println!();
-}
-
-/// Handle reset command - clears data based on mode
-/// v0.3.20: Added modes per spec (memory, config, models, helpers, everything)
-async fn handle_reset(mode: anna_shared::rpc::ResetMode, skip_confirm: bool) {
-    println!();
-    println_colored("RESET", CYAN);
-    println!();
-
-    // Show what will be reset
-    print!("  mode:          ");
-    println_colored(&format!("{:?}", mode).to_lowercase(), YELLOW);
-    print!("  will reset:    ");
-    println_colored(mode.description(), DIM);
-    println!();
-
-    // Require confirmation for destructive modes
-    if !skip_confirm && mode == anna_shared::rpc::ResetMode::Everything {
-        print_colored("This will delete all Anna data and cannot be undone.", YELLOW);
-        println!();
-        print!("  Type 'yes' to confirm: ");
-        std::io::stdout().flush().ok();
-
-        let mut response = String::new();
-        if std::io::stdin().read_line(&mut response).is_err() {
-            println_colored("Cancelled.", DIM);
-            return;
-        }
-        if response.trim().to_lowercase() != "yes" {
-            println_colored("Reset cancelled.", DIM);
-            println!();
-            return;
-        }
-        println!();
-    }
-
-    match rpc::reset(mode).await {
-        Ok(result) => {
-            println_colored("Reset complete:", GREEN);
-            for item in &result.cleared {
-                println!("  [OK] {}", item);
-            }
-            if let Some(backup) = &result.backup_path {
-                println!();
-                print_colored("  backup saved: ", DIM);
-                println_colored(backup, CYAN);
-            }
-            println!();
-            println_colored("Anna is ready to start fresh.", DIM);
-        }
-        Err(e) => {
-            print_colored("Error: ", RED);
-            println!("{}", e);
-        }
-    }
-    println!();
-}
-
-/// Show reset help
-fn show_reset_help() {
-    println!();
-    println_colored("RESET MODES", BOLD);
-    println!();
-    println!("  annactl reset              Reset everything (with confirmation)");
-    println!("  annactl reset memory       Reset memory only (experiences, patterns)");
-    println!("  annactl reset config       Reset config only (settings to defaults)");
-    println!("  annactl reset models       Reset model preferences");
-    println!("  annactl reset helpers      Reset helper tracking");
-    println!("  annactl reset everything   Full factory reset");
-    println!();
-    println!("  annactl reset --force      Skip confirmation");
-    println!();
-}
-
 /// Handle a question with clarification loop
 /// v0.3.146: Accept session_id parameter for proper --session flag support
 /// Route a question through the daemon. No client-side intent parsing — the LLM classifies.
 async fn handle_question(question: &str, session_id: &str) {
     handle_question_with_clarification(question, false, session_id).await;
-}
-
-/// Handle a PDF report request directly
-async fn handle_pdf_report_request() {
-    println!();
-    print_colored("Generating system health report...", CYAN);
-    println!();
-
-    // Call daemon to generate PDF
-    match rpc::generate_report().await {
-        Ok(path) => {
-            println!();
-            print_colored("✓ Report generated:", GREEN);
-            println!(" {}", path.display());
-            println!();
-            println_colored("The PDF contains:", DIM);
-            println!("  • System health overview");
-            println!("  • 7-day performance trends");
-            println!("  • Predictive alerts and forecasts");
-            println!("  • Personalized recommendations");
-            println!("  • Automated maintenance summary");
-            println!();
-
-            // Check if Telegram is configured
-            if std::path::Path::new("/etc/anna/telegram.env").exists() {
-                print_colored("📤 Sending to Telegram...", CYAN);
-                println!();
-                if let Err(e) = rpc::send_report_to_telegram(&path).await {
-                    print_colored("Note: ", YELLOW);
-                    println!("Could not send to Telegram: {}", e);
-                }
-            }
-        }
-        Err(e) => {
-            print_colored("Error generating report: ", RED);
-            println!("{}", e);
-            println!();
-            print_colored("Tip: ", YELLOW);
-            println!("Make sure the daemon is running and fonts are installed");
-        }
-    }
-    println!();
 }
 
 /// Handle a question with clarification support.
@@ -372,6 +193,14 @@ async fn run_repl() -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
+
+    // Skip version/help commands — they don't need daemon
+    let first_cmd = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    let skip_wait = matches!(first_cmd, "--version" | "-v" | "--help" | "-h" | "help");
+
+    if !skip_wait {
+        init_wait::wait_for_ready().await;
+    }
 
     if args.len() > 1 {
         // v0.3.146: Parse --session flag properly instead of joining everything

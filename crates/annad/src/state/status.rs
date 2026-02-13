@@ -91,6 +91,9 @@ impl StateInner {
             learning_status: Self::get_learning_status(),
             // v0.3.36: Self-healing recovery metrics
             recovery_status: self.recovery_status.clone(),
+            // v0.3.211: Live init progress
+            init_status: self.init_status.clone(),
+            last_error: self.last_error.clone(),
         }
     }
 

@@ -115,6 +115,9 @@ pub async fn install() -> Result<()> {
                     .with_context(|| "Failed to run /usr/bin/pacman to install ollama")?;
                 if output.status.success() {
                     registry.add_package("ollama");
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    return Err(anyhow!("pacman failed to install ollama: {}", stderr.trim()));
                 }
             } else {
                 let stderr = String::from_utf8_lossy(&output.stderr);

@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.211] - 2026-02-13
+
+### Fixed — ollama install errors now surface; annactl shows live setup progress
+
+- `install()`: base ollama failure no longer silently swallowed — returns `Err` so init
+  retries and surfaces the actual pacman error in the status message
+- `DaemonStatus` now exposes `init_status` and `last_error` via RPC
+- `annactl`: polls daemon status on startup when `state == Starting`, displaying the
+  current init step live (Installing Ollama, Starting Ollama, Downloading model, etc.)
+  until the daemon reaches `Ready`
+
 ## [0.3.210] - 2026-02-13
 
 ### Fixed — ollama spawn failure after auto-update on CachyOS
