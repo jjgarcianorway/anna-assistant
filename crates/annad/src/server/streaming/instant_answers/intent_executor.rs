@@ -74,14 +74,19 @@ pub async fn classify_and_execute(
     let response = match crate::ollama::chat_with_timeout(&model, &prompt, 8).await {
         Ok(r) => r,
         Err(e) => {
+            // LLM unavailable — don't fall through to main pipeline (it will also fail
+            // and return "no matching capability"). Return a clear error instead.
             debug!("Command planning failed: {}", e);
-            return Ok(false);
+            send_answer(writer, "Anna is recovering from an Ollama outage — please try again in a moment.".to_string()).await?;
+            return Ok(true);
         }
     };
 
     let commands = parse_commands(&response);
     debug!("Planned {} command(s) for '{}'", commands.len(), question);
 
+    // Empty result means the LLM decided this isn't a system command query
+    // (e.g. "how do I configure nginx?") — fall through to main pipeline.
     if commands.is_empty() {
         return Ok(false);
     }

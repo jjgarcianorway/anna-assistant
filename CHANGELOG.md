@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.237] - 2026-02-14
+
+### Fixed — "no matching capability" when Ollama is recovering
+
+- When LLM command planner times out (Ollama offline/recovering), now returns
+  "Anna is recovering — please try again" instead of falling through to the
+  main pipeline which also fails and returns "no matching capability"
+- Distinguishes: LLM timeout (infrastructure issue) vs LLM returned no commands
+  (how-to question that should fall through to main pipeline)
+
 ## [0.3.236] - 2026-02-14
 
 ### Changed — Replace fixed intent enum with LLM command planner
