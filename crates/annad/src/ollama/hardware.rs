@@ -114,46 +114,83 @@ fn detect_ram() -> u64 {
     8 // Default fallback
 }
 
-/// Select the best model based on hardware
-/// v0.0.907: Considers GPU+RAM hybrid execution for larger models
+/// Approximate parameter count in billions for a model name string.
+/// Used to rank installed models by size.
+fn model_params_b(name: &str) -> f32 {
+    let lower = name.to_lowercase();
+    for tag in &["72b","70b","32b","30b","27b","22b","14b","13b","12b","11b","8b","7b","6b","4b","3.8b","3b","2b","1.5b","1b","0.5b"] {
+        if lower.contains(tag) {
+            return tag.trim_end_matches('b').parse().unwrap_or(0.0);
+        }
+    }
+    // Unknown size — treat as medium
+    7.0
+}
+
+/// Maximum safe parameter count for CPU-only inference with <15s response time.
+/// Even on a fast CPU, a 7b model takes ~60s. 3b is the practical limit.
+fn cpu_max_params_b() -> f32 { 3.0 }
+
+/// Maximum safe parameter count given available VRAM (in MB).
+fn gpu_max_params_b(vram_mb: u64) -> f32 {
+    let vram_gb = (vram_mb + 512) / 1024;
+    match vram_gb {
+        0..=1  => 1.5,
+        2..=3  => 3.0,
+        4..=5  => 7.0,
+        6..=7  => 7.0,
+        8..=11 => 8.0,
+        12..=23 => 14.0,
+        _ => 32.0,
+    }
+}
+
+/// Select the best already-installed model that fits in available memory.
+/// Prefers larger (better quality) models within the hardware limit.
+/// Falls back to `select_best_model` target if nothing installed matches.
+pub fn select_from_installed(hw: &HardwareInfo, installed: &[String]) -> String {
+    let max_params = match hw.gpu_type {
+        GpuType::CpuOnly => cpu_max_params_b(),
+        _ => gpu_max_params_b(hw.vram_mb),
+    };
+
+    // Filter installed models to those that fit, sort largest-first
+    let mut candidates: Vec<(&String, f32)> = installed.iter()
+        .map(|m| (m, model_params_b(m)))
+        .filter(|(_, p)| *p > 0.0 && *p <= max_params)
+        .collect();
+    candidates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    if let Some((best, params)) = candidates.first() {
+        info!("Selected installed model {} ({:.1}B) within {:.1}B limit", best, params, max_params);
+        return best.to_string();
+    }
+
+    // Nothing installed fits — return the ideal target to download
+    let fallback = select_best_model(hw);
+    info!("No suitable installed model found, will download {}", fallback);
+    fallback.to_string()
+}
+
+/// Ideal model target based on hardware (may need to be downloaded).
+/// NOTE: For CPU-only, capped at 3b — larger models exceed response time limits.
 pub fn select_best_model(hw: &HardwareInfo) -> &'static str {
     let vram_gb = (hw.vram_mb + 512) / 1024;
-    let _total_memory_gb = vram_gb + hw.ram_gb;
 
     match hw.gpu_type {
         GpuType::NvidiaCuda | GpuType::AmdRocm | GpuType::IntelArc => {
-            if vram_gb >= 24 {
-                "qwen2.5:32b"
-            } else if vram_gb >= 12 {
-                "qwen2.5:14b"
-            } else if vram_gb >= 8 {
-                "qwen2.5:7b"
-            } else if vram_gb >= 6 && hw.ram_gb >= 16 {
-                "qwen2.5:7b"
-            } else if vram_gb >= 4 {
-                if hw.ram_gb >= 16 {
-                    "qwen2.5:7b"
-                } else {
-                    "qwen2.5:3b"
-                }
-            } else if vram_gb >= 2 {
-                "qwen2.5:3b"
-            } else {
-                "qwen2.5:1.5b"
-            }
+            if vram_gb >= 24 { "qwen2.5:32b" }
+            else if vram_gb >= 12 { "qwen2.5:14b" }
+            else if vram_gb >= 8 { "qwen2.5:7b" }
+            else if vram_gb >= 4 { "qwen2.5:7b" }
+            else if vram_gb >= 2 { "qwen2.5:3b" }
+            else { "qwen2.5:1.5b" }
         }
+        // CPU-only: hard cap at 3b — 7b+ causes constant timeouts on any CPU
         GpuType::CpuOnly => {
-            if hw.ram_gb >= 48 {
-                "qwen2.5:14b"
-            } else if hw.ram_gb >= 32 {
-                "qwen2.5:7b"
-            } else if hw.ram_gb >= 16 {
-                "qwen2.5:3b"
-            } else if hw.ram_gb >= 8 {
-                "qwen2.5:1.5b"
-            } else {
-                "qwen2.5:0.5b"
-            }
+            if hw.ram_gb >= 16 { "qwen2.5:3b" }
+            else if hw.ram_gb >= 8 { "qwen2.5:1.5b" }
+            else { "qwen2.5:0.5b" }
         }
     }
 }

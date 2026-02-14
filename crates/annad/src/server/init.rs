@@ -139,20 +139,23 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     let models = ollama::list_models().await.unwrap_or_default();
     info!("Available models: {:?}", models);
 
-    // Pick the model to use: exact match > same family > any installed > pull
-    let best_family = best_model.split(':').next().unwrap_or(best_model);
-    let model = if models.iter().any(|m| m == best_model) {
-        best_model.to_string()
-    } else if let Some(installed) = models.iter().find(|m| m.starts_with(best_family)) {
-        info!("Using installed {} instead of best_model {}", installed, best_model);
-        installed.clone()
-    } else if !models.is_empty() {
-        let mut sorted = models.clone();
-        sorted.sort_by(|a, b| {
-            extract_model_size(b).cmp(&extract_model_size(a))
-        });
-        sorted[0].clone()
+    // Pick the best model that fits in available memory, preferring already-installed.
+    // select_from_installed respects CPU/GPU limits — never picks a model too large to respond in time.
+    let model = if !models.is_empty() {
+        let selected = ollama::select_from_installed(&hw, &models);
+        if models.iter().any(|m| *m == selected) {
+            info!("Using installed model: {}", selected);
+            selected
+        } else {
+            // selected is a download target — fall through to pull
+            String::new()
+        }
+    } else { String::new() };
+
+    let model = if !model.is_empty() {
+        model
     } else {
+        let best_model = best_model; // shadow to keep borrow
         // No models - pull the best one for this hardware
         info!("No models found, pulling {}...", best_model);
         let model_size_gb = extract_model_size(best_model);

@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.238] - 2026-02-14
+
+### Fixed — Model selection ignoring hardware limits (root cause of timeouts)
+
+- CPU-only systems: hard cap at 3b parameters (was selecting 7b/14b which take 60s+ per response)
+- New `select_from_installed()`: picks the best already-installed model that fits in memory
+  → prefers larger for quality, never exceeds hardware response-time limits
+  → works with any installed model (mistral, phi, gemma, qwen, llama — anything)
+- Init now uses `select_from_installed` instead of "pick largest installed"
+- Eliminates the primary cause of LLM timeouts on lower-powered machines
+
 ## [0.3.237] - 2026-02-14
 
 ### Fixed — "no matching capability" when Ollama is recovering
