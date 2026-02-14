@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.232] - 2026-02-14
+
+### Fixed — system update now executes instead of describing
+
+- Restored system update handler as instant answer — now EXECUTES `pacman -Syu` (daemon runs as root, no sudo needed)
+- Detects and runs installed AUR helper (`paru`/`yay`/etc.) via `runuser` as real user
+- "update my system including AUR packages" → actually runs the update, shows output
+
 ## [0.3.231] - 2026-02-14
 
 ### Fixed — instant answer bugs found by systematic testing

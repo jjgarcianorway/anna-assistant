@@ -122,6 +122,63 @@ pub async fn try_ops_answer(
         return Ok(true);
     }
 
+    // --- SYSTEM UPDATE (executes directly — daemon runs as root) ---
+    if q.contains("update") && (q.contains("system") || q.contains("package") || q.contains("aur")
+        || q.contains("safely") || q.contains("everything"))
+    {
+        let username = crate::user_context::get_real_user().unwrap_or_else(|_| "root".to_string());
+
+        // Check for updates first
+        let available = run_shell("checkupdates 2>/dev/null | wc -l || pacman -Qu 2>/dev/null | wc -l")
+            .unwrap_or_default();
+        let count: u32 = available.trim().parse().unwrap_or(0);
+
+        if count == 0 {
+            // Check AUR separately
+            let aur_helper = ["paru", "yay", "pikaur", "trizen", "aurman"]
+                .iter()
+                .find(|&&h| run_shell(&format!("which {} 2>/dev/null", h)).map(|s| !s.trim().is_empty()).unwrap_or(false))
+                .map(|&h| h.to_string());
+            let aur_msg = aur_helper.map(|h| {
+                let out = run_shell(&format!("runuser -l {} -c '{} -Qu 2>/dev/null | wc -l'", username, h)).unwrap_or_default();
+                let n: u32 = out.trim().parse().unwrap_or(0);
+                if n == 0 { "No AUR updates available.".to_string() }
+                else { format!("{} AUR packages have updates.", n) }
+            }).unwrap_or_default();
+
+            let msg = if aur_msg.is_empty() {
+                "System is up to date. No updates available.".to_string()
+            } else {
+                format!("Official packages up to date. {}", aur_msg)
+            };
+            send_answer(writer, msg).await?;
+            return Ok(true);
+        }
+
+        // Run pacman -Syu (daemon is root, no sudo needed)
+        let pacman_out = run_shell("pacman -Syu --noconfirm 2>&1 | tail -20").unwrap_or_default();
+
+        // Run AUR helper as real user
+        let aur_helper = ["paru", "yay", "pikaur", "trizen", "aurman"]
+            .iter()
+            .find(|&&h| run_shell(&format!("which {} 2>/dev/null", h)).map(|s| !s.trim().is_empty()).unwrap_or(false))
+            .map(|&h| h.to_string());
+
+        let aur_out = if let Some(ref h) = aur_helper {
+            run_shell(&format!("runuser -l {} -c '{} -Syu --noconfirm 2>&1 | tail -20'", username, h))
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+
+        let mut parts = vec![format!("pacman -Syu:\n```\n{}\n```", pacman_out.trim())];
+        if !aur_out.trim().is_empty() {
+            parts.push(format!("{} -Syu:\n```\n{}\n```", aur_helper.as_deref().unwrap_or("AUR"), aur_out.trim()));
+        }
+        send_answer(writer, parts.join("\n\n")).await?;
+        return Ok(true);
+    }
+
     // --- SYSTEM ERRORS IN LOGS ---
     if q.contains("log") && (q.contains("error") || q.contains("check")) {
         let output = run_cmd("journalctl", &["-p", "err", "-n", "20", "--no-pager"])?;
