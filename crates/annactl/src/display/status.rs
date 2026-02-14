@@ -28,8 +28,9 @@ pub async fn print_status() {
             print_models_section(&status, exposure);
         }
         Err(_) => {
-            // Daemon unreachable - show SERVICE section with error
+            // Daemon unreachable - show VERSION (client only) + SERVICE
             println!();
+            print_version_offline();
             print_service_offline();
         }
     }
@@ -72,9 +73,8 @@ fn print_version_section(status: &DaemonStatus, _exposure: ExposureLevel) {
     println!();
 }
 
-/// Section 2: UPDATES (requires Summary+)
-fn print_updates_section(status: &DaemonStatus, exposure: ExposureLevel) {
-    if exposure < ExposureLevel::Summary { return; }
+/// Section 2: UPDATES (always shown when daemon is reachable)
+fn print_updates_section(status: &DaemonStatus, _exposure: ExposureLevel) {
 
     println_colored("UPDATES", CYAN);
 
@@ -119,10 +119,8 @@ fn print_updates_section(status: &DaemonStatus, exposure: ExposureLevel) {
     println!();
 }
 
-/// Section 3: SERVICE (requires Summary+)
-fn print_service_section(status: &DaemonStatus, exposure: ExposureLevel) {
-    if exposure < ExposureLevel::Summary { return; }
-
+/// Section 3: SERVICE (always shown when daemon is reachable)
+fn print_service_section(status: &DaemonStatus, _exposure: ExposureLevel) {
     println_colored("SERVICE", CYAN);
 
     // daemon
@@ -173,6 +171,16 @@ fn print_service_section(status: &DaemonStatus, exposure: ExposureLevel) {
         println_colored("none", DIM);
     }
 
+    println!();
+}
+
+/// VERSION section when daemon is offline (client version only)
+fn print_version_offline() {
+    println_colored("VERSION", CYAN);
+    print!("  annactl:      ");
+    println_colored(env!("CARGO_PKG_VERSION"), GREEN);
+    print!("  annad:        ");
+    println_colored("unreachable", YELLOW);
     println!();
 }
 

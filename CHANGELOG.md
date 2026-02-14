@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.240] - 2026-02-14
+
+### Fixed — annactl status polish
+- VERSION section now shown when daemon is unreachable (shows annactl version + "unreachable" for annad)
+- UPDATES and SERVICE sections now always shown when daemon is reachable (no longer gated behind Summary exposure level)
+
 ## [0.3.239] - 2026-02-14
 
 ### Fixed — Embedding models selected for chat (nomic-embed-text bad request)
