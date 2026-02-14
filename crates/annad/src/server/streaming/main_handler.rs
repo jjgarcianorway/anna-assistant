@@ -407,11 +407,36 @@ pub async fn handle_main_question(
             }
         }
         Err(e) => {
-            // v0.3.30: Always attempt to send Error, don't propagate failures
-            // This ensures the client gets a terminal response even if writes are flaky
-            let response = StreamingResponse::Error {
-                message: format!("Execution error: {}", e),
+            let err_str = e.to_string().to_lowercase();
+            let is_infra = err_str.contains("404")
+                || err_str.contains("connection")
+                || err_str.contains("refused")
+                || err_str.contains("circuit breaker")
+                || (err_str.contains("model") && err_str.contains("not found"));
+
+            // Reset state so init loop triggers automatic recovery
+            if is_infra {
+                let s = state.clone();
+                tokio::spawn(async move {
+                    let mut guard = s.write().await;
+                    guard.model = None;
+                    guard.state = anna_shared::status::DaemonState::Starting;
+                    guard.init_status =
+                        "Ollama unavailable — recovering automatically...".to_string();
+                });
+            }
+
+            let user_msg = if err_str.contains("404") || (err_str.contains("model") && err_str.contains("not found")) {
+                "The model is not available. Anna is recovering automatically — please try again in a moment.".to_string()
+            } else if err_str.contains("connection") || err_str.contains("refused") {
+                "Ollama is not running. Anna is reinstalling and restarting it automatically — please try again in a moment.".to_string()
+            } else if err_str.contains("circuit breaker") {
+                "Ollama is temporarily unavailable. Anna is attempting recovery automatically — please try again in a moment.".to_string()
+            } else {
+                format!("Execution error: {}", e)
             };
+
+            let response = StreamingResponse::Error { message: user_msg };
             if let Ok(json) = serde_json::to_string(&response) {
                 let _ = writer.write_all(format!("{}\n", json).as_bytes()).await;
                 let _ = writer.flush().await;

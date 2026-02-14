@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.221] - 2026-02-14
+
+### Fixed — self-healing was missing from the streaming path
+
+v0.3.219 added infrastructure-error detection and state reset in handlers.rs,
+but ALL real queries go through the streaming handler (main_handler.rs), which
+had no such handling. Errors propagated as raw "Execution error: 404 Ollama
+request failed" with no recovery.
+
+main_handler.rs Err branch now:
+1. Detects 404/connection-refused/circuit-breaker as infrastructure failures
+2. Resets state.model=None, state=Starting to wake the monitoring loop
+3. Returns a user-friendly recovery message instead of the raw error
+
 ## [0.3.220] - 2026-02-14
 
 ### Fixed — real-time model download progress
