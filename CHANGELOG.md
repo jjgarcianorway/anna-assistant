@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.236] - 2026-02-14
+
+### Changed — Replace fixed intent enum with LLM command planner
+
+- intent_executor.rs: 398 lines → 187 lines, no hardcoded intents
+- Single LLM call returns JSON array of shell commands to run
+  → works for any question without case-by-case additions
+- Daemon runs the commands directly (no ExposureGate, no "no matching capability")
+- Only hard-coded path: system update (mutating, needs direct execution)
+- Blocked command list prevents destructive operations regardless of LLM output
+
 ## [0.3.235] - 2026-02-14
 
 ### Fixed — "how is my system today?" and "pending updates?"
