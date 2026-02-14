@@ -105,37 +105,44 @@ impl Server {
                             };
 
                             if model_gone || state_not_ready || ollama_dead || model_deleted {
-                                if ollama_dead && !model_gone {
-                                    // Proactively update state so the UI shows the right message
-                                    let mut s = init_state.write().await;
-                                    s.model = None;
-                                    s.state = DaemonState::Starting;
-                                    s.init_status = "Ollama stopped — recovering...".to_string();
+                                let reason = if ollama_dead {
+                                    "Ollama service stopped — Anna is reinstalling or restarting it automatically.".to_string()
                                 } else if model_deleted {
-                                    let model_name = current_model.unwrap_or_default();
+                                    format!(
+                                        "Model '{}' was removed — Anna is re-downloading it automatically.",
+                                        current_model.as_deref().unwrap_or("unknown")
+                                    )
+                                } else if model_gone {
+                                    "Language model unavailable — Anna is recovering.".to_string()
+                                } else {
+                                    "Anna detected an inconsistent state and is re-initializing.".to_string()
+                                };
+
+                                {
                                     let mut s = init_state.write().await;
                                     s.model = None;
                                     s.state = DaemonState::Starting;
-                                    s.init_status = format!(
-                                        "Model '{}' was removed — re-downloading automatically...",
-                                        model_name
-                                    );
+                                    s.init_status = reason.clone();
+                                    s.last_error = None;
                                 }
                                 info!(
-                                    "Health check: model_gone={} state_not_ready={} ollama_dead={} model_deleted={} — re-initializing",
-                                    model_gone, state_not_ready, ollama_dead, model_deleted
+                                    "Health check triggered re-init: model_gone={} state_not_ready={} ollama_dead={} model_deleted={} reason={}",
+                                    model_gone, state_not_ready, ollama_dead, model_deleted, reason
                                 );
                                 break;
                             }
                         }
                     }
                     Err(e) => {
-                        let msg = format!("Setup error: {}", e);
-                        error!("{}", msg);
+                        let err_msg = e.to_string();
+                        error!("Init error: {}", err_msg);
                         {
                             let mut s = init_state.write().await;
-                            s.init_status = msg;
-                            s.last_error = Some(e.to_string());
+                            s.init_status = format!(
+                                "Recovery failed: {} — retrying automatically in 60 seconds...",
+                                err_msg
+                            );
+                            s.last_error = Some(err_msg);
                         }
                         // Retry after 60s — transient failures (network, pacman lock) usually resolve
                         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;

@@ -158,25 +158,15 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 match &state.model {
                     Some(m) => m.clone(),
                     None => {
-                        let last_error = state.last_error.clone();
-                        drop(state);
-                        let ollama_installed = crate::ollama::is_installed();
-                        let ollama_running = ollama_installed && crate::ollama::is_running().await;
-                        let models = if ollama_running {
-                            crate::ollama::list_models().await.unwrap_or_default()
+                        // Use init_status directly — it's updated at every healing step
+                        // (installing ollama, starting service, downloading model, etc.)
+                        // with step numbers, ETAs, and reason. Fall back to last_error if set.
+                        let msg = if let Some(ref err) = state.last_error {
+                            format!("Anna is recovering (retrying automatically): {}", err)
+                        } else if !state.init_status.is_empty() && state.init_status != "Ready" {
+                            state.init_status.clone()
                         } else {
-                            vec![]
-                        };
-                        let msg = if let Some(ref err) = last_error {
-                            format!("Setup ran into a problem and is retrying automatically: {}", err)
-                        } else if !ollama_installed {
-                            "Still setting up — Ollama is being installed in the background.".to_string()
-                        } else if !ollama_running {
-                            "Ollama is installed but not running yet — starting it now.".to_string()
-                        } else if models.is_empty() {
-                            "Ollama is running, downloading the language model now. This can take several minutes on first run.".to_string()
-                        } else {
-                            format!("Almost ready — loading model from: {}.", models.join(", "))
+                            "Anna is initializing — please try again in a moment.".to_string()
                         };
                         return RpcResponse::error(&request.id, -32603, &msg);
                     }

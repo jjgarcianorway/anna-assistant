@@ -72,37 +72,67 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         };
     }
 
-    // Install ollama if needed (will pick cuda/rocm variant based on GPU)
-    if !ollama::is_installed() {
+    // Determine total steps so user sees "step X of Y"
+    let ollama_missing = !ollama::is_installed();
+    let total_steps: u8 = if ollama_missing { 4 } else { 3 };
+    let mut step: u8 = 1;
+
+    // Step: clear previous error before retry
+    {
+        let mut s = state.write().await;
+        s.last_error = None;
+    }
+
+    // Step: Install ollama if needed
+    if ollama_missing {
         info!("Installing Ollama...");
         {
             let mut s = state.write().await;
-            s.init_status = "Installing Ollama (one-time setup, takes 2-5 minutes)...".to_string();
-            s.last_error = None; // clear any previous error before retrying
+            s.init_status = format!(
+                "[{}/{}] Installing ollama via pacman — takes 2–5 min...",
+                step, total_steps
+            );
         }
         ollama::install().await?;
+        step += 1;
         {
             let mut s = state.write().await;
-            s.init_status = "Ollama installed, starting service...".to_string();
+            s.init_status = format!(
+                "[{}/{}] Ollama installed — starting service...",
+                step, total_steps
+            );
         }
     }
 
-    // v0.0.999: Upgrade to GPU variant if needed (e.g., ollama -> ollama-cuda)
+    // Step: Upgrade to GPU variant if needed (e.g., ollama -> ollama-cuda)
     if let Some(pkg) = ollama::needs_gpu_variant_upgrade() {
         info!("GPU detected but {} not installed - upgrading...", pkg);
+        {
+            let mut s = state.write().await;
+            s.init_status = format!(
+                "[{}/{}] GPU detected — upgrading to {} for acceleration...",
+                step, total_steps, pkg
+            );
+        }
         if let Err(e) = ollama::upgrade_to_gpu_variant().await {
             warn!("Failed to upgrade to {}: {}", pkg, e);
         }
     }
 
-    // Start ollama if not running
+    // Step: Start ollama if not running
     if !ollama::is_running().await {
         info!("Starting Ollama...");
         {
             let mut s = state.write().await;
-            s.init_status = "Starting Ollama...".to_string();
+            s.init_status = format!(
+                "[{}/{}] Starting ollama service — usually takes a few seconds...",
+                step, total_steps
+            );
         }
         ollama::start_service().await?;
+        step += 1;
+    } else {
+        step += 1;
     }
 
     // Check what models are available
@@ -112,30 +142,35 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     // Pick the model to use: exact match > same family > any installed > pull
     let best_family = best_model.split(':').next().unwrap_or(best_model);
     let model = if models.iter().any(|m| m == best_model) {
-        // Exact match — use it
         best_model.to_string()
     } else if let Some(installed) = models.iter().find(|m| m.starts_with(best_family)) {
-        // Same family installed (e.g., qwen2.5:3b when we want qwen2.5:7b)
-        // Use the INSTALLED name — calling with a non-installed name causes 404
         info!("Using installed {} instead of best_model {}", installed, best_model);
         installed.clone()
     } else if !models.is_empty() {
-        // Use best available model (prefer larger ones)
         let mut sorted = models.clone();
         sorted.sort_by(|a, b| {
-            let size_a = extract_model_size(a);
-            let size_b = extract_model_size(b);
-            size_b.cmp(&size_a) // Larger first
+            extract_model_size(b).cmp(&extract_model_size(a))
         });
         sorted[0].clone()
     } else {
         // No models - pull the best one for this hardware
         info!("No models found, pulling {}...", best_model);
+        let model_size_gb = extract_model_size(best_model);
+        let eta = if model_size_gb >= 7 { "5–15 min" } else { "2–5 min" };
+        {
+            let mut s = state.write().await;
+            s.init_status = format!(
+                "[{}/{}] Downloading {} — estimated {} on first install...",
+                step, total_steps, best_model, eta
+            );
+        }
         let pull_state = state.clone();
+        let step_total = format!("[{}/{}] ", step, total_steps);
         ollama::pull_model_with_progress(best_model, move |msg| {
             let s = pull_state.clone();
+            let prefix = step_total.clone();
             tokio::spawn(async move {
-                s.write().await.init_status = msg;
+                s.write().await.init_status = format!("{}{}", prefix, msg);
             });
         }).await?;
         best_model.to_string()
@@ -143,10 +178,13 @@ pub async fn initialize(state: SharedState) -> Result<()> {
 
     info!("Using model: {}", model);
 
-    // Verify model actually responds before marking Ready
+    // Final step: load model into memory and verify it responds
     {
         let mut s = state.write().await;
-        s.init_status = format!("Loading {} into memory...", model);
+        s.init_status = format!(
+            "[{}/{}] Loading {} into memory — cold start takes 30–120 sec...",
+            total_steps, total_steps, model
+        );
     }
     ollama::test_model(&model).await
         .map_err(|e| anyhow!("Model health check failed: {}", e))?;

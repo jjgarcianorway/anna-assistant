@@ -5,6 +5,34 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.227] - 2026-02-14
+
+### Fixed — rich self-healing communication to user
+
+**annad runs as root**: No `User=` in systemd service — annad has full system privileges to
+install packages, restart services, and manage files without pkexec. Nothing blocks it from
+autonomous recovery.
+
+**handlers.rs: use init_status as the user message**: Previously, when a user asked a
+question while healing, handlers.rs ignored `state.init_status` and returned generic
+hardcoded strings. Now uses `init_status` directly — so the user sees the exact step Anna
+is on, e.g. `"[2/3] Starting ollama service..."` instead of `"Starting up..."`.
+
+**init.rs: structured step messages with ETAs**: All init_status messages now include
+step numbers and time estimates:
+- `[1/4] Installing ollama via pacman — takes 2–5 min...`
+- `[2/4] Starting ollama service — usually takes a few seconds...`
+- `[3/4] Downloading qwen2.5:7b — estimated 5–15 min on first install...`
+- `[3/4] Downloading qwen2.5:7b: 42%  (3.1 GB of 7.3 GB)`
+- `[4/4] Loading qwen2.5:7b into memory — cold start takes 30–120 sec...`
+
+**server/mod.rs: what-broke context in re-init messages**: When the 30s health check
+triggers re-initialization, the reason is now set immediately in init_status before
+re-init begins:
+- `"Ollama service stopped — Anna is reinstalling or restarting it automatically."`
+- `"Model 'X' was removed — Anna is re-downloading it automatically."`
+- `"Recovery failed: <error> — retrying automatically in 60 seconds..."`
+
 ## [0.3.226] - 2026-02-14
 
 ### Fixed — self-healing reliability and user communication
