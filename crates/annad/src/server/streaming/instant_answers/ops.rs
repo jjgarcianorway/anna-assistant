@@ -123,9 +123,13 @@ pub async fn try_ops_answer(
     }
 
     // --- SYSTEM UPDATE (executes directly — daemon runs as root) ---
-    if q.contains("update") && (q.contains("system") || q.contains("package") || q.contains("aur")
-        || q.contains("safely") || q.contains("everything"))
-    {
+    // Catches: "update my system", "run arch-update", "arch-update", "update packages", etc.
+    let is_update_request = (q.contains("update") && (q.contains("system") || q.contains("package")
+        || q.contains("aur") || q.contains("safely") || q.contains("everything")
+        || q.contains("arch") || q.contains("run")))
+        || q.trim() == "arch-update"
+        || q.contains("arch-update");
+    if is_update_request {
         let username = crate::user_context::get_real_user().unwrap_or_else(|_| "root".to_string());
 
         // Check for updates first
@@ -152,6 +156,18 @@ pub async fn try_ops_answer(
                 format!("Official packages up to date. {}", aur_msg)
             };
             send_answer(writer, msg).await?;
+            return Ok(true);
+        }
+
+        // If arch-update is installed, use it (handles everything including AUR)
+        let has_arch_update = run_shell("which arch-update 2>/dev/null")
+            .map(|s| !s.trim().is_empty()).unwrap_or(false);
+
+        if has_arch_update {
+            let out = run_shell(&format!(
+                "runuser -l {} -c 'arch-update 2>&1 | tail -30'", username
+            )).unwrap_or_default();
+            send_answer(writer, format!("arch-update:\n```\n{}\n```", out.trim())).await?;
             return Ok(true);
         }
 
