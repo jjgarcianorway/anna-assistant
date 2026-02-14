@@ -64,6 +64,18 @@ fn build_system_context() -> String {
         "unknown"
     };
 
+    let aur_helper = ["paru", "yay", "pikaur", "trizen", "aurman"]
+        .iter()
+        .find(|&&h| {
+            std::process::Command::new("which")
+                .arg(h)
+                .output()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        })
+        .map(|&h| h.to_string())
+        .unwrap_or_else(|| "none".to_string());
+
     let init = if std::path::Path::new("/run/systemd/system").exists() {
         "systemd"
     } else {
@@ -76,6 +88,7 @@ fn build_system_context() -> String {
          Desktop: {de} on {session_type}\n\
          Display manager: {dm}\n\
          Package manager: {pkg_mgr}\n\
+         AUR helper: {aur_helper}\n\
          Init: {init}\n\
          \n\
          You are an AGENT that DOES things, not just answers questions.\n\

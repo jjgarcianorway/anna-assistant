@@ -119,18 +119,6 @@ pub async fn try_ops_answer(
         return Ok(true);
     }
 
-    // --- SAFE SYSTEM UPDATE (Q42 timeout fix) ---
-    if q.contains("update") && (q.contains("system") || q.contains("safely") || q.contains("safe")) {
-        let available = run_shell("checkupdates 2>/dev/null | head -20 || pacman -Qu 2>/dev/null | head -20").unwrap_or_default();
-        let answer = if available.trim().is_empty() {
-            "System is up to date. No updates available.".to_string()
-        } else {
-            format!("Available updates:\n```\n{}\n```\nUpdate command: `sudo pacman -Syu` (Arch) or `sudo apt upgrade` (Debian/Ubuntu). Review changes before proceeding.", available.trim())
-        };
-        send_answer(writer, answer).await?;
-        return Ok(true);
-    }
-
     // --- SYSTEM ERRORS IN LOGS ---
     if q.contains("log") && (q.contains("error") || q.contains("check")) {
         let output = run_cmd("journalctl", &["-p", "err", "-n", "20", "--no-pager"])?;

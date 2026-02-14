@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.230] - 2026-02-14
+
+### Fixed — AUR update: Anna no longer hallucinates yaourt or shows sudo commands
+
+- Removed instant answer for "update system" — was showing `sudo pacman -Syu` and ignoring AUR
+- Added AUR helper detection to LLM system context (`paru`/`yay`/etc.)
+- LLM now knows the exact AUR helper installed and uses it correctly
+- "Update my system including AUR packages" → executes the actual update
+
 ## [0.3.229] - 2026-02-14
 
 ### Fixed — no more "try again": Anna auto-recovers and re-answers in the same query
