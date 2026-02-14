@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.229] - 2026-02-14
+
+### Fixed — no more "try again": Anna auto-recovers and re-answers in the same query
+
+When ollama crashes or goes offline during a query, Anna now:
+1. Immediately starts self-healing (clears model state → init loop re-runs)
+2. Streams live recovery progress ON THE SAME CONNECTION: "Ollama went offline —
+   restarting automatically... [1/3] Starting ollama service... [2/3] Loading model..."
+3. Once recovered, automatically re-executes the original question — user never has to retry
+
+The "please try again in a moment" / "send your question again" messages are gone.
+Also removed duplicate cache check and unused session_context variable from main_handler.rs.
+Split recovery logic into recovery_handler.rs to keep both files under 400 lines.
+
 ## [0.3.228] - 2026-02-14
 
 ### Fixed — init_status in the actual streaming handler

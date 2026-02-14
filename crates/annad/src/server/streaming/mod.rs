@@ -10,5 +10,6 @@ mod handlers;
 mod helpers;
 mod instant_answers;
 mod main_handler;
+mod recovery_handler;
 
 pub use handlers::handle_streaming_request;

@@ -113,18 +113,6 @@ pub async fn handle_main_question(
         }
     }
 
-    // Get session context (LLM will understand references naturally)
-    // v0.3.138: Removed hardcoded expand_question() - let LLM handle it
-    let session_context = {
-        let mut state_guard = state.write().await;
-        let session = state_guard.get_or_create_session(session_id);
-        if session.history.is_empty() {
-            None
-        } else {
-            Some(session.get_context_for_llm())
-        }
-    };
-
     // Get model from state
     let model = {
         let state_guard = state.read().await;
@@ -172,55 +160,6 @@ pub async fn handle_main_question(
             }
         }
     };
-
-    // v0.0.905: Check answer cache before running LLM
-    {
-        let state_guard = state.read().await;
-        if let Some(cached_answer) = state_guard.get_cached_answer(question) {
-            info!("Returning cached answer for: {}", question);
-
-            // Send cached response with dialogue showing it's cached
-            let step = DialogueStep {
-                step_type: StepType::UserQuestion,
-                content: question.to_string(),
-            };
-            let json = serde_json::to_string(&StreamingResponse::Step { step: step.clone() })?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            // Phase 15: Filter cached answer through ExposureGate
-            send_filtered_final_answer(writer, &cached_answer).await?;
-
-            let result = anna_shared::rpc::AskResult {
-                answer: cached_answer,
-                success: true,
-                iterations: 0,
-                commands_executed: vec![],
-                dialogue: vec![],
-                needs_clarification: false,
-                clarification_question: None,
-                cached: true,
-                citations: vec![],
-                abstained: false,
-                final_confidence: None,
-            };
-            let json = serde_json::to_string(&StreamingResponse::Done { result })?;
-            writer.write_all(format!("{}\n", json).as_bytes()).await?;
-
-            // v0.3.56: Record outcome for cached answer (expanded)
-            let duration_ms = start_time.elapsed().as_millis() as u64;
-            let outcome_record = OutcomeRecord::new(
-                &request_id,
-                RequestMode::Dialogue,
-                intent,
-                Outcome::Resolved,
-                false,
-                duration_ms,
-            );
-            let _ = append_outcome(&outcome_record);
-
-            return Ok(());
-        }
-    }
 
     // v0.3.108: Analyze task and optionally switch models based on complexity
     let config_result = AnnaConfig::load();
@@ -390,28 +329,14 @@ pub async fn handle_main_question(
                 || err_str.contains("circuit breaker")
                 || (err_str.contains("model") && err_str.contains("not found"));
 
-            // Reset state so init loop triggers automatic recovery
             if is_infra {
-                let s = state.clone();
-                tokio::spawn(async move {
-                    let mut guard = s.write().await;
-                    guard.model = None;
-                    guard.state = anna_shared::status::DaemonState::Starting;
-                    guard.init_status =
-                        "Ollama unavailable — recovering automatically...".to_string();
-                });
+                // Auto-recover: stream progress, then re-execute question when ready
+                return super::recovery_handler::handle_infra_failure_and_recover(
+                    &e, question, session_id, state, writer, &request_id, intent, start_time,
+                ).await;
             }
 
-            let user_msg = if err_str.contains("404") || (err_str.contains("model") && err_str.contains("not found")) {
-                "The model is not available. Anna is recovering automatically — send your question again in a few seconds.".to_string()
-            } else if err_str.contains("connection") || err_str.contains("refused") {
-                "Ollama is not running. Anna is reinstalling and restarting it automatically — send your question again once Anna confirms recovery.".to_string()
-            } else if err_str.contains("circuit breaker") {
-                "Ollama is temporarily unavailable. Anna is attempting recovery automatically — send your question again in a few seconds.".to_string()
-            } else {
-                format!("Execution error: {}", e)
-            };
-
+            let user_msg = format!("Execution error: {}", e);
             let response = StreamingResponse::Error { message: user_msg };
             if let Ok(json) = serde_json::to_string(&response) {
                 let _ = writer.write_all(format!("{}\n", json).as_bytes()).await;
