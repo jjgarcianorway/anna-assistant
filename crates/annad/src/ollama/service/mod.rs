@@ -62,7 +62,9 @@ pub(crate) fn ollama_cmd() -> Command {
     let full_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
     let mut cmd = Command::new("ollama");
     cmd.env("HOME", "/root");
-    cmd.env("OLLAMA_MODELS", "/var/lib/anna/models");
+    // Do NOT override OLLAMA_MODELS — use whatever the running service uses.
+    // Overriding it causes models downloaded by the service to be invisible to the CLI
+    // and forces re-download of models the user already has.
     cmd.env("PATH", full_path);
     cmd
 }
@@ -84,35 +86,6 @@ pub fn is_installed() -> bool {
         .unwrap_or(false)
 }
 
-/// Create systemd drop-in to set OLLAMA_MODELS=/var/lib/anna/models on the ollama service.
-/// Returns true if the drop-in was newly created (service needs restart to pick it up).
-pub fn configure_ollama_service() -> Result<bool> {
-    let dropin_dir = "/etc/systemd/system/ollama.service.d";
-    let dropin_path = format!("{}/anna.conf", dropin_dir);
-    let content = "[Service]\nEnvironment=OLLAMA_MODELS=/var/lib/anna/models\n";
-
-    // Skip if already written with correct content
-    if std::path::Path::new(&dropin_path).exists() {
-        if let Ok(existing) = std::fs::read_to_string(&dropin_path) {
-            if existing == content {
-                return Ok(false); // already configured, no restart needed
-            }
-        }
-    }
-
-    std::fs::create_dir_all(dropin_dir)
-        .with_context(|| format!("Failed to create {}", dropin_dir))?;
-    std::fs::write(&dropin_path, content)
-        .with_context(|| format!("Failed to write {}", dropin_path))?;
-
-    Command::new("/usr/bin/systemctl")
-        .args(["daemon-reload"])
-        .output()
-        .with_context(|| "Failed to run systemctl daemon-reload")?;
-
-    info!("Configured ollama service: OLLAMA_MODELS=/var/lib/anna/models");
-    Ok(true) // newly configured — caller should restart service
-}
 
 /// Install Ollama using pacman (Arch Linux).
 /// Uses spawn_blocking so the download doesn't starve the tokio runtime.
@@ -156,11 +129,6 @@ pub async fn install() -> Result<()> {
     })
     .await
     .with_context(|| "spawn_blocking for pacman panicked")??;
-
-    // Configure systemd service to use anna's model directory
-    if let Err(e) = configure_ollama_service() {
-        warn!("Failed to configure ollama service drop-in: {}", e);
-    }
 
     let mut registry = AnnaRegistry::load();
     registry.add_package(&installed_pkg);
@@ -218,16 +186,14 @@ pub async fn is_running() -> bool {
 pub async fn start_service() -> Result<()> {
     info!("Starting Ollama service...");
 
-    // Ensure systemd service is configured to use anna's model directory
-    // (no-op if drop-in already exists; also handles pre-installed ollama)
-    if let Err(e) = configure_ollama_service() {
-        warn!("Failed to configure ollama service drop-in: {}", e);
-    }
-
-    let output = Command::new("/usr/bin/systemctl")
-        .args(["start", "ollama"])
-        .output()
-        .with_context(|| "Failed to run /usr/bin/systemctl start ollama")?;
+    let output = tokio::task::spawn_blocking(|| {
+        Command::new("/usr/bin/systemctl")
+            .args(["start", "ollama"])
+            .output()
+            .with_context(|| "Failed to run /usr/bin/systemctl start ollama")
+    })
+    .await
+    .with_context(|| "spawn_blocking panicked for systemctl start")??;
 
     if output.status.success() {
         for _ in 0..30 {
@@ -291,11 +257,7 @@ pub async fn pull_model(model: &str) -> Result<()> {
     let model_clone = model.clone();
 
     let result = tokio::task::spawn_blocking(move || {
-        let mut cmd = std::process::Command::new("ollama");
-        cmd.env("HOME", "/root");
-        cmd.env("OLLAMA_MODELS", "/var/lib/anna/models");
-        cmd.args(["pull", &model]);
-        cmd.output()
+        ollama_cmd().args(["pull", &model]).output()
     })
     .await?;
 
@@ -322,11 +284,7 @@ pub async fn delete_model(model: &str) -> Result<()> {
     let model = model.to_string();
     let model_clone = model.clone();
     let result = tokio::task::spawn_blocking(move || {
-        let mut cmd = std::process::Command::new("ollama");
-        cmd.env("HOME", "/root");
-        cmd.env("OLLAMA_MODELS", "/var/lib/anna/models");
-        cmd.args(["rm", &model]);
-        cmd.output()
+        ollama_cmd().args(["rm", &model]).output()
     })
     .await?;
 

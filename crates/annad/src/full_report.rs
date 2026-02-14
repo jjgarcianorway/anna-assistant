@@ -108,13 +108,13 @@ pub fn generate_full_report() -> Result<String> {
 
     // --- Packages ---
     let pkg_count = run("pacman -Q 2>/dev/null | wc -l");
-    let upgradable = run("checkupdates 2>/dev/null | wc -l");
+    let upgradable = run("command -v checkupdates >/dev/null 2>&1 && checkupdates 2>/dev/null | wc -l || echo N/A");
     let last_update = run("grep 'upgraded' /var/log/pacman.log 2>/dev/null | tail -1 | cut -d'[' -f2 | cut -d']' -f1");
     if !pkg_count.is_empty() {
         let pkg = format!(
             "Installed:  {} packages\nUpgradable: {}\nLast update: {}",
             pkg_count,
-            if upgradable.is_empty() { "unknown (checkupdates not available)".to_string() } else { upgradable },
+            if upgradable == "N/A" { "N/A (checkupdates not installed)".to_string() } else { upgradable },
             if last_update.is_empty() { "unknown".to_string() } else { last_update }
         );
         report.push_str(&section("PACKAGES", &pkg));

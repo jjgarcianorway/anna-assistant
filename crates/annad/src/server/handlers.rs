@@ -198,15 +198,16 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                     // v0.0.927: Graceful degradation with helpful error messages
                     let err_str = e.to_string().to_lowercase();
                     let user_message = if err_str.contains("circuit breaker") {
-                        "Ollama is temporarily unavailable (too many failures). \
-                         Please wait a moment and try again, or check 'systemctl status ollama'."
+                        "Ollama is temporarily unavailable due to repeated failures. \
+                         Anna is attempting recovery automatically — please try again in a moment."
                     } else if err_str.contains("timeout") {
-                        "The request timed out. Ollama may be overloaded or the model is loading. \
-                         Try again in a few seconds."
+                        "The request timed out. The model may still be loading — \
+                         please try again in a few seconds."
                     } else if err_str.contains("connection") || err_str.contains("refused") {
-                        "Cannot connect to Ollama. Please ensure it's running: 'systemctl start ollama'"
+                        "Cannot reach Ollama. Anna is attempting to restart it automatically."
                     } else if err_str.contains("model") && err_str.contains("not found") {
-                        "The configured model is not available. Run 'ollama pull llama3.2' to download it."
+                        "The configured model is not available. \
+                         Anna is attempting to recover automatically."
                     } else {
                         // Return original error for unknown cases
                         return RpcResponse::error(&request.id, -32603, &format!("Execution error: {}", e));

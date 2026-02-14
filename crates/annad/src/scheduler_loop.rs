@@ -10,7 +10,6 @@ use tracing::{debug, info, warn};
 use anna_shared::status::DaemonState;
 
 use crate::anomaly::AnomalyStore;
-use crate::briefing::generate_morning_briefing;
 use crate::state::SharedState;
 use crate::telegram::notifier::{push_notification, send_pdf_report, send_chart_photo};
 

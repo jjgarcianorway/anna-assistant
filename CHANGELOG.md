@@ -5,6 +5,33 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.217] - 2026-02-14
+
+### Fixed — systematic bug sweep
+
+1. OLLAMA_MODELS regression from v0.3.216: the systemd drop-in pointed the running
+   ollama service at /var/lib/anna/models (empty on existing installs), making all
+   existing models invisible. Fixed: remove the OLLAMA_MODELS override entirely.
+   The running service uses its own path; anna uses ollama CLI which inherits that path.
+
+2. User-facing error messages in handlers.rs contained shell commands
+   ('systemctl start ollama', 'ollama pull llama3.2') — hard violation of CLAUDE.md.
+   Fixed: replaced with self-healing status messages.
+
+3. Blocking std::process::Command::new("systemctl").output() call in async
+   start_service() starved the tokio runtime. Fixed: wrapped in spawn_blocking.
+
+4. morning_report.shown marker written to /var/lib/anna/ (750 root:anna — group
+   has no write permission). annactl running as user could never write it; report
+   showed on every startup. Fixed: use /tmp/anna_morning_report.shown instead.
+
+5. Dead import use crate::briefing::generate_morning_briefing in scheduler_loop.rs.
+
+6. checkupdates not installed: wc -l always returns "0" not "", so "unknown" branch
+   never fired — showed "0 updates" instead of N/A. Fixed: command -v check first.
+
+7. extract_model_size("qwen2.5:1.5b") returned 1 (same as unknown). Fixed: return 2.
+
 ## [0.3.216] - 2026-02-14
 
 ### Fixed — three bugs causing models to never be ready on existing ollama installs

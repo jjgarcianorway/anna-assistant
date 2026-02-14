@@ -4,7 +4,7 @@ use anna_shared::status::DaemonState;
 use std::io::Write;
 
 const MORNING_REPORT_PATH: &str = "/var/lib/anna/morning_report.txt";
-const MORNING_REPORT_SHOWN: &str = "/var/lib/anna/morning_report.shown";
+const MORNING_REPORT_SHOWN: &str = "/tmp/anna_morning_report.shown";
 
 /// Display the morning report if it's new (generated today and not yet shown).
 pub fn show_morning_report_if_new() {
