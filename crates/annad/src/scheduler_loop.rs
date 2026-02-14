@@ -140,6 +140,16 @@ pub async fn scheduler_loop() {
                         })
                     });
 
+                    // Always save briefing to file so annactl can show it without Telegram
+                    let report_path = "/var/lib/anna/morning_report.txt";
+                    let timestamp = Local::now().format("%Y-%m-%d %H:%M").to_string();
+                    let report_content = format!("── MORNING REPORT {} ──\n\n{}", timestamp, briefing);
+                    if let Err(e) = std::fs::write(report_path, &report_content) {
+                        warn!("Failed to save morning report to file: {}", e);
+                    } else {
+                        info!("Morning report saved to {}", report_path);
+                    }
+
                     // Generate PDF report and send via Telegram
                     match crate::report::generate_pdf_report() {
                         Ok(pdf_path) => {

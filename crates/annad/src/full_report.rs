@@ -66,10 +66,11 @@ pub fn generate_full_report() -> Result<String> {
     report.push_str(&section("SERVICES", &failed_section));
 
     // --- Top Processes ---
-    let top_cpu = run("ps aux --sort=-%cpu | awk 'NR==1{print} NR>1 && NR<=8{print}' | column -t");
+    // Truncate command to 50 chars to prevent multi-hundred-char lines
+    let top_cpu = run(r#"ps aux --sort=-%cpu | awk 'NR==1{printf "%-10s %5s %5s  %-50s\n","USER","%CPU","%MEM","COMMAND"} NR>1 && NR<=8{cmd=substr($11,1,50); for(i=12;i<=NF&&length(cmd)<50;i++) cmd=cmd" "$i; printf "%-10s %5s %5s  %-50s\n",$1,$3,$4,substr(cmd,1,50)}'"#);
     report.push_str(&section("TOP PROCESSES (CPU)", &top_cpu));
 
-    let top_mem = run("ps aux --sort=-%mem | awk 'NR>1 && NR<=6{printf \"%-20s %5s%% %s\\n\", $11, $4, $1}'");
+    let top_mem = run(r#"ps aux --sort=-%mem | awk 'NR>1 && NR<=6{cmd=substr($11,1,40); printf "%-10s %5s%%  %s\n",$1,$4,cmd}'"#);
     report.push_str(&section("TOP PROCESSES (MEM)", &top_mem));
 
     // --- Network ---

@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.215] - 2026-02-14
+
+### Fixed — morning report now shown in annactl; process list no longer wraps
+
+- Full system report: process list command column truncated to 50 chars so lines
+  stay readable instead of wrapping to 400+ characters
+- Morning briefing now saved to /var/lib/anna/morning_report.txt after generation,
+  regardless of whether Telegram is configured
+- annactl shows the morning report automatically on startup if it's newer than the
+  last time it was displayed (uses .shown marker file to avoid repeating)
+
 ## [0.3.214] - 2026-02-14
 
 ### Fixed — daemon no longer marks Ready until model is verified working

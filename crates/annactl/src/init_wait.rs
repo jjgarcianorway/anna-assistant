@@ -3,6 +3,42 @@
 use anna_shared::status::DaemonState;
 use std::io::Write;
 
+const MORNING_REPORT_PATH: &str = "/var/lib/anna/morning_report.txt";
+const MORNING_REPORT_SHOWN: &str = "/var/lib/anna/morning_report.shown";
+
+/// Display the morning report if it's new (generated today and not yet shown).
+pub fn show_morning_report_if_new() {
+    // Check if report exists
+    let report_meta = std::fs::metadata(MORNING_REPORT_PATH);
+    let shown_meta = std::fs::metadata(MORNING_REPORT_SHOWN);
+
+    let report_mtime = match report_meta {
+        Ok(m) => match m.modified() {
+            Ok(t) => t,
+            Err(_) => return,
+        },
+        Err(_) => return, // No report yet
+    };
+
+    // If already shown and shown file is newer than report, skip
+    if let Ok(sm) = shown_meta {
+        if let Ok(shown_mtime) = sm.modified() {
+            if shown_mtime >= report_mtime {
+                return;
+            }
+        }
+    }
+
+    // Report is newer than last shown marker — display it
+    if let Ok(content) = std::fs::read_to_string(MORNING_REPORT_PATH) {
+        println!();
+        println!("{}", content);
+        println!();
+        // Mark as shown
+        let _ = std::fs::write(MORNING_REPORT_SHOWN, "");
+    }
+}
+
 /// Poll daemon status until ready.
 /// - Never breaks on transient connection failures (retries indefinitely)
 /// - Shows live init_status from daemon when reachable

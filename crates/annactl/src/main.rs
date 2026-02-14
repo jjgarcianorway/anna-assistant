@@ -200,6 +200,7 @@ async fn main() -> Result<()> {
 
     if !skip_wait {
         init_wait::wait_for_ready().await;
+        init_wait::show_morning_report_if_new();
     }
 
     if args.len() > 1 {
