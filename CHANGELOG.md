@@ -5,6 +5,30 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.224] - 2026-02-14
+
+### Fixed — installation, init, and auto-healing hardening
+
+**Active ollama health probe in monitoring loop**: Previously the 30s monitor loop
+only checked `state.model.is_none()`, so a crashed ollama was undetected until the
+next user query triggered a 404. Now the loop calls `ollama::is_running()` on every
+tick. If ollama is dead, state is reset to Starting immediately and re-initialization
+runs without waiting for a user query.
+
+**install.sh version verification**: Binary version check now confirms the installed
+version matches the fetched release version, not just that annactl and annad match
+each other. A corrupted or cached binary from a different release is caught at
+install time.
+
+**install.sh tmpfiles.d applied immediately**: Added `systemd-tmpfiles --create`
+after writing `/etc/tmpfiles.d/anna.conf` so `/run/anna` exists for the first service
+start without requiring a prior reboot.
+
+**init.rs drop-in removal uses try-restart**: Changed `systemctl restart ollama` to
+`systemctl try-restart ollama` when removing the v0.3.216 regression drop-in. If
+ollama was not running at the time, `restart` would start it unnecessarily; `try-restart`
+is a no-op when the unit is stopped.
+
 ## [0.3.223] - 2026-02-14
 
 ### Fixed — 4 critical reliability bugs (systematic audit)

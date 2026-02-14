@@ -29,10 +29,10 @@ async fn remove_v0316_dropin() {
             .args(["daemon-reload"])
             .output()
     }).await;
-    // Restart ollama so it picks up the restored default path
+    // Restart ollama only if it was already running — try-restart is a no-op if stopped
     let _ = tokio::task::spawn_blocking(|| {
         std::process::Command::new("/usr/bin/systemctl")
-            .args(["restart", "ollama"])
+            .args(["try-restart", "ollama"])
             .output()
     }).await;
     // Wait for it to come back

@@ -214,7 +214,12 @@ install_tmpfiles() {
     $SUDO tee "/etc/tmpfiles.d/anna.conf" >/dev/null <<'EOF'
 d /run/anna 0750 root anna -
 EOF
-    print_item_ok "/etc/tmpfiles.d/anna.conf (750 root:anna)"; echo ""
+    print_item_ok "/etc/tmpfiles.d/anna.conf (750 root:anna)"
+    # Apply immediately so /run/anna exists before annad starts (survives without reboot)
+    $SUDO systemd-tmpfiles --create /etc/tmpfiles.d/anna.conf 2>/dev/null \
+        && print_item_ok "systemd-tmpfiles --create: ok" \
+        || print_item_ok "systemd-tmpfiles --create: skipped (non-fatal)"
+    echo ""
 }
 
 install_config() {
@@ -374,8 +379,15 @@ verify_binaries() {
         local annactl_base annad_base
         annactl_base=$(echo "$annactl_ver" | sed 's/annactl //' | cut -d' ' -f1)
         annad_base=$(echo "$annad_ver" | sed 's/annad //' | cut -d' ' -f1)
-        [[ "$annactl_base" = "$annad_base" ]] && print_ok "versions match: ${annactl_base}" || \
+        if [[ "$annactl_base" != "$annad_base" ]]; then
             print_err "version mismatch: annactl=${annactl_base} annad=${annad_base}"
+            BINARY_VERIFY_FAILED=true
+        elif [[ "$annactl_base" != "$VERSION" ]]; then
+            print_err "installed version ${annactl_base} does not match expected ${VERSION} — binary may be corrupt"
+            BINARY_VERIFY_FAILED=true
+        else
+            print_ok "versions match: ${annactl_base}"
+        fi
     fi
     echo ""
 }

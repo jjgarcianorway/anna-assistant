@@ -76,15 +76,31 @@ impl Server {
 
                 match result {
                     Ok(()) => {
-                        // Successfully initialized — keep monitoring in case ollama disappears
+                        // Successfully initialized — keep monitoring in case ollama disappears.
+                        // Active HTTP probe every 30s so a crashed ollama is detected immediately,
+                        // not only when the next user query hits a 404.
                         loop {
                             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
-                            let needs_reinit = {
+
+                            let (model_gone, state_not_ready) = {
                                 let s = init_state.read().await;
-                                s.model.is_none() || s.state != DaemonState::Ready
+                                (s.model.is_none(), s.state != DaemonState::Ready)
                             };
-                            if needs_reinit {
-                                info!("Ollama no longer available — re-initializing");
+
+                            let ollama_dead = !crate::ollama::is_running().await;
+
+                            if model_gone || state_not_ready || ollama_dead {
+                                if ollama_dead && !model_gone {
+                                    // Proactively update state so the UI shows the right message
+                                    let mut s = init_state.write().await;
+                                    s.model = None;
+                                    s.state = DaemonState::Starting;
+                                    s.init_status = "Ollama stopped — recovering...".to_string();
+                                }
+                                info!(
+                                    "Health check: model_gone={} state_not_ready={} ollama_dead={} — re-initializing",
+                                    model_gone, state_not_ready, ollama_dead
+                                );
                                 break;
                             }
                         }
