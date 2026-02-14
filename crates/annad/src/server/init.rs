@@ -8,9 +8,50 @@ use crate::core_loop::init_system_profile;
 use crate::ollama;
 use crate::state::SharedState;
 
+/// Remove the v0.3.216 regression drop-in if it exists.
+/// That drop-in set OLLAMA_MODELS=/var/lib/anna/models on the systemd service,
+/// making all pre-existing models in /var/lib/ollama invisible.
+async fn remove_v0316_dropin() {
+    const DROPIN: &str = "/etc/systemd/system/ollama.service.d/anna.conf";
+    if !std::path::Path::new(DROPIN).exists() {
+        return;
+    }
+    info!("Found v0.3.216 ollama drop-in — removing to restore default model path");
+    if let Err(e) = std::fs::remove_file(DROPIN) {
+        warn!("Failed to remove drop-in {}: {}", DROPIN, e);
+        return;
+    }
+    // Remove the now-empty directory if possible
+    let _ = std::fs::remove_dir("/etc/systemd/system/ollama.service.d");
+    // daemon-reload so systemd forgets the drop-in
+    let _ = tokio::task::spawn_blocking(|| {
+        std::process::Command::new("/usr/bin/systemctl")
+            .args(["daemon-reload"])
+            .output()
+    }).await;
+    // Restart ollama so it picks up the restored default path
+    let _ = tokio::task::spawn_blocking(|| {
+        std::process::Command::new("/usr/bin/systemctl")
+            .args(["restart", "ollama"])
+            .output()
+    }).await;
+    // Wait for it to come back
+    for _ in 0..15 {
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        if ollama::is_running().await {
+            info!("Ollama restarted with default model path");
+            return;
+        }
+    }
+    warn!("Ollama did not restart cleanly after drop-in removal");
+}
+
 /// Initialize the daemon (install/start ollama, pull model)
 pub async fn initialize(state: SharedState) -> Result<()> {
     info!("Initializing...");
+
+    // v0.3.218: Remove the v0.3.216 OLLAMA_MODELS drop-in if present
+    remove_v0316_dropin().await;
 
     // Initialize system profile first (scans hardware, configs, preferences)
     init_system_profile();

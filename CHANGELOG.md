@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.218] - 2026-02-14
+
+### Fixed — migration cleanup for v0.3.216 OLLAMA_MODELS regression
+
+On startup, detect and remove `/etc/systemd/system/ollama.service.d/anna.conf` if
+it exists (created by v0.3.216). That drop-in forced the ollama service to use
+`/var/lib/anna/models`, making all models in the default `/var/lib/ollama/` path
+invisible. Removing it and restarting ollama restores the original model path.
+
 ## [0.3.217] - 2026-02-14
 
 ### Fixed — systematic bug sweep
