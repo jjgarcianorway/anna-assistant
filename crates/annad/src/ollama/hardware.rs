@@ -145,6 +145,13 @@ fn gpu_max_params_b(vram_mb: u64) -> f32 {
     }
 }
 
+/// Returns true if this model is an embedding/reranking model — not usable for chat.
+fn is_embedding_model(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.contains("embed") || lower.contains("minilm") || lower.contains("rerank")
+        || lower.contains("bge-") || lower.contains("e5-") || lower.contains("gte-")
+}
+
 /// Select the best already-installed model that fits in available memory.
 /// Prefers larger (better quality) models within the hardware limit.
 /// Falls back to `select_best_model` target if nothing installed matches.
@@ -154,8 +161,9 @@ pub fn select_from_installed(hw: &HardwareInfo, installed: &[String]) -> String 
         _ => gpu_max_params_b(hw.vram_mb),
     };
 
-    // Filter installed models to those that fit, sort largest-first
+    // Filter out embedding models and models too large for hardware
     let mut candidates: Vec<(&String, f32)> = installed.iter()
+        .filter(|m| !is_embedding_model(m))
         .map(|m| (m, model_params_b(m)))
         .filter(|(_, p)| *p > 0.0 && *p <= max_params)
         .collect();

@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.239] - 2026-02-14
+
+### Fixed — Embedding models selected for chat (nomic-embed-text bad request)
+
+- `select_from_installed` now filters out embedding/reranking models before selection
+- Models containing "embed", "minilm", "rerank", "bge-", "e5-", "gte-" are excluded
+- nomic-embed-text, mxbai-embed-large etc. will never be used for chat completions
+
 ## [0.3.238] - 2026-02-14
 
 ### Fixed — Model selection ignoring hardware limits (root cause of timeouts)
