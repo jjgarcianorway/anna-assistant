@@ -5,6 +5,21 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.219] - 2026-02-14
+
+### Fixed — Ollama self-healing after removal
+
+1. Init loop now monitors after successful init. If `state.model` becomes None
+   (triggered by an ollama failure), it re-runs initialize() which reinstalls
+   and restarts ollama automatically.
+
+2. When execute_question fails with an infrastructure error (404, connection
+   refused, circuit breaker), handlers.rs now resets state.model = None and
+   state = Starting so the monitoring loop triggers recovery immediately.
+
+3. "404 Ollama request failed" now shows a user-friendly recovery message
+   instead of a raw error string.
+
 ## [0.3.218] - 2026-02-14
 
 ### Fixed — migration cleanup for v0.3.216 OLLAMA_MODELS regression

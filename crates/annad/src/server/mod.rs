@@ -47,12 +47,28 @@ impl Server {
             crate::cache::start_cache_tasks(cache);
         }
 
-        // Start initialization in background — retries every 60s on failure
+        // Start initialization in background — retries every 60s on failure.
+        // Also monitors for post-init failures (e.g., ollama removed while running)
+        // and re-initializes automatically.
         let init_state = self.state.clone();
         tokio::spawn(async move {
+            use anna_shared::status::DaemonState;
             loop {
                 match initialize(init_state.clone()).await {
-                    Ok(()) => break,
+                    Ok(()) => {
+                        // Successfully initialized — keep monitoring in case ollama disappears
+                        loop {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+                            let needs_reinit = {
+                                let s = init_state.read().await;
+                                s.model.is_none() || s.state != DaemonState::Ready
+                            };
+                            if needs_reinit {
+                                info!("Ollama no longer available — re-initializing");
+                                break;
+                            }
+                        }
+                    }
                     Err(e) => {
                         let msg = format!("Setup error: {}", e);
                         error!("{}", msg);

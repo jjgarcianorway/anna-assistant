@@ -197,6 +197,23 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                 Err(e) => {
                     // v0.0.927: Graceful degradation with helpful error messages
                     let err_str = e.to_string().to_lowercase();
+                    let is_infra_failure = err_str.contains("circuit breaker")
+                        || err_str.contains("connection")
+                        || err_str.contains("refused")
+                        || err_str.contains("404")
+                        || err_str.contains("model") && err_str.contains("not found");
+
+                    // Reset state so the init loop re-triggers reinstall/recovery
+                    if is_infra_failure {
+                        let s = state.clone();
+                        tokio::spawn(async move {
+                            let mut guard = s.write().await;
+                            guard.model = None;
+                            guard.state = anna_shared::status::DaemonState::Starting;
+                            guard.init_status = "Ollama unavailable — recovering automatically...".to_string();
+                        });
+                    }
+
                     let user_message = if err_str.contains("circuit breaker") {
                         "Ollama is temporarily unavailable due to repeated failures. \
                          Anna is attempting recovery automatically — please try again in a moment."
@@ -204,7 +221,11 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                         "The request timed out. The model may still be loading — \
                          please try again in a few seconds."
                     } else if err_str.contains("connection") || err_str.contains("refused") {
-                        "Cannot reach Ollama. Anna is attempting to restart it automatically."
+                        "Ollama is not running. Anna is reinstalling and restarting it automatically — \
+                         please try again in a moment."
+                    } else if err_str.contains("404") {
+                        "The model is not available. Anna is recovering automatically — \
+                         please try again in a moment."
                     } else if err_str.contains("model") && err_str.contains("not found") {
                         "The configured model is not available. \
                          Anna is attempting to recover automatically."
