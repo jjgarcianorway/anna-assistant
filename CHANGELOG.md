@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.241] - 2026-02-15
+
+### Fixed — "any pending updates?" returning "no matching capability"
+- Added `exec_check_updates` fast path for read-only update queries (pending/available/check/any)
+- Fixed empty command output falling through to main LLM pipeline instead of returning clean message
+
 ## [0.3.240] - 2026-02-14
 
 ### Fixed — annactl status polish

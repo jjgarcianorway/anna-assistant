@@ -62,10 +62,20 @@ pub async fn classify_and_execute(
         }
     };
 
-    // Fast path: system update (mutating, needs special handling)
     let ql = question.to_lowercase();
+
+    // Fast path: check for pending updates (read-only)
+    let is_check = (ql.contains("update") || ql.contains("upgrade"))
+        && (ql.contains("pending") || ql.contains("available") || ql.contains("check")
+            || ql.contains("any") || ql.contains("what") || ql.contains("how many"));
+    if is_check {
+        return exec_check_updates(writer).await;
+    }
+
+    // Fast path: install updates (mutating)
     let is_update = (ql.contains("update") || ql.contains("upgrade") || ql.contains("arch-update"))
-        && !ql.contains("what") && !ql.contains("check") && !ql.contains("pending") && !ql.contains("available");
+        && !ql.contains("what") && !ql.contains("check") && !ql.contains("pending")
+        && !ql.contains("available") && !ql.contains("any") && !ql.contains("how many");
     if is_update {
         return exec_update(writer).await;
     }
@@ -113,7 +123,8 @@ pub async fn classify_and_execute(
     }
 
     if parts.is_empty() {
-        return Ok(false);
+        send_answer(writer, "Commands ran but produced no output.".to_string()).await?;
+        return Ok(true);
     }
 
     send_answer(writer, parts.join("\n\n")).await?;
@@ -176,6 +187,44 @@ fn exec_update_inner() -> String {
         parts.push(format!("{} -Syu:\n```\n{}\n```", aur.as_deref().unwrap_or("AUR"), aur_out.trim()));
     }
     parts.join("\n\n")
+}
+
+async fn exec_check_updates(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
+    let username = crate::user_context::get_real_user().unwrap_or_else(|_| "root".to_string());
+
+    // Official repo updates
+    let official = run_shell("checkupdates 2>/dev/null").unwrap_or_default();
+    let official = official.trim();
+    let official_count = if official.is_empty() { 0usize } else { official.lines().count() };
+
+    // AUR updates
+    let aur_helper = detect_aur_helper();
+    let (aur_out, aur_count) = if let Some(ref h) = aur_helper {
+        let out = run_shell(&format!("runuser -l {} -c '{} -Qu 2>/dev/null'", username, h))
+            .unwrap_or_default();
+        let out = out.trim().to_string();
+        let n = if out.is_empty() { 0 } else { out.lines().count() };
+        (out, n)
+    } else {
+        (String::new(), 0)
+    };
+
+    let total = official_count + aur_count;
+    if total == 0 {
+        send_answer(writer, "System is up to date. No pending updates.".to_string()).await?;
+        return Ok(true);
+    }
+
+    let mut msg = format!("{} update{} available:\n\n", total, if total == 1 { "" } else { "s" });
+    if official_count > 0 {
+        msg.push_str(&format!("Official ({}):\n```\n{}\n```\n", official_count, official));
+    }
+    if aur_count > 0 {
+        msg.push_str(&format!("\n{} AUR ({}):\n```\n{}\n```\n",
+            aur_helper.as_deref().unwrap_or("AUR"), aur_count, aur_out));
+    }
+    send_answer(writer, msg.trim().to_string()).await?;
+    Ok(true)
 }
 
 async fn exec_update(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
