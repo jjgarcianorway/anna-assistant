@@ -5,6 +5,29 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.226] - 2026-02-14
+
+### Fixed — self-healing reliability and user communication
+
+**Proactive model health check**: The 30s daemon monitor loop now calls `list_models()` to
+verify the current model still exists in ollama. If a user runs `ollama rm <model>`, Anna
+detects it within 30s and automatically re-downloads the model — no query needed to trigger
+recovery. User sees: `"Model 'X' was removed — re-downloading automatically..."`.
+
+**Socket missing while service Active**: Previously if `/run/anna/anna.sock` was deleted
+while the daemon ran, annactl recovery incorrectly diagnosed a permissions problem. Now it
+first tries `pkexec systemctl restart annad` to recreate the socket.
+
+**Update progress visible**: When auto-update runs, `init_status` is updated at each stage:
+"Update available (vX)...", "Downloading and applying...", "Updated to vX — restarting...".
+Previously the entire update was silent.
+
+**install.sh: socket verification**: After `systemctl start annad`, the installer waits up
+to 10s for `/run/anna/anna.sock` to appear. Non-fatal warning if not yet created.
+
+**install.sh: no manual commands in footer**: Removed `sudo systemctl status` from warning
+messages (Phase 15 violation). Replaced with self-describing text.
+
 ## [0.3.225] - 2026-02-14
 
 ### Fixed — reliability: briefing panic and dynamic binary backup paths

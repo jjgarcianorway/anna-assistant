@@ -1,17 +1,5 @@
-//! Daemon recovery module for self-healing connection management.
-//!
-//! v0.3.35: Anna NEVER tells users to run manual commands.
-//! Instead, she detects daemon state and attempts automatic recovery.
-//! v0.3.36: Added permission auto-fix via pkexec
-//!
-//! Recovery Flow:
-//! 1. Check if socket exists
-//! 2. If not, attempt to start daemon via systemctl
-//! 3. If privilege escalation needed, use pkexec (polkit GUI prompt)
-//! 4. Wait for socket with timeout
-//! 5. Retry connection
-//! 6. If permission denied, offer to fix via pkexec
-//! 7. Report status in natural language (never raw errors)
+//! Daemon recovery: detects daemon state and attempts automatic recovery.
+//! Anna NEVER tells users to run manual commands — all recovery is automatic.
 
 use anna_shared::socket_path;
 use anyhow::{anyhow, Result};
@@ -191,7 +179,16 @@ async fn attempt_daemon_start() -> Result<RecoveryResult> {
             ));
         }
         ServiceState::Active => {
-            // Service claims to be active but we have no socket — permissions
+            // Service claims to be active but we have no socket.
+            // Two sub-cases:
+            // a) Socket file deleted while daemon is running — restart recreates it.
+            // b) Daemon running but socket has wrong perms — permission fix needed.
+            // Try restarting first; if that doesn't produce a socket, fall through to perm fix.
+            if try_pkexec_restart().await {
+                if wait_for_socket(DAEMON_START_TIMEOUT_SECS).await {
+                    return Ok(RecoveryResult::Started);
+                }
+            }
             return attempt_permission_fix().await;
         }
         ServiceState::Inactive | ServiceState::Unknown => {
@@ -234,6 +231,21 @@ async fn try_pkexec_start() -> bool {
     // pkexec will show a GUI prompt for authentication
     let status = Command::new("pkexec")
         .args(["systemctl", "start", "annad"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+
+    matches!(status, Ok(s) if s.success())
+}
+
+/// Try to restart daemon using pkexec — used when service is Active but socket is missing.
+async fn try_pkexec_restart() -> bool {
+    if !is_command_available("pkexec") {
+        return false;
+    }
+
+    let status = Command::new("pkexec")
+        .args(["systemctl", "restart", "annad"])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status();
@@ -317,65 +329,36 @@ pub async fn connect_with_recovery() -> Result<UnixStream> {
     })
 }
 
-// =============================================================================
-// Tests
-// =============================================================================
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_no_manual_commands_in_error_messages() {
-        // Verify our error messages don't contain manual command instructions
-        let forbidden_patterns = [
-            "sudo systemctl",
-            "systemctl start",
-            "systemctl restart",
-            "usermod -aG",
-            "journalctl",
-            "Run:",
-            "Try:",
-        ];
-
+        // Error messages must not contain raw command instructions
+        let forbidden = ["sudo systemctl", "usermod -aG", "journalctl", "Run:", "Try:"];
         let source = include_str!("daemon_recovery.rs");
-
-        // Find error messages (text inside anyhow! macros)
-        for pattern in &forbidden_patterns {
-            // Skip the test module and comments
-            let test_start = source.find("#[cfg(test)]").unwrap_or(source.len());
-            let main_code = &source[..test_start];
-
-            // Check error message strings (inside quotes after anyhow!)
-            let anyhow_sections: Vec<&str> = main_code
-                .split("anyhow!(")
-                .skip(1)
-                .filter_map(|s| s.split(')').next())
-                .collect();
-
+        let test_start = source.find("#[cfg(test)]").unwrap_or(source.len());
+        let main_code = &source[..test_start];
+        let anyhow_sections: Vec<&str> = main_code
+            .split("anyhow!(")
+            .skip(1)
+            .filter_map(|s| s.split(')').next())
+            .collect();
+        for pattern in &forbidden {
             for section in &anyhow_sections {
-                assert!(
-                    !section.contains(pattern),
-                    "Error message contains forbidden pattern '{}': {}",
-                    pattern,
-                    section
-                );
+                assert!(!section.contains(pattern), "Forbidden '{}' in error: {}", pattern, section);
             }
         }
     }
 
     #[test]
     fn test_permission_error_mentions_anna_group() {
-        let source = include_str!("daemon_recovery.rs");
-        assert!(
-            source.contains("anna' group"),
-            "Permission error should mention the anna group"
-        );
+        assert!(include_str!("daemon_recovery.rs").contains("anna' group"));
     }
 
     #[test]
     fn test_recovery_states_are_complete() {
-        // Verify all daemon states have recovery paths
         let source = include_str!("daemon_recovery.rs");
         assert!(source.contains("DaemonState::Running"));
         assert!(source.contains("DaemonState::NotRunning"));
@@ -383,17 +366,10 @@ mod tests {
         assert!(source.contains("DaemonState::PermissionDenied"));
     }
 
-    /// v0.3.36: Verify permission auto-fix exists
     #[test]
     fn test_permission_auto_fix_exists() {
         let source = include_str!("daemon_recovery.rs");
-        assert!(
-            source.contains("attempt_permission_fix"),
-            "Should have permission auto-fix function"
-        );
-        assert!(
-            source.contains("pkexec") && source.contains("usermod"),
-            "Permission fix should use pkexec to add user to group"
-        );
+        assert!(source.contains("attempt_permission_fix"));
+        assert!(source.contains("pkexec") && source.contains("usermod"));
     }
 }

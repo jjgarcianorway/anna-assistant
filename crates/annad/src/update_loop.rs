@@ -106,15 +106,35 @@ async fn try_auto_update(state: &SharedState, latest_version: &str) {
         return;
     }
 
+    // Inform user that an update is pending
+    {
+        let mut s = state.write().await;
+        s.init_status = format!(
+            "Update available (v{}) — finishing active sessions, then restarting...",
+            latest_version
+        );
+    }
+
     // Wait for active connections to finish before updating
-    // This prevents killing users mid-session
     info!("Waiting for active connections to drain before update...");
     state.wait_for_connections_to_drain(30).await;
 
-    info!("Auto-update enabled, performing update...");
+    {
+        let mut s = state.write().await;
+        s.init_status = format!("Downloading and applying update v{}...", latest_version);
+    }
+
+    info!("Performing update to {}...", latest_version);
     match perform_update(latest_version).await {
         Ok(()) => {
-            info!("Update initiated, daemon will restart");
+            info!("Update to {} complete, daemon will restart", latest_version);
+            {
+                let mut s = state.write().await;
+                s.init_status = format!(
+                    "Updated to v{} — restarting in a moment...",
+                    latest_version
+                );
+            }
             // Record successful install in ledger
             let entry = UpdateCheckEntry::new(
                 VERSION,
@@ -141,8 +161,9 @@ async fn try_auto_update(state: &SharedState, latest_version: &str) {
             ledger.push(entry);
             let _ = save_update_ledger(&ledger);
 
-            let mut state = state.write().await;
-            state.last_error = Some(format!("Auto-update failed: {}", e));
+            let mut s = state.write().await;
+            s.init_status = "Ready".to_string();
+            s.last_error = Some(format!("Auto-update failed: {}", e));
         }
     }
 }

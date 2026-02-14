@@ -1,52 +1,18 @@
 #!/bin/bash
 # Anna Installer - curl -sSL <url>/install.sh | bash
-# v0.3.106: Improved version fetching with better error handling
 set -eE
-
-# Show exactly which line failed — set -E makes this fire inside functions too
 trap 'echo ""; echo "  INSTALL FAILED at line $LINENO — command: $BASH_COMMAND" >&2' ERR
 
 REPO="jjgarcianorway/anna-assistant"
 
-# Fetch latest version from GitHub releases
 fetch_version() {
     local response version
-
-    # Check if curl is available
-    if ! command -v curl &>/dev/null; then
-        echo "Error: curl is required but not installed" >&2
-        echo "Install with: sudo pacman -S curl (Arch) or sudo apt install curl (Debian/Ubuntu)" >&2
-        exit 1
-    fi
-
-    # Fetch from GitHub API
+    command -v curl &>/dev/null || { echo "Error: curl is required" >&2; exit 1; }
     response=$(curl -sSL --connect-timeout 10 "https://api.github.com/repos/${REPO}/releases/latest" 2>&1)
-
-    # Check for rate limiting
-    if echo "$response" | grep -q "API rate limit"; then
-        echo "Error: GitHub API rate limit exceeded" >&2
-        echo "Try again in a few minutes, or install manually from:" >&2
-        echo "  https://github.com/${REPO}/releases/latest" >&2
-        exit 1
-    fi
-
-    # Check for network errors
-    if echo "$response" | grep -qi "could not resolve\|connection refused\|timed out"; then
-        echo "Error: Cannot connect to GitHub" >&2
-        echo "Check your internet connection and try again" >&2
-        exit 1
-    fi
-
-    # Extract version from response
+    echo "$response" | grep -q "API rate limit" && { echo "Error: GitHub API rate limit. Try again in a few minutes." >&2; exit 1; }
+    echo "$response" | grep -qi "could not resolve\|connection refused\|timed out" && { echo "Error: Cannot connect to GitHub. Check your internet connection." >&2; exit 1; }
     version=$(echo "$response" | grep '"tag_name"' | head -1 | sed -E 's/.*"v([^"]+)".*/\1/')
-
-    # Validate version format (should be like 0.3.106)
-    if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        echo "Error: Could not fetch version from GitHub" >&2
-        echo "Response was: ${response:0:200}" >&2
-        exit 1
-    fi
-
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: Could not fetch version. Response: ${response:0:200}" >&2; exit 1; }
     echo "$version"
 }
 
@@ -76,13 +42,11 @@ print_footer() {
         echo ""
     fi
     if [[ "${BINARY_VERIFY_FAILED:-false}" == "true" ]]; then
-        echo "  ${C_ERR}WARNING: Binaries could not be verified (may be a library issue on this machine).${C_RESET}"
-        echo "  The service was installed and will attempt to start on boot."
-        echo "  Check: sudo systemctl status annad"
+        echo "  ${C_ERR}WARNING: Binary verification failed — the daemon may not start correctly.${C_RESET}"
+        echo "  Try re-running the installer. If it persists, report the issue."
         echo ""
     elif [[ "${DAEMON_START_FAILED:-false}" == "true" ]]; then
-        echo "  ${C_ERR}WARNING: annad failed to start.${C_RESET}"
-        echo "  Check: sudo systemctl status annad"
+        echo "  ${C_ERR}WARNING: annad failed to start. Anna will retry automatically on next boot.${C_RESET}"
         echo ""
     else
         echo "  annad is running. Try: ${C_BOLD}annactl status${C_RESET}"
@@ -350,6 +314,14 @@ EOF
         if [[ "${DAEMON_START_FAILED:-false}" != "true" ]] && [[ "$state" != "active" ]]; then
             print_err "annad did not reach active state within 10s (state: ${state})"
             DAEMON_START_FAILED=true
+        fi
+        # Verify socket created (daemon writes it after sd_notify)
+        if [[ "${DAEMON_START_FAILED:-false}" != "true" ]]; then
+            for i in $(seq 1 20); do
+                [[ -S "${RUN_DIR}/anna.sock" ]] && { print_item_ok "socket ready"; break; }
+                sleep 0.5
+            done
+            [[ ! -S "${RUN_DIR}/anna.sock" ]] && print_err "socket not created yet — daemon still initializing (normal on first run)"
         fi
     else
         print_err "systemctl start annad failed"

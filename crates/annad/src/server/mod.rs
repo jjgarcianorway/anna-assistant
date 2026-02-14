@@ -82,24 +82,48 @@ impl Server {
                         loop {
                             tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
 
-                            let (model_gone, state_not_ready) = {
+                            let (model_gone, state_not_ready, current_model) = {
                                 let s = init_state.read().await;
-                                (s.model.is_none(), s.state != DaemonState::Ready)
+                                (s.model.is_none(), s.state != DaemonState::Ready, s.model.clone())
                             };
 
                             let ollama_dead = !crate::ollama::is_running().await;
 
-                            if model_gone || state_not_ready || ollama_dead {
+                            // Proactively verify the current model is still present in ollama.
+                            // Catches `ollama rm <model>` without waiting for the next query to 404.
+                            let model_deleted = if !ollama_dead && !model_gone {
+                                if let Some(ref m) = current_model {
+                                    let available = crate::ollama::list_models()
+                                        .await
+                                        .unwrap_or_default();
+                                    !available.iter().any(|name| name == m)
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            };
+
+                            if model_gone || state_not_ready || ollama_dead || model_deleted {
                                 if ollama_dead && !model_gone {
                                     // Proactively update state so the UI shows the right message
                                     let mut s = init_state.write().await;
                                     s.model = None;
                                     s.state = DaemonState::Starting;
                                     s.init_status = "Ollama stopped — recovering...".to_string();
+                                } else if model_deleted {
+                                    let model_name = current_model.unwrap_or_default();
+                                    let mut s = init_state.write().await;
+                                    s.model = None;
+                                    s.state = DaemonState::Starting;
+                                    s.init_status = format!(
+                                        "Model '{}' was removed — re-downloading automatically...",
+                                        model_name
+                                    );
                                 }
                                 info!(
-                                    "Health check: model_gone={} state_not_ready={} ollama_dead={} — re-initializing",
-                                    model_gone, state_not_ready, ollama_dead
+                                    "Health check: model_gone={} state_not_ready={} ollama_dead={} model_deleted={} — re-initializing",
+                                    model_gone, state_not_ready, ollama_dead, model_deleted
                                 );
                                 break;
                             }
