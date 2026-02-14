@@ -369,7 +369,16 @@ fn collect_system_telemetry() -> String {
 
     // v0.3.167: Regression Detection (performance degradations)
     telemetry.push_str("## Regression Detection:\n");
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    // Create a runtime for the remaining async sections in this sync context.
+    // Use match so a thread-pool exhaustion doesn't panic the entire briefing.
+    let rt = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => {
+            tracing::warn!("Failed to create runtime for telemetry sections: {}", e);
+            telemetry.push_str("Telemetry sections unavailable (runtime error).\n");
+            return telemetry;
+        }
+    };
     let regressions = rt.block_on(async {
         crate::regression_detector::detect_regressions().await.unwrap_or_default()
     });
@@ -675,8 +684,10 @@ Generate the briefing now:"#,
 
 /// Legacy synchronous version (fallback).
 pub fn generate_morning_briefing() -> String {
-    // Run async version in blocking context
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(generate_morning_briefing_llm(None))
-        .unwrap_or_else(|_| "Good morning! System status check failed.".to_string())
+    match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt
+            .block_on(generate_morning_briefing_llm(None))
+            .unwrap_or_else(|_| "Good morning! System status check failed.".to_string()),
+        Err(_) => "Good morning! System status check failed.".to_string(),
+    }
 }

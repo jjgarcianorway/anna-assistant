@@ -5,6 +5,20 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.225] - 2026-02-14
+
+### Fixed — reliability: briefing panic and dynamic binary backup paths
+
+**briefing.rs Runtime panic**: `tokio::runtime::Runtime::new().unwrap()` could panic
+under thread pool exhaustion. Replaced with `match` that returns partial telemetry
+gracefully instead of crashing the daemon. Both the telemetry-sections function and
+the legacy `generate_morning_briefing()` wrapper are fixed.
+
+**update.rs hardcoded backup paths**: Binary backup before update used hardcoded
+`/usr/local/bin/annactl` and `/usr/local/bin/annad`. Systems where binaries live
+elsewhere (e.g. `/usr/bin`) would silently fail to back up. Now uses `get_bin_dir()`
+(same dynamic path as install/rollback) for consistent behavior.
+
 ## [0.3.224] - 2026-02-14
 
 ### Fixed — installation, init, and auto-healing hardening

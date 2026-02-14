@@ -75,7 +75,7 @@ pub fn verify_binary_version(path: &Path, expected_version: &str, name: &str) ->
 
 /// Get the binary directory from current executable
 /// v0.3.11: Dynamic binary location instead of hardcoded /usr/local/bin
-fn get_bin_dir() -> Result<std::path::PathBuf> {
+pub fn get_bin_dir() -> Result<std::path::PathBuf> {
     let exe = std::env::current_exe()
         .map_err(|e| anyhow!("Cannot determine binary location: {}", e))?;
     exe.parent()

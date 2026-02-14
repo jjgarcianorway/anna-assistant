@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use tracing::info;
 
 pub use crate::update_ops::{
-    download_file, get_arch_name, install_binary_pair, patch_service_unit_path,
+    download_file, get_arch_name, get_bin_dir, install_binary_pair, patch_service_unit_path,
     rollback_binaries, schedule_daemon_restart, verify_assets_exist, verify_binary_version,
     verify_checksum, verify_pair_consistency,
 };
@@ -124,12 +124,14 @@ pub async fn perform_update(new_version: &str) -> Result<()> {
     verify_binary_version(&annactl_path, new_version, "annactl")?;
     verify_binary_version(&annad_path, new_version, "annad")?;
 
-    // Backup existing binaries for rollback
+    // Backup existing binaries for rollback — use dynamic path, not hardcoded /usr/local/bin
     info!("Backing up existing binaries...");
     let backup_annactl = tmp_dir.join("annactl.backup");
     let backup_annad = tmp_dir.join("annad.backup");
-    std::fs::copy("/usr/local/bin/annactl", &backup_annactl).ok();
-    std::fs::copy("/usr/local/bin/annad", &backup_annad).ok();
+    if let Ok(bin_dir) = get_bin_dir() {
+        std::fs::copy(bin_dir.join("annactl"), &backup_annactl).ok();
+        std::fs::copy(bin_dir.join("annad"), &backup_annad).ok();
+    }
 
     // Atomic pair update - both or neither
     info!("Installing new binaries as atomic pair...");
