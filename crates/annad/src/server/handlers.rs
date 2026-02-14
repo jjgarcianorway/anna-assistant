@@ -230,7 +230,8 @@ pub async fn handle_request(request: RpcRequest, state: SharedState) -> RpcRespo
                         "The configured model is not available. \
                          Anna is attempting to recover automatically."
                     } else {
-                        // Return original error for unknown cases
+                        // Return original error for unknown cases — complete registration first
+                        complete_inflight_request(question);
                         return RpcResponse::error(&request.id, -32603, &format!("Execution error: {}", e));
                     };
 

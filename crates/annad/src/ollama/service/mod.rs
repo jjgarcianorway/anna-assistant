@@ -18,6 +18,11 @@ use super::OLLAMA_API;
 
 const ANNA_REGISTRY: &str = "/var/lib/anna/registry.json";
 
+/// Holds the child handle for a directly-spawned `ollama serve` process.
+/// Without this the Child is dropped immediately and the process becomes an orphan.
+static OLLAMA_SERVE_CHILD: std::sync::Mutex<Option<std::process::Child>> =
+    std::sync::Mutex::new(None);
+
 /// Registry of resources installed by Anna
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct AnnaRegistry {
@@ -206,8 +211,20 @@ pub async fn start_service() -> Result<()> {
     }
 
     warn!("systemctl failed, trying direct start");
-    let _child = ollama_cmd().arg("serve").spawn()
+    // Kill any previous directly-spawned process before spawning a new one
+    if let Ok(mut guard) = OLLAMA_SERVE_CHILD.lock() {
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+        }
+    }
+    let child = ollama_cmd()
+        .arg("serve")
+        .spawn()
         .with_context(|| "Failed to spawn ollama serve — is ollama installed?")?;
+    // Store the handle so it is not orphaned when this stack frame exits
+    if let Ok(mut guard) = OLLAMA_SERVE_CHILD.lock() {
+        *guard = Some(child);
+    }
 
     for _ in 0..30 {
         if is_running().await {
@@ -292,7 +309,14 @@ pub async fn pull_model_with_progress<F: Fn(String) + Send + Sync>(
                 continue;
             }
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                // Fail fast on API-reported errors (e.g. model name typo, registry error)
+                if let Some(err) = json.get("error").and_then(|e| e.as_str()) {
+                    return Err(anyhow!("Model pull failed: {}", err));
+                }
                 let status = json.get("status").and_then(|s| s.as_str()).unwrap_or("");
+                if status == "error" {
+                    return Err(anyhow!("Model pull failed for {} (unknown error)", model_name));
+                }
                 let total = json.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
                 let completed = json.get("completed").and_then(|v| v.as_u64()).unwrap_or(0);
 

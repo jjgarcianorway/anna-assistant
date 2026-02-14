@@ -5,6 +5,33 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.223] - 2026-02-14
+
+### Fixed — 4 critical reliability bugs (systematic audit)
+
+**pull_model_with_progress returned Ok on API-level error**: Ollama reports failed
+pulls as `{"error":"..."}` or `{"status":"error"}` JSON lines, not HTTP error codes.
+Function silently formatted these as progress updates and returned Ok(()). initialize()
+would believe a model was successfully downloaded when it wasn't, then test_model()
+would 404 forever. Now returns Err immediately on any error response from the API.
+
+**Concurrent initialize() calls**: Both the monitoring loop and the streaming error
+handler could trigger re-initialization simultaneously — one from polling state,
+one from resetting state.model=None. Added AtomicBool INITIALIZING guard; if one
+initialize() is already running, the monitor loop waits 5s and retries.
+
+**Orphaned ollama serve process on fallback spawn**: In start_service(), the directly-
+spawned `ollama serve` child was bound to `_child` which was immediately dropped when
+the function returned, leaving an orphan process with no handle. Added
+OLLAMA_SERVE_CHILD static Mutex<Option<Child>> to keep the handle alive and kill the
+previous process before spawning a new one on retry.
+
+**Inflight deduplication registration leak**: In handlers.rs, the Err branch for
+unknown errors called `return RpcResponse::error(...)` bypassing
+complete_inflight_request(question) at line 259. The question was registered as
+in-flight permanently until daemon restart. Added the completion call before that
+early return.
+
 ## [0.3.222] - 2026-02-14
 
 ### Fixed — model upgrade blocks ready state

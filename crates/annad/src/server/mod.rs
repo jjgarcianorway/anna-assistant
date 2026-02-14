@@ -14,7 +14,13 @@ use tracing::{error, info, warn};
 use anna_shared::socket_path;
 
 use crate::core_loop::{monitoring_loop, profile_refresh_loop};
+
 use crate::state::SharedState;
+
+/// Prevents two concurrent initialize() calls (e.g. monitoring loop + query error handler)
+static INITIALIZING: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 use crate::telegram;
 use crate::update_loop::update_check_loop;
 
@@ -53,8 +59,22 @@ impl Server {
         let init_state = self.state.clone();
         tokio::spawn(async move {
             use anna_shared::status::DaemonState;
+            use std::sync::atomic::Ordering;
             loop {
-                match initialize(init_state.clone()).await {
+                // Guard against concurrent initialize() calls from the error handler
+                if INITIALIZING
+                    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_err()
+                {
+                    // Another init is already running — wait and retry the monitor check
+                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                    continue;
+                }
+
+                let result = initialize(init_state.clone()).await;
+                INITIALIZING.store(false, Ordering::SeqCst);
+
+                match result {
                     Ok(()) => {
                         // Successfully initialized — keep monitoring in case ollama disappears
                         loop {
