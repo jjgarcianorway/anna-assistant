@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.235] - 2026-02-14
+
+### Fixed — "how is my system today?" and "pending updates?"
+
+- Added `HealthCheck` intent: covers "how is my system today?", health overview queries
+  → shows load, RAM, disk, failed services, update count in one shot
+- Fixed `SystemUpdate` description to include "pending updates", "available updates"
+- Increased classification timeout 5s → 8s (handles Ollama post-recovery latency)
+
 ## [0.3.234] - 2026-02-14
 
 ### Changed — Replace keyword pattern matching with LLM intent classification

@@ -1,5 +1,5 @@
 //! LLM-based intent classification replacing keyword pattern matching.
-//! Classifies the question in ≤5s, then runs direct system commands.
+//! Classifies the question in ≤8s, then runs direct system commands.
 
 use anyhow::Result;
 use tracing::debug;
@@ -13,7 +13,7 @@ use crate::state::SharedState;
 enum ActionIntent {
     DiskUsage, DiskInfo, RamInfo, RamConsumers,
     CpuModel, CpuTemp, CpuUsage, CpuThrottle,
-    SystemInfo, NetworkInfo, FirewallStatus,
+    SystemInfo, NetworkInfo, FirewallStatus, HealthCheck,
     ServiceStatus, BootInfo, PackageInfo, SystemUpdate,
     SecurityInfo, SystemLogs, KernelConfig, ProcessInfo,
     Unknown,
@@ -35,6 +35,7 @@ impl ActionIntent {
                 "SystemInfo"    => return Self::SystemInfo,
                 "NetworkInfo"   => return Self::NetworkInfo,
                 "FirewallStatus"=> return Self::FirewallStatus,
+                "HealthCheck"   => return Self::HealthCheck,
                 "ServiceStatus" => return Self::ServiceStatus,
                 "BootInfo"      => return Self::BootInfo,
                 "PackageInfo"   => return Self::PackageInfo,
@@ -65,10 +66,11 @@ CpuThrottle   - CPU throttling, frequency scaling, governor
 SystemInfo     - hostname, distro, kernel version, OS, architecture, uptime, who am I, load average
 NetworkInfo    - IP address, interfaces, routing table, open ports, DNS servers
 FirewallStatus - firewall rules, iptables, nftables, ufw status
+HealthCheck    - how is my system, system health, status overview, how am I doing, everything ok
 ServiceStatus  - failed services, systemd units, service failures
 BootInfo       - boot time analysis, boot logs, startup services, recent reboots
 PackageInfo    - recently installed packages, orphaned packages, package errors
-SystemUpdate   - update system, upgrade packages, arch-update, paru, yay
+SystemUpdate   - update system, upgrade packages, arch-update, paru, yay, pending updates, available updates, check for updates
 SecurityInfo   - login attempts, suspicious processes, file permissions, sensitive files
 SystemLogs     - system errors in journal, kernel panic, recent error logs
 KernelConfig   - kernel parameters, sysctl tuning, kernel settings
@@ -95,7 +97,7 @@ pub async fn classify_and_execute(
     };
 
     let prompt = CLASSIFY_PROMPT.replace("{question}", question);
-    let response = match crate::ollama::chat_with_timeout(&model, &prompt, 5).await {
+    let response = match crate::ollama::chat_with_timeout(&model, &prompt, 8).await {
         Ok(r) => r,
         Err(e) => {
             debug!("Intent classification failed: {}", e);
@@ -127,6 +129,7 @@ pub async fn classify_and_execute(
         ActionIntent::SystemInfo    => exec_system_info(writer, &cache).await,
         ActionIntent::NetworkInfo   => exec_network_info(writer, &cache).await,
         ActionIntent::FirewallStatus=> exec_firewall(writer).await,
+        ActionIntent::HealthCheck   => exec_health_check(writer, &cache).await,
         ActionIntent::ServiceStatus => exec_services(writer, &cache).await,
         ActionIntent::BootInfo      => exec_boot_info(writer).await,
         ActionIntent::PackageInfo   => exec_packages(writer).await,
@@ -233,16 +236,32 @@ async fn exec_system_info(writer: &mut tokio::net::unix::OwnedWriteHalf, cache: 
 }
 
 async fn exec_network_info(writer: &mut tokio::net::unix::OwnedWriteHalf, cache: &crate::cache::SystemCache) -> Result<bool> {
-    let ip = run_cmd_cached(cache, "ip_addr", "ip", &["addr", "show"], 30, &[InvalidationTag::Network])?;
-    let my_ip = ip.lines()
-        .find(|l| l.contains("inet ") && !l.contains("127.0.0.1"))
-        .and_then(|l| l.split_whitespace().nth(1))
-        .unwrap_or("No IP found");
+    let ip_raw = run_cmd_cached(cache, "ip_addr", "ip", &["addr", "show"], 30, &[InvalidationTag::Network])?;
+    let my_ip = ip_raw.lines().find(|l| l.contains("inet ") && !l.contains("127.0.0.1"))
+        .and_then(|l| l.split_whitespace().nth(1)).unwrap_or("No IP found");
     let ports = run_cmd_cached(cache, "ss_ports", "ss", &["-tulpn"], 30, &[InvalidationTag::Network])?;
     let dns = run_shell("grep ^nameserver /etc/resolv.conf 2>/dev/null | head -3").unwrap_or_default();
+    send_answer(writer, format!("IP: {}\nDNS: {}\nOpen ports:\n```\n{}\n```", my_ip, dns.trim(), ports.trim())).await?;
+    Ok(true)
+}
+
+async fn exec_health_check(writer: &mut tokio::net::unix::OwnedWriteHalf, cache: &crate::cache::SystemCache) -> Result<bool> {
+    let uptime = run_cmd("uptime", &[]).unwrap_or_default();
+    let mem = run_cmd_cached(cache, "free_memory", "free", &["-h"], 15, &[InvalidationTag::Memory]).unwrap_or_default();
+    let mem_line = mem.lines().find(|l| l.starts_with("Mem:")).unwrap_or("");
+    let mf: Vec<&str> = mem_line.split_whitespace().collect();
+    let disk = run_shell("df -h / 2>/dev/null | tail -1").unwrap_or_default();
+    let failed = run_cmd("systemctl", &["--failed", "--no-pager"]).unwrap_or_default();
+    let failed_count = failed.lines().filter(|l| l.contains("failed")).count();
+    let updates: u32 = run_shell("checkupdates 2>/dev/null | wc -l || echo 0")
+        .unwrap_or_default().trim().parse().unwrap_or(0);
+    let update_msg = if updates == 0 { "up to date".to_string() } else { format!("{} updates available", updates) };
+    let health = if failed_count == 0 { "healthy" } else { "issues detected" };
     send_answer(writer, format!(
-        "IP: {}\nDNS: {}\nOpen ports:\n```\n{}\n```",
-        my_ip, dns.trim(), ports.trim()
+        "System status: {}\n\nLoad: {}\nRAM: {} total, {} used\nDisk (/): {}\nFailed services: {}\nUpdates: {}",
+        health, uptime.trim(),
+        mf.get(1).unwrap_or(&"?"), mf.get(2).unwrap_or(&"?"),
+        disk.trim(), failed_count, update_msg
     )).await?;
     Ok(true)
 }
@@ -283,10 +302,7 @@ async fn exec_boot_info(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result
 }
 
 async fn exec_packages(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
-    let recent = run_shell(
-        "tail -20 /var/log/pacman.log 2>/dev/null | grep -E 'installed|upgraded' \
-         || tail -20 /var/log/dpkg.log 2>/dev/null | grep 'install '"
-    ).unwrap_or_default();
+    let recent = run_shell("tail -20 /var/log/pacman.log 2>/dev/null | grep -E 'installed|upgraded' || tail -20 /var/log/dpkg.log 2>/dev/null | grep 'install '").unwrap_or_default();
     let orphans = run_cmd("pacman", &["-Qdt"]).unwrap_or_default();
     let orphan_msg = if orphans.trim().is_empty() {
         "No orphaned packages.".to_string()
@@ -343,9 +359,7 @@ async fn exec_security(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<
     let count = attempts.lines().filter(|l| !l.trim().is_empty() && !l.starts_with("btmp")).count();
     let login_msg = if count == 0 { "No recent failed login attempts.".to_string() }
                     else { format!("{} failed login attempts:\n```\n{}\n```", count, attempts.trim()) };
-    let perms = run_shell(
-        "stat -c '%a %n' /etc/passwd /etc/shadow /etc/sudoers /root 2>/dev/null"
-    ).unwrap_or_default();
+    let perms = run_shell("stat -c '%a %n' /etc/passwd /etc/shadow /etc/sudoers /root 2>/dev/null").unwrap_or_default();
     let suspicious = run_shell("ps aux | awk '$3 > 50 || $4 > 50 {print}' | head -5").unwrap_or_default();
     let susp_msg = if suspicious.trim().is_empty() { "No high-resource processes.".to_string() }
                    else { format!("High-resource processes:\n```\n{}\n```", suspicious.trim()) };
@@ -356,11 +370,8 @@ async fn exec_security(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<
 async fn exec_logs(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
     let errors = run_cmd("journalctl", &["-p", "err", "-n", "20", "--no-pager"])?;
     let panic = run_shell("journalctl -b -1 --no-pager 2>/dev/null | grep -i 'panic\\|oops\\|segfault' | tail -5").unwrap_or_default();
-    let mut out = format!("Recent system errors:\n```\n{}\n```", errors.trim());
-    if !panic.trim().is_empty() {
-        out.push_str(&format!("\n\nKernel panic/oops:\n```\n{}\n```", panic.trim()));
-    }
-    send_answer(writer, out).await?;
+    let extra = if panic.trim().is_empty() { String::new() } else { format!("\n\nKernel panic/oops:\n```\n{}\n```", panic.trim()) };
+    send_answer(writer, format!("Recent system errors:\n```\n{}\n```{}", errors.trim(), extra)).await?;
     Ok(true)
 }
 
