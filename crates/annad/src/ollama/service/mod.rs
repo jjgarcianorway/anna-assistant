@@ -84,6 +84,36 @@ pub fn is_installed() -> bool {
         .unwrap_or(false)
 }
 
+/// Create systemd drop-in to set OLLAMA_MODELS=/var/lib/anna/models on the ollama service.
+/// Returns true if the drop-in was newly created (service needs restart to pick it up).
+pub fn configure_ollama_service() -> Result<bool> {
+    let dropin_dir = "/etc/systemd/system/ollama.service.d";
+    let dropin_path = format!("{}/anna.conf", dropin_dir);
+    let content = "[Service]\nEnvironment=OLLAMA_MODELS=/var/lib/anna/models\n";
+
+    // Skip if already written with correct content
+    if std::path::Path::new(&dropin_path).exists() {
+        if let Ok(existing) = std::fs::read_to_string(&dropin_path) {
+            if existing == content {
+                return Ok(false); // already configured, no restart needed
+            }
+        }
+    }
+
+    std::fs::create_dir_all(dropin_dir)
+        .with_context(|| format!("Failed to create {}", dropin_dir))?;
+    std::fs::write(&dropin_path, content)
+        .with_context(|| format!("Failed to write {}", dropin_path))?;
+
+    Command::new("/usr/bin/systemctl")
+        .args(["daemon-reload"])
+        .output()
+        .with_context(|| "Failed to run systemctl daemon-reload")?;
+
+    info!("Configured ollama service: OLLAMA_MODELS=/var/lib/anna/models");
+    Ok(true) // newly configured — caller should restart service
+}
+
 /// Install Ollama using pacman (Arch Linux).
 /// Uses spawn_blocking so the download doesn't starve the tokio runtime.
 pub async fn install() -> Result<()> {
@@ -127,6 +157,11 @@ pub async fn install() -> Result<()> {
     .await
     .with_context(|| "spawn_blocking for pacman panicked")??;
 
+    // Configure systemd service to use anna's model directory
+    if let Err(e) = configure_ollama_service() {
+        warn!("Failed to configure ollama service drop-in: {}", e);
+    }
+
     let mut registry = AnnaRegistry::load();
     registry.add_package(&installed_pkg);
     registry.save()?;
@@ -138,8 +173,9 @@ pub async fn install() -> Result<()> {
 /// Verify a model actually responds to a trivial prompt.
 /// Returns Err if the model is not installed or ollama is not responding.
 pub async fn test_model(model: &str) -> Result<()> {
+    // 120s timeout: first /api/generate call loads model into GPU memory (60-120s cold start)
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(120))
         .build()?;
 
     let body = serde_json::json!({
@@ -181,6 +217,12 @@ pub async fn is_running() -> bool {
 /// Start Ollama service
 pub async fn start_service() -> Result<()> {
     info!("Starting Ollama service...");
+
+    // Ensure systemd service is configured to use anna's model directory
+    // (no-op if drop-in already exists; also handles pre-installed ollama)
+    if let Err(e) = configure_ollama_service() {
+        warn!("Failed to configure ollama service drop-in: {}", e);
+    }
 
     let output = Command::new("/usr/bin/systemctl")
         .args(["start", "ollama"])

@@ -5,6 +5,25 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.216] - 2026-02-14
+
+### Fixed — three bugs causing models to never be ready on existing ollama installs
+
+1. test_model() had a 30s timeout — cold GPU model load takes 60-120s. Daemon would
+   fail the health check, retry after 60s, fail again, loop forever. Fixed: 120s timeout.
+
+2. pull_model() set OLLAMA_MODELS=/var/lib/anna/models via env var on the CLI process,
+   but the running systemd ollama service used its default /var/lib/ollama path. Models
+   pulled by anna were invisible to the running service (list_models() returned empty).
+   Fixed: create /etc/systemd/system/ollama.service.d/anna.conf drop-in during init
+   to set OLLAMA_MODELS consistently on the service. If the drop-in is newly created
+   and the service is running, it is restarted so the env var takes effect.
+
+3. Scheduler race: if the morning briefing fired at 8AM while the daemon was still
+   initializing (installing ollama, downloading model), generate_morning_briefing_llm()
+   would fail and a useless fallback string would be saved. Fixed: scheduler now checks
+   DaemonState::Ready before attempting LLM generation; retries next minute if not ready.
+
 ## [0.3.215] - 2026-02-14
 
 ### Fixed — morning report now shown in annactl; process list no longer wraps

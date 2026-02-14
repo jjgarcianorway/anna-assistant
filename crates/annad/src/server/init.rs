@@ -31,6 +31,26 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         };
     }
 
+    // Ensure ollama systemd service uses /var/lib/anna/models (idempotent)
+    // If newly configured and service is running, restart it so the env var takes effect
+    match ollama::configure_ollama_service() {
+        Ok(true) => {
+            info!("Ollama service configured for anna model directory — restarting service");
+            {
+                let mut s = state.write().await;
+                s.init_status = "Restarting Ollama with anna model directory...".to_string();
+            }
+            // Restart so new OLLAMA_MODELS takes effect
+            std::process::Command::new("/usr/bin/systemctl")
+                .args(["restart", "ollama"])
+                .output()
+                .ok();
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        }
+        Ok(false) => {} // already configured
+        Err(e) => warn!("Failed to configure ollama service: {}", e),
+    }
+
     // Install ollama if needed (will pick cuda/rocm variant based on GPU)
     if !ollama::is_installed() {
         info!("Installing Ollama...");
@@ -123,7 +143,7 @@ pub async fn initialize(state: SharedState) -> Result<()> {
             // Verify model actually responds before marking Ready
             {
                 let mut s = state.write().await;
-                s.init_status = format!("Verifying model {}...", model);
+                s.init_status = format!("Loading model {} into memory (first start takes up to 2 min)...", model);
             }
             ollama::test_model(&model).await
                 .map_err(|e| anyhow!("Model health check failed: {}", e))?;
@@ -147,7 +167,7 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     // Verify model actually responds before marking Ready
     {
         let mut s = state.write().await;
-        s.init_status = format!("Verifying model {}...", model);
+        s.init_status = format!("Loading model {} into memory (first start takes up to 2 min)...", model);
     }
     ollama::test_model(&model).await
         .map_err(|e| anyhow!("Model health check failed: {}", e))?;

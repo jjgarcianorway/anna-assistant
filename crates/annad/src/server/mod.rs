@@ -93,8 +93,9 @@ impl Server {
         });
 
         // Start scheduler loop for reminders and scheduled tasks
+        let scheduler_state = self.state.clone();
         tokio::spawn(async move {
-            crate::scheduler_loop::scheduler_loop().await;
+            crate::scheduler_loop::scheduler_loop(scheduler_state).await;
         });
 
         // Start autonomous learning loop (Anna's idle-time behavior)

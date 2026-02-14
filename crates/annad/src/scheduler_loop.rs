@@ -7,8 +7,11 @@ use std::process::Command;
 use tokio::time::{interval, Duration};
 use tracing::{debug, info, warn};
 
+use anna_shared::status::DaemonState;
+
 use crate::anomaly::AnomalyStore;
 use crate::briefing::generate_morning_briefing;
+use crate::state::SharedState;
 use crate::telegram::notifier::{push_notification, send_pdf_report, send_chart_photo};
 
 /// Ensure morning briefing task exists (creates one at 8am if missing).
@@ -32,7 +35,7 @@ fn ensure_morning_briefing() {
 }
 
 /// Background loop that checks for and executes scheduled tasks.
-pub async fn scheduler_loop() {
+pub async fn scheduler_loop(state: SharedState) {
     info!("Scheduler loop starting (30s delay)...");
 
     // Wait for system to stabilize before starting
@@ -107,6 +110,17 @@ pub async fn scheduler_loop() {
                     push_notification(&format!("Reminder: {}", message));
                 }
                 TaskAction::HealthCheck { username } => {
+                    // Skip LLM-based generation if daemon is not Ready yet
+                    let daemon_ready = {
+                        let s = state.read().await;
+                        s.state == DaemonState::Ready
+                    };
+                    if !daemon_ready {
+                        warn!("Morning briefing skipped: daemon not Ready (ollama still initializing)");
+                        // Don't mark as run — retry next cycle when Ready
+                        continue;
+                    }
+
                     // Collect daily snapshot before generating report
                     collect_daily_snapshot();
 
