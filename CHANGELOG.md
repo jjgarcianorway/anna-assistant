@@ -5,6 +5,18 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.220] - 2026-02-14
+
+### Fixed — real-time model download progress
+
+pull_model() now uses the Ollama HTTP streaming API (/api/pull) instead of
+blocking on the CLI subprocess. Every 1% change in download progress updates
+init_status with: "Downloading qwen2.5:7b: 42%  (2.0 GB of 4.7 GB)"
+
+annactl shows this live via wait_for_ready(), so the user sees actual progress
+instead of a static message for 5-15 minutes. Timeout raised to 2 hours for
+large models on slow connections.
+
 ## [0.3.219] - 2026-02-14
 
 ### Fixed — Ollama self-healing after removal

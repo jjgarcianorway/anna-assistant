@@ -249,32 +249,84 @@ pub async fn list_models() -> Result<Vec<String>> {
     Ok(models)
 }
 
-/// Pull a model and register it
+/// Pull a model using the Ollama streaming API, reporting real-time download progress.
+/// `on_progress` is called with a human-readable status string on each update.
 pub async fn pull_model(model: &str) -> Result<()> {
-    info!("Pulling model: {} (this may take several minutes)", model);
+    pull_model_with_progress(model, |_| {}).await
+}
 
-    let model = model.to_string();
-    let model_clone = model.clone();
+/// Pull a model and report download progress via callback.
+pub async fn pull_model_with_progress<F: Fn(String) + Send + Sync>(
+    model: &str,
+    on_progress: F,
+) -> Result<()> {
+    use futures_util::StreamExt;
 
-    let result = tokio::task::spawn_blocking(move || {
-        ollama_cmd().args(["pull", &model]).output()
-    })
-    .await?;
+    info!("Pulling model: {}", model);
+    let model_name = model.to_string();
 
-    match result {
-        Ok(output) if output.status.success() => {
-            info!("Model pulled successfully: {}", model_clone);
-            let mut registry = AnnaRegistry::load();
-            registry.add_model(&model_clone);
-            registry.save()?;
-            Ok(())
-        }
-        Ok(output) => {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(anyhow!("Failed to pull model: {}", stderr))
-        }
-        Err(e) => Err(anyhow!("Failed to run ollama pull: {}", e)),
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(7200)) // 2h for large models on slow connections
+        .build()?;
+
+    let response = client
+        .post(format!("{}/api/pull", OLLAMA_API))
+        .json(&serde_json::json!({ "name": model, "stream": true }))
+        .send()
+        .await
+        .map_err(|e| anyhow!("Cannot reach Ollama to start model download: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(anyhow!("Pull request failed: {}", response.status()));
     }
+
+    let mut stream = response.bytes_stream();
+    let mut last_pct: u64 = 101; // force first update
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| anyhow!("Stream error during pull: {}", e))?;
+        let text = String::from_utf8_lossy(&chunk);
+
+        for line in text.lines() {
+            if line.is_empty() {
+                continue;
+            }
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+                let status = json.get("status").and_then(|s| s.as_str()).unwrap_or("");
+                let total = json.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
+                let completed = json.get("completed").and_then(|v| v.as_u64()).unwrap_or(0);
+
+                let msg = if total > 0 {
+                    let pct = completed * 100 / total;
+                    if pct == last_pct {
+                        continue; // no change — skip update
+                    }
+                    last_pct = pct;
+                    let total_gb = total as f64 / 1_073_741_824.0;
+                    let done_gb = completed as f64 / 1_073_741_824.0;
+                    format!(
+                        "Downloading {}: {}%  ({:.1} GB of {:.1} GB)",
+                        model_name, pct, done_gb, total_gb
+                    )
+                } else if !status.is_empty() && status != "success" {
+                    format!("Downloading {}: {}", model_name, status)
+                } else {
+                    continue;
+                };
+
+                on_progress(msg);
+            }
+        }
+    }
+
+    let mut registry = AnnaRegistry::load();
+    registry.add_model(model);
+    if let Err(e) = registry.save() {
+        warn!("Failed to save registry after pull: {}", e);
+    }
+
+    info!("Model {} downloaded successfully", model);
+    Ok(())
 }
 
 /// Delete a model

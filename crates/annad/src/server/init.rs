@@ -131,11 +131,13 @@ pub async fn initialize(state: SharedState) -> Result<()> {
     } else {
         // No models - pull the best one for this hardware
         info!("No models found, pulling {}...", best_model);
-        {
-            let mut s = state.write().await;
-            s.init_status = format!("Downloading language model {} (first run, 5-15 min depending on connection)...", best_model);
-        }
-        ollama::pull_model(best_model).await?;
+        let pull_state = state.clone();
+        ollama::pull_model_with_progress(best_model, move |msg| {
+            let s = pull_state.clone();
+            tokio::spawn(async move {
+                s.write().await.init_status = msg;
+            });
+        }).await?;
         best_model.to_string()
     };
 
@@ -147,11 +149,13 @@ pub async fn initialize(state: SharedState) -> Result<()> {
             "Upgrading from {}B to {}B model for better performance...",
             current_size, best_size
         );
-        {
-            let mut s = state.write().await;
-            s.init_status = format!("Downloading better model {} for your hardware...", best_model);
-        }
-        if let Err(e) = ollama::pull_model(best_model).await {
+        let pull_state = state.clone();
+        if let Err(e) = ollama::pull_model_with_progress(best_model, move |msg| {
+            let s = pull_state.clone();
+            tokio::spawn(async move {
+                s.write().await.init_status = msg;
+            });
+        }).await {
             warn!(
                 "Failed to pull better model, continuing with {}: {}",
                 model, e
