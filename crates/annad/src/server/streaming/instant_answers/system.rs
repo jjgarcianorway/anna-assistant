@@ -214,6 +214,8 @@ pub async fn try_system_answer(
     if (q.contains("cpu") || q.contains("processor"))
         && (q.contains("what") || q.contains("which") || q.contains("do i have") || q.contains("model"))
         && !q.contains("core") && !q.contains("throttl") && !q.contains("profil")
+        && !q.contains("temp") && !q.contains("process") && !q.contains("using")
+        && !q.contains("consuming") && !q.contains("top")
     {
         let cpuinfo = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
         let model = cpuinfo
@@ -231,6 +233,19 @@ pub async fn try_system_answer(
         let cpuinfo = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
         let cores = cpuinfo.lines().filter(|l| l.starts_with("processor")).count();
         send_answer(writer, format!("Your system has {} CPU cores.", cores)).await?;
+        return Ok(true);
+    }
+
+    // --- CPU TEMPERATURE ---
+    if q.contains("temp") && (q.contains("cpu") || q.contains("processor") || q.contains("system")) {
+        let temps = run_shell("sensors 2>/dev/null | grep -E 'Core|Tdie|Tctl|Package' | head -8")
+            .unwrap_or_default();
+        let msg = if temps.trim().is_empty() {
+            "Temperature sensors not available (lm_sensors not installed or not configured).".to_string()
+        } else {
+            format!("CPU temperatures:\n```\n{}\n```", temps.trim())
+        };
+        send_answer(writer, msg).await?;
         return Ok(true);
     }
 

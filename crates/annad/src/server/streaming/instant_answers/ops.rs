@@ -57,8 +57,11 @@ pub async fn try_ops_answer(
         return Ok(true);
     }
 
-    // --- SERVICE FAILURE ---
-    if q.contains("service") && (q.contains("fail") || q.contains("why")) && !q.contains("boot") {
+    // --- SERVICE FAILURE (generic only — not specific service queries) ---
+    // Don't intercept "why is nginx failing" or "fix snapper.service" — let LLM diagnose
+    if q.contains("service") && (q.contains("fail") || q.contains("why")) && !q.contains("boot")
+        && !q.contains("fix") && !q.contains(".service") && !q.contains("specific")
+    {
         let output = run_cmd_cached(&cache, "systemctl_failed", "systemctl", &["--failed", "--no-pager"], 30, &[InvalidationTag::Services])?;
         send_answer(writer, format!("Failed services:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
@@ -73,7 +76,7 @@ pub async fn try_ops_answer(
     // --- SERVICE STATUS ---
     if q.contains("status") && (q.contains("service") || q.contains("systemd") || q.contains("unit")) {
         let output = run_cmd("systemctl", &["list-units", "--state=failed", "--no-pager"])?;
-        send_answer(writer, format!("Failed systemd units:\n```\n{}\n```\nUse `systemctl status <name>` for a specific service.", output.trim())).await?;
+        send_answer(writer, format!("Failed systemd units:\n```\n{}\n```", output.trim())).await?;
         return Ok(true);
     }
 

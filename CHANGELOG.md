@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.231] - 2026-02-14
+
+### Fixed — instant answer bugs found by systematic testing
+
+- `rAM:` / `cPU:` formatting fixed: `lowercase_first()` no longer breaks acronyms when confidence hedge is prepended
+- CPU model instant answer no longer intercepts "CPU temperature" or "processes using CPU" queries
+- Added CPU temperature instant answer (runs `sensors`)
+- Service failure instant answer no longer intercepts specific service queries ("fix nginx", "why is snapper.service failing") — those go to LLM for actual diagnosis
+- ExposureGate: `sudo` commands in LLM responses now properly blocked via capability routing (4 pre-existing test failures fixed)
+
 ## [0.3.230] - 2026-02-14
 
 ### Fixed — AUR update: Anna no longer hallucinates yaourt or shows sudo commands

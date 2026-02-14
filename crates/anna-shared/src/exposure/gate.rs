@@ -207,16 +207,26 @@ pub fn filter_final_answer_with_request(
         GateResult::new(true, content_with_phrasing, None)
             .with_warnings(result.warnings)
     } else {
-        // v0.3.149: LLM-first architecture - DON'T use capability routing fallback
-        // Just emit the content anyway for ReadOnly queries (Ralph already validated it)
-        // For Mutating, still use fallback since it requires user confirmation
-        let fallback = match intent {
-            IntentClass::ReadOnly => {
-                // LLM-first: Trust Ralph's answer for read-only queries
-                // If it got this far, Ralph validated it - don't second-guess with capabilities
+        // Content was blocked by ExposureGate (forbidden patterns).
+        // For ManualCommands violations (sudo, command instructions): always use capability routing.
+        // For other violations: pass through (trust Ralph's LLM output).
+        use super::sanitize::{sanitize_dialogue, ForbiddenPattern};
+        let san = sanitize_dialogue(content);
+        let has_manual_commands = san.violations.iter()
+            .any(|v| matches!(v.pattern, ForbiddenPattern::ManualCommands));
+
+        let fallback = match (intent, has_manual_commands) {
+            (IntentClass::ReadOnly, true) => {
+                // ReadOnly + ManualCommands: use capability routing to avoid exposing sudo/commands
+                let req = original_request.unwrap_or("");
+                let outcome = build_policy_violation_response(req);
+                format_outcome_to_string(&outcome)
+            }
+            (IntentClass::ReadOnly, false) => {
+                // Other violations, read-only: trust Ralph's output
                 content.to_string()
             }
-            IntentClass::Mutating => FALLBACK_MUTATING.to_string(),
+            (IntentClass::Mutating, _) => FALLBACK_MUTATING.to_string(),
         };
         // Phase 29: Even on fallback, preserve warnings as metadata
         GateResult::new(true, fallback, result.block_reason)
@@ -278,7 +288,15 @@ fn apply_confidence_phrasing(content: &str, confidence: ConfidenceLevel) -> Stri
 fn lowercase_first(s: &str) -> String {
     let mut chars = s.chars();
     match chars.next() {
-        Some(c) => c.to_lowercase().collect::<String>() + chars.as_str(),
+        Some(c) => {
+            // Don't lowercase if it starts an acronym (all-caps word before space/colon)
+            let first_word: String = s.chars().take_while(|ch| !ch.is_whitespace() && *ch != ':').collect();
+            if first_word.len() > 1 && first_word.chars().all(|ch| ch.is_uppercase() || ch.is_ascii_digit()) {
+                s.to_string()
+            } else {
+                c.to_lowercase().collect::<String>() + chars.as_str()
+            }
+        }
         None => String::new(),
     }
 }
