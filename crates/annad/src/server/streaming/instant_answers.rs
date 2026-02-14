@@ -1,11 +1,7 @@
-//! Instant answer dispatch - pattern-matches questions and returns direct answers.
-//! Bypasses LLM entirely. Returns true if answered, false to fall through to LLM.
+//! Instant answer dispatch - uses LLM intent classification to route questions
+//! to direct command executors. Returns true if answered, false to fall through to LLM.
 
-mod system;
-mod ops;
-
-pub use system::try_system_answer;
-pub use ops::try_ops_answer;
+mod intent_executor;
 
 use anyhow::Result;
 use tokio::io::AsyncWriteExt;
@@ -19,13 +15,7 @@ pub async fn try_instant_answer(
     writer: &mut tokio::net::unix::OwnedWriteHalf,
     state: &SharedState,
 ) -> Result<bool> {
-    if try_system_answer(question, writer, state).await? {
-        return Ok(true);
-    }
-    if try_ops_answer(question, writer, state).await? {
-        return Ok(true);
-    }
-    Ok(false)
+    intent_executor::classify_and_execute(question, writer, state).await
 }
 
 // --- Shared helpers used by sub-modules ---

@@ -5,6 +5,17 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.234] - 2026-02-14
+
+### Changed — Replace keyword pattern matching with LLM intent classification
+
+- Deleted `instant_answers/system.rs` (327 lines of brittle keyword patterns)
+- Deleted `instant_answers/ops.rs` (389 lines of brittle keyword patterns)
+- New `instant_answers/intent_executor.rs`: fast 5s LLM call classifies question
+  into one of 19 ActionIntent variants, then routes to the right executor
+- All executors preserved: disk, RAM, CPU, network, firewall, services, update, security, logs, etc.
+- Eliminates misrouting caused by overlapping keyword patterns (CPU model vs temperature, etc.)
+
 ## [0.3.233] - 2026-02-14
 
 ### Fixed — "run arch-update" now executes correctly
