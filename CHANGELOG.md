@@ -5,6 +5,19 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.228] - 2026-02-14
+
+### Fixed — init_status in the actual streaming handler
+
+**Root cause of "please try again in a moment"**: v0.3.227 fixed `handlers.rs`
+(`RpcMethod::Ask`) but `annactl` uses `RpcMethod::AskStreaming` which routes to
+`streaming/main_handler.rs`. That file had the same bug — ignored `state.init_status`
+and recomputed its own generic messages. Fixed: `streaming/main_handler.rs` now uses
+`state_guard.init_status` directly, same as `handlers.rs`.
+
+Also removed "please try again in a moment" phrasing from the LLM error path in the
+same file (model 404, connection refused, circuit breaker errors).
+
 ## [0.3.227] - 2026-02-14
 
 ### Fixed — rich self-healing communication to user

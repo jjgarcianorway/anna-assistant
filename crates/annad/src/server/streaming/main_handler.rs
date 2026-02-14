@@ -131,42 +131,18 @@ pub async fn handle_main_question(
         match &state_guard.model {
             Some(m) => m.clone(),
             None => {
-                let last_error = state_guard.last_error.clone();
+                // Use init_status directly — it's updated at every healing step
+                // with step numbers, ETAs, and reason. Fall back to last_error if set.
+                let msg = if let Some(ref err) = state_guard.last_error {
+                    format!("Anna is recovering (retrying automatically): {}", err)
+                } else if !state_guard.init_status.is_empty()
+                    && state_guard.init_status != "Ready"
+                {
+                    state_guard.init_status.clone()
+                } else {
+                    "Anna is initializing — please try again in a moment.".to_string()
+                };
                 drop(state_guard);
-
-                // Check real system state so the message is accurate
-                let ollama_installed = crate::ollama::is_installed();
-                let ollama_running = if ollama_installed {
-                    crate::ollama::is_running().await
-                } else {
-                    false
-                };
-                let models = if ollama_running {
-                    crate::ollama::list_models().await.unwrap_or_default()
-                } else {
-                    vec![]
-                };
-
-                let msg = if let Some(ref err) = last_error {
-                    // Init failed — show actual error, it's retrying
-                    format!(
-                        "Setup ran into a problem and is retrying automatically: {}",
-                        err
-                    )
-                } else if !ollama_installed {
-                    "Still setting up — Ollama is being installed in the background.".to_string()
-                } else if !ollama_running {
-                    "Ollama is installed but not running yet — starting it now.".to_string()
-                } else if models.is_empty() {
-                    "Ollama is running, downloading the language model now. \
-                    This can take several minutes on first run."
-                        .to_string()
-                } else {
-                    format!(
-                        "Almost ready — loading model from: {}.",
-                        models.join(", ")
-                    )
-                };
 
                 for word in msg.split_whitespace() {
                     let token = StreamingResponse::Token { token: format!("{} ", word) };
@@ -427,11 +403,11 @@ pub async fn handle_main_question(
             }
 
             let user_msg = if err_str.contains("404") || (err_str.contains("model") && err_str.contains("not found")) {
-                "The model is not available. Anna is recovering automatically — please try again in a moment.".to_string()
+                "The model is not available. Anna is recovering automatically — send your question again in a few seconds.".to_string()
             } else if err_str.contains("connection") || err_str.contains("refused") {
-                "Ollama is not running. Anna is reinstalling and restarting it automatically — please try again in a moment.".to_string()
+                "Ollama is not running. Anna is reinstalling and restarting it automatically — send your question again once Anna confirms recovery.".to_string()
             } else if err_str.contains("circuit breaker") {
-                "Ollama is temporarily unavailable. Anna is attempting recovery automatically — please try again in a moment.".to_string()
+                "Ollama is temporarily unavailable. Anna is attempting recovery automatically — send your question again in a few seconds.".to_string()
             } else {
                 format!("Execution error: {}", e)
             };
