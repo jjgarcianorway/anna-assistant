@@ -5,6 +5,19 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.222] - 2026-02-14
+
+### Fixed — model upgrade blocks ready state
+
+If an installed model (e.g. qwen2.5:3b) was smaller than the hardware-optimal
+model (e.g. qwen2.5:7b), initialize() would block — downloading the bigger model
+before marking Ready. User had a working model sitting idle while waiting 20+
+minutes for a download.
+
+Now: mark Ready immediately with whatever working model exists. If a better model
+is available for this hardware, pull it silently in the background and switch
+atomically once it passes test_model(). User can use Anna the whole time.
+
 ## [0.3.221] - 2026-02-14
 
 ### Fixed — self-healing was missing from the streaming path

@@ -141,69 +141,49 @@ pub async fn initialize(state: SharedState) -> Result<()> {
         best_model.to_string()
     };
 
-    // If current model is smaller than best and we have resources, upgrade
-    let current_size = extract_model_size(&model);
-    let best_size = extract_model_size(best_model);
-    if current_size < best_size && !models.iter().any(|m| m == best_model) {
-        info!(
-            "Upgrading from {}B to {}B model for better performance...",
-            current_size, best_size
-        );
-        let pull_state = state.clone();
-        if let Err(e) = ollama::pull_model_with_progress(best_model, move |msg| {
-            let s = pull_state.clone();
-            tokio::spawn(async move {
-                s.write().await.init_status = msg;
-            });
-        }).await {
-            warn!(
-                "Failed to pull better model, continuing with {}: {}",
-                model, e
-            );
-        } else {
-            // Use the newly pulled model
-            let model = best_model.to_string();
-            info!("Using upgraded model: {}", model);
-
-            // Verify model actually responds before marking Ready
-            {
-                let mut s = state.write().await;
-                s.init_status = format!("Loading model {} into memory (first start takes up to 2 min)...", model);
-            }
-            ollama::test_model(&model).await
-                .map_err(|e| anyhow!("Model health check failed: {}", e))?;
-
-            // Update state with upgraded model
-            {
-                let mut state = state.write().await;
-                state.ollama_running = true;
-                state.model = Some(model);
-                state.state = DaemonState::Ready;
-                state.init_status = "Ready".to_string();
-            }
-
-            info!("Initialization complete - daemon ready");
-            return Ok(());
-        }
-    }
-
     info!("Using model: {}", model);
 
     // Verify model actually responds before marking Ready
     {
         let mut s = state.write().await;
-        s.init_status = format!("Loading model {} into memory (first start takes up to 2 min)...", model);
+        s.init_status = format!("Loading {} into memory...", model);
     }
     ollama::test_model(&model).await
         .map_err(|e| anyhow!("Model health check failed: {}", e))?;
 
-    // Update state
+    // Mark Ready immediately with whatever model works — don't block on upgrade
     {
         let mut state = state.write().await;
         state.ollama_running = true;
-        state.model = Some(model);
+        state.model = Some(model.clone());
         state.state = DaemonState::Ready;
         state.init_status = "Ready".to_string();
+    }
+
+    // If a better model exists for this hardware, pull it in the background
+    // and silently switch once it's ready — user keeps working the whole time
+    let current_size = extract_model_size(&model);
+    let best_size = extract_model_size(best_model);
+    if current_size < best_size && !models.iter().any(|m| m == best_model) {
+        let best_model_owned = best_model.to_string();
+        let upgrade_state = state.clone();
+        tokio::spawn(async move {
+            info!(
+                "Background upgrade: pulling {}B model (currently on {}B)...",
+                best_size, current_size
+            );
+            if let Ok(()) = ollama::pull_model(&best_model_owned).await {
+                // Verify it works before switching
+                if ollama::test_model(&best_model_owned).await.is_ok() {
+                    let mut s = upgrade_state.write().await;
+                    // Only switch if we're still Ready (not mid-recovery)
+                    if s.state == DaemonState::Ready {
+                        info!("Background upgrade complete — switching to {}", best_model_owned);
+                        s.model = Some(best_model_owned);
+                    }
+                }
+            }
+        });
     }
 
     // v0.0.999: Ensure GPU acceleration is active (restart Ollama if needed)
