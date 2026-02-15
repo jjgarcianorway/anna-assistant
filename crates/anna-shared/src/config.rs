@@ -104,8 +104,8 @@ fn default_deep_model() -> String { "qwen2.5:32b".to_string() }
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            multi_agent_mode: true,  // v0.3.121: Enabled by default
-            parallel_investigation: true,  // v0.3.121: Enabled by default
+            multi_agent_mode: false,  // v0.3.244: Off by default — produces noisy multi-specialist output
+            parallel_investigation: false,  // v0.3.244: Off by default
             max_parallel_agents: default_max_parallel_agents(),
             fast_model: default_fast_model(),
             standard_model: default_standard_model(),

@@ -162,12 +162,10 @@ pub fn synthesize_parallel_results(
     let mut success_count = 0;
 
     for dr in &results {
-        // Add domain header
-        let domain_header = format!("**{}:**", dr.domain.as_str().to_uppercase());
-
-        // Extract the answer without any existing headers
         let answer = dr.result.answer.trim();
-        answer_parts.push(format!("{}\n{}", domain_header, answer));
+        if !answer.is_empty() {
+            answer_parts.push(answer.to_string());
+        }
 
         // Collect commands and dialogue
         all_commands.extend(dr.result.commands_executed.clone());

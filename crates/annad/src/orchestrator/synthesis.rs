@@ -28,7 +28,7 @@ pub fn synthesize_results(task: &AgentTask, results: Vec<AgentResult>) -> AgentR
                 if !combined_answer.is_empty() {
                     combined_answer.push_str("\n\n");
                 }
-                combined_answer.push_str(&format!("[{}]\n{}", result.agent_id, answer));
+                combined_answer.push_str(answer);
             }
 
             combined_evidence.extend(result.evidence.clone());
@@ -64,16 +64,9 @@ pub fn synthesize_results(task: &AgentTask, results: Vec<AgentResult>) -> AgentR
     }
 }
 
-/// Format the combined answer nicely.
-fn format_combined_answer(raw: &str, agent_count: usize) -> String {
-    if agent_count <= 1 {
-        return raw.to_string();
-    }
-
-    format!(
-        "Based on analysis from {} specialists:\n\n{}",
-        agent_count, raw
-    )
+/// Format the combined answer — just return the content, no specialist headers.
+fn format_combined_answer(raw: &str, _agent_count: usize) -> String {
+    raw.trim().to_string()
 }
 
 /// Remove duplicate evidence entries.

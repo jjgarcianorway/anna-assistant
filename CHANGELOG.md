@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.244] - 2026-02-15
+
+### Fixed — Multi-specialist output eliminated
+- Disabled multi_agent_mode and parallel_investigation by default (were producing "Based on analysis from 3 specialists" noise)
+- Stripped "Based on my investigation of your X:" boilerplate from specialist answers
+- Stripped "Based on analysis from X specialists:" wrapper header
+- Stripped "[domain]" prefixes from parallel results
+- Existing configs without [agents] section now correctly default to single-agent mode
+
 ## [0.3.243] - 2026-02-15
 
 ### Changed — System-aware LLM command planning

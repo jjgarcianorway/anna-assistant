@@ -184,11 +184,12 @@ impl SpecialistAgent {
             );
         }
 
-        let mut answer = format!("Based on my investigation of your {}:\n\n", self.department.to_lowercase());
+        let mut answer = String::new();
 
         for ev in evidence {
             if let Some(cmd) = &ev.command {
-                answer.push_str(&format!("**{}**:\n```\n{}\n```\n\n", cmd, ev.output.trim()));
+                answer.push_str(&format!("```\n{}\n```\n\n", ev.output.trim()));
+                let _ = cmd; // keep for future use
             }
         }
 
