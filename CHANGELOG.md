@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.242] - 2026-02-15
+
+### Fixed — "run arch-update" spawning specialists instead of running update
+- Fast paths now execute BEFORE model check — work even when model is None
+- Previously: model=None → Ok(false) → multi-specialist pipeline → wrong behavior
+
 ## [0.3.241] - 2026-02-15
 
 ### Fixed — "any pending updates?" returning "no matching capability"

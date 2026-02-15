@@ -54,15 +54,9 @@ pub async fn classify_and_execute(
     writer: &mut tokio::net::unix::OwnedWriteHalf,
     state: &SharedState,
 ) -> Result<bool> {
-    let model = {
-        let guard = state.read().await;
-        match guard.model.clone() {
-            Some(m) => m,
-            None => return Ok(false),
-        }
-    };
-
     let ql = question.to_lowercase();
+
+    // Fast paths run BEFORE model check — they need no LLM.
 
     // Fast path: check for pending updates (read-only)
     let is_check = (ql.contains("update") || ql.contains("upgrade"))
@@ -79,6 +73,15 @@ pub async fn classify_and_execute(
     if is_update {
         return exec_update(writer).await;
     }
+
+    // LLM command planner for everything else.
+    let model = {
+        let guard = state.read().await;
+        match guard.model.clone() {
+            Some(m) => m,
+            None => return Ok(false),
+        }
+    };
 
     let prompt = PLAN_PROMPT.replace("{question}", question);
     let response = match crate::ollama::chat_with_timeout(&model, &prompt, 8).await {
