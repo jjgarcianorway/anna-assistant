@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.243] - 2026-02-15
+
+### Changed — System-aware LLM command planning
+- LLM prompt now includes real system context: OS name, distro family, hostname, package manager, AUR helper, available tools
+- Context sourced from `SystemIdentity` (globally cached, auto-discovered) — no hardcoding
+- `exec_check_updates` now uses distro-appropriate commands (checkupdates for Arch, apt for Debian, dnf for Fedora)
+- LLM no longer needs to guess package manager — it knows from context
+
 ## [0.3.242] - 2026-02-15
 
 ### Fixed — "run arch-update" spawning specialists instead of running update

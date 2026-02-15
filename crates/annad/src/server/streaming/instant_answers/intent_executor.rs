@@ -13,25 +13,15 @@ const BLOCKED: &[&str] = &[
     "truncate", "pacman -R", "pacman -D", "pacman -Rc",
 ];
 
-// Mutating-but-safe fast path — bypass LLM planning for operations that
-// need real execution, not just shell output to read.
-const MUTATING_KEYWORDS: &[(&str, &str)] = &[
-    ("arch-update", "MUTATING_UPDATE"),
-    ("paru -Syu",   "MUTATING_UPDATE"),
-    ("yay -Syu",    "MUTATING_UPDATE"),
-];
+const PLAN_PROMPT: &str = r#"You are a Linux system assistant. The daemon runs as root.
 
-const PLAN_PROMPT: &str = r#"You are a Linux system assistant. The daemon runs as root on Arch Linux.
-
-To answer the user's question, list the shell commands to run.
-
+SYSTEM:
+{system_context}
 RULES:
 - Reply with ONLY a JSON array of shell commands, nothing else
-- Max 4 commands
-- No sudo (daemon is already root)
+- Max 4 commands. No sudo (daemon is already root)
 - Read-only commands only (no rm, dd, mkfs, reboot, shutdown, pacman -R, etc.)
-- Each command must complete in under 10 seconds
-- Prefer commands that give concise output
+- Each command must complete in under 10 seconds. Prefer concise output
 
 EXAMPLES:
 Question: "how is my system today?"
@@ -43,11 +33,38 @@ Reply: ["ip -4 addr show | grep -v '127.0.0.1'"]
 Question: "what processes use the most CPU?"
 Reply: ["ps aux --sort=-%cpu | head -11"]
 
-Question: "are there pending updates?"
-Reply: ["checkupdates 2>/dev/null | wc -l; echo 'official package updates'; checkupdates 2>/dev/null | head -10"]
-
 Question: "{question}"
 Reply:"#;
+
+/// Build real system context from the globally-cached SystemIdentity.
+/// Injected into the LLM prompt so it can plan commands correctly for this host.
+fn build_system_context() -> String {
+    let identity = crate::system_identity::get_system_identity();
+    let aur_helper = detect_aur_helper();
+    let mut ctx = format!(
+        "OS: {} ({})\nHostname: {}\nPackage manager: {}\n",
+        identity.distro_name,
+        match identity.distro_family.as_str() {
+            "arch" => "Arch-based", "debian" => "Debian-based",
+            "fedora" => "Fedora-based", f => f,
+        },
+        identity.hostname,
+        identity.package_manager(),
+    );
+    if let Some(ref h) = aur_helper {
+        ctx.push_str(&format!("AUR helper: {}\n", h));
+    }
+    // Surface tools the LLM should know are available
+    for tool in &["checkupdates", "arch-update", "sensors", "smartctl", "btop", "ncdu"] {
+        if cmd_exists(tool) { ctx.push_str(&format!("Tool available: {}\n", tool)); }
+    }
+    ctx
+}
+
+fn cmd_exists(cmd: &str) -> bool {
+    std::process::Command::new("which").arg(cmd)
+        .output().map(|o| o.status.success()).unwrap_or(false)
+}
 
 pub async fn classify_and_execute(
     question: &str,
@@ -83,7 +100,10 @@ pub async fn classify_and_execute(
         }
     };
 
-    let prompt = PLAN_PROMPT.replace("{question}", question);
+    let system_context = build_system_context();
+    let prompt = PLAN_PROMPT
+        .replace("{system_context}", &system_context)
+        .replace("{question}", question);
     let response = match crate::ollama::chat_with_timeout(&model, &prompt, 8).await {
         Ok(r) => r,
         Err(e) => {
@@ -152,7 +172,7 @@ fn parse_commands(response: &str) -> Vec<String> {
 fn is_blocked(cmd: &str) -> bool {
     let lower = cmd.to_lowercase();
     BLOCKED.iter().any(|b| lower.contains(b))
-        || MUTATING_KEYWORDS.iter().any(|(k, _)| lower.contains(k))
+        || lower.contains("arch-update") || lower.contains("paru -syu") || lower.contains("yay -syu")
 }
 
 fn exec_update_inner() -> String {
@@ -193,15 +213,22 @@ fn exec_update_inner() -> String {
 }
 
 async fn exec_check_updates(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
+    let identity = crate::system_identity::get_system_identity();
     let username = crate::user_context::get_real_user().unwrap_or_else(|_| "root".to_string());
 
-    // Official repo updates
-    let official = run_shell("checkupdates 2>/dev/null").unwrap_or_default();
+    // Distro-appropriate official update check
+    let check_cmd = match identity.distro_family.as_str() {
+        "arch" => "checkupdates 2>/dev/null",
+        "debian" => "apt list --upgradable 2>/dev/null | tail -n +2",
+        "fedora" => "dnf check-update 2>/dev/null | tail -n +3",
+        _ => "echo '(unknown distro — cannot check updates)'",
+    };
+    let official = run_shell(check_cmd).unwrap_or_default();
     let official = official.trim();
     let official_count = if official.is_empty() { 0usize } else { official.lines().count() };
 
-    // AUR updates
-    let aur_helper = detect_aur_helper();
+    // AUR updates (Arch only)
+    let aur_helper = if identity.distro_family == "arch" { detect_aur_helper() } else { None };
     let (aur_out, aur_count) = if let Some(ref h) = aur_helper {
         let out = run_shell(&format!("runuser -l {} -c '{} -Qu 2>/dev/null'", username, h))
             .unwrap_or_default();
