@@ -5,6 +5,13 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.245] - 2026-02-15
+
+### Fixed — Fan/thermal questions actually do something
+- "why are my fans loud?" now shows compact temps + top CPU consumers + power governor/profile
+- "can you reduce fan speed?" now actually sets power-saver mode (powerprofilesctl → cpupower → sysfs fallback)
+- Both are fast paths: no LLM needed, instant response
+
 ## [0.3.244] - 2026-02-15
 
 ### Fixed — Multi-specialist output eliminated

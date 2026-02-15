@@ -75,6 +75,21 @@ pub async fn classify_and_execute(
 
     // Fast paths run BEFORE model check — they need no LLM.
 
+    // Fast path: thermal / fan status ("why are fans loud", "why is it hot", "what's hot")
+    let is_thermal = (ql.contains("fan") || ql.contains("hot") || ql.contains("temp") || ql.contains("heat") || ql.contains("cool"))
+        && (ql.contains("why") || ql.contains("loud") || ql.contains("noisy") || ql.contains("high") || ql.contains("status"));
+    if is_thermal {
+        return exec_thermal_status(writer).await;
+    }
+
+    // Fast path: fan / power reduction ("reduce fan speed", "quiet mode", "power saver")
+    let is_fan_reduce = (ql.contains("fan") || ql.contains("noise") || ql.contains("loud") || ql.contains("quiet"))
+        && (ql.contains("reduc") || ql.contains("lower") || ql.contains("less") || ql.contains("slow") || ql.contains("quiet"));
+    let is_power_save = ql.contains("power") && (ql.contains("sav") || ql.contains("low") || ql.contains("eco"));
+    if is_fan_reduce || is_power_save {
+        return exec_set_power_saver(writer).await;
+    }
+
     // Fast path: check for pending updates (read-only)
     let is_check = (ql.contains("update") || ql.contains("upgrade"))
         && (ql.contains("pending") || ql.contains("available") || ql.contains("check")
@@ -210,6 +225,78 @@ fn exec_update_inner() -> String {
         parts.push(format!("{} -Syu:\n```\n{}\n```", aur.as_deref().unwrap_or("AUR"), aur_out.trim()));
     }
     parts.join("\n\n")
+}
+
+/// Show thermal status: temperatures + top CPU consumers + power governor
+async fn exec_thermal_status(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
+    // Temps — compact: only lines with °C
+    let temps = run_shell("sensors 2>/dev/null | grep -E '°C|RPM' | grep -v 'high\\|crit\\|low'")
+        .unwrap_or_default();
+    // Top CPU hogs
+    let procs = run_shell("ps aux --sort=-%cpu | awk 'NR<=6{printf \"%-6s %-5s %s\\n\",$1,$3,$11}' | head -6")
+        .unwrap_or_default();
+    // Power governor
+    let gov = run_shell("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null")
+        .unwrap_or_default();
+    // Power profile if available
+    let profile = if cmd_exists("powerprofilesctl") {
+        run_shell("powerprofilesctl get 2>/dev/null").unwrap_or_default()
+    } else { String::new() };
+
+    let mut parts = Vec::new();
+    if !temps.trim().is_empty() { parts.push(format!("Temperatures:\n```\n{}\n```", temps.trim())); }
+    if !procs.trim().is_empty() { parts.push(format!("Top CPU consumers:\n```\n{}\n```", procs.trim())); }
+    let mut meta = Vec::new();
+    let gov = gov.trim();
+    if !gov.is_empty() { meta.push(format!("CPU governor: {}", gov)); }
+    let profile = profile.trim();
+    if !profile.is_empty() { meta.push(format!("Power profile: {}", profile)); }
+    if !meta.is_empty() { parts.push(meta.join(" | ")); }
+
+    send_answer(writer, parts.join("\n\n")).await?;
+    Ok(true)
+}
+
+/// Set power-saver mode to reduce fan speed — tries all available tools.
+async fn exec_set_power_saver(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
+    let mut actions = Vec::new();
+
+    // power-profiles-daemon (most modern systems)
+    if cmd_exists("powerprofilesctl") {
+        let _ = run_shell("powerprofilesctl set power-saver 2>/dev/null");
+        let current = run_shell("powerprofilesctl get 2>/dev/null").unwrap_or_default();
+        actions.push(format!("Power profile set to: {}", current.trim()));
+    }
+
+    // CPU frequency governor
+    if cmd_exists("cpupower") {
+        let _ = run_shell("cpupower frequency-set -g powersave 2>/dev/null");
+        let gov = run_shell("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null")
+            .unwrap_or_default();
+        actions.push(format!("CPU governor: {}", gov.trim()));
+    } else {
+        // Direct sysfs fallback
+        let _ = run_shell("for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo powersave > $f 2>/dev/null; done");
+        let gov = run_shell("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null")
+            .unwrap_or_default();
+        let gov = gov.trim();
+        if !gov.is_empty() { actions.push(format!("CPU governor: {}", gov)); }
+    }
+
+    // TLP if available
+    if cmd_exists("tlp") {
+        let _ = run_shell("tlp bat 2>/dev/null");
+        actions.push("TLP battery mode activated".to_string());
+    }
+
+    if actions.is_empty() {
+        send_answer(writer,
+            "No power management tools found (powerprofilesctl, cpupower, tlp). Fan speed is controlled by firmware.".to_string()
+        ).await?;
+    } else {
+        send_answer(writer, actions.join("\n")).await?;
+    }
+    Ok(true)
 }
 
 async fn exec_check_updates(writer: &mut tokio::net::unix::OwnedWriteHalf) -> Result<bool> {
