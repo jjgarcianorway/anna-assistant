@@ -19,3 +19,4 @@ tracing-subscriber.workspace = true
 sd-notify.workspace = true
 chrono.workspace = true
 toml.workspace = true
+md5.workspace = true

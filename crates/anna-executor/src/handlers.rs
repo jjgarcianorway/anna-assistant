@@ -14,11 +14,12 @@ use crate::protocol::{ExecutorRequest, ExecutorResponse};
 
 const AUDIT_LOG: &str = "/var/lib/anna/executor_audit.jsonl";
 
-fn audit_log(action: &str, outcome: &str) {
+fn audit_log(action: &str, policy_hash: &str, outcome: &str) {
     let entry = format!(
-        "{{\"ts\":\"{}\",\"action\":\"{}\",\"outcome\":\"{}\"}}\n",
+        "{{\"ts\":\"{}\",\"action\":\"{}\",\"policy_hash\":\"{}\",\"outcome\":\"{}\"}}\n",
         chrono::Utc::now().to_rfc3339(),
         action,
+        policy_hash,
         outcome
     );
     if let Ok(mut f) = std::fs::OpenOptions::new()
@@ -52,11 +53,12 @@ const RESTARTABLE_SERVICES: &[&str] = &[
 /// Policy is loaded on each call (supports hot-reload without restart).
 pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
     let policy = ExecutorPolicy::load();
+    let policy_hash = ExecutorPolicy::content_hash();
 
     let (action, response) = match request {
         ExecutorRequest::RestartService { ref name } => {
             if !policy.allow_restart_service {
-                audit_log(&format!("RestartService:{}", name), "denied");
+                audit_log(&format!("RestartService:{}", name), &policy_hash, "denied");
                 return ExecutorResponse::Denied {
                     reason: "RestartService denied by policy".to_string(),
                 };
@@ -66,7 +68,7 @@ pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
         }
         ExecutorRequest::CleanJournal { keep_days } => {
             if !policy.allow_clean_journal {
-                audit_log(&format!("CleanJournal:{}", keep_days), "denied");
+                audit_log(&format!("CleanJournal:{}", keep_days), &policy_hash, "denied");
                 return ExecutorResponse::Denied {
                     reason: "CleanJournal denied by policy".to_string(),
                 };
@@ -77,7 +79,7 @@ pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
         }
         ExecutorRequest::CleanPackageCache { keep_versions } => {
             if !policy.allow_clean_package_cache {
-                audit_log(&format!("CleanPackageCache:{}", keep_versions), "denied");
+                audit_log(&format!("CleanPackageCache:{}", keep_versions), &policy_hash, "denied");
                 return ExecutorResponse::Denied {
                     reason: "CleanPackageCache denied by policy".to_string(),
                 };
@@ -88,7 +90,7 @@ pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
         }
         ExecutorRequest::CleanTmpFiles => {
             if !policy.allow_clean_tmp_files {
-                audit_log("CleanTmpFiles", "denied");
+                audit_log("CleanTmpFiles", &policy_hash, "denied");
                 return ExecutorResponse::Denied {
                     reason: "CleanTmpFiles denied by policy".to_string(),
                 };
@@ -102,7 +104,7 @@ pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
         ExecutorResponse::Error { .. } => "error",
         ExecutorResponse::Denied { .. } => "denied",
     };
-    audit_log(&action, outcome);
+    audit_log(&action, &policy_hash, outcome);
     response
 }
 

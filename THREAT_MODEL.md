@@ -87,7 +87,15 @@ Policy file can restrict individual actions to zero.
 **Vector:** Attacker deletes or modifies `/var/lib/anna/executor_audit.jsonl`.
 **Mitigation:** anna-executor runs with `ProtectSystem=strict`; audit log is in `ReadWritePaths`.
 The file is append-only by convention but not enforced by the kernel (no `O_APPEND` locking).
+Each entry includes `policy_hash` (MD5 fingerprint of policy.toml at execution time), enabling
+policy drift detection across the fleet.
 **Residual:** Root can always modify the log.
+
+### 8. Incompatible future policy schema
+**Vector:** Operator deploys a new policy.toml with schema changes not understood by the running executor.
+**Mitigation:** `policy_version` field enforced by executor. Versions > `CURRENT_POLICY_VERSION` cause
+all actions to be denied (fail closed) and a warning logged.
+**Residual:** Operator must redeploy executor to raise CURRENT_POLICY_VERSION.
 
 ---
 
@@ -96,7 +104,7 @@ The file is append-only by convention but not enforced by the kernel (no `O_APPE
 - **No remote attestation.** The machine cannot prove to a remote party that it is running unmodified binaries.
 - **No Telegram-level authentication.** Any Telegram user who can message the bot can interact with Anna. Bot privacy must be configured at the Telegram level.
 - **LLM is untrusted.** The LLM (Ollama) runs locally but its output drives action selection. A manipulated model or jailbroken prompt can abuse legitimate actions.
-- **ReadOnly is LLM-enforced (v0.3.251).** The `read_only` Telegram role injects a system context prefix that instructs the LLM not to take actions. A jailbroken prompt or manipulated LLM can ignore it. Hard enforcement at the RPC layer (role embedded in request struct, checked before executor dispatch) is deferred to Phase 3.
+- **ReadOnly is enforced at plan dispatch (v0.3.252).** The `read_only` Telegram role blocks plan execution before `execute_plan()` is called; the attempt is audit-logged. LLM system prefix remains as defense in depth. Hard enforcement at the RPC layer (role in `ExecutorRequest` struct) is Phase 3 — the executor still has no knowledge of Telegram caller identity.
 - **No secrets management.** The Telegram token is stored in plaintext on disk. A future improvement would use a secrets manager (e.g. systemd credentials, kernel keyring).
 - **Node key is not yet used for signing.** `/var/lib/anna/node_key` establishes identity for future fleet features but does not currently sign anything.
 - **Fleet stagger is best-effort (v0.3.251).** `update_stagger_minutes` prevents synchronized fleet failures by distributing installs over time. A machine with a corrupted or missing `node_id` file falls back to zero offset (no stagger).

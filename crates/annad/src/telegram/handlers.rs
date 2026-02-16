@@ -67,10 +67,10 @@ pub async fn handle_message(
 
     // Check for confirmation responses
     if text.eq_ignore_ascii_case("yes") || text.eq_ignore_ascii_case("confirm") {
-        return handle_confirmation(bot, chat_id, true, state).await;
+        return handle_confirmation(bot, chat_id, user_id, &role, true, state).await;
     }
     if text.eq_ignore_ascii_case("no") || text.eq_ignore_ascii_case("cancel") {
-        return handle_confirmation(bot, chat_id, false, state).await;
+        return handle_confirmation(bot, chat_id, user_id, &role, false, state).await;
     }
 
     // Quick commands (instant, no LLM)
@@ -191,9 +191,12 @@ pub async fn handle_message(
 
 /// Handle confirmation response (yes/no).
 /// v0.3.119: Improved to give clearer feedback.
+/// v0.3.252: read_only users cannot execute plans — denied before dispatch.
 async fn handle_confirmation(
     bot: Bot,
     chat_id: ChatId,
+    user_id: u64,
+    role: &TelegramUserRole,
     confirmed: bool,
     state: Arc<TelegramState>,
 ) -> anyhow::Result<()> {
@@ -208,6 +211,15 @@ async fn handle_confirmation(
 
     // Check for pending plan in executor
     if confirmed {
+        // v0.3.252: Hard enforcement — read_only cannot execute plans
+        if *role == TelegramUserRole::ReadOnly {
+            // Clear the pending plan so it doesn't persist
+            crate::plan_executor::take_pending_plan(&session_id);
+            // Audit log the denied attempt
+            write_role_denied_audit(user_id);
+            bot.send_message(chat_id, "Read-only access cannot execute system actions.").await?;
+            return Ok(());
+        }
         if let Some(plan) = crate::plan_executor::take_pending_plan(&session_id) {
             bot.send_message(chat_id, "Executing plan...").await?;
             bot.send_chat_action(chat_id, teloxide::types::ChatAction::Typing).await?;
@@ -275,6 +287,26 @@ fn format_execution_result(
     }
 
     lines.join("\n")
+}
+
+/// Write a denied-plan-execution audit entry for a read_only user.
+///
+/// Uses the same JSONL format as anna-executor's audit log so fleet forensic
+/// tooling can correlate both sides.
+fn write_role_denied_audit(user_id: u64) {
+    use std::io::Write;
+    let entry = format!(
+        "{{\"ts\":\"{}\",\"action\":\"PlanExecution\",\"outcome\":\"denied\",\"reason\":\"read_only_role\",\"user_id\":{}}}\n",
+        chrono::Utc::now().to_rfc3339(),
+        user_id,
+    );
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/var/lib/anna/executor_audit.jsonl")
+    {
+        f.write_all(entry.as_bytes()).ok();
+    }
 }
 
 /// Send a long message, splitting if needed (Telegram limit: 4096 chars).

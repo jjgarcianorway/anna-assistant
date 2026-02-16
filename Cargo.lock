@@ -85,11 +85,12 @@ dependencies = [
 
 [[package]]
 name = "anna-executor"
-version = "0.3.250"
+version = "0.3.251"
 dependencies = [
  "anna-shared",
  "anyhow",
  "chrono",
+ "md5",
  "sd-notify",
  "serde",
  "serde_json",
@@ -101,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "anna-shared"
-version = "0.3.250"
+version = "0.3.251"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -125,7 +126,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.3.250"
+version = "0.3.251"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -140,7 +141,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.3.250"
+version = "0.3.251"
 dependencies = [
  "anna-shared",
  "anyhow",

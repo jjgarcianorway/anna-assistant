@@ -5,6 +5,16 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.252] - 2026-02-16
+
+### Platform stabilization
+
+- **read_only hard enforcement**: `read_only` Telegram users are now blocked at plan dispatch (before `execute_plan()` is called), not just at the LLM prompt layer. Blocked attempts are audit-logged to `/var/lib/anna/executor_audit.jsonl` with `"reason":"read_only_role"`. LLM system prefix retained as defense in depth.
+- **Stagger cap**: `update_stagger_minutes` values above 60 are capped at 60 internally. Prevents accidentally freezing fleet updates with large values (e.g. 1440).
+- **Policy hash in audit log**: Each executor audit entry now includes `"policy_hash"` (first 8 hex chars of MD5 of `/etc/anna/policy.toml`). Enables policy drift detection across fleet nodes.
+- **Policy version enforcement**: `policy_version` field in `policy.toml` (default: 1). Executors receiving `policy_version > 1` deny all actions and log a warning (fail closed). Forward-compat guard for future schema changes.
+- **THREAT_MODEL.md**: Updated read_only residual risk (now plan-dispatch-enforced, not LLM-enforced); added policy drift detection and schema versioning attack vectors.
+
 ## [0.3.251] - 2026-02-16
 
 ### Telegram roles + fleet safety valve

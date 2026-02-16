@@ -132,6 +132,8 @@ fn release_is_installable(published_at: &Option<String>, config: &AnnaConfig) ->
 /// Reads the first 8 hex characters of node_id and maps them to 0..stagger_minutes.
 /// If stagger_minutes is 0 or node_id is unavailable, returns 0.
 fn compute_node_stagger(stagger_minutes: u32) -> u32 {
+    // Cap at 60 minutes — values above 60 are treated as 60 to prevent foot-guns
+    let stagger_minutes = stagger_minutes.min(60);
     if stagger_minutes == 0 {
         return 0;
     }

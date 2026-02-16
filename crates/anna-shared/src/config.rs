@@ -81,6 +81,7 @@ pub struct AnnaConfig {
 
     /// v0.3.251: Each node adds a deterministic 0..N minute offset (derived from node_id).
     /// Prevents synchronized fleet updates from all machines installing at the same time.
+    /// Capped internally at 60 minutes; values above 60 are treated as 60.
     #[serde(default)]
     pub update_stagger_minutes: u32,
 
