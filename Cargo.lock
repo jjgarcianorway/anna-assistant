@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "anna-executor"
-version = "0.3.248"
+version = "0.3.250"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -94,13 +94,14 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]
 
 [[package]]
 name = "anna-shared"
-version = "0.3.248"
+version = "0.3.250"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -124,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.3.248"
+version = "0.3.250"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -139,7 +140,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.3.248"
+version = "0.3.250"
 dependencies = [
  "anna-shared",
  "anyhow",

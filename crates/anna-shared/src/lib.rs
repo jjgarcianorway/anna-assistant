@@ -149,6 +149,7 @@ mod command_policy_guardrails;
 #[cfg(test)]
 mod user_trust_review;
 pub mod config;
+pub mod update_channel;
 pub mod deps;
 pub mod docs;
 pub mod event_bus;

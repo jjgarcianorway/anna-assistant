@@ -9,6 +9,7 @@
 //! - All operations are enum-matched — no dynamic command construction
 
 mod handlers;
+mod policy;
 mod protocol;
 
 use std::os::unix::fs::PermissionsExt;

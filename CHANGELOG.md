@@ -5,6 +5,15 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.250] - 2026-02-16
+
+### Phase 2 — Fleet foundations
+
+- **Machine identity**: `init_node_identity()` generates `/var/lib/anna/node_id` (UUID4) and `/var/lib/anna/node_key` (32-byte Ed25519 seed, mode 600) on first run. Identity is stable across upgrades. Logged as `node_id=<uuid>` at daemon startup.
+- **Executor policy engine**: `ExecutorPolicy` loaded from `/etc/anna/policy.toml` on each request (hot-reload, no restart). Fields: `allow_restart_service`, `allow_clean_journal`, `allow_clean_package_cache`, `allow_clean_tmp_files`, `min_journal_keep_days`, `min_package_keep_versions`. All default permissive; absent file = all allowed.
+- **Release channels**: `update_channel` in `/etc/anna/config.toml`. `stable` (default), `beta` (includes pre-releases), `pinned:<version>` (no auto-update). Pinned channel makes no network call.
+- **THREAT_MODEL.md**: Formal threat model — assets, trust boundaries, adversaries, attack vectors, mitigations, residual risks.
+
 ## [0.3.249] - 2026-02-16
 
 ### Security — Update chain hardening

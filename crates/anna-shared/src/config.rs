@@ -66,6 +66,13 @@ pub struct AnnaConfig {
     /// v0.3.103: Prediction settings
     #[serde(default)]
     pub prediction: PredictionConfig,
+
+    /// v0.3.250: Update channel — controls which releases trigger auto-update.
+    /// stable (default): tracks latest GitHub release
+    /// beta: includes pre-releases
+    /// pinned:<version>: never auto-update away from the specified version
+    #[serde(default)]
+    pub update_channel: UpdateChannel,
 }
 
 /// v0.3.103: Multi-agent configuration
@@ -284,6 +291,8 @@ fn default_true() -> bool {
     true
 }
 
+pub use crate::update_channel::UpdateChannel;
+
 /// Wiki configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WikiConfig {
@@ -318,6 +327,7 @@ impl Default for AnnaConfig {
             use_ralph_loop: true,
             agents: AgentConfig::default(),
             prediction: PredictionConfig::default(),
+            update_channel: UpdateChannel::default(),
         }
     }
 }

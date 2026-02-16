@@ -9,6 +9,7 @@ use std::io::Write;
 use std::process::Command;
 use tracing::{info, warn};
 
+use crate::policy::ExecutorPolicy;
 use crate::protocol::{ExecutorRequest, ExecutorResponse};
 
 const AUDIT_LOG: &str = "/var/lib/anna/executor_audit.jsonl";
@@ -48,21 +49,50 @@ const RESTARTABLE_SERVICES: &[&str] = &[
 ];
 
 /// Dispatch a request and return the response.
+/// Policy is loaded on each call (supports hot-reload without restart).
 pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
+    let policy = ExecutorPolicy::load();
+
     let (action, response) = match request {
         ExecutorRequest::RestartService { ref name } => {
+            if !policy.allow_restart_service {
+                audit_log(&format!("RestartService:{}", name), "denied");
+                return ExecutorResponse::Denied {
+                    reason: "RestartService denied by policy".to_string(),
+                };
+            }
             let r = restart_service(name);
             (format!("RestartService:{}", name), r)
         }
         ExecutorRequest::CleanJournal { keep_days } => {
-            let r = clean_journal(keep_days);
-            (format!("CleanJournal:{}", keep_days), r)
+            if !policy.allow_clean_journal {
+                audit_log(&format!("CleanJournal:{}", keep_days), "denied");
+                return ExecutorResponse::Denied {
+                    reason: "CleanJournal denied by policy".to_string(),
+                };
+            }
+            let effective_days = keep_days.max(policy.min_journal_keep_days);
+            let r = clean_journal(effective_days);
+            (format!("CleanJournal:{}", effective_days), r)
         }
         ExecutorRequest::CleanPackageCache { keep_versions } => {
-            let r = clean_package_cache(keep_versions);
-            (format!("CleanPackageCache:{}", keep_versions), r)
+            if !policy.allow_clean_package_cache {
+                audit_log(&format!("CleanPackageCache:{}", keep_versions), "denied");
+                return ExecutorResponse::Denied {
+                    reason: "CleanPackageCache denied by policy".to_string(),
+                };
+            }
+            let effective_k = keep_versions.max(policy.min_package_keep_versions);
+            let r = clean_package_cache(effective_k);
+            (format!("CleanPackageCache:{}", effective_k), r)
         }
         ExecutorRequest::CleanTmpFiles => {
+            if !policy.allow_clean_tmp_files {
+                audit_log("CleanTmpFiles", "denied");
+                return ExecutorResponse::Denied {
+                    reason: "CleanTmpFiles denied by policy".to_string(),
+                };
+            }
             let r = clean_tmp_files();
             ("CleanTmpFiles".to_string(), r)
         }

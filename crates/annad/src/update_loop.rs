@@ -1,5 +1,6 @@
 //! Update check loop for automatic updates.
 
+use anna_shared::config::AnnaConfig;
 use anna_shared::status::UpdateCheckState;
 use anna_shared::update_ledger::{
     load_update_ledger, save_update_ledger, UpdateCheckEntry, UpdateCheckResult,
@@ -36,8 +37,9 @@ pub async fn update_check_loop(state: SharedState) {
         info!("Checking for updates...");
         let check_start = Instant::now();
 
-        // Check GitHub for latest version
-        match check_latest_version().await {
+        // Check GitHub for latest version (respects update_channel config)
+        let channel = AnnaConfig::load().unwrap_or_default().update_channel;
+        match check_latest_version(&channel).await {
             Ok(latest_version) => {
                 handle_successful_check(&state, &latest_version, check_start, check_interval).await;
             }

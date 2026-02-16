@@ -71,6 +71,10 @@ impl Paths {
     pub fn xp_file(&self) -> PathBuf { self.data_dir.join("xp.json") }
     pub fn fix_history_file(&self) -> PathBuf { self.data_dir.join("fix_history.json") }
     pub fn installed_deps_file(&self) -> PathBuf { self.data_dir.join("installed_deps.txt") }
+    /// Machine identity: stable UUID4 generated on first run
+    pub fn node_id_file(&self) -> PathBuf { self.data_dir.join("node_id") }
+    /// Machine identity: 32-byte Ed25519 seed (hex) generated on first run — mode 600
+    pub fn node_key_file(&self) -> PathBuf { self.data_dir.join("node_key") }
     pub fn negative_memory_file(&self) -> PathBuf { self.data_dir.join("negative_memory.json") }
     pub fn promotions_file(&self) -> PathBuf { self.data_dir.join("promotions.json") }
     pub fn changes_file(&self) -> PathBuf { self.data_dir.join("changes.json") }

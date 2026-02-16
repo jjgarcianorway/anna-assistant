@@ -1,5 +1,6 @@
 //! Update management - check for and apply updates.
 
+use anna_shared::config::UpdateChannel;
 use anna_shared::GITHUB_REPO;
 use anyhow::{anyhow, Result};
 use tracing::{info, warn};
@@ -75,28 +76,61 @@ struct GitHubRelease {
     tag_name: String,
 }
 
-/// Check GitHub for the latest version
-pub async fn check_latest_version() -> Result<String> {
-    let url = format!(
-        "https://api.github.com/repos/{}/releases/latest",
-        GITHUB_REPO
-    );
+/// GitHub API response for listing releases (beta channel)
+#[derive(Debug, serde::Deserialize)]
+struct GitHubReleaseListItem {
+    tag_name: String,
+    prerelease: bool,
+}
+
+/// Check GitHub for the latest version, respecting the configured update channel.
+///
+/// - Stable: latest non-pre-release release (default)
+/// - Beta: latest release including pre-releases
+/// - Pinned(v): returns v immediately without a network call
+pub async fn check_latest_version(channel: &UpdateChannel) -> Result<String> {
+    // Pinned: no network call needed
+    if let UpdateChannel::Pinned(v) = channel {
+        info!("Update channel pinned to {}", v);
+        return Ok(v.clone());
+    }
 
     let client = reqwest::Client::builder()
         .user_agent("anna-assistant")
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 
-    let response = client.get(&url).send().await?;
-
-    if !response.status().is_success() {
-        return Err(anyhow!("GitHub API error: {}", response.status()));
-    }
-
-    let release: GitHubRelease = response.json().await?;
-
-    // Remove 'v' prefix if present
-    let version = release.tag_name.trim_start_matches('v').to_string();
+    let version = match channel {
+        UpdateChannel::Stable => {
+            let url = format!(
+                "https://api.github.com/repos/{}/releases/latest",
+                GITHUB_REPO
+            );
+            let response = client.get(&url).send().await?;
+            if !response.status().is_success() {
+                return Err(anyhow!("GitHub API error: {}", response.status()));
+            }
+            let release: GitHubRelease = response.json().await?;
+            release.tag_name.trim_start_matches('v').to_string()
+        }
+        UpdateChannel::Beta => {
+            let url = format!(
+                "https://api.github.com/repos/{}/releases",
+                GITHUB_REPO
+            );
+            let response = client.get(&url).send().await?;
+            if !response.status().is_success() {
+                return Err(anyhow!("GitHub API error: {}", response.status()));
+            }
+            let releases: Vec<GitHubReleaseListItem> = response.json().await?;
+            releases
+                .into_iter()
+                .next()
+                .map(|r| r.tag_name.trim_start_matches('v').to_string())
+                .ok_or_else(|| anyhow!("No releases found"))?
+        }
+        UpdateChannel::Pinned(_) => unreachable!(),
+    };
 
     // Verify that required assets are actually downloadable
     verify_assets_exist(&client, &version).await?;

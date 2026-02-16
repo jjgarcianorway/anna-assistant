@@ -51,6 +51,12 @@ async fn main() -> Result<()> {
     info!("Starting annad v{}", VERSION);
     info!("=== DAEMON STARTUP BEGIN ===");
 
+    // Initialize machine identity (generate node_id + node_key on first run)
+    match annad::node_identity::init_node_identity() {
+        Ok(identity) => info!("node_id={}", identity.id),
+        Err(e) => warn!("Could not initialize machine identity: {}", e),
+    }
+
     // v0.0.893: Initialize wiki with retry loop
     // v0.0.895: Use centralized config for Ollama URL
     let ollama_url = get_ollama_url();
