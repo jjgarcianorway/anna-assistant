@@ -1,5 +1,6 @@
 //! The main Ralph investigation loop with streaming progress.
 
+use anna_shared::command_policy::{command_class, CommandClass, CommandSpec};
 use anna_shared::experiment::estimate_command_risk;
 use anna_shared::exposure::ExposureGate;
 use anna_shared::probe_ledger::ProbeLedger;
@@ -256,6 +257,18 @@ pub async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
                     format!("[risk={:.2}] expected=success", risk), gate).await?;
             }
 
+            // Capability model: Ralph grounding loop only runs ReadOnly commands.
+            // Mutating commands (Execution, FilesystemWrite, PackageManagement) must
+            // go through explicit privileged paths — never directly from LLM output.
+            if let Some(spec) = CommandSpec::from_command_string(cmd) {
+                if command_class(&spec) == CommandClass::Mutating {
+                    warn!("Blocking Mutating command in Ralph loop: {}", cmd);
+                    push_and_send(writer, &mut dialogue, StepType::InvestigationResult,
+                        format!("[blocked: mutating command not allowed in grounding loop]"), gate).await?;
+                    continue;
+                }
+            }
+
             match execute_command(cmd) {
                 Ok(output) => {
                     let clean_output = strip_ansi_codes(&output);
@@ -352,6 +365,26 @@ pub async fn run_full_loop_streaming<W: tokio::io::AsyncWriteExt + Unpin>(
     let final_answer =
         super::streaming_helpers::build_final_answer(&verification.answer, &verification.evidence_line, None);
     push_and_send(writer, &mut dialogue, StepType::FinalAnswer, final_answer.clone(), gate).await?;
+
+    // Hallucination guard: if grounding was required but zero commands ran,
+    // the answer has no factual basis — force abstain regardless of LLM confidence.
+    if criteria.requires_grounding && state.commands.is_empty() {
+        let result = AskResult {
+            answer: "I need to check your system to answer this, but no diagnostic commands ran successfully. Please try again.".to_string(),
+            success: false,
+            iterations: iteration,
+            commands_executed: vec![],
+            dialogue,
+            needs_clarification: false,
+            clarification_question: None,
+            cached: false,
+            citations: vec![],
+            abstained: true,
+            final_confidence: Some(0.0),
+        };
+        send_done(writer, &result).await?;
+        return Ok(result);
+    }
 
     // Phase 26: Determine if this is abstention vs failure
     // Abstention: max iterations + low confidence + no execution errors

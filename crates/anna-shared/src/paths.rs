@@ -92,6 +92,9 @@ impl Paths {
 
     // Runtime paths
     pub fn socket_file(&self) -> PathBuf { self.run_dir.join("anna.sock") }
+    /// Executor socket: privileged RPC channel between annad and anna-executor.
+    /// Owner: root:anna, mode: 0660 — only the anna service user can connect.
+    pub fn executor_socket_file(&self) -> PathBuf { self.run_dir.join("anna-executor.sock") }
     pub fn pid_file(&self) -> PathBuf { self.run_dir.join("annad.pid") }
 
     // Migration support

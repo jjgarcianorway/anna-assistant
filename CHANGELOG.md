@@ -5,6 +5,37 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.247] - 2026-02-16
+
+### Security — Privilege separation + hardening
+
+**Tier 0 — Privilege separation (anna-executor)**
+- New `anna-executor` crate: minimal root-privilege daemon (~200 lines). Runs as root, accepts only structured enum RPC — no shell strings, ever
+- `annad` now runs as `anna` service user (non-root). All privileged ops go through anna-executor over `/run/anna/anna-executor.sock`
+- Socket authenticated with `SO_PEERCRED` — only the `anna` service user or root can connect
+- `self_healing.rs` migrated: `systemctl restart`, `paccache`, `journalctl --vacuum-time`, `find /tmp` all now RPC through anna-executor instead of direct root execution
+- `install.sh`: creates `anna` system user, installs anna-executor.service (root, PrivateNetwork=true), sets `User=anna` on annad.service
+- `uninstall.sh`: stops/removes anna-executor service and binary
+
+**Tier 0 — Signed updates (GPG)**
+- `update.rs`: downloads `SHA256SUMS.asc` alongside `SHA256SUMS`, verifies detached GPG signature before trusting any checksum
+- Embedded public key constant (`ANNA_GPG_PUBLIC_KEY`): empty = skip verification (pre-key state), non-empty = hard fail on bad signature
+- `release.sh`: signs `SHA256SUMS` with GPG if `GPG_PRIVATE_KEY`/`GPG_PASSPHRASE` env vars present
+- Update now fetches and verifies `anna-executor` binary alongside annad/annactl
+
+**Tier 1 — Terminality guarantee (DoneGuard)**
+- `handlers.rs` + `main_handler.rs`: all error exit paths now send `StreamingResponse::Done` before returning — clients no longer hang on errors
+
+**Tier 1 — Concurrency cap**
+- `server/mod.rs`: `Semaphore::new(8)` caps concurrent Ralph loops — prevents Telegram flood from spawning unlimited tasks
+
+**Tier 1 — Zero-command hallucination guard**
+- `run_loop.rs`: if `requires_grounding && commands_executed.is_empty()` after all iterations, force abstain instead of confident hallucination
+
+**Tier 1 — CommandClass (ReadOnly/Mutating)**
+- `command_policy.rs`: `CommandClass` enum + `command_class()` function classifies every capability as ReadOnly or Mutating
+- `run_loop.rs`: Mutating commands blocked in the Ralph grounding loop — LLM cannot trigger filesystem writes, package ops, or execution through the Q&A path
+
 ## [0.3.246] - 2026-02-16
 
 ### Fixed — Morning briefing was silently dying every startup

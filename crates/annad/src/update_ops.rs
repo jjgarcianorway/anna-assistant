@@ -83,30 +83,27 @@ pub fn get_bin_dir() -> Result<std::path::PathBuf> {
         .ok_or_else(|| anyhow!("Cannot determine binary directory"))
 }
 
-/// Install both binaries together (atomic pair update)
-/// v0.0.318: Better error messages when binary is in use
-/// v0.0.387: Use staging + atomic rename to update even while binaries are running
-/// v0.3.11: Use dynamic binary location instead of hardcoded /usr/local/bin
-pub fn install_binary_pair(annactl: &Path, annad: &Path) -> Result<()> {
+/// Install all binaries together (atomic triple update: annactl, annad, anna-executor)
+pub fn install_binary_pair(annactl: &Path, annad: &Path, executor: &Path) -> Result<()> {
     let bin_dir = get_bin_dir()?;
     let annactl_dest = bin_dir.join("annactl");
-    let annad_dest = bin_dir.join("annad");
     let annactl_new = bin_dir.join("annactl.new");
     let annad_new = bin_dir.join("annad.new");
+    let executor_new = bin_dir.join("anna-executor.new");
 
-    // Stage both binaries first (copy to .new files)
+    // Stage all binaries first
     std::fs::copy(annactl, &annactl_new)
         .map_err(|e| anyhow!("Failed to stage annactl: {}", e))?;
-
     std::fs::copy(annad, &annad_new)
         .map_err(|e| anyhow!("Failed to stage annad: {}", e))?;
+    std::fs::copy(executor, &executor_new)
+        .map_err(|e| anyhow!("Failed to stage anna-executor: {}", e))?;
 
-    // Atomic rename for annactl - works even if binary is running
-    // rename() is atomic and works on busy executables (unlike copy)
+    // Atomic rename for annactl — works even if binary is running
     std::fs::rename(&annactl_new, &annactl_dest)
         .map_err(|e| anyhow!("Failed to install annactl: {}", e))?;
 
-    // annad.new stays staged - will be renamed during restart
+    // annad.new and anna-executor.new stay staged — renamed during restart
     Ok(())
 }
 
@@ -205,7 +202,9 @@ pub async fn verify_assets_exist(client: &reqwest::Client, version: &str) -> Res
     let assets = [
         format!("{}/annactl-linux-{}", base_url, arch_name),
         format!("{}/annad-linux-{}", base_url, arch_name),
+        format!("{}/anna-executor-linux-{}", base_url, arch_name),
         format!("{}/SHA256SUMS", base_url),
+        format!("{}/SHA256SUMS.asc", base_url),
     ];
 
     for asset_url in &assets {
@@ -224,11 +223,10 @@ pub async fn verify_assets_exist(client: &reqwest::Client, version: &str) -> Res
 }
 
 /// Rollback installed binaries from backups
-/// v0.3.11: Use dynamic binary location
-pub fn rollback_binaries(backup_annactl: &Path, backup_annad: &Path) {
+pub fn rollback_binaries(backup_annactl: &Path, backup_annad: &Path, backup_executor: &Path) {
     let bin_dir = match get_bin_dir() {
         Ok(dir) => dir,
-        Err(_) => return, // Can't determine location, skip rollback
+        Err(_) => return,
     };
 
     if backup_annactl.exists() {
@@ -236,6 +234,9 @@ pub fn rollback_binaries(backup_annactl: &Path, backup_annad: &Path) {
     }
     if backup_annad.exists() {
         std::fs::copy(backup_annad, bin_dir.join("annad")).ok();
+    }
+    if backup_executor.exists() {
+        std::fs::copy(backup_executor, bin_dir.join("anna-executor")).ok();
     }
 }
 

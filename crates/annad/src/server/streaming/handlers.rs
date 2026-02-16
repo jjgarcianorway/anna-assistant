@@ -46,6 +46,24 @@ pub async fn handle_streaming_request(
         };
         let json = serde_json::to_string(&response)?;
         writer.write_all(format!("{}\n", json).as_bytes()).await?;
+        // Always send Done so client doesn't hang waiting
+        let done = StreamingResponse::Done {
+            result: anna_shared::rpc::AskResult {
+                answer: "Missing 'question' parameter".to_string(),
+                success: false,
+                iterations: 0,
+                commands_executed: vec![],
+                dialogue: vec![],
+                needs_clarification: false,
+                clarification_question: None,
+                cached: false,
+                citations: vec![],
+                abstained: false,
+                final_confidence: None,
+            },
+        };
+        let json = serde_json::to_string(&done)?;
+        writer.write_all(format!("{}\n", json).as_bytes()).await?;
         return Ok(());
     }
 

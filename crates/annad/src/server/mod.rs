@@ -279,11 +279,17 @@ impl Server {
         let _ = sd_notify::notify(false, &[sd_notify::NotifyState::Ready]);
         info!("Daemon ready, socket accepting connections");
 
+        // Cap concurrent Ralph loops — prevents Telegram floods from spawning unlimited tasks.
+        // Connections beyond the cap queue at accept() and wait for a permit.
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
+
         loop {
             match listener.accept().await {
                 Ok((stream, _)) => {
                     let state = self.state.clone();
+                    let permit = semaphore.clone().acquire_owned().await.unwrap();
                     tokio::spawn(async move {
+                        let _permit = permit; // released when connection ends
                         if let Err(e) = handle_connection(stream, state).await {
                             warn!("Connection error: {}", e);
                         }

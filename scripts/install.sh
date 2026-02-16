@@ -87,6 +87,7 @@ fetch_artifacts() {
     TMPDIR=$(mktemp -d)
     curl -sSL "${base_url}/annactl-linux-${ARCH}" -o "${TMPDIR}/annactl" 2>/dev/null && print_item_ok "annactl-${ARCH}" || fail "failed to download annactl"
     curl -sSL "${base_url}/annad-linux-${ARCH}" -o "${TMPDIR}/annad" 2>/dev/null && print_item_ok "annad-${ARCH}" || fail "failed to download annad"
+    curl -sSL "${base_url}/anna-executor-linux-${ARCH}" -o "${TMPDIR}/anna-executor" 2>/dev/null && print_item_ok "anna-executor-${ARCH}" || fail "failed to download anna-executor"
     curl -sSL "${base_url}/SHA256SUMS" -o "${TMPDIR}/SHA256SUMS" 2>/dev/null && print_item_ok "SHA256SUMS" || fail "failed to download SHA256SUMS"
     echo ""
 }
@@ -96,10 +97,13 @@ verify_checksums() {
     cd "$TMPDIR"
     local annactl_expected=$(grep "annactl-linux-${ARCH}" SHA256SUMS | awk '{print $1}')
     local annad_expected=$(grep "annad-linux-${ARCH}" SHA256SUMS | awk '{print $1}')
+    local executor_expected=$(grep "anna-executor-linux-${ARCH}" SHA256SUMS | awk '{print $1}')
     local annactl_actual=$(sha256sum annactl | awk '{print $1}')
     local annad_actual=$(sha256sum annad | awk '{print $1}')
-    [[ "$annactl_expected" = "$annactl_actual" ]] && printf "  annactl  ${C_OK}OK${C_RESET}\n" || fail "annactl checksum mismatch"
-    [[ "$annad_expected" = "$annad_actual" ]] && printf "  annad    ${C_OK}OK${C_RESET}\n" || fail "annad checksum mismatch"
+    local executor_actual=$(sha256sum anna-executor | awk '{print $1}')
+    [[ "$annactl_expected" = "$annactl_actual" ]] && printf "  annactl       ${C_OK}OK${C_RESET}\n" || fail "annactl checksum mismatch"
+    [[ "$annad_expected" = "$annad_actual" ]] && printf "  annad         ${C_OK}OK${C_RESET}\n" || fail "annad checksum mismatch"
+    [[ "$executor_expected" = "$executor_actual" ]] && printf "  anna-executor ${C_OK}OK${C_RESET}\n" || fail "anna-executor checksum mismatch"
     echo ""
 }
 
@@ -119,10 +123,16 @@ request_sudo() {
 }
 
 stop_existing_service() {
+    local stopped=false
     if systemctl is-active --quiet annad 2>/dev/null; then
-        print_section "upgrade" "stopping existing annad service"
-        $SUDO systemctl stop annad; print_ok "annad stopped"; echo ""; UPGRADE_MODE=true
-    else UPGRADE_MODE=false; fi
+        print_section "upgrade" "stopping existing services"
+        $SUDO systemctl stop annad; print_ok "annad stopped"; stopped=true
+    fi
+    if systemctl is-active --quiet anna-executor 2>/dev/null; then
+        [[ "$stopped" = false ]] && print_section "upgrade" "stopping existing services"
+        $SUDO systemctl stop anna-executor; print_ok "anna-executor stopped"; stopped=true
+    fi
+    [[ "$stopped" = true ]] && { echo ""; UPGRADE_MODE=true; } || UPGRADE_MODE=false
 }
 
 cleanup_stale_binaries() {
@@ -140,20 +150,32 @@ cleanup_stale_binaries() {
 
 install_binaries() {
     print_section "install" "binaries"
-    chmod +x "${TMPDIR}/annactl" "${TMPDIR}/annad"
+    chmod +x "${TMPDIR}/annactl" "${TMPDIR}/annad" "${TMPDIR}/anna-executor"
     $SUDO cp "${TMPDIR}/annactl" "${INSTALL_DIR}/annactl"; print_item_ok "/usr/local/bin/annactl"
     $SUDO cp "${TMPDIR}/annad" "${INSTALL_DIR}/annad"; print_item_ok "/usr/local/bin/annad"
+    $SUDO cp "${TMPDIR}/anna-executor" "${INSTALL_DIR}/anna-executor"; print_item_ok "/usr/local/bin/anna-executor"
     echo ""
 }
 
-setup_group() {
-    print_section "security" "group setup"
-    getent group "$ANNA_GROUP" >/dev/null 2>&1 && print_ok "group exists: ${ANNA_GROUP}" || { $SUDO groupadd "$ANNA_GROUP"; print_ok "created group: ${ANNA_GROUP}"; }
+setup_service_user() {
+    print_section "security" "service user + group"
+    # Create anna group
+    getent group "$ANNA_GROUP" >/dev/null 2>&1 \
+        && print_ok "group exists: ${ANNA_GROUP}" \
+        || { $SUDO groupadd --system "$ANNA_GROUP"; print_ok "created group: ${ANNA_GROUP}"; }
+    # Create anna system user (no home, no login shell) — annad runs as this user
+    if getent passwd "$ANNA_GROUP" >/dev/null 2>&1; then
+        print_ok "user exists: ${ANNA_GROUP}"
+    else
+        $SUDO useradd --system --no-create-home --shell /usr/sbin/nologin \
+            --gid "$ANNA_GROUP" "$ANNA_GROUP"
+        print_ok "created system user: ${ANNA_GROUP}"
+    fi
+    # Add the installing user to the anna group (needed for annactl socket access)
     if groups "$USERNAME" 2>/dev/null | grep -q "\b${ANNA_GROUP}\b"; then
         print_ok "${USERNAME} already in ${ANNA_GROUP} group"
     else
         $SUDO usermod -aG "$ANNA_GROUP" "$USERNAME"; print_ok "added ${USERNAME} to ${ANNA_GROUP} group"
-        # Group membership only activates on next login — flag this for print_footer
         GROUP_ADDED=true
     fi
     echo ""
@@ -161,22 +183,25 @@ setup_group() {
 
 install_directories() {
     print_section "install" "directories"
-    $SUDO mkdir -p "$CONFIG_DIR"; $SUDO chmod 755 "$CONFIG_DIR"; print_item_ok "/etc/anna (755 root:root)"
-    $SUDO mkdir -p "$STATE_DIR"; $SUDO chown root:$ANNA_GROUP "$STATE_DIR"; $SUDO chmod 750 "$STATE_DIR"; print_item_ok "/var/lib/anna (750 root:anna)"
+    # /etc/anna — config, owned root:anna so anna user can read but not write
+    $SUDO mkdir -p "$CONFIG_DIR"; $SUDO chown root:$ANNA_GROUP "$CONFIG_DIR"; $SUDO chmod 750 "$CONFIG_DIR"; print_item_ok "/etc/anna (750 root:anna)"
+    # /var/lib/anna — state, owned anna:anna so daemon can write
+    $SUDO mkdir -p "$STATE_DIR"; $SUDO chown $ANNA_GROUP:$ANNA_GROUP "$STATE_DIR"; $SUDO chmod 750 "$STATE_DIR"; print_item_ok "/var/lib/anna (750 anna:anna)"
     for subdir in backups wiki recipes; do
-        $SUDO mkdir -p "${STATE_DIR}/${subdir}"; $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/${subdir}"; $SUDO chmod 750 "${STATE_DIR}/${subdir}"
-        print_item_ok "/var/lib/anna/${subdir} (750 root:anna)"
+        $SUDO mkdir -p "${STATE_DIR}/${subdir}"; $SUDO chown $ANNA_GROUP:$ANNA_GROUP "${STATE_DIR}/${subdir}"; $SUDO chmod 750 "${STATE_DIR}/${subdir}"
+        print_item_ok "/var/lib/anna/${subdir} (750 anna:anna)"
     done
-    $SUDO mkdir -p "$LOG_DIR"; $SUDO chown root:$ANNA_GROUP "$LOG_DIR"; $SUDO chmod 750 "$LOG_DIR"; print_item_ok "/var/log/anna (750 root:anna)"
-    $SUDO mkdir -p "$RUN_DIR"; $SUDO chown root:$ANNA_GROUP "$RUN_DIR"; $SUDO chmod 750 "$RUN_DIR"; print_item_ok "/run/anna (750 root:anna)"
-    $SUDO mkdir -p "${STATE_DIR}/models"; $SUDO chown root:$ANNA_GROUP "${STATE_DIR}/models"; $SUDO chmod 750 "${STATE_DIR}/models"
-    print_item_ok "/var/lib/anna/models (750 root:anna)"; echo ""
+    $SUDO mkdir -p "$LOG_DIR"; $SUDO chown $ANNA_GROUP:$ANNA_GROUP "$LOG_DIR"; $SUDO chmod 750 "$LOG_DIR"; print_item_ok "/var/log/anna (750 anna:anna)"
+    # /run/anna — runtime, mode 0770 so both root (anna-executor) and anna user can create sockets
+    $SUDO mkdir -p "$RUN_DIR"; $SUDO chown root:$ANNA_GROUP "$RUN_DIR"; $SUDO chmod 770 "$RUN_DIR"; print_item_ok "/run/anna (770 root:anna)"
+    $SUDO mkdir -p "${STATE_DIR}/models"; $SUDO chown $ANNA_GROUP:$ANNA_GROUP "${STATE_DIR}/models"; $SUDO chmod 750 "${STATE_DIR}/models"
+    print_item_ok "/var/lib/anna/models (750 anna:anna)"; echo ""
 }
 
 install_tmpfiles() {
     print_section "install" "tmpfiles.d"
     $SUDO tee "/etc/tmpfiles.d/anna.conf" >/dev/null <<'EOF'
-d /run/anna 0750 root anna -
+d /run/anna 0770 root anna -
 EOF
     print_item_ok "/etc/tmpfiles.d/anna.conf (750 root:anna)"
     # Apply immediately so /run/anna exists before annad starts (survives without reboot)
@@ -273,38 +298,72 @@ EOF
 install_service() {
     print_section "service" "systemd"
 
+    # anna-executor: runs as root, privileged helper, no network access
+    $SUDO tee "${SYSTEMD_DIR}/anna-executor.service" >/dev/null <<'EOF'
+[Unit]
+Description=Anna Executor (privileged helper)
+After=local-fs.target
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/anna-executor
+Restart=always
+RestartSec=3
+WatchdogSec=30
+TimeoutStopSec=5
+RuntimeDirectory=anna
+RuntimeDirectoryMode=0770
+RuntimeDirectoryGroup=anna
+PrivateNetwork=true
+ProtectHome=true
+ProtectKernelTunables=true
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+[Install]
+WantedBy=multi-user.target
+EOF
+    [[ -f "${SYSTEMD_DIR}/anna-executor.service" ]] && print_item_ok "anna-executor.service" || { print_err "anna-executor service file not written"; DAEMON_START_FAILED=true; return; }
+
+    # annad: runs as anna service user (non-root), requires anna-executor
     $SUDO tee "${SYSTEMD_DIR}/annad.service" >/dev/null <<'EOF'
 [Unit]
 Description=Anna Assistant Daemon
-After=network.target
+After=network.target anna-executor.service
+Requires=anna-executor.service
 [Service]
 Type=notify
+User=anna
+Group=anna
 ExecStart=/usr/local/bin/annad
 Restart=always
 RestartSec=3
 WatchdogSec=60
 TimeoutStopSec=10
 MemoryMax=2G
-RuntimeDirectory=anna
-RuntimeDirectoryMode=0750
-RuntimeDirectoryGroup=anna
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=RUST_BACKTRACE=1
 EnvironmentFile=-/etc/anna/telegram.env
 [Install]
 WantedBy=multi-user.target
 EOF
-    [[ -f "${SYSTEMD_DIR}/annad.service" ]] && print_item_ok "annad.service" || { print_err "service file not written"; DAEMON_START_FAILED=true; return; }
+    [[ -f "${SYSTEMD_DIR}/annad.service" ]] && print_item_ok "annad.service" || { print_err "annad service file not written"; DAEMON_START_FAILED=true; return; }
 
     $SUDO systemctl daemon-reload && print_item_ok "daemon-reload" || { print_err "daemon-reload failed"; DAEMON_START_FAILED=true; return; }
-    $SUDO systemctl enable annad --quiet && print_item_ok "enable" || { print_err "enable failed"; DAEMON_START_FAILED=true; return; }
+    $SUDO systemctl enable anna-executor --quiet && print_item_ok "enable anna-executor" || { print_err "enable anna-executor failed"; DAEMON_START_FAILED=true; return; }
+    $SUDO systemctl enable annad --quiet && print_item_ok "enable annad" || { print_err "enable annad failed"; DAEMON_START_FAILED=true; return; }
+
+    # Start executor first (annad depends on it)
+    $SUDO systemctl start anna-executor || { print_err "anna-executor failed to start"; DAEMON_START_FAILED=true; return; }
+    for i in $(seq 1 10); do
+        state=$($SUDO systemctl is-active anna-executor 2>/dev/null || true)
+        [[ "$state" == "active" ]] && { print_item_ok "anna-executor active"; break; }
+        [[ "$state" == "failed" ]] && { print_err "anna-executor failed"; DAEMON_START_FAILED=true; return; }
+        sleep 0.5
+    done
 
     if $SUDO systemctl start annad; then
-        # Wait up to 10s for the service to reach active state
         for i in $(seq 1 20); do
             state=$($SUDO systemctl is-active annad 2>/dev/null || true)
             if [[ "$state" == "active" ]]; then
-                print_item_ok "start (active)"; break
+                print_item_ok "annad active"; break
             elif [[ "$state" == "failed" ]]; then
                 print_err "annad started but immediately failed"
                 DAEMON_START_FAILED=true; break
@@ -315,7 +374,6 @@ EOF
             print_err "annad did not reach active state within 10s (state: ${state})"
             DAEMON_START_FAILED=true
         fi
-        # Verify socket created (daemon writes it after sd_notify)
         if [[ "${DAEMON_START_FAILED:-false}" != "true" ]]; then
             for i in $(seq 1 20); do
                 [[ -S "${RUN_DIR}/anna.sock" ]] && { print_item_ok "socket ready"; break; }
@@ -332,19 +390,26 @@ EOF
 
 verify_binaries() {
     print_section "verify" "installed binaries"
-    local annactl_ver annad_ver
+    local annactl_ver annad_ver executor_ver
     annactl_ver=$("${INSTALL_DIR}/annactl" --version 2>/dev/null | head -1)
     if [[ -n "$annactl_ver" ]]; then
-        printf "  annactl  ${C_OK}${annactl_ver}${C_RESET}\n"
+        printf "  annactl       ${C_OK}${annactl_ver}${C_RESET}\n"
     else
-        print_err "annactl --version returned nothing (binary may need a dependency)"
+        print_err "annactl --version returned nothing"
         BINARY_VERIFY_FAILED=true
     fi
     annad_ver=$("${INSTALL_DIR}/annad" --version 2>/dev/null | head -1)
     if [[ -n "$annad_ver" ]]; then
-        printf "  annad    ${C_OK}${annad_ver}${C_RESET}\n"
+        printf "  annad         ${C_OK}${annad_ver}${C_RESET}\n"
     else
-        print_err "annad --version returned nothing (binary may need a dependency)"
+        print_err "annad --version returned nothing"
+        BINARY_VERIFY_FAILED=true
+    fi
+    executor_ver=$("${INSTALL_DIR}/anna-executor" --version 2>/dev/null | head -1)
+    if [[ -n "$executor_ver" ]]; then
+        printf "  anna-executor ${C_OK}${executor_ver}${C_RESET}\n"
+    else
+        print_err "anna-executor --version returned nothing"
         BINARY_VERIFY_FAILED=true
     fi
     if [[ "${BINARY_VERIFY_FAILED:-false}" != "true" ]]; then
@@ -371,7 +436,7 @@ trap cleanup EXIT
 main() {
     print_header; print_greeting; preflight; fetch_artifacts; verify_checksums
     cleanup_stale_binaries; request_sudo; stop_existing_service
-    install_binaries; verify_binaries; setup_group
+    install_binaries; verify_binaries; setup_service_user
     install_directories; install_tmpfiles; install_config
     setup_telegram  # Interactive Telegram setup
     install_service

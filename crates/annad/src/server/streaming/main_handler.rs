@@ -337,8 +337,27 @@ pub async fn handle_main_question(
             }
 
             let user_msg = format!("Execution error: {}", e);
-            let response = StreamingResponse::Error { message: user_msg };
+            let response = StreamingResponse::Error { message: user_msg.clone() };
             if let Ok(json) = serde_json::to_string(&response) {
+                let _ = writer.write_all(format!("{}\n", json).as_bytes()).await;
+            }
+            // Always send Done — client must not hang waiting for it
+            let done = StreamingResponse::Done {
+                result: anna_shared::rpc::AskResult {
+                    answer: user_msg,
+                    success: false,
+                    iterations: 0,
+                    commands_executed: vec![],
+                    dialogue: vec![],
+                    needs_clarification: false,
+                    clarification_question: None,
+                    cached: false,
+                    citations: vec![],
+                    abstained: false,
+                    final_confidence: None,
+                },
+            };
+            if let Ok(json) = serde_json::to_string(&done) {
                 let _ = writer.write_all(format!("{}\n", json).as_bytes()).await;
                 let _ = writer.flush().await;
             }

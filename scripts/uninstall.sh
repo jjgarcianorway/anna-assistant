@@ -35,6 +35,16 @@ stop_service() {
         systemctl disable annad
         log_info "Service disabled"
     fi
+
+    if systemctl is-active --quiet anna-executor 2>/dev/null; then
+        systemctl stop anna-executor
+        log_info "anna-executor stopped"
+    fi
+
+    if systemctl is-enabled --quiet anna-executor 2>/dev/null; then
+        systemctl disable anna-executor
+        log_info "anna-executor disabled"
+    fi
 }
 
 # Remove systemd service file
@@ -43,9 +53,15 @@ remove_service() {
 
     if [ -f /etc/systemd/system/annad.service ]; then
         rm -f /etc/systemd/system/annad.service
-        systemctl daemon-reload
-        log_info "Service file removed"
+        log_info "annad.service removed"
     fi
+
+    if [ -f /etc/systemd/system/anna-executor.service ]; then
+        rm -f /etc/systemd/system/anna-executor.service
+        log_info "anna-executor.service removed"
+    fi
+
+    systemctl daemon-reload 2>/dev/null || true
 }
 
 # Remove binaries
@@ -54,6 +70,7 @@ remove_binaries() {
 
     rm -f /usr/local/bin/annad
     rm -f /usr/local/bin/annactl
+    rm -f /usr/local/bin/anna-executor
     log_info "Binaries removed"
 }
 

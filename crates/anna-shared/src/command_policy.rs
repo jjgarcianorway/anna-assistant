@@ -215,6 +215,46 @@ pub struct PolicyContext {
 }
 
 // =============================================================================
+// COMMAND CLASS — distinguishes read-only diagnostics from mutating operations
+// =============================================================================
+
+/// Whether a command reads system state or changes it.
+///
+/// Used to enforce that the Ralph grounding loop (LLM-driven Q&A) only runs
+/// ReadOnly commands. Mutating operations must go through explicit privileged
+/// paths (self-healing, dynamic_plan) — never directly from LLM output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandClass {
+    /// Reads system state, produces no side effects.
+    /// Safe to run from the Ralph grounding loop.
+    ReadOnly,
+    /// Changes system state, installs software, or writes files.
+    /// Must NOT be triggered directly by LLM-planned commands.
+    Mutating,
+}
+
+/// Classify a command binary by whether it reads or mutates system state.
+/// Returns `Mutating` for unknown binaries (fail-safe default).
+pub fn command_class(spec: &CommandSpec) -> CommandClass {
+    for cap in CAPABILITIES.iter() {
+        if cap.allowed_binaries.contains(&spec.binary.as_str()) {
+            return match cap.category {
+                CapabilityCategory::Diagnosis
+                | CapabilityCategory::FilesystemRead
+                | CapabilityCategory::Proposal
+                | CapabilityCategory::Network => CommandClass::ReadOnly,
+                CapabilityCategory::Execution
+                | CapabilityCategory::FilesystemWrite
+                | CapabilityCategory::PackageManagement
+                | CapabilityCategory::Media => CommandClass::Mutating,
+            };
+        }
+    }
+    // Unknown binary: default to Mutating (fail-safe)
+    CommandClass::Mutating
+}
+
+// =============================================================================
 // HARD BANS - These patterns are ALWAYS denied, regardless of ledger
 // =============================================================================
 

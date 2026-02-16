@@ -4,10 +4,11 @@ members = [
     "crates/anna-shared",
     "crates/annad",
     "crates/annactl",
+    "crates/anna-executor",
 ]
 
 [workspace.package]
-version = "0.3.246"
+version = "0.3.247"
 edition = "2021"
 license = "GPL-3.0"
 repository = "https://github.com/jjgarcianorway/anna-assistant"
@@ -30,7 +31,9 @@ regex = "1.10"
 futures-util = "0.3"
 dirs = "5.0"
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
+sd-notify = "0.4"
 teloxide = { version = "0.12", features = ["macros"] }
 similar = "2.4"
 plotters = "0.3"
 md5 = "0.7"
+pgp = "0.19"

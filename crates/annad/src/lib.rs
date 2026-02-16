@@ -121,6 +121,7 @@ pub mod recovery;
 pub mod report;
 pub mod root_cause;
 pub mod scheduler_loop;
+pub mod executor_client;
 pub mod self_healing;
 pub mod server;
 pub mod smart_timing;

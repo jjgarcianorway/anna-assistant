@@ -1,0 +1,131 @@
+//! Handler implementations for each ExecutorRequest variant.
+//!
+//! Each handler:
+//! - Validates its inputs against a static allowlist (no dynamic shell construction)
+//! - Uses fixed Command::new() with explicit args (no sh -c, ever)
+//! - Returns ExecutorResponse
+
+use std::process::Command;
+use tracing::{info, warn};
+
+use crate::protocol::{ExecutorRequest, ExecutorResponse};
+
+/// Services that anna-executor is permitted to restart.
+/// This mirrors SAFE_TO_RESTART in annad/self_healing.rs — kept in sync manually.
+const RESTARTABLE_SERVICES: &[&str] = &[
+    "pipewire",
+    "pipewire-pulse",
+    "wireplumber",
+    "xdg-desktop-portal",
+    "xdg-desktop-portal-gtk",
+    "xdg-desktop-portal-gnome",
+    "xdg-desktop-portal-kde",
+    "gvfs-daemon",
+    "evolution-addressbook-factory",
+    "evolution-calendar-factory",
+    "evolution-source-registry",
+    "tracker-miner-fs",
+    "gnome-keyring-daemon",
+];
+
+/// Dispatch a request and return the response.
+pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
+    match request {
+        ExecutorRequest::RestartService { name } => restart_service(&name),
+        ExecutorRequest::CleanJournal { keep_days } => clean_journal(keep_days),
+        ExecutorRequest::CleanPackageCache { keep_versions } => clean_package_cache(keep_versions),
+        ExecutorRequest::CleanTmpFiles => clean_tmp_files(),
+    }
+}
+
+fn restart_service(name: &str) -> ExecutorResponse {
+    // Validate against static allowlist — no arbitrary service names
+    if !RESTARTABLE_SERVICES.contains(&name) {
+        warn!("Denied restart request for non-allowlisted service: {}", name);
+        return ExecutorResponse::Denied {
+            reason: format!("Service '{}' is not in the restart allowlist", name),
+        };
+    }
+
+    info!("Restarting service: {}", name);
+    let result = Command::new("systemctl")
+        .args(["restart", name])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => {
+            info!("Successfully restarted: {}", name);
+            ExecutorResponse::Ok {
+                output: String::from_utf8_lossy(&output.stdout).to_string(),
+            }
+        }
+        Ok(output) => {
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            warn!("Failed to restart {}: {}", name, stderr);
+            ExecutorResponse::Error { message: stderr }
+        }
+        Err(e) => {
+            warn!("Failed to run systemctl restart {}: {}", name, e);
+            ExecutorResponse::Error { message: e.to_string() }
+        }
+    }
+}
+
+fn clean_journal(keep_days: u32) -> ExecutorResponse {
+    // Cap keep_days to prevent accidental data loss (min 1 day)
+    let days = keep_days.max(1);
+    let vacuum_arg = format!("{}d", days);
+
+    info!("Vacuuming journal, keeping {} days", days);
+    let result = Command::new("journalctl")
+        .args(["--vacuum-time", &vacuum_arg])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => ExecutorResponse::Ok {
+            output: String::from_utf8_lossy(&output.stderr).to_string(), // journalctl reports to stderr
+        },
+        Ok(output) => ExecutorResponse::Error {
+            message: String::from_utf8_lossy(&output.stderr).to_string(),
+        },
+        Err(e) => ExecutorResponse::Error { message: e.to_string() },
+    }
+}
+
+fn clean_package_cache(keep_versions: u32) -> ExecutorResponse {
+    // Cap to at least 1 to avoid deleting all cached versions
+    let k = keep_versions.max(1);
+
+    info!("Running paccache -rk{}", k);
+    let result = Command::new("paccache")
+        .args(["-rk", &k.to_string()])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => ExecutorResponse::Ok {
+            output: String::from_utf8_lossy(&output.stdout).to_string(),
+        },
+        Ok(output) => ExecutorResponse::Error {
+            message: String::from_utf8_lossy(&output.stderr).to_string(),
+        },
+        Err(e) => ExecutorResponse::Error { message: e.to_string() },
+    }
+}
+
+fn clean_tmp_files() -> ExecutorResponse {
+    info!("Cleaning /tmp files older than 1 day");
+    // Using find with explicit args — no shell, no globbing
+    let result = Command::new("find")
+        .args(["/tmp", "-type", "f", "-mtime", "+1", "-delete"])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => ExecutorResponse::Ok {
+            output: "Cleaned stale files from /tmp".to_string(),
+        },
+        Ok(output) => ExecutorResponse::Error {
+            message: String::from_utf8_lossy(&output.stderr).to_string(),
+        },
+        Err(e) => ExecutorResponse::Error { message: e.to_string() },
+    }
+}
