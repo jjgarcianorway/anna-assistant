@@ -85,10 +85,11 @@ dependencies = [
 
 [[package]]
 name = "anna-executor"
-version = "0.3.247"
+version = "0.3.248"
 dependencies = [
  "anna-shared",
  "anyhow",
+ "chrono",
  "sd-notify",
  "serde",
  "serde_json",
@@ -99,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "anna-shared"
-version = "0.3.247"
+version = "0.3.248"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -123,7 +124,7 @@ dependencies = [
 
 [[package]]
 name = "annactl"
-version = "0.3.247"
+version = "0.3.248"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -138,7 +139,7 @@ dependencies = [
 
 [[package]]
 name = "annad"
-version = "0.3.247"
+version = "0.3.248"
 dependencies = [
  "anna-shared",
  "anyhow",
@@ -155,6 +156,7 @@ dependencies = [
  "pgp",
  "plotters",
  "plotters-bitmap",
+ "rand",
  "regex",
  "reqwest",
  "sd-notify",

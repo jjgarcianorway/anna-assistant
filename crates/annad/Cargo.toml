@@ -39,3 +39,4 @@ image = "0.24"
 
 [dev-dependencies]
 async-trait = "0.1"
+rand = "0.8"

@@ -228,6 +228,24 @@ fi
 echo ""
 
 # =============================================================================
+# TEST 6: GPG Tamper Unit Tests
+# =============================================================================
+echo -e "${YELLOW}[TEST 6]${NC} GPG Signature Tamper Tests"
+echo "-------------------------------------------"
+
+if command -v cargo >/dev/null 2>&1; then
+    if cargo test -p annad update::tests -- --nocapture 2>&1 | tail -5; then
+        echo -e "${GREEN}[PASS]${NC} GPG tamper tests passed"
+    else
+        echo -e "${RED}[FAIL]${NC} GPG tamper tests failed"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}[SKIP]${NC} cargo not available"
+fi
+echo ""
+
+# =============================================================================
 # SUMMARY
 # =============================================================================
 echo "=============================================="

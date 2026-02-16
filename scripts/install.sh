@@ -316,6 +316,17 @@ RuntimeDirectoryGroup=anna
 PrivateNetwork=true
 ProtectHome=true
 ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectSystem=strict
+ReadWritePaths=/var/cache/pacman /var/log/journal /tmp /run/anna /var/lib/anna
+NoNewPrivileges=true
+RestrictAddressFamilies=AF_UNIX
+RestrictSUIDSGID=true
+SystemCallFilter=@system-service
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 [Install]
 WantedBy=multi-user.target

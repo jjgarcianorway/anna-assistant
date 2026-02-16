@@ -290,8 +290,15 @@ impl Server {
                     let permit = semaphore.clone().acquire_owned().await.unwrap();
                     tokio::spawn(async move {
                         let _permit = permit; // released when connection ends
-                        if let Err(e) = handle_connection(stream, state).await {
-                            warn!("Connection error: {}", e);
+                        if tokio::time::timeout(
+                            std::time::Duration::from_secs(300),
+                            handle_connection(stream, state),
+                        )
+                        .await
+                        .map(|r| r.map_err(|e| warn!("Connection error: {}", e)))
+                        .is_err()
+                        {
+                            warn!("Connection timed out after 300s");
                         }
                     });
                 }

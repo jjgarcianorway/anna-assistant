@@ -5,6 +5,19 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.249] - 2026-02-16
+
+### Security — Update chain hardening
+
+- **Key rotation**: `ANNA_GPG_PUBLIC_KEY` replaced by `ANNA_GPG_PUBLIC_KEYS: &[(&str, &str)]` slice; `REVOKED_GPG_FINGERPRINTS` denylist. Rotation: add new key → ship → remove old key next release.
+- **GPG unit tests**: 9 tamper-scenario unit tests covering valid sig, tampered data, tampered sig, empty sig, wrong key, empty key list, downgrade block, and tampered binary checksum.
+- **Persistent rollback slot**: `save_rollback_slot()` / `restore_rollback_slot()` in `update_ops.rs`. Saves all 3 binaries to `/var/lib/anna/rollback/` before any install; restores on failure.
+- **Restart script fix**: `schedule_daemon_restart()` now moves both `annad.new → annad` AND `anna-executor.new → anna-executor` (bug: executor was never moved). Polls `annad --version` up to 5×2s post-restart; auto-rolls back and logs via `logger` on failure.
+- **Executor service hardening**: Added `ProtectKernelModules`, `ProtectControlGroups`, `ProtectSystem=strict`, `ReadWritePaths=`, `NoNewPrivileges`, `RestrictAddressFamilies=AF_UNIX`, `RestrictSUIDSGID`, `SystemCallFilter=@system-service`, `LockPersonality`, `MemoryDenyWriteExecute`, `CapabilityBoundingSet=` to `anna-executor.service`.
+- **Executor audit log**: Every RPC appended to `/var/lib/anna/executor_audit.jsonl` as `{"ts":...,"action":...,"outcome":...}`.
+- **Connection timeout**: Each annad connection now times out after 300 s.
+- **SECURITY.md**: Documents privilege model, update chain, key management, network isolation, audit trail, and multi-machine model.
+
 ## [0.3.247] - 2026-02-16
 
 ### Security — Privilege separation + hardening

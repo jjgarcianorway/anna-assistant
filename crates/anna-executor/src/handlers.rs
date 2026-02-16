@@ -5,10 +5,29 @@
 //! - Uses fixed Command::new() with explicit args (no sh -c, ever)
 //! - Returns ExecutorResponse
 
+use std::io::Write;
 use std::process::Command;
 use tracing::{info, warn};
 
 use crate::protocol::{ExecutorRequest, ExecutorResponse};
+
+const AUDIT_LOG: &str = "/var/lib/anna/executor_audit.jsonl";
+
+fn audit_log(action: &str, outcome: &str) {
+    let entry = format!(
+        "{{\"ts\":\"{}\",\"action\":\"{}\",\"outcome\":\"{}\"}}\n",
+        chrono::Utc::now().to_rfc3339(),
+        action,
+        outcome
+    );
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(AUDIT_LOG)
+    {
+        f.write_all(entry.as_bytes()).ok();
+    }
+}
 
 /// Services that anna-executor is permitted to restart.
 /// This mirrors SAFE_TO_RESTART in annad/self_healing.rs — kept in sync manually.
@@ -30,12 +49,31 @@ const RESTARTABLE_SERVICES: &[&str] = &[
 
 /// Dispatch a request and return the response.
 pub fn handle(request: ExecutorRequest) -> ExecutorResponse {
-    match request {
-        ExecutorRequest::RestartService { name } => restart_service(&name),
-        ExecutorRequest::CleanJournal { keep_days } => clean_journal(keep_days),
-        ExecutorRequest::CleanPackageCache { keep_versions } => clean_package_cache(keep_versions),
-        ExecutorRequest::CleanTmpFiles => clean_tmp_files(),
-    }
+    let (action, response) = match request {
+        ExecutorRequest::RestartService { ref name } => {
+            let r = restart_service(name);
+            (format!("RestartService:{}", name), r)
+        }
+        ExecutorRequest::CleanJournal { keep_days } => {
+            let r = clean_journal(keep_days);
+            (format!("CleanJournal:{}", keep_days), r)
+        }
+        ExecutorRequest::CleanPackageCache { keep_versions } => {
+            let r = clean_package_cache(keep_versions);
+            (format!("CleanPackageCache:{}", keep_versions), r)
+        }
+        ExecutorRequest::CleanTmpFiles => {
+            let r = clean_tmp_files();
+            ("CleanTmpFiles".to_string(), r)
+        }
+    };
+    let outcome = match &response {
+        ExecutorResponse::Ok { .. } => "ok",
+        ExecutorResponse::Error { .. } => "error",
+        ExecutorResponse::Denied { .. } => "denied",
+    };
+    audit_log(&action, outcome);
+    response
 }
 
 fn restart_service(name: &str) -> ExecutorResponse {

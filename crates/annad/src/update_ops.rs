@@ -7,7 +7,9 @@ use anna_shared::GITHUB_REPO;
 use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::process::Command;
-use tracing::info;
+use tracing::{info, warn};
+
+const ROLLBACK_DIR: &str = "/var/lib/anna/rollback";
 
 /// Download a file from a URL to a local path
 pub async fn download_file(url: &str, path: &Path) -> Result<()> {
@@ -145,38 +147,96 @@ pub fn verify_pair_consistency(expected_version: &str) -> Result<()> {
     Ok(())
 }
 
-/// Schedule daemon restart after update
-/// v0.3.11: Use dynamic binary location
-/// v0.3.13: Use unique script path and handle existing files
-pub fn schedule_daemon_restart() -> Result<()> {
-    let bin_dir = get_bin_dir()?;
-    let annad_new = bin_dir.join("annad.new");
-    let annad_dest = bin_dir.join("annad");
+/// Save the current three binaries to the persistent rollback slot.
+/// Called before any install so a crash mid-update can be recovered.
+pub fn save_rollback_slot(bin_dir: &Path) {
+    if let Err(e) = std::fs::create_dir_all(ROLLBACK_DIR) {
+        warn!("Could not create rollback dir: {}", e);
+        return;
+    }
+    for name in &["annactl", "annad", "anna-executor"] {
+        let src = bin_dir.join(name);
+        let dst = std::path::Path::new(ROLLBACK_DIR).join(name);
+        if src.exists() {
+            if let Err(e) = std::fs::copy(&src, &dst) {
+                warn!("Could not save rollback copy of {}: {}", name, e);
+            }
+        }
+    }
+    info!("Rollback slot saved to {}", ROLLBACK_DIR);
+}
 
-    // Move new binary into place and restart
-    // This is done via a short shell script to ensure atomic replacement
+/// Restore binaries from the persistent rollback slot.
+/// Returns true if at least one binary was restored.
+pub fn restore_rollback_slot(bin_dir: &Path) -> bool {
+    let mut restored = false;
+    for name in &["annactl", "annad", "anna-executor"] {
+        let src = std::path::Path::new(ROLLBACK_DIR).join(name);
+        let dst = bin_dir.join(name);
+        if src.exists() {
+            match std::fs::copy(&src, &dst) {
+                Ok(_) => {
+                    info!("Restored {} from rollback slot", name);
+                    restored = true;
+                }
+                Err(e) => warn!("Could not restore {}: {}", name, e),
+            }
+        }
+    }
+    restored
+}
+
+/// Schedule daemon restart after update.
+/// Moves both staged binaries (.new) into place, restarts services,
+/// and polls annad --version to verify the new version is running.
+/// On failure, restores the rollback slot and logs via syslog.
+pub fn schedule_daemon_restart(new_version: &str) -> Result<()> {
+    let bin_dir = get_bin_dir()?;
+
     let script = format!(
         r#"#!/bin/bash
-mv "{}" "{}"
+BIN="{bin}"
+VER="{ver}"
+RB="{rb}"
+
+# Move staged binaries into place
+mv "$BIN/annad.new" "$BIN/annad" 2>/dev/null || true
+mv "$BIN/anna-executor.new" "$BIN/anna-executor" 2>/dev/null || true
+
+# Restart executor first, then annad
+systemctl restart anna-executor 2>/dev/null || true
 systemctl restart annad 2>/dev/null || true
+
+# Poll annad --version up to 5 times (2s each)
+for i in 1 2 3 4 5; do
+    sleep 2
+    if "$BIN/annad" --version 2>/dev/null | grep -qF "$VER"; then
+        exit 0
+    fi
+done
+
+# Self-check failed — restore rollback slot
+logger -t anna-update "WARN: annad $VER self-check failed, restoring rollback"
+for f in annactl annad anna-executor; do
+    [ -f "$RB/$f" ] && cp "$RB/$f" "$BIN/$f"
+done
+systemctl restart anna-executor 2>/dev/null || true
+systemctl restart annad 2>/dev/null || true
+logger -t anna-update "WARN: rollback to previous version complete"
 "#,
-        annad_new.display(),
-        annad_dest.display()
+        bin = bin_dir.display(),
+        ver = new_version,
+        rb = ROLLBACK_DIR,
     );
 
-    // Use unique script path with PID to avoid conflicts
     let script_path = format!("/tmp/anna-restart-{}.sh", std::process::id());
-
-    // Remove any existing file first (might be owned by different user)
     let _ = std::fs::remove_file(&script_path);
-
     std::fs::write(&script_path, &script)?;
     std::fs::set_permissions(
         &script_path,
         std::os::unix::fs::PermissionsExt::from_mode(0o755),
     )?;
 
-    // Run in background so current process can exit cleanly
     Command::new("bash")
         .args(["-c", &format!("sleep 1 && {} && rm -f {} &", script_path, script_path)])
         .spawn()?;
