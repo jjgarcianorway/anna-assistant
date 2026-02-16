@@ -38,10 +38,13 @@ pub async fn update_check_loop(state: SharedState) {
         let check_start = Instant::now();
 
         // Check GitHub for latest version (respects update_channel config)
-        let channel = AnnaConfig::load().unwrap_or_default().update_channel;
-        match check_latest_version(&channel).await {
-            Ok(latest_version) => {
-                handle_successful_check(&state, &latest_version, check_start, check_interval).await;
+        let config = AnnaConfig::load().unwrap_or_default();
+        match check_latest_version(&config.update_channel).await {
+            Ok((latest_version, published_at)) => {
+                handle_successful_check(
+                    &state, &latest_version, &published_at, &config,
+                    check_start, check_interval,
+                ).await;
             }
             Err(e) => {
                 handle_failed_check(&state, &e.to_string(), check_start, check_interval).await;
@@ -54,6 +57,8 @@ pub async fn update_check_loop(state: SharedState) {
 async fn handle_successful_check(
     state: &SharedState,
     latest_version: &str,
+    published_at: &Option<String>,
+    config: &AnnaConfig,
     check_start: Instant,
     check_interval: u64,
 ) {
@@ -90,10 +95,55 @@ async fn handle_successful_check(
 
     if should_update {
         info!("New version available: {} -> {}", VERSION, latest_version);
-        try_auto_update(state, latest_version).await;
+        if release_is_installable(published_at, config) {
+            try_auto_update(state, latest_version).await;
+        } else {
+            info!("Update {} deferred (delay/stagger not elapsed)", latest_version);
+        }
     } else {
         info!("Already on latest version: {}", VERSION);
     }
+}
+
+/// Returns true if enough time has passed since `published_at` to install the update.
+///
+/// Delay = `config.update_delay_minutes` + per-node stagger offset.
+/// Per-node offset = first 8 hex chars of node_id (u32) mod `update_stagger_minutes`.
+/// If `published_at` is None (legacy releases without timestamp), treat as installable.
+fn release_is_installable(published_at: &Option<String>, config: &AnnaConfig) -> bool {
+    let Some(ts) = published_at else {
+        return true; // No timestamp → legacy release, install immediately
+    };
+
+    let Ok(pub_time) = chrono::DateTime::parse_from_rfc3339(ts) else {
+        warn!("Failed to parse release published_at: {}", ts);
+        return true;
+    };
+
+    let age_minutes = (chrono::Utc::now() - pub_time.with_timezone(&chrono::Utc)).num_minutes();
+    let node_offset = compute_node_stagger(config.update_stagger_minutes);
+    let required = config.update_delay_minutes as i64 + node_offset as i64;
+
+    age_minutes >= required
+}
+
+/// Compute per-node deterministic stagger offset in minutes.
+///
+/// Reads the first 8 hex characters of node_id and maps them to 0..stagger_minutes.
+/// If stagger_minutes is 0 or node_id is unavailable, returns 0.
+fn compute_node_stagger(stagger_minutes: u32) -> u32 {
+    if stagger_minutes == 0 {
+        return 0;
+    }
+    let node_id_path = std::path::Path::new("/var/lib/anna/node_id");
+    let Ok(content) = std::fs::read_to_string(node_id_path) else {
+        return 0;
+    };
+    let hex8 = content.trim().get(..8).unwrap_or("");
+    let Ok(val) = u32::from_str_radix(hex8, 16) else {
+        return 0;
+    };
+    val % stagger_minutes
 }
 
 /// Attempt auto-update if enabled

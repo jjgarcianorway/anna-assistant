@@ -96,5 +96,7 @@ The file is append-only by convention but not enforced by the kernel (no `O_APPE
 - **No remote attestation.** The machine cannot prove to a remote party that it is running unmodified binaries.
 - **No Telegram-level authentication.** Any Telegram user who can message the bot can interact with Anna. Bot privacy must be configured at the Telegram level.
 - **LLM is untrusted.** The LLM (Ollama) runs locally but its output drives action selection. A manipulated model or jailbroken prompt can abuse legitimate actions.
+- **ReadOnly is LLM-enforced (v0.3.251).** The `read_only` Telegram role injects a system context prefix that instructs the LLM not to take actions. A jailbroken prompt or manipulated LLM can ignore it. Hard enforcement at the RPC layer (role embedded in request struct, checked before executor dispatch) is deferred to Phase 3.
 - **No secrets management.** The Telegram token is stored in plaintext on disk. A future improvement would use a secrets manager (e.g. systemd credentials, kernel keyring).
 - **Node key is not yet used for signing.** `/var/lib/anna/node_key` establishes identity for future fleet features but does not currently sign anything.
+- **Fleet stagger is best-effort (v0.3.251).** `update_stagger_minutes` prevents synchronized fleet failures by distributing installs over time. A machine with a corrupted or missing `node_id` file falls back to zero offset (no stagger).

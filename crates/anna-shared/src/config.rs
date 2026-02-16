@@ -73,6 +73,20 @@ pub struct AnnaConfig {
     /// pinned:<version>: never auto-update away from the specified version
     #[serde(default)]
     pub update_channel: UpdateChannel,
+
+    /// v0.3.251: Minimum minutes since release publication before auto-installing.
+    /// Prevents immediately installing a release that may be rolled back. Default: 0.
+    #[serde(default)]
+    pub update_delay_minutes: u32,
+
+    /// v0.3.251: Each node adds a deterministic 0..N minute offset (derived from node_id).
+    /// Prevents synchronized fleet updates from all machines installing at the same time.
+    #[serde(default)]
+    pub update_stagger_minutes: u32,
+
+    /// v0.3.251: Telegram user role configuration.
+    #[serde(default)]
+    pub telegram: TelegramRoleConfig,
 }
 
 /// v0.3.103: Multi-agent configuration
@@ -293,6 +307,24 @@ fn default_true() -> bool {
 
 pub use crate::update_channel::UpdateChannel;
 
+/// v0.3.251: Role of a Telegram user.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TelegramUserRole {
+    /// Full access (default for explicitly listed admins).
+    Admin,
+    /// Query/probe only — cannot trigger system actions.
+    ReadOnly,
+}
+
+/// v0.3.251: Telegram role configuration (loaded from [telegram] in config.toml).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TelegramRoleConfig {
+    /// Map of Telegram user_id → role. Unknown user IDs are silently ignored (ghosted).
+    #[serde(default)]
+    pub users: std::collections::HashMap<u64, TelegramUserRole>,
+}
+
 /// Wiki configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WikiConfig {
@@ -328,6 +360,9 @@ impl Default for AnnaConfig {
             agents: AgentConfig::default(),
             prediction: PredictionConfig::default(),
             update_channel: UpdateChannel::default(),
+            update_delay_minutes: 0,
+            update_stagger_minutes: 0,
+            telegram: TelegramRoleConfig::default(),
         }
     }
 }

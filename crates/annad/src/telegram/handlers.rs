@@ -4,8 +4,9 @@
 
 use std::sync::Arc;
 use teloxide::prelude::*;
-use tracing::{info, warn};
+use tracing::info;
 
+use anna_shared::config::TelegramUserRole;
 use super::TelegramState;
 use crate::ralph;
 
@@ -21,15 +22,15 @@ pub async fn handle_message(
         .and_then(|u| u.username.clone())
         .unwrap_or_else(|| "unknown".to_string());
 
-    // Security: check allowed users
-    if !state.config.allowed_users.is_empty()
-        && !state.config.allowed_users.contains(&user_id)
-    {
-        warn!("Unauthorized Telegram user: {} ({})", username, user_id);
-        bot.send_message(chat_id, "Not authorized. Contact the system administrator.")
-            .await?;
-        return Ok(());
-    }
+    // Role-based access control: unknown users are silently ghosted
+    let role = match state.config.user_roles.get(&user_id) {
+        Some(r) => r.clone(),
+        None => {
+            // Ghost: no response, no leak that the bot exists
+            return Ok(());
+        }
+    };
+    info!("Telegram user @{} ({}) role={:?}", username, user_id, role);
 
     // Get message text
     let text = match msg.text() {
@@ -113,10 +114,15 @@ pub async fn handle_message(
             .and_then(|ctx| ctx.format_for_llm())
     };
 
-    // Build question with context
+    // Build question with context, injecting ReadOnly constraint if applicable
+    let readonly_prefix = if role == TelegramUserRole::ReadOnly {
+        "[SYSTEM: This user has read-only access. Do not take any system actions. Provide information only.]\n\n"
+    } else {
+        ""
+    };
     let question_with_context = match context_str {
-        Some(ctx) => format!("{}\n\nCurrent question: {}", ctx, text),
-        None => text.to_string(),
+        Some(ctx) => format!("{}{}\n\nCurrent question: {}", readonly_prefix, ctx, text),
+        None => format!("{}{}", readonly_prefix, text),
     };
 
     // Run Ralph loop with periodic typing indicator

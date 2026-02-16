@@ -13,33 +13,27 @@ use teloxide::prelude::*;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
+use anna_shared::config::{AnnaConfig, TelegramUserRole};
 use crate::state::SharedState;
 
 /// Configuration for the Telegram bot.
 #[derive(Clone)]
 pub struct TelegramConfig {
-    /// Bot token from @BotFather
+    /// Bot token from @BotFather (from ANNA_TELEGRAM_TOKEN env var)
     pub token: String,
-    /// Allowed user IDs (empty = allow all, dangerous!)
-    pub allowed_users: Vec<u64>,
+    /// Role map: user_id → role. Loaded from [telegram.users] in config.toml.
+    /// Users not in this map are silently ghosted.
+    pub user_roles: std::collections::HashMap<u64, TelegramUserRole>,
 }
 
 impl TelegramConfig {
-    /// Load config from environment.
+    /// Load config from environment + config file.
     pub fn from_env() -> Option<Self> {
         let token = std::env::var("ANNA_TELEGRAM_TOKEN").ok()?;
-
-        // Parse allowed users from comma-separated list
-        let allowed_users = std::env::var("ANNA_TELEGRAM_USERS")
-            .ok()
-            .map(|s| {
-                s.split(',')
-                    .filter_map(|id| id.trim().parse::<u64>().ok())
-                    .collect()
-            })
+        let user_roles = AnnaConfig::load()
+            .map(|c| c.telegram.users)
             .unwrap_or_default();
-
-        Some(Self { token, allowed_users })
+        Some(Self { token, user_roles })
     }
 }
 
@@ -115,11 +109,11 @@ pub async fn start_telegram_bot(anna_state: SharedState) -> Result<()> {
         }
     };
 
-    if config.allowed_users.is_empty() {
-        warn!("ANNA_TELEGRAM_USERS not set - bot will respond to ANYONE!");
-        warn!("Set ANNA_TELEGRAM_USERS=your_telegram_id for security");
+    if config.user_roles.is_empty() {
+        warn!("No users configured in [telegram.users] - bot will ghost all messages");
+        warn!("Add user IDs to /etc/anna/config.toml [telegram.users] to grant access");
     } else {
-        info!("Telegram bot restricted to {} users", config.allowed_users.len());
+        info!("Telegram bot configured with {} user(s)", config.user_roles.len());
     }
 
     let tg_state = Arc::new(TelegramState {
@@ -148,7 +142,12 @@ pub async fn start_telegram_bot(anna_state: SharedState) -> Result<()> {
     let notify_chat_id = std::env::var("ANNA_TELEGRAM_NOTIFY_CHAT")
         .ok()
         .and_then(|s| s.parse::<i64>().ok())
-        .or_else(|| config.allowed_users.first().map(|&id| id as i64));
+        .or_else(|| {
+            // Default to first admin user if ANNA_TELEGRAM_NOTIFY_CHAT not set
+            config.user_roles.iter()
+                .find(|(_, role)| **role == TelegramUserRole::Admin)
+                .map(|(&id, _)| id as i64)
+        });
 
     if let Some(chat_id) = notify_chat_id {
         let (tx, rx) = tokio::sync::mpsc::channel::<notifier::NotifyMessage>(100);

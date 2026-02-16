@@ -74,6 +74,7 @@ pub use crate::update_ops::{
 #[derive(Debug, serde::Deserialize)]
 struct GitHubRelease {
     tag_name: String,
+    published_at: Option<String>,
 }
 
 /// GitHub API response for listing releases (beta channel)
@@ -81,18 +82,20 @@ struct GitHubRelease {
 struct GitHubReleaseListItem {
     tag_name: String,
     prerelease: bool,
+    published_at: Option<String>,
 }
 
 /// Check GitHub for the latest version, respecting the configured update channel.
 ///
+/// Returns `(version, published_at)` where `published_at` is the ISO8601 release timestamp.
 /// - Stable: latest non-pre-release release (default)
 /// - Beta: latest release including pre-releases
-/// - Pinned(v): returns v immediately without a network call
-pub async fn check_latest_version(channel: &UpdateChannel) -> Result<String> {
+/// - Pinned(v): returns v immediately without a network call (published_at = None)
+pub async fn check_latest_version(channel: &UpdateChannel) -> Result<(String, Option<String>)> {
     // Pinned: no network call needed
     if let UpdateChannel::Pinned(v) = channel {
         info!("Update channel pinned to {}", v);
-        return Ok(v.clone());
+        return Ok((v.clone(), None));
     }
 
     let client = reqwest::Client::builder()
@@ -100,7 +103,7 @@ pub async fn check_latest_version(channel: &UpdateChannel) -> Result<String> {
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 
-    let version = match channel {
+    let (version, published_at) = match channel {
         UpdateChannel::Stable => {
             let url = format!(
                 "https://api.github.com/repos/{}/releases/latest",
@@ -111,7 +114,7 @@ pub async fn check_latest_version(channel: &UpdateChannel) -> Result<String> {
                 return Err(anyhow!("GitHub API error: {}", response.status()));
             }
             let release: GitHubRelease = response.json().await?;
-            release.tag_name.trim_start_matches('v').to_string()
+            (release.tag_name.trim_start_matches('v').to_string(), release.published_at)
         }
         UpdateChannel::Beta => {
             let url = format!(
@@ -123,11 +126,9 @@ pub async fn check_latest_version(channel: &UpdateChannel) -> Result<String> {
                 return Err(anyhow!("GitHub API error: {}", response.status()));
             }
             let releases: Vec<GitHubReleaseListItem> = response.json().await?;
-            releases
-                .into_iter()
-                .next()
-                .map(|r| r.tag_name.trim_start_matches('v').to_string())
-                .ok_or_else(|| anyhow!("No releases found"))?
+            let r = releases.into_iter().next()
+                .ok_or_else(|| anyhow!("No releases found"))?;
+            (r.tag_name.trim_start_matches('v').to_string(), r.published_at)
         }
         UpdateChannel::Pinned(_) => unreachable!(),
     };
@@ -135,7 +136,7 @@ pub async fn check_latest_version(channel: &UpdateChannel) -> Result<String> {
     // Verify that required assets are actually downloadable
     verify_assets_exist(&client, &version).await?;
 
-    Ok(version)
+    Ok((version, published_at))
 }
 
 /// Compare versions, returns true if remote is newer

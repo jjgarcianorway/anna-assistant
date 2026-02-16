@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.251] - 2026-02-16
+
+### Telegram roles + fleet safety valve
+
+- **Telegram user roles**: `[telegram.users]` map in `/etc/anna/config.toml` assigns each Telegram user ID a role: `admin` (full access) or `read_only` (queries only). Unknown user IDs receive no response (ghost — no "not authorized" leak). ReadOnly context injected as LLM system prefix. Note: ReadOnly is LLM-enforced in v0.3.251; hard RPC-layer enforcement is Phase 3.
+- **Fleet safety valve**: `update_delay_minutes` — minimum minutes since release publication before auto-installing (prevents immediately bricking the fleet on a bad release). `update_stagger_minutes` — each node adds a deterministic 0..N minute offset derived from `node_id` hash, preventing synchronized fleet failures. Both default to 0 (existing behavior). GitHub API `published_at` field now captured per check.
+- **THREAT_MODEL.md**: Added residual risk notes for LLM-enforced ReadOnly and best-effort stagger.
+
 ## [0.3.250] - 2026-02-16
 
 ### Phase 2 — Fleet foundations
