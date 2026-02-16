@@ -5,13 +5,10 @@ use anyhow::{anyhow, Result};
 use tracing::{info, warn};
 
 /// GPG public key for verifying release signatures.
-///
-/// Empty string = signature verification disabled (pre-key state).
-/// Replace with the ASCII-armored public key once generated:
-///   gpg --gen-key
-///   gpg --armor --export <fingerprint>
-/// Then set GPG_PRIVATE_KEY + GPG_PASSPHRASE in GitHub Actions secrets.
-const ANNA_GPG_PUBLIC_KEY: &str = "";
+/// Fingerprint: 543A45A34B5BDFF02855D2A553ECB7AA81677B9E
+/// Identity: Anna Assistant Releases <releases@anna-assistant>
+/// To rotate: generate new key, replace this constant, set new GPG_PRIVATE_KEY in GitHub Actions.
+const ANNA_GPG_PUBLIC_KEY: &str = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n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\nH9oOnw==\n=mUIF\n-----END PGP PUBLIC KEY BLOCK-----";
 
 /// Verify a detached GPG signature over `data`.
 ///
@@ -22,7 +19,7 @@ const ANNA_GPG_PUBLIC_KEY: &str = "";
 /// Returns Err if the key is present but the signature is invalid.
 fn verify_gpg_signature(data: &[u8], sig_armored: &[u8]) -> Result<()> {
     if ANNA_GPG_PUBLIC_KEY.is_empty() {
-        warn!("GPG signature verification disabled: no public key embedded. Skipping.");
+        warn!("GPG signature verification disabled (no key embedded) — update proceeding unsigned");
         return Ok(());
     }
 
