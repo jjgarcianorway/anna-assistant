@@ -144,14 +144,10 @@ pub async fn scheduler_loop(state: SharedState) {
                         }
                     }
 
-                    // v0.3.156: Generate LLM-based briefing with username
-                    let briefing = tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(async {
-                            crate::briefing::generate_morning_briefing_llm(username.as_deref())
-                                .await
-                                .unwrap_or_else(|_| "Good morning! System status check failed.".to_string())
-                        })
-                    });
+                    // v0.3.246: Generate LLM-based briefing with username (async, no nested runtime)
+                    let briefing = crate::briefing::generate_morning_briefing_llm(username.as_deref())
+                        .await
+                        .unwrap_or_else(|_| "Good morning! System status check failed.".to_string());
 
                     // Always save briefing to file so annactl can show it without Telegram
                     let report_path = "/var/lib/anna/morning_report.txt";

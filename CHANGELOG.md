@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.246] - 2026-02-16
+
+### Fixed — Morning briefing was silently dying every startup
+- `collect_system_telemetry()` created a nested `tokio::runtime::Runtime` inside an already-running runtime → panic: "Cannot start a runtime from within a runtime"
+- Panic killed the scheduler task permanently — briefing never ran again until daemon restart
+- Fix: made `collect_system_telemetry` async, all four async sections now use `.await` directly
+- Scheduler loop now calls `generate_morning_briefing_llm` directly with `.await`
+
 ## [0.3.245] - 2026-02-15
 
 ### Fixed — Fan/thermal questions actually do something

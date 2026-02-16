@@ -8,7 +8,7 @@ use tracing::{info, warn};
 /// Collect all system telemetry for LLM analysis.
 /// Returns raw command outputs - NO parsing, NO hardcoding.
 /// v0.3.156: Respects user preferences for which sections to include.
-fn collect_system_telemetry() -> String {
+async fn collect_system_telemetry() -> String {
     use anna_shared::preferences::UserPreferences;
 
     let prefs = UserPreferences::load();
@@ -369,19 +369,7 @@ fn collect_system_telemetry() -> String {
 
     // v0.3.167: Regression Detection (performance degradations)
     telemetry.push_str("## Regression Detection:\n");
-    // Create a runtime for the remaining async sections in this sync context.
-    // Use match so a thread-pool exhaustion doesn't panic the entire briefing.
-    let rt = match tokio::runtime::Runtime::new() {
-        Ok(rt) => rt,
-        Err(e) => {
-            tracing::warn!("Failed to create runtime for telemetry sections: {}", e);
-            telemetry.push_str("Telemetry sections unavailable (runtime error).\n");
-            return telemetry;
-        }
-    };
-    let regressions = rt.block_on(async {
-        crate::regression_detector::detect_regressions().await.unwrap_or_default()
-    });
+    let regressions = crate::regression_detector::detect_regressions().await.unwrap_or_default();
 
     if regressions.is_empty() {
         telemetry.push_str("No performance regressions detected.\n");
@@ -395,14 +383,12 @@ fn collect_system_telemetry() -> String {
 
     // v0.3.167: Enhanced Predictive Maintenance (health forecast)
     telemetry.push_str("## Health Forecast:\n");
-    let health_forecast = rt.block_on(async {
-        crate::predictive_maintenance::generate_health_forecast().await.unwrap_or_else(|_| {
-            crate::predictive_maintenance::HealthForecast {
-                predictions: vec![],
-                overall_health_score: 95.0,
-                trends_summary: "Unable to generate forecast.".to_string(),
-            }
-        })
+    let health_forecast = crate::predictive_maintenance::generate_health_forecast().await.unwrap_or_else(|_| {
+        crate::predictive_maintenance::HealthForecast {
+            predictions: vec![],
+            overall_health_score: 95.0,
+            trends_summary: "Unable to generate forecast.".to_string(),
+        }
     });
 
     telemetry.push_str(&crate::predictive_maintenance::format_health_forecast(&health_forecast));
@@ -412,14 +398,12 @@ fn collect_system_telemetry() -> String {
     let disk_pct = get_disk_usage_percentage();
     if disk_pct > 75.0 {
         telemetry.push_str("## Cleanup Opportunities:\n");
-        let cleanup_analysis = rt.block_on(async {
-            crate::cleanup_detector::scan_for_cleanable_space().await.unwrap_or_else(|_| {
-                crate::cleanup_detector::CleanupAnalysis {
-                    total_cleanable_mb: 0.0,
-                    items: vec![],
-                    recommendations: vec![],
-                }
-            })
+        let cleanup_analysis = crate::cleanup_detector::scan_for_cleanable_space().await.unwrap_or_else(|_| {
+            crate::cleanup_detector::CleanupAnalysis {
+                total_cleanable_mb: 0.0,
+                items: vec![],
+                recommendations: vec![],
+            }
         });
 
         if cleanup_analysis.total_cleanable_mb > 100.0 {
@@ -432,9 +416,7 @@ fn collect_system_telemetry() -> String {
 
     // v0.3.168: Cross-Module Intelligence (connecting the dots)
     telemetry.push_str("## Cross-Module Intelligence:\n");
-    let insights = rt.block_on(async {
-        crate::cross_module_intelligence::synthesize_insights(None).await.unwrap_or_default()
-    });
+    let insights = crate::cross_module_intelligence::synthesize_insights(None).await.unwrap_or_default();
 
     if insights.is_empty() {
         telemetry.push_str("No cross-module insights at this time.\n");
@@ -571,7 +553,7 @@ pub async fn generate_morning_briefing_llm(username: Option<&str>) -> Result<Str
     let prefs = UserPreferences::load();
 
     // Collect all raw telemetry
-    let telemetry = collect_system_telemetry();
+    let telemetry = collect_system_telemetry().await;
 
     // v0.3.157: Load personality and determine mood from system state
     let mut personality = crate::personality::PersonalityState::load();
