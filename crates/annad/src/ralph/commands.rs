@@ -108,10 +108,16 @@ PACKAGES: pacman -Q | wc -l, pacman -Qe | head -30
 LOGS: journalctl -p err -b --no-pager | head -30
 SECURITY: last -n 20, journalctl _COMM=sshd -b | tail -30, cat /etc/ssh/sshd_config
 
+INVESTIGATION STRATEGY:
+- PROGRESSIVE DEPTH: When you find a large directory, drill into it in the next iteration.
+  Continue until you reach actual files/folders users can act on.
+- DISK USAGE: Show size of subdirectories sorted largest-first. Find what's INSIDE large dirs.
+- ACTIONABLE RESULTS: Users want specifics (Steam games, browser caches, videos), not containers (/home).
+
 SEMANTIC DEPTH RULES:
-- Disk/size questions: drill into large directories — show contents, not the container.
-- Always ask: "Is this result actionable?" — if not, go one level deeper.
-- Config file location: prefer pacman -Ql <pkg> over guessing.
+- If answer shows parent directory, go deeper in next iteration
+- Goal: find actual space hogs users can delete/move
+- Config file location: prefer pacman -Ql <pkg> over guessing
 
 Output ONLY the token above, no explanations.
 

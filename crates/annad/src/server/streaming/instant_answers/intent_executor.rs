@@ -210,7 +210,7 @@ fn exec_update_inner() -> String {
     // arch-update if installed
     if run_shell("which arch-update 2>/dev/null").map(|s| !s.trim().is_empty()).unwrap_or(false) {
         let out = run_shell(&format!("runuser -l {} -c 'arch-update 2>&1 | tail -30'", username)).unwrap_or_default();
-        return format!("arch-update:\n```\n{}\n```", out.trim());
+        return format!("Running system update via arch-update...\n\n{}", out.trim());
     }
 
     // pacman -Syu + AUR helper
@@ -220,9 +220,9 @@ fn exec_update_inner() -> String {
         run_shell(&format!("runuser -l {} -c '{} -Syu --noconfirm 2>&1 | tail -20'", username, h)).unwrap_or_default()
     }).unwrap_or_default();
 
-    let mut parts = vec![format!("pacman -Syu:\n```\n{}\n```", pacman.trim())];
+    let mut parts = vec![format!("Updating official repositories...\n{}", pacman.trim())];
     if !aur_out.trim().is_empty() {
-        parts.push(format!("{} -Syu:\n```\n{}\n```", aur.as_deref().unwrap_or("AUR"), aur_out.trim()));
+        parts.push(format!("Updating AUR packages...\n{}", aur_out.trim()));
     }
     parts.join("\n\n")
 }

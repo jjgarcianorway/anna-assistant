@@ -5,6 +5,14 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.253] - 2026-02-20
+
+### Autonomous execution improvements
+
+- **Progressive disk usage investigation**: Anna now iterates deeper when investigating disk usage, drilling from parent directories (/home) down to actual space hogs (Steam games, browser caches, videos). Added INVESTIGATION STRATEGY guidance to LLM prompts emphasizing progressive depth and actionable results.
+- **Update execution clarity**: Changed system update output from code-block format to first-person execution language ("Running system update via arch-update..." instead of "arch-update:\n```"). Makes it clear Anna is executing actions, not showing instructions.
+- **Execution flow verification**: Confirmed reboot/restart/shutdown route through CONFIG confirmation flow with automatic privilege escalation via pkexec.
+
 ## [0.3.252] - 2026-02-16
 
 ### Platform stabilization
