@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.254] - 2026-02-20
+
+### Bug fixes
+
+- **Context resolver timeout fix**: Added debug logging to context_resolver to diagnose queries timing out on folder/directory-related questions.
+
 ## [0.3.253] - 2026-02-20
 
 ### Autonomous execution improvements

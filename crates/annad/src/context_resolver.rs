@@ -64,19 +64,24 @@ pub enum ContextResolution {
 
 /// Detect missing references and resolve config files
 pub fn resolve_context(question: &str, username: &str) -> Result<ContextResolution> {
+    use tracing::info;
+    info!("[context_resolver] Starting resolution for: {}", question);
     let q_lower = question.to_lowercase();
 
     // Step 1: Try to extract and find config file from the question
     if let Some(resolution) = try_resolve_config_file(question, &q_lower, username)? {
+        info!("[context_resolver] Config file resolved");
         return Ok(resolution);
     }
 
     // Step 2: Check for ambiguous references that survived config resolution
     if has_ambiguous_reference(&q_lower) {
+        info!("[context_resolver] Ambiguous reference detected");
         let clarification = generate_clarification(&q_lower);
         return Ok(ContextResolution::NeedsClarification(clarification));
     }
 
+    info!("[context_resolver] No resolution needed");
     Ok(ContextResolution::Clear)
 }
 
@@ -88,12 +93,16 @@ fn try_resolve_config_file(
     q_lower: &str,
     username: &str,
 ) -> Result<Option<ContextResolution>> {
+    use tracing::info;
     let pattern = match extract_filename_pattern(q_lower) {
         Some(p) => p,
-        None => return Ok(None),
+        None => {
+            info!("[context_resolver] No filename pattern extracted, skipping");
+            return Ok(None);
+        }
     };
 
-    debug!("Extracted filename pattern from question: {:?}", pattern);
+    info!("[context_resolver] Extracted filename pattern from question: {:?}", pattern);
 
     // Extract app name for package manager lookup
     // e.g., "vimrc" → "vim", "*hyprland*" → "hyprland"
