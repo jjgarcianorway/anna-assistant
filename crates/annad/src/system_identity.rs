@@ -134,51 +134,10 @@ impl SystemIdentity {
     }
 
     fn get_network_devices() -> Result<Vec<NetworkDevice>> {
-        let mut devices = Vec::new();
-
-        // Use `ip link show` to get real device names
-        let output = Command::new("ip")
-            .args(&["link", "show"])
-            .output()?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-
-        for line in stdout.lines() {
-            // Lines like: "2: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500"
-            if let Some((_, rest)) = line.split_once(": ") {
-                if let Some((name, flags)) = rest.split_once(": ") {
-                    let name = name.trim().to_string();
-
-                    // Skip loopback
-                    if name == "lo" {
-                        continue;
-                    }
-
-                    let is_up = flags.contains("UP");
-
-                    // Get MAC address (next line usually has "link/ether MAC")
-                    let mac = Self::get_mac_for_device(&name).unwrap_or_else(|| "unknown".to_string());
-
-                    // Detect type
-                    let device_type = if name.starts_with("wl") || name.starts_with("wlan") {
-                        "wireless".to_string()
-                    } else if name.starts_with("en") || name.starts_with("eth") {
-                        "ethernet".to_string()
-                    } else {
-                        "other".to_string()
-                    };
-
-                    devices.push(NetworkDevice {
-                        name,
-                        device_type,
-                        mac_address: mac,
-                        is_up,
-                    });
-                }
-            }
-        }
-
-        Ok(devices)
+        // v0.3.255: Skip network device enumeration during query handling
+        // Network device info is not critical for most queries, and ip commands
+        // can occasionally hang. Return empty list for on-demand discovery.
+        Ok(Vec::new())
     }
 
     fn get_mac_for_device(device: &str) -> Option<String> {
@@ -200,37 +159,9 @@ impl SystemIdentity {
     }
 
     fn get_current_ssid() -> Option<String> {
-        // Try iw first
-        if let Ok(output) = Command::new("iw")
-            .args(&["dev"])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                if line.trim().starts_with("ssid ") {
-                    return line
-                        .split_whitespace()
-                        .nth(1)
-                        .map(|s| s.to_string());
-                }
-            }
-        }
-
-        // Fallback: try nmcli
-        if let Ok(output) = Command::new("nmcli")
-            .args(&["-t", "-f", "active,ssid", "dev", "wifi"])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                if line.starts_with("yes:") {
-                    return line
-                        .strip_prefix("yes:")
-                        .map(|s| s.to_string());
-                }
-            }
-        }
-
+        // v0.3.255: Skip slow network commands (iw/nmcli can hang for 30+ seconds)
+        // SSID is not critical for query handling - we can detect it at daemon startup
+        // but skip it during on-demand system identity discovery
         None
     }
 

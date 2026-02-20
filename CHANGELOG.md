@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.255] - 2026-02-20
+
+### Performance improvements
+
+- **System identity discovery timeout fix**: Removed slow network commands (iw/nmcli/ip) from on-demand system identity discovery. These commands can hang for 30+ seconds when NetworkManager is busy, causing query timeouts. Network info is now only collected at daemon startup, not during every query.
+
 ## [0.3.254] - 2026-02-20
 
 ### Bug fixes
