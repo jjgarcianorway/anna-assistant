@@ -90,6 +90,16 @@ pub async fn classify_and_execute(
         return exec_set_power_saver(writer).await;
     }
 
+    // Skip instant answers for disk/folder queries - they need iterative Ralph loop
+    let is_disk_query = (ql.contains("disk") || ql.contains("folder") || ql.contains("director")
+        || ql.contains("space") || ql.contains("usage") || ql.contains("biggest")
+        || ql.contains("largest") || ql.contains("taking up"))
+        && (ql.contains("what") || ql.contains("which") || ql.contains("list")
+            || ql.contains("show") || ql.contains("find") || ql.contains("top"));
+    if is_disk_query {
+        return Ok(false); // Fall through to Ralph loop for progressive investigation
+    }
+
     // Fast path: check for pending updates (read-only)
     let is_check = (ql.contains("update") || ql.contains("upgrade"))
         && (ql.contains("pending") || ql.contains("available") || ql.contains("check")

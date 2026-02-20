@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.256] - 2026-02-20
+
+### Improvements
+
+- **Disk/folder queries now use iterative investigation**: Folder and disk usage queries now skip instant answers and use the Ralph loop for progressive investigation. Anna will now drill down from parent directories to actual space hogs (like Steam games, browser caches) instead of just showing top-level folders.
+
 ## [0.3.255] - 2026-02-20
 
 ### Performance improvements
