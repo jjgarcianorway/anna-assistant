@@ -91,11 +91,16 @@ pub async fn classify_and_execute(
     }
 
     // Skip instant answers for disk/folder queries - they need iterative Ralph loop
-    let is_disk_query = (ql.contains("disk") || ql.contains("folder") || ql.contains("director")
+    // Catch: "biggest folders", "what's using space", "disk usage by folder", etc.
+    let has_disk_keyword = ql.contains("disk") || ql.contains("folder") || ql.contains("director")
         || ql.contains("space") || ql.contains("usage") || ql.contains("biggest")
-        || ql.contains("largest") || ql.contains("taking up"))
-        && (ql.contains("what") || ql.contains("which") || ql.contains("list")
-            || ql.contains("show") || ql.contains("find") || ql.contains("top"));
+        || ql.contains("largest") || ql.contains("taking") || ql.contains("using")
+        || ql.contains("most") || ql.contains("full");
+    let has_query_word = ql.contains("what") || ql.contains("which") || ql.contains("list")
+        || ql.contains("show") || ql.contains("find") || ql.contains("top")
+        || ql.contains("where") || ql.contains("how much");
+    let is_disk_query = has_disk_keyword && has_query_word;
+
     if is_disk_query {
         return Ok(false); // Fall through to Ralph loop for progressive investigation
     }

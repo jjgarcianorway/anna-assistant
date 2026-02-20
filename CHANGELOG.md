@@ -5,6 +5,12 @@ All notable changes to Anna will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.257] - 2026-02-20
+
+### Improvements
+
+- **Improved disk query detection**: Broadened pattern matching for disk/folder queries to catch more phrasings ("which folders using space", "show me disk usage", "what's taking up space", etc.) and ensure they use the iterative Ralph loop instead of instant answers.
+
 ## [0.3.256] - 2026-02-20
 
 ### Improvements
